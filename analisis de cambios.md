@@ -2,6 +2,106 @@
 
 ---
 
+## 📅 13 de Mayo, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**Áreas: Wallet (mejoras server-side), Obras/Instaladora (nuevo módulo), Tiendas (nuevo CRUD), Ticket (formato), Facturas-Ventas (fix fecha + PDF bulk), Campo Comercial, Envíos Contenedores (estados + creación rápida), Pagos Planos, Vales Salida, Tasa de Cambio, Baterías**
+
+| Commit | Autor | Descripción |
+|--------|-------|-------------|
+| `f8ad00c` | yany1509 | "facturas en obras" |
+| `30cb189` | yany1509 | "obras terminadas" |
+| `dd7935a` | yany1509 | "filtros" |
+| `a9ebdb1` | yany1509 | "ajustes" |
+| `487dd23` | yany1509 | "nombre del cliente en obras terminadas" |
+| `b977e5c` | Fabian1820 | feat(tiendas): nueva página de gestión de tiendas con CRUD completo |
+| `a3eba0a` | yany1509 | "ajustes en exportar de facturas, nuevos filtros y campos en las tablas" |
+| `a45053c` | Fabian1820 | feat(envios-contenedores): reemplaza 'despachado' por 'solicitado', 'enviado', 'arribado' |
+| `b538cbc` | Fabian1820 | refactor(todos-pagos-planos-table): elimina funcionalidad de edición de pagos |
+| `343c9db` | Fabian1820 | feat(vales-salida): nuevo filtro por tipo (material/venta) |
+| `cc8244e` | Fabian1820 | feat(pagos-clientes-ventas): mostrar emitida_por_nombre con fallback a emitida_por |
+| `3873b9a` | Fabian1820 | feat(clientes-ventas): mostrar 'SunCar' como valor por defecto de comercial |
+| `326cf09` | yany1509 | "mostrar todas las baterias" |
+| `3fb6ca2` | yany1509 | "pagos en cup instaladora" |
+| `8687e93` | Fabian1820 | feat(pagos-clientes-ventas): campo 'comercial' en tabla de pagos y solicitudes |
+| `d6929bb` | Fabian1820 | feat(facturas-ventas): campo 'comercial' en facturas e interfaz |
+| `e02367d` | Fabian1820 | feat(envios-contenedores): QuickMaterialCreateDialog para crear materiales inline |
+| `d9acb0c` | Ruben/Claude | fix(wallet): usuarios con ver_todos ven todas las pendientes del sistema |
+| `36f6d0b` | yany1509 | "ajusts" |
+| `f6f3627` | yany1509 | "ajustes" |
+| `92cfd10` | yany1509 | "pagos en tasa de cambio" |
+| `907ba4b` | yany1509 | "ajustes en tasa de cambio" |
+| `2fbaa33` | Ruben/Claude | fix(wallet): transferencias globales como entrada neutral sin signo ni color direccional |
+| `4b0a0ae` | Ruben/Claude | feat(wallet): filtro por transferencias, por contraparte y fix pendientes ver_todos |
+| `2c3f860` | Fabian1820 | refactor(ticket): ajustar formato a 48mm |
+| `5a1ad27` | Fabian1820 | refactor(ticket): ajustar formato a 58mm |
+| `b9a3357` | Ruben/Claude | feat(wallet): paginación y filtros server-side en historial de transacciones |
+| `f5ee1e2` | Ruben/Claude | feat(wallet): mejorar UX del historial y transferencias pendientes |
+| `4d22909` | yany1509 | "ajustes" |
+| `347f2ea` | Claude (PR #1) | fix(facturas-ventas): corregir desfase de fecha UTC + exportar todas las facturas en un PDF |
+
+### Análisis de riesgos y consideraciones
+
+#### 🔴 Riesgos altos
+
+1. **Estado 'despachado' eliminado en envíos contenedores — posible ruptura de datos existentes**
+   - Los registros ya guardados con `estado = 'despachado'` no corresponden a ninguno de los nuevos valores (`solicitado`, `enviado`, `arribado`).
+   - Si el backend valida el enum en operaciones UPDATE/GET, las peticiones sobre registros antiguos devolverán error.
+   - Si no valida, los registros quedan huérfanos: el UI no mostrará su estado correctamente y los filtros por estado los excluirán.
+   - **Acción urgente:** Ejecutar una migración de datos en producción para mapear `'despachado'` al nuevo estado equivalente (`'enviado'` o `'arribado'`), y actualizar el enum del backend si aplica.
+
+2. **Nuevo módulo Obras/Instaladora — dependencia de endpoints no confirmados**
+   - 5 commits con mensajes vagos ("obras terminadas", "facturas en obras", "pagos en cup instaladora", "filtros", "nombre del cliente") introducen un módulo nuevo.
+   - El módulo asume endpoints de backend para CRUD de obras y sus facturas. Si no existen, el módulo fallará silenciosamente con 404 sin feedback claro al usuario.
+   - **Acción urgente:** Verificar en LlegoBackend que existen endpoints para obras terminadas y sus facturas antes de usar en producción.
+
+3. **Wallet paginación server-side — el historial depende completamente del backend**
+   - El hook ya no filtra en el cliente. Si el backend no implementa los parámetros `page`, `per_page`, `desde`, `hasta`, `q`, `propias`, `tipo`, `contraparte_ci`, el historial mostrará siempre los mismos N registros sin posibilidad de filtrar ni paginar.
+   - **Acción urgente:** Confirmar en LlegoBackend que `GET /wallet/transactions` acepta y procesa todos estos parámetros.
+
+#### 🟡 Riesgos medios
+
+4. **Ticket format: 80mm → 58mm → 48mm en dos commits consecutivos el mismo día**
+   - Iteración rápida sin tiempo de prueba entre versiones. El tamaño final (48mm) puede no ser compatible con todas las impresoras térmica del equipo.
+   - **Acción recomendada:** Probar impresión física en las impresoras reales antes de considerar el formato estable.
+
+5. **Eliminación del editing en todos-pagos-planos**
+   - La funcionalidad fue eliminada completamente (no deshabilitada). Si un pago fue registrado con error, ya no hay flujo de corrección desde esta tabla.
+   - **Consideración:** Confirmar que es un cambio intencional y que existe otro mecanismo para corregir pagos erróneos.
+
+6. **QuickMaterialCreateDialog en envíos contenedores — estado inconsistente si falla la creación**
+   - Si el material se crea exitosamente en el backend pero la selección automática en el form falla (error de estado, re-render, etc.), el material queda creado en el catálogo pero el campo del formulario queda vacío.
+   - **Acción recomendada:** Verificar el flujo completo: crear material → selección automática → guardar envío → material aparece correctamente en el detalle.
+
+7. **Vista global de pendientes (`ver_todos`) — dependencia de parámetro `direction=all` en el backend**
+   - El hook envía `direction=all` cuando el usuario tiene `ver_todos`. Si el backend ignora este parámetro, el usuario con permisos admin seguirá viendo solo sus propias pendientes.
+
+8. **`emitida_por_nombre` con fallback a `emitida_por`**
+   - Si el backend retorna el campo vacío (string vacío en lugar de null), el fallback no se activa y se mostrará una cadena vacía en la tabla de facturas.
+   - **Consideración:** Revisar que el condicional chequea `|| !value` además de `!field`.
+
+9. **Comercial 'sin-asignar' renombrado a 'SunCar (predeterminado)'**
+   - Si hay lógica en otros componentes que compara el valor del selector con el string `'sin-asignar'`, ese código dejará de funcionar.
+   - **Acción recomendada:** Buscar en el codebase referencias al string `'sin-asignar'` y verificar que ninguna depende del label visible.
+
+10. **4 commits vagos de yany1509** ("ajustes" ×2, "ajusts", "ajustes en exportar de facturas") **sobre tasa de cambio y exportación de facturas**
+    - Cambios en áreas sensibles (exportación, tasa de cambio) sin descripción de qué se modificó.
+    - **Acción recomendada:** Revisar los diffs de estos commits antes de considerar estables esas funcionalidades.
+
+#### 🟢 Mejoras positivas
+
+11. **Fix desfase de fecha en facturas** — corrección importante: `new Date("YYYY-MM-DD")` se interpretaba como UTC y restaba un día en zona horaria Cuba. Ahora se parsea en hora local.
+12. **Exportar todas las facturas en un PDF** — nuevo botón que genera un PDF por página respetando los filtros activos.
+13. **Campo comercial en facturas, pagos y clientes-ventas** — mejor trazabilidad de qué comercial gestionó cada operación.
+14. **Nuevo módulo Tiendas (CRUD completo)** — bien documentado con dialogs de creación/edición y confirmación de borrado.
+15. **Filtro por tipo en vales de salida** — mejor segmentación entre vales de material y de venta.
+16. **Wallet: paginación real server-side (50 reg/página)** — escalabilidad para equipos con historial extenso.
+17. **Wallet: filtro por contraparte** — permite encontrar rápidamente transacciones con una persona específica.
+18. **Transferencias globales en vista neutral (violeta, sin +/-)** — elimina confusión en la vista admin sobre si una transferencia es ingreso o gasto.
+
+---
+
 ## 📅 11 de Mayo, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -165,109 +265,5 @@ Sin commits de desarrollo nuevos. Solo el commit automático de "Analisis diario
 10. **Búsqueda debounced en envío de contenedores** — mejora significativa de UX para catálogos con muchos materiales, evita renders excesivos.
 11. **Impuesto nacional (%) sobre CIF** — permite modelar aranceles/impuestos de importación de forma global sin tocar precio por precio.
 12. **Tooltips y número de serie en fichas-costo** — mejora la trazabilidad de materiales en el catálogo.
-
----
-
-## 📅 5 de Mayo, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**Áreas: Integración Stripe en solicitudes-ventas, corrección fórmula comisión Stripe, campo costo_nuevo en ficha de envío-contenedores, facturas/pagos clientes**
-
-| Commit | Autor | Descripción |
-|--------|-------|-------------|
-| `cb579f7` | Ruben/Claude | feat(solicitudes-ventas): agregar generación de links de pago Stripe + panel de pagos |
-| `5d077ba` | Ruben/Claude | fix(solicitudes-ventas): corregir endpoint `/api/stripe/listar-pagos` |
-| `5290742` | Ruben/Claude | feat(solicitudes-ventas): mover botón generar link al modal de detalle |
-| `ac5aa75` | Ruben/Claude | fix(stripe): reemplazar comisión fija 5% por fórmula real 3.25% + $0.30 en 5 archivos |
-| `fc3fb2d` | Ruben/Claude | feat(envio-contenedores): campo `costo_nuevo` editable en ficha de costo |
-| `57ec947` | yany1509 | "facturas de ventas y pagos" — cambios sin descripción |
-| `babf805` | yany1509 | "ajustes en solicitudes ventas" |
-| `512bc86` | yany1509 | "Merge: Combine payment management tabs with Stripe modal integration" |
-| `ff6dab0` | yany1509 | "terminada" |
-| `312a84d` / `3931374` / `64de30f` | yany1509 | "ajustes" x3 |
-| `b34ac82` / `575030f` | yany1509 | "listo" / "listoooo" |
-| `289d36b` | yany1509/Claude | Agregar botón Cobros Stripe en pestaña pendientes-pago |
-| `5b21cba` | yany1509/Claude | Cobros Stripe en pendientes: botón header + botón por fila + modal filtrado |
-| `9255eb4` | yany1509/Claude | Mover botón Ver Stripe al interior del modal de pago |
-| `9c718f9` | yany1509/Claude | Fix carga pagos Stripe: agregar `solicitudId` a deps de `useCallback` |
-| `1777296` | yany1509/Claude | Mostrar todos los pagos Stripe sin filtrar por solicitud |
-| `0c0489e` | yany1509/Claude | Fix: quitar filtro `solicitud_venta_id` que ocultaba todos los pagos |
-| `f808c2d` | yany1509/Claude | Usar `StripePagosModal` igual que facturación/pagos clientes |
-| `033c271` | yany1509 | Ignorar directorio `.claude` del repo (.gitignore) |
-
-### Análisis de riesgos y consideraciones
-
-#### 🔴 Riesgos altos
-
-1. **Fórmula de comisión Stripe cambiada en 5 archivos simultáneamente**
-   - De `precio * 1.05` (5% fijo) a `(neto + 0.30) / (1 - 0.0325)` (3.25% + $0.30).
-   - Archivos afectados: `generar-link` (route), `ofertas`, `ofertas-personalizadas`, `confeccion`, `solicitudes-ventas`.
-   - Si alguno de los 5 quedó sin actualizar o con la lógica antigua, habrá inconsistencia de precios cobrados entre módulos.
-   - **Acción urgente:** Verificar en cada uno de los 5 archivos que se aplica exactamente la misma fórmula. Hacer prueba end-to-end con montos conocidos.
-
-2. **Ciclo de 4 fixes consecutivos en el modal Stripe de solicitudes-ventas en menos de 10 minutos**
-   - `9c718f9` → `1777296` → `0c0489e` → `f808c2d` (20:46–20:56). Patrón de debug en producción.
-   - El filtro por `solicitud_venta_id` fue añadido y luego eliminado. La lógica de alcance del modal no quedó clara.
-   - **Acción recomendada:** Confirmar el comportamiento esperado: ¿el modal de una solicitud específica debe mostrar solo sus pagos o todos?
-
-3. **7 commits con mensajes vagos de yany1509** ("terminada", "ajustes" ×3, "listo", "listoooo", "ajustes en solicitudes ventas")
-   - **Acción recomendada:** Revisar los diffs de estos commits manualmente antes de considerar estable la rama.
-
-#### 🟡 Riesgos medios
-
-4. **`StripePagosModal` sin filtrado por `solicitud_venta_id`**
-   - Ahora el modal muestra todos los pagos Stripe del sistema. Verificar que cuando se abre desde una fila específica recibe y aplica correctamente `solicitudId`.
-
-5. **Campo `costo_nuevo` propagado automáticamente a precios de catálogo**
-   - Verificar que "Guardar" aplica la fórmula una sola vez y que no hay efecto acumulativo al abrir y guardar repetidamente.
-
-#### 🟢 Mejoras positivas
-
-6. **Integración completa de Stripe en solicitudes-ventas** — generación de links, panel de pagos, consistencia con flujo de cobros clientes.
-7. **Fórmula de comisión más precisa (3.25% + $0.30)** — garantiza que el monto neto recibido sea exactamente el precio base configurado.
-8. **`.claude` agregado al `.gitignore`** — evita que archivos internos de sesión se suban accidentalmente.
-
----
-
-## 📅 4 de Mayo, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**Áreas: Centro de Control (mapa períodos), nuevo módulo Asignaciones a Empleados, clientes/leads/facturas, solicitudes de materiales y ventas, almacenes**
-
-| Commit | Autor | Descripción |
-|--------|-------|-------------|
-| `19addb6` | Ruben/Claude | feat: módulo completo Asignaciones a Empleados (CRUD medios básicos y herramientas) |
-| `cfdb27c` | Ruben/Claude | feat: tipos y métodos de servicio para periodo/municipio en centro-control |
-| `706b081` | Ruben/Claude | fix: mapa de períodos en Centro Control — 4 modos, click handlers y reactividad geoKey |
-| `a583f6a` | yany1509 | "ajustes en cliente" — clientes, leads, facturas, nuevo util oferta-confeccion-items (410 cambios en 9 archivos) |
-| `0a1dab7` | Fabian1820 | "stock ok" — rework de diálogos solicitudes-materiales y solicitudes-ventas (296 cambios) |
-| `99e02ec` | Fabian1820 | "export stock all ok" — exportación de stock en almacén |
-| `e70ffa4` | Fabian1820 | "vhj" — ajustes en página de almacén |
-| `38a1969` | Fabian1820 | "mbj" — ajuste en create-solicitud-material-dialog |
-
-### Análisis de riesgos y consideraciones
-
-#### 🔴 Riesgos altos
-
-1. **Commit `a583f6a` (yany1509) — scope real muy amplio para "ajustes en cliente"**
-   - Toca 9 archivos, 259 adiciones / 151 eliminaciones. Incluye nuevo archivo `lib/utils/oferta-confeccion-items.ts`.
-   - **Acción urgente:** Probar end-to-end: listado y detalle de clientes, creación/edición de leads, sección de facturas, y asignación de oferta genérica.
-
-2. **Commit `0a1dab7` (Fabian1820) — "stock ok" reescribe dos diálogos críticos**
-   - `create-solicitud-material-dialog.tsx` y `upsert-solicitud-venta-dialog.tsx`. Flujos clave del negocio sin descripción del cambio.
-   - **Acción recomendada:** Probar la creación de solicitudes de materiales y de ventas end-to-end.
-
-#### 🟡 Riesgos medios
-
-3. **Nuevo módulo Asignaciones a Empleados** — verificar que los endpoints de catálogos están disponibles en producción.
-4. **Fix `periodoRange` usa `.start/.end`** — buscar si `periodoRange[0]` o `periodoRange[1]` aún existen en algún archivo del codebase.
-5. **Secuencia iterativa en almacén page** — verificar funcionalidad de exportación de stock completa en staging.
-
-#### 🟢 Mejoras positivas
-
-6. **Centro de Control: cobertura completa de los 4 modos del mapa de períodos** con click handlers y densidad correcta.
-7. **Módulo Asignaciones a Empleados** con comboboxes buscables y modales con tabs.
 
 ---
