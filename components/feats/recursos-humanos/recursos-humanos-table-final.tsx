@@ -200,16 +200,20 @@ export function RecursosHumanosTableFinal({
                 <td className={`py-3 px-3 text-left transition-colors duration-150 ${estaResaltada ? "bg-purple-200/60" : ""}`}>
                   {isVistaHistorica ? (
                     <span className="text-sm text-gray-700">
-                      {trabajador.sede_id ? sedesMap.get(trabajador.sede_id) || trabajador.sede_id : "No asignada"}
+                      {trabajador.sede_nombre || trabajador.sede_id || "No asignada"}
                     </span>
                   ) : (
                     <select
                       value={trabajador.sede_id || ""}
                       onChange={(e) => guardarRelacion(trabajador.CI, "sede_id", e.target.value || null)}
-                      disabled={loadingCatalogos || (guardandoRelacion?.ci === trabajador.CI && guardandoRelacion?.campo === "sede_id")}
+                      disabled={guardandoRelacion?.ci === trabajador.CI && guardandoRelacion?.campo === "sede_id"}
                       className="w-full h-8 rounded-md border border-gray-300 bg-white px-2 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100"
                     >
                       <option value="">Sin sede</option>
+                      {/* Opción actual garantizada aunque el listado no cargue */}
+                      {trabajador.sede_id && trabajador.sede_nombre && !sedes.some(s => s.id === trabajador.sede_id) && (
+                        <option value={trabajador.sede_id}>{trabajador.sede_nombre}</option>
+                      )}
                       {sedes.map((s) => (
                         <option key={s.id} value={s.id}>{s.nombre}</option>
                       ))}
@@ -221,16 +225,20 @@ export function RecursosHumanosTableFinal({
                 <td className={`py-3 px-3 text-left transition-colors duration-150 ${estaResaltada ? "bg-purple-200/60" : ""}`}>
                   {isVistaHistorica ? (
                     <span className="text-sm text-gray-700">
-                      {trabajador.departamento_id ? departamentosMap.get(trabajador.departamento_id) || trabajador.departamento_id : "No asignado"}
+                      {trabajador.departamento_nombre || trabajador.departamento_id || "No asignado"}
                     </span>
                   ) : (
                     <select
                       value={trabajador.departamento_id || ""}
                       onChange={(e) => guardarRelacion(trabajador.CI, "departamento_id", e.target.value || null)}
-                      disabled={loadingCatalogos || (guardandoRelacion?.ci === trabajador.CI && guardandoRelacion?.campo === "departamento_id")}
+                      disabled={guardandoRelacion?.ci === trabajador.CI && guardandoRelacion?.campo === "departamento_id"}
                       className="w-full h-8 rounded-md border border-gray-300 bg-white px-2 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100"
                     >
                       <option value="">Sin departamento</option>
+                      {/* Opción actual garantizada aunque el listado no cargue */}
+                      {trabajador.departamento_id && trabajador.departamento_nombre && !departamentos.some(d => d.id === trabajador.departamento_id) && (
+                        <option value={trabajador.departamento_id}>{trabajador.departamento_nombre}</option>
+                      )}
                       {departamentos.map((d) => (
                         <option key={d.id} value={d.id}>{d.nombre}</option>
                       ))}

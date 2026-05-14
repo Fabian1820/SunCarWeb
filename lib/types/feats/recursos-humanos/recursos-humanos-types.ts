@@ -14,7 +14,9 @@ export interface TrabajadorRRHH {
   is_brigadista?: boolean
   tiene_contraseña?: boolean
   sede_id?: string | null
+  sede_nombre?: string | null
   departamento_id?: string | null
+  departamento_nombre?: string | null
   telefono?: string
 }
 

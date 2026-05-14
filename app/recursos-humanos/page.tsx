@@ -125,8 +125,8 @@ export default function RecursosHumanosPage() {
       setLoadingCatalogos(true)
       try {
         const [sedesData, departamentosData] = await Promise.all([
-          SedeService.getSedes(true),
-          DepartamentoService.getDepartamentos(true),
+          SedeService.getSedes().catch(() => []),
+          DepartamentoService.getDepartamentos().catch(() => []),
         ])
         setSedes(sedesData)
         setDepartamentos(departamentosData)
