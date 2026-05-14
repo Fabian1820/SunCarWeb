@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/s
 import { Check, Calendar, UserCheck, UserX, Eye, X } from "lucide-react"
 import { CalendarDiasSelector } from "./calendar-dias-selector"
 import { AsistenciaBadge } from "./asistencia-badge"
-import { toast } from "sonner"
+import { useToast } from "@/hooks/use-toast"
 import type { TrabajadorRRHH } from "@/lib/recursos-humanos-types"
 import type { Sede, Departamento } from "@/lib/api-types"
 
@@ -116,6 +116,8 @@ export function RecursosHumanosTableFinal({
   const [salariosCalculados, setSalariosCalculados] = useState<Record<string, number | null>>({})
   const [filaResaltada, setFilaResaltada] = useState<string | null>(null)
 
+  const { toast } = useToast()
+
   const sedesMap = useMemo(() => new Map(sedes.map((sede) => [sede.id, sede.nombre])), [sedes])
   const departamentosMap = useMemo(
     () => new Map(departamentos.map((departamento) => [departamento.id, departamento.nombre])),
@@ -149,17 +151,11 @@ export function RecursosHumanosTableFinal({
     // Mostrar alertas si excede el 100%
     if (sumaPorcentajesFijos > 100) {
       console.warn('âš ï¸ La suma de porcentajes fijos excede el 100%:', sumaPorcentajesFijos + '%')
-      toast.error(`âš ï¸ La suma de porcentajes fijos excede el 100%: ${sumaPorcentajesFijos.toFixed(1)}%`, {
-        duration: 5000,
-        description: 'Ajusta los porcentajes para que no excedan el 100% en total'
-      })
+      toast({ variant: "destructive", title: `La suma de % fijos excede el 100%: ${sumaPorcentajesFijos.toFixed(1)}%`, description: "Ajusta los porcentajes para que no excedan el 100% en total" })
     }
     if (sumaPorcentajesVariables > 100) {
       console.warn('âš ï¸ La suma de porcentajes variables excede el 100%:', sumaPorcentajesVariables + '%')
-      toast.error(`âš ï¸ La suma de porcentajes variables excede el 100%: ${sumaPorcentajesVariables.toFixed(1)}%`, {
-        duration: 5000,
-        description: 'Ajusta los porcentajes para que no excedan el 100% en total'
-      })
+      toast({ variant: "destructive", title: `La suma de % variables excede el 100%: ${sumaPorcentajesVariables.toFixed(1)}%`, description: "Ajusta los porcentajes para que no excedan el 100% en total" })
     }
     
     console.log('ðŸ‘¥ Trabajadores destacados:', trabajadoresDestacados, 'de', totalTrabajadores)
@@ -250,7 +246,7 @@ export function RecursosHumanosTableFinal({
     setGuardandoRelacion(null)
 
     if (!result.success) {
-      toast.error(result.message || "No se pudo actualizar la relaciÃ³n")
+      toast({ variant: "destructive", title: "Error al guardar", description: result.message || "No se pudo actualizar la relación" })
     }
   }
 

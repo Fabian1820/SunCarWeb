@@ -242,11 +242,14 @@ export class TrabajadorService {
       throw new Error('No se enviaron campos para actualizar el trabajador.')
     }
 
-    const response = await apiRequest<{ success: boolean }>(`/trabajadores/${ci}`, {
+    const response = await apiRequest<{ success?: boolean; message?: string; error?: { message?: string } }>(`/trabajadores/${ci}`, {
       method: 'PUT',
       body: JSON.stringify(body),
     })
-    return response.success === true
+    if (response.success === false) {
+      throw new Error(response.message || response.error?.message || 'El backend rechazó la actualización.')
+    }
+    return true
   }
 
   static async actualizarRelacionesTrabajador(ci: string, relaciones: TrabajadorRelacionesPayload): Promise<boolean> {

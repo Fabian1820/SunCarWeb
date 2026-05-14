@@ -100,13 +100,19 @@ export function useRecursosHumanos() {
         );
 
         if (campo === "nombre") {
-          await TrabajadorService.actualizarTrabajador(ci, { nombre: valor });
+          const ok = await TrabajadorService.actualizarTrabajador(ci, { nombre: valor });
+          if (!ok) throw new Error("El backend no confirmó la actualización del nombre.");
         } else {
+          // Todos los demás campos (incluyendo sede_id y departamento_id) se actualizan
+          // a través del endpoint /rrhh, que ahora acepta sede_id, departamento_id y activo.
           const data: ActualizarTrabajadorRRHHRequest = { [campo]: valor };
-          await RecursosHumanosService.actualizarTrabajadorRRHH(ci, data);
+          const response = await RecursosHumanosService.actualizarTrabajadorRRHH(ci, data);
+          if (response.success === false) {
+            throw new Error(response.message || `No se pudo actualizar ${campo}.`);
+          }
         }
 
-        // Actualizar estado local inmediatamente
+        // Actualizar estado local solo si el backend confirmó
         setTrabajadores((prev) =>
           prev.map((t) => (t.CI === ci ? { ...t, [campo]: valor } : t)),
         );
@@ -291,10 +297,8 @@ export function useRecursosHumanos() {
           rrhhData.is_brigadista = data.is_brigadista;
         if (data.telefono !== undefined && data.telefono !== "")
           rrhhData.telefono = data.telefono;
-        if (data.sede_id !== undefined)
-          rrhhData.sede_id = data.sede_id;
-        if (data.departamento_id !== undefined)
-          rrhhData.departamento_id = data.departamento_id;
+        // sede_id y departamento_id se envían directamente en el POST de creación
+        // (TrabajadorService.crearTrabajador). No hace falta duplicarlos aquí.
 
         if (Object.keys(rrhhData).length > 0) {
           console.log("Actualizando datos de RRHH:", rrhhData);
