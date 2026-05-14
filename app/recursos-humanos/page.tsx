@@ -14,6 +14,7 @@ import { CargosResumenTable } from "@/components/feats/recursos-humanos/cargos-r
 import { EstimulosDialog } from "@/components/feats/recursos-humanos/estimulos-dialog"
 import { HistorialIngresosDialog } from "@/components/feats/recursos-humanos/historial-ingresos-dialog"
 import { CrearTrabajadorForm } from "@/components/feats/recursos-humanos/crear-trabajador-form"
+import { EditarTrabajadorForm } from "@/components/feats/recursos-humanos/editar-trabajador-form"
 import { WorkerDetailsDashboard } from "@/components/feats/recursos-humanos/worker-details-dashboard"
 import { ArchivoNominasList } from "@/components/feats/recursos-humanos/archivo-nominas-list"
 import { ArchivoNominaDetail } from "@/components/feats/recursos-humanos/archivo-nomina-detail"
@@ -42,6 +43,7 @@ export default function RecursosHumanosPage() {
     loadingAsistencia,
     error,
     actualizarCampoTrabajador,
+    actualizarTrabajador,
     guardarIngresoMensual,
     crearTrabajador,
     cambiarEstadoTrabajador,
@@ -73,6 +75,9 @@ export default function RecursosHumanosPage() {
   const [isDeletingWorker, setIsDeletingWorker] = useState(false)
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false)
   const [trabajadorSeleccionado, setTrabajadorSeleccionado] = useState<TrabajadorRRHH | null>(null)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [trabajadorEditando, setTrabajadorEditando] = useState<TrabajadorRRHH | null>(null)
+  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false)
 
   // Estados para archivo de nóminas
   const [isGuardarNominaDialogOpen, setIsGuardarNominaDialogOpen] = useState(false)
@@ -181,25 +186,6 @@ export default function RecursosHumanosPage() {
     filtros.cargoSeleccionado !== "" ||
     filtros.estadoActivo !== "activos"
 
-  const handleActualizarCampo = async (ci: string, campo: string, valor: any) => {
-    const result = await actualizarCampoTrabajador(ci, campo as any, valor)
-
-    if (result.success) {
-      toast({
-        title: "Actualización exitosa",
-        description: result.message,
-      })
-    } else {
-      toast({
-        title: "Error",
-        description: result.message,
-        variant: "destructive",
-      })
-    }
-
-    return result
-  }
-
   const sedesMap = useMemo(() => {
     return new Map(sedes.map((sede) => [sede.id, sede.nombre]))
   }, [sedes])
@@ -207,14 +193,6 @@ export default function RecursosHumanosPage() {
   const departamentosMap = useMemo(() => {
     return new Map(departamentos.map((departamento) => [departamento.id, departamento.nombre]))
   }, [departamentos])
-
-  const handleActualizarRelacion = async (
-    ci: string,
-    campo: "sede_id" | "departamento_id",
-    valor: string | null,
-  ): Promise<{ success: boolean; message: string }> => {
-    return await actualizarCampoTrabajador(ci, campo, valor)
-  }
 
   const handleGuardarEstimulos = async (monto: number, mes: string, anio: string) => {
     const mesNum = parseInt(mes)
@@ -279,6 +257,59 @@ export default function RecursosHumanosPage() {
   const handleVerDetalles = (trabajador: TrabajadorRRHH) => {
     setTrabajadorSeleccionado(trabajador)
     setIsDetailsDialogOpen(true)
+  }
+
+  const handleEditar = (trabajador: TrabajadorRRHH) => {
+    setTrabajadorEditando(trabajador)
+    setIsEditDialogOpen(true)
+  }
+
+  const handleGuardarEdicion = async (ci: string, data: import("@/lib/recursos-humanos-types").ActualizarTrabajadorRRHHRequest) => {
+    setIsSubmittingEdit(true)
+    try {
+      const { sede_id, departamento_id, ...rrhhFields } = data
+
+      // Update sede/departamento through the general worker endpoint
+      if (sede_id !== undefined || departamento_id !== undefined) {
+        const relResult = await actualizarCampoTrabajador(
+          ci,
+          sede_id !== undefined ? "sede_id" : "departamento_id",
+          sede_id !== undefined ? sede_id : departamento_id,
+        )
+        // If both need updating, do the second one too
+        if (sede_id !== undefined && departamento_id !== undefined) {
+          const relResult2 = await actualizarCampoTrabajador(ci, "departamento_id", departamento_id)
+          if (!relResult2.success) {
+            toast({ title: "Error", description: relResult2.message, variant: "destructive" })
+            return { success: false, message: relResult2.message }
+          }
+        }
+        if (!relResult.success) {
+          toast({ title: "Error", description: relResult.message, variant: "destructive" })
+          return { success: false, message: relResult.message }
+        }
+      }
+
+      // Update RRHH fields
+      if (Object.keys(rrhhFields).length > 0) {
+        const result = await actualizarTrabajador(ci, rrhhFields)
+        if (!result.success) {
+          toast({ title: "Error", description: result.message, variant: "destructive" })
+          return { success: false, message: result.message }
+        }
+      }
+
+      toast({ title: "Trabajador actualizado", description: "Los datos se guardaron correctamente." })
+      setIsEditDialogOpen(false)
+      setTrabajadorEditando(null)
+      return { success: true, message: "Actualizado correctamente" }
+    } catch (err: any) {
+      const msg = err?.message || "Error al guardar los datos"
+      toast({ title: "Error", description: msg, variant: "destructive" })
+      return { success: false, message: msg }
+    } finally {
+      setIsSubmittingEdit(false)
+    }
   }
 
   const confirmCambioEstadoTrabajador = async () => {
@@ -581,7 +612,7 @@ export default function RecursosHumanosPage() {
 	        </DialogContent>
 	      </Dialog>
 
-	      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+	      <main className="content-with-fixed-header px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
 	        {/* Información del período y estímulos */}
 	        <Card className={`mb-8 border-l-4 ${estaViendoHistorico ? 'border-l-amber-600' : 'border-l-purple-600'}`}>
 	          <CardContent className="p-6">
@@ -688,7 +719,7 @@ export default function RecursosHumanosPage() {
                   {vistaActual === 'trabajadores'
                     ? estaViendoHistorico
                       ? '⚠️ VISTA HISTÓRICA: Esta nómina ha sido archivada. Los datos no pueden ser modificados. Use las flechas de navegación para cambiar de período.'
-                      : 'Haga click en cualquier campo para editarlo. El salario se calcula automáticamente. Presione Enter para guardar o Esc para cancelar.'
+                      : 'Use el botón de editar (lápiz) en cada fila para modificar los datos del trabajador. El salario se calcula automáticamente.'
                     : vistaActual === 'cargos'
                     ? 'Vista consolidada de trabajadores agrupados por cargo con totales sumados de salarios y porcentajes de estímulos.'
                     : 'Historial completo de nóminas guardadas. Las nóminas archivadas son inmutables y no pueden editarse.'
@@ -747,12 +778,10 @@ export default function RecursosHumanosPage() {
                   montoTotalEstimulos={ingresoMostrar}
                   sedes={sedes}
                   departamentos={departamentos}
-                  loadingCatalogos={loadingCatalogos}
                   estadoAsistencia={estadoAsistencia}
                   loadingAsistencia={loadingAsistencia}
-                  onActualizarCampo={estaViendoHistorico ? async () => ({ success: false, message: 'No se pueden editar datos históricos' }) : handleActualizarCampo}
-                  onActualizarRelacion={estaViendoHistorico ? async () => ({ success: false, message: 'No se pueden editar datos históricos' }) : handleActualizarRelacion}
-                  onCambiarEstadoTrabajador={estaViendoHistorico ? async () => {} : handleCambiarEstadoTrabajador}
+                  onEditar={estaViendoHistorico ? undefined : handleEditar}
+                  onCambiarEstadoTrabajador={estaViendoHistorico ? undefined : handleCambiarEstadoTrabajador}
                   onVerDetalles={handleVerDetalles}
                   isVistaHistorica={estaViendoHistorico}
                 />
@@ -801,6 +830,27 @@ export default function RecursosHumanosPage() {
         onConfirm={confirmCambioEstadoTrabajador}
         isLoading={isDeletingWorker}
       />
+
+      {/* Dialog de edición del trabajador */}
+      <Dialog open={isEditDialogOpen} onOpenChange={(open) => { if (!isSubmittingEdit) { setIsEditDialogOpen(open); if (!open) setTrabajadorEditando(null) } }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Trabajador</DialogTitle>
+          </DialogHeader>
+          {trabajadorEditando && (
+            <EditarTrabajadorForm
+              trabajador={trabajadorEditando}
+              sedes={sedes}
+              departamentos={departamentos}
+              mes={mesVisualizando}
+              anio={anioVisualizando}
+              onSave={handleGuardarEdicion}
+              onCancel={() => { setIsEditDialogOpen(false); setTrabajadorEditando(null) }}
+              isSubmitting={isSubmittingEdit}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog de detalles del trabajador */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
