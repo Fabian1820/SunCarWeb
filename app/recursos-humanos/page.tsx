@@ -94,11 +94,9 @@ export default function RecursosHumanosPage() {
   const [filtros, setFiltros] = useState<{
     searchTerm: string
     cargoSeleccionado: string
-    estadoActivo: "activos" | "inactivos" | "todos"
   }>({
     searchTerm: "",
     cargoSeleccionado: "",
-    estadoActivo: "activos",
   })
   const [sedes, setSedes] = useState<Sede[]>([])
   const [departamentos, setDepartamentos] = useState<Departamento[]>([])
@@ -159,22 +157,18 @@ export default function RecursosHumanosPage() {
     ? datosNominaHistorica?.ingreso_mensual_monto || 0
     : (ultimoIngreso?.monto || 0)
 
-  // Aplicar filtros a los trabajadores
+  // Aplicar filtros a los trabajadores (siempre se muestran solo activos)
   const trabajadoresMostrar = trabajadoresBase.filter((trabajador) => {
     const estaActivo = trabajador.activo !== false
+    if (!estaActivo) return false
 
-    const matchesEstado =
-      filtros.estadoActivo === "todos" ||
-      (filtros.estadoActivo === "activos" && estaActivo) ||
-      (filtros.estadoActivo === "inactivos" && !estaActivo)
-
-    const matchesSearch = filtros.searchTerm === "" || 
+    const matchesSearch = filtros.searchTerm === "" ||
       trabajador.nombre.toLowerCase().includes(filtros.searchTerm.toLowerCase())
-    
-    const matchesCargo = filtros.cargoSeleccionado === "" || 
+
+    const matchesCargo = filtros.cargoSeleccionado === "" ||
       trabajador.cargo === filtros.cargoSeleccionado
-    
-    return matchesEstado && matchesSearch && matchesCargo
+
+    return matchesSearch && matchesCargo
   })
 
   // Obtener lista única de cargos para el filtro
@@ -183,8 +177,7 @@ export default function RecursosHumanosPage() {
   // Verificar si hay filtros activos
   const hasActiveFilters =
     filtros.searchTerm !== "" ||
-    filtros.cargoSeleccionado !== "" ||
-    filtros.estadoActivo !== "activos"
+    filtros.cargoSeleccionado !== ""
 
   const handleActualizarRelacion = async (
     ci: string,

@@ -12,7 +12,6 @@ interface RecursosHumanosFiltersProps {
   onFilterChange: (filters: {
     searchTerm: string
     cargoSeleccionado: string
-    estadoActivo: "activos" | "inactivos" | "todos"
   }) => void
 }
 
@@ -22,22 +21,17 @@ export function RecursosHumanosFilters({
 }: RecursosHumanosFiltersProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [cargoSeleccionado, setCargoSeleccionado] = useState("")
-  const [estadoActivo, setEstadoActivo] = useState<
-    "activos" | "inactivos" | "todos"
-  >("activos")
 
   useEffect(() => {
-    onFilterChange({ searchTerm, cargoSeleccionado, estadoActivo })
-  }, [searchTerm, cargoSeleccionado, estadoActivo, onFilterChange])
+    onFilterChange({ searchTerm, cargoSeleccionado })
+  }, [searchTerm, cargoSeleccionado, onFilterChange])
 
   const handleClearFilters = () => {
     setSearchTerm("")
     setCargoSeleccionado("")
-    setEstadoActivo("activos")
   }
 
-  const hasActiveFilters =
-    searchTerm !== "" || cargoSeleccionado !== "" || estadoActivo !== "activos"
+  const hasActiveFilters = searchTerm !== "" || cargoSeleccionado !== ""
 
   return (
     <Card className="mb-6 border-purple-200">
@@ -87,30 +81,6 @@ export function RecursosHumanosFilters({
             </select>
           </div>
 
-          <div className="w-full sm:w-auto min-w-[200px] space-y-2">
-            <Label
-              htmlFor="filter-estado"
-              className="text-sm font-medium text-gray-700 flex items-center gap-2"
-            >
-              <Briefcase className="h-4 w-4 text-purple-600" />
-              Estado laboral
-            </Label>
-            <select
-              id="filter-estado"
-              value={estadoActivo}
-              onChange={(e) =>
-                setEstadoActivo(
-                  e.target.value as "activos" | "inactivos" | "todos",
-                )
-              }
-              className="w-full border border-gray-300 rounded-md px-3 py-2 bg-white hover:border-gray-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-colors h-10"
-            >
-              <option value="activos">Activos</option>
-              <option value="inactivos">Dados de baja</option>
-              <option value="todos">Todos</option>
-            </select>
-          </div>
-
           {hasActiveFilters && (
             <Button
               variant="ghost"
@@ -131,13 +101,6 @@ export function RecursosHumanosFilters({
               {searchTerm && `Busqueda: "${searchTerm}"`}
               {searchTerm && cargoSeleccionado && " • "}
               {cargoSeleccionado && `Cargo: ${cargoSeleccionado}`}
-              {(searchTerm || cargoSeleccionado) &&
-                estadoActivo !== "activos" &&
-                " • "}
-              {estadoActivo !== "activos" &&
-                `Estado: ${
-                  estadoActivo === "inactivos" ? "Dados de baja" : "Todos"
-                }`}
             </p>
           </div>
         )}
