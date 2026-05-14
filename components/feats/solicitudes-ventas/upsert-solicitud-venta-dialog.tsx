@@ -190,6 +190,12 @@ export function UpsertSolicitudVentaDialog({
   const [loadingOfertas, setLoadingOfertas] = useState(false);
   const [ofertaAplicada, setOfertaAplicada] = useState<OfertaVenta | null>(null);
 
+  // Selector manual de oferta para vincular pagos (cuando se crea la solicitud
+  // sin pasar por el panel de ofertas — se eligen ofertas del cliente ya seleccionado)
+  const [ofertasDelCliente, setOfertasDelCliente] = useState<OfertaVenta[]>([]);
+  const [loadingOfertasCliente, setLoadingOfertasCliente] = useState(false);
+  const [ofertaVinculadaManual, setOfertaVinculadaManual] = useState<OfertaVenta | null>(null);
+
   const isEdit = Boolean(solicitud?.id);
 
   // Stock precargado del almacén seleccionado (una sola llamada al backend)
@@ -297,6 +303,9 @@ export function UpsertSolicitudVentaDialog({
     setReservasActivas([]);
     setReservaAplicada(null);
 
+    setOfertasDelCliente([]);
+    setOfertaVinculadaManual(null);
+
     if (!clienteSolicitud && solicitud?.cliente_venta_id) {
       void ClienteVentaService.getClienteById(solicitud.cliente_venta_id)
         .then((cliente) => {
@@ -339,6 +348,46 @@ export function UpsertSolicitudVentaDialog({
 
     return () => clearTimeout(handler);
   }, [open, clienteSearch, selectedClienteVenta]);
+
+  // Cargar ofertas del cliente seleccionado para permitir vincular manualmente
+  // la solicitud a una oferta cuando no se entró por el panel "Cargar desde oferta".
+  useEffect(() => {
+    if (!open) return;
+    if (!selectedClienteVenta?.id) {
+      setOfertasDelCliente([]);
+      return;
+    }
+    // Si ya hay una oferta aplicada desde el panel, ese flujo ya cubre el vínculo.
+    if (ofertaAplicada) {
+      setOfertasDelCliente([]);
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingOfertasCliente(true);
+    void OfertaVentaService.getOfertasByCliente(selectedClienteVenta.id)
+      .then((data) => {
+        if (cancelled) return;
+        const activas = (data || []).filter((o) => o.estado !== "cancelada");
+        setOfertasDelCliente(activas);
+
+        // En edición: pre-seleccionar la oferta que ya estaba vinculada
+        if (solicitud?.oferta_venta_id && !ofertaVinculadaManual) {
+          const match = activas.find((o) => o.id === solicitud.oferta_venta_id);
+          if (match) setOfertaVinculadaManual(match);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setOfertasDelCliente([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingOfertasCliente(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, selectedClienteVenta?.id, ofertaAplicada, solicitud?.oferta_venta_id]);
 
   const filteredMateriales = useMemo(() => {
     const term = materialSearch.trim().toLowerCase();
@@ -849,6 +898,9 @@ export function UpsertSolicitudVentaDialog({
   const handleSubmit = async () => {
     if (!canSubmit || !selectedClienteVenta) return;
 
+    // Preferimos la oferta cargada desde el panel; si no, la seleccionada manualmente.
+    const ofertaIdVinculada = ofertaAplicada?.id ?? ofertaVinculadaManual?.id;
+
     const payload: SolicitudVentaCreateData | SolicitudVentaUpdateData = {
       cliente_venta_id: selectedClienteVenta.id,
       almacen_id: selectedAlmacenId,
@@ -857,6 +909,7 @@ export function UpsertSolicitudVentaDialog({
         cantidad: material.cantidad,
         ...(material.descuento_porcentaje > 0 && { descuento_porcentaje: material.descuento_porcentaje }),
       })),
+      ...(ofertaIdVinculada && { oferta_venta_id: ofertaIdVinculada }),
       ...(descuentoFree && { descuento_free: true, motivo_descuento_free: motivoDescuentoFree.trim() }),
     };
 
@@ -1124,7 +1177,9 @@ export function UpsertSolicitudVentaDialog({
                     <span className="font-mono font-semibold">
                       {ofertaAplicada.codigo || ofertaAplicada.id.slice(-8).toUpperCase()}
                     </span>
-                    . Precios y descuentos incluidos.
+                    . Precios y descuentos incluidos. Esta solicitud quedará{" "}
+                    <span className="font-semibold">vinculada</span> a la oferta para
+                    aparear los pagos.
                   </span>
                   <button
                     type="button"
@@ -1212,6 +1267,73 @@ export function UpsertSolicitudVentaDialog({
               >
                 Cliente seleccionado: {selectedClienteVenta.nombre}
               </Badge>
+            ) : null}
+
+            {selectedClienteVenta && !ofertaAplicada ? (
+              <div className="space-y-1.5">
+                <Label className="text-xs text-gray-600">
+                  Vincular a oferta del cliente{" "}
+                  <span className="font-normal text-gray-400">(opcional)</span>
+                </Label>
+                {loadingOfertasCliente ? (
+                  <div className="flex items-center gap-2 text-xs text-gray-500 px-2 py-2 border rounded-md">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Buscando ofertas del cliente...
+                  </div>
+                ) : ofertasDelCliente.length === 0 ? (
+                  <p className="text-xs text-gray-500 italic px-2">
+                    Este cliente no tiene ofertas activas para vincular.
+                  </p>
+                ) : (
+                  <Select
+                    value={ofertaVinculadaManual?.id || "ninguna"}
+                    onValueChange={(value) => {
+                      if (value === "ninguna") {
+                        setOfertaVinculadaManual(null);
+                        return;
+                      }
+                      const match = ofertasDelCliente.find((o) => o.id === value);
+                      setOfertaVinculadaManual(match || null);
+                    }}
+                  >
+                    <SelectTrigger className="text-sm">
+                      <SelectValue placeholder="Sin vincular" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ninguna">Sin vincular (pago suelto)</SelectItem>
+                      {ofertasDelCliente.map((oferta) => {
+                        const codigo =
+                          oferta.codigo || oferta.id.slice(-8).toUpperCase();
+                        const ESTADO_TXT: Record<string, string> = {
+                          enviada: "Enviada",
+                          confirmada: "Confirmada",
+                          pagada: "Pagada",
+                          cancelada: "Cancelada",
+                        };
+                        const estadoLabel = ESTADO_TXT[oferta.estado] ?? oferta.estado;
+                        return (
+                          <SelectItem key={oferta.id} value={oferta.id}>
+                            {codigo} · {estadoLabel} · $
+                            {Number(oferta.precio_total || 0).toLocaleString("es-ES", {
+                              minimumFractionDigits: 2,
+                            })}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                )}
+                {ofertaVinculadaManual ? (
+                  <p className="text-xs text-emerald-700">
+                    Los pagos de esta solicitud se aparearán a la oferta{" "}
+                    <span className="font-mono font-semibold">
+                      {ofertaVinculadaManual.codigo ||
+                        ofertaVinculadaManual.id.slice(-8).toUpperCase()}
+                    </span>
+                    .
+                  </p>
+                ) : null}
+              </div>
             ) : null}
           </div>
 

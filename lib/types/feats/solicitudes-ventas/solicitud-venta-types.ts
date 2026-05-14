@@ -69,6 +69,7 @@ export interface SolicitudVenta {
   reabierta_en?: string | null;
   cliente_venta_id?: string;
   cliente_venta?: ClienteVenta | null;
+  oferta_venta_id?: string | null;
   almacen_id: string;
   almacen?: SolicitudVentaAlmacenInfo;
   trabajador_id?: string;
@@ -91,6 +92,7 @@ export interface SolicitudVentaCreateData {
   cliente_venta?: ClienteVentaCreateData;
   almacen_id: string;
   materiales: SolicitudVentaMaterialItem[];
+  oferta_venta_id?: string;
   descuento_free?: boolean;
   motivo_descuento_free?: string;
 }
@@ -100,6 +102,7 @@ export interface SolicitudVentaUpdateData {
   cliente_venta?: ClienteVentaUpdateData;
   almacen_id?: string;
   materiales?: SolicitudVentaMaterialItem[];
+  oferta_venta_id?: string;
   es_a_plazos?: boolean;
   plan_pagos?: PagoProgramado[];
   descuento_free?: boolean;

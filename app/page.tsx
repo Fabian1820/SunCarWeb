@@ -153,6 +153,14 @@ export default function Dashboard() {
       description: "Reportes y análisis del área comercial.",
       iconClass: "text-indigo-600",
     },
+    {
+      id: "reportes-ventas",
+      href: "/reportes-ventas",
+      icon: BarChart3,
+      title: "Reportes Comercial Ventas",
+      description: "Resultados por vendedor: ofertas, confirmadas y cobros.",
+      iconClass: "text-teal-600",
+    },
     // Módulo "Resultados" oculto temporalmente — se reactivará más adelante.
     // {
     //   id: "resultados",
@@ -387,6 +395,7 @@ export default function Dashboard() {
         "solicitudes-ventas",
         "reservas-ventas",
         "tiendas-suncarventas",
+        "reportes-ventas",
       ],
     },
     {

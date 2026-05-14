@@ -333,6 +333,7 @@ export class SolicitudVentaService {
       materiales: normalizeMaterialesPayload(data.materiales),
       cliente_venta_id: clienteVentaId,
       cliente_venta: clienteVentaPayload,
+      ...(data.oferta_venta_id && { oferta_venta_id: data.oferta_venta_id }),
     };
 
     const raw = await apiRequest<any>(`${BASE_ENDPOINT}/`, {

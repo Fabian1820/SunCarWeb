@@ -28,7 +28,8 @@
       "Bash(cp /Users/yanyhurtado/MIO/Suncar/SunCarWeb/.claude/worktrees/gifted-robinson/app/centro-control/page.tsx /Users/yanyhurtado/MIO/Suncar/SunCarWeb/app/centro-control/page.tsx)",
       "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
       "Bash(awk '{print $1}')",
-      "Bash(awk -F: '{print $NF}')"
+      "Bash(awk -F: '{print $NF}')",
+      "Bash(grep -E \"\\\\.\\(tsx?|jsx?\\)$\")"
     ],
     "deny": [],
     "ask": []
