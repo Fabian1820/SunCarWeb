@@ -23,7 +23,7 @@ import { RecursosHumanosFilters } from "@/components/feats/recursos-humanos/recu
 import { ExportButtons } from "@/components/shared/molecule/export-buttons"
 import { useRecursosHumanos } from "@/hooks/use-recursos-humanos"
 import { useArchivoRH } from "@/hooks/use-archivo-rh"
-import { IngresoMensualService, SedeService, DepartamentoService, TrabajadorService } from "@/lib/api-services"
+import { IngresoMensualService, SedeService, DepartamentoService } from "@/lib/api-services"
 import type { CrearTrabajadorRRHHRequest, TrabajadorRRHH, IngresoMensual } from "@/lib/recursos-humanos-types"
 import type { ExportOptions } from "@/lib/export-service"
 import type { ArchivoNominaRH } from "@/lib/types/feats/recursos-humanos/archivo-rh-types"
@@ -213,21 +213,7 @@ export default function RecursosHumanosPage() {
     campo: "sede_id" | "departamento_id",
     valor: string | null,
   ): Promise<{ success: boolean; message: string }> => {
-    try {
-      await TrabajadorService.actualizarRelacionesTrabajador(ci, {
-        [campo]: valor,
-      })
-      await refresh()
-      return {
-        success: true,
-        message: "Relación actualizada correctamente",
-      }
-    } catch (error: any) {
-      return {
-        success: false,
-        message: error?.message || "No se pudo actualizar la relación",
-      }
-    }
+    return await actualizarCampoTrabajador(ci, campo, valor)
   }
 
   const handleGuardarEstimulos = async (monto: number, mes: string, anio: string) => {

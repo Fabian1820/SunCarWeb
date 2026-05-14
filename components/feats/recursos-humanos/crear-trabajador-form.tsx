@@ -22,6 +22,7 @@ import {
 import { DepartamentoForm } from "@/components/feats/departamentos/departamento-form"
 import { SedeForm } from "@/components/feats/sedes/sede-form"
 import { DepartamentoService, SedeService } from "@/lib/api-services"
+import { useToast } from "@/hooks/use-toast"
 import type {
   Departamento,
   Sede,
@@ -66,6 +67,7 @@ export function CrearTrabajadorForm({
 
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [asignarContrasena, setAsignarContrasena] = useState(false)
+  const { toast } = useToast()
   const [loadingCatalogos, setLoadingCatalogos] = useState(false)
   const [submittingCatalogo, setSubmittingCatalogo] = useState(false)
   const [localSedes, setLocalSedes] = useState<Sede[]>(sedes || [])
@@ -197,6 +199,12 @@ export function CrearTrabajadorForm({
       })
       setFormData((prev) => ({ ...prev, sede_id: nuevaSede.id }))
       setIsSedeRapidaOpen(false)
+    } catch (err: unknown) {
+      toast({
+        title: "Error al crear sede",
+        description: err instanceof Error ? err.message : "No se pudo crear la sede.",
+        variant: "destructive",
+      })
     } finally {
       setSubmittingCatalogo(false)
     }
@@ -212,6 +220,12 @@ export function CrearTrabajadorForm({
       })
       setFormData((prev) => ({ ...prev, departamento_id: nuevoDepartamento.id }))
       setIsDepartamentoRapidoOpen(false)
+    } catch (err: unknown) {
+      toast({
+        title: "Error al crear departamento",
+        description: err instanceof Error ? err.message : "No se pudo crear el departamento.",
+        variant: "destructive",
+      })
     } finally {
       setSubmittingCatalogo(false)
     }

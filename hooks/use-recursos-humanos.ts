@@ -291,6 +291,10 @@ export function useRecursosHumanos() {
           rrhhData.is_brigadista = data.is_brigadista;
         if (data.telefono !== undefined && data.telefono !== "")
           rrhhData.telefono = data.telefono;
+        if (data.sede_id !== undefined)
+          rrhhData.sede_id = data.sede_id;
+        if (data.departamento_id !== undefined)
+          rrhhData.departamento_id = data.departamento_id;
 
         if (Object.keys(rrhhData).length > 0) {
           console.log("Actualizando datos de RRHH:", rrhhData);
