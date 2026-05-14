@@ -50,7 +50,6 @@ interface ResultadosVentasTableProps {
 }
 
 const RESTRICTED_USERS = [
-  "Loydis Batista Carrazana",
   "Irina Cancela Nieto",
   "Yoanna Lopéz Delgado",
   "Danaisys Cabrera Santos",
