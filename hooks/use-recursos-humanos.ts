@@ -103,8 +103,8 @@ export function useRecursosHumanos() {
           const ok = await TrabajadorService.actualizarTrabajador(ci, { nombre: valor });
           if (!ok) throw new Error("El backend no confirmó la actualización del nombre.");
         } else {
-          // Todos los demás campos (incluyendo sede_id y departamento_id) se actualizan
-          // a través del endpoint /rrhh, que ahora acepta sede_id, departamento_id y activo.
+          // sede_id y departamento_id van al endpoint /rrhh que maneja el sentinel "__not_sent__"
+          // y distingue correctamente entre null (des-asignar) y no-enviado
           const data: ActualizarTrabajadorRRHHRequest = { [campo]: valor };
           const response = await RecursosHumanosService.actualizarTrabajadorRRHH(ci, data);
           if (response.success === false) {
