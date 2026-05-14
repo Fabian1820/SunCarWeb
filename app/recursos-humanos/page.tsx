@@ -186,6 +186,20 @@ export default function RecursosHumanosPage() {
     filtros.cargoSeleccionado !== "" ||
     filtros.estadoActivo !== "activos"
 
+  const handleActualizarRelacion = async (
+    ci: string,
+    campo: "sede_id" | "departamento_id",
+    valor: string | null,
+  ): Promise<{ success: boolean; message: string }> => {
+    const result = await actualizarCampoTrabajador(ci, campo, valor)
+    if (result.success) {
+      toast({ title: "Actualización exitosa", description: result.message })
+    } else {
+      toast({ title: "Error", description: result.message, variant: "destructive" })
+    }
+    return result
+  }
+
   const sedesMap = useMemo(() => {
     return new Map(sedes.map((sede) => [sede.id, sede.nombre]))
   }, [sedes])
@@ -778,9 +792,11 @@ export default function RecursosHumanosPage() {
                   montoTotalEstimulos={ingresoMostrar}
                   sedes={sedes}
                   departamentos={departamentos}
+                  loadingCatalogos={loadingCatalogos}
                   estadoAsistencia={estadoAsistencia}
                   loadingAsistencia={loadingAsistencia}
                   onEditar={estaViendoHistorico ? undefined : handleEditar}
+                  onActualizarRelacion={estaViendoHistorico ? undefined : handleActualizarRelacion}
                   onCambiarEstadoTrabajador={estaViendoHistorico ? undefined : handleCambiarEstadoTrabajador}
                   onVerDetalles={handleVerDetalles}
                   isVistaHistorica={estaViendoHistorico}

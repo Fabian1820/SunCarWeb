@@ -15,9 +15,15 @@ interface RecursosHumanosTableProps {
   montoTotalEstimulos: number
   sedes: Sede[]
   departamentos: Departamento[]
+  loadingCatalogos?: boolean
   estadoAsistencia?: Map<string, boolean>
   loadingAsistencia?: boolean
   onEditar?: (trabajador: TrabajadorRRHH) => void
+  onActualizarRelacion?: (
+    ci: string,
+    campo: "sede_id" | "departamento_id",
+    valor: string | null,
+  ) => Promise<{ success: boolean; message: string }>
   onCambiarEstadoTrabajador?: (
     ci: string,
     nombre: string,
@@ -63,16 +69,33 @@ export function RecursosHumanosTableFinal({
   montoTotalEstimulos,
   sedes,
   departamentos,
+  loadingCatalogos = false,
   estadoAsistencia,
   loadingAsistencia,
   onEditar,
+  onActualizarRelacion,
   onCambiarEstadoTrabajador,
   onVerDetalles,
   isVistaHistorica = false,
 }: RecursosHumanosTableProps) {
   const [salariosCalculados, setSalariosCalculados] = useState<Record<string, number | null>>({})
   const [filaResaltada, setFilaResaltada] = useState<string | null>(null)
+  const [guardandoRelacion, setGuardandoRelacion] = useState<{ ci: string; campo: "sede_id" | "departamento_id" } | null>(null)
   const { toast } = useToast()
+
+  const guardarRelacion = async (
+    ci: string,
+    campo: "sede_id" | "departamento_id",
+    valor: string | null,
+  ) => {
+    if (!onActualizarRelacion) return
+    setGuardandoRelacion({ ci, campo })
+    const result = await onActualizarRelacion(ci, campo, valor)
+    setGuardandoRelacion(null)
+    if (!result.success) {
+      toast({ variant: "destructive", title: "Error al guardar", description: result.message || "No se pudo actualizar la relación" })
+    }
+  }
 
   const sedesMap = useMemo(() => new Map(sedes.map((s) => [s.id, s.nombre])), [sedes])
   const departamentosMap = useMemo(() => new Map(departamentos.map((d) => [d.id, d.nombre])), [departamentos])
@@ -174,17 +197,45 @@ export function RecursosHumanosTableFinal({
                 </td>
 
                 {/* Sede */}
-                <td className={`py-3 px-3 text-left text-sm text-gray-700 transition-colors duration-150 ${estaResaltada ? "bg-purple-200/60" : ""}`}>
-                  {trabajador.sede_id
-                    ? sedesMap.get(trabajador.sede_id) || trabajador.sede_id
-                    : <span className="text-gray-400 italic">No asignada</span>}
+                <td className={`py-3 px-3 text-left transition-colors duration-150 ${estaResaltada ? "bg-purple-200/60" : ""}`}>
+                  {isVistaHistorica ? (
+                    <span className="text-sm text-gray-700">
+                      {trabajador.sede_id ? sedesMap.get(trabajador.sede_id) || trabajador.sede_id : "No asignada"}
+                    </span>
+                  ) : (
+                    <select
+                      value={trabajador.sede_id || ""}
+                      onChange={(e) => guardarRelacion(trabajador.CI, "sede_id", e.target.value || null)}
+                      disabled={loadingCatalogos || (guardandoRelacion?.ci === trabajador.CI && guardandoRelacion?.campo === "sede_id")}
+                      className="w-full h-8 rounded-md border border-gray-300 bg-white px-2 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100"
+                    >
+                      <option value="">Sin sede</option>
+                      {sedes.map((s) => (
+                        <option key={s.id} value={s.id}>{s.nombre}</option>
+                      ))}
+                    </select>
+                  )}
                 </td>
 
                 {/* Departamento */}
-                <td className={`py-3 px-3 text-left text-sm text-gray-700 transition-colors duration-150 ${estaResaltada ? "bg-purple-200/60" : ""}`}>
-                  {trabajador.departamento_id
-                    ? departamentosMap.get(trabajador.departamento_id) || trabajador.departamento_id
-                    : <span className="text-gray-400 italic">No asignado</span>}
+                <td className={`py-3 px-3 text-left transition-colors duration-150 ${estaResaltada ? "bg-purple-200/60" : ""}`}>
+                  {isVistaHistorica ? (
+                    <span className="text-sm text-gray-700">
+                      {trabajador.departamento_id ? departamentosMap.get(trabajador.departamento_id) || trabajador.departamento_id : "No asignado"}
+                    </span>
+                  ) : (
+                    <select
+                      value={trabajador.departamento_id || ""}
+                      onChange={(e) => guardarRelacion(trabajador.CI, "departamento_id", e.target.value || null)}
+                      disabled={loadingCatalogos || (guardandoRelacion?.ci === trabajador.CI && guardandoRelacion?.campo === "departamento_id")}
+                      className="w-full h-8 rounded-md border border-gray-300 bg-white px-2 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100"
+                    >
+                      <option value="">Sin departamento</option>
+                      {departamentos.map((d) => (
+                        <option key={d.id} value={d.id}>{d.nombre}</option>
+                      ))}
+                    </select>
+                  )}
                 </td>
 
                 {/* % Fijo */}
