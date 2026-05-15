@@ -362,14 +362,17 @@ export function AgregarOfertaDialog({
 
     setSubmitting(true);
     try {
-      const materialesPayload = carrito.map((l) => ({
-        material_id: l.material_id,
-        cantidad: l.cantidad,
-        precio: l.precio,
-        ...(l.descuento_porcentaje > 0
-          ? { descuento_porcentaje: parseFloat(Math.min(l.descuento_porcentaje, l.max_descuento ?? 100).toFixed(4)) }
-          : {}),
-      }));
+      const materialesPayload = carrito.map((l) => {
+        const pctFinal = descuentoFree
+          ? l.descuento_porcentaje
+          : Math.min(l.descuento_porcentaje, l.max_descuento ?? 100);
+        return {
+          material_id: l.material_id,
+          cantidad: l.cantidad,
+          precio: l.precio,
+          ...(pctFinal > 0 ? { descuento_porcentaje: parseFloat(pctFinal.toFixed(4)) } : {}),
+        };
+      });
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let raw: any;

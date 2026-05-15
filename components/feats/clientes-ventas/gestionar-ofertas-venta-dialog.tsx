@@ -349,6 +349,18 @@ export function GestionarOfertasVentaDialog({
                               <span>{oferta.materiales.length} material{oferta.materiales.length !== 1 ? "es" : ""}</span>
                               <span>{formatDate(oferta.fecha_creacion)}</span>
                             </div>
+                            {oferta.descuento_free && (
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <span className="text-xs font-semibold text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full">
+                                  Descuento Free
+                                </span>
+                                {oferta.motivo_descuento_free && (
+                                  <span className="text-xs text-orange-700 truncate max-w-[200px]">
+                                    {oferta.motivo_descuento_free}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                             {oferta.metodo_pago && (
                               <p className="text-xs text-gray-400 mt-0.5">{oferta.metodo_pago}</p>
                             )}
@@ -440,6 +452,18 @@ export function GestionarOfertasVentaDialog({
                         <span className="font-medium">{ofertaSeleccionada.moneda_pago}</span>
                       </div>
                     )}
+                    {ofertaSeleccionada.descuento_free && (
+                      <div className="col-span-2 flex items-start gap-2 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2">
+                        <span className="text-xs font-semibold text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full shrink-0">
+                          Descuento Free
+                        </span>
+                        {ofertaSeleccionada.motivo_descuento_free && (
+                          <span className="text-xs text-orange-700 leading-snug">
+                            {ofertaSeleccionada.motivo_descuento_free}
+                          </span>
+                        )}
+                      </div>
+                    )}
                     <div className="col-span-2 pt-2 border-t flex justify-between font-semibold text-base">
                       <span>Total</span>
                       <span className="text-orange-600">${fmt(ofertaSeleccionada.precio_total)}</span>
@@ -496,11 +520,19 @@ export function GestionarOfertasVentaDialog({
                               <p className="text-sm font-semibold text-gray-900">
                                 {mat.cantidad} {mat.um ?? "u"}
                               </p>
-                              <p className="text-xs text-gray-400">${fmt(mat.precio)}/u</p>
-                              {(mat.descuento_porcentaje ?? 0) > 0 && (
-                                <p className="text-xs text-orange-500">-{mat.descuento_porcentaje}%</p>
+                              {(mat.descuento_porcentaje ?? 0) > 0 ? (
+                                <>
+                                  <p className="text-xs text-gray-400 line-through">
+                                    ${fmt(mat.precio * mat.cantidad)}
+                                  </p>
+                                  <p className="text-xs text-orange-500 font-medium">
+                                    -{mat.descuento_porcentaje}% desc.
+                                  </p>
+                                </>
+                              ) : (
+                                <p className="text-xs text-gray-400">${fmt(mat.precio)}/u</p>
                               )}
-                              <p className="text-xs font-semibold text-orange-600">
+                              <p className="text-sm font-bold text-orange-600">
                                 ${fmt(mat.subtotal ?? mat.precio * mat.cantidad)}
                               </p>
                             </div>
