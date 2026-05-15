@@ -180,6 +180,25 @@ export interface OfertasConPagosResponse {
   total: number;
 }
 
+export interface CobrosPaginadoParams {
+  skip?: number;
+  limit?: number;
+  q?: string;
+  fecha_desde?: string;
+  fecha_hasta?: string;
+  devoluciones?: "todos" | "con_devoluciones" | "sin_devoluciones";
+  estado_pendiente?: "todos" | "con_pendiente" | "sin_pendiente";
+  estado_cliente?: string;
+}
+
+export interface CobrosPaginadoResponse {
+  success: boolean;
+  data: OfertaConPagos[];
+  total: number;
+  skip: number;
+  limit: number;
+}
+
 export interface ResumenPagosPendientes {
   suma_montos_pagos: number;
   suma_montos_pagos_usd: number;
@@ -426,6 +445,50 @@ export class PagoService {
         error.response?.data?.message ||
           error.response?.data?.detail ||
           "Error al registrar devolucion del pago",
+      );
+    }
+  }
+
+  /**
+   * Obtener ofertas con pagos de forma paginada (sin N+1)
+   */
+  static async getCobrosPaginado(
+    params: CobrosPaginadoParams,
+  ): Promise<CobrosPaginadoResponse> {
+    try {
+      const {
+        skip = 0,
+        limit = 40,
+        q,
+        fecha_desde,
+        fecha_hasta,
+        devoluciones,
+        estado_pendiente,
+        estado_cliente,
+      } = params;
+      const sp = new URLSearchParams({
+        skip: String(skip),
+        limit: String(limit),
+      });
+      if (q?.trim()) sp.set("q", q.trim());
+      if (fecha_desde) sp.set("fecha_desde", fecha_desde);
+      if (fecha_hasta) sp.set("fecha_hasta", fecha_hasta);
+      if (devoluciones && devoluciones !== "todos")
+        sp.set("devoluciones", devoluciones);
+      if (estado_pendiente && estado_pendiente !== "todos")
+        sp.set("estado_pendiente", estado_pendiente);
+      if (estado_cliente && estado_cliente !== "todos")
+        sp.set("estado_cliente", estado_cliente);
+
+      const response = await apiRequest<CobrosPaginadoResponse>(
+        `/ofertas/confeccion/personalizadas/cobros-paginado?${sp.toString()}`,
+        { method: "GET" },
+      );
+      return response;
+    } catch (error: any) {
+      console.error("[PagoService] Error al obtener cobros paginados:", error);
+      throw new Error(
+        error.response?.data?.message || "Error al cargar cobros",
       );
     }
   }

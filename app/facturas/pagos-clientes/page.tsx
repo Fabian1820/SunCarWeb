@@ -48,11 +48,9 @@ import { StripePagosModal } from "@/components/feats/pagos/stripe-pagos-modal";
 import type { OfertaConfirmadaSinPago } from "@/lib/services/feats/pagos/pagos-service";
 import {
   PagoService,
-  type OfertasEstadoPendienteData,
   type OfertaConPagos,
   type ResumenPagosPendientes,
 } from "@/lib/services/feats/pagos/pago-service";
-import { ClienteService } from "@/lib/services/feats/customer/cliente-service";
 import {
   FacturaContabilidadService,
   type FacturaContabilidad,
@@ -150,8 +148,11 @@ export default function PagosClientesPage() {
     skipSinPago,
     totalConSaldo,
     skipConSaldo,
+    totalCobros,
+    skipCobros,
     loadingSinPago,
     loadingConSaldo,
+    loadingCobros,
     error,
     refetch,
     refetchOfertasSinPago,
@@ -173,9 +174,6 @@ export default function PagosClientesPage() {
   const [resumenPagos, setResumenPagos] =
     useState<ResumenPagosPendientes | null>(null);
   const [loadingResumenPagos, setLoadingResumenPagos] = useState(false);
-  const [estadoPendienteData, setEstadoPendienteData] =
-    useState<OfertasEstadoPendienteData | null>(null);
-  const [loadingEstadoPendiente, setLoadingEstadoPendiente] = useState(false);
   const [pagoDialogOpen, setPagoDialogOpen] = useState(false);
   const [selectedOferta, setSelectedOferta] =
     useState<OfertaConfirmadaSinPago | null>(null);
@@ -184,9 +182,6 @@ export default function PagosClientesPage() {
     FacturaContabilidad[]
   >([]);
   const [loadingFacturasEmitidas, setLoadingFacturasEmitidas] = useState(false);
-  const [estadoClientePorNumero, setEstadoClientePorNumero] = useState<
-    Record<string, string | null>
-  >({});
   const [stripeModalOpen, setStripeModalOpen] = useState(false);
   const [showPresentesDialog, setShowPresentesDialog] = useState(false);
   const [showTasaCambioDialog, setShowTasaCambioDialog] = useState(false);
@@ -270,25 +265,8 @@ export default function PagosClientesPage() {
     return [];
   }, [ofertasSinPago, ofertasConSaldoPendiente, viewMode]);
 
-  const filteredOfertasConPagos = useMemo(() => {
-    if (!searchTerm) return ofertasConPagos;
-
-    const term = searchTerm.toLowerCase();
-    return ofertasConPagos.filter((oferta) => {
-      const clienteNombre = oferta.contacto?.nombre || "";
-      const clienteTelefono = oferta.contacto?.telefono || "";
-      const clienteCarnet = oferta.contacto?.carnet || "";
-
-      return (
-        oferta.numero_oferta.toLowerCase().includes(term) ||
-        (oferta.nombre_completo || "").toLowerCase().includes(term) ||
-        clienteNombre.toLowerCase().includes(term) ||
-        clienteTelefono.includes(term) ||
-        clienteCarnet.includes(term) ||
-        (oferta.almacen_nombre || "").toLowerCase().includes(term)
-      );
-    });
-  }, [ofertasConPagos, searchTerm]);
+  // Search/filters for cobros are handled server-side; ofertasConPagos is already filtered.
+  const filteredOfertasConPagos = ofertasConPagos;
 
   const filteredFacturasEmitidas = useMemo(() => {
     if (!searchTerm) return facturasEmitidas;
@@ -340,86 +318,9 @@ export default function PagosClientesPage() {
     return contextMap;
   }, [ofertasConPagos]);
 
-  const filteredOfertasConPagosPorFecha = useMemo(() => {
-    const desdeTs = fechaCobroDesde
-      ? new Date(`${fechaCobroDesde}T00:00:00`).getTime()
-      : null;
-    const hastaTs = fechaCobroHasta
-      ? new Date(`${fechaCobroHasta}T23:59:59.999`).getTime()
-      : null;
-
-    return filteredOfertasConPagos
-      .map((oferta) => {
-        const ofertaIdActual = String(oferta.oferta_id || "").trim();
-        if (!ofertaIdActual) return null;
-
-        const pagosFiltrados = oferta.pagos.filter((pago) => {
-          const pagoOfertaId = String(pago.oferta_id || "").trim();
-          if (!pagoOfertaId || pagoOfertaId !== ofertaIdActual) return false;
-
-          const pagoTs = new Date(pago.fecha).getTime();
-          if (Number.isNaN(pagoTs)) return false;
-          if (desdeTs !== null && pagoTs < desdeTs) return false;
-          if (hastaTs !== null && pagoTs > hastaTs) return false;
-          return true;
-        });
-
-        if (pagosFiltrados.length === 0) return null;
-
-        const totalPagadoAplicado = pagosFiltrados.reduce((acc, pago) => {
-          const montoUSD = Number(pago.monto_usd || 0);
-          const diferencia = Number(pago.diferencia?.monto || 0);
-          const montoAplicado =
-            diferencia > 0 ? montoUSD - diferencia : montoUSD;
-          return acc + (montoAplicado > 0 ? montoAplicado : 0);
-        }, 0);
-
-        return {
-          ...oferta,
-          pagos: pagosFiltrados,
-          cantidad_pagos: pagosFiltrados.length,
-          total_pagado: totalPagadoAplicado,
-        };
-      })
-      .filter((oferta): oferta is OfertaConPagos => oferta !== null);
-  }, [fechaCobroDesde, fechaCobroHasta, filteredOfertasConPagos]);
-
-  const ofertasEstadoPendienteIds = useMemo(() => {
-    if (!estadoPendienteData) return null;
-
-    const ids = new Set<string>();
-    for (const oferta of estadoPendienteData.ofertas || []) {
-      const ofertaId = String(oferta.oferta_id || "").trim();
-      if (ofertaId) ids.add(ofertaId);
-    }
-
-    return ids;
-  }, [estadoPendienteData]);
-
-  const filteredPagosPorOfertas = useMemo(() => {
-    if (estadoOfertaPendienteFilter === "todos") {
-      return filteredOfertasConPagosPorFecha;
-    }
-
-    if (ofertasEstadoPendienteIds) {
-      return filteredOfertasConPagosPorFecha.filter((oferta) => {
-        const ofertaId = String(oferta.oferta_id || "").trim();
-        return ofertaId !== "" && ofertasEstadoPendienteIds.has(ofertaId);
-      });
-    }
-
-    // Fallback local si el endpoint falla/no responde.
-    return filteredOfertasConPagosPorFecha.filter((oferta) => {
-      const tienePendiente = calcularPendienteOferta(oferta) > 0.01;
-      return estadoOfertaPendienteFilter === "con_pendiente"
-        ? tienePendiente
-        : !tienePendiente;
-    });
-  }, [
-    estadoOfertaPendienteFilter,
-    filteredOfertasConPagosPorFecha,
-    ofertasEstadoPendienteIds,
-  ]);
+  // Date, estado_pendiente, devoluciones and search filters for cobros are server-side.
+  // filteredOfertasConPagos already contains the current page from the server.
+  const filteredPagosPorOfertas = filteredOfertasConPagos;
 
   const getNumeroClienteOferta = useCallback((oferta: OfertaConPagos) => {
     if (oferta.contacto?.tipo_contacto !== "cliente") return "";
@@ -432,6 +333,7 @@ export default function PagosClientesPage() {
 
   const resolveEstadoClienteOferta = useCallback(
     (oferta: OfertaConPagos) => {
+      // Estado now comes directly from the server in contacto.estado
       const value =
         (typeof oferta.contacto?.estado === "string" &&
         oferta.contacto.estado.trim()
@@ -455,108 +357,26 @@ export default function PagosClientesPage() {
           : "") ||
         (typeof oferta.lead?.estado === "string" && oferta.lead.estado.trim()
           ? oferta.lead.estado
-          : "") ||
-        (() => {
-          const numero = getNumeroClienteOferta(oferta);
-          return numero ? estadoClientePorNumero[numero] || "" : "";
-        })();
+          : "");
 
       const normalized = normalizeEstadoClienteKey(value || "sin estado");
       return ESTADO_CLIENTE_LABELS[normalized] || value || "Sin estado";
     },
-    [estadoClientePorNumero, getNumeroClienteOferta],
+    [],
   );
 
-  const numerosClienteEnPagosPorOferta = useMemo(() => {
-    if (viewMode !== "pagos-por-ofertas") return [];
-
-    const numeros = new Set<string>();
-    filteredPagosPorOfertas.forEach((oferta) => {
-      const numero = getNumeroClienteOferta(oferta);
-      if (numero) numeros.add(numero);
-    });
-
-    return Array.from(numeros);
-  }, [filteredPagosPorOfertas, getNumeroClienteOferta, viewMode]);
-
-  useEffect(() => {
-    if (numerosClienteEnPagosPorOferta.length === 0) return;
-
-    const numerosPendientes = numerosClienteEnPagosPorOferta.filter(
-      (numero) => !(numero in estadoClientePorNumero),
-    );
-    if (numerosPendientes.length === 0) return;
-
-    let cancelled = false;
-
-    Promise.all(
-      numerosPendientes.map(async (numero) => {
-        try {
-          const cliente = await ClienteService.getClienteByNumero(numero);
-          const estado =
-            typeof cliente?.estado === "string" ? cliente.estado.trim() : "";
-          return [numero, estado || null] as const;
-        } catch (error) {
-          console.error(
-            `Error cargando estado del cliente ${numero} para pagos por oferta:`,
-            error,
-          );
-          return [numero, null] as const;
-        }
-      }),
-    ).then((results) => {
-      if (cancelled) return;
-      setEstadoClientePorNumero((prev) => {
-        const next = { ...prev };
-        results.forEach(([numero, estado]) => {
-          next[numero] = estado;
-        });
-        return next;
-      });
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [estadoClientePorNumero, numerosClienteEnPagosPorOferta]);
-
+  // Estado now comes from server; add estado_cliente label to each offer for display.
   const filteredPagosPorOfertasConEstadoCliente = useMemo(
     () =>
       filteredPagosPorOfertas.map((oferta) => {
-        const numero = getNumeroClienteOferta(oferta);
         const estadoActual = resolveEstadoClienteOferta(oferta);
-        const normalizedEstadoActual = normalizeEstadoClienteKey(estadoActual);
-        const estadoCanonico =
-          ESTADO_CLIENTE_LABELS[normalizedEstadoActual] || estadoActual;
-
-        if (!numero) {
-          return {
-            ...oferta,
-            estado_cliente: estadoCanonico,
-          };
-        }
-
-        const estadoCliente = estadoClientePorNumero[numero];
-        if (!estadoCliente) {
-          return {
-            ...oferta,
-            estado_cliente: estadoCanonico,
-          };
-        }
-
+        const normalized = normalizeEstadoClienteKey(estadoActual);
         return {
           ...oferta,
-          estado_cliente:
-            ESTADO_CLIENTE_LABELS[normalizeEstadoClienteKey(estadoCliente)] ||
-            estadoCliente,
+          estado_cliente: ESTADO_CLIENTE_LABELS[normalized] || estadoActual,
         };
       }),
-    [
-      estadoClientePorNumero,
-      filteredPagosPorOfertas,
-      getNumeroClienteOferta,
-      resolveEstadoClienteOferta,
-    ],
+    [filteredPagosPorOfertas, resolveEstadoClienteOferta],
   );
 
   const estadoClienteFilterOptions = useMemo(() => {
@@ -592,48 +412,32 @@ export default function PagosClientesPage() {
     return ordered;
   }, [filteredPagosPorOfertasConEstadoCliente, resolveEstadoClienteOferta]);
 
-  useEffect(() => {
-    if (estadoClienteFilter === "todos") return;
-    const exists = estadoClienteFilterOptions.some(
-      (option) => option.value === estadoClienteFilter,
-    );
-    if (!exists) {
-      setEstadoClienteFilter("todos");
-    }
-  }, [estadoClienteFilter, estadoClienteFilterOptions]);
-
-  const filteredPagosPorOfertasConEstadoClienteFiltrado = useMemo(() => {
-    const byEstadoCliente =
+  // All server-side filters are applied via refetch; estadoClienteFilter is client-side
+  // (works on the current page of 40 items — fast enough).
+  const filteredPagosPorOfertasConEstadoClienteFiltrado = useMemo(
+    () =>
       estadoClienteFilter === "todos"
         ? filteredPagosPorOfertasConEstadoCliente
         : filteredPagosPorOfertasConEstadoCliente.filter((oferta) => {
             const estado = resolveEstadoClienteOferta(oferta);
             return normalizeEstadoClienteKey(estado) === estadoClienteFilter;
-          });
-
-    if (devolucionesFilter === "todos") return byEstadoCliente;
-
-    return byEstadoCliente.filter((oferta) =>
-      devolucionesFilter === "con_devoluciones"
-        ? hasDevolucionesOferta(oferta)
-        : !hasDevolucionesOferta(oferta),
-    );
-  }, [
-    devolucionesFilter,
-    estadoClienteFilter,
-    filteredPagosPorOfertasConEstadoCliente,
-    resolveEstadoClienteOferta,
-  ]);
+          }),
+    [
+      estadoClienteFilter,
+      filteredPagosPorOfertasConEstadoCliente,
+      resolveEstadoClienteOferta,
+    ],
+  );
 
   const filteredTodosPagosOfertas = useMemo(() => {
-    if (devolucionesFilter === "todos") return filteredOfertasConPagosPorFecha;
+    if (devolucionesFilter === "todos") return filteredOfertasConPagos;
 
-    return filteredOfertasConPagosPorFecha.filter((oferta) =>
+    return filteredOfertasConPagos.filter((oferta) =>
       devolucionesFilter === "con_devoluciones"
         ? hasDevolucionesOferta(oferta)
         : !hasDevolucionesOferta(oferta),
     );
-  }, [devolucionesFilter, filteredOfertasConPagosPorFecha]);
+  }, [devolucionesFilter, filteredOfertasConPagos]);
 
   const totalesPagosPorOfertas = useMemo(() => {
     const ofertasNoCanceladas =
@@ -754,6 +558,29 @@ export default function PagosClientesPage() {
     setPagoDialogOpen(true);
   };
 
+  const cobrosFilters = useCallback(
+    () => ({
+      skip: skipCobros,
+      q: searchTerm.trim() || undefined,
+      fecha_desde: fechaCobroDesde || undefined,
+      fecha_hasta: fechaCobroHasta || undefined,
+      devoluciones:
+        devolucionesFilter !== "todos" ? devolucionesFilter : undefined,
+      estado_pendiente:
+        estadoOfertaPendienteFilter !== "todos"
+          ? estadoOfertaPendienteFilter
+          : undefined,
+    }),
+    [
+      skipCobros,
+      searchTerm,
+      fechaCobroDesde,
+      fechaCobroHasta,
+      devolucionesFilter,
+      estadoOfertaPendienteFilter,
+    ],
+  );
+
   const handlePagoSuccess = () => {
     toast({
       title: "Éxito",
@@ -765,7 +592,7 @@ export default function PagosClientesPage() {
     } else if (viewMode === "finales-pendientes") {
       refetchOfertasConSaldoPendiente({ skip: skipConSaldo, q: searchTerm.trim() || undefined });
     } else if (viewMode === "pagos-por-ofertas" || viewMode === "todos-pagos") {
-      refetchOfertasConPagos();
+      refetchOfertasConPagos(cobrosFilters());
     }
   };
 
@@ -784,13 +611,13 @@ export default function PagosClientesPage() {
       ofertasConPagos.length === 0
     ) {
       setLoadingPagos(true);
-      await refetchOfertasConPagos();
+      await refetchOfertasConPagos({ skip: 0 });
       setLoadingPagos(false);
     } else if (mode === "facturas-emitidas") {
       await Promise.all([
         loadFacturasEmitidas(),
         ofertasConPagos.length === 0
-          ? refetchOfertasConPagos()
+          ? refetchOfertasConPagos({ skip: 0 })
           : Promise.resolve(),
       ]);
     }
@@ -804,11 +631,12 @@ export default function PagosClientesPage() {
     ]);
 
     if (viewMode === "pagos-por-ofertas" || viewMode === "todos-pagos") {
-      await refetchOfertasConPagos();
+      await refetchOfertasConPagos({ ...cobrosFilters(), silent: true });
     } else if (viewMode === "facturas-emitidas") {
       await loadFacturasEmitidas({ silent: true });
     }
   }, [
+    cobrosFilters,
     loadFacturasEmitidas,
     refetchOfertasConPagos,
     refetchOfertasConSaldoPendiente,
@@ -876,18 +704,23 @@ export default function PagosClientesPage() {
       isFirstSearchRender.current = false;
       return;
     }
-    if (
-      viewMode !== "anticipos-pendientes" &&
-      viewMode !== "finales-pendientes"
-    )
-      return;
 
     const timer = setTimeout(() => {
       const q = searchTerm.trim() || undefined;
       if (viewMode === "anticipos-pendientes") {
         refetchOfertasSinPago({ skip: 0, q });
-      } else {
+      } else if (viewMode === "finales-pendientes") {
         refetchOfertasConSaldoPendiente({ skip: 0, q });
+      } else if (
+        viewMode === "pagos-por-ofertas" ||
+        viewMode === "todos-pagos"
+      ) {
+        refetchOfertasConPagos({ skip: 0, q,
+          fecha_desde: fechaCobroDesde || undefined,
+          fecha_hasta: fechaCobroHasta || undefined,
+          devoluciones: devolucionesFilter !== "todos" ? devolucionesFilter : undefined,
+          estado_pendiente: estadoOfertaPendienteFilter !== "todos" ? estadoOfertaPendienteFilter : undefined,
+        });
       }
     }, 300);
 
@@ -897,6 +730,37 @@ export default function PagosClientesPage() {
     viewMode,
     refetchOfertasSinPago,
     refetchOfertasConSaldoPendiente,
+    refetchOfertasConPagos,
+    fechaCobroDesde,
+    fechaCobroHasta,
+    devolucionesFilter,
+    estadoOfertaPendienteFilter,
+  ]);
+
+  // Re-fetch cobros from skip=0 when non-search filters change (immediate, no debounce)
+  const isFirstCobrosFilterRender = useRef(true);
+  useEffect(() => {
+    if (isFirstCobrosFilterRender.current) {
+      isFirstCobrosFilterRender.current = false;
+      return;
+    }
+    if (viewMode !== "pagos-por-ofertas" && viewMode !== "todos-pagos") return;
+
+    refetchOfertasConPagos({
+      skip: 0,
+      q: searchTerm.trim() || undefined,
+      fecha_desde: fechaCobroDesde || undefined,
+      fecha_hasta: fechaCobroHasta || undefined,
+      devoluciones: devolucionesFilter !== "todos" ? devolucionesFilter : undefined,
+      estado_pendiente: estadoOfertaPendienteFilter !== "todos" ? estadoOfertaPendienteFilter : undefined,
+    });
+  }, [
+    fechaCobroDesde,
+    fechaCobroHasta,
+    devolucionesFilter,
+    estadoOfertaPendienteFilter,
+    // intentionally exclude searchTerm (handled by debounce above) and viewMode
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   ]);
 
   useEffect(() => {
@@ -1020,61 +884,6 @@ export default function PagosClientesPage() {
     ofertasConPagos,
   ]);
 
-  useEffect(() => {
-    if (
-      viewMode !== "pagos-por-ofertas" ||
-      estadoOfertaPendienteFilter === "todos"
-    ) {
-      setEstadoPendienteData(null);
-      setLoadingEstadoPendiente(false);
-      return;
-    }
-
-    if (
-      fechaCobroDesde &&
-      fechaCobroHasta &&
-      new Date(fechaCobroDesde).getTime() > new Date(fechaCobroHasta).getTime()
-    ) {
-      setEstadoPendienteData(null);
-      setLoadingEstadoPendiente(false);
-      return;
-    }
-
-    let cancelled = false;
-    setLoadingEstadoPendiente(true);
-
-    PagoService.getOfertasEstadoPendiente({
-      fecha_inicio: fechaCobroDesde || undefined,
-      fecha_fin: fechaCobroHasta || undefined,
-      estado_pendiente: estadoOfertaPendienteFilter,
-    })
-      .then((data) => {
-        if (!cancelled) {
-          setEstadoPendienteData(data);
-        }
-      })
-      .catch((error) => {
-        console.error("Error cargando ofertas por estado de pendiente:", error);
-        if (!cancelled) {
-          setEstadoPendienteData(null);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLoadingEstadoPendiente(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    estadoOfertaPendienteFilter,
-    fechaCobroDesde,
-    fechaCobroHasta,
-    ofertasConPagos,
-    viewMode,
-  ]);
 
   useEffect(() => {
     const currentCount = clientesPresentes.length;
@@ -1582,9 +1391,9 @@ export default function PagosClientesPage() {
                   </Button>
                 </div>
               )}
-              {viewMode === "pagos-por-ofertas" && loadingEstadoPendiente ? (
+              {viewMode === "pagos-por-ofertas" && loadingCobros ? (
                 <p className="mt-2 text-xs text-gray-500">
-                  Actualizando ofertas por estado pendiente...
+                  Actualizando cobros...
                 </p>
               ) : null}
             </CardContent>
@@ -1603,9 +1412,9 @@ export default function PagosClientesPage() {
                 {viewMode === "finales-pendientes" &&
                   `Mostrando ${filteredOfertas.length} de ${totalConSaldo} ofertas con saldo pendiente`}
                 {viewMode === "pagos-por-ofertas" &&
-                  `Mostrando ${filteredPagosPorOfertasConEstadoClienteFiltrado.length} de ${ofertasConPagos.length} ofertas con cobros`}
+                  `Mostrando ${filteredPagosPorOfertasConEstadoClienteFiltrado.length} de ${totalCobros} ofertas con cobros`}
                 {viewMode === "todos-pagos" &&
-                  `Mostrando ${totalesTodosPagos.cantidadCobros} de ${ofertasConPagos.reduce((acc, o) => acc + o.cantidad_pagos, 0)} cobros registrados`}
+                  `Mostrando ${totalesTodosPagos.cantidadCobros} cobros en esta página`}
                 {viewMode === "facturas-emitidas" &&
                   `Mostrando ${filteredFacturasEmitidas.length} de ${facturasEmitidas.length} facturas emitidas`}
               </CardDescription>
@@ -1646,26 +1455,64 @@ export default function PagosClientesPage() {
                   exportContextByOferta={exportContextByOferta}
                 />
               ) : viewMode === "pagos-por-ofertas" ? (
-                <TodosPagosTable
-                  ofertasConPagos={
-                    filteredPagosPorOfertasConEstadoClienteFiltrado
-                  }
-                  loading={loadingPagos}
-                  showSearch={false}
-                  onFacturaCreada={async () => {
-                    await Promise.all([
-                      refetchOfertasConPagos(),
-                      loadFacturasEmitidas({ silent: true }),
-                    ]);
-                  }}
-                />
+                <>
+                  <TodosPagosTable
+                    ofertasConPagos={
+                      filteredPagosPorOfertasConEstadoClienteFiltrado
+                    }
+                    loading={loadingPagos || loadingCobros}
+                    showSearch={false}
+                    onFacturaCreada={async () => {
+                      await Promise.all([
+                        refetchOfertasConPagos(cobrosFilters()),
+                        loadFacturasEmitidas({ silent: true }),
+                      ]);
+                    }}
+                  />
+                  {totalCobros > PAGOS_LIMIT && (
+                    <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                      <p className="text-sm text-gray-500">
+                        Página {Math.floor(skipCobros / PAGOS_LIMIT) + 1} de{" "}
+                        {Math.ceil(totalCobros / PAGOS_LIMIT)} ({totalCobros} en total)
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={skipCobros === 0}
+                          onClick={() =>
+                            refetchOfertasConPagos({
+                              ...cobrosFilters(),
+                              skip: Math.max(0, skipCobros - PAGOS_LIMIT),
+                            })
+                          }
+                        >
+                          Anterior
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={skipCobros + PAGOS_LIMIT >= totalCobros}
+                          onClick={() =>
+                            refetchOfertasConPagos({
+                              ...cobrosFilters(),
+                              skip: skipCobros + PAGOS_LIMIT,
+                            })
+                          }
+                        >
+                          Siguiente
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </>
               ) : viewMode === "todos-pagos" ? (
                 <TodosPagosPlanosTable
                   ofertasConPagos={filteredTodosPagosOfertas}
-                  loading={loadingPagos}
+                  loading={loadingPagos || loadingCobros}
                   onPagoUpdated={async () => {
                     await Promise.all([
-                      refetchOfertasConPagos(),
+                      refetchOfertasConPagos(cobrosFilters()),
                       refetchOfertasSinPago({ skip: skipSinPago, q: searchTerm.trim() || undefined, silent: true }),
                       refetchOfertasConSaldoPendiente({ skip: skipConSaldo, q: searchTerm.trim() || undefined, silent: true }),
                     ]);

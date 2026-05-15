@@ -6,6 +6,7 @@ import {
 import {
   PagoService,
   type OfertaConPagos,
+  type CobrosPaginadoParams,
 } from "@/lib/services/feats/pagos/pago-service";
 
 export const PAGOS_LIMIT = 40;
@@ -28,8 +29,11 @@ export function usePagos() {
   const [skipConSaldo, setSkipConSaldo] = useState(0);
   const [loadingConSaldo, setLoadingConSaldo] = useState(false);
 
-  // ── Pagos por ofertas (sin cambios) ─────────────────────────
+  // ── Cobros por ofertas paginado ──────────────────────────────
   const [ofertasConPagos, setOfertasConPagos] = useState<OfertaConPagos[]>([]);
+  const [totalCobros, setTotalCobros] = useState(0);
+  const [skipCobros, setSkipCobros] = useState(0);
+  const [loadingCobros, setLoadingCobros] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,15 +88,38 @@ export function usePagos() {
     [],
   );
 
-  // ── Fetch pagos por ofertas (sin paginación, no cambia) ──────
-  const fetchOfertasConPagos = useCallback(async () => {
-    try {
-      const data = await PagoService.getOfertasConPagos();
-      setOfertasConPagos(data);
-    } catch (err: unknown) {
-      console.error("[usePagos] fetchOfertasConPagos:", err);
-    }
-  }, []);
+  // ── Fetch cobros paginado ────────────────────────────────────
+  const fetchOfertasConPagos = useCallback(
+    async (options?: {
+      skip?: number;
+      q?: string;
+      fecha_desde?: string;
+      fecha_hasta?: string;
+      devoluciones?: CobrosPaginadoParams["devoluciones"];
+      estado_pendiente?: CobrosPaginadoParams["estado_pendiente"];
+      estado_cliente?: string;
+      silent?: boolean;
+    }) => {
+      const { silent = false, skip = 0, ...filters } = options ?? {};
+      if (!silent) setLoadingCobros(true);
+      try {
+        const result = await PagoService.getCobrosPaginado({
+          skip,
+          limit: PAGOS_LIMIT,
+          ...filters,
+        });
+        setOfertasConPagos(result.data ?? []);
+        setTotalCobros(result.total ?? 0);
+        setSkipCobros(result.skip ?? skip);
+      } catch (err: unknown) {
+        console.error("[usePagos] fetchOfertasConPagos:", err);
+        setError(getErrorMessage(err, "Error al cargar cobros por ofertas"));
+      } finally {
+        if (!silent) setLoadingCobros(false);
+      }
+    },
+    [],
+  );
 
   // ── Refetch completo (ambas listas, sin filtros, desde skip=0) ─
   const refetch = useCallback(async () => {
@@ -103,13 +130,18 @@ export function usePagos() {
     setLoading(false);
   }, [fetchOfertasConSaldoPendiente, fetchOfertasSinPago]);
 
-  const refetchOfertasConPagos = useCallback(async () => {
-    try {
-      await fetchOfertasConPagos();
-    } catch (err: unknown) {
-      console.error("[usePagos] Error al cargar ofertas con pagos:", err);
-    }
-  }, [fetchOfertasConPagos]);
+  const refetchOfertasConPagos = useCallback(
+    async (
+      options?: Parameters<typeof fetchOfertasConPagos>[0],
+    ) => {
+      try {
+        await fetchOfertasConPagos(options);
+      } catch (err: unknown) {
+        console.error("[usePagos] Error al cargar ofertas con pagos:", err);
+      }
+    },
+    [fetchOfertasConPagos],
+  );
 
   return {
     // Datos
@@ -121,10 +153,13 @@ export function usePagos() {
     skipSinPago,
     totalConSaldo,
     skipConSaldo,
+    totalCobros,
+    skipCobros,
     // Loading states
     loading,
     loadingSinPago,
     loadingConSaldo,
+    loadingCobros,
     error,
     // Acciones
     refetch,
