@@ -173,7 +173,7 @@ export function FacturaVentaDetailDialog({
                           <div className="flex justify-between">
                             <span className="text-gray-500">Equivalente USD:</span>
                             <span className="font-medium text-green-700">
-                              {money(p.monto_usd ?? monto / Number(p.tasa_cambio))}
+                              {money(p.monto_usd ?? (moneda === "EUR" ? monto * Number(p.tasa_cambio) : monto / Number(p.tasa_cambio)))}
                             </span>
                           </div>
                         </>

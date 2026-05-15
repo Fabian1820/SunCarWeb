@@ -305,7 +305,7 @@ export function FacturasVentasTable({
                               </span>
                               {moneda !== "USD" && p.tasa_cambio && Number(p.tasa_cambio) > 0 && (
                                 <div className="text-[10px] text-gray-400">
-                                  Tasa: {Number(p.tasa_cambio).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 })} → {(monto / Number(p.tasa_cambio)).toFixed(2)} USD
+                                  Tasa: {Number(p.tasa_cambio).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 })} → {(moneda === "EUR" ? monto * Number(p.tasa_cambio) : monto / Number(p.tasa_cambio)).toFixed(2)} USD
                                 </div>
                               )}
                               {metodo === "efectivo" && desgloseEntries.length > 0 && (

@@ -158,9 +158,11 @@ export function RegistrarPagoVentaDialog({
   );
   const montoNum = Number(monto);
   const tasaCambioNum = Number(tasaCambio) || 0;
-  // tasa = CUP (o EUR) por cada 1 USD, ej: 550 significa 550 CUP = 1 USD
+  // Para CUP: tasa = CUP por 1 USD (divide). Para EUR: tasa = USD por 1 EUR (multiplica).
   const montoEnUSD =
-    moneda !== "USD" && tasaCambioNum > 0 ? montoNum / tasaCambioNum : montoNum;
+    moneda !== "USD" && tasaCambioNum > 0
+      ? moneda === "EUR" ? montoNum * tasaCambioNum : montoNum / tasaCambioNum
+      : montoNum;
 
   const montoCubreTodo = pendiente != null && montoEnUSD > 0 && montoEnUSD >= pendiente;
 
@@ -259,7 +261,9 @@ export function RegistrarPagoVentaDialog({
     }
     const tasaNum = Number(tasaCambio) || 0;
     const montoUSD =
-      moneda !== "USD" && tasaNum > 0 ? montoNum / tasaNum : montoNum;
+      moneda !== "USD" && tasaNum > 0
+        ? moneda === "EUR" ? montoNum * tasaNum : montoNum / tasaNum
+        : montoNum;
     if (pendiente != null && montoUSD > pendiente + 0.01) {
       setError(`El monto no puede superar el saldo pendiente (${formatCurrency(pendiente)})`);
       return;
@@ -316,9 +320,11 @@ export function RegistrarPagoVentaDialog({
         solicitud_venta_id: solicitud.id,
         monto: montoNum,
         moneda,
-        // El backend calcula monto_usd = monto * tasa_cambio, así que enviamos el recíproco
-        // (usuario ingresa "CUP por 1 USD", backend espera "USD por 1 CUP")
-        tasa_cambio: tasaCambio && moneda !== "USD" ? 1 / Number(tasaCambio) : (tasaCambio ? Number(tasaCambio) : undefined),
+        // CUP: usuario ingresa "CUP por 1 USD" → enviamos recíproco al backend (backend hace monto*tasa)
+        // EUR: usuario ingresa "USD por 1 EUR" → enviamos directo al backend (backend hace monto*tasa)
+        tasa_cambio: tasaCambio && moneda !== "USD"
+          ? (moneda === "EUR" ? Number(tasaCambio) : 1 / Number(tasaCambio))
+          : (tasaCambio ? Number(tasaCambio) : undefined),
         metodo_pago: metodoPago,
         desglose_billetes:
           metodoPago === "efectivo" ? buildDesgloseBilletes() : undefined,
@@ -493,14 +499,14 @@ export function RegistrarPagoVentaDialog({
 
           {moneda !== "USD" && (
             <div className="space-y-1">
-              <Label>Tasa de cambio ({moneda} por 1 USD)</Label>
+              <Label>Tasa de cambio ({moneda === "EUR" ? "USD por 1 EUR" : `${moneda} por 1 USD`})</Label>
               <Input
                 type="number"
                 min="0"
                 step="1"
                 value={tasaCambio}
                 onChange={(e) => setTasaCambio(e.target.value)}
-                placeholder="Ej: 550"
+                placeholder={moneda === "EUR" ? "Ej: 0.87" : "Ej: 550"}
               />
               {tasaCambioNum > 0 && montoNum > 0 && (
                 <p className="text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded px-2 py-1">

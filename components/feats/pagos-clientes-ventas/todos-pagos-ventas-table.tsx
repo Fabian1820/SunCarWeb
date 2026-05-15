@@ -230,7 +230,7 @@ export function TodosPagosVentasTable({
         const moneda = getMoneda(p);
         if (moneda === "USD") return sum + pend;
         const tasa = Number(p.tasa_cambio);
-        if (tasa > 0) return sum + pend / tasa;
+        if (tasa > 0) return sum + (moneda === "EUR" ? pend * tasa : pend / tasa);
         return sum + pend;
       }
       return sum;
@@ -288,7 +288,7 @@ export function TodosPagosVentasTable({
           )}
           <div className="text-xs text-red-600">
             Pend: {pendiente != null ? formatCurrency(
-              moneda === "USD" ? pendiente : (Number(p.tasa_cambio) > 0 ? pendiente / Number(p.tasa_cambio) : pendiente),
+              moneda === "USD" ? pendiente : (Number(p.tasa_cambio) > 0 ? (moneda === "EUR" ? pendiente * Number(p.tasa_cambio) : pendiente / Number(p.tasa_cambio)) : pendiente),
               "USD"
             ) : "—"}
           </div>
