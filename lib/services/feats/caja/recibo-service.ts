@@ -192,13 +192,13 @@ export class ReciboService {
     doc.setFont('helvetica', 'bold');
     doc.text('Fecha:', contentLeftX, yPos);
     doc.setFont('helvetica', 'normal');
-    doc.text(fechaEmision.toLocaleDateString('es-ES'), contentLeftX + 15, yPos);
+    doc.text(fechaEmision.toLocaleDateString('es-ES', { timeZone: 'America/Havana' }), contentLeftX + 15, yPos);
     yPos += 4;
 
     doc.setFont('helvetica', 'bold');
     doc.text('Hora:', contentLeftX, yPos);
     doc.setFont('helvetica', 'normal');
-    doc.text(fechaEmision.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }), contentLeftX + 15, yPos);
+    doc.text(fechaEmision.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Havana' }), contentLeftX + 15, yPos);
     yPos += 5;
 
     // ============ DATOS DEL CLIENTE ============
@@ -467,7 +467,7 @@ export class ReciboService {
     doc.text('Hora:', contentLeftX, yPos);
     doc.setFont('helvetica', 'normal');
     doc.text(
-      fecha.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+      fecha.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Havana' }),
       contentLeftX + 15,
       yPos,
     );
@@ -610,7 +610,7 @@ export class ReciboService {
     doc.setFont('helvetica', 'bold');
     doc.text('Hora:', contentLeftX, yPos);
     doc.setFont('helvetica', 'normal');
-    doc.text(fecha.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }), contentLeftX + 15, yPos);
+    doc.text(fecha.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Havana' }), contentLeftX + 15, yPos);
     yPos += 4;
 
     doc.setFont('helvetica', 'bold');
@@ -764,7 +764,7 @@ export class ReciboService {
     doc.setFont('helvetica', 'bold');
     doc.text('Hora:', margin, yPos);
     doc.setFont('helvetica', 'normal');
-    doc.text(fechaCierre.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }), margin + 20, yPos);
+    doc.text(fechaCierre.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Havana' }), margin + 20, yPos);
     yPos += 6;
 
     // Línea separadora
