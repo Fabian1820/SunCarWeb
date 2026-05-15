@@ -223,12 +223,22 @@ export function StockTable({
                   <td className="py-3 px-2 max-w-[110px]">
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <div className="text-sm font-semibold text-gray-900 truncate cursor-default">
-                          {item.material_codigo}
+                        <div className="cursor-default min-w-0">
+                          <div className="text-sm font-semibold text-gray-900 truncate">
+                            {item.material_codigo}
+                          </div>
+                          {material?.numero_serie && (
+                            <div className="text-xs text-gray-500 mt-0.5 truncate">
+                              N/S: {material.numero_serie}
+                            </div>
+                          )}
                         </div>
                       </TooltipTrigger>
                       <TooltipContent>
                         <p>{item.material_codigo}</p>
+                        {material?.numero_serie && (
+                          <p className="text-xs">N/S: {material.numero_serie}</p>
+                        )}
                       </TooltipContent>
                     </Tooltip>
                   </td>
