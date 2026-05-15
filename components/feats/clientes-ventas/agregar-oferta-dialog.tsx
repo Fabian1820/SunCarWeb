@@ -645,10 +645,10 @@ export function AgregarOfertaDialog({
         <thead>
           <tr className="bg-gray-50 border-b border-t">
             <th className="text-left py-2 px-2 font-medium text-gray-600">Material</th>
-            <th className="text-center py-2 px-1 font-medium text-gray-600 w-16">Cant.</th>
-            <th className="text-right py-2 px-1 font-medium text-gray-600 w-16">P.Unit</th>
-            <th className="text-left py-2 px-1 font-medium text-gray-600 w-36">Descuento</th>
-            <th className="text-right py-2 px-1 font-medium text-gray-600 w-16">Total</th>
+            <th className="text-center py-2 px-1 font-medium text-gray-600 w-20">Cant.</th>
+            <th className="text-right py-2 px-1 font-medium text-gray-600 w-24">P.Unit</th>
+            <th className="text-left py-2 px-1 font-medium text-gray-600 w-52">Descuento</th>
+            <th className="text-right py-2 px-1 font-medium text-gray-600 w-24">Total</th>
             <th className="w-7" />
           </tr>
         </thead>
@@ -676,29 +676,29 @@ export function AgregarOfertaDialog({
                     )}
                   </p>
                 </td>
-                <td className="py-2 px-1 w-16">
+                <td className="py-2 px-1 w-20">
                   <Input
                     type="number" min="0" step="1"
-                    className="h-7 w-14 text-center text-xs"
+                    className="h-8 w-16 text-center text-sm"
                     value={linea.cantidad}
                     onChange={(e) => cambiarCantidad(linea.material_id, parseInt(e.target.value) || 0)}
                   />
                 </td>
-                <td className="py-2 px-1 text-right text-gray-700 w-16">
+                <td className="py-2 px-1 text-right text-gray-700 w-24">
                   {linea.precio > 0 ? `$${linea.precio.toFixed(2)}` : <span className="text-gray-400">—</span>}
                 </td>
-                <td className="py-2 px-1 w-36">
-                  <div className="flex items-center gap-1">
+                <td className="py-2 px-1 w-52">
+                  <div className="flex items-center gap-1.5">
                     <div className="flex rounded border border-gray-200 overflow-hidden shrink-0">
                       <button type="button"
                         onClick={() => handleDescuentoTipoChange(linea.material_id, "%")}
-                        className={`px-1.5 py-1 text-[10px] transition-colors ${linea.descuento_tipo === "%" ? "bg-orange-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}>
+                        className={`px-2 py-1.5 text-xs font-medium transition-colors ${linea.descuento_tipo === "%" ? "bg-orange-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}>
                         %
                       </button>
                       <button type="button"
                         onClick={() => handleDescuentoTipoChange(linea.material_id, "$")}
                         disabled={linea.precio <= 0}
-                        className={`px-1.5 py-1 text-[10px] transition-colors ${linea.descuento_tipo === "$" ? "bg-orange-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"} disabled:opacity-40`}>
+                        className={`px-2 py-1.5 text-xs font-medium transition-colors ${linea.descuento_tipo === "$" ? "bg-orange-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"} disabled:opacity-40`}>
                         $
                       </button>
                     </div>
@@ -707,7 +707,7 @@ export function AgregarOfertaDialog({
                         type="number" min="0" step={linea.descuento_tipo === "$" ? "0.01" : "0.5"}
                         value={linea.descuento_display}
                         onChange={(e) => handleDescuentoChange(linea.material_id, e.target.value)}
-                        className={`h-7 text-right w-full text-xs ${descuentoExcedido ? "border-red-400" : ""}`}
+                        className={`h-8 text-right w-full text-sm font-medium ${descuentoExcedido ? "border-red-400" : ""}`}
                       />
                       {linea.max_descuento !== undefined && !descuentoFree && (
                         <p className="text-[10px] text-right leading-tight mt-0.5 text-gray-400">
@@ -729,7 +729,7 @@ export function AgregarOfertaDialog({
                     </div>
                   </div>
                 </td>
-                <td className="py-2 px-1 text-right font-medium text-gray-800 w-16">
+                <td className="py-2 px-1 text-right font-medium text-gray-800 w-24">
                   {linea.precio > 0
                     ? <span className={pct > 0 ? "text-green-700" : ""}>${fmt(totalLinea)}</span>
                     : <span className="text-gray-400">—</span>}
@@ -999,8 +999,8 @@ export function AgregarOfertaDialog({
           "p-0 overflow-hidden flex flex-col gap-0",
           // mobile: fullscreen
           "w-screen max-w-[100vw] h-[100dvh] max-h-[100dvh] rounded-none",
-          // desktop: original
-          "md:w-auto md:max-w-6xl md:h-auto md:max-h-[92vh] md:rounded-lg",
+          // desktop: más ancho y alto
+          "md:w-[92vw] md:max-w-[1400px] md:h-[90vh] md:max-h-[90vh] md:rounded-lg",
         )}
       >
         {/* header */}
