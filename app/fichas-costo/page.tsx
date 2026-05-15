@@ -16,7 +16,6 @@ import {
   TrendingUp,
   Eye,
   PlusCircle,
-  Calculator,
   Pencil,
 } from "lucide-react"
 import { Input } from "@/components/shared/molecule/input"
@@ -29,7 +28,6 @@ import { FichaDetalleCard } from "@/components/feats/fichas-costo/ficha-detalle-
 import { ComparacionDialog } from "@/components/feats/fichas-costo/comparacion-dialog"
 import { HistorialDialog } from "@/components/feats/fichas-costo/historial-dialog"
 import { CrearFichaForm } from "@/components/feats/fichas-costo/crear-ficha-form"
-import { CalcPorcentajeDialog } from "@/components/feats/fichas-costo/calc-porcentaje-dialog"
 import { EditarPreciosDialog } from "@/components/feats/fichas-costo/editar-precios-dialog"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/shared/molecule/tooltip"
@@ -79,7 +77,6 @@ function FichasCostoPageContent() {
   const [isDetalleOpen, setIsDetalleOpen] = useState(false)
   const [isComparacionOpen, setIsComparacionOpen] = useState(false)
   const [isHistorialOpen, setIsHistorialOpen] = useState(false)
-  const [isCalcOpen, setIsCalcOpen] = useState(false)
   const [busqueda, setBusqueda] = useState("")
   const [materialEditPrecios, setMaterialEditPrecios] = useState<MaterialFichaResumen | null>(null)
   const [isEditPreciosOpen, setIsEditPreciosOpen] = useState(false)
@@ -225,27 +222,16 @@ function FichasCostoPageContent() {
         subtitle="Gestiona fichas producto a producto con costo base y % de incremento"
         badge={{ text: "Costos", className: "bg-teal-100 text-teal-800" }}
         actions={
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsCalcOpen(true)}
-              className="border-teal-200 text-teal-700 hover:bg-teal-50"
-            >
-              <Calculator className="h-4 w-4" />
-              <span className="hidden sm:inline ml-1">Calculadora %</span>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void loadResumen()}
-              disabled={loadingResumen}
-              title="Actualizar lista"
-            >
-              <RefreshCcw className={`h-4 w-4 ${loadingResumen ? "animate-spin" : ""}`} />
-              <span className="hidden sm:inline ml-1">Actualizar</span>
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void loadResumen()}
+            disabled={loadingResumen}
+            title="Actualizar lista"
+          >
+            <RefreshCcw className={`h-4 w-4 ${loadingResumen ? "animate-spin" : ""}`} />
+            <span className="hidden sm:inline ml-1">Actualizar</span>
+          </Button>
         }
       />
 
@@ -306,7 +292,6 @@ function FichasCostoPageContent() {
                       <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[100px]">Precio Venta</th>
                       <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[110px]">P. Instaladora</th>
                       <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[90px]">% Rebajable</th>
-                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[90px]">Stock Mín</th>
                       <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[120px]">Ficha</th>
                       <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[120px]">Última ficha</th>
                       <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[140px]">Acciones</th>
@@ -420,12 +405,6 @@ function FichasCostoPageContent() {
                           <td className="py-2.5 px-3">
                             <span className="font-medium text-gray-900 text-xs">
                               {row.porciento_rebajable_venta != null ? `${row.porciento_rebajable_venta}%` : "N/A"}
-                            </span>
-                          </td>
-
-                          <td className="py-2.5 px-3">
-                            <span className="font-medium text-gray-900 text-xs">
-                              {row.stockaje_minimo != null ? row.stockaje_minimo : "N/A"}
                             </span>
                           </td>
 
@@ -576,8 +555,6 @@ function FichasCostoPageContent() {
         historial={historial}
         loading={loading}
       />
-
-      <CalcPorcentajeDialog open={isCalcOpen} onOpenChange={setIsCalcOpen} materiales={resumen} />
 
       <EditarPreciosDialog
         open={isEditPreciosOpen}

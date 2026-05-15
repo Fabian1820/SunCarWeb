@@ -253,6 +253,14 @@ export default function Dashboard() {
       iconClass: "text-cyan-700",
     },
     {
+      id: "compras-envios-costos",
+      href: "/compras-envios-costos",
+      icon: FileSpreadsheet,
+      title: "Compras, Envíos y Costos",
+      description: "Envíos de contenedores y fichas de costo de materiales.",
+      iconClass: "text-teal-600",
+    },
+    {
       id: "facturas",
       href: "/facturas",
       icon: Receipt,
@@ -413,22 +421,22 @@ export default function Dashboard() {
     {
       id: "economia",
       title: "Economía",
-      subtitle: "Facturación, tasa de cambio y existencias.",
+      subtitle: "Facturación, tasa de cambio, existencias y compras.",
       moduleIds: [
         "facturas",
         "tasa-cambio-diaria",
         "existencias-contabilidad",
+        "compras-envios-costos",
       ],
     },
     {
       id: "gestion-almacenes",
       title: "Gestión de Almacenes",
-      subtitle: "Materiales, almacenes, inventario y envío de contenedores.",
+      subtitle: "Materiales, almacenes e inventario.",
       moduleIds: [
         "materiales",
         "almacenes-suncar",
         "inventario",
-        "envio-contenedores",
       ],
     },
     {
@@ -440,8 +448,8 @@ export default function Dashboard() {
     {
       id: "area-direccion",
       title: "Área de Dirección",
-      subtitle: "Billetera, fichas de costo y permisos.",
-      moduleIds: ["wallet", "wallet-manager", "fichas-costo", "permisos"],
+      subtitle: "Billetera y permisos.",
+      moduleIds: ["wallet", "wallet-manager", "permisos"],
     },
     {
       id: "web",
