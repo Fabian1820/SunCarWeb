@@ -32,19 +32,18 @@ import {
   TrendingUp,
   Lock,
   X,
-  CheckCircle2,
-  CreditCard,
-  FileText,
+  Receipt,
+  Percent,
+  Crown,
 } from "lucide-react";
 import type {
-  OfertaVentaConComercial,
+  FacturaVentaConComercial,
   EstadisticaVendedor,
-  EstadoOfertaVenta,
 } from "@/lib/types/feats/reportes-ventas/reportes-ventas-types";
 import { useAuth } from "@/contexts/auth-context";
 
-interface ResultadosVentasTableProps {
-  resultados: OfertaVentaConComercial[];
+interface VentasPorComercialTableProps {
+  facturas: FacturaVentaConComercial[];
   loading: boolean;
   onRefresh: () => void;
 }
@@ -57,22 +56,15 @@ const RESTRICTED_USERS = [
   "Maikel Jermanys Fernández Leal",
 ];
 
-const ESTADO_BADGE: Record<EstadoOfertaVenta, { label: string; className: string }> = {
-  enviada: { label: "Enviada", className: "bg-blue-100 text-blue-700 border-blue-200" },
-  confirmada: { label: "Confirmada", className: "bg-amber-100 text-amber-800 border-amber-200" },
-  pagada: { label: "Pagada", className: "bg-green-100 text-green-800 border-green-200" },
-  cancelada: { label: "Cancelada", className: "bg-gray-100 text-gray-600 border-gray-200" },
-};
-
-export function ResultadosVentasTable({
-  resultados,
+export function VentasPorComercialTable({
+  facturas,
   loading,
   onRefresh,
-}: ResultadosVentasTableProps) {
+}: VentasPorComercialTableProps) {
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [comercialFilter, setComercialFilter] = useState<string>("todos");
-  const [estadoFilter, setEstadoFilter] = useState<string>("todos");
+  const [descuentoFilter, setDescuentoFilter] = useState<string>("todos");
   const [mesFilter, setMesFilter] = useState<string>("todos");
   const [anioFilter, setAnioFilter] = useState<string>("todos");
   const [fechaDesde, setFechaDesde] = useState<string>("");
@@ -85,106 +77,106 @@ export function ResultadosVentasTable({
     return user?.nombre === comercial;
   };
 
-  const fechaReferencia = (r: OfertaVentaConComercial): string | null => {
-    return r.fecha_confirmada || r.fecha_creacion || null;
-  };
+  const fechaReferencia = (f: FacturaVentaConComercial): string | null =>
+    f.fecha || f.fecha_creacion || null;
 
   const comerciales = useMemo(() => {
     const unique = new Set(
-      resultados
-        .map((r) => r.cliente.comercial)
-        .filter((c): c is string => !!c),
+      facturas.map((f) => f.cliente.comercial).filter((c): c is string => !!c),
     );
     return Array.from(unique).sort();
-  }, [resultados]);
+  }, [facturas]);
 
   const anios = useMemo(() => {
     const unique = new Set(
-      resultados
-        .map((r) => fechaReferencia(r))
+      facturas
+        .map((f) => fechaReferencia(f))
         .filter((f): f is string => !!f)
         .map((f) => new Date(f).getFullYear().toString()),
     );
     return Array.from(unique).sort().reverse();
-  }, [resultados]);
+  }, [facturas]);
 
-  const filteredResultados = useMemo(() => {
-    return resultados.filter((r) => {
+  const filteredFacturas = useMemo(() => {
+    return facturas.filter((f) => {
       if (searchTerm) {
         const s = searchTerm.toLowerCase();
-        const comercial = r.cliente.comercial || "";
+        const comercial = f.cliente.comercial || "";
         const matches =
-          (r.codigo || "").toLowerCase().includes(s) ||
-          (r.cliente.nombre || "").toLowerCase().includes(s) ||
+          (f.numero || "").toLowerCase().includes(s) ||
+          (f.cliente.nombre || "").toLowerCase().includes(s) ||
           comercial.toLowerCase().includes(s);
         if (!matches) return false;
       }
 
-      if (comercialFilter !== "todos" && r.cliente.comercial !== comercialFilter) {
+      if (comercialFilter !== "todos" && f.cliente.comercial !== comercialFilter) {
         return false;
       }
 
-      if (estadoFilter !== "todos" && r.estado !== estadoFilter) {
-        return false;
-      }
+      if (descuentoFilter === "si" && !f.tiene_descuento) return false;
+      if (descuentoFilter === "no" && f.tiene_descuento) return false;
 
-      const ref = fechaReferencia(r);
+      const ref = fechaReferencia(f);
       if (ref) {
-        const f = new Date(ref);
+        const fecha = new Date(ref);
         if (fechaDesde) {
           const d = new Date(fechaDesde);
           d.setHours(0, 0, 0, 0);
-          if (f < d) return false;
+          if (fecha < d) return false;
         }
         if (fechaHasta) {
           const d = new Date(fechaHasta);
           d.setHours(23, 59, 59, 999);
-          if (f > d) return false;
+          if (fecha > d) return false;
         }
         if (!fechaDesde && !fechaHasta && mesFilter !== "todos") {
-          if ((f.getMonth() + 1).toString() !== mesFilter) return false;
+          if ((fecha.getMonth() + 1).toString() !== mesFilter) return false;
         }
         if (!fechaDesde && !fechaHasta && anioFilter !== "todos") {
-          if (f.getFullYear().toString() !== anioFilter) return false;
+          if (fecha.getFullYear().toString() !== anioFilter) return false;
         }
       }
 
       return true;
     });
-  }, [resultados, searchTerm, comercialFilter, estadoFilter, mesFilter, anioFilter, fechaDesde, fechaHasta]);
+  }, [
+    facturas,
+    searchTerm,
+    comercialFilter,
+    descuentoFilter,
+    mesFilter,
+    anioFilter,
+    fechaDesde,
+    fechaHasta,
+  ]);
 
   const estadisticas = useMemo(() => {
     const stats = new Map<string, EstadisticaVendedor>();
 
-    filteredResultados.forEach((r) => {
-      const comercial = r.cliente.comercial || "Sin asignar";
-
+    filteredFacturas.forEach((f) => {
+      const comercial = f.cliente.comercial || "Sin asignar";
       if (!stats.has(comercial)) {
         stats.set(comercial, {
           comercial,
-          total_ofertas: 0,
-          ofertas_confirmadas: 0,
-          ofertas_pagadas: 0,
+          cantidad_ventas: 0,
+          ventas_con_descuento: 0,
           total_vendido: 0,
           total_cobrado: 0,
+          venta_mas_alta: 0,
         });
       }
-
-      const stat = stats.get(comercial)!;
-      stat.total_ofertas += 1;
-
-      if (r.estado === "confirmada" || r.estado === "pagada") {
-        stat.ofertas_confirmadas += 1;
-        stat.total_vendido += r.precio_total || 0;
+      const s = stats.get(comercial)!;
+      s.cantidad_ventas += 1;
+      if (f.tiene_descuento) s.ventas_con_descuento += 1;
+      s.total_vendido += f.precio_total || 0;
+      s.total_cobrado += f.total_pagado || 0;
+      if ((f.precio_total || 0) > s.venta_mas_alta) {
+        s.venta_mas_alta = f.precio_total || 0;
       }
-      if (r.estado === "pagada") {
-        stat.ofertas_pagadas += 1;
-      }
-      stat.total_cobrado += r.total_pagado || 0;
     });
 
     return Array.from(stats.values()).sort((a, b) => b.total_vendido - a.total_vendido);
-  }, [filteredResultados]);
+  }, [filteredFacturas]);
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat("es-ES", {
@@ -218,18 +210,16 @@ export function ResultadosVentasTable({
   ];
 
   const totals = useMemo(() => {
-    return filteredResultados.reduce(
-      (acc, r) => {
-        acc.precio += r.precio_total || 0;
-        acc.pagado += r.total_pagado || 0;
-        if (r.estado === "confirmada" || r.estado === "pagada") {
-          acc.vendido += r.precio_total || 0;
-        }
+    return filteredFacturas.reduce(
+      (acc, f) => {
+        acc.vendido += f.precio_total || 0;
+        acc.cobrado += f.total_pagado || 0;
+        acc.descuento += f.descuento_monto || 0;
         return acc;
       },
-      { precio: 0, pagado: 0, vendido: 0 },
+      { vendido: 0, cobrado: 0, descuento: 0 },
     );
-  }, [filteredResultados]);
+  }, [filteredFacturas]);
 
   return (
     <div className="space-y-6">
@@ -247,26 +237,18 @@ export function ResultadosVentasTable({
               <CardContent className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-gray-500 flex items-center gap-1">
-                    <FileText className="h-3 w-3" /> Total ofertas
+                    <Receipt className="h-3 w-3" /> Cantidad ventas
                   </span>
                   <Badge variant="secondary" className="font-semibold">
-                    {stat.total_ofertas}
+                    {stat.cantidad_ventas}
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-gray-500 flex items-center gap-1">
-                    <CheckCircle2 className="h-3 w-3 text-amber-600" /> Confirmadas
+                    <Percent className="h-3 w-3 text-amber-600" /> Con descuento
                   </span>
                   <Badge className="bg-amber-100 text-amber-800 border-amber-200">
-                    {stat.ofertas_confirmadas}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500 flex items-center gap-1">
-                    <CreditCard className="h-3 w-3 text-green-600" /> Pagadas
-                  </span>
-                  <Badge className="bg-green-100 text-green-800 border-green-200">
-                    {stat.ofertas_pagadas}
+                    {stat.ventas_con_descuento}
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between pt-1 border-t">
@@ -295,6 +277,18 @@ export function ResultadosVentasTable({
                     <span className="text-xs text-gray-400">—</span>
                   )}
                 </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500 flex items-center gap-1">
+                    <Crown className="h-3 w-3 text-yellow-600" /> Venta más alta
+                  </span>
+                  {showAmount ? (
+                    <span className="text-sm font-semibold text-yellow-700">
+                      {formatCurrency(stat.venta_mas_alta)}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-gray-400">—</span>
+                  )}
+                </div>
               </CardContent>
             </Card>
           );
@@ -305,7 +299,7 @@ export function ResultadosVentasTable({
         <CardHeader>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="flex items-center gap-4">
-              <CardTitle>Ofertas por Comercial</CardTitle>
+              <CardTitle>Facturas por Comercial</CardTitle>
               {(fechaDesde || fechaHasta) && (
                 <Button
                   onClick={() => {
@@ -333,7 +327,7 @@ export function ResultadosVentasTable({
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Buscar por código, cliente o comercial..."
+                  placeholder="Buscar por número, cliente o comercial..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -354,16 +348,14 @@ export function ResultadosVentasTable({
                 </SelectContent>
               </Select>
 
-              <Select value={estadoFilter} onValueChange={setEstadoFilter}>
+              <Select value={descuentoFilter} onValueChange={setDescuentoFilter}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Filtrar por estado" />
+                  <SelectValue placeholder="Filtrar por descuento" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="todos">Todos los estados</SelectItem>
-                  <SelectItem value="enviada">Enviada</SelectItem>
-                  <SelectItem value="confirmada">Confirmada</SelectItem>
-                  <SelectItem value="pagada">Pagada</SelectItem>
-                  <SelectItem value="cancelada">Cancelada</SelectItem>
+                  <SelectItem value="todos">Todas las ventas</SelectItem>
+                  <SelectItem value="si">Solo con descuento</SelectItem>
+                  <SelectItem value="no">Sin descuento</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -462,11 +454,12 @@ export function ResultadosVentasTable({
               <TableHeader>
                 <TableRow>
                   <TableHead>Comercial</TableHead>
-                  <TableHead>Oferta</TableHead>
+                  <TableHead>Factura</TableHead>
                   <TableHead>Cliente</TableHead>
-                  <TableHead>Estado</TableHead>
                   <TableHead className="text-right">Items</TableHead>
-                  <TableHead className="text-right">Precio Total</TableHead>
+                  <TableHead className="text-right">Bruto</TableHead>
+                  <TableHead className="text-right">Descuento</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
                   <TableHead className="text-right">Pagado</TableHead>
                   <TableHead className="text-right">Pendiente</TableHead>
                   <TableHead>Fecha</TableHead>
@@ -475,70 +468,74 @@ export function ResultadosVentasTable({
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-gray-500">
-                      Cargando resultados...
+                    <TableCell colSpan={10} className="text-center py-8 text-gray-500">
+                      Cargando ventas...
                     </TableCell>
                   </TableRow>
-                ) : filteredResultados.length === 0 ? (
+                ) : filteredFacturas.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-gray-500">
-                      No se encontraron resultados
+                    <TableCell colSpan={10} className="text-center py-8 text-gray-500">
+                      No se encontraron ventas
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredResultados.map((r) => {
-                    const comercial = r.cliente.comercial || "Sin asignar";
-                    const estadoCfg = ESTADO_BADGE[r.estado] || ESTADO_BADGE.enviada;
+                  filteredFacturas.map((f) => {
+                    const comercial = f.cliente.comercial || "Sin asignar";
                     const showAmount = canViewAmount(comercial);
 
                     return (
-                      <TableRow key={r.id}>
+                      <TableRow key={f.id}>
                         <TableCell className="font-medium">{comercial}</TableCell>
                         <TableCell>
-                          <div className="font-medium text-sm">{r.codigo || r.id.slice(-6)}</div>
-                          {r.observaciones && (
-                            <div className="text-xs text-gray-500 line-clamp-1">
-                              {r.observaciones}
+                          <div className="font-medium text-sm font-mono">{f.numero}</div>
+                          {f.solicitudes_count > 1 && (
+                            <div className="text-xs text-gray-500">
+                              {f.solicitudes_count} solicitudes
                             </div>
                           )}
                         </TableCell>
                         <TableCell>
                           <div className="space-y-1">
-                            <div className="font-medium text-sm">{r.cliente.nombre}</div>
-                            {r.cliente.numero && (
+                            <div className="font-medium text-sm">{f.cliente.nombre}</div>
+                            {f.cliente.numero && (
                               <Badge variant="outline" className="text-xs">
-                                #{r.cliente.numero}
+                                #{f.cliente.numero}
                               </Badge>
                             )}
                           </div>
                         </TableCell>
-                        <TableCell>
-                          <Badge className={`${estadoCfg.className} border`}>
-                            {estadoCfg.label}
-                          </Badge>
+                        <TableCell className="text-right">{f.materiales_count}</TableCell>
+                        <TableCell className="text-right text-sm text-gray-600">
+                          {showAmount ? formatCurrency(f.precio_bruto) : "—"}
                         </TableCell>
-                        <TableCell className="text-right">{r.materiales_count}</TableCell>
+                        <TableCell className="text-right">
+                          {f.tiene_descuento ? (
+                            <span className="text-xs text-amber-700 font-medium">
+                              {showAmount ? `-${formatCurrency(f.descuento_monto)}` : "—"}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-right font-medium">
-                          {showAmount ? formatCurrency(r.precio_total) : "—"}
+                          {showAmount ? formatCurrency(f.precio_total) : "—"}
                         </TableCell>
                         <TableCell className="text-right font-medium text-blue-600">
-                          {showAmount ? formatCurrency(r.total_pagado) : "—"}
+                          {showAmount ? formatCurrency(f.total_pagado) : "—"}
                         </TableCell>
                         <TableCell className="text-right">
                           {showAmount ? (
                             <Badge
-                              variant={r.monto_pendiente > 0 ? "destructive" : "secondary"}
+                              variant={f.monto_pendiente > 0 ? "destructive" : "secondary"}
                               className="font-medium"
                             >
-                              {formatCurrency(r.monto_pendiente)}
+                              {formatCurrency(f.monto_pendiente)}
                             </Badge>
                           ) : (
                             <span className="text-xs text-gray-400">—</span>
                           )}
                         </TableCell>
-                        <TableCell className="text-sm">
-                          {formatDate(r.fecha_confirmada || r.fecha_creacion)}
-                        </TableCell>
+                        <TableCell className="text-sm">{formatDate(f.fecha)}</TableCell>
                       </TableRow>
                     );
                   })
@@ -547,7 +544,7 @@ export function ResultadosVentasTable({
             </Table>
           </div>
 
-          {!loading && filteredResultados.length > 0 && (
+          {!loading && filteredFacturas.length > 0 && (
             <div className="mt-4 space-y-2">
               {(fechaDesde || fechaHasta) && (
                 <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-md">
@@ -561,14 +558,19 @@ export function ResultadosVentasTable({
               )}
               <div className="flex justify-between items-center text-sm text-gray-600">
                 <span>
-                  Mostrando {filteredResultados.length} de {resultados.length} ofertas
+                  Mostrando {filteredFacturas.length} de {facturas.length} ventas
                 </span>
                 {!isRestrictedUser && (
                   <div className="flex gap-6">
                     <span className="font-medium">
-                      Total vendido (confirmada+pagada): {formatCurrency(totals.vendido)}
+                      Total vendido: {formatCurrency(totals.vendido)}
                     </span>
-                    <span className="font-medium">Total cobrado: {formatCurrency(totals.pagado)}</span>
+                    <span className="font-medium text-amber-700">
+                      Descuentos: {formatCurrency(totals.descuento)}
+                    </span>
+                    <span className="font-medium">
+                      Total cobrado: {formatCurrency(totals.cobrado)}
+                    </span>
                   </div>
                 )}
               </div>

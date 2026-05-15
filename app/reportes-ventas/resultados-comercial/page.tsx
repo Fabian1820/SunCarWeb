@@ -2,48 +2,48 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
-import { ResultadosVentasTable } from "@/components/feats/reportes-ventas/resultados-comercial-table"
+import { VentasPorComercialTable } from "@/components/feats/reportes-ventas/resultados-comercial-table"
 import { ClientesPorComercialTable } from "@/components/feats/reportes-ventas/clientes-por-comercial-table"
 import { ResultadosVentasService } from "@/lib/services/feats/reportes-ventas/resultados-comercial-service"
 import { useToast } from "@/hooks/use-toast"
-import { TrendingUp, Users } from "lucide-react"
+import { Receipt, Users } from "lucide-react"
 import type {
-  OfertaVentaConComercial,
+  FacturaVentaConComercial,
   ClienteVentaConResumen,
 } from "@/lib/types/feats/reportes-ventas/reportes-ventas-types"
 
-type TabId = "ofertas" | "clientes"
+type TabId = "ventas" | "clientes"
 
 const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
-  { id: "ofertas", label: "Ofertas por Comercial", icon: TrendingUp },
+  { id: "ventas", label: "Ventas por Comercial", icon: Receipt },
   { id: "clientes", label: "Clientes por Comercial", icon: Users },
 ]
 
 export default function ResultadosComercialVentasPage() {
   const { toast } = useToast()
-  const [activeTab, setActiveTab] = useState<TabId>("ofertas")
+  const [activeTab, setActiveTab] = useState<TabId>("ventas")
 
-  const [ofertas, setOfertas] = useState<OfertaVentaConComercial[]>([])
-  const [loadingOfertas, setLoadingOfertas] = useState(true)
+  const [facturas, setFacturas] = useState<FacturaVentaConComercial[]>([])
+  const [loadingFacturas, setLoadingFacturas] = useState(true)
 
   const [clientes, setClientes] = useState<ClienteVentaConResumen[]>([])
   const [loadingClientes, setLoadingClientes] = useState(false)
   const [clientesLoaded, setClientesLoaded] = useState(false)
 
-  const fetchOfertas = useCallback(async () => {
-    setLoadingOfertas(true)
+  const fetchFacturas = useCallback(async () => {
+    setLoadingFacturas(true)
     try {
-      const data = await ResultadosVentasService.getOfertasConComercial({ limit: 1000 })
-      setOfertas(data)
+      const data = await ResultadosVentasService.getFacturasConComercial({ limit: 1000 })
+      setFacturas(data)
     } catch (error: any) {
-      console.error('Error al cargar ofertas:', error)
+      console.error('Error al cargar facturas:', error)
       toast({
         title: "Error",
-        description: error.message || "No se pudieron cargar las ofertas",
+        description: error.message || "No se pudieron cargar las ventas",
         variant: "destructive",
       })
     } finally {
-      setLoadingOfertas(false)
+      setLoadingFacturas(false)
     }
   }, [toast])
 
@@ -66,8 +66,8 @@ export default function ResultadosComercialVentasPage() {
   }, [toast])
 
   useEffect(() => {
-    fetchOfertas()
-  }, [fetchOfertas])
+    fetchFacturas()
+  }, [fetchFacturas])
 
   const handleTabChange = (tab: TabId) => {
     setActiveTab(tab)
@@ -80,7 +80,7 @@ export default function ResultadosComercialVentasPage() {
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
       <ModuleHeader
         title="Resultados por Comercial - Ventas"
-        subtitle="Ofertas y clientes asignados por vendedor"
+        subtitle="Facturas emitidas y clientes asignados por vendedor"
         badge={{ text: "Reporte", className: "bg-green-100 text-green-800" }}
       />
 
@@ -108,11 +108,11 @@ export default function ResultadosComercialVentasPage() {
           </div>
         </div>
 
-        {activeTab === "ofertas" && (
-          <ResultadosVentasTable
-            resultados={ofertas}
-            loading={loadingOfertas}
-            onRefresh={fetchOfertas}
+        {activeTab === "ventas" && (
+          <VentasPorComercialTable
+            facturas={facturas}
+            loading={loadingFacturas}
+            onRefresh={fetchFacturas}
           />
         )}
 

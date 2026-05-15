@@ -1,16 +1,4 @@
-export type EstadoOfertaVenta = "enviada" | "confirmada" | "cancelada" | "pagada";
-
-export interface PagoOfertaVenta {
-  id: string;
-  solicitud_venta_id?: string;
-  monto: number;
-  moneda: string;
-  monto_usd: number;
-  metodo_pago: string;
-  fecha: string;
-}
-
-export interface ContactoOfertaVenta {
+export interface ContactoVenta {
   id: string;
   numero?: string | null;
   nombre: string;
@@ -21,51 +9,53 @@ export interface ContactoOfertaVenta {
   comercial: string;
 }
 
-export interface OfertaVentaConComercial {
+export interface FacturaVentaConComercial {
   id: string;
-  codigo: string;
-  estado: EstadoOfertaVenta;
-  precio_total: number;
+  numero: string;
+  fecha: string;
   fecha_creacion: string;
-  fecha_actualizacion: string;
-  fecha_confirmada?: string | null;
+  solicitudes_count: number;
   materiales_count: number;
-  observaciones?: string | null;
-  cliente: ContactoOfertaVenta;
-  pagos: PagoOfertaVenta[];
+  cliente: ContactoVenta;
+  precio_total: number;
+  precio_bruto: number;
+  tiene_descuento: boolean;
+  descuento_monto: number;
   total_pagado: number;
   monto_pendiente: number;
   fecha_primer_pago?: string | null;
+  notas?: string | null;
+  creado_por_ci?: string | null;
 }
 
-export interface OfertasConComercialResponse {
+export interface FacturasConComercialResponse {
   success: boolean;
   message?: string;
-  data: OfertaVentaConComercial[];
+  data: FacturaVentaConComercial[];
 }
 
-export interface OfertasConComercialParams {
+export interface FacturasConComercialParams {
   skip?: number;
   limit?: number;
   cliente_venta_id?: string;
-  almacen_id?: string;
-  estado?: EstadoOfertaVenta;
-  q?: string;
+  comercial?: string;
+  fecha_desde?: string;
+  fecha_hasta?: string;
 }
 
 export interface EstadisticaVendedor {
   comercial: string;
-  total_ofertas: number;
-  ofertas_confirmadas: number;
-  ofertas_pagadas: number;
+  cantidad_ventas: number;
+  ventas_con_descuento: number;
   total_vendido: number;
   total_cobrado: number;
+  venta_mas_alta: number;
 }
 
 export interface ResultadosVentasFilters {
   searchTerm?: string;
   comercial?: string;
-  estado?: EstadoOfertaVenta | "todos";
+  conDescuento?: "todos" | "si" | "no";
   fechaInicio?: string;
   fechaFin?: string;
   mes?: string;
