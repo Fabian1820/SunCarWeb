@@ -854,7 +854,6 @@ function WalletPageContent() {
       }
       setMontosPorMoneda({});
       setMotivo("");
-      await loadWallets({ limit: 500 });
       const resumen = entries
         .map((e) => formatMoney(e.amount, e.code))
         .join(", ");
