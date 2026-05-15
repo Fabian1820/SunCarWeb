@@ -34,6 +34,7 @@ import type { Almacen, MaterialVentaWeb, StockItem, OfertaVenta } from "@/lib/ap
 import type { ClienteVenta } from "@/lib/api-types";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";
 
 // ─── tipos locales ────────────────────────────────────────────────
@@ -105,6 +106,8 @@ export function AgregarOfertaDialog({
   const isEditMode = Boolean(ofertaToEdit);
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const { user } = useAuth();
+  const canUseDescuentoFree = user?.nombre === "Loydis Batista Carrazana";
   const [mobileTab, setMobileTab] = useState<"catalogo" | "carrito">("catalogo");
 
   const [catalogo, setCatalogo] = useState<MaterialVentaWeb[]>([]);
@@ -126,6 +129,8 @@ export function AgregarOfertaDialog({
   const [metodoPago, setMetodoPago] = useState("");
   const [moneda, setMoneda] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [descuentoFree, setDescuentoFree] = useState(false);
+  const [motivoDescuentoFree, setMotivoDescuentoFree] = useState("");
 
   // ── reset + carga inicial ─────────────────────────────────────
   useEffect(() => {
@@ -143,6 +148,8 @@ export function AgregarOfertaDialog({
       setEstado(ofertaToEdit.estado ?? "enviada");
       setMetodoPago(ofertaToEdit.metodo_pago ?? "");
       setMoneda(ofertaToEdit.moneda_pago ?? "");
+      setDescuentoFree(ofertaToEdit.descuento_free ?? false);
+      setMotivoDescuentoFree(ofertaToEdit.motivo_descuento_free ?? "");
       setCarrito(
         ofertaToEdit.materiales.map((m) => ({
           material_id: m.material_id,
@@ -164,6 +171,8 @@ export function AgregarOfertaDialog({
       setEstado("enviada");
       setMetodoPago("");
       setMoneda("");
+      setDescuentoFree(false);
+      setMotivoDescuentoFree("");
     }
 
     setLoadingCatalogo(true);
@@ -241,16 +250,16 @@ export function AgregarOfertaDialog({
     let final = 0;
     for (const l of carrito) {
       const subtotalBruto = l.precio * l.cantidad;
-      const maxPct = l.max_descuento ?? 100;
+      const maxPct = descuentoFree ? 100 : (l.max_descuento ?? 100);
       const pct = Math.min(l.descuento_porcentaje, maxPct);
       const subtotalFinal = subtotalBruto * (1 - pct / 100);
       bruto += subtotalBruto;
       final += subtotalFinal;
     }
     return { totalBruto: bruto, totalFinal: final };
-  }, [carrito]);
+  }, [carrito, descuentoFree]);
 
-  const hasDescuentoError = carrito.some(
+  const hasDescuentoError = !descuentoFree && carrito.some(
     (l) => l.max_descuento !== undefined && l.descuento_porcentaje > l.max_descuento,
   );
 
@@ -319,10 +328,10 @@ export function AgregarOfertaDialog({
         const pct = item.descuento_tipo === "$"
           ? (item.precio > 0 ? (raw / item.precio) * 100 : 0)
           : raw;
-        const maxPct = item.max_descuento ?? 100;
+        const maxPct = descuentoFree ? 100 : (item.max_descuento ?? 100);
         const descuento_porcentaje = Math.min(pct, maxPct);
-        // Si se recortó, corregir también el display
-        const displayFinal = pct > maxPct
+        // Si se recortó (y no hay descuento free), corregir también el display
+        const displayFinal = !descuentoFree && pct > maxPct
           ? (item.descuento_tipo === "$"
               ? (item.precio * maxPct / 100).toFixed(2)
               : String(maxPct))
@@ -349,6 +358,7 @@ export function AgregarOfertaDialog({
   async function handleSubmit() {
     if (!almacenId) { toast({ title: "Selecciona un almacén", variant: "destructive" }); return; }
     if (carrito.length === 0) { toast({ title: "Agrega al menos un material", variant: "destructive" }); return; }
+    if (descuentoFree && !motivoDescuentoFree.trim()) { toast({ title: "Escribe el motivo del descuento libre", variant: "destructive" }); return; }
 
     setSubmitting(true);
     try {
@@ -372,6 +382,7 @@ export function AgregarOfertaDialog({
           estado,
           ...(metodoPago ? { metodo_pago: metodoPago } : {}),
           ...(moneda ? { moneda_pago: moneda } : {}),
+          ...(descuentoFree ? { descuento_free: true, motivo_descuento_free: motivoDescuentoFree.trim() } : { descuento_free: false, motivo_descuento_free: null }),
         };
         raw = await apiRequest<any>(`/operaciones/ofertas-ventas/${encodeURIComponent(ofertaToEdit.id)}`, {
           method: "PATCH",
@@ -386,6 +397,7 @@ export function AgregarOfertaDialog({
           estado,
           ...(metodoPago ? { metodo_pago: metodoPago } : {}),
           ...(moneda ? { moneda_pago: moneda } : {}),
+          ...(descuentoFree ? { descuento_free: true, motivo_descuento_free: motivoDescuentoFree.trim() } : {}),
         };
         raw = await apiRequest<any>("/operaciones/ofertas-ventas/", {
           method: "POST",
@@ -644,8 +656,8 @@ export function AgregarOfertaDialog({
           {carrito.map((linea) => {
             const sinStock = linea.stock_disponible !== null && linea.cantidad > (linea.stock_disponible ?? Infinity);
             const pct = linea.descuento_porcentaje;
-            const maxPct = linea.max_descuento ?? 100;
-            const descuentoExcedido = pct > maxPct;
+            const maxPct = descuentoFree ? 100 : (linea.max_descuento ?? 100);
+            const descuentoExcedido = !descuentoFree && pct > (linea.max_descuento ?? 100);
             const precioConDesc = linea.precio * (1 - Math.min(pct, maxPct) / 100);
             const totalLinea = precioConDesc * linea.cantidad;
             return (
@@ -697,7 +709,7 @@ export function AgregarOfertaDialog({
                         onChange={(e) => handleDescuentoChange(linea.material_id, e.target.value)}
                         className={`h-7 text-right w-full text-xs ${descuentoExcedido ? "border-red-400" : ""}`}
                       />
-                      {linea.max_descuento !== undefined && (
+                      {linea.max_descuento !== undefined && !descuentoFree && (
                         <p className="text-[10px] text-right leading-tight mt-0.5 text-gray-400">
                           máx {linea.max_descuento}%
                         </p>
@@ -755,8 +767,8 @@ export function AgregarOfertaDialog({
       {carrito.map((linea) => {
         const sinStock = linea.stock_disponible !== null && linea.cantidad > (linea.stock_disponible ?? Infinity);
         const pct = linea.descuento_porcentaje;
-        const maxPct = linea.max_descuento ?? 100;
-        const descuentoExcedido = pct > maxPct;
+        const maxPct = descuentoFree ? 100 : (linea.max_descuento ?? 100);
+        const descuentoExcedido = !descuentoFree && pct > (linea.max_descuento ?? 100);
         const precioConDesc = linea.precio * (1 - Math.min(pct, maxPct) / 100);
         const totalLinea = precioConDesc * linea.cantidad;
         return (
@@ -848,7 +860,7 @@ export function AgregarOfertaDialog({
               {/* feedback de descuento + total línea */}
               <div className="flex items-center justify-between gap-2 pt-1 border-t border-dashed border-gray-200">
                 <div className="text-[11px] leading-tight min-h-[14px]">
-                  {linea.max_descuento !== undefined && !descuentoExcedido && pct === 0 && (
+                  {linea.max_descuento !== undefined && !descuentoFree && !descuentoExcedido && pct === 0 && (
                     <span className="text-gray-400">máx {linea.max_descuento}%</span>
                   )}
                   {pct > 0 && !descuentoExcedido && (
@@ -881,6 +893,46 @@ export function AgregarOfertaDialog({
   // panel inferior de totales + pago + acciones (compartido)
   const bottomPanel = (
     <div className="border-t px-3 sm:px-4 py-3 space-y-3 bg-gray-50 shrink-0">
+
+      {canUseDescuentoFree && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => { setDescuentoFree((v) => { if (v) setMotivoDescuentoFree(""); return !v; }); }}
+              title={descuentoFree ? "Desactivar descuento libre" : "Activar descuento libre (sin límites por material)"}
+              className={`text-xs px-3 py-1 rounded-full font-semibold transition-colors ${
+                descuentoFree
+                  ? "bg-orange-500 text-white"
+                  : "bg-gray-200 text-gray-500 hover:bg-orange-100 hover:text-orange-600"
+              }`}
+            >
+              Descuento Free
+            </button>
+            {descuentoFree && (
+              <span className="text-xs text-orange-600 font-medium">Límites de descuento desactivados</span>
+            )}
+          </div>
+          {descuentoFree && (
+            <div className="rounded-lg border border-orange-300 bg-orange-50 p-3 space-y-1">
+              <label className="text-xs font-semibold text-orange-700 flex items-center gap-1">
+                Motivo del descuento libre <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={motivoDescuentoFree}
+                onChange={(e) => setMotivoDescuentoFree(e.target.value)}
+                placeholder="Explica el motivo del descuento especial..."
+                className="w-full rounded-md border border-orange-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+              />
+              {!motivoDescuentoFree.trim() && (
+                <p className="text-xs text-orange-600">Campo obligatorio para aplicar descuento libre.</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="flex justify-between items-center text-sm">
         <span className="text-gray-600">Total bruto</span>
         <span className="font-medium">${fmt(totalBruto)}</span>
@@ -929,7 +981,7 @@ export function AgregarOfertaDialog({
         </Button>
         <Button className="flex-1 h-11 sm:h-9 bg-orange-600 hover:bg-orange-700 text-white touch-manipulation"
           onClick={handleSubmit}
-          disabled={submitting || carrito.length === 0 || !almacenId || hasDescuentoError}>
+          disabled={submitting || carrito.length === 0 || !almacenId || hasDescuentoError || (descuentoFree && !motivoDescuentoFree.trim())}>
           {submitting
             ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{isEditMode ? "Guardando..." : "Creando..."}</>
             : <><ChevronRight className="h-4 w-4 mr-1" />{isEditMode ? "Guardar cambios" : "Crear oferta"}</>

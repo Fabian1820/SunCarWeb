@@ -28,6 +28,8 @@ export interface OfertaVenta {
   moneda_pago?: string;
   precio_total: number;
   observaciones?: string;
+  descuento_free?: boolean;
+  motivo_descuento_free?: string;
   materiales: OfertaVentaMaterialDetalle[];
   fecha_creacion?: string;
   fecha_actualizacion?: string;
