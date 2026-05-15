@@ -349,6 +349,18 @@ export function GestionarOfertasVentaDialog({
                               <span>{oferta.materiales.length} material{oferta.materiales.length !== 1 ? "es" : ""}</span>
                               <span>{formatDate(oferta.fecha_creacion)}</span>
                             </div>
+                            {oferta.descuento_free && (
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <span className="text-xs font-semibold text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full">
+                                  Descuento Free
+                                </span>
+                                {oferta.motivo_descuento_free && (
+                                  <span className="text-xs text-orange-700 truncate max-w-[200px]">
+                                    {oferta.motivo_descuento_free}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                             {oferta.metodo_pago && (
                               <p className="text-xs text-gray-400 mt-0.5">{oferta.metodo_pago}</p>
                             )}
