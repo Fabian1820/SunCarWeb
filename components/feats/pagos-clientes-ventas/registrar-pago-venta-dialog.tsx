@@ -158,9 +158,9 @@ export function RegistrarPagoVentaDialog({
   );
   const montoNum = Number(monto);
   const tasaCambioNum = Number(tasaCambio) || 0;
-  // tasa se envía tal cual al backend; backend calcula monto_usd = monto * tasa
+  // usuario ingresa "moneda por 1 USD"; se invierte al enviar → backend calcula monto*tasa = monto_usd
   const montoEnUSD =
-    moneda !== "USD" && tasaCambioNum > 0 ? montoNum * tasaCambioNum : montoNum;
+    moneda !== "USD" && tasaCambioNum > 0 ? montoNum / tasaCambioNum : montoNum;
 
   const montoCubreTodo = pendiente != null && montoEnUSD > 0 && montoEnUSD >= pendiente;
 
@@ -259,7 +259,7 @@ export function RegistrarPagoVentaDialog({
     }
     const tasaNum = Number(tasaCambio) || 0;
     const montoUSD =
-      moneda !== "USD" && tasaNum > 0 ? montoNum * tasaNum : montoNum;
+      moneda !== "USD" && tasaNum > 0 ? montoNum / tasaNum : montoNum;
     if (pendiente != null && montoUSD > pendiente + 0.01) {
       setError(`El monto no puede superar el saldo pendiente (${formatCurrency(pendiente)})`);
       return;
@@ -316,7 +316,7 @@ export function RegistrarPagoVentaDialog({
         solicitud_venta_id: solicitud.id,
         monto: montoNum,
         moneda,
-        tasa_cambio: tasaCambio ? Number(tasaCambio) : undefined,
+        tasa_cambio: tasaCambio && moneda !== "USD" ? 1 / Number(tasaCambio) : (tasaCambio ? Number(tasaCambio) : undefined),
         metodo_pago: metodoPago,
         desglose_billetes:
           metodoPago === "efectivo" ? buildDesgloseBilletes() : undefined,
