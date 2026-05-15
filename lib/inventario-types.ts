@@ -20,4 +20,9 @@ export type {
   SolicitudTransferenciaItem,
   SolicitudTransferencia,
   SolicitudTransferenciaCreateData,
+  MaterialStockPorAlmacenItem,
+  MaterialStockItem,
+  AlmacenDisponibleItem,
+  MaterialesStockResponse,
+  MaterialesStockParams,
 } from "./types/feats/inventario/inventario-types";

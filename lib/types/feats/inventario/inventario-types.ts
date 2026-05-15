@@ -228,3 +228,53 @@ export interface AnalisisStockMinimoResponse {
   resumen: ResumenAnalisisStock;
   productos: ProductoAnalisisStock[];
 }
+
+// ── Materiales con Stock Agregado (matriz materiales × almacenes) ────────────
+
+export interface MaterialStockPorAlmacenItem {
+  almacen_id: string;
+  almacen_nombre: string;
+  cantidad: number;
+  cantidad_reservada?: number;
+}
+
+export interface MaterialStockItem {
+  material_id: string;
+  codigo: string;
+  nombre?: string;
+  descripcion?: string;
+  categoria?: string;
+  marca_id?: string;
+  marca_nombre?: string;
+  potencia_kw?: number;
+  um?: string;
+  foto?: string;
+  total: number;
+  por_almacen: MaterialStockPorAlmacenItem[];
+}
+
+export interface AlmacenDisponibleItem {
+  id: string;
+  nombre: string;
+}
+
+export interface MaterialesStockResponse {
+  data: MaterialStockItem[];
+  total: number;
+  skip: number;
+  limit: number;
+  almacenes_disponibles: AlmacenDisponibleItem[];
+}
+
+export interface MaterialesStockParams {
+  q?: string;
+  categoria?: string;
+  marca_id?: string;
+  potencia_kw?: string;
+  almacen_id?: string;
+  cantidad_filter?: "con_stock" | "sin_stock" | "all";
+  sort_by?: "nombre" | "codigo" | "total" | "categoria";
+  sort_dir?: "asc" | "desc";
+  skip?: number;
+  limit?: number;
+}

@@ -20,6 +20,11 @@ import type {
   VentaCreateData,
   SolicitudTransferencia,
   SolicitudTransferenciaCreateData,
+  MaterialesStockParams,
+  MaterialesStockResponse,
+  MaterialStockItem,
+  MaterialStockPorAlmacenItem,
+  AlmacenDisponibleItem,
 } from "../../../inventario-types";
 import type { MaterialesBajoMinimoResponse } from "../../../types/feats/inventario/stock-minimo-types";
 import type { AnalisisStockMinimoResponse } from "../../../types/feats/inventario/inventario-types";
@@ -824,5 +829,113 @@ export class InventarioService {
         body: JSON.stringify(body),
       },
     );
+  }
+
+  // ── Materiales con stock agregado (matriz materiales × almacenes) ──
+
+  private static normalizeMaterialStockPorAlmacen(
+    raw: any,
+  ): MaterialStockPorAlmacenItem | null {
+    const almacen_id = asString(raw?.almacen_id);
+    const almacen_nombre = asString(raw?.almacen_nombre);
+    if (!almacen_id) return null;
+    return {
+      almacen_id,
+      almacen_nombre: almacen_nombre ?? almacen_id,
+      cantidad: asNumber(raw?.cantidad) ?? 0,
+      cantidad_reservada: asNumber(raw?.cantidad_reservada),
+    };
+  }
+
+  private static normalizeMaterialStockItem(raw: any): MaterialStockItem | null {
+    const material_id =
+      asString(raw?.material_id) || asString(raw?.id) || asString(raw?._id);
+    const codigo = asString(raw?.codigo) || asString(raw?.material_codigo);
+    if (!material_id && !codigo) return null;
+
+    const por_almacen = Array.isArray(raw?.por_almacen)
+      ? raw.por_almacen
+          .map((item: any) => this.normalizeMaterialStockPorAlmacen(item))
+          .filter(
+            (item: MaterialStockPorAlmacenItem | null,
+            ): item is MaterialStockPorAlmacenItem => item !== null,
+          )
+      : [];
+
+    return {
+      material_id: material_id ?? codigo!,
+      codigo: codigo ?? material_id!,
+      nombre: asString(raw?.nombre),
+      descripcion: asString(raw?.descripcion),
+      categoria: asString(raw?.categoria),
+      marca_id: asString(raw?.marca_id),
+      marca_nombre: asString(raw?.marca_nombre),
+      potencia_kw: asNumber(raw?.potencia_kw),
+      um: asString(raw?.um),
+      foto: asString(raw?.foto),
+      total: asNumber(raw?.total) ?? 0,
+      por_almacen,
+    };
+  }
+
+  private static normalizeAlmacenDisponible(
+    raw: any,
+  ): AlmacenDisponibleItem | null {
+    const id = asString(raw?.id) || asString(raw?._id);
+    const nombre = asString(raw?.nombre);
+    if (!id) return null;
+    return { id, nombre: nombre ?? id };
+  }
+
+  static async getMaterialesStock(
+    params?: MaterialesStockParams,
+  ): Promise<MaterialesStockResponse> {
+    const search = new URLSearchParams();
+    if (params?.q) search.set("q", params.q);
+    if (params?.categoria) search.set("categoria", params.categoria);
+    if (params?.marca_id) search.set("marca_id", params.marca_id);
+    if (params?.potencia_kw) search.set("potencia_kw", params.potencia_kw);
+    if (params?.almacen_id) search.set("almacen_id", params.almacen_id);
+    if (params?.cantidad_filter && params.cantidad_filter !== "all")
+      search.set("cantidad_filter", params.cantidad_filter);
+    if (params?.sort_by) search.set("sort_by", params.sort_by);
+    if (params?.sort_dir) search.set("sort_dir", params.sort_dir);
+    if (params?.skip !== undefined) search.set("skip", String(params.skip));
+    if (params?.limit !== undefined) search.set("limit", String(params.limit));
+    const suffix = search.toString() ? `?${search.toString()}` : "";
+
+    const response = await apiRequest<any>(
+      `/inventario/materiales-stock${suffix}`,
+    );
+
+    const dataRaw = Array.isArray(response?.data)
+      ? response.data
+      : Array.isArray(response)
+        ? response
+        : [];
+    const data = dataRaw
+      .map((item: any) => this.normalizeMaterialStockItem(item))
+      .filter(
+        (item: MaterialStockItem | null): item is MaterialStockItem =>
+          item !== null,
+      );
+
+    const almacenesRaw = Array.isArray(response?.almacenes_disponibles)
+      ? response.almacenes_disponibles
+      : [];
+    const almacenes_disponibles = almacenesRaw
+      .map((item: any) => this.normalizeAlmacenDisponible(item))
+      .filter(
+        (item: AlmacenDisponibleItem | null): item is AlmacenDisponibleItem =>
+          item !== null,
+      );
+
+    return {
+      data,
+      total: asNumber(response?.total) ?? data.length,
+      skip: asNumber(response?.skip) ?? 0,
+      limit: asNumber(response?.limit) ?? data.length,
+      almacenes_disponibles,
+    };
   }
 }
