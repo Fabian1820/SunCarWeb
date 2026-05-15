@@ -127,6 +127,14 @@ export class PagoVentaService {
     if (res?.detail) throw new Error(res.detail);
     return res?.pago ?? res;
   }
+
+  static async eliminarPago(id: string): Promise<void> {
+    const res: any = await apiRequest(`${BASE}/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
+    if (res?.error?.message) throw new Error(res.error.message);
+    if (res?.detail) throw new Error(res.detail);
+  }
 }
 
 // Alias de compatibilidad

@@ -12,6 +12,7 @@ import { RegistrarPagoVentaDialog } from "@/components/feats/pagos-clientes-vent
 import { CrearFacturaVentaDialog } from "@/components/feats/pagos-clientes-ventas/crear-factura-venta-dialog";
 import type { SolicitudVentaSummary } from "@/lib/api-types";
 import type { FacturaClienteVenta } from "@/lib/types/feats/pagos-clientes-ventas/pago-cliente-venta-types";
+import { PagoVentaService } from "@/lib/services/feats/pagos-clientes-ventas/pago-cliente-venta-service";
 import {
   ArrowLeft,
   CreditCard,
@@ -82,15 +83,36 @@ export default function PagosClientesVentasPage() {
     factura?: { numero_factura: string; fecha_emision: string };
   }) => {
     const { factura, ...pagoData } = data;
-    await registrarPago(pagoData);
+    const pagoCreado = await registrarPago(pagoData);
     if (factura) {
-      await crearFactura({
-        solicitud_venta_id: pagoData.solicitud_venta_id,
-        numero_factura: factura.numero_factura,
-        emitida_por: pagoData.recibido_por,
-        fecha_emision: factura.fecha_emision,
-      });
-      toast({ title: "Pago y factura registrados", description: `Pago registrado. Factura ${factura.numero_factura} emitida.` });
+      try {
+        await crearFactura({
+          solicitud_venta_id: pagoData.solicitud_venta_id,
+          numero_factura: factura.numero_factura,
+          emitida_por: pagoData.recibido_por,
+          fecha_emision: factura.fecha_emision,
+        });
+        toast({ title: "Pago y factura registrados", description: `Pago registrado. Factura ${factura.numero_factura} emitida.` });
+      } catch (e) {
+        // Rollback: si falla la creación de la factura, revertir el pago.
+        let rollbackOk = false;
+        try {
+          if (pagoCreado?.id) {
+            await PagoVentaService.eliminarPago(pagoCreado.id);
+            rollbackOk = true;
+          }
+        } catch (rollbackErr) {
+          console.error("[handleRegistrarPago] rollback del pago falló", rollbackErr);
+        }
+        toast({
+          title: rollbackOk ? "Pago revertido" : "Pago registrado, pero no se pudo crear la factura",
+          description: rollbackOk
+            ? "No se pudo crear la factura, el pago fue revertido. Intenta de nuevo."
+            : (e instanceof Error ? e.message : "Error al crear la factura") +
+              ". Contacta a soporte para revertir el pago manualmente.",
+          variant: "destructive",
+        });
+      }
     } else {
       toast({ title: "Pago registrado", description: "El pago se registró correctamente." });
     }

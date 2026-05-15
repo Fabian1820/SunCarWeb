@@ -485,7 +485,7 @@ const [anularLoading, setAnularLoading]             = useState(false);
     },
   ) => {
     const { factura, ...pagoData } = data;
-    await registrarPago(pagoData);
+    const pagoCreado = await registrarPago(pagoData);
     let facturaCreada: FacturaClienteVenta | null = null;
     if (factura && !facturaAsociadaNumero) {
       try {
@@ -498,11 +498,29 @@ const [anularLoading, setAnularLoading]             = useState(false);
           fecha_emision: factura.fecha_emision,
         });
       } catch (e) {
+        // Rollback: si falla la creación de la factura, revertir el pago para
+        // mantener la atomicidad pago+factura (evita pago huérfano sin factura).
+        let rollbackOk = false;
+        try {
+          if (pagoCreado?.id) {
+            await PagoVentaService.eliminarPago(pagoCreado.id);
+            rollbackOk = true;
+          }
+        } catch (rollbackErr) {
+          console.error("[handleRegistrarPago] rollback del pago falló", rollbackErr);
+        }
+        refreshAll();
         toast({
-          title: "Pago registrado, pero no se pudo crear la factura",
-          description: e instanceof Error ? e.message : "Error al crear la factura",
+          title: rollbackOk
+            ? "Pago revertido"
+            : "Pago registrado, pero no se pudo crear la factura",
+          description: rollbackOk
+            ? "No se pudo crear la factura, el pago fue revertido. Intenta de nuevo."
+            : (e instanceof Error ? e.message : "Error al crear la factura") +
+              ". Contacta a soporte para revertir el pago manualmente.",
           variant: "destructive",
         });
+        return;
       }
     }
     refreshAll();
