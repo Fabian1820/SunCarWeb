@@ -890,6 +890,15 @@ export function UpsertSolicitudVentaDialog({
       }),
     );
 
+    // Si la oferta tenía descuento free, activarlo y cargar el motivo
+    if (oferta.descuento_free) {
+      setDescuentoFree(true);
+      setMotivoDescuentoFree(oferta.motivo_descuento_free ?? "");
+    } else {
+      setDescuentoFree(false);
+      setMotivoDescuentoFree("");
+    }
+
     setOfertaAplicada(oferta);
     setReservaAplicada(null);
     setShowOfertaPanel(false);
