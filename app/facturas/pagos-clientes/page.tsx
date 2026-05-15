@@ -37,7 +37,7 @@ import {
   VolumeX,
   Coins,
 } from "lucide-react";
-import { usePagos } from "@/hooks/use-pagos";
+import { usePagos, PAGOS_LIMIT } from "@/hooks/use-pagos";
 import { AnticiposPendientesTable } from "@/components/feats/pagos/anticipos-pendientes-table";
 import { TodosPagosTable, calcularPendienteOferta } from "@/components/feats/pagos/todos-pagos-table";
 import { TodosPagosPlanosTable } from "@/components/feats/pagos/todos-pagos-planos-table";
@@ -146,6 +146,10 @@ export default function PagosClientesPage() {
     ofertasSinPago,
     ofertasConSaldoPendiente,
     ofertasConPagos,
+    totalSinPago,
+    skipSinPago,
+    totalConSaldo,
+    skipConSaldo,
     loadingSinPago,
     loadingConSaldo,
     error,
@@ -258,48 +262,13 @@ export default function PagosClientesPage() {
       .sort((a, b) => getClienteNombre(a).localeCompare(getClienteNombre(b)));
   }, [ofertasSinPago, ofertasConSaldoPendiente]);
 
+  // La búsqueda sobre anticipos/finales pendientes es server-side.
+  // filteredOfertas simplemente expone la página actual del backend.
   const filteredOfertas = useMemo(() => {
-    let ofertas: OfertaConfirmadaSinPago[] = [];
-
-    if (viewMode === "anticipos-pendientes") {
-      ofertas = ofertasSinPago;
-    } else if (viewMode === "finales-pendientes") {
-      ofertas = ofertasConSaldoPendiente;
-    }
-
-    if (!searchTerm) return ofertas;
-
-    const term = searchTerm.toLowerCase();
-    return ofertas.filter((oferta) => {
-      const clienteNombre =
-        oferta.contacto?.nombre ||
-        oferta.cliente?.nombre ||
-        oferta.lead?.nombre ||
-        oferta.nombre_lead_sin_agregar ||
-        "";
-      const clienteTelefono =
-        oferta.contacto?.telefono ||
-        oferta.cliente?.telefono ||
-        oferta.lead?.telefono ||
-        "";
-      const clienteCarnet =
-        oferta.contacto?.carnet ||
-        oferta.cliente?.carnet_identidad ||
-        oferta.cliente?.numero ||
-        "";
-
-      return (
-        oferta.numero_oferta.toLowerCase().includes(term) ||
-        clienteNombre.toLowerCase().includes(term) ||
-        clienteTelefono.includes(term) ||
-        clienteCarnet.includes(term) ||
-        (oferta.almacen_nombre || "").toLowerCase().includes(term) ||
-        (oferta.nombre_completo || oferta.nombre_oferta || "")
-          .toLowerCase()
-          .includes(term)
-      );
-    });
-  }, [ofertasSinPago, ofertasConSaldoPendiente, searchTerm, viewMode]);
+    if (viewMode === "anticipos-pendientes") return ofertasSinPago;
+    if (viewMode === "finales-pendientes") return ofertasConSaldoPendiente;
+    return [];
+  }, [ofertasSinPago, ofertasConSaldoPendiente, viewMode]);
 
   const filteredOfertasConPagos = useMemo(() => {
     if (!searchTerm) return ofertasConPagos;
@@ -792,9 +761,9 @@ export default function PagosClientesPage() {
     });
 
     if (viewMode === "anticipos-pendientes") {
-      refetchOfertasSinPago();
+      refetchOfertasSinPago({ skip: skipSinPago, q: searchTerm.trim() || undefined });
     } else if (viewMode === "finales-pendientes") {
-      refetchOfertasConSaldoPendiente();
+      refetchOfertasConSaldoPendiente({ skip: skipConSaldo, q: searchTerm.trim() || undefined });
     } else if (viewMode === "pagos-por-ofertas" || viewMode === "todos-pagos") {
       refetchOfertasConPagos();
     }
@@ -804,12 +773,12 @@ export default function PagosClientesPage() {
     setViewMode(mode);
 
     if (mode === "anticipos-pendientes" && ofertasSinPago.length === 0) {
-      await refetchOfertasSinPago();
+      await refetchOfertasSinPago({ skip: 0, q: searchTerm.trim() || undefined });
     } else if (
       mode === "finales-pendientes" &&
       ofertasConSaldoPendiente.length === 0
     ) {
-      await refetchOfertasConSaldoPendiente();
+      await refetchOfertasConSaldoPendiente({ skip: 0, q: searchTerm.trim() || undefined });
     } else if (
       (mode === "pagos-por-ofertas" || mode === "todos-pagos") &&
       ofertasConPagos.length === 0
@@ -828,9 +797,10 @@ export default function PagosClientesPage() {
   };
 
   const refreshContabilidadSilencioso = useCallback(async () => {
+    const q = searchTerm.trim() || undefined;
     await Promise.all([
-      refetchOfertasSinPago({ silent: true }),
-      refetchOfertasConSaldoPendiente({ silent: true }),
+      refetchOfertasSinPago({ skip: skipSinPago, q, silent: true }),
+      refetchOfertasConSaldoPendiente({ skip: skipConSaldo, q, silent: true }),
     ]);
 
     if (viewMode === "pagos-por-ofertas" || viewMode === "todos-pagos") {
@@ -844,6 +814,9 @@ export default function PagosClientesPage() {
     refetchOfertasConSaldoPendiente,
     refetchOfertasSinPago,
     viewMode,
+    skipSinPago,
+    skipConSaldo,
+    searchTerm,
   ]);
 
   const playIncomingAlertSound = useCallback(() => {
@@ -892,9 +865,39 @@ export default function PagosClientesPage() {
   }, []);
 
   useEffect(() => {
-    refetchOfertasSinPago();
-    refetchOfertasConSaldoPendiente({ silent: true });
+    refetchOfertasSinPago({ skip: 0 });
+    refetchOfertasConSaldoPendiente({ skip: 0, silent: true });
   }, [refetchOfertasConSaldoPendiente, refetchOfertasSinPago]);
+
+  // Debounce: re-fetch desde page 1 cuando cambia la búsqueda en tabs paginadas
+  const isFirstSearchRender = useRef(true);
+  useEffect(() => {
+    if (isFirstSearchRender.current) {
+      isFirstSearchRender.current = false;
+      return;
+    }
+    if (
+      viewMode !== "anticipos-pendientes" &&
+      viewMode !== "finales-pendientes"
+    )
+      return;
+
+    const timer = setTimeout(() => {
+      const q = searchTerm.trim() || undefined;
+      if (viewMode === "anticipos-pendientes") {
+        refetchOfertasSinPago({ skip: 0, q });
+      } else {
+        refetchOfertasConSaldoPendiente({ skip: 0, q });
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [
+    searchTerm,
+    viewMode,
+    refetchOfertasSinPago,
+    refetchOfertasConSaldoPendiente,
+  ]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1596,9 +1599,9 @@ export default function PagosClientesPage() {
               </CardTitle>
               <CardDescription>
                 {viewMode === "anticipos-pendientes" &&
-                  `Mostrando ${filteredOfertas.length} de ${ofertasSinPago.length} ofertas confirmadas sin pago`}
+                  `Mostrando ${filteredOfertas.length} de ${totalSinPago} ofertas confirmadas sin pago`}
                 {viewMode === "finales-pendientes" &&
-                  `Mostrando ${filteredOfertas.length} de ${ofertasConSaldoPendiente.length} ofertas con saldo pendiente`}
+                  `Mostrando ${filteredOfertas.length} de ${totalConSaldo} ofertas con saldo pendiente`}
                 {viewMode === "pagos-por-ofertas" &&
                   `Mostrando ${filteredPagosPorOfertasConEstadoClienteFiltrado.length} de ${ofertasConPagos.length} ofertas con cobros`}
                 {viewMode === "todos-pagos" &&
@@ -1663,22 +1666,74 @@ export default function PagosClientesPage() {
                   onPagoUpdated={async () => {
                     await Promise.all([
                       refetchOfertasConPagos(),
-                      refetchOfertasSinPago({ silent: true }),
-                      refetchOfertasConSaldoPendiente({ silent: true }),
+                      refetchOfertasSinPago({ skip: skipSinPago, q: searchTerm.trim() || undefined, silent: true }),
+                      refetchOfertasConSaldoPendiente({ skip: skipConSaldo, q: searchTerm.trim() || undefined, silent: true }),
                     ]);
                   }}
                   showSearch={false}
                 />
               ) : (
-                <AnticiposPendientesTable
-                  ofertas={filteredOfertas}
-                  loading={
-                    viewMode === "anticipos-pendientes"
-                      ? loadingSinPago
-                      : loadingConSaldo
-                  }
-                  onRegistrarPago={handleRegistrarPago}
-                />
+                <>
+                  <AnticiposPendientesTable
+                    ofertas={filteredOfertas}
+                    loading={
+                      viewMode === "anticipos-pendientes"
+                        ? loadingSinPago
+                        : loadingConSaldo
+                    }
+                    onRegistrarPago={handleRegistrarPago}
+                  />
+                  {/* Paginación server-side */}
+                  {(() => {
+                    const isAnticipo = viewMode === "anticipos-pendientes";
+                    const total = isAnticipo ? totalSinPago : totalConSaldo;
+                    const skip = isAnticipo ? skipSinPago : skipConSaldo;
+                    const totalPages = Math.ceil(total / PAGOS_LIMIT) || 1;
+                    const currentPage = Math.floor(skip / PAGOS_LIMIT) + 1;
+                    if (total <= PAGOS_LIMIT) return null;
+                    return (
+                      <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                        <p className="text-sm text-gray-500">
+                          Página {currentPage} de {totalPages} ({total} en total)
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={skip === 0}
+                            onClick={() => {
+                              const q = searchTerm.trim() || undefined;
+                              const newSkip = Math.max(0, skip - PAGOS_LIMIT);
+                              if (isAnticipo) {
+                                refetchOfertasSinPago({ skip: newSkip, q });
+                              } else {
+                                refetchOfertasConSaldoPendiente({ skip: newSkip, q });
+                              }
+                            }}
+                          >
+                            Anterior
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={skip + PAGOS_LIMIT >= total}
+                            onClick={() => {
+                              const q = searchTerm.trim() || undefined;
+                              const newSkip = skip + PAGOS_LIMIT;
+                              if (isAnticipo) {
+                                refetchOfertasSinPago({ skip: newSkip, q });
+                              } else {
+                                refetchOfertasConSaldoPendiente({ skip: newSkip, q });
+                              }
+                            }}
+                          >
+                            Siguiente
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </>
               )}
             </CardContent>
           </Card>

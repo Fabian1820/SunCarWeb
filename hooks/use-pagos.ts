@@ -8,84 +8,98 @@ import {
   type OfertaConPagos,
 } from "@/lib/services/feats/pagos/pago-service";
 
+export const PAGOS_LIMIT = 40;
+
 const getErrorMessage = (error: unknown, fallback: string) => {
   if (error instanceof Error && error.message) return error.message;
   return fallback;
 };
 
 export function usePagos() {
-  const [ofertasSinPago, setOfertasSinPago] = useState<
-    OfertaConfirmadaSinPago[]
-  >([]);
-  const [ofertasConSaldoPendiente, setOfertasConSaldoPendiente] = useState<
-    OfertaConfirmadaSinPago[]
-  >([]);
-  const [ofertasConPagos, setOfertasConPagos] = useState<OfertaConPagos[]>([]);
-  const [loading, setLoading] = useState(false);
+  // ── Anticipos pendientes (sin_pago) ──────────────────────────
+  const [ofertasSinPago, setOfertasSinPago] = useState<OfertaConfirmadaSinPago[]>([]);
+  const [totalSinPago, setTotalSinPago] = useState(0);
+  const [skipSinPago, setSkipSinPago] = useState(0);
   const [loadingSinPago, setLoadingSinPago] = useState(false);
+
+  // ── Finales pendientes (con_saldo) ───────────────────────────
+  const [ofertasConSaldoPendiente, setOfertasConSaldoPendiente] = useState<OfertaConfirmadaSinPago[]>([]);
+  const [totalConSaldo, setTotalConSaldo] = useState(0);
+  const [skipConSaldo, setSkipConSaldo] = useState(0);
   const [loadingConSaldo, setLoadingConSaldo] = useState(false);
+
+  // ── Pagos por ofertas (sin cambios) ─────────────────────────
+  const [ofertasConPagos, setOfertasConPagos] = useState<OfertaConPagos[]>([]);
+
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // ── Fetch anticipos paginado ─────────────────────────────────
   const fetchOfertasSinPago = useCallback(
-    async (options?: { silent?: boolean }) => {
-      const silent = options?.silent === true;
-      if (!silent) {
-        setLoadingSinPago(true);
-      }
-
+    async (options?: { skip?: number; q?: string; silent?: boolean }) => {
+      const { skip = 0, q, silent = false } = options ?? {};
+      if (!silent) setLoadingSinPago(true);
       try {
-        const data = await PagosService.getOfertasConfirmadasSinPago();
-        setOfertasSinPago(data);
+        const result = await PagosService.getOfertasPendientesPaginado({
+          tipo: "sin_pago",
+          skip,
+          limit: PAGOS_LIMIT,
+          q,
+        });
+        setOfertasSinPago(result.data ?? []);
+        setTotalSinPago(result.total ?? 0);
+        setSkipSinPago(result.skip ?? skip);
       } catch (err: unknown) {
-        console.error("[usePagos] Error:", err);
-        setError(getErrorMessage(err, "Error al cargar ofertas sin pago"));
+        console.error("[usePagos] fetchOfertasSinPago:", err);
+        setError(getErrorMessage(err, "Error al cargar anticipos pendientes"));
       } finally {
-        if (!silent) {
-          setLoadingSinPago(false);
-        }
+        if (!silent) setLoadingSinPago(false);
       }
     },
     [],
   );
 
+  // ── Fetch finales pendientes paginado ────────────────────────
   const fetchOfertasConSaldoPendiente = useCallback(
-    async (options?: { silent?: boolean }) => {
-      const silent = options?.silent === true;
-      if (!silent) {
-        setLoadingConSaldo(true);
-      }
-
+    async (options?: { skip?: number; q?: string; silent?: boolean }) => {
+      const { skip = 0, q, silent = false } = options ?? {};
+      if (!silent) setLoadingConSaldo(true);
       try {
-        const data = await PagosService.getOfertasConfirmadasConSaldoPendiente();
-        setOfertasConSaldoPendiente(data);
+        const result = await PagosService.getOfertasPendientesPaginado({
+          tipo: "con_saldo",
+          skip,
+          limit: PAGOS_LIMIT,
+          q,
+        });
+        setOfertasConSaldoPendiente(result.data ?? []);
+        setTotalConSaldo(result.total ?? 0);
+        setSkipConSaldo(result.skip ?? skip);
       } catch (err: unknown) {
-        console.error("[usePagos] Error:", err);
-        setError(
-          getErrorMessage(err, "Error al cargar ofertas con saldo pendiente"),
-        );
+        console.error("[usePagos] fetchOfertasConSaldoPendiente:", err);
+        setError(getErrorMessage(err, "Error al cargar finales pendientes"));
       } finally {
-        if (!silent) {
-          setLoadingConSaldo(false);
-        }
+        if (!silent) setLoadingConSaldo(false);
       }
     },
     [],
   );
 
+  // ── Fetch pagos por ofertas (sin paginación, no cambia) ──────
   const fetchOfertasConPagos = useCallback(async () => {
     try {
       const data = await PagoService.getOfertasConPagos();
       setOfertasConPagos(data);
     } catch (err: unknown) {
-      console.error("[usePagos] Error:", err);
+      console.error("[usePagos] fetchOfertasConPagos:", err);
     }
   }, []);
 
+  // ── Refetch completo (ambas listas, sin filtros, desde skip=0) ─
   const refetch = useCallback(async () => {
     setLoading(true);
     setError(null);
-    fetchOfertasSinPago();
-    fetchOfertasConSaldoPendiente();
+    fetchOfertasSinPago({ skip: 0 });
+    fetchOfertasConSaldoPendiente({ skip: 0 });
     setLoading(false);
   }, [fetchOfertasConSaldoPendiente, fetchOfertasSinPago]);
 
@@ -98,13 +112,21 @@ export function usePagos() {
   }, [fetchOfertasConPagos]);
 
   return {
+    // Datos
     ofertasSinPago,
     ofertasConSaldoPendiente,
     ofertasConPagos,
+    // Totales y offsets
+    totalSinPago,
+    skipSinPago,
+    totalConSaldo,
+    skipConSaldo,
+    // Loading states
     loading,
     loadingSinPago,
     loadingConSaldo,
     error,
+    // Acciones
     refetch,
     refetchOfertasSinPago: fetchOfertasSinPago,
     refetchOfertasConSaldoPendiente: fetchOfertasConSaldoPendiente,

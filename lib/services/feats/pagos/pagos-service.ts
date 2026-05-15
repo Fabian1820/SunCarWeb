@@ -91,6 +91,22 @@ export interface PagosResponse {
   limit: number;
 }
 
+export interface PagosPaginadoResponse {
+  success: boolean;
+  message: string;
+  data: OfertaConfirmadaSinPago[];
+  total: number;
+  skip: number;
+  limit: number;
+}
+
+export interface PagosPaginadoParams {
+  tipo: "sin_pago" | "con_saldo";
+  skip?: number;
+  limit?: number;
+  q?: string;
+}
+
 const getErrorMessage = (error: unknown, fallback: string) => {
   if (!error || typeof error !== "object") {
     return fallback;
@@ -151,6 +167,38 @@ export class PagosService {
       );
       throw new Error(
         getErrorMessage(error, "Error al cargar ofertas con saldo pendiente"),
+      );
+    }
+  }
+
+  /**
+   * Endpoint unificado paginado: reemplaza los dos endpoints anteriores.
+   * Soporta búsqueda server-side y paginación por skip/limit.
+   */
+  static async getOfertasPendientesPaginado(
+    params: PagosPaginadoParams,
+  ): Promise<PagosPaginadoResponse> {
+    try {
+      const { tipo, skip = 0, limit = 40, q } = params;
+      const searchParams = new URLSearchParams({
+        tipo,
+        skip: String(skip),
+        limit: String(limit),
+      });
+      if (q && q.trim()) searchParams.set("q", q.trim());
+
+      const response = await apiRequest<PagosPaginadoResponse>(
+        `/ofertas/confeccion/personalizadas/pendientes-paginado?${searchParams.toString()}`,
+        { method: "GET" },
+      );
+      return response;
+    } catch (error: unknown) {
+      console.error(
+        "[PagosService] Error al obtener ofertas pendientes paginadas:",
+        error,
+      );
+      throw new Error(
+        getErrorMessage(error, "Error al cargar ofertas pendientes"),
       );
     }
   }
