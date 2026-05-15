@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Card, CardContent } from "@/components/shared/molecule/card"
 import { Input } from "@/components/shared/molecule/input"
-import { Button } from "@/components/shared/atom/button"
 import { Badge } from "@/components/shared/atom/badge"
 import {
   Search,
@@ -17,9 +16,8 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react"
-import { InventarioService } from "@/lib/api-services"
-import type { MaterialFichaResumen } from "@/lib/types/feats/fichas-costo/ficha-costo-types"
-import type { Almacen, StockItem } from "@/lib/types/feats/inventario/inventario-types"
+import { InventarioService, MaterialService, MarcaService } from "@/lib/api-services"
+import type { Almacen, StockItem } from "@/lib/inventario-types"
 
 interface StockComparison {
   almacen_id: string
@@ -28,17 +26,40 @@ interface StockComparison {
   bajo_minimo: boolean
 }
 
-interface StockajesMinimosSectionProps {
-  materiales: MaterialFichaResumen[]
+interface MaterialBuscable {
+  material_id: string
+  codigo: string
+  nombre?: string
+  descripcion?: string
+  categoria?: string
+  marca?: string
+  numero_serie?: string | null
+  stockaje_minimo?: number | null
+  foto?: string
 }
 
-export function StockajesMinimosSection({ materiales }: StockajesMinimosSectionProps) {
-  const [collapsed, setCollapsed] = useState(false)
+interface StockajesMinimosSectionProps {
+  /**
+   * Si `defaultCollapsed` es true, el contenido aparece plegado y los datos
+   * (catálogo, marcas, almacenes) se cargan en la primera expansión.
+   */
+  defaultCollapsed?: boolean
+}
 
-  // Búsqueda de material (filtra el catálogo ya cargado)
+export function StockajesMinimosSection({
+  defaultCollapsed = true,
+}: StockajesMinimosSectionProps) {
+  const [collapsed, setCollapsed] = useState(defaultCollapsed)
+
+  // Catálogo (lazy)
+  const [materiales, setMateriales] = useState<MaterialBuscable[]>([])
+  const [catalogoLoading, setCatalogoLoading] = useState(false)
+  const catalogoLoadedRef = useRef(false)
+
+  // Búsqueda
   const [materialSearch, setMaterialSearch] = useState("")
   const [showDropdown, setShowDropdown] = useState(false)
-  const [selectedMaterial, setSelectedMaterial] = useState<MaterialFichaResumen | null>(null)
+  const [selectedMaterial, setSelectedMaterial] = useState<MaterialBuscable | null>(null)
   const dropdownRef = useRef<HTMLDivElement | null>(null)
 
   // Almacenes
@@ -50,29 +71,64 @@ export function StockajesMinimosSection({ materiales }: StockajesMinimosSectionP
   const [comparaciones, setComparaciones] = useState<StockComparison[]>([])
   const [comparingLoading, setComparingLoading] = useState(false)
 
-  // Cargar almacenes una vez
+  // Carga lazy: catálogo de materiales + marcas + almacenes al primer expand.
   useEffect(() => {
+    if (collapsed || catalogoLoadedRef.current) return
+    catalogoLoadedRef.current = true
+
     let cancelled = false
+    setCatalogoLoading(true)
     setAlmacenesLoading(true)
-    InventarioService.getAlmacenes()
-      .then((data) => {
+
+    Promise.all([
+      MaterialService.getAllMaterials().catch(() => []),
+      MarcaService.getMarcasSimplificadas().catch(() => []),
+      InventarioService.getAlmacenes().catch(() => []),
+    ])
+      .then(([materialsRaw, marcas, almacenesRaw]) => {
         if (cancelled) return
-        const lista = (Array.isArray(data) ? data : []).filter((a) => a.id && a.activo !== false)
+        const marcaPorId = new Map<string, string>()
+        for (const m of marcas as Array<{ id: string; nombre: string }>) {
+          if (m?.id) marcaPorId.set(m.id, m.nombre)
+        }
+        const mapped: MaterialBuscable[] = []
+        for (const m of materialsRaw as any[]) {
+          const material_id = m?.id || m?.material_id || m?._id
+          if (!material_id) continue
+          mapped.push({
+            material_id: String(material_id),
+            codigo: String(m?.codigo ?? ""),
+            nombre: m?.nombre,
+            descripcion: m?.descripcion,
+            categoria: m?.categoria,
+            marca: m?.marca_id ? marcaPorId.get(m.marca_id) : undefined,
+            numero_serie: m?.numero_serie ?? null,
+            stockaje_minimo:
+              typeof m?.stockaje_minimo === "number" ? m.stockaje_minimo : null,
+            foto: m?.foto,
+          })
+        }
+        setMateriales(mapped)
+
+        const lista = (Array.isArray(almacenesRaw) ? almacenesRaw : []).filter(
+          (a) => a.id && a.activo !== false,
+        )
         setAlmacenes(lista)
       })
-      .catch(() => {
-        if (!cancelled) setAlmacenes([])
-      })
       .finally(() => {
-        if (!cancelled) setAlmacenesLoading(false)
+        if (!cancelled) {
+          setCatalogoLoading(false)
+          setAlmacenesLoading(false)
+        }
       })
+
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [collapsed])
 
-  // Filtro local: matchea por nombre, código, marca, categoría y número de serie
-  const materialResults = useMemo<MaterialFichaResumen[]>(() => {
+  // Filtro local del buscador
+  const materialResults = useMemo<MaterialBuscable[]>(() => {
     const term = materialSearch.trim().toLowerCase()
     if (term.length < 2) return []
     if (selectedMaterial) {
@@ -96,7 +152,6 @@ export function StockajesMinimosSection({ materiales }: StockajesMinimosSectionP
     return matches.slice(0, 25)
   }, [materialSearch, materiales, selectedMaterial])
 
-  // Cerrar dropdown al click fuera
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -107,7 +162,7 @@ export function StockajesMinimosSection({ materiales }: StockajesMinimosSectionP
     return () => document.removeEventListener("mousedown", handler)
   }, [])
 
-  // Cargar comparación cuando cambia material o almacenes seleccionados
+  // Carga comparación al cambiar material o almacenes
   useEffect(() => {
     const materialId = selectedMaterial?.material_id
     if (!materialId || selectedAlmacenIds.size === 0) {
@@ -123,11 +178,13 @@ export function StockajesMinimosSection({ materiales }: StockajesMinimosSectionP
     InventarioService.getStock({ material_id: String(materialId), limit: 1000 })
       .then(({ data: stockItems }) => {
         if (cancelled) return
-        // Map almacen_id -> cantidad
         const stockMap = new Map<string, number>()
         for (const s of stockItems as StockItem[]) {
           if (s.almacen_id) {
-            stockMap.set(String(s.almacen_id), (stockMap.get(String(s.almacen_id)) ?? 0) + (s.cantidad ?? 0))
+            stockMap.set(
+              String(s.almacen_id),
+              (stockMap.get(String(s.almacen_id)) ?? 0) + (s.cantidad ?? 0),
+            )
           }
         }
 
@@ -142,8 +199,11 @@ export function StockajesMinimosSection({ materiales }: StockajesMinimosSectionP
             bajo_minimo: tieneMinimo && cantidad <= (stockMin as number),
           })
         }
-        // Ordenar: alertas primero
-        result.sort((x, y) => Number(y.bajo_minimo) - Number(x.bajo_minimo) || x.almacen_nombre.localeCompare(y.almacen_nombre))
+        result.sort(
+          (x, y) =>
+            Number(y.bajo_minimo) - Number(x.bajo_minimo) ||
+            x.almacen_nombre.localeCompare(y.almacen_nombre),
+        )
         setComparaciones(result)
       })
       .catch(() => {
@@ -158,7 +218,7 @@ export function StockajesMinimosSection({ materiales }: StockajesMinimosSectionP
     }
   }, [selectedMaterial, selectedAlmacenIds, almacenes])
 
-  const handleSelectMaterial = (m: MaterialFichaResumen) => {
+  const handleSelectMaterial = (m: MaterialBuscable) => {
     setSelectedMaterial(m)
     setMaterialSearch(m.nombre || m.descripcion || String(m.codigo || ""))
     setShowDropdown(false)
@@ -191,7 +251,7 @@ export function StockajesMinimosSection({ materiales }: StockajesMinimosSectionP
 
   const alertas = useMemo(
     () => comparaciones.filter((c) => c.bajo_minimo).length,
-    [comparaciones]
+    [comparaciones],
   )
 
   return (
@@ -228,6 +288,13 @@ export function StockajesMinimosSection({ materiales }: StockajesMinimosSectionP
 
         {!collapsed && (
           <div className="p-4 space-y-4">
+            {catalogoLoading && (
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Cargando catálogo de materiales...
+              </div>
+            )}
+
             {/* Buscador de material */}
             <div>
               <label className="text-xs font-medium text-gray-700 block mb-1">
@@ -247,6 +314,7 @@ export function StockajesMinimosSection({ materiales }: StockajesMinimosSectionP
                     if (materialResults.length > 0) setShowDropdown(true)
                   }}
                   className="pl-10 pr-10 h-10"
+                  disabled={catalogoLoading}
                 />
                 {selectedMaterial && (
                   <button
@@ -300,15 +368,18 @@ export function StockajesMinimosSection({ materiales }: StockajesMinimosSectionP
                     ))}
                   </div>
                 )}
-                {showDropdown && materialSearch.trim().length >= 2 && materialResults.length === 0 && (
-                  <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg p-3 text-xs text-gray-500">
-                    Sin resultados.
-                  </div>
-                )}
+                {showDropdown &&
+                  materialSearch.trim().length >= 2 &&
+                  materialResults.length === 0 &&
+                  !catalogoLoading && (
+                    <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg p-3 text-xs text-gray-500">
+                      Sin resultados.
+                    </div>
+                  )}
               </div>
             </div>
 
-            {/* Material seleccionado: muestra stock_minimo */}
+            {/* Material seleccionado */}
             {selectedMaterial && (
               <div className="flex items-center gap-3 p-3 rounded-md border border-amber-200 bg-amber-50/40">
                 {selectedMaterial.foto ? (
@@ -486,7 +557,7 @@ export function StockajesMinimosSection({ materiales }: StockajesMinimosSectionP
               </div>
             )}
 
-            {!selectedMaterial && (
+            {!selectedMaterial && !catalogoLoading && (
               <p className="text-xs text-gray-400 text-center py-2">
                 Selecciona un material para comenzar la comparación.
               </p>

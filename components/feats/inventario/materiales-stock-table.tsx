@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, Fragment } from "react"
+import { useEffect, useRef, useState, Fragment } from "react"
 import {
   Package,
   ChevronDown,
@@ -9,6 +9,7 @@ import {
   ArrowUp,
   ArrowDown,
   Loader2,
+  Pencil,
 } from "lucide-react"
 import { Button } from "@/components/shared/atom/button"
 import { SmartPagination } from "@/components/shared/molecule/smart-pagination"
@@ -32,6 +33,14 @@ interface MaterialesStockTableProps {
   almacenSeleccionadoNombre?: string
   sort: MaterialesStockSort
   onSortChange: (sort_by: MaterialesStockSortBy) => void
+  /**
+   * Si está definido, la columna "Stockaje mín." es editable inline.
+   * Debe retornar una promesa que resuelva en éxito o lance en error.
+   */
+  onEditStockMinimo?: (
+    material_id: string,
+    nuevoValor: number | null,
+  ) => Promise<void>
   pagination?: {
     page: number
     totalPages: number
@@ -92,6 +101,145 @@ function HeaderCell({
   )
 }
 
+interface StockMinimoCellProps {
+  material_id: string
+  value: number | null | undefined
+  onSave?: (material_id: string, nuevoValor: number | null) => Promise<void>
+}
+
+function StockMinimoCell({ material_id, value, onSave }: StockMinimoCellProps) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState("")
+  const [saving, setSaving] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement | null>(null)
+
+  useEffect(() => {
+    if (editing) {
+      inputRef.current?.focus()
+      inputRef.current?.select()
+    }
+  }, [editing])
+
+  const formatted =
+    typeof value === "number" ? String(value) : null
+
+  const startEdit = () => {
+    if (!onSave || saving) return
+    setDraft(formatted ?? "")
+    setErrorMsg(null)
+    setEditing(true)
+  }
+
+  const cancel = () => {
+    setEditing(false)
+    setDraft("")
+    setErrorMsg(null)
+  }
+
+  const commit = async () => {
+    if (!onSave) {
+      cancel()
+      return
+    }
+    const trimmed = draft.trim()
+    let nuevoValor: number | null
+    if (trimmed === "") {
+      nuevoValor = null
+    } else {
+      const parsed = Number(trimmed)
+      if (!Number.isFinite(parsed) || parsed < 0 || !Number.isInteger(parsed)) {
+        setErrorMsg("Número entero ≥ 0")
+        return
+      }
+      nuevoValor = parsed
+    }
+
+    const currentValue = typeof value === "number" ? value : null
+    if (nuevoValor === currentValue) {
+      cancel()
+      return
+    }
+
+    setSaving(true)
+    setErrorMsg(null)
+    try {
+      await onSave(material_id, nuevoValor)
+      setEditing(false)
+      setDraft("")
+    } catch (err) {
+      setErrorMsg(
+        err instanceof Error ? err.message : "No se pudo guardar",
+      )
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (!onSave) {
+    return (
+      <span className="text-sm text-gray-700">
+        {formatted ?? <span className="text-gray-300">—</span>}
+      </span>
+    )
+  }
+
+  if (editing) {
+    return (
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-1">
+          <input
+            ref={inputRef}
+            type="number"
+            inputMode="numeric"
+            min={0}
+            step={1}
+            value={draft}
+            disabled={saving}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault()
+                commit()
+              } else if (e.key === "Escape") {
+                e.preventDefault()
+                cancel()
+              }
+            }}
+            onBlur={() => {
+              if (!saving) cancel()
+            }}
+            placeholder="—"
+            className="w-20 h-8 rounded border border-amber-300 px-2 text-sm text-right focus:outline-none focus:ring-2 focus:ring-amber-400"
+          />
+          {saving && <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-600" />}
+        </div>
+        {errorMsg && (
+          <span className="text-[10px] text-red-600">{errorMsg}</span>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={startEdit}
+      className="group inline-flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-amber-100 transition-colors"
+      title="Click para editar"
+    >
+      <span
+        className={`text-sm font-medium ${
+          formatted == null ? "text-gray-400" : "text-gray-800"
+        }`}
+      >
+        {formatted ?? "—"}
+      </span>
+      <Pencil className="h-3 w-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+    </button>
+  )
+}
+
 export function MaterialesStockTable({
   data,
   loading,
@@ -99,6 +247,7 @@ export function MaterialesStockTable({
   almacenSeleccionadoNombre,
   sort,
   onSortChange,
+  onEditStockMinimo,
   pagination,
 }: MaterialesStockTableProps) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
@@ -180,6 +329,9 @@ export function MaterialesStockTable({
                 <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[60px]">
                   UM
                 </th>
+                <th className="text-center py-3 px-2 font-semibold text-gray-900 w-[110px]">
+                  Stockaje mín.
+                </th>
                 <HeaderCell
                   label={stockColLabel}
                   sortKey="total"
@@ -195,7 +347,7 @@ export function MaterialesStockTable({
                 const rowKey = row.material_id || row.codigo
                 const isExpanded = expanded.has(rowKey)
                 const nombre = row.nombre || row.descripcion || "Sin nombre"
-                const colSpan = isFiltroAlmacen ? 7 : 8
+                const colSpan = isFiltroAlmacen ? 8 : 9
 
                 return (
                   <Fragment key={rowKey}>
@@ -287,6 +439,15 @@ export function MaterialesStockTable({
                         <span className="text-sm text-gray-700">
                           {row.um || "—"}
                         </span>
+                      </td>
+
+                      {/* Stockaje mínimo (editable) */}
+                      <td className="py-3 px-2 text-center">
+                        <StockMinimoCell
+                          material_id={row.material_id}
+                          value={row.stockaje_minimo}
+                          onSave={onEditStockMinimo}
+                        />
                       </td>
 
                       {/* Total / Stock en almacen */}

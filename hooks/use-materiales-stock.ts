@@ -46,6 +46,8 @@ interface UseMaterialesStockReturn {
   setSort: (patch: Partial<MaterialesStockSort>) => void;
   setPage: (page: number) => void;
   refetch: () => void;
+  /** Actualiza localmente un material por id, sin volver a llamar al backend. */
+  patchRow: (material_id: string, patch: Partial<MaterialStockItem>) => void;
 }
 
 const DEFAULT_LIMIT = 50;
@@ -195,6 +197,17 @@ export function useMaterialesStock(): UseMaterialesStockReturn {
     fetchData(filters, sort, page, debouncedQ);
   }, [fetchData, filters, sort, page, debouncedQ]);
 
+  const patchRow = useCallback(
+    (material_id: string, patch: Partial<MaterialStockItem>) => {
+      setData((prev) =>
+        prev.map((row) =>
+          row.material_id === material_id ? { ...row, ...patch } : row,
+        ),
+      );
+    },
+    [],
+  );
+
   return {
     data,
     almacenesDisponibles,
@@ -207,5 +220,6 @@ export function useMaterialesStock(): UseMaterialesStockReturn {
     setSort,
     setPage,
     refetch,
+    patchRow,
   };
 }

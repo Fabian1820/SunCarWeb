@@ -249,6 +249,7 @@ export interface MaterialStockItem {
   potencia_kw?: number;
   um?: string;
   foto?: string;
+  stockaje_minimo?: number | null;
   total: number;
   por_almacen: MaterialStockPorAlmacenItem[];
 }

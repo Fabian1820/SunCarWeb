@@ -435,6 +435,36 @@ export class MaterialService {
     }
   }
 
+  static async updateStockajeMinimo(
+    materialId: string,
+    stockajeMinimo: number | null,
+  ): Promise<boolean> {
+    if (!materialId) {
+      throw new Error("material_id es requerido");
+    }
+    if (
+      stockajeMinimo !== null &&
+      (!Number.isFinite(stockajeMinimo) || stockajeMinimo < 0)
+    ) {
+      throw new Error("El stockaje mínimo debe ser un número >= 0 o null");
+    }
+
+    const result = await apiRequest<{
+      success?: boolean;
+      message?: string;
+    }>(`/productos/materiales/${encodeURIComponent(materialId)}/stockaje-minimo`, {
+      method: "PATCH",
+      body: JSON.stringify({ stockaje_minimo: stockajeMinimo }),
+    });
+
+    if (result && typeof result === "object") {
+      if (result.success === false) {
+        throw new Error(result.message || "No se pudo actualizar el stockaje mínimo");
+      }
+    }
+    return true;
+  }
+
   static async getAllCatalogs(): Promise<BackendCatalogoProductos[]> {
     const result = await apiRequest<{ data: BackendCatalogoProductos[] }>(
       "/productos/",

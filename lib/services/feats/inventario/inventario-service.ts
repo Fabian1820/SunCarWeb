@@ -870,6 +870,14 @@ export class InventarioService {
           )
       : [];
 
+    const rawStockMin = raw?.stockaje_minimo;
+    const stockaje_minimo =
+      rawStockMin === null
+        ? null
+        : rawStockMin === undefined
+          ? undefined
+          : (asNumber(rawStockMin) ?? null);
+
     return {
       material_id: material_id ?? codigo!,
       codigo: codigo ?? material_id!,
@@ -881,6 +889,7 @@ export class InventarioService {
       potencia_kw: asNumber(raw?.potencia_kw),
       um: asString(raw?.um),
       foto: asString(raw?.foto),
+      stockaje_minimo,
       total: asNumber(raw?.total) ?? 0,
       por_almacen,
     };

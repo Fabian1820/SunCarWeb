@@ -31,7 +31,6 @@ import { HistorialDialog } from "@/components/feats/fichas-costo/historial-dialo
 import { CrearFichaForm } from "@/components/feats/fichas-costo/crear-ficha-form"
 import { CalcPorcentajeDialog } from "@/components/feats/fichas-costo/calc-porcentaje-dialog"
 import { EditarPreciosDialog } from "@/components/feats/fichas-costo/editar-precios-dialog"
-import { StockajesMinimosSection } from "@/components/feats/fichas-costo/stockajes-minimos-section"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/shared/molecule/tooltip"
 import type {
@@ -261,8 +260,6 @@ function FichasCostoPageContent() {
             </CardContent>
           </Card>
         )}
-
-        <StockajesMinimosSection materiales={resumen} />
 
         <Card className="border-l-4 border-l-teal-600">
           <CardContent className="p-0">

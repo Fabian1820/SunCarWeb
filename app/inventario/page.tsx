@@ -25,6 +25,8 @@ import { useMaterialesStock } from "@/hooks/use-materiales-stock"
 import { MaterialService, MarcaService } from "@/lib/api-services"
 import type { MarcaSimplificada } from "@/lib/types/feats/marcas/marca-types"
 import { MaterialesStockTable } from "@/components/feats/inventario/materiales-stock-table"
+import { StockajesMinimosSection } from "@/components/feats/inventario/stockajes-minimos-section"
+import { useToast } from "@/hooks/use-toast"
 
 export default function InventarioPage() {
   const {
@@ -39,7 +41,9 @@ export default function InventarioPage() {
     setSort,
     setPage,
     refetch,
+    patchRow,
   } = useMaterialesStock()
+  const { toast } = useToast()
 
   const [categorias, setCategorias] = useState<string[]>([])
   const [marcas, setMarcas] = useState<MarcaSimplificada[]>([])
@@ -97,6 +101,34 @@ export default function InventarioPage() {
       ? almacenesDisponibles.find((a) => a.id === filters.almacen_id)
       : undefined
 
+  const handleEditStockMinimo = async (
+    material_id: string,
+    nuevoValor: number | null,
+  ) => {
+    const prev = data.find((d) => d.material_id === material_id)?.stockaje_minimo
+    patchRow(material_id, { stockaje_minimo: nuevoValor })
+    try {
+      await MaterialService.updateStockajeMinimo(material_id, nuevoValor)
+      toast({
+        title: "Stockaje mínimo actualizado",
+        description:
+          nuevoValor === null
+            ? "Se eliminó el stockaje mínimo del material."
+            : `Nuevo valor: ${nuevoValor}`,
+      })
+    } catch (err) {
+      patchRow(material_id, { stockaje_minimo: prev })
+      const message =
+        err instanceof Error ? err.message : "No se pudo guardar el cambio"
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive",
+      })
+      throw err
+    }
+  }
+
   const cardTitle = almacenSeleccionado
     ? `Stock en ${almacenSeleccionado.nombre}`
     : "Stock consolidado por almacén"
@@ -113,7 +145,9 @@ export default function InventarioPage() {
         className="bg-white shadow-sm border-b border-orange-100"
       />
 
-      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
+      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8 space-y-6">
+        <StockajesMinimosSection defaultCollapsed />
+
         <Card>
           <CardHeader className="space-y-4">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -269,6 +303,7 @@ export default function InventarioPage() {
                   setSort({ sort_by, sort_dir: "asc" })
                 }
               }}
+              onEditStockMinimo={handleEditStockMinimo}
               pagination={{
                 page: meta.page,
                 totalPages: meta.totalPages,
