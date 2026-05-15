@@ -1163,6 +1163,18 @@ export function UpsertSolicitudVentaDialog({
                                     {oferta.moneda_pago ? ` ${oferta.moneda_pago}` : ""}
                                   </span>
                                 </div>
+                                {oferta.descuento_free && (
+                                  <div className="flex items-center gap-1.5 mt-1">
+                                    <span className="text-[10px] font-semibold text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded-full">
+                                      Descuento Free
+                                    </span>
+                                    {oferta.motivo_descuento_free && (
+                                      <span className="text-[10px] text-orange-700 truncate max-w-[180px]">
+                                        {oferta.motivo_descuento_free}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                               <Badge
                                 variant="outline"
