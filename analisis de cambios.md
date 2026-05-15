@@ -2,6 +2,102 @@
 
 ---
 
+## 📅 15 de Mayo, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**Áreas: Ventas/Ofertas (aumento por material, descuento free), Inventario (stock, movimientos, transferencias), Cobros/Pagos (paginación server-side, rollback factura), Dashboard (nuevo módulo), Timezone, RRHH (commits vagos)**
+
+| Commit | Autor | Descripción |
+|--------|-------|-------------|
+| `9374d45` | yany1509/Claude | feat(ventas): campo aumento por material en ofertas y solicitudes |
+| `3d9102b` | yany1509/Claude | fix: eliminar inversión de tasa |
+| `26641506` | yany1509/Claude | revert: restaurar inversión de tasa al enviar al backend |
+| `240407b1` | yany1509/Claude | fix: enviar tasa de cambio sin inversión (valor exacto del usuario) |
+| `97268483` | yany1509/Claude | fix: corregir cálculo USD para pagos en EUR (multiplicar, no dividir) |
+| `8e4ce5e7` | yany1509/Claude | mostrar badge descuento free en panel de ofertas de solicitudes |
+| `838fcc35` | yany1509/Claude | activar descuento free al cargar oferta en solicitudes de venta |
+| `99da7387` | yany1509/Claude | mostrar descuento free y motivo en listado de ofertas |
+| `f2eae6b1` | yany1509/Claude | corregir descuento free en ofertas: payload y vista detalle |
+| `f2313856` | yany1509/Claude | mejorar layout desktop del dialog de ofertas y overlay |
+| `3d7f4206` | yany1509/Claude | descuento free en ofertas de clientes-ventas para Loydis |
+| `4b793c7f` | Fabian1820 | feat(inventario): número de serie en StockTable |
+| `8580df7f` | Fabian1820/Claude | feat(dashboard): nuevo módulo "Compras, Envíos y Costos" |
+| `712af078` | Fabian1820/Claude | feat(inventario): stockaje mínimo editable + StockajesMinimosSection |
+| `ddf38b30` | Fabian1820/Claude | refactor(inventario): resolveMaterial en MovimientosTable y SolicitudesTransferenciaTable |
+| `ed2cbf03` | Fabian1820/Claude | refactor(inventario): reemplaza useInventario por useMaterialesStock |
+| `813511b3` | Fabian1820 | Merge branch 'main' |
+| `7dd82226` | Ruben | fix(pagos): rollback del pago si falla la creación de la factura |
+| `4af14754` | Ruben/Claude | fix(timezone): mostrar horas en hora de Cuba (America/Havana) |
+| `cfd48dcc` | Ruben/Claude | perf(wallet): eliminar loadWallets redundante tras crear gasto/ingreso |
+| `d19b2e1e` | Ruben/Claude | perf(cobros): paginación server-side y eliminar N+1 del estado cliente |
+| `6f0613d1` | Ruben/Claude | perf(pagos): paginación server-side en anticipos/finales pendientes |
+| `90ca22b5` | Fabian1820 | Refactor ResultadosComercialVentasPage: facturas en lugar de ofertas |
+| `8d4ed013` | Fabian1820 | Remove restricted user "Loydis" de ResultadosVentasTable |
+| `06b007a3` | Fabian1820 | Refactor RRHH: eliminar filtro estadoActivo |
+| `2a758df3` | Fabian1820 | Add reportes-ventas module con resultados y estadísticas de clientes |
+| `04dcbaa4` | yany1509 | "rh" — sin descripción |
+| `1445dba4` | yany1509 | "rh" — sin descripción |
+| `9bf9afaf` | yany1509 | "rh" — sin descripción |
+| `7cbdd1fb` | yany1509 | "recursos humanos" — sin descripción |
+| `145cb46e` | yany1509 | "rh" — sin descripción |
+| `4abb9ece` | yany1509 | "recursos humanos" — sin descripción |
+
+### Análisis de riesgos y consideraciones
+
+#### 🔴 Riesgos altos
+
+1. **Inconsistencia en lógica de tasa de cambio: fix → revert → fix en el mismo día**
+   - En menos de 2 horas se aplicaron tres cambios contradictorios: eliminar inversión, restaurarla, y eliminarla otra vez. El commit final (`240407b1`) dice "sin inversión". Pero el commit `97268483` dice que EUR sí multiplica (no divide como CUP).
+   - Si el código resultante no diferencia correctamente EUR (multiplicar: `monto * tasa`) de CUP (dividir: `monto / tasa`), todos los montos USD calculados en EUR serán incorrectos.
+   - **Acción urgente:** Revisar el estado final de la lógica de conversión para cada moneda. Hacer prueba end-to-end con montos conocidos en CUP, EUR y USD.
+
+2. **Nuevo campo `aumento_porcentaje` y `aumento_tipo` en ofertas — backend puede ignorarlo silenciosamente**
+   - El frontend calcula `precio × (1 - desc/100) × (1 + aum/100)` y muestra el resultado al usuario. Si el backend no persiste ni aplica estos campos, el precio procesado diferirá del precio mostrado al cliente.
+   - El PDF también muestra descuento y aumento apilados en la columna "Ajuste" — si el backend no devuelve estos campos al cargar la oferta, el PDF mostrará valores en blanco.
+   - **Acción urgente:** Verificar que el backend acepta `aumento_porcentaje` y `aumento_tipo` en el modelo de materiales de oferta.
+
+3. **6 commits vagos de yany1509 sobre RRHH** ("rh" ×5, "recursos humanos" ×2)
+   - Totalmente sin descripción. Afectan un módulo activo. No es posible auditar qué cambió.
+   - **Acción recomendada:** Revisar los diffs manualmente. Probar el flujo completo de RRHH antes de asumir estabilidad.
+
+#### 🟡 Riesgos medios
+
+4. **Rollback manual de pago si falla la creación de factura — solución frágil**
+   - El frontend llama a `PagoVentaService.eliminarPago` si `crearFactura` falla. Si el rollback mismo falla (timeout, red), queda un pago huérfano sin factura. No hay reintentos ni cola de compensación.
+   - **Consideración:** Esta es una solución de parche en el frontend para un problema que debería resolverse con atomicidad en el backend (transacción BD). Funciona mejor que nada, pero no garantiza consistencia en condiciones de red inestable.
+
+5. **Refactor masivo de inventario: useInventario → useMaterialesStock + nuevo resolveMaterial**
+   - Se reemplazó el hook principal y se refactorizó `SolicitudesTransferenciaTable` y `MovimientosTable`. Si algún componente que no fue actualizado aún consume la API antigua del hook, habrá errores en runtime.
+   - **Acción recomendada:** Probar el flujo completo: movimientos, solicitudes de transferencia, y stock table — verificando que todos los materiales resuelven correctamente nombre, código e imagen.
+
+6. **Descuento free hardcodeado por nombre de usuario "Loydis Batista Carrazana"**
+   - La lógica de permisos está hardcodeada en el componente frontend. Si el nombre del usuario cambia en la BD, o se necesita dar el permiso a otro usuario, se requiere un cambio de código.
+   - **Acción recomendada:** A mediano plazo, mover esta lógica a un campo de permisos en el backend.
+
+7. **Paginación server-side depende de nuevos endpoints en el backend**
+   - `cobros-paginado` y `/personalizadas/pendientes-paginado` deben existir con los parámetros correctos (`skip`, `limit`, `q`, filtros de fecha, `estado_pendiente`, devoluciones). Si no existen, las tabs de cobros y anticipos/finales pendientes rompen completamente.
+   - **Acción urgente:** Verificar en LlegoBackend que ambos endpoints existen y paginan correctamente.
+
+8. **ResultadosComercialVentasPage ahora muestra facturas en lugar de ofertas**
+   - Cambio de lógica de negocio. Los tipos y la estructura de datos puede diferir. Verificar que los componentes de tabla reciben correctamente los campos de factura (total, estado, fecha, etc.).
+
+9. **Nuevo módulo "Compras, Envíos y Costos" en el dashboard — ruta posiblemente incompleta**
+   - Se agregó la navegación al módulo, pero hay que confirmar que la página destino está implementada y no muestra una pantalla vacía o un 404.
+
+#### 🟢 Mejoras positivas
+
+10. **Paginación server-side en cobros y anticipos/finales** — elimina el N+1 del frontend que hacía `getClienteByNumero()` por cada fila; mejora significativa de rendimiento.
+11. **Búsqueda debounced (300ms) en tabs paginadas** — evita llamadas al backend por cada tecla.
+12. **Rollback de pago si falla la factura** — mejor que dejar pagos huérfanos, aunque frágil.
+13. **Corrección de timezone a America/Havana** — las horas en wallet, tasas de cambio y recibos PDF ahora muestran la hora local correcta (UTC-4 verano).
+14. **Eliminación de `loadWallets` redundante** — reduce latencia al registrar cada transacción.
+15. **Campo `aumento_porcentaje` configurable** — sin límite máximo ni mínimo, simétrico al descuento, incluido en el PDF.
+16. **Descuento free en clientes-ventas (Loydis)** — permite descuentos sin tope con motivo obligatorio.
+17. **Número de serie en StockTable** — mejora la trazabilidad en inventario.
+
+---
+
 ## 📅 11 de Mayo, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -40,44 +136,29 @@
 #### 🔴 Riesgos altos
 
 1. **El flujo de transferencias pendientes requiere múltiples endpoints nuevos de backend que podrían no existir aún**
-   - `POST /wallet/wallets/ensure` — inicializa wallet automáticamente para destinatarios sin una
-   - `POST /wallet/pending-transfers` — crea la transferencia pendiente
-   - `PUT /wallet/pending-transfers/{id}/accept`
-   - `PUT /wallet/pending-transfers/{id}/reject`
-   - `DELETE /wallet/pending-transfers/{id}` (cancelar)
-   - Si alguno no existe, el flujo de transferencias rompe silenciosamente o con 404 sin feedback claro al usuario.
+   - `POST /wallet/wallets/ensure`, `POST /wallet/pending-transfers`, `PUT .../accept`, `PUT .../reject`, `DELETE .../`
+   - Si alguno no existe, el flujo de transferencias rompe silenciosamente con 404.
    - **Acción urgente:** Verificar que todos estos endpoints existen en LlegoBackend antes de usar en producción.
 
 2. **`recibido_por_ci` en endpoint de pagos — auto-depósito en wallet no confirmado**
-   - El commit asume que el backend detecta este campo y acredita automáticamente la billetera del trabajador con el CI correspondiente. Si el backend lo ignora, los pagos se procesan sin acreditar ninguna billetera.
+   - Si el backend lo ignora, los pagos se procesan sin acreditar ninguna billetera.
    - **Acción urgente:** Confirmar en LlegoBackend que el endpoint de pagos maneja `recibido_por_ci`.
 
-3. **8 commits vagos de yany1509 en el día** ("descuehto free", "orden", "comisiones ventas", "ajustes en ventas solictiudes", "ventas", "ventas y mauricio", "pagos ventas", "cobros por ofertas y nuevo modulo")
-   - Afectan ventas, comerciales, cobros por ofertas. Sin auditoría posible. "cobros por ofertas y nuevo modulo" sugiere un módulo nuevo sin documentación.
+3. **8 commits vagos de yany1509 en el día** — afectan ventas, comerciales, cobros por ofertas. Sin auditoría posible.
    - **Acción recomendada:** Revisar diffs de estos commits manualmente antes de considerar estable el módulo de ventas.
 
 #### 🟡 Riesgos medios
 
-4. **Wallet ahora visible para todos los usuarios (sin RouteGuard)**
-   - Todo usuario autenticado puede acceder a `/wallet`. Verificar que los permisos granulares (`ver_todos`, etc.) ocultan correctamente las billeteras ajenas y que el backend valida pertenencia en cada operación.
-
-5. **Separación de `recargo` e `impuesto_porcentaje` en ficha de costo — rompe fichas existentes si el backend no actualiza su modelo**
-   - El refactor cambia los campos enviados al guardar una ficha. Si el backend espera el campo unificado anterior, los cálculos de precios en envíos de contenedores serán incorrectos.
-   - **Acción recomendada:** Verificar que el payload de guardado coincide exactamente con lo que el backend espera.
-
-6. **Toggle "Propias/Todas" en historial**
-   - Verificar que cuando está en "Todas", el endpoint retorna realmente todas las transacciones del equipo y no solo las del usuario autenticado.
-
-7. **RRHH — campos editables (nombre y teléfono) dependen del backend**
-   - Si el endpoint de actualización de trabajadores no acepta `nombre` o `telefono`, los cambios se pierden silenciosamente.
+4. **Wallet visible para todos los usuarios sin RouteGuard** — verificar que permisos granulares ocultan billeteras ajenas y que el backend valida pertenencia en cada operación.
+5. **Separación de `recargo` e `impuesto_porcentaje` en ficha de costo** — si el backend espera el campo unificado anterior, los cálculos de precios serán incorrectos.
+6. **RRHH — campos editables dependen del backend** — si el endpoint no acepta `nombre` o `telefono`, los cambios se pierden silenciosamente.
 
 #### 🟢 Mejoras positivas
 
-8. **Multi-moneda en wallet (USD, EUR, CUP)** — interfaz más clara para equipos que operan con varias divisas simultáneamente.
-9. **Transferencias con flujo de aceptación** — evita transferencias accidentales; el destinatario puede rechazar antes de que se acredite.
-10. **Wallet automático en transferencias** — `ensure` previene errores de "destinatario sin wallet" en producción.
-11. **Separación recargo/impuesto en ficha de costo** — cálculos más transparentes y auditables.
-12. **Nombre editable inline en RRHH** — mejora UX evitando abrir modal para cambios simples.
+7. **Multi-moneda en wallet (USD, EUR, CUP)** — interfaz más clara para equipos con varias divisas.
+8. **Transferencias con flujo de aceptación** — evita transferencias accidentales.
+9. **Wallet automático en transferencias** — `ensure` previene errores de "destinatario sin wallet".
+10. **Separación recargo/impuesto en ficha de costo** — cálculos más transparentes y auditables.
 
 ---
 
@@ -108,166 +189,38 @@ Sin commits de desarrollo nuevos. Solo el commit automático de "Analisis diario
 | Commit | Autor | Descripción |
 |--------|-------|-------------|
 | `6ffb2ad` | Fabian1820 | Merge branch 'main' |
-| `0838d8d` | Fabian1820 | feat(envio-contenedor): búsqueda debounced de materiales por código/nombre en `EnvioContenedorFormDialog`, reemplaza `SearchableSelect` |
+| `0838d8d` | Fabian1820 | feat(envio-contenedor): búsqueda debounced de materiales por código/nombre |
 | `2fc3dc4` | yany1509 | "ventas" — cambios sin descripción |
 | `b04d962` | yany1509 | "comerciales de ventas y ofertas" — cambios sin descripción |
-| `15c43dc` | Ruben/Claude | refactor(ficha-costo): simplificar modelo de precios — elimina Δ% por producto, todos usan el mismo % envío; precios venta e instaladora editables manualmente con reset al sugerido; elimina columna Desviación, botón Prorratear y Aplicar sugerencia |
-| `b06dc7a` | Fabian1820 | feat(fichas-costo): nuevo `StockajesMinimosSection` para comparar stock vs mínimos; campo stockaje mínimo en `EditarPreciosDialog`; `FichaCostoService` actualizado |
-| `9435956` | Ruben/Claude | feat(ficha-costo): campo Impuesto nacional (%) sobre CIF — porcentaje global que incrementa CIF de todos los productos antes de calcular precios |
-| `08501d6` | Fabian1820 | refactor(fichas-costo): ajuste de layout y ancho de tabla para responsividad |
-| `c0ed0b6` | Fabian1820 | feat(fichas-costo): tooltips en códigos/nombres de materiales; campo número de serie en `EditarPreciosDialog`; `FichaCostoService` actualizado |
-| `5952a48` | Fabian1820 | feat(fichas-costo): nuevo `EditarPreciosDialog` para edición rápida de precios desde la tabla; `MaterialSearchDialog` con filtro por serie |
-| `c4a5b69` | Ruben/Claude | feat(inventario): exportar análisis de stock mínimo a Excel — .xlsx con hoja resumen y hoja detalle con filas coloreadas por estado (rojo/amarillo/verde) |
+| `15c43dc` | Ruben/Claude | refactor(ficha-costo): simplificar modelo de precios — elimina Δ% por producto |
+| `b06dc7a` | Fabian1820 | feat(fichas-costo): StockajesMinimosSection, stockaje mínimo en EditarPreciosDialog |
+| `9435956` | Ruben/Claude | feat(ficha-costo): campo Impuesto nacional (%) sobre CIF |
+| `08501d6` | Fabian1820 | refactor(fichas-costo): ajuste de layout y ancho de tabla |
+| `c0ed0b6` | Fabian1820 | feat(fichas-costo): tooltips en materiales, número de serie en EditarPreciosDialog |
+| `5952a48` | Fabian1820 | feat(fichas-costo): EditarPreciosDialog y MaterialSearchDialog con filtro por serie |
+| `c4a5b69` | Ruben/Claude | feat(inventario): exportar análisis de stock mínimo a Excel |
 | `653cff0` | Fabian1820 | "hvhjvhjv" — cambios sin descripción |
-| `c19c6a7` | Ruben/Claude | fix(solicitudes-ventas): eliminar comisión Stripe del link de pago — SunCar asume el costo; flag `sin_recargo` en el route para diferenciarlo del flujo de confección |
+| `c19c6a7` | Ruben/Claude | fix(solicitudes-ventas): eliminar comisión Stripe del link de pago con flag `sin_recargo` |
 
 ### Análisis de riesgos y consideraciones
 
 #### 🔴 Riesgos altos
 
-1. **Simplificación del modelo de precios en fichas-costo puede romper fichas existentes**
-   - Se eliminó el Δ% por producto; ahora todos usan el mismo % de envío global.
-   - Las fichas guardadas que tenían Δ% individuales por producto habrán perdido esa diferenciación silenciosamente.
-   - **Acción urgente:** Verificar el comportamiento al abrir fichas existentes. Confirmar si los precios se recalculan automáticamente o conservan los valores guardados.
-
-2. **Flag `sin_recargo` en solicitudes-ventas depende del backend**
-   - El frontend añade el flag `sin_recargo` al route de generación de link de pago. Si el backend (LlegoBackend) no implementa el manejo de este flag, la comisión Stripe seguirá calculándose igual que antes, cobrando de más al cliente.
-   - **Acción urgente:** Confirmar en LlegoBackend que el route de `generar-link` detecta `sin_recargo` y omite la fórmula `(neto + 0.30) / (1 - 0.0325)` cuando está presente.
-
-3. **Commits sin descripción: "ventas" (yany1509), "comerciales de ventas y ofertas" (yany1509), "hvhjvhjv" (Fabian1820)**
-   - Cambios desconocidos en módulos activos de ventas y comerciales. Sin auditoría posible.
-   - **Acción recomendada:** Revisar los diffs manualmente antes de asumir que estas áreas son estables.
+1. **Simplificación del modelo de precios en fichas-costo puede romper fichas existentes** — fichas con Δ% individuales por producto habrán perdido esa diferenciación silenciosamente. **Acción urgente:** Verificar comportamiento al abrir fichas existentes.
+2. **Flag `sin_recargo` depende del backend** — si LlegoBackend no implementa el handling, la comisión Stripe seguirá calculándose igual. **Acción urgente:** Confirmar en LlegoBackend.
+3. **Commits sin descripción** ("ventas", "comerciales de ventas y ofertas", "hvhjvhjv") — cambios desconocidos en módulos activos. **Acción recomendada:** Revisar diffs manualmente.
 
 #### 🟡 Riesgos medios
 
-4. **Riesgo de doble-aplicación de fórmula en fichas-costo**
-   - El nuevo flujo calcula `costo_nuevo = CIF × (1 + %envío/100) × (1 + %impuesto/100)`.
-   - Si el usuario abre una ficha ya guardada, modifica un campo y vuelve a guardar, ¿aplica la fórmula sobre el CIF original o sobre el `costo_nuevo` ya persistido?
-   - Un doble-apply inflaría progresivamente todos los precios.
-   - **Acción recomendada:** Verificar que el campo de entrada siempre es el CIF base, no el costo derivado.
-
-5. **`StockajesMinimosSection` puede mostrar comparaciones incorrectas si el campo de mínimo aún no está en el backend**
-   - El campo `stockaje_minimo` se acaba de agregar en `EditarPreciosDialog`. Si el backend no lo persiste aún, la sección de comparación siempre mostrará 0 como mínimo, haciendo que todos los ítems aparezcan en estado OK.
-   - **Consideración:** Verificar que el endpoint de guardado de precios incluye y persiste el campo `stockaje_minimo`.
-
-6. **Campo de número de serie en `EditarPreciosDialog` — integración con backend no confirmada**
-   - El campo fue añadido al formulario. Si el endpoint de guardado no lo incluye en el payload o el backend no lo mapea, el dato se pierde silenciosamente.
-   - **Acción recomendada:** Confirmar que `FichaCostoService` incluye `numero_serie` en el body del request de actualización.
-
-7. **Secuencia iterativa de commits en fichas-costo (6 commits de Fabian1820 en ~2h)**
-   - Patrón de desarrollo incremental rápido sin tests intermedios. Riesgo de regresiones entre funcionalidades del mismo módulo.
-   - **Consideración:** Probar el flujo completo de fichas-costo: búsqueda de material → edición de precios → stockaje mínimo → guardado → verificación en tabla.
+4. **Doble-apply de fórmula en fichas-costo** — verificar que el campo de entrada siempre es el CIF base, no el costo derivado.
+5. **`StockajesMinimosSection` puede mostrar comparaciones incorrectas** si el backend no persiste `stockaje_minimo` aún.
+6. **Número de serie en `EditarPreciosDialog`** — confirmar que `FichaCostoService` incluye el campo en el payload.
 
 #### 🟢 Mejoras positivas
 
-8. **Eliminación de comisión Stripe en solicitudes-ventas** — SunCar absorbe el costo correctamente; el cliente paga exactamente el precio acordado.
-9. **Exportación a Excel del análisis de stock mínimo** — xlsx profesional con resumen y detalle coloreado por estado, útil para reportes de compras.
-10. **Búsqueda debounced en envío de contenedores** — mejora significativa de UX para catálogos con muchos materiales, evita renders excesivos.
-11. **Impuesto nacional (%) sobre CIF** — permite modelar aranceles/impuestos de importación de forma global sin tocar precio por precio.
-12. **Tooltips y número de serie en fichas-costo** — mejora la trazabilidad de materiales en el catálogo.
-
----
-
-## 📅 5 de Mayo, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**Áreas: Integración Stripe en solicitudes-ventas, corrección fórmula comisión Stripe, campo costo_nuevo en ficha de envío-contenedores, facturas/pagos clientes**
-
-| Commit | Autor | Descripción |
-|--------|-------|-------------|
-| `cb579f7` | Ruben/Claude | feat(solicitudes-ventas): agregar generación de links de pago Stripe + panel de pagos |
-| `5d077ba` | Ruben/Claude | fix(solicitudes-ventas): corregir endpoint `/api/stripe/listar-pagos` |
-| `5290742` | Ruben/Claude | feat(solicitudes-ventas): mover botón generar link al modal de detalle |
-| `ac5aa75` | Ruben/Claude | fix(stripe): reemplazar comisión fija 5% por fórmula real 3.25% + $0.30 en 5 archivos |
-| `fc3fb2d` | Ruben/Claude | feat(envio-contenedores): campo `costo_nuevo` editable en ficha de costo |
-| `57ec947` | yany1509 | "facturas de ventas y pagos" — cambios sin descripción |
-| `babf805` | yany1509 | "ajustes en solicitudes ventas" |
-| `512bc86` | yany1509 | "Merge: Combine payment management tabs with Stripe modal integration" |
-| `ff6dab0` | yany1509 | "terminada" |
-| `312a84d` / `3931374` / `64de30f` | yany1509 | "ajustes" x3 |
-| `b34ac82` / `575030f` | yany1509 | "listo" / "listoooo" |
-| `289d36b` | yany1509/Claude | Agregar botón Cobros Stripe en pestaña pendientes-pago |
-| `5b21cba` | yany1509/Claude | Cobros Stripe en pendientes: botón header + botón por fila + modal filtrado |
-| `9255eb4` | yany1509/Claude | Mover botón Ver Stripe al interior del modal de pago |
-| `9c718f9` | yany1509/Claude | Fix carga pagos Stripe: agregar `solicitudId` a deps de `useCallback` |
-| `1777296` | yany1509/Claude | Mostrar todos los pagos Stripe sin filtrar por solicitud |
-| `0c0489e` | yany1509/Claude | Fix: quitar filtro `solicitud_venta_id` que ocultaba todos los pagos |
-| `f808c2d` | yany1509/Claude | Usar `StripePagosModal` igual que facturación/pagos clientes |
-| `033c271` | yany1509 | Ignorar directorio `.claude` del repo (.gitignore) |
-
-### Análisis de riesgos y consideraciones
-
-#### 🔴 Riesgos altos
-
-1. **Fórmula de comisión Stripe cambiada en 5 archivos simultáneamente**
-   - De `precio * 1.05` (5% fijo) a `(neto + 0.30) / (1 - 0.0325)` (3.25% + $0.30).
-   - Archivos afectados: `generar-link` (route), `ofertas`, `ofertas-personalizadas`, `confeccion`, `solicitudes-ventas`.
-   - Si alguno de los 5 quedó sin actualizar o con la lógica antigua, habrá inconsistencia de precios cobrados entre módulos.
-   - **Acción urgente:** Verificar en cada uno de los 5 archivos que se aplica exactamente la misma fórmula. Hacer prueba end-to-end con montos conocidos.
-
-2. **Ciclo de 4 fixes consecutivos en el modal Stripe de solicitudes-ventas en menos de 10 minutos**
-   - `9c718f9` → `1777296` → `0c0489e` → `f808c2d` (20:46–20:56). Patrón de debug en producción.
-   - El filtro por `solicitud_venta_id` fue añadido y luego eliminado. La lógica de alcance del modal no quedó clara.
-   - **Acción recomendada:** Confirmar el comportamiento esperado: ¿el modal de una solicitud específica debe mostrar solo sus pagos o todos?
-
-3. **7 commits con mensajes vagos de yany1509** ("terminada", "ajustes" ×3, "listo", "listoooo", "ajustes en solicitudes ventas")
-   - **Acción recomendada:** Revisar los diffs de estos commits manualmente antes de considerar estable la rama.
-
-#### 🟡 Riesgos medios
-
-4. **`StripePagosModal` sin filtrado por `solicitud_venta_id`**
-   - Ahora el modal muestra todos los pagos Stripe del sistema. Verificar que cuando se abre desde una fila específica recibe y aplica correctamente `solicitudId`.
-
-5. **Campo `costo_nuevo` propagado automáticamente a precios de catálogo**
-   - Verificar que "Guardar" aplica la fórmula una sola vez y que no hay efecto acumulativo al abrir y guardar repetidamente.
-
-#### 🟢 Mejoras positivas
-
-6. **Integración completa de Stripe en solicitudes-ventas** — generación de links, panel de pagos, consistencia con flujo de cobros clientes.
-7. **Fórmula de comisión más precisa (3.25% + $0.30)** — garantiza que el monto neto recibido sea exactamente el precio base configurado.
-8. **`.claude` agregado al `.gitignore`** — evita que archivos internos de sesión se suban accidentalmente.
-
----
-
-## 📅 4 de Mayo, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**Áreas: Centro de Control (mapa períodos), nuevo módulo Asignaciones a Empleados, clientes/leads/facturas, solicitudes de materiales y ventas, almacenes**
-
-| Commit | Autor | Descripción |
-|--------|-------|-------------|
-| `19addb6` | Ruben/Claude | feat: módulo completo Asignaciones a Empleados (CRUD medios básicos y herramientas) |
-| `cfdb27c` | Ruben/Claude | feat: tipos y métodos de servicio para periodo/municipio en centro-control |
-| `706b081` | Ruben/Claude | fix: mapa de períodos en Centro Control — 4 modos, click handlers y reactividad geoKey |
-| `a583f6a` | yany1509 | "ajustes en cliente" — clientes, leads, facturas, nuevo util oferta-confeccion-items (410 cambios en 9 archivos) |
-| `0a1dab7` | Fabian1820 | "stock ok" — rework de diálogos solicitudes-materiales y solicitudes-ventas (296 cambios) |
-| `99e02ec` | Fabian1820 | "export stock all ok" — exportación de stock en almacén |
-| `e70ffa4` | Fabian1820 | "vhj" — ajustes en página de almacén |
-| `38a1969` | Fabian1820 | "mbj" — ajuste en create-solicitud-material-dialog |
-
-### Análisis de riesgos y consideraciones
-
-#### 🔴 Riesgos altos
-
-1. **Commit `a583f6a` (yany1509) — scope real muy amplio para "ajustes en cliente"**
-   - Toca 9 archivos, 259 adiciones / 151 eliminaciones. Incluye nuevo archivo `lib/utils/oferta-confeccion-items.ts`.
-   - **Acción urgente:** Probar end-to-end: listado y detalle de clientes, creación/edición de leads, sección de facturas, y asignación de oferta genérica.
-
-2. **Commit `0a1dab7` (Fabian1820) — "stock ok" reescribe dos diálogos críticos**
-   - `create-solicitud-material-dialog.tsx` y `upsert-solicitud-venta-dialog.tsx`. Flujos clave del negocio sin descripción del cambio.
-   - **Acción recomendada:** Probar la creación de solicitudes de materiales y de ventas end-to-end.
-
-#### 🟡 Riesgos medios
-
-3. **Nuevo módulo Asignaciones a Empleados** — verificar que los endpoints de catálogos están disponibles en producción.
-4. **Fix `periodoRange` usa `.start/.end`** — buscar si `periodoRange[0]` o `periodoRange[1]` aún existen en algún archivo del codebase.
-5. **Secuencia iterativa en almacén page** — verificar funcionalidad de exportación de stock completa en staging.
-
-#### 🟢 Mejoras positivas
-
-6. **Centro de Control: cobertura completa de los 4 modos del mapa de períodos** con click handlers y densidad correcta.
-7. **Módulo Asignaciones a Empleados** con comboboxes buscables y modales con tabs.
+7. **Eliminación de comisión Stripe en solicitudes-ventas** — el cliente paga exactamente el precio acordado.
+8. **Exportación a Excel del análisis de stock mínimo** — xlsx profesional con resumen y detalle coloreado por estado.
+9. **Búsqueda debounced en envío de contenedores** — mejora significativa de UX.
+10. **Impuesto nacional (%) sobre CIF** — permite modelar aranceles de importación globalmente.
 
 ---
