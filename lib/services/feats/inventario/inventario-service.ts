@@ -288,9 +288,17 @@ export class InventarioService {
         : undefined;
 
     const materialId = asString(raw?.material_id) || resolveEntityId(material);
+    const rawCodigoTop = asString(raw?.material_codigo);
+    const codigoEmbebido = asString(material?.codigo);
+    // Prefer the embedded material's codigo (denormalized snapshot from backend)
+    // over the top-level material_codigo, which historically may carry the ObjectId.
+    // Also discard a top-level value that is just the ObjectId.
+    const topLooksLikeObjectId =
+      !!rawCodigoTop && rawCodigoTop === materialId;
     const materialCodigo =
-      asString(raw?.material_codigo) ||
-      asString(material?.codigo) ||
+      codigoEmbebido ||
+      (topLooksLikeObjectId ? "" : rawCodigoTop) ||
+      rawCodigoTop ||
       materialId ||
       "";
 

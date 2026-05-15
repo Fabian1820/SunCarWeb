@@ -26,6 +26,7 @@ import {
   ChevronDown,
   ChevronUp,
   ArrowRightLeft,
+  Package,
 } from "lucide-react"
 import { InventarioService } from "@/lib/api-services"
 import type {
@@ -187,11 +188,17 @@ export function SolicitudesTransferenciaTable({
     }
   }, [solicitudes, estadoFilter, currentAlmacenId])
 
-  const getMaterialNombre = (item: { material_id: string; material_codigo?: string }) => {
-    const mat =
+  const resolveMaterial = (item: { material_id: string; material_codigo?: string }) => {
+    return (
       materialMap.byId.get(item.material_id) ||
-      materialMap.byCodigo.get(item.material_codigo || "")
-    return mat?.descripcion || mat?.nombre || item.material_codigo || item.material_id
+      materialMap.byCodigo.get(item.material_codigo || "") ||
+      undefined
+    )
+  }
+
+  const getMaterialNombre = (item: { material_id: string; material_codigo?: string }) => {
+    const mat = resolveMaterial(item)
+    return mat?.nombre || mat?.descripcion || item.material_codigo || item.material_id
   }
 
   const renderSolicitudRow = (
@@ -254,24 +261,47 @@ export function SolicitudesTransferenciaTable({
                   </tr>
                 </thead>
                 <tbody>
-                  {solicitud.items.map((item, i) => (
-                    <tr key={i} className="border-b border-black/5 last:border-0">
-                      <td className="py-1 pr-2">
-                        {getMaterialNombre(item)}
-                        {item.material_codigo && (
-                          <span className="text-xs text-gray-400 ml-1">
-                            ({item.material_codigo})
-                          </span>
-                        )}
-                      </td>
-                      <td className="text-right py-1 px-2 font-medium">
-                        {item.cantidad}
-                      </td>
-                      <td className="py-1 pl-2 text-gray-500">
-                        {item.ubicacion_en_almacen || "—"}
-                      </td>
-                    </tr>
-                  ))}
+                  {solicitud.items.map((item, i) => {
+                    const mat = resolveMaterial(item)
+                    const nombre = mat?.nombre || mat?.descripcion || item.material_codigo || item.material_id
+                    const codigoReal = mat?.codigo || (item.material_codigo && item.material_codigo !== item.material_id ? item.material_codigo : undefined)
+                    return (
+                      <tr key={i} className="border-b border-black/5 last:border-0">
+                        <td className="py-1 pr-2">
+                          <div className="flex items-center gap-2">
+                            {mat?.foto ? (
+                              <img
+                                src={mat.foto}
+                                alt={nombre}
+                                className="h-8 w-8 rounded object-contain border border-gray-200 bg-white shrink-0 p-0.5"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = "none"
+                                }}
+                              />
+                            ) : (
+                              <div className="h-8 w-8 rounded bg-gray-100 border border-gray-200 flex items-center justify-center shrink-0">
+                                <Package className="h-4 w-4 text-gray-400" />
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              <div className="truncate">{nombre}</div>
+                              {codigoReal && (
+                                <div className="text-xs text-gray-400 font-mono">
+                                  ({codigoReal})
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="text-right py-1 px-2 font-medium align-middle">
+                          {item.cantidad}
+                        </td>
+                        <td className="py-1 pl-2 text-gray-500 align-middle">
+                          {item.ubicacion_en_almacen || "—"}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

@@ -69,6 +69,13 @@ export function MovimientosTable({ movimientos, materials = [], almacenes = [] }
     return materialPorCodigo.get(codigo)
   }, [selected, materialPorCodigo])
 
+  const selectedEmbedded = (selected?.material as Record<string, any> | undefined) || undefined
+  const selectedFoto = (selectedMaterial?.foto as string | undefined) || (selectedEmbedded?.foto as string | undefined)
+  const selectedCodigo = (selectedMaterial?.codigo as string | undefined) || (selectedEmbedded?.codigo as string | undefined) || selected?.material_codigo
+  const selectedNombre = selectedMaterial?.nombre || (selectedEmbedded?.nombre as string | undefined)
+  const selectedDescripcion = selectedMaterial?.descripcion || (selectedEmbedded?.descripcion as string | undefined) || selected?.material_descripcion
+  const selectedUm = selectedMaterial?.um || (selectedEmbedded?.um as string | undefined)
+
   if (movimientos.length === 0) {
     return (
       <div className="text-center py-12">
@@ -98,8 +105,17 @@ export function MovimientosTable({ movimientos, materials = [], almacenes = [] }
             {movimientos.map((mov, index) => {
               const codigo = String(mov.material_codigo || "").trim().toLowerCase()
               const material = materialPorCodigo.get(codigo)
-              const nombreMaterial = material?.nombre || material?.descripcion || mov.material_descripcion || mov.material_codigo
-              const descripcion = material?.descripcion || mov.material_descripcion
+              const embedded = (mov.material as Record<string, any> | undefined) || undefined
+              const codigoMostrar = (material?.codigo as string | undefined) || (embedded?.codigo as string | undefined) || mov.material_codigo
+              const nombreMaterial =
+                material?.nombre ||
+                material?.descripcion ||
+                (embedded?.nombre as string | undefined) ||
+                (embedded?.descripcion as string | undefined) ||
+                mov.material_descripcion ||
+                codigoMostrar
+              const descripcion = material?.descripcion || (embedded?.descripcion as string | undefined) || mov.material_descripcion
+              const fotoMaterial = (material?.foto as string | undefined) || (embedded?.foto as string | undefined)
 
               return (
                 <tr key={mov.id || `${mov.material_codigo}-${index}`} className="border-b border-gray-100 hover:bg-gray-50">
@@ -113,10 +129,10 @@ export function MovimientosTable({ movimientos, materials = [], almacenes = [] }
                   </td>
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-3">
-                      {material?.foto ? (
+                      {fotoMaterial ? (
                         <div className="shrink-0 w-10 h-10 rounded-md overflow-hidden bg-gray-50 border border-gray-200">
                           <img
-                            src={material.foto}
+                            src={fotoMaterial}
                             alt={nombreMaterial}
                             className="w-full h-full object-contain p-0.5"
                           />
@@ -127,7 +143,7 @@ export function MovimientosTable({ movimientos, materials = [], almacenes = [] }
                         </div>
                       )}
                       <div className="min-w-0">
-                        <div className="text-xs font-mono text-gray-500">{mov.material_codigo}</div>
+                        <div className="text-xs font-mono text-gray-500">{codigoMostrar}</div>
                         <div className="text-sm font-semibold text-gray-900 leading-tight truncate max-w-[200px]">{nombreMaterial}</div>
                         {descripcion && descripcion !== nombreMaterial && (
                           <div className="text-xs text-gray-500 truncate max-w-[200px]">{descripcion}</div>
@@ -212,22 +228,22 @@ export function MovimientosTable({ movimientos, materials = [], almacenes = [] }
               <div>
                 <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Material</h3>
                 <div className="bg-gray-50 rounded-lg px-4 py-3">
-                  {selectedMaterial?.foto && (
+                  {selectedFoto && (
                     <div className="mb-3 flex justify-center">
                       <div className="w-28 h-28 rounded-lg overflow-hidden bg-white border border-gray-200">
                         <img
-                          src={selectedMaterial.foto}
-                          alt={selectedMaterial.nombre || selectedMaterial.descripcion}
+                          src={selectedFoto}
+                          alt={selectedNombre || selectedDescripcion || selectedCodigo}
                           className="w-full h-full object-contain p-2"
                         />
                       </div>
                     </div>
                   )}
-                  <DetalleRow label="Código" value={selected.material_codigo} />
-                  <DetalleRow label="Nombre" value={selectedMaterial?.nombre} />
-                  <DetalleRow label="Descripción" value={selectedMaterial?.descripcion || selected.material_descripcion} />
+                  <DetalleRow label="Código" value={selectedCodigo} />
+                  <DetalleRow label="Nombre" value={selectedNombre} />
+                  <DetalleRow label="Descripción" value={selectedDescripcion} />
                   <DetalleRow label="Categoría" value={selectedMaterial?.categoria} />
-                  <DetalleRow label="Unidad" value={selectedMaterial?.um} />
+                  <DetalleRow label="Unidad" value={selectedUm} />
                   <DetalleRow label="Precio" value={selectedMaterial?.precio != null ? `$${selectedMaterial.precio}` : undefined} />
                   <DetalleRow label="Potencia" value={selectedMaterial?.potenciaKW != null ? `${selectedMaterial.potenciaKW} kW` : undefined} />
                   {selectedMaterial?.especificaciones && Object.keys(selectedMaterial.especificaciones).length > 0 && (
