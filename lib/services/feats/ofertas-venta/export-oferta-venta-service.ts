@@ -215,7 +215,7 @@ export class ExportOfertaVentaService {
     doc.text("MATERIAL",          ML + FOTO_W + 2, y + 4.2);
     doc.text("CANT.",             X_CANT,  y + 4.2, { align: "right" });
     doc.text("P.UNIT",            X_PUNIT, y + 4.2, { align: "right" });
-    doc.text("DTO.",              X_DTO,   y + 4.2, { align: "right" });
+    doc.text("AJUSTE",            X_DTO,   y + 4.2, { align: "right" });
     doc.text(`TOTAL (${moneda})`, X_TOTAL, y + 4.2, { align: "right" });
     y += 7.5;
 
@@ -292,13 +292,24 @@ export class ExportOfertaVentaService {
       doc.setTextColor(...C.gray500);
       doc.text(`${sim}${fmt(mat.precio)}`, X_PUNIT, midY, { align: "right" });
 
-      // Dto
+      // Ajuste: descuento y/o aumento
       const dto = mat.descuento_porcentaje ?? 0;
-      if (dto > 0) {
+      const aum = mat.aumento_porcentaje ?? 0;
+      if (dto > 0 || aum > 0) {
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(7.5);
-        doc.setTextColor(...C.red);
-        doc.text(`-${dto}%`, X_DTO, midY, { align: "right" });
+        doc.setFontSize(7);
+        if (dto > 0 && aum > 0) {
+          doc.setTextColor(...C.red);
+          doc.text(`-${dto}%`, X_DTO, midY - 2, { align: "right" });
+          doc.setTextColor(30, 80, 180);
+          doc.text(`+${aum}%`, X_DTO, midY + 2.5, { align: "right" });
+        } else if (dto > 0) {
+          doc.setTextColor(...C.red);
+          doc.text(`-${dto}%`, X_DTO, midY, { align: "right" });
+        } else {
+          doc.setTextColor(30, 80, 180);
+          doc.text(`+${aum}%`, X_DTO, midY, { align: "right" });
+        }
       } else {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(8.5);
@@ -307,7 +318,7 @@ export class ExportOfertaVentaService {
       }
 
       // Total
-      const subtotal = mat.subtotal ?? mat.precio * mat.cantidad * (1 - dto / 100);
+      const subtotal = mat.subtotal ?? mat.precio * mat.cantidad * (1 - dto / 100) * (1 + aum / 100);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(8);
       doc.setTextColor(...C.ink);

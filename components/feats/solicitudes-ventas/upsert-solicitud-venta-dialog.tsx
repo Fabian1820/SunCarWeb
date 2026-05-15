@@ -62,6 +62,9 @@ interface MaterialRow {
   descuento_porcentaje: number;
   descuento_tipo: "%" | "$";
   descuento_display: string;
+  aumento_porcentaje: number;
+  aumento_tipo: "%" | "$";
+  aumento_display: string;
   codigo: string;
   nombre: string;
   descripcion?: string;
@@ -271,8 +274,11 @@ export function UpsertSolicitudVentaDialog({
         cantidad: item.cantidad,
         precio: item.precio ?? item.material?.precio ?? 0,
         descuento_porcentaje: item.descuento_porcentaje ?? 0,
-        descuento_tipo: "%",
+        descuento_tipo: "%" as const,
         descuento_display: String(item.descuento_porcentaje ?? 0),
+        aumento_porcentaje: item.aumento_porcentaje ?? 0,
+        aumento_tipo: "%" as const,
+        aumento_display: String(item.aumento_porcentaje ?? 0),
         codigo:
           item.material?.codigo || item.material_codigo || item.codigo || "",
         nombre:
@@ -553,6 +559,9 @@ export function UpsertSolicitudVentaDialog({
               descuento_porcentaje: 0,
               descuento_tipo: "%",
               descuento_display: "0",
+              aumento_porcentaje: 0,
+              aumento_tipo: "%",
+              aumento_display: "0",
               codigo: material.codigo,
               nombre: material.nombre,
               descripcion: material.descripcion,
@@ -611,12 +620,38 @@ export function UpsertSolicitudVentaDialog({
     setMaterialRows((prev) =>
       prev.map((item, rowIndex) => {
         if (rowIndex !== index) return item;
-        // Recalcular display para el nuevo modo
         const display =
           tipo === "$"
             ? (item.precio * item.descuento_porcentaje / 100).toFixed(2)
             : String(item.descuento_porcentaje);
         return { ...item, descuento_tipo: tipo, descuento_display: display };
+      }),
+    );
+  };
+
+  const handleAumentoChange = (index: number, value: string) => {
+    setMaterialRows((prev) =>
+      prev.map((item, rowIndex) => {
+        if (rowIndex !== index) return item;
+        const raw = Number(value);
+        if (!Number.isFinite(raw) || raw < 0) return { ...item, aumento_display: value };
+        const pct = item.aumento_tipo === "$"
+          ? (item.precio > 0 ? (raw / item.precio) * 100 : 0)
+          : raw;
+        return { ...item, aumento_display: value, aumento_porcentaje: pct };
+      }),
+    );
+  };
+
+  const handleAumentoTipoChange = (index: number, tipo: "%" | "$") => {
+    setMaterialRows((prev) =>
+      prev.map((item, rowIndex) => {
+        if (rowIndex !== index) return item;
+        const display =
+          tipo === "$"
+            ? (item.precio * item.aumento_porcentaje / 100).toFixed(2)
+            : String(parseFloat(item.aumento_porcentaje.toFixed(4)));
+        return { ...item, aumento_tipo: tipo, aumento_display: display };
       }),
     );
   };
@@ -767,6 +802,9 @@ export function UpsertSolicitudVentaDialog({
           descuento_porcentaje: 0,
           descuento_tipo: "%" as const,
           descuento_display: "0",
+          aumento_porcentaje: 0,
+          aumento_tipo: "%" as const,
+          aumento_display: "0",
           codigo: m.codigo ?? cat?.codigo ?? "",
           nombre: m.nombre ?? cat?.nombre ?? m.material_id,
           descripcion: m.descripcion ?? cat?.descripcion,
@@ -855,12 +893,13 @@ export function UpsertSolicitudVentaDialog({
     // Pre-fill almacen
     if (oferta.almacen_id) setSelectedAlmacenId(oferta.almacen_id);
 
-    // Pre-fill materiales con precio y descuento de la oferta
+    // Pre-fill materiales con precio, descuento y aumento de la oferta
     const baseRows: MaterialRow[] = oferta.materiales
       .filter((m) => m.material_id)
       .map((m) => {
         const cat = materialesVendibles.find((mv) => mv.id === m.material_id);
         const descuento = m.descuento_porcentaje ?? 0;
+        const aumento = m.aumento_porcentaje ?? 0;
         return {
           material_id: m.material_id,
           cantidad: m.cantidad,
@@ -868,6 +907,9 @@ export function UpsertSolicitudVentaDialog({
           descuento_porcentaje: descuento,
           descuento_tipo: "%" as const,
           descuento_display: String(descuento),
+          aumento_porcentaje: aumento,
+          aumento_tipo: "%" as const,
+          aumento_display: String(aumento),
           codigo: m.codigo ?? cat?.codigo ?? "",
           nombre: m.descripcion ?? cat?.nombre ?? m.codigo ?? m.material_id,
           descripcion: m.descripcion ?? cat?.descripcion,
@@ -917,6 +959,7 @@ export function UpsertSolicitudVentaDialog({
         material_id: material.material_id,
         cantidad: material.cantidad,
         ...(material.descuento_porcentaje > 0 && { descuento_porcentaje: material.descuento_porcentaje }),
+        ...(material.aumento_porcentaje > 0 && { aumento_porcentaje: parseFloat(material.aumento_porcentaje.toFixed(4)) }),
       })),
       ...(ofertaIdVinculada && { oferta_venta_id: ofertaIdVinculada }),
       ...(descuentoFree && { descuento_free: true, motivo_descuento_free: motivoDescuentoFree.trim() }),
@@ -1532,8 +1575,11 @@ export function UpsertSolicitudVentaDialog({
                       <th className="text-right py-2 px-3 font-medium text-gray-700 w-24">
                         P. Unit.
                       </th>
-                      <th className="text-left py-2 px-3 font-medium text-gray-700 w-44">
+                      <th className="text-left py-2 px-3 font-medium text-gray-700 w-40">
                         Descuento
+                      </th>
+                      <th className="text-left py-2 px-3 font-medium text-gray-700 w-40">
+                        Aumento
                       </th>
                       <th className="text-right py-2 px-3 font-medium text-gray-700 w-24">
                         P. Total
@@ -1547,8 +1593,9 @@ export function UpsertSolicitudVentaDialog({
                       const descPct = material.descuento_porcentaje;
                       const maxDescPct = descuentoFree ? 100 : (material.max_descuento ?? 100);
                       const descuentoExcedido = !descuentoFree && descPct > maxDescPct;
+                      const aumPct = material.aumento_porcentaje;
                       const precioConDesc = precioUnit * (1 - Math.min(descPct, maxDescPct) / 100);
-                      const precioTotal = precioConDesc * material.cantidad;
+                      const precioTotal = precioConDesc * (1 + aumPct / 100) * material.cantidad;
 
                       return (
                       <tr
@@ -1607,7 +1654,7 @@ export function UpsertSolicitudVentaDialog({
                             : <span className="text-gray-400">—</span>}
                         </td>
                         {/* Descuento con toggle % / $ */}
-                        <td className="py-2 px-3 w-44">
+                        <td className="py-2 px-3 w-40">
                           <div className="flex items-center gap-1">
                             <div className="flex rounded border border-gray-200 overflow-hidden text-xs shrink-0">
                               <button
@@ -1651,10 +1698,45 @@ export function UpsertSolicitudVentaDialog({
                             </div>
                           </div>
                         </td>
+                        {/* Aumento con toggle % / $ */}
+                        <td className="py-2 px-3 w-40">
+                          <div className="flex items-center gap-1">
+                            <div className="flex rounded border border-gray-200 overflow-hidden text-xs shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => handleAumentoTipoChange(index, "%")}
+                                className={`px-2 py-1 transition-colors ${material.aumento_tipo === "%" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                              >%</button>
+                              <button
+                                type="button"
+                                onClick={() => handleAumentoTipoChange(index, "$")}
+                                disabled={precioUnit <= 0}
+                                className={`px-2 py-1 transition-colors ${material.aumento_tipo === "$" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"} disabled:opacity-40`}
+                              >$</button>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <Input
+                                type="number"
+                                min="0"
+                                step={material.aumento_tipo === "$" ? "0.01" : "0.5"}
+                                value={material.aumento_display}
+                                onChange={(e) => handleAumentoChange(index, e.target.value)}
+                                className="h-8 text-right w-full"
+                              />
+                              {aumPct > 0 && (
+                                <p className="text-xs mt-0.5 text-right leading-tight text-blue-600">
+                                  {material.aumento_tipo === "$"
+                                    ? `= ${aumPct.toFixed(1)}%`
+                                    : `= $${(precioUnit * aumPct / 100).toFixed(2)}`}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </td>
                         {/* Precio total */}
                         <td className="py-2 px-3 text-right font-medium text-gray-800 w-24">
                           {precioUnit > 0
-                            ? <span className={descPct > 0 ? "text-green-700" : ""}>${precioTotal.toFixed(2)}</span>
+                            ? <span className={descPct > 0 || aumPct > 0 ? "text-green-700" : ""}>${precioTotal.toFixed(2)}</span>
                             : <span className="text-gray-400">—</span>}
                         </td>
                         <td className="py-2 px-3">
@@ -1672,13 +1754,13 @@ export function UpsertSolicitudVentaDialog({
                   {validMaterials.length > 0 && (() => {
                     const totalGeneral = validMaterials.reduce((sum, m) => {
                       const pu = m.precio;
-                      const pcd = pu * (1 - m.descuento_porcentaje / 100);
+                      const pcd = pu * (1 - m.descuento_porcentaje / 100) * (1 + m.aumento_porcentaje / 100);
                       return sum + pcd * m.cantidad;
                     }, 0);
                     return (
                       <tfoot>
                         <tr className="border-t bg-gray-50">
-                          <td colSpan={4} className="py-2 px-3 text-right text-sm font-semibold text-gray-700">
+                          <td colSpan={5} className="py-2 px-3 text-right text-sm font-semibold text-gray-700">
                             Total a pagar
                           </td>
                           <td className="py-2 px-3 text-right font-bold text-gray-900">

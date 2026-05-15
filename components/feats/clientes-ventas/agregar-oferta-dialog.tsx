@@ -51,6 +51,9 @@ interface LineaCarrito {
   descuento_display: string;
   /** Máximo descuento permitido para este material (0-100). undefined = sin límite */
   max_descuento?: number;
+  aumento_porcentaje: number;
+  aumento_tipo: "%" | "$";
+  aumento_display: string;
 }
 
 const ESTADOS = [
@@ -162,6 +165,9 @@ export function AgregarOfertaDialog({
           descuento_porcentaje: m.descuento_porcentaje ?? 0,
           descuento_tipo: "%" as const,
           descuento_display: String(m.descuento_porcentaje ?? 0),
+          aumento_porcentaje: m.aumento_porcentaje ?? 0,
+          aumento_tipo: "%" as const,
+          aumento_display: String(m.aumento_porcentaje ?? 0),
         })),
       );
     } else {
@@ -252,7 +258,7 @@ export function AgregarOfertaDialog({
       const subtotalBruto = l.precio * l.cantidad;
       const maxPct = descuentoFree ? 100 : (l.max_descuento ?? 100);
       const pct = Math.min(l.descuento_porcentaje, maxPct);
-      const subtotalFinal = subtotalBruto * (1 - pct / 100);
+      const subtotalFinal = subtotalBruto * (1 - pct / 100) * (1 + l.aumento_porcentaje / 100);
       bruto += subtotalBruto;
       final += subtotalFinal;
     }
@@ -289,6 +295,9 @@ export function AgregarOfertaDialog({
           descuento_tipo: "%",
           descuento_display: "0",
           max_descuento: typeof mat.porciento_rebajable_venta === "number" ? mat.porciento_rebajable_venta : undefined,
+          aumento_porcentaje: 0,
+          aumento_tipo: "%",
+          aumento_display: "0",
         },
       ];
     });
@@ -354,6 +363,35 @@ export function AgregarOfertaDialog({
     );
   }
 
+  function handleAumentoChange(materialId: string, value: string) {
+    setCarrito((prev) =>
+      prev.map((item) => {
+        if (item.material_id !== materialId) return item;
+        const raw = Number(value);
+        if (!Number.isFinite(raw) || raw < 0) {
+          return { ...item, aumento_display: value };
+        }
+        const pct = item.aumento_tipo === "$"
+          ? (item.precio > 0 ? (raw / item.precio) * 100 : 0)
+          : raw;
+        return { ...item, aumento_display: value, aumento_porcentaje: pct };
+      }),
+    );
+  }
+
+  function handleAumentoTipoChange(materialId: string, tipo: "%" | "$") {
+    setCarrito((prev) =>
+      prev.map((item) => {
+        if (item.material_id !== materialId) return item;
+        const display =
+          tipo === "$"
+            ? (item.precio * item.aumento_porcentaje / 100).toFixed(2)
+            : String(parseFloat(item.aumento_porcentaje.toFixed(4)));
+        return { ...item, aumento_tipo: tipo, aumento_display: display };
+      }),
+    );
+  }
+
   // ── enviar ────────────────────────────────────────────────────
   async function handleSubmit() {
     if (!almacenId) { toast({ title: "Selecciona un almacén", variant: "destructive" }); return; }
@@ -371,6 +409,7 @@ export function AgregarOfertaDialog({
           cantidad: l.cantidad,
           precio: l.precio,
           ...(pctFinal > 0 ? { descuento_porcentaje: parseFloat(pctFinal.toFixed(4)) } : {}),
+          ...(l.aumento_porcentaje > 0 ? { aumento_porcentaje: parseFloat(l.aumento_porcentaje.toFixed(4)) } : {}),
         };
       });
 
@@ -650,7 +689,8 @@ export function AgregarOfertaDialog({
             <th className="text-left py-2 px-2 font-medium text-gray-600">Material</th>
             <th className="text-center py-2 px-1 font-medium text-gray-600 w-20">Cant.</th>
             <th className="text-right py-2 px-1 font-medium text-gray-600 w-24">P.Unit</th>
-            <th className="text-left py-2 px-1 font-medium text-gray-600 w-52">Descuento</th>
+            <th className="text-left py-2 px-1 font-medium text-gray-600 w-48">Descuento</th>
+            <th className="text-left py-2 px-1 font-medium text-gray-600 w-48">Aumento</th>
             <th className="text-right py-2 px-1 font-medium text-gray-600 w-24">Total</th>
             <th className="w-7" />
           </tr>
@@ -661,8 +701,9 @@ export function AgregarOfertaDialog({
             const pct = linea.descuento_porcentaje;
             const maxPct = descuentoFree ? 100 : (linea.max_descuento ?? 100);
             const descuentoExcedido = !descuentoFree && pct > (linea.max_descuento ?? 100);
+            const aum = linea.aumento_porcentaje;
             const precioConDesc = linea.precio * (1 - Math.min(pct, maxPct) / 100);
-            const totalLinea = precioConDesc * linea.cantidad;
+            const totalLinea = precioConDesc * (1 + aum / 100) * linea.cantidad;
             return (
               <tr key={linea.material_id}
                 className={`border-b last:border-b-0 ${sinStock ? "bg-red-50/60" : ""}`}>
@@ -690,7 +731,8 @@ export function AgregarOfertaDialog({
                 <td className="py-2 px-1 text-right text-gray-700 w-24">
                   {linea.precio > 0 ? `$${linea.precio.toFixed(2)}` : <span className="text-gray-400">—</span>}
                 </td>
-                <td className="py-2 px-1 w-52">
+                {/* Descuento */}
+                <td className="py-2 px-1 w-48">
                   <div className="flex items-center gap-1.5">
                     <div className="flex rounded border border-gray-200 overflow-hidden shrink-0">
                       <button type="button"
@@ -732,9 +774,42 @@ export function AgregarOfertaDialog({
                     </div>
                   </div>
                 </td>
+                {/* Aumento */}
+                <td className="py-2 px-1 w-48">
+                  <div className="flex items-center gap-1.5">
+                    <div className="flex rounded border border-gray-200 overflow-hidden shrink-0">
+                      <button type="button"
+                        onClick={() => handleAumentoTipoChange(linea.material_id, "%")}
+                        className={`px-2 py-1.5 text-xs font-medium transition-colors ${linea.aumento_tipo === "%" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}>
+                        %
+                      </button>
+                      <button type="button"
+                        onClick={() => handleAumentoTipoChange(linea.material_id, "$")}
+                        disabled={linea.precio <= 0}
+                        className={`px-2 py-1.5 text-xs font-medium transition-colors ${linea.aumento_tipo === "$" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"} disabled:opacity-40`}>
+                        $
+                      </button>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <Input
+                        type="number" min="0" step={linea.aumento_tipo === "$" ? "0.01" : "0.5"}
+                        value={linea.aumento_display}
+                        onChange={(e) => handleAumentoChange(linea.material_id, e.target.value)}
+                        className="h-8 text-right w-full text-sm font-medium"
+                      />
+                      {aum > 0 && (
+                        <p className="text-[10px] text-right leading-tight mt-0.5 text-blue-600">
+                          {linea.aumento_tipo === "$"
+                            ? `= ${aum.toFixed(1)}%`
+                            : `= $${(linea.precio * aum / 100).toFixed(2)}`}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </td>
                 <td className="py-2 px-1 text-right font-medium text-gray-800 w-24">
                   {linea.precio > 0
-                    ? <span className={pct > 0 ? "text-green-700" : ""}>${fmt(totalLinea)}</span>
+                    ? <span className={pct > 0 || aum > 0 ? "text-green-700" : ""}>${fmt(totalLinea)}</span>
                     : <span className="text-gray-400">—</span>}
                 </td>
                 <td className="py-2 px-1">
@@ -750,7 +825,7 @@ export function AgregarOfertaDialog({
         {carrito.length > 0 && (
           <tfoot>
             <tr className="border-t bg-gray-50">
-              <td colSpan={4} className="py-2 px-2 text-right text-xs font-semibold text-gray-700">
+              <td colSpan={5} className="py-2 px-2 text-right text-xs font-semibold text-gray-700">
                 Total a pagar
               </td>
               <td className="py-2 px-1 text-right font-bold text-gray-900 text-xs">
@@ -772,8 +847,9 @@ export function AgregarOfertaDialog({
         const pct = linea.descuento_porcentaje;
         const maxPct = descuentoFree ? 100 : (linea.max_descuento ?? 100);
         const descuentoExcedido = !descuentoFree && pct > (linea.max_descuento ?? 100);
+        const aum = linea.aumento_porcentaje;
         const precioConDesc = linea.precio * (1 - Math.min(pct, maxPct) / 100);
-        const totalLinea = precioConDesc * linea.cantidad;
+        const totalLinea = precioConDesc * (1 + aum / 100) * linea.cantidad;
         return (
           <Card key={linea.material_id}
             className={cn(
@@ -860,28 +936,61 @@ export function AgregarOfertaDialog({
                 />
               </div>
 
-              {/* feedback de descuento + total línea */}
+              {/* aumento */}
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-gray-500 shrink-0">Aum.</span>
+                <div className="flex rounded border border-gray-200 overflow-hidden shrink-0">
+                  <button type="button"
+                    onClick={() => handleAumentoTipoChange(linea.material_id, "%")}
+                    className={`px-2.5 h-9 text-xs touch-manipulation transition-colors ${linea.aumento_tipo === "%" ? "bg-blue-600 text-white" : "bg-white text-gray-600 active:bg-gray-100"}`}>
+                    %
+                  </button>
+                  <button type="button"
+                    onClick={() => handleAumentoTipoChange(linea.material_id, "$")}
+                    disabled={linea.precio <= 0}
+                    className={`px-2.5 h-9 text-xs touch-manipulation transition-colors ${linea.aumento_tipo === "$" ? "bg-blue-600 text-white" : "bg-white text-gray-600 active:bg-gray-100"} disabled:opacity-40`}>
+                    $
+                  </button>
+                </div>
+                <Input
+                  type="number" min="0"
+                  step={linea.aumento_tipo === "$" ? "0.01" : "0.5"}
+                  inputMode="decimal"
+                  value={linea.aumento_display}
+                  onChange={(e) => handleAumentoChange(linea.material_id, e.target.value)}
+                  className="h-9 text-right text-sm flex-1"
+                />
+              </div>
+
+              {/* feedback de descuento/aumento + total línea */}
               <div className="flex items-center justify-between gap-2 pt-1 border-t border-dashed border-gray-200">
-                <div className="text-[11px] leading-tight min-h-[14px]">
+                <div className="text-[11px] leading-tight min-h-[14px] space-y-0.5">
                   {linea.max_descuento !== undefined && !descuentoFree && !descuentoExcedido && pct === 0 && (
-                    <span className="text-gray-400">máx {linea.max_descuento}%</span>
+                    <span className="text-gray-400">máx desc. {linea.max_descuento}%</span>
                   )}
                   {pct > 0 && !descuentoExcedido && (
-                    <span className="text-orange-600 font-medium">
+                    <span className="text-orange-600 font-medium block">
                       {linea.descuento_tipo === "$"
-                        ? `${pct.toFixed(1)}% aplicado`
-                        : `$${(linea.precio * pct / 100).toFixed(2)} de descuento`}
+                        ? `${pct.toFixed(1)}% desc.`
+                        : `$${(linea.precio * pct / 100).toFixed(2)} desc.`}
                     </span>
                   )}
                   {descuentoExcedido && (
-                    <span className="text-red-600 font-semibold">
+                    <span className="text-red-600 font-semibold block">
                       Excede el máx {maxPct}%
+                    </span>
+                  )}
+                  {aum > 0 && (
+                    <span className="text-blue-600 font-medium block">
+                      {linea.aumento_tipo === "$"
+                        ? `${aum.toFixed(1)}% aum.`
+                        : `$${(linea.precio * aum / 100).toFixed(2)} aum.`}
                     </span>
                   )}
                 </div>
                 <div className="text-right">
                   <p className="text-[11px] text-gray-500 leading-none">Total</p>
-                  <p className={`text-base font-semibold ${pct > 0 ? "text-green-700" : "text-gray-900"}`}>
+                  <p className={`text-base font-semibold ${pct > 0 || aum > 0 ? "text-green-700" : "text-gray-900"}`}>
                     {linea.precio > 0 ? `$${fmt(totalLinea)}` : "—"}
                   </p>
                 </div>

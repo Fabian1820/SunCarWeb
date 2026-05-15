@@ -520,20 +520,27 @@ export function GestionarOfertasVentaDialog({
                               <p className="text-sm font-semibold text-gray-900">
                                 {mat.cantidad} {mat.um ?? "u"}
                               </p>
-                              {(mat.descuento_porcentaje ?? 0) > 0 ? (
+                              {(mat.descuento_porcentaje ?? 0) > 0 || (mat.aumento_porcentaje ?? 0) > 0 ? (
                                 <>
                                   <p className="text-xs text-gray-400 line-through">
                                     ${fmt(mat.precio * mat.cantidad)}
                                   </p>
-                                  <p className="text-xs text-orange-500 font-medium">
-                                    -{mat.descuento_porcentaje}% desc.
-                                  </p>
+                                  {(mat.descuento_porcentaje ?? 0) > 0 && (
+                                    <p className="text-xs text-orange-500 font-medium">
+                                      -{mat.descuento_porcentaje}% desc.
+                                    </p>
+                                  )}
+                                  {(mat.aumento_porcentaje ?? 0) > 0 && (
+                                    <p className="text-xs text-blue-600 font-medium">
+                                      +{mat.aumento_porcentaje}% aum.
+                                    </p>
+                                  )}
                                 </>
                               ) : (
                                 <p className="text-xs text-gray-400">${fmt(mat.precio)}/u</p>
                               )}
                               <p className="text-sm font-bold text-orange-600">
-                                ${fmt(mat.subtotal ?? mat.precio * mat.cantidad)}
+                                ${fmt(mat.subtotal ?? mat.precio * mat.cantidad * (1 - (mat.descuento_porcentaje ?? 0) / 100) * (1 + (mat.aumento_porcentaje ?? 0) / 100))}
                               </p>
                             </div>
                           </div>

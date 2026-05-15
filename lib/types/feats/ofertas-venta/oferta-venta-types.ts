@@ -6,6 +6,7 @@ export interface OfertaVentaMaterialDetalle {
   cantidad: number;
   precio: number;
   descuento_porcentaje?: number;
+  aumento_porcentaje?: number;
   subtotal?: number;
   // Snapshot del material guardado en el backend
   codigo?: string;
@@ -47,6 +48,7 @@ export interface OfertaVentaCreateData {
     cantidad: number;
     precio: number;
     descuento_porcentaje?: number;
+    aumento_porcentaje?: number;
   }[];
 }
 
@@ -61,6 +63,7 @@ export interface OfertaVentaUpdateData {
     cantidad: number;
     precio: number;
     descuento_porcentaje?: number;
+    aumento_porcentaje?: number;
   }[];
 }
 

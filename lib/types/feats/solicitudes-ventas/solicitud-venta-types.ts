@@ -10,6 +10,7 @@ export interface SolicitudVentaMaterialItem {
   cantidad: number;
   precio?: number;
   descuento_porcentaje?: number;
+  aumento_porcentaje?: number;
 }
 
 export interface MaterialVentaInfo {
@@ -30,6 +31,7 @@ export interface SolicitudVentaMaterialItemDetalle {
   /** Precio unitario del material en la solicitud */
   precio?: number;
   descuento_porcentaje?: number;
+  aumento_porcentaje?: number;
   precio_con_descuento?: number;
   /** precio_con_descuento × cantidad calculado por el backend */
   subtotal?: number;
@@ -166,6 +168,7 @@ export interface SolicitudVentaSummaryMaterial {
   cantidad: number;
   precio?: number;
   descuento_porcentaje?: number;
+  aumento_porcentaje?: number;
   precio_con_descuento?: number;
   subtotal?: number;
 }
