@@ -316,7 +316,7 @@ export function RegistrarPagoVentaDialog({
         solicitud_venta_id: solicitud.id,
         monto: montoNum,
         moneda,
-        tasa_cambio: tasaCambio && moneda !== "USD" ? 1 / Number(tasaCambio) : (tasaCambio ? Number(tasaCambio) : undefined),
+        tasa_cambio: tasaCambio ? Number(tasaCambio) : undefined,
         metodo_pago: metodoPago,
         desglose_billetes:
           metodoPago === "efectivo" ? buildDesgloseBilletes() : undefined,
