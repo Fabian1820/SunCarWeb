@@ -2,6 +2,27 @@
 
 ---
 
+## 📅 16 de Mayo, 2026
+
+### Resumen de cambios (últimas 24h)
+
+Sin commits de desarrollo nuevos. Solo el commit automático de "Analisis diario Claude" de ayer.
+
+#### Consideraciones del día
+
+- Sin actividad nueva hoy.
+- Los riesgos identificados el 15 de mayo permanecen **abiertos y pendientes de verificación en LlegoBackend**:
+
+  - **[URGENTE] Tasa de cambio EUR vs CUP:** Verificar que el estado final del código diferencia correctamente EUR (multiplicar) de CUP (dividir). Hacer prueba end-to-end con montos conocidos en cada moneda.
+  - **[URGENTE] `aumento_porcentaje` y `aumento_tipo`:** Confirmar que el backend persiste estos campos; sin ello el precio mostrado al cliente diferirá del precio procesado.
+  - **[URGENTE] Endpoints de paginación:** `/cobros-paginado` y `/personalizadas/pendientes-paginado` deben existir y funcionar con todos los filtros.
+  - **[URGENTE] Endpoint eliminar pago:** Necesario para el rollback cuando falla la creación de factura.
+  - **Commits RRHH de yany1509 sin descripción (6 commits "rh"/"recursos humanos"):** Revisar diffs manualmente — afectan un módulo activo sin auditoría posible.
+  - **Módulo "Compras, Envíos y Costos":** Confirmar que la página destino está implementada y no muestra pantalla vacía o 404.
+  - **Descuento free hardcodeado por nombre "Loydis Batista Carrazana":** A mediano plazo mover la lógica de permisos al backend.
+
+---
+
 ## 📅 15 de Mayo, 2026
 
 ### Resumen de cambios (últimas 24h)
