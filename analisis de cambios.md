@@ -2,6 +2,26 @@
 
 ---
 
+## 📅 17 de Mayo, 2026
+
+### Resumen de cambios (últimas 24h)
+
+Sin commits de desarrollo nuevos. Solo el commit automático de "Analisis diario Claude".
+
+#### Consideraciones del día
+
+- Sin actividad nueva hoy en SunCarWeb.
+- Seguimientos activos pendientes de resolución:
+  - **Lógica de tasa de cambio EUR vs CUP:** Verificar el estado final del código tras los 3 commits contradictorios del 15/05. El resultado debe ser: EUR multiplica (`monto × tasa`), CUP divide (`monto / tasa`). Hacer prueba end-to-end con montos conocidos.
+  - **`aumento_porcentaje` y `aumento_tipo` en ofertas:** Confirmar que el backend persiste estos campos y los devuelve al cargar la oferta (necesario para el PDF y el cálculo correcto).
+  - **Commits vagos de RRHH (yany1509):** Revisar diffs de los 6 commits "rh"/"recursos humanos" del 15/05 antes de considerar estable el módulo.
+  - **Rollback de pago:** Solución frágil en frontend — a mediano plazo mover atomicidad al backend.
+  - **Descuento free hardcodeado por nombre "Loydis Batista Carrazana":** Mover a campo de permisos en backend a mediano plazo.
+  - **Nuevo módulo "Compras, Envíos y Costos" en dashboard:** Confirmar que la página destino está implementada y no muestra pantalla vacía.
+  - **ResultadosComercialVentasPage — facturas en lugar de ofertas:** Verificar que los componentes de tabla reciben correctamente los campos de factura.
+
+---
+
 ## 📅 15 de Mayo, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -177,50 +197,5 @@ Sin commits de desarrollo nuevos. Solo el commit automático de "Analisis diario
   - **Campo `stockaje_minimo`**: confirmar que el backend persiste el campo y que `StockajesMinimosSection` no muestra siempre 0 como mínimo.
   - **Campo `numero_serie`**: confirmar que `FichaCostoService` incluye el campo en el payload de actualización.
 - No hay riesgos nuevos que reportar.
-
----
-
-## 📅 9 de Mayo, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**Áreas: Fichas de Costo (nuevas funcionalidades), Inventario (Excel), Envío de Contenedores (búsqueda), Solicitudes-Ventas (fix Stripe), Ventas/Comerciales (commits vagos)**
-
-| Commit | Autor | Descripción |
-|--------|-------|-------------|
-| `6ffb2ad` | Fabian1820 | Merge branch 'main' |
-| `0838d8d` | Fabian1820 | feat(envio-contenedor): búsqueda debounced de materiales por código/nombre |
-| `2fc3dc4` | yany1509 | "ventas" — cambios sin descripción |
-| `b04d962` | yany1509 | "comerciales de ventas y ofertas" — cambios sin descripción |
-| `15c43dc` | Ruben/Claude | refactor(ficha-costo): simplificar modelo de precios — elimina Δ% por producto |
-| `b06dc7a` | Fabian1820 | feat(fichas-costo): StockajesMinimosSection, stockaje mínimo en EditarPreciosDialog |
-| `9435956` | Ruben/Claude | feat(ficha-costo): campo Impuesto nacional (%) sobre CIF |
-| `08501d6` | Fabian1820 | refactor(fichas-costo): ajuste de layout y ancho de tabla |
-| `c0ed0b6` | Fabian1820 | feat(fichas-costo): tooltips en materiales, número de serie en EditarPreciosDialog |
-| `5952a48` | Fabian1820 | feat(fichas-costo): EditarPreciosDialog y MaterialSearchDialog con filtro por serie |
-| `c4a5b69` | Ruben/Claude | feat(inventario): exportar análisis de stock mínimo a Excel |
-| `653cff0` | Fabian1820 | "hvhjvhjv" — cambios sin descripción |
-| `c19c6a7` | Ruben/Claude | fix(solicitudes-ventas): eliminar comisión Stripe del link de pago con flag `sin_recargo` |
-
-### Análisis de riesgos y consideraciones
-
-#### 🔴 Riesgos altos
-
-1. **Simplificación del modelo de precios en fichas-costo puede romper fichas existentes** — fichas con Δ% individuales por producto habrán perdido esa diferenciación silenciosamente. **Acción urgente:** Verificar comportamiento al abrir fichas existentes.
-2. **Flag `sin_recargo` depende del backend** — si LlegoBackend no implementa el handling, la comisión Stripe seguirá calculándose igual. **Acción urgente:** Confirmar en LlegoBackend.
-3. **Commits sin descripción** ("ventas", "comerciales de ventas y ofertas", "hvhjvhjv") — cambios desconocidos en módulos activos. **Acción recomendada:** Revisar diffs manualmente.
-
-#### 🟡 Riesgos medios
-
-4. **Doble-apply de fórmula en fichas-costo** — verificar que el campo de entrada siempre es el CIF base, no el costo derivado.
-5. **`StockajesMinimosSection` puede mostrar comparaciones incorrectas** si el backend no persiste `stockaje_minimo` aún.
-6. **Número de serie en `EditarPreciosDialog`** — confirmar que `FichaCostoService` incluye el campo en el payload.
-
-#### 🟢 Mejoras positivas
-
-7. **Eliminación de comisión Stripe en solicitudes-ventas** — el cliente paga exactamente el precio acordado.
-8. **Exportación a Excel del análisis de stock mínimo** — xlsx profesional con resumen y detalle coloreado por estado.
-9. **Búsqueda debounced en envío de contenedores** — mejora significativa de UX.
-10. **Impuesto nacional (%) sobre CIF** — permite modelar aranceles de importación globalmente.
 
 ---
