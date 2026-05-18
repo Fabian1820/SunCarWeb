@@ -48,8 +48,14 @@ export const OFERTAS_CONFECCION_ENDPOINTS = {
  * Construir URL completa del endpoint
  */
 export function buildApiUrl(endpoint: string): string {
+  const runtimeUrl =
+    typeof window !== "undefined"
+      ? (window as unknown as Record<string, unknown>).__BACKEND_URL__
+      : undefined;
   const backendUrlRaw =
-    process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+    (typeof runtimeUrl === "string" && runtimeUrl ? runtimeUrl : null) ||
+    process.env.NEXT_PUBLIC_BACKEND_URL ||
+    "http://localhost:8000";
   const backendUrl = backendUrlRaw
     .trim()
     .replace(/^['"]+/, "")
