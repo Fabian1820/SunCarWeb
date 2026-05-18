@@ -977,11 +977,6 @@ export class TrabajosDiariosService {
   ): Promise<TrabajoDiarioRegistro> {
     const body = serializeTrabajoPayload(payload);
     const endpoint = `${BASE_ENDPOINT}/${encodeURIComponent(trabajoId)}`;
-    console.log("📤 [TrabajosDiariosService.updateTrabajo] Request", {
-      endpoint,
-      trabajoId,
-      body,
-    });
     const raw = await apiRequest<unknown>(
       endpoint,
       {
@@ -989,21 +984,18 @@ export class TrabajosDiariosService {
         body: JSON.stringify(body),
       },
     );
-    console.log("📥 [TrabajosDiariosService.updateTrabajo] Raw response", {
-      endpoint,
-      raw,
-    });
     const errorMessage = extractResponseError(raw);
     if (errorMessage) {
-      console.error("❌ [TrabajosDiariosService.updateTrabajo] Backend error", {
-        endpoint,
-        errorMessage,
-        raw,
-      });
       throw new Error(errorMessage);
     }
-    const parsed = normalizeTrabajo(raw);
-    if (parsed) return parsed;
+    // Solo usar la respuesta si realmente parece un TrabajoDiario con id.
+    // El PATCH devuelve {success:true, message:""} sin campos de trabajo;
+    // normalizeTrabajo lo convertiría a un objeto con todos los campos null,
+    // sobreescribiendo los valores que el usuario acaba de guardar en el form.
+    if (looksLikeTrabajoDiario(raw)) {
+      const parsed = normalizeTrabajo(raw);
+      if (parsed?.id) return parsed;
+    }
     return {
       ...createEmptyTrabajoDiario(),
       ...payload,
