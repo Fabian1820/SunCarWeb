@@ -559,54 +559,41 @@ export function TrabajosDiariosAveriasView() {
       try {
         const clienteNumero = safeText(item.cliente.numero);
 
-        // 1. Buscar trabajo ABIERTO para hoy
-        const rowsHoy = await TrabajosDiariosService.getTrabajos({
-          fecha,
-          cliente_numero: clienteNumero || undefined,
-          cliente_id: !clienteNumero ? safeText(item.cliente.id) || undefined : undefined,
-          solo_abiertos: true,
-        });
-
-        const averiaId = safeText(item.averia.id);
-        const trabajoAbiertoHoy = rowsHoy.find((t) => t.tipo_trabajo === "AVERIA");
-
-        if (trabajoAbiertoHoy?.id) {
-          const detalle = await TrabajosDiariosService.getTrabajoById(trabajoAbiertoHoy.id);
-          draftsById.current[safeText(detalle.id)] = detalle;
-          setSelectedTrabajo(detalle);
-          try {
-            const resumen = await TrabajosDiariosService.getMaterialesResumen(detalle.id!);
-            setMaterialesResumen(resumen);
-          } catch { /* noop */ }
-          return;
-        }
-
-        // 2. No hay abierto hoy — buscar el más reciente de cualquier fecha para esta avería
+        // Buscar TODOS los trabajos del cliente y filtrar client-side
+        // (más confiable que depender del filtro de fecha del backend)
         if (clienteNumero) {
           try {
             const todos = await TrabajosDiariosService.getTrabajosByCliente(clienteNumero);
             const deAveria = todos
               .filter((t) => t.tipo_trabajo === "AVERIA")
               .sort((a, b) => {
-                const da = safeText(a.fecha_trabajo || a.fecha);
-                const db = safeText(b.fecha_trabajo || b.fecha);
+                const da = safeText(a.fecha_trabajo || (a as any).fecha);
+                const db = safeText(b.fecha_trabajo || (b as any).fecha);
                 return db.localeCompare(da);
               });
 
-            if (deAveria.length > 0) {
-              const masReciente = deAveria[0];
-              const detalle = masReciente.id
-                ? await TrabajosDiariosService.getTrabajoById(masReciente.id)
-                : masReciente;
+            // Preferir el de hoy (comparar solo YYYY-MM-DD)
+            const trabajoHoy = deAveria.find((t) => {
+              const f = safeText(t.fecha_trabajo || (t as any).fecha).slice(0, 10);
+              return f === fecha;
+            });
+
+            const candidato = trabajoHoy ?? (deAveria.length > 0 ? deAveria[0] : null);
+
+            if (candidato?.id) {
+              const detalle = await TrabajosDiariosService.getTrabajoById(candidato.id);
               draftsById.current[safeText(detalle.id)] = detalle;
               setSelectedTrabajo(detalle);
-              // (trabajo cerrado — el panel lo muestra como bloqueado + botón "Nuevo trabajo")
+              try {
+                const resumen = await TrabajosDiariosService.getMaterialesResumen(detalle.id!);
+                setMaterialesResumen(resumen);
+              } catch { /* noop */ }
               return;
             }
           } catch { /* si falla, caer al borrador vacío */ }
         }
 
-        // 3. Ningún trabajo previo — borrador en blanco
+        // Sin trabajos previos — borrador en blanco
         setSelectedTrabajo(crearBorradorNuevo(item));
       } catch (error) {
         const message = error instanceof Error ? error.message : "Error al cargar trabajo";
