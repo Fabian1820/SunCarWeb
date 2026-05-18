@@ -76,7 +76,11 @@ export default function Dashboard() {
   const [headerHeight, setHeaderHeight] = useState<number>(120);
   const [mergingTarget, setMergingTarget] = useState<"frontend" | "backend" | null>(null);
   const [mergeResult, setMergeResult] = useState<{ target: string; message: string; ok: boolean } | null>(null);
-  const showDevTools = process.env.NEXT_PUBLIC_SHOW_DEV_TOOLS === "true";
+  // Leer desde window.__SHOW_DEV_TOOLS__ (inyectado en layout) en runtime,
+  // con fallback a process.env para SSR. Igual patrón que __BACKEND_URL__.
+  const showDevTools = typeof window !== "undefined"
+    ? Boolean((window as Record<string, unknown>).__SHOW_DEV_TOOLS__)
+    : process.env.NEXT_PUBLIC_SHOW_DEV_TOOLS === "true";
 
   // Cargar módulos permitidos cada vez que se monta el dashboard
   useEffect(() => {
@@ -905,8 +909,8 @@ export default function Dashboard() {
       {/* Birthday Notification Checker */}
       <BirthdayChecker />
 
-      {/* Dev Tools FAB - Solo en dashboard para superAdmin */}
-      {user?.is_superAdmin && (
+      {/* Dev Tools FAB - Solo en dashboard para superAdmin con dev tools habilitadas */}
+      {showDevTools && user?.is_superAdmin && (
         <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-40 pointer-events-auto">
           {/* Merge Backend Button */}
           <Button
