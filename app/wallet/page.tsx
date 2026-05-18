@@ -1151,7 +1151,7 @@ function WalletPageContent() {
                 title="Banco CubespAuto"
               >
                 <Landmark className="h-4 w-4" />
-                <span className="hidden sm:inline text-sm">Banco Global</span>
+                <span className="hidden sm:inline text-sm">Banco Cubespauto</span>
               </Button>
             )}
             <Button
