@@ -572,16 +572,14 @@ export function TrabajosDiariosAveriasView() {
                 return db.localeCompare(da);
               });
 
-            // Preferir el de hoy (comparar solo YYYY-MM-DD)
-            const trabajoHoy = deAveria.find((t) => {
+            // Solo cargar si hay un trabajo de HOY que está ABIERTO
+            const trabajoHoyAbierto = deAveria.find((t) => {
               const f = safeText(t.fecha_trabajo || (t as any).fecha).slice(0, 10);
-              return f === fecha;
+              return f === fecha && !t.cierre_diario_confirmado;
             });
 
-            const candidato = trabajoHoy ?? (deAveria.length > 0 ? deAveria[0] : null);
-
-            if (candidato?.id) {
-              const detalle = await TrabajosDiariosService.getTrabajoById(candidato.id);
+            if (trabajoHoyAbierto?.id) {
+              const detalle = await TrabajosDiariosService.getTrabajoById(trabajoHoyAbierto.id);
               draftsById.current[safeText(detalle.id)] = detalle;
               setSelectedTrabajo(detalle);
               try {
