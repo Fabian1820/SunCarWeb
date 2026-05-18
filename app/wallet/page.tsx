@@ -45,6 +45,7 @@ import {
   Coins,
   Eye,
   Info,
+  Landmark,
   Plus,
   RefreshCcw,
   Search,
@@ -58,6 +59,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useWallet } from "@/hooks/use-wallet";
 import { useMyWalletPermiso } from "@/hooks/use-wallet-permisos";
+import { BancoGlobalSheet } from "@/components/feats/wallet/banco-global-sheet";
 import { TrabajadorService, WalletService } from "@/lib/api-services";
 import type { Trabajador } from "@/lib/api-types";
 import type {
@@ -576,6 +578,8 @@ function WalletPageContent() {
   const { toast } = useToast();
   const { permiso: walletPermiso } = useMyWalletPermiso();
   const canSeeAll = !!walletPermiso?.verTodos;
+  const canManageBancoGlobal = !!walletPermiso?.gestionarBancoGlobal;
+  const [isBancoGlobalOpen, setIsBancoGlobalOpen] = useState(false);
   const {
     wallet,
     wallets,
@@ -1129,11 +1133,27 @@ function WalletPageContent() {
     <div className="min-h-screen bg-slate-50">
       <Toaster />
 
+      <BancoGlobalSheet
+        open={isBancoGlobalOpen}
+        onOpenChange={setIsBancoGlobalOpen}
+      />
+
       <ModuleHeader
         title="Billetera"
         subtitle="Control de saldos y movimientos"
         actions={
           <>
+            {canManageBancoGlobal && (
+              <Button
+                variant="outline"
+                onClick={() => setIsBancoGlobalOpen(true)}
+                className="gap-1.5 border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700"
+                title="Banco CubespAuto"
+              >
+                <Landmark className="h-4 w-4" />
+                <span className="hidden sm:inline text-sm">Banco Global</span>
+              </Button>
+            )}
             <Button
               variant="outline"
               onClick={() => setIsCurrencyModalOpen(true)}

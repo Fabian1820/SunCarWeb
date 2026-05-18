@@ -590,6 +590,53 @@ export class WalletService {
     return normalizeCurrency(pickData<WalletCurrency>(response));
   }
 
+  // ─── Banco Global CubespAuto ───────────────────────────────────────────────
+
+  static async getBancoGlobal(
+    filters: WalletTransactionsFilters = {},
+  ): Promise<{ wallet: Wallet; transacciones: WalletTransaction[]; total: number }> {
+    const search = new URLSearchParams();
+    if (filters.tipo) search.append("tipo", filters.tipo);
+    if (typeof filters.skip === "number") search.append("skip", String(filters.skip));
+    if (typeof filters.limit === "number") search.append("limit", String(filters.limit));
+    if (filters.fechaDesde) search.append("fecha_desde", filters.fechaDesde.toISOString());
+    if (filters.fechaHasta) search.append("fecha_hasta", filters.fechaHasta.toISOString());
+    if (filters.q) search.append("q", filters.q);
+
+    const qs = search.toString();
+    const response = await this.requestWalletEndpoint<
+      { success: boolean; wallet: Wallet; transacciones: WalletTransaction[]; total: number } | ApiErrorResponse
+    >(`/wallet/banco-global${qs ? `?${qs}` : ""}`);
+
+    if (isApiErrorResponse(response)) {
+      throw new Error(getApiErrorMessage(response, "No se pudo cargar el Banco Global"));
+    }
+
+    const raw = response as { wallet: Wallet; transacciones: WalletTransaction[]; total: number };
+    return {
+      wallet: normalizeWallet(raw.wallet),
+      transacciones: Array.isArray(raw.transacciones) ? raw.transacciones : [],
+      total: raw.total ?? 0,
+    };
+  }
+
+  static async createBancoGlobalTransaction(
+    data: WalletTransactionCreateData,
+  ): Promise<WalletTransaction> {
+    const response = await this.requestWalletEndpoint<
+      WalletTransaction | WrappedResponse<WalletTransaction> | ApiErrorResponse
+    >("/wallet/banco-global/transaccion", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+
+    if (isApiErrorResponse(response)) {
+      throw new Error(getApiErrorMessage(response, "No se pudo registrar la transacción"));
+    }
+
+    return pickData<WalletTransaction>(response);
+  }
+
   private static parseTransactionsResponse(
     response:
       | WalletTransaction[]
