@@ -905,8 +905,8 @@ export default function Dashboard() {
       {/* Birthday Notification Checker */}
       <BirthdayChecker />
 
-      {/* Dev Tools FAB - Solo en dashboard */}
-      {showDevTools && user?.is_superAdmin && (
+      {/* Dev Tools FAB - Solo en dashboard para superAdmin */}
+      {user?.is_superAdmin && (
         <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-40 pointer-events-auto">
           {/* Merge Backend Button */}
           <Button
