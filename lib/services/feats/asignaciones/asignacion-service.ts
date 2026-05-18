@@ -56,7 +56,35 @@ export class AsignacionService {
       codigo: m?.codigo ?? null,
       nombre: String(m?.nombre ?? ''),
       precio: m?.precio ?? null,
+      foto: m?.foto ?? null,
     }))
+  }
+
+  /**
+   * Sube una foto al bucket "medios-basicos" en MinIO y devuelve la URL pública.
+   * Mismo patrón que MaterialService.
+   */
+  static async uploadFotoMedioBasico(file: File): Promise<string> {
+    if (!file.type.startsWith('image/')) {
+      throw new Error('El archivo debe ser una imagen')
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      throw new Error('La imagen no debe superar 5MB')
+    }
+    const formData = new FormData()
+    formData.append('foto', file)
+    const result = await apiRequest<{ success: boolean; message?: string; url?: string }>(
+      '/medios-basicos/upload-foto',
+      {
+        method: 'POST',
+        body: formData,
+        headers: {},
+      }
+    )
+    if (!result.success || !result.url) {
+      throw new Error(result.message || 'Error al subir la foto')
+    }
+    return result.url
   }
 
   static async createMedioBasico(data: MedioBasicoCreateData): Promise<MedioBasico> {

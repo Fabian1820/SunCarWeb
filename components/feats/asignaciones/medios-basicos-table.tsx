@@ -1,9 +1,9 @@
 "use client"
 
-import { useState } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/shared/molecule/table"
 import { Button } from "@/components/shared/atom/button"
-import { Pencil, Trash2 } from "lucide-react"
+import { Pencil, Trash2, Package } from "lucide-react"
+import { LazyImage } from "@/components/shared/atom/lazy-image"
 import type { MedioBasico } from "@/lib/types/feats/asignaciones/asignacion-types"
 
 interface MediosBasicosTableProps {
@@ -27,6 +27,7 @@ export function MediosBasicosTable({ items, onEdit, onDelete, loading }: MediosB
       <Table>
         <TableHeader>
           <TableRow className="bg-gray-50">
+            <TableHead className="w-[64px]">Foto</TableHead>
             <TableHead className="w-[140px]">Código</TableHead>
             <TableHead>Nombre</TableHead>
             <TableHead className="w-[120px]">Precio</TableHead>
@@ -36,6 +37,27 @@ export function MediosBasicosTable({ items, onEdit, onDelete, loading }: MediosB
         <TableBody>
           {items.map(item => (
             <TableRow key={item.id}>
+              <TableCell>
+                {item.foto ? (
+                  <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-gray-50 border border-gray-200">
+                    <LazyImage
+                      src={item.foto}
+                      alt={item.nombre}
+                      className="relative w-full h-full"
+                      imgClassName="w-full h-full object-contain p-1"
+                      fallback={
+                        <div className="absolute inset-0 bg-orange-100 flex items-center justify-center">
+                          <Package className="h-5 w-5 text-orange-700" />
+                        </div>
+                      }
+                    />
+                  </div>
+                ) : (
+                  <div className="w-12 h-12 rounded-lg bg-orange-50 border border-orange-100 flex items-center justify-center">
+                    <Package className="h-5 w-5 text-orange-300" />
+                  </div>
+                )}
+              </TableCell>
               <TableCell>
                 {item.codigo
                   ? <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-medium bg-orange-100 text-orange-700">{item.codigo}</span>

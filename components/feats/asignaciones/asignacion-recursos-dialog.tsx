@@ -1,25 +1,24 @@
 "use client"
 
-import { useState, useRef, useEffect, useCallback } from "react"
+import { useState, useRef, useEffect, useCallback, useMemo } from "react"
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/shared/molecule/dialog"
 import { Button } from "@/components/shared/atom/button"
 import { Input } from "@/components/shared/atom/input"
 import { Label } from "@/components/shared/atom/label"
-import { Search, X } from "lucide-react"
+import { Search, X, Loader2, Package } from "lucide-react"
 import type {
   MedioBasico,
   AsignacionCreateData,
   AsignacionUpdateData,
   Asignacion,
-  MaterialCatalogo,
   AsignacionInstalacionCreateData,
   AsignacionInstalacionUpdateData,
   AsignacionInstalacion,
 } from "@/lib/types/feats/asignaciones/asignacion-types"
-import { CATEGORIAS_MATERIAL } from "@/lib/types/feats/asignaciones/asignacion-types"
-import { AsignacionService } from "@/lib/api-services"
+import type { Material } from "@/lib/material-types"
+import { MaterialService } from "@/lib/api-services"
 
 type ItemType = 'medio_basico' | 'material'
 
@@ -45,18 +44,16 @@ export function AsignacionRecursosDialog({
   // Medio básico state
   const [medioBusqueda, setMedioBusqueda] = useState("")
   const [medioSeleccionado, setMedioSeleccionado] = useState<MedioBasico | null>(null)
-  const [comboOpen, setComboOpen] = useState(false)
-  const comboRef = useRef<HTMLDivElement>(null)
+  const [medioComboOpen, setMedioComboOpen] = useState(false)
+  const medioComboRef = useRef<HTMLDivElement>(null)
 
   // Material state
   const [materialBusqueda, setMaterialBusqueda] = useState("")
-  const [categoriaFiltro, setCategoriaFiltro] = useState("")
-  const [materiales, setMateriales] = useState<MaterialCatalogo[]>([])
-  const [materialSeleccionado, setMaterialSeleccionado] = useState<MaterialCatalogo | null>(null)
+  const [materialResults, setMaterialResults] = useState<Material[]>([])
+  const [materialSeleccionado, setMaterialSeleccionado] = useState<Material | null>(null)
   const [materialComboOpen, setMaterialComboOpen] = useState(false)
   const [loadingMateriales, setLoadingMateriales] = useState(false)
   const materialComboRef = useRef<HTMLDivElement>(null)
-  const materialSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Shared state
   const [cantidad, setCantidad] = useState("1")
@@ -66,10 +63,9 @@ export function AsignacionRecursosDialog({
     setItemTipo(asignacion ? (asignacion.item_tipo ?? 'medio_basico') : 'medio_basico')
     setMedioBusqueda("")
     setMedioSeleccionado(null)
-    setComboOpen(false)
+    setMedioComboOpen(false)
     setMaterialBusqueda("")
-    setCategoriaFiltro("")
-    setMateriales([])
+    setMaterialResults([])
     setMaterialSeleccionado(null)
     setMaterialComboOpen(false)
     setCantidad(String(asignacion?.cantidad ?? 1))
@@ -83,50 +79,46 @@ export function AsignacionRecursosDialog({
   // Close combos on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (comboRef.current && !comboRef.current.contains(e.target as Node)) setComboOpen(false)
+      if (medioComboRef.current && !medioComboRef.current.contains(e.target as Node)) setMedioComboOpen(false)
       if (materialComboRef.current && !materialComboRef.current.contains(e.target as Node)) setMaterialComboOpen(false)
     }
     document.addEventListener("mousedown", handler)
     return () => document.removeEventListener("mousedown", handler)
   }, [])
 
-  const filteredMedios = mediosBasicos.filter(m =>
-    m.nombre.toLowerCase().includes(medioBusqueda.toLowerCase().trim())
-  )
+  // ── Búsqueda de medios básicos: in-memory + filtra por nombre y código ──
+  const filteredMedios = useMemo(() => {
+    const q = medioBusqueda.trim().toLowerCase()
+    if (!q) return mediosBasicos.slice(0, 15)
+    return mediosBasicos
+      .filter(m =>
+        m.nombre.toLowerCase().includes(q) ||
+        (m.codigo?.toLowerCase().includes(q) ?? false)
+      )
+      .slice(0, 15)
+  }, [mediosBasicos, medioBusqueda])
 
-  const buscarMateriales = useCallback(async (q: string, categoria: string) => {
-    if (!q.trim() && !categoria) {
-      setMateriales([])
+  // ── Búsqueda de materiales: mismo patrón que solicitudes-materiales ──
+  useEffect(() => {
+    if (itemTipo !== 'material') return
+    const term = materialBusqueda.trim()
+    if (!term) {
+      setMaterialResults([])
       return
     }
-    setLoadingMateriales(true)
-    try {
-      const data = await AsignacionService.getMaterialesCatalogo(q || undefined, categoria || undefined)
-      setMateriales(data)
-    } catch {
-      setMateriales([])
-    } finally {
-      setLoadingMateriales(false)
-    }
-  }, [])
-
-  const handleMaterialSearch = (value: string) => {
-    setMaterialBusqueda(value)
-    setMaterialComboOpen(true)
-    if (materialSearchTimer.current) clearTimeout(materialSearchTimer.current)
-    materialSearchTimer.current = setTimeout(() => {
-      buscarMateriales(value, categoriaFiltro)
-    }, 350)
-  }
-
-  const handleCategoriaChange = (cat: string) => {
-    setCategoriaFiltro(cat)
-    setMateriales([])
-    if (materialSearchTimer.current) clearTimeout(materialSearchTimer.current)
-    materialSearchTimer.current = setTimeout(() => {
-      buscarMateriales(materialBusqueda, cat)
-    }, 100)
-  }
+    const handler = setTimeout(async () => {
+      setLoadingMateriales(true)
+      try {
+        const results = await MaterialService.searchMaterialsByCode(term, 15)
+        setMaterialResults(results)
+      } catch {
+        setMaterialResults([])
+      } finally {
+        setLoadingMateriales(false)
+      }
+    }, 300)
+    return () => clearTimeout(handler)
+  }, [materialBusqueda, itemTipo])
 
   const handleSave = async () => {
     const q = Math.max(1, parseInt(cantidad) || 1)
@@ -141,7 +133,7 @@ export function AsignacionRecursosDialog({
 
     const data: AsignacionCreateData = {
       item_tipo: itemTipo,
-      item_id: itemTipo === 'medio_basico' ? medioSeleccionado!.id : materialSeleccionado!.material_id,
+      item_id: itemTipo === 'medio_basico' ? medioSeleccionado!.id : materialSeleccionado!.id,
       cantidad: q,
       numero_serie: serie,
     }
@@ -187,15 +179,34 @@ export function AsignacionRecursosDialog({
 
           {/* Selector de medio básico */}
           {!isEdit && itemTipo === 'medio_basico' && (
-            <div className="space-y-1.5" ref={comboRef}>
+            <div className="space-y-1.5" ref={medioComboRef}>
               <Label>Medio básico *</Label>
               {medioSeleccionado ? (
                 <div className="flex items-center justify-between gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-md">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{medioSeleccionado.nombre}</p>
-                    {medioSeleccionado.precio != null && (
-                      <p className="text-xs text-green-600">${medioSeleccionado.precio.toFixed(2)}</p>
+                  <div className="min-w-0 flex items-center gap-2">
+                    {medioSeleccionado.foto ? (
+                      <img
+                        src={medioSeleccionado.foto}
+                        alt={medioSeleccionado.nombre}
+                        className="h-9 w-9 rounded object-cover border border-orange-200 flex-shrink-0"
+                        onError={e => { (e.target as HTMLImageElement).style.display = "none" }}
+                      />
+                    ) : (
+                      <div className="bg-orange-100 p-1.5 rounded-lg flex-shrink-0">
+                        <Package className="h-3.5 w-3.5 text-orange-700" />
+                      </div>
                     )}
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{medioSeleccionado.nombre}</p>
+                      <div className="flex items-center gap-2 text-xs">
+                        {medioSeleccionado.codigo && (
+                          <span className="text-gray-400 font-mono">{medioSeleccionado.codigo}</span>
+                        )}
+                        {medioSeleccionado.precio != null && (
+                          <span className="text-green-600 font-medium">${medioSeleccionado.precio.toFixed(2)}</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                   <button onClick={() => setMedioSeleccionado(null)} className="shrink-0 text-gray-400 hover:text-gray-600">
                     <X className="h-4 w-4" />
@@ -206,29 +217,55 @@ export function AsignacionRecursosDialog({
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                   <Input
                     className="pl-9"
-                    placeholder="Buscar medio básico..."
+                    placeholder="Buscar por nombre o código (MB-XXXXXX)..."
                     value={medioBusqueda}
-                    onFocus={() => setComboOpen(true)}
-                    onChange={e => { setMedioBusqueda(e.target.value); setComboOpen(true) }}
+                    onFocus={() => setMedioComboOpen(true)}
+                    onChange={e => { setMedioBusqueda(e.target.value); setMedioComboOpen(true) }}
                     autoComplete="off"
                   />
-                </div>
-              )}
-              {comboOpen && !medioSeleccionado && (
-                <div className="border border-gray-200 rounded-md shadow-lg bg-white max-h-48 overflow-y-auto">
-                  {filteredMedios.length === 0 ? (
-                    <p className="px-3 py-4 text-center text-sm text-gray-400">Sin resultados</p>
-                  ) : (
-                    filteredMedios.map(m => (
-                      <button
-                        key={m.id}
-                        className="w-full flex items-center justify-between px-3 py-2 text-left text-sm hover:bg-orange-50 border-b last:border-0"
-                        onMouseDown={e => { e.preventDefault(); setMedioSeleccionado(m); setMedioBusqueda(""); setComboOpen(false) }}
-                      >
-                        <span className="font-medium text-gray-800 truncate pr-2">{m.nombre}</span>
-                        {m.precio != null && <span className="text-xs text-green-600 shrink-0">${m.precio.toFixed(2)}</span>}
-                      </button>
-                    ))
+                  {medioComboOpen && (
+                    <div className="absolute z-50 mt-1 w-full border border-gray-200 rounded-md shadow-lg bg-white max-h-56 overflow-y-auto">
+                      {filteredMedios.length === 0 ? (
+                        <p className="px-3 py-4 text-center text-sm text-gray-400">
+                          {medioBusqueda ? "Sin resultados" : "No hay medios básicos registrados"}
+                        </p>
+                      ) : (
+                        filteredMedios.map(m => (
+                          <button
+                            key={m.id}
+                            className="w-full text-left px-3 py-2 hover:bg-orange-50 text-sm flex items-center gap-2 border-b last:border-0"
+                            onMouseDown={e => {
+                              e.preventDefault()
+                              setMedioSeleccionado(m)
+                              setMedioBusqueda("")
+                              setMedioComboOpen(false)
+                            }}
+                          >
+                            {m.foto ? (
+                              <img
+                                src={m.foto}
+                                alt={m.nombre}
+                                className="h-7 w-7 rounded object-cover border border-orange-200 flex-shrink-0"
+                                onError={e => { (e.target as HTMLImageElement).style.display = "none" }}
+                              />
+                            ) : (
+                              <div className="bg-orange-100 p-1.5 rounded-lg flex-shrink-0">
+                                <Package className="h-3 w-3 text-orange-700" />
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-gray-900 truncate">{m.nombre}</p>
+                              <div className="flex items-center gap-2 text-xs">
+                                {m.codigo && <span className="text-gray-400 font-mono">{m.codigo}</span>}
+                                {m.precio != null && (
+                                  <span className="text-green-600 font-medium">${m.precio.toFixed(2)}</span>
+                                )}
+                              </div>
+                            </div>
+                          </button>
+                        ))
+                      )}
+                    </div>
                   )}
                 </div>
               )}
@@ -237,57 +274,92 @@ export function AsignacionRecursosDialog({
 
           {/* Selector de material */}
           {!isEdit && itemTipo === 'material' && (
-            <div className="space-y-2">
+            <div className="space-y-1.5" ref={materialComboRef}>
               <Label>Material *</Label>
-              <select
-                className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-orange-300"
-                value={categoriaFiltro}
-                onChange={e => handleCategoriaChange(e.target.value)}
-              >
-                <option value="">Todas las categorías</option>
-                {CATEGORIAS_MATERIAL.map(c => (
-                  <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
-                ))}
-              </select>
-
               {materialSeleccionado ? (
                 <div className="flex items-center justify-between gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-md">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{materialSeleccionado.nombre}</p>
-                    <p className="text-xs text-gray-400">{materialSeleccionado.categoria}</p>
+                  <div className="min-w-0 flex items-center gap-2">
+                    {materialSeleccionado.foto ? (
+                      <img
+                        src={materialSeleccionado.foto}
+                        alt={materialSeleccionado.nombre || materialSeleccionado.descripcion}
+                        className="h-9 w-9 rounded object-cover border border-gray-200 flex-shrink-0"
+                        onError={e => { (e.target as HTMLImageElement).style.display = "none" }}
+                      />
+                    ) : (
+                      <div className="h-9 w-9 rounded bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
+                        <Package className="h-3.5 w-3.5 text-gray-400" />
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {materialSeleccionado.nombre || materialSeleccionado.descripcion}
+                      </p>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-gray-400 font-mono">{materialSeleccionado.codigo}</span>
+                        {materialSeleccionado.um && <span className="text-gray-400">{materialSeleccionado.um}</span>}
+                      </div>
+                    </div>
                   </div>
                   <button onClick={() => setMaterialSeleccionado(null)} className="shrink-0 text-gray-400 hover:text-gray-600">
                     <X className="h-4 w-4" />
                   </button>
                 </div>
               ) : (
-                <div className="relative" ref={materialComboRef}>
+                <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                   <Input
-                    className="pl-9"
-                    placeholder="Buscar material..."
+                    className="pl-9 pr-9"
+                    placeholder="Buscar material por código o nombre..."
                     value={materialBusqueda}
-                    onFocus={() => { setMaterialComboOpen(true); if (materialBusqueda || categoriaFiltro) buscarMateriales(materialBusqueda, categoriaFiltro) }}
-                    onChange={e => handleMaterialSearch(e.target.value)}
+                    onFocus={() => setMaterialComboOpen(true)}
+                    onChange={e => { setMaterialBusqueda(e.target.value); setMaterialComboOpen(true) }}
                     autoComplete="off"
                   />
+                  {loadingMateriales && (
+                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-gray-400" />
+                  )}
                   {materialComboOpen && (
-                    <div className="absolute z-50 mt-1 w-full border border-gray-200 rounded-md shadow-lg bg-white max-h-48 overflow-y-auto">
-                      {loadingMateriales ? (
+                    <div className="absolute z-50 mt-1 w-full border border-gray-200 rounded-md shadow-lg bg-white max-h-56 overflow-y-auto">
+                      {materialBusqueda.trim() === "" ? (
+                        <p className="px-3 py-4 text-center text-sm text-gray-400">Escribe para buscar materiales</p>
+                      ) : loadingMateriales ? (
                         <p className="px-3 py-4 text-center text-sm text-gray-400">Buscando...</p>
-                      ) : materiales.length === 0 ? (
-                        <p className="px-3 py-4 text-center text-sm text-gray-400">
-                          {materialBusqueda || categoriaFiltro ? "Sin resultados" : "Escribe para buscar"}
-                        </p>
+                      ) : materialResults.length === 0 ? (
+                        <p className="px-3 py-4 text-center text-sm text-gray-400">Sin resultados</p>
                       ) : (
-                        materiales.map(m => (
+                        materialResults.map(m => (
                           <button
-                            key={m.material_id}
-                            className="w-full flex items-center justify-between px-3 py-2 text-left text-sm hover:bg-blue-50 border-b last:border-0"
-                            onMouseDown={e => { e.preventDefault(); setMaterialSeleccionado(m); setMaterialComboOpen(false) }}
+                            key={m.id}
+                            className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm flex items-center gap-2 border-b last:border-0"
+                            onMouseDown={e => {
+                              e.preventDefault()
+                              setMaterialSeleccionado(m)
+                              setMaterialComboOpen(false)
+                            }}
                           >
-                            <span className="font-medium text-gray-800 truncate pr-2">{m.nombre}</span>
-                            <span className="text-xs text-gray-400 shrink-0">{m.categoria}</span>
+                            {m.foto ? (
+                              <img
+                                src={m.foto}
+                                alt={m.nombre || m.descripcion}
+                                className="h-7 w-7 rounded object-cover border border-gray-200 flex-shrink-0"
+                                onError={e => { (e.target as HTMLImageElement).style.display = "none" }}
+                              />
+                            ) : (
+                              <div className="h-7 w-7 rounded bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
+                                <Package className="h-3 w-3 text-gray-400" />
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-gray-900 truncate">
+                                {m.nombre || m.descripcion}
+                              </p>
+                              <div className="flex items-center gap-2 text-xs">
+                                <span className="text-gray-400 font-mono">{m.codigo}</span>
+                                {m.um && <span className="text-gray-400">{m.um}</span>}
+                                {m.categoria && <span className="text-blue-600">{m.categoria}</span>}
+                              </div>
+                            </div>
                           </button>
                         ))
                       )}

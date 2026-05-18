@@ -5,16 +5,19 @@ export interface MedioBasico {
   codigo?: string | null
   nombre: string
   precio?: number | null
+  foto?: string | null
 }
 
 export interface MedioBasicoCreateData {
   nombre: string
   precio?: number
+  foto?: string | null
 }
 
 export interface MedioBasicoUpdateData {
   nombre?: string
   precio?: number
+  foto?: string | null
 }
 
 // ── Asignaciones trabajadores ─────────────────────────────────────────────────

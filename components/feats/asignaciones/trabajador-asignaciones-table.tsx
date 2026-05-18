@@ -1,9 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/shared/molecule/table"
 import { Button } from "@/components/shared/atom/button"
-import { Plus } from "lucide-react"
+import { Input } from "@/components/shared/atom/input"
+import { Plus, Search, X } from "lucide-react"
 import type {
   TrabajadorConAsignaciones, Asignacion, MedioBasico,
   AsignacionCreateData, AsignacionUpdateData,
@@ -29,6 +30,17 @@ export function TrabajadorAsignacionesTable({
   const [detalleOpen, setDetalleOpen] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingAsignacion, setEditingAsignacion] = useState<Asignacion | null>(null)
+  const [busqueda, setBusqueda] = useState("")
+
+  const trabajadoresFiltrados = useMemo(() => {
+    const q = busqueda.trim().toLowerCase()
+    if (!q) return trabajadores
+    return trabajadores.filter(t =>
+      t.nombre.toLowerCase().includes(q) ||
+      t.CI.toLowerCase().includes(q) ||
+      (t.cargo?.toLowerCase().includes(q) ?? false)
+    )
+  }, [trabajadores, busqueda])
 
   const openDetalle = (t: TrabajadorConAsignaciones) => {
     setSelectedTrabajador(t)
@@ -77,6 +89,26 @@ export function TrabajadorAsignacionesTable({
 
   return (
     <>
+      {/* Buscador */}
+      <div className="relative mb-3">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+        <Input
+          className="pl-9 pr-9"
+          placeholder="Buscar por nombre, CI o cargo..."
+          value={busqueda}
+          onChange={e => setBusqueda(e.target.value)}
+        />
+        {busqueda && (
+          <button
+            onClick={() => setBusqueda("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            aria-label="Limpiar búsqueda"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
       <div className="rounded-md border overflow-hidden">
         <Table>
           <TableHeader>
@@ -88,7 +120,14 @@ export function TrabajadorAsignacionesTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {trabajadores.map(t => {
+            {trabajadoresFiltrados.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={4} className="text-center text-sm text-gray-400 py-8">
+                  Sin resultados para "{busqueda}"
+                </TableCell>
+              </TableRow>
+            )}
+            {trabajadoresFiltrados.map(t => {
               const total = t.asignaciones.length
               return (
                 <TableRow
@@ -125,6 +164,12 @@ export function TrabajadorAsignacionesTable({
           </TableBody>
         </Table>
       </div>
+
+      <p className="text-xs text-gray-400 mt-2">
+        {busqueda
+          ? `${trabajadoresFiltrados.length} de ${trabajadores.length} trabajadores`
+          : `${trabajadores.length} trabajadores`}
+      </p>
 
       <TrabajadorDetalleModal
         open={detalleOpen}
