@@ -591,6 +591,10 @@ export function TrabajosDiariosAveriasView() {
           const detalle = await TrabajosDiariosService.getTrabajoById(abierto.id);
           draftsById.current[safeText(detalle.id)] = detalle;
           setSelectedTrabajo(detalle);
+          // Sincronizar el selector de instaladores con los del trabajo cargado
+          if (detalle.instaladores && detalle.instaladores.length > 0) {
+            setInstaladores(detalle.instaladores);
+          }
           // Los demás (cerrados) van al resumen
           const cerrados = deEstaAveria.filter((t) => t.id !== abierto.id && t.cierre_diario_confirmado);
           setTrabajosAnteriores(cerrados);

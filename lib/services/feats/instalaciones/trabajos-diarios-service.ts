@@ -746,11 +746,20 @@ export class TrabajosDiariosService {
     const rows = toArray(raw);
     if (rows.length > 0) {
       const first = normalizeTrabajo(rows[0]);
-      if (first) return first;
+      if (first?.id) return first;
+    }
+
+    // Respuesta tipo { success, data: { id, hora_salida, ... } }
+    if (raw && typeof raw === "object") {
+      const rawObj = raw as Record<string, unknown>;
+      if (rawObj.data && typeof rawObj.data === "object" && !Array.isArray(rawObj.data)) {
+        const parsed = normalizeTrabajo(rawObj.data);
+        if (parsed?.id) return parsed;
+      }
     }
 
     const parsed = normalizeTrabajo(raw);
-    if (parsed) return parsed;
+    if (parsed?.id) return parsed;
 
     throw new Error("No se pudo interpretar el detalle del trabajo diario");
   }
