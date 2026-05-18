@@ -33,6 +33,11 @@ export function CrearAveriaDialog({
   const [descripcion, setDescripcion] = useState("")
   const [codigo, setCodigo] = useState("")
   const [searchCliente, setSearchCliente] = useState("")
+  const [fechaReporte, setFechaReporte] = useState(() => new Date().toISOString().slice(0, 10))
+  const [horaReporte, setHoraReporte] = useState(() => {
+    const now = new Date()
+    return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`
+  })
 
   // Filtrar clientes según búsqueda
   const clientesFiltrados = useMemo(() => {
@@ -97,6 +102,7 @@ export function CrearAveriaDialog({
         descripcion: descripcion.trim(),
         estado: 'Pendiente',
         codigo: codigo || null,
+        fecha_reporte: `${fechaReporte}T${horaReporte}:00`,
       })
 
       toast({
@@ -107,6 +113,9 @@ export function CrearAveriaDialog({
       setClienteSeleccionado("")
       setDescripcion("")
       setCodigo("")
+      setFechaReporte(new Date().toISOString().slice(0, 10))
+      const now = new Date()
+      setHoraReporte(`${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`)
       onSuccess()
       onOpenChange(false)
     } catch (error: any) {
@@ -230,6 +239,32 @@ export function CrearAveriaDialog({
               )}
             </div>
           )}
+
+          {/* Fecha y hora del reporte */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="fecha-reporte">Fecha del reporte *</Label>
+              <Input
+                id="fecha-reporte"
+                type="date"
+                value={fechaReporte}
+                onChange={(e) => setFechaReporte(e.target.value)}
+                disabled={isCreating}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="hora-reporte">Hora del reporte *</Label>
+              <Input
+                id="hora-reporte"
+                type="time"
+                value={horaReporte}
+                onChange={(e) => setHoraReporte(e.target.value)}
+                disabled={isCreating}
+                className="mt-1"
+              />
+            </div>
+          </div>
 
           {/* Código de causa */}
           <div>

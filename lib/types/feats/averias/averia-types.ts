@@ -13,6 +13,7 @@ export interface AveriaCreateData {
   descripcion: string
   estado?: 'Pendiente' | 'Solucionada'
   codigo?: string | null
+  fecha_reporte?: string
 }
 
 export interface AveriaUpdateData {

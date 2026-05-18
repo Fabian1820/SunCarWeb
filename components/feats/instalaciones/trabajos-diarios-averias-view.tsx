@@ -181,6 +181,11 @@ function NuevaAveriaDialog({
   const [descripcion, setDescripcion] = useState("");
   const [codigo, setCodigo] = useState("");
   const [searchCliente, setSearchCliente] = useState("");
+  const [fechaReporte, setFechaReporte] = useState(() => new Date().toISOString().slice(0, 10));
+  const [horaReporte, setHoraReporte] = useState(() => {
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  });
 
   const clientesFiltrados = useMemo(() => {
     if (!searchCliente.trim()) return [];
@@ -213,6 +218,9 @@ function NuevaAveriaDialog({
     setDescripcion("");
     setCodigo("");
     setSearchCliente("");
+    const now = new Date();
+    setFechaReporte(now.toISOString().slice(0, 10));
+    setHoraReporte(`${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`);
     onOpenChange(false);
   };
 
@@ -231,6 +239,7 @@ function NuevaAveriaDialog({
         descripcion: descripcion.trim(),
         estado: "Pendiente",
         codigo: codigo || null,
+        fecha_reporte: `${fechaReporte}T${horaReporte}:00`,
       });
       toast({ title: "Avería creada", description: "La avería se registró correctamente." });
       handleClose();
@@ -334,6 +343,32 @@ function NuevaAveriaDialog({
             )}
           </div>
 
+          {/* Fecha y hora del reporte */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="fecha-reporte-dlg">Fecha del reporte *</Label>
+              <input
+                id="fecha-reporte-dlg"
+                type="date"
+                value={fechaReporte}
+                onChange={(e) => setFechaReporte(e.target.value)}
+                disabled={isCreating}
+                className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <Label htmlFor="hora-reporte-dlg">Hora del reporte *</Label>
+              <input
+                id="hora-reporte-dlg"
+                type="time"
+                value={horaReporte}
+                onChange={(e) => setHoraReporte(e.target.value)}
+                disabled={isCreating}
+                className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
           {/* Código */}
           <div>
             <Label htmlFor="codigo-averia">Código de causa</Label>
@@ -409,6 +444,7 @@ export function TrabajosDiariosAveriasView() {
   const [selectedTrabajo, setSelectedTrabajo] = useState<TrabajoDiarioRegistro | null>(null);
   const [materialesResumen, setMaterialesResumen] = useState<TrabajoDiarioMaterialResumen[]>([]);
   const [saving, setSaving] = useState(false);
+  const [closing, setClosing] = useState(false);
   const [loadingTrabajo, setLoadingTrabajo] = useState(false);
   const draftsById = useRef<Record<string, TrabajoDiarioRegistro>>({});
 
@@ -514,6 +550,7 @@ export function TrabajosDiariosAveriasView() {
             cliente_direccion: safeText(item.cliente.direccion) || undefined,
             fecha_trabajo: fecha,
             tipo_trabajo: "AVERIA",
+            averia_id: safeText(item.averia.id) || undefined,
             problema_encontrado: safeText(item.averia.descripcion),
             solucion: "",
             instaladores: instaladores
@@ -545,84 +582,85 @@ export function TrabajosDiariosAveriasView() {
     if (id) draftsById.current[id] = next;
   }, []);
 
-  const handleSave = async () => {
-    if (!selectedTrabajo) return;
-    const trabajoId = safeText(selectedTrabajo.id);
-
+  const buildPayload = (): TrabajoDiarioRegistro | null => {
+    if (!selectedTrabajo) return null;
     const instNames = instaladores
       .map((v) => {
         const w = workersOptions.find((ww) => safeText(ww.CI) === v || safeText(ww.nombre) === v);
         return safeText(w?.nombre, v);
       })
       .filter(Boolean);
-
-    const payload: TrabajoDiarioRegistro = {
+    return {
       ...selectedTrabajo,
       tipo_trabajo: "AVERIA",
       instaladores: (selectedTrabajo.instaladores || []).length > 0 ? selectedTrabajo.instaladores : instNames,
       fecha_trabajo: fecha,
     };
+  };
 
+  const ensureTrabajoCreado = async (payload: TrabajoDiarioRegistro): Promise<{ id: string; merged: TrabajoDiarioRegistro }> => {
+    const trabajoId = safeText(payload.id);
+    if (trabajoId) {
+      const saved = await TrabajosDiariosService.updateTrabajo(trabajoId, payload);
+      const merged = { ...payload, ...saved, id: safeText(saved.id, trabajoId) };
+      return { id: safeText(merged.id), merged };
+    }
+    if (!selectedItem) throw new Error("No hay avería seleccionada");
+    const instNames = (payload.instaladores || []).filter(Boolean);
+    if (instNames.length === 0) throw new Error("Selecciona al menos un instalador antes de guardar");
+    const created = await TrabajosDiariosService.createTrabajoDiarioSinVale({
+      cliente_numero: safeText(selectedItem.cliente.numero),
+      fecha,
+      instaladores: instNames,
+      tipo_trabajo: "AVERIA",
+    });
+    const withData = await TrabajosDiariosService.updateTrabajo(safeText(created.id), {
+      ...payload,
+      id: safeText(created.id),
+    });
+    const merged = { ...payload, ...withData, id: safeText(withData.id || created.id) };
+    return { id: safeText(merged.id), merged };
+  };
+
+  const handleSave = async () => {
+    const payload = buildPayload();
+    if (!payload) return;
     setSaving(true);
     try {
-      let finalId: string;
-
-      if (trabajoId) {
-        const saved = await TrabajosDiariosService.updateTrabajo(trabajoId, payload);
-        const merged = { ...payload, ...saved, id: safeText(saved.id, trabajoId) };
-        setSelectedTrabajo(merged);
-        draftsById.current[safeText(merged.id)] = merged;
-        finalId = safeText(merged.id);
-      } else {
-        if (!selectedItem) return;
-        if (instNames.length === 0) {
-          toast({ title: "Faltan instaladores", description: "Selecciona al menos un instalador antes de guardar.", variant: "destructive" });
-          setSaving(false);
-          return;
-        }
-        const created = await TrabajosDiariosService.createTrabajoDiarioSinVale({
-          cliente_numero: safeText(selectedItem.cliente.numero),
-          fecha,
-          instaladores: instNames,
-          tipo_trabajo: "AVERIA",
-        });
-        const withData = await TrabajosDiariosService.updateTrabajo(safeText(created.id), {
-          ...payload,
-          id: safeText(created.id),
-        });
-        const merged = { ...payload, ...withData, id: safeText(withData.id || created.id) };
-        setSelectedTrabajo(merged);
-        draftsById.current[safeText(merged.id)] = merged;
-        finalId = safeText(merged.id);
-      }
-
-      // Marcar la avería como Solucionada
-      if (selectedItem) {
-        const clienteNumero = safeText(selectedItem.cliente.numero);
-        const averiaId = safeText(selectedItem.averia.id);
-        if (clienteNumero && averiaId) {
-          try {
-            await AveriaService.actualizarAveria(clienteNumero, averiaId, { estado: "Solucionada" });
-          } catch {
-            // Continuar aunque falle marcar la avería — el trabajo ya fue guardado
-          }
-        }
-      }
-
-      toast({ title: "Guardado", description: "Avería registrada y marcada como solucionada." });
-
-      // Limpiar selección y refrescar lista
-      setSelectedItem(null);
-      setSelectedTrabajo(null);
-      setMaterialesResumen([]);
-      void loadClientesConAverias();
-
-      void finalId; // evitar warning de variable no usada
+      const { merged } = await ensureTrabajoCreado(payload);
+      setSelectedTrabajo(merged);
+      draftsById.current[safeText(merged.id)] = merged;
+      toast({ title: "Guardado", description: "Trabajo guardado correctamente." });
     } catch (error) {
       const message = error instanceof Error ? error.message : "No se pudo guardar";
       toast({ title: "Error", description: message, variant: "destructive" });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCloseDay = async () => {
+    const payload = buildPayload();
+    if (!payload) return;
+    setClosing(true);
+    try {
+      const { merged } = await ensureTrabajoCreado(payload);
+      // Cerrar el día
+      await TrabajosDiariosService.updateTrabajo(merged.id!, {
+        ...merged,
+        cierre_diario_confirmado: true,
+      });
+      const estadoMsg = merged.hay_pendiente ? "La avería quedó como pendiente." : "La avería fue marcada como solucionada.";
+      toast({ title: "Día cerrado", description: estadoMsg });
+      setSelectedItem(null);
+      setSelectedTrabajo(null);
+      setMaterialesResumen([]);
+      void loadClientesConAverias();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudo cerrar el día";
+      toast({ title: "Error", description: message, variant: "destructive" });
+    } finally {
+      setClosing(false);
     }
   };
 
@@ -890,14 +928,23 @@ export function TrabajosDiariosAveriasView() {
             )}
           </CardContent>
 
-          {selectedTrabajo && (
+          {selectedTrabajo && !selectedTrabajo.cierre_diario_confirmado && (
             <div className="px-6 py-4 border-t shrink-0 flex justify-end gap-2 bg-white">
               <Button
                 type="button"
+                variant="outline"
                 onClick={() => void handleSave()}
-                disabled={saving}
+                disabled={saving || closing}
               >
-                {saving ? "Guardando..." : "Guardar y marcar solucionada"}
+                {saving ? "Guardando..." : "Guardar"}
+              </Button>
+              <Button
+                type="button"
+                onClick={() => void handleCloseDay()}
+                disabled={saving || closing}
+                className="bg-gradient-to-r from-emerald-500 to-emerald-600"
+              >
+                {closing ? "Cerrando..." : "Cerrar día"}
               </Button>
             </div>
           )}

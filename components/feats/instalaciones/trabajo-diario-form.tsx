@@ -845,6 +845,42 @@ export function TrabajoDiarioForm({
             <CardTitle className="text-base">Datos de avería</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            {/* Horarios del trabajo */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Hora de salida</Label>
+                <Input
+                  type="time"
+                  value={value.hora_salida || ""}
+                  onChange={(e) => update({ hora_salida: e.target.value || null })}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Hora de llegada al trabajo</Label>
+                <Input
+                  type="time"
+                  value={value.hora_llegada_trabajo || ""}
+                  onChange={(e) => update({ hora_llegada_trabajo: e.target.value || null })}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Hora de conclusión</Label>
+                <Input
+                  type="time"
+                  value={value.hora_concluido || ""}
+                  onChange={(e) => update({ hora_concluido: e.target.value || null })}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Hora de llegada al almacén</Label>
+                <Input
+                  type="time"
+                  value={value.hora_llegada_almacen || ""}
+                  onChange={(e) => update({ hora_llegada_almacen: e.target.value || null })}
+                />
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label>Problema encontrado</Label>
               <Textarea
@@ -860,6 +896,33 @@ export function TrabajoDiarioForm({
                 value={value.solucion || ""}
                 onChange={(e) => update({ solucion: e.target.value })}
               />
+            </div>
+
+            {/* Pendiente */}
+            <div className="rounded-md border border-slate-200 p-3 space-y-2">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={Boolean(value.hay_pendiente)}
+                  onCheckedChange={(checked) => {
+                    update({
+                      hay_pendiente: checked === true,
+                      descripcion_pendiente: checked === true ? value.descripcion_pendiente : null,
+                    });
+                  }}
+                />
+                <span className="font-medium">Quedó algo pendiente</span>
+              </label>
+              {value.hay_pendiente ? (
+                <div className="space-y-1.5">
+                  <Label>Descripción del pendiente</Label>
+                  <Textarea
+                    value={value.descripcion_pendiente || ""}
+                    onChange={(e) => update({ descripcion_pendiente: e.target.value })}
+                    placeholder="Describe qué quedó pendiente..."
+                    rows={3}
+                  />
+                </div>
+              ) : null}
             </div>
           </CardContent>
         </Card>

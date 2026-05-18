@@ -79,6 +79,13 @@ export interface TrabajoDiarioRegistro {
   solucion?: string;
   instalacion_terminada?: boolean;
   queda_pendiente?: string;
+  averia_id?: string | null;
+  hora_salida?: string | null;
+  hora_llegada_trabajo?: string | null;
+  hora_concluido?: string | null;
+  hora_llegada_almacen?: string | null;
+  hay_pendiente?: boolean | null;
+  descripcion_pendiente?: string | null;
   cierre_diario_confirmado?: boolean;
   cierre_diario_usuario_ci?: string | null;
   cierre_diario_usuario_nombre?: string | null;

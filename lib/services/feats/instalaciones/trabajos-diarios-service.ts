@@ -295,6 +295,13 @@ const normalizeTrabajo = (item: unknown): TrabajoDiarioRegistro | null => {
     solucion: pickFirstString(row.solucion),
     instalacion_terminada: asBoolean(row.instalacion_terminada),
     queda_pendiente: pickFirstString(row.queda_pendiente),
+    averia_id: pickFirstString(row.averia_id) || null,
+    hora_salida: pickFirstString(row.hora_salida) || null,
+    hora_llegada_trabajo: pickFirstString(row.hora_llegada_trabajo) || null,
+    hora_concluido: pickFirstString(row.hora_concluido) || null,
+    hora_llegada_almacen: pickFirstString(row.hora_llegada_almacen) || null,
+    hay_pendiente: row.hay_pendiente == null ? null : asBoolean(row.hay_pendiente),
+    descripcion_pendiente: pickFirstString(row.descripcion_pendiente) || null,
     cierre_diario_confirmado: asBoolean(row.cierre_diario_confirmado),
     cierre_diario_usuario_ci:
       pickFirstString(row.cierre_diario_usuario_ci) || null,
@@ -477,6 +484,14 @@ const serializeTrabajoPayload = (
   if (typeof payload.cierre_diario_confirmado === "boolean") {
     body.cierre_diario_confirmado = payload.cierre_diario_confirmado;
   }
+
+  if (payload.averia_id) body.averia_id = payload.averia_id;
+  if (payload.hora_salida != null) body.hora_salida = payload.hora_salida || null;
+  if (payload.hora_llegada_trabajo != null) body.hora_llegada_trabajo = payload.hora_llegada_trabajo || null;
+  if (payload.hora_concluido != null) body.hora_concluido = payload.hora_concluido || null;
+  if (payload.hora_llegada_almacen != null) body.hora_llegada_almacen = payload.hora_llegada_almacen || null;
+  if (typeof payload.hay_pendiente === "boolean") body.hay_pendiente = payload.hay_pendiente;
+  if (payload.descripcion_pendiente != null) body.descripcion_pendiente = payload.descripcion_pendiente || null;
 
   body.materiales_utilizados = materiales;
   return body;
