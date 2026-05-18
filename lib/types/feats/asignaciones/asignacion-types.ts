@@ -51,7 +51,6 @@ export interface AsignacionCreateData {
   item_id: string
   cantidad: number
   numero_serie?: string
-  asignado_por?: string
 }
 
 export interface AsignacionUpdateData {
@@ -97,7 +96,6 @@ export interface AsignacionInstalacionCreateData {
   item_id: string
   cantidad: number
   numero_serie?: string
-  asignado_por?: string
 }
 
 export interface AsignacionInstalacionUpdateData {
