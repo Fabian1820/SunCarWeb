@@ -74,6 +74,14 @@ export default function RootLayout({
     <html lang="es">
       <head>
         <meta name="apple-mobile-web-app-title" content="Suncar Administración" />
+        {/* Inyectar URL del backend en runtime para que el cliente no dependa del build */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.__BACKEND_URL__=${JSON.stringify(
+              (process.env.NEXT_PUBLIC_BACKEND_URL ?? "").replace(/\/+$/, "") || "http://localhost:8000"
+            )};`,
+          }}
+        />
       </head>
       <body className={inter.className}>
         <AuthProvider>

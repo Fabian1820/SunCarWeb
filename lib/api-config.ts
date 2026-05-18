@@ -1,5 +1,16 @@
 function getApiBaseUrl(): string {
-  const envRaw = process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
+  // On client side, prefer window.__BACKEND_URL__ (injected at request time by layout.tsx Server Component)
+  // so the value is always up-to-date regardless of build-time env var baking.
+  const runtimeUrl =
+    typeof window !== "undefined"
+      ? (window as unknown as Record<string, unknown>).__BACKEND_URL__
+      : undefined;
+
+  const envRaw =
+    typeof runtimeUrl === "string" && runtimeUrl
+      ? runtimeUrl
+      : (process.env.NEXT_PUBLIC_BACKEND_URL ?? "");
+
   const envClean = envRaw.trim().replace(/^['"]+/, "").replace(/['"]+$/, "").replace(/\/+$/, "");
 
   const resolved = envClean || "http://localhost:8000";
