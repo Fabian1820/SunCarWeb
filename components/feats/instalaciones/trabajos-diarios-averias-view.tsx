@@ -445,6 +445,7 @@ export function TrabajosDiariosAveriasView() {
   const [materialesResumen, setMaterialesResumen] = useState<TrabajoDiarioMaterialResumen[]>([]);
   const [saving, setSaving] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [averiaCodigoEdit, setAveriaCodigoEdit] = useState<string>("");
   const [loadingTrabajo, setLoadingTrabajo] = useState(false);
   const draftsById = useRef<Record<string, TrabajoDiarioRegistro>>({});
 
@@ -523,6 +524,7 @@ export function TrabajosDiariosAveriasView() {
       setSelectedItem(item);
       setSelectedTrabajo(null);
       setMaterialesResumen([]);
+      setAveriaCodigoEdit(safeText(item.averia.codigo));
       setLoadingTrabajo(true);
       try {
         const clienteNumero = safeText(item.cliente.numero);
@@ -582,6 +584,22 @@ export function TrabajosDiariosAveriasView() {
     if (id) draftsById.current[id] = next;
   }, []);
 
+  const actualizarCodigoAveria = async () => {
+    if (!selectedItem) return;
+    const clienteNumero = safeText(selectedItem.cliente.numero);
+    const averiaId = safeText(selectedItem.averia.id);
+    const codigoOriginal = safeText(selectedItem.averia.codigo);
+    if (!clienteNumero || !averiaId) return;
+    if (averiaCodigoEdit === codigoOriginal) return;
+    try {
+      await AveriaService.actualizarAveria(clienteNumero, averiaId, {
+        codigo: averiaCodigoEdit || null,
+      });
+    } catch {
+      // no bloquear el flujo principal si falla actualizar el código
+    }
+  };
+
   const buildPayload = (): TrabajoDiarioRegistro | null => {
     if (!selectedTrabajo) return null;
     const instNames = instaladores
@@ -627,6 +645,7 @@ export function TrabajosDiariosAveriasView() {
     if (!payload) return;
     setSaving(true);
     try {
+      await actualizarCodigoAveria();
       const { merged } = await ensureTrabajoCreado(payload);
       setSelectedTrabajo(merged);
       draftsById.current[safeText(merged.id)] = merged;
@@ -644,8 +663,8 @@ export function TrabajosDiariosAveriasView() {
     if (!payload) return;
     setClosing(true);
     try {
+      await actualizarCodigoAveria();
       const { merged } = await ensureTrabajoCreado(payload);
-      // Cerrar el día
       await TrabajosDiariosService.updateTrabajo(merged.id!, {
         ...merged,
         cierre_diario_confirmado: true,
@@ -912,19 +931,41 @@ export function TrabajosDiariosAveriasView() {
             ) : !selectedTrabajo ? (
               <p className="text-sm text-muted-foreground">Cargando información del cliente...</p>
             ) : (
-              <TrabajoDiarioForm
-                value={selectedTrabajo}
-                onChange={handleTrabajoChange}
-                materialesResumen={materialesResumen}
-                onMaterialesResumenChange={setMaterialesResumen}
-                onSubmit={() => void handleSave()}
-                submitLabel="Guardar avería"
-                showSubmitButton={false}
-                isSaving={saving}
-                showInicioSection={true}
-                showMaterialesSection={false}
-                forcedTipoTrabajo="AVERIA"
-              />
+              <div className="space-y-3">
+                {/* Código de causa de la avería — editable desde aquí */}
+                <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 space-y-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+                    Código de causa de la avería
+                  </label>
+                  <select
+                    value={averiaCodigoEdit}
+                    onChange={(e) => setAveriaCodigoEdit(e.target.value)}
+                    disabled={selectedTrabajo.cierre_diario_confirmado}
+                    className="w-full rounded-md border border-blue-200 bg-white px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
+                  >
+                    <option value="">— Sin código —</option>
+                    {AVERIA_CODIGOS.map((op) => (
+                      <option key={op.codigo} value={op.codigo}>
+                        {op.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <TrabajoDiarioForm
+                  value={selectedTrabajo}
+                  onChange={handleTrabajoChange}
+                  materialesResumen={materialesResumen}
+                  onMaterialesResumenChange={setMaterialesResumen}
+                  onSubmit={() => void handleSave()}
+                  submitLabel="Guardar avería"
+                  showSubmitButton={false}
+                  isSaving={saving}
+                  showInicioSection={true}
+                  showMaterialesSection={false}
+                  forcedTipoTrabajo="AVERIA"
+                />
+              </div>
             )}
           </CardContent>
 
