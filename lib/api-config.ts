@@ -45,17 +45,7 @@ function getApiBaseUrl(): string {
     ) {
     }
 
-    const isSuncarNonApiHost =
-      !isLocalhost &&
-      parsed.hostname.includes("suncarsrl.com") &&
-      !parsed.hostname.startsWith("api.");
-
-    if (isSuncarNonApiHost) {
-      backendOrigin = PROD_BACKEND_FALLBACK;
-    } else {
-      // Siempre construir la base con el origen para evitar duplicar /api o paths extra.
-      backendOrigin = parsed.origin;
-    }
+    backendOrigin = parsed.origin;
   } catch {
     // Fallback conservador
     const isLocalhost =
@@ -67,12 +57,7 @@ function getApiBaseUrl(): string {
       .replace(/^https?:\/\//i, "")
       .replace(/\/.*$/, "");
 
-    const fallbackGuess = `${protocol}://${hostOnly}`;
-    const isSuncarNonApiHost =
-      !isLocalhost &&
-      hostOnly.includes("suncarsrl.com") &&
-      !hostOnly.startsWith("api.");
-    backendOrigin = isSuncarNonApiHost ? PROD_BACKEND_FALLBACK : fallbackGuess;
+    backendOrigin = `${protocol}://${hostOnly}`;
   }
   const apiUrl = `${backendOrigin.replace(/\/+$/, "")}/api`;
 
