@@ -442,6 +442,7 @@ export function TrabajosDiariosAveriasView() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   });
   const [selectedTrabajo, setSelectedTrabajo] = useState<TrabajoDiarioRegistro | null>(null);
+  const [trabajoAnterior, setTrabajoAnterior] = useState<TrabajoDiarioRegistro | null>(null);
   const [materialesResumen, setMaterialesResumen] = useState<TrabajoDiarioMaterialResumen[]>([]);
   const [saving, setSaving] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -553,6 +554,7 @@ export function TrabajosDiariosAveriasView() {
     async (item: ClienteConAveria) => {
       setSelectedItem(item);
       setSelectedTrabajo(null);
+      setTrabajoAnterior(null);
       setMaterialesResumen([]);
       setAveriaCodigoEdit(safeText(item.averia.codigo));
       setLoadingTrabajo(true);
@@ -560,7 +562,6 @@ export function TrabajosDiariosAveriasView() {
         const clienteNumero = safeText(item.cliente.numero);
 
         // Buscar TODOS los trabajos del cliente y filtrar client-side
-        // (más confiable que depender del filtro de fecha del backend)
         if (clienteNumero) {
           try {
             const todos = await TrabajosDiariosService.getTrabajosByCliente(clienteNumero);
@@ -588,10 +589,19 @@ export function TrabajosDiariosAveriasView() {
               } catch { /* noop */ }
               return;
             }
+
+            // No hay trabajo abierto hoy — guardar el más reciente como referencia y crear borrador nuevo
+            const masReciente = deAveria[0] ?? null;
+            if (masReciente?.id) {
+              try {
+                const detalle = await TrabajosDiariosService.getTrabajoById(masReciente.id);
+                setTrabajoAnterior(detalle);
+              } catch { /* noop */ }
+            }
           } catch { /* si falla, caer al borrador vacío */ }
         }
 
-        // Sin trabajos previos — borrador en blanco
+        // Crear borrador nuevo en blanco
         setSelectedTrabajo(crearBorradorNuevo(item));
       } catch (error) {
         const message = error instanceof Error ? error.message : "Error al cargar trabajo";
@@ -958,6 +968,55 @@ export function TrabajosDiariosAveriasView() {
               <p className="text-sm text-muted-foreground">Cargando información del cliente...</p>
             ) : (
               <div className="space-y-3">
+                {/* Resumen del trabajo anterior (cerrado) */}
+                {trabajoAnterior && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                      Trabajo anterior ({safeText(trabajoAnterior.fecha_trabajo || (trabajoAnterior as any).fecha).slice(0, 10) || "sin fecha"})
+                    </p>
+                    {trabajoAnterior.instaladores && trabajoAnterior.instaladores.length > 0 && (
+                      <p className="text-xs text-amber-800">
+                        <span className="font-medium">Instaladores:</span>{" "}
+                        {trabajoAnterior.instaladores.join(", ")}
+                      </p>
+                    )}
+                    {(trabajoAnterior as any).hora_salida && (
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs text-amber-800">
+                        {(trabajoAnterior as any).hora_salida && (
+                          <p><span className="font-medium">Salida:</span> {(trabajoAnterior as any).hora_salida}</p>
+                        )}
+                        {(trabajoAnterior as any).hora_llegada_trabajo && (
+                          <p><span className="font-medium">Llegada:</span> {(trabajoAnterior as any).hora_llegada_trabajo}</p>
+                        )}
+                        {(trabajoAnterior as any).hora_concluido && (
+                          <p><span className="font-medium">Concluido:</span> {(trabajoAnterior as any).hora_concluido}</p>
+                        )}
+                        {(trabajoAnterior as any).hora_llegada_almacen && (
+                          <p><span className="font-medium">Almacén:</span> {(trabajoAnterior as any).hora_llegada_almacen}</p>
+                        )}
+                      </div>
+                    )}
+                    {trabajoAnterior.problema_encontrado && (
+                      <p className="text-xs text-amber-800">
+                        <span className="font-medium">Problema:</span>{" "}
+                        {trabajoAnterior.problema_encontrado}
+                      </p>
+                    )}
+                    {trabajoAnterior.solucion && (
+                      <p className="text-xs text-amber-800">
+                        <span className="font-medium">Solución:</span>{" "}
+                        {trabajoAnterior.solucion}
+                      </p>
+                    )}
+                    {(trabajoAnterior as any).hay_pendiente && (
+                      <p className="text-xs text-amber-800">
+                        <span className="font-medium">Pendiente:</span>{" "}
+                        {(trabajoAnterior as any).descripcion_pendiente || "Sí"}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {/* Código de causa de la avería — editable desde aquí */}
                 <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 space-y-1.5">
                   <label className="text-xs font-semibold uppercase tracking-wide text-blue-700">
