@@ -547,8 +547,9 @@ export function TrabajosDiariosAveriasView() {
   const handleNuevoTrabajo = useCallback(() => {
     if (!selectedItem) return;
     setMaterialesResumen([]);
+    if (selectedTrabajo) setTrabajoAnterior(selectedTrabajo);
     setSelectedTrabajo(crearBorradorNuevo(selectedItem));
-  }, [selectedItem, crearBorradorNuevo]);
+  }, [selectedItem, selectedTrabajo, crearBorradorNuevo]);
 
   const handleSelectItem = useCallback(
     async (item: ClienteConAveria) => {
@@ -561,49 +562,47 @@ export function TrabajosDiariosAveriasView() {
       try {
         const clienteNumero = safeText(item.cliente.numero);
 
-        // Buscar TODOS los trabajos del cliente y filtrar client-side
+        // Buscar todos los trabajos del cliente para encontrar el abierto de hoy o el más reciente
         if (clienteNumero) {
+          let todos: TrabajoDiarioRegistro[] = [];
           try {
-            const todos = await TrabajosDiariosService.getTrabajosByCliente(clienteNumero);
-            console.log("🔍 [handleSelectItem] todos los trabajos:", todos.length, todos.map(t => ({ id: t.id, tipo: t.tipo_trabajo, fecha: t.fecha_trabajo || (t as any).fecha, cierre: t.cierre_diario_confirmado })));
-            const deAveria = todos
-              .filter((t) => t.tipo_trabajo === "AVERIA")
-              .sort((a, b) => {
-                const da = safeText(a.fecha_trabajo || (a as any).fecha);
-                const db = safeText(b.fecha_trabajo || (b as any).fecha);
-                return db.localeCompare(da);
-              });
-            console.log("🔍 [handleSelectItem] de tipo AVERIA:", deAveria.length, "fecha hoy:", fecha);
+            todos = await TrabajosDiariosService.getTrabajosByCliente(clienteNumero);
+          } catch {
+            // Fallback: buscar sin filtro de fecha
+            try {
+              todos = await TrabajosDiariosService.getTrabajos({ cliente_numero: clienteNumero });
+            } catch { /* si falla también, continuar con borrador vacío */ }
+          }
 
-            // Solo cargar si hay un trabajo de HOY que está ABIERTO
-            const trabajoHoyAbierto = deAveria.find((t) => {
-              const f = safeText(t.fecha_trabajo || (t as any).fecha).slice(0, 10);
-              console.log("🔍 comparando fecha:", f, "===", fecha, "cierre:", t.cierre_diario_confirmado);
-              return f === fecha && !t.cierre_diario_confirmado;
-            });
+          const deAveria = todos
+            .filter((t) => t.tipo_trabajo === "AVERIA")
+            .sort((a, b) =>
+              safeText(b.fecha_trabajo).localeCompare(safeText(a.fecha_trabajo)),
+            );
 
-            if (trabajoHoyAbierto?.id) {
-              const detalle = await TrabajosDiariosService.getTrabajoById(trabajoHoyAbierto.id);
-              draftsById.current[safeText(detalle.id)] = detalle;
-              setSelectedTrabajo(detalle);
-              try {
-                const resumen = await TrabajosDiariosService.getMaterialesResumen(detalle.id!);
-                setMaterialesResumen(resumen);
-              } catch { /* noop */ }
-              return;
-            }
+          // Solo cargar si hay un trabajo de HOY que está ABIERTO
+          const trabajoHoyAbierto = deAveria.find(
+            (t) => safeText(t.fecha_trabajo).slice(0, 10) === fecha && !t.cierre_diario_confirmado,
+          );
 
-            // No hay trabajo abierto hoy — guardar el más reciente como referencia y crear borrador nuevo
-            const masReciente = deAveria[0] ?? null;
-            console.log("🔍 [handleSelectItem] masReciente:", masReciente?.id, masReciente?.fecha_trabajo);
-            if (masReciente?.id) {
-              try {
-                const detalle = await TrabajosDiariosService.getTrabajoById(masReciente.id);
-                console.log("✅ [handleSelectItem] setTrabajoAnterior:", detalle.id);
-                setTrabajoAnterior(detalle);
-              } catch (e) { console.error("❌ getTrabajoById falló:", e); }
-            }
-          } catch (e) { console.error("❌ getTrabajosByCliente falló:", e); }
+          if (trabajoHoyAbierto?.id) {
+            const detalle = await TrabajosDiariosService.getTrabajoById(trabajoHoyAbierto.id);
+            draftsById.current[safeText(detalle.id)] = detalle;
+            setSelectedTrabajo(detalle);
+            try {
+              const resumen = await TrabajosDiariosService.getMaterialesResumen(detalle.id!);
+              setMaterialesResumen(resumen);
+            } catch { /* noop */ }
+            return;
+          }
+
+          // No hay trabajo abierto hoy — guardar el más reciente como referencia
+          const masReciente = deAveria[0] ?? null;
+          if (masReciente?.id) {
+            try {
+              setTrabajoAnterior(await TrabajosDiariosService.getTrabajoById(masReciente.id));
+            } catch { /* noop */ }
+          }
         }
 
         // Crear borrador nuevo en blanco
@@ -977,7 +976,7 @@ export function TrabajosDiariosAveriasView() {
                 {trabajoAnterior && (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 space-y-2">
                     <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
-                      Trabajo anterior ({safeText(trabajoAnterior.fecha_trabajo || (trabajoAnterior as any).fecha).slice(0, 10) || "sin fecha"})
+                      Trabajo anterior — {safeText(trabajoAnterior.fecha_trabajo).slice(0, 10) || "sin fecha"}
                     </p>
                     {trabajoAnterior.instaladores && trabajoAnterior.instaladores.length > 0 && (
                       <p className="text-xs text-amber-800">
@@ -985,38 +984,28 @@ export function TrabajosDiariosAveriasView() {
                         {trabajoAnterior.instaladores.join(", ")}
                       </p>
                     )}
-                    {(trabajoAnterior as any).hora_salida && (
+                    {(trabajoAnterior.hora_salida || trabajoAnterior.hora_llegada_trabajo || trabajoAnterior.hora_concluido || trabajoAnterior.hora_llegada_almacen) && (
                       <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs text-amber-800">
-                        {(trabajoAnterior as any).hora_salida && (
-                          <p><span className="font-medium">Salida:</span> {(trabajoAnterior as any).hora_salida}</p>
-                        )}
-                        {(trabajoAnterior as any).hora_llegada_trabajo && (
-                          <p><span className="font-medium">Llegada:</span> {(trabajoAnterior as any).hora_llegada_trabajo}</p>
-                        )}
-                        {(trabajoAnterior as any).hora_concluido && (
-                          <p><span className="font-medium">Concluido:</span> {(trabajoAnterior as any).hora_concluido}</p>
-                        )}
-                        {(trabajoAnterior as any).hora_llegada_almacen && (
-                          <p><span className="font-medium">Almacén:</span> {(trabajoAnterior as any).hora_llegada_almacen}</p>
-                        )}
+                        {trabajoAnterior.hora_salida && <p><span className="font-medium">Salida:</span> {trabajoAnterior.hora_salida}</p>}
+                        {trabajoAnterior.hora_llegada_trabajo && <p><span className="font-medium">Llegada:</span> {trabajoAnterior.hora_llegada_trabajo}</p>}
+                        {trabajoAnterior.hora_concluido && <p><span className="font-medium">Concluido:</span> {trabajoAnterior.hora_concluido}</p>}
+                        {trabajoAnterior.hora_llegada_almacen && <p><span className="font-medium">Almacén:</span> {trabajoAnterior.hora_llegada_almacen}</p>}
                       </div>
                     )}
                     {trabajoAnterior.problema_encontrado && (
                       <p className="text-xs text-amber-800">
-                        <span className="font-medium">Problema:</span>{" "}
-                        {trabajoAnterior.problema_encontrado}
+                        <span className="font-medium">Problema:</span> {trabajoAnterior.problema_encontrado}
                       </p>
                     )}
                     {trabajoAnterior.solucion && (
                       <p className="text-xs text-amber-800">
-                        <span className="font-medium">Solución:</span>{" "}
-                        {trabajoAnterior.solucion}
+                        <span className="font-medium">Solución:</span> {trabajoAnterior.solucion}
                       </p>
                     )}
-                    {(trabajoAnterior as any).hay_pendiente && (
+                    {trabajoAnterior.hay_pendiente && (
                       <p className="text-xs text-amber-800">
                         <span className="font-medium">Pendiente:</span>{" "}
-                        {(trabajoAnterior as any).descripcion_pendiente || "Sí"}
+                        {trabajoAnterior.descripcion_pendiente || "Sí"}
                       </p>
                     )}
                   </div>
