@@ -486,10 +486,11 @@ const serializeTrabajoPayload = (
   }
 
   if (payload.averia_id) body.averia_id = payload.averia_id;
-  if (payload.hora_salida != null) body.hora_salida = payload.hora_salida || null;
-  if (payload.hora_llegada_trabajo != null) body.hora_llegada_trabajo = payload.hora_llegada_trabajo || null;
-  if (payload.hora_concluido != null) body.hora_concluido = payload.hora_concluido || null;
-  if (payload.hora_llegada_almacen != null) body.hora_llegada_almacen = payload.hora_llegada_almacen || null;
+  // Siempre incluir las horas — el backend ignora nulls con exclude_none
+  body.hora_salida = payload.hora_salida || null;
+  body.hora_llegada_trabajo = payload.hora_llegada_trabajo || null;
+  body.hora_concluido = payload.hora_concluido || null;
+  body.hora_llegada_almacen = payload.hora_llegada_almacen || null;
   if (typeof payload.hay_pendiente === "boolean") body.hay_pendiente = payload.hay_pendiente;
   if (payload.descripcion_pendiente != null) body.descripcion_pendiente = payload.descripcion_pendiente || null;
 
