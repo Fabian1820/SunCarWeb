@@ -101,7 +101,11 @@ export class TasaCambioService {
 
     if (error) {
       const lowered = error.toLowerCase();
-      if (lowered.includes("no encontrado") || lowered.includes("not found")) {
+      if (
+        lowered.includes("no encontrado") ||
+        lowered.includes("not found") ||
+        lowered.includes("no existe")
+      ) {
         return null;
       }
       throw new Error(error);

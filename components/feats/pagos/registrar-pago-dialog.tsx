@@ -294,7 +294,7 @@ export function RegistrarPagoDialog({
                 method: 'POST',
                 body: formData,
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    'Authorization': `Bearer ${localStorage.getItem('auth_token') || localStorage.getItem('token') || ''}`,
                 },
             })
 
@@ -409,7 +409,9 @@ export function RegistrarPagoDialog({
             }
 
             // Agregar diferencia si el monto excede el pendiente
-            const montoEnUSD = monto * formData.tasa_cambio
+            const montoEnUSD = formData.moneda === 'USD' || formData.tasa_cambio <= 0
+                ? monto
+                : monto / formData.tasa_cambio
             console.log('🔍 Validación diferencia:')
             console.log('  - Monto en USD:', montoEnUSD)
             console.log('  - Monto pendiente:', oferta.monto_pendiente)
@@ -525,7 +527,10 @@ export function RegistrarPagoDialog({
                         {/* Tasa de Cambio */}
                         <div className="space-y-2">
                             <Label htmlFor="tasa_cambio">
-                                Tasa de cambio <span className="text-red-500">*</span>
+                                {formData.moneda === 'USD'
+                                    ? 'Tasa de cambio'
+                                    : `1 USD equivale a (${formData.moneda})`}
+                                {' '}<span className="text-red-500">*</span>
                             </Label>
                             <Input
                                 id="tasa_cambio"

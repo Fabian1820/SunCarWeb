@@ -54,7 +54,10 @@ export function EditarPagoDialog({ open, onOpenChange, pago, oferta, onSuccess }
                 tipo_pago: pago.tipo_pago || 'anticipo',
                 metodo_pago: pago.metodo_pago || 'efectivo',
                 moneda: pago.moneda || 'USD',
-                tasa_cambio: pago.tasa_cambio || 1.0,
+                // Backend guarda tasa en "USD por moneda"; convertir a "moneda por USD" para mostrar al usuario
+                tasa_cambio: pago.moneda !== 'USD' && pago.tasa_cambio > 0
+                    ? 1 / pago.tasa_cambio
+                    : (pago.tasa_cambio || 1.0),
                 pago_cliente: pago.pago_cliente ?? true,
                 nombre_pagador: pago.nombre_pagador || '',
                 carnet_pagador: pago.carnet_pagador || '',
@@ -75,10 +78,11 @@ export function EditarPagoDialog({ open, onOpenChange, pago, oferta, onSuccess }
     useEffect(() => {
         if (!open || !pago) return
         
+        // Valores por defecto en "moneda por 1 USD" (misma convención que registrar-pago)
         const tasasSugeridas = {
             USD: 1.0,
-            EUR: 1.10,
-            CUP: 0.0083
+            EUR: 0.93,
+            CUP: 550
         }
         
         // Solo actualizar si es un cambio de moneda (no al cargar datos iniciales)
@@ -151,7 +155,7 @@ export function EditarPagoDialog({ open, onOpenChange, pago, oferta, onSuccess }
                 method: 'POST',
                 body: formDataUpload,
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    'Authorization': `Bearer ${localStorage.getItem('auth_token') || localStorage.getItem('token') || ''}`,
                 },
             })
 
@@ -211,7 +215,10 @@ export function EditarPagoDialog({ open, onOpenChange, pago, oferta, onSuccess }
                 tipo_pago: formData.tipo_pago,
                 metodo_pago: formData.metodo_pago,
                 moneda: formData.moneda,
-                tasa_cambio: formData.tasa_cambio,
+                // Convertir de "moneda por USD" (UI) a "USD por moneda" (backend)
+                tasa_cambio: formData.moneda !== 'USD' && formData.tasa_cambio > 0
+                    ? 1 / formData.tasa_cambio
+                    : formData.tasa_cambio,
                 pago_cliente: formData.pago_cliente,
                 notas: formData.notas || undefined,
             }
@@ -235,7 +242,10 @@ export function EditarPagoDialog({ open, onOpenChange, pago, oferta, onSuccess }
             // Calcular el monto disponible para este pago
             // (pendiente actual + monto original del pago que estamos editando)
             const montoDisponible = oferta.monto_pendiente + pago.monto_usd
-            const montoEnUSD = monto * formData.tasa_cambio
+            // tasa_cambio en UI está en "moneda por USD", calcular USD = monto / tasa
+            const montoEnUSD = formData.moneda === 'USD' || formData.tasa_cambio <= 0
+                ? monto
+                : monto / formData.tasa_cambio
             const excedePendiente = montoEnUSD > montoDisponible
 
             if (excedePendiente && !formData.justificacion_diferencia.trim()) {
@@ -352,15 +362,22 @@ export function EditarPagoDialog({ open, onOpenChange, pago, oferta, onSuccess }
                         {/* Tasa de Cambio */}
                         <div className="space-y-2">
                             <Label htmlFor="tasa_cambio">
-                                Tasa de cambio <span className="text-red-500">*</span>
+                                {formData.moneda === 'USD'
+                                    ? 'Tasa de cambio'
+                                    : `1 USD equivale a (${formData.moneda})`}
+                                {' '}<span className="text-red-500">*</span>
                             </Label>
                             <Input
                                 id="tasa_cambio"
                                 type="number"
-                                step="0.0001"
-                                min="0.0001"
+                                step="any"
+                                min="0.01"
                                 value={formData.tasa_cambio}
-                                onChange={(e) => setFormData({ ...formData, tasa_cambio: parseFloat(e.target.value) || 1.0 })}
+                                onChange={(e) => {
+                                    const raw = e.target.value.replace(',', '.')
+                                    const parsed = raw === '' ? 0 : Number(raw)
+                                    setFormData({ ...formData, tasa_cambio: Number.isFinite(parsed) ? parsed : 0 })
+                                }}
                                 disabled={formData.moneda === 'USD'}
                                 required
                             />
@@ -370,7 +387,7 @@ export function EditarPagoDialog({ open, onOpenChange, pago, oferta, onSuccess }
                                 </p>
                             ) : (
                                 <p className="text-xs text-gray-600 bg-gray-50 p-2 rounded border border-gray-200">
-                                    💡 Ejemplo: Si 1 {formData.moneda} = {formData.tasa_cambio.toFixed(4)} USD, entonces {formData.monto || '100'} {formData.moneda} = {((parseFloat(formData.monto) || 100) * formData.tasa_cambio).toFixed(2)} USD
+                                    💡 {formData.tasa_cambio > 0 ? `${formData.tasa_cambio.toFixed(2)} ${formData.moneda} = 1 USD` : `Ingrese cuántos ${formData.moneda} equivalen a 1 USD`}
                                 </p>
                             )}
                         </div>
@@ -390,13 +407,13 @@ export function EditarPagoDialog({ open, onOpenChange, pago, oferta, onSuccess }
                                 placeholder="0.00"
                                 required
                             />
-                            {formData.moneda !== 'USD' && formData.monto && (
+                            {formData.moneda !== 'USD' && formData.monto && formData.tasa_cambio > 0 && (
                                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
                                     <p className="text-sm text-blue-700">
-                                        Equivalente en USD: ${(parseFloat(formData.monto) * formData.tasa_cambio).toFixed(2)}
+                                        Equivalente en USD: ${(parseFloat(formData.monto) / formData.tasa_cambio).toFixed(2)}
                                     </p>
                                     <p className="text-xs text-gray-600 mt-1">
-                                        {formData.monto} {formData.moneda} × {formData.tasa_cambio} = {(parseFloat(formData.monto) * formData.tasa_cambio).toFixed(2)} USD
+                                        {formData.monto} {formData.moneda} ÷ {formData.tasa_cambio} = {(parseFloat(formData.monto) / formData.tasa_cambio).toFixed(2)} USD
                                     </p>
                                 </div>
                             )}
@@ -408,7 +425,7 @@ export function EditarPagoDialog({ open, onOpenChange, pago, oferta, onSuccess }
                         </div>
 
                         {/* Justificación de diferencia (solo si excede el disponible) */}
-                        {formData.monto && pago && (parseFloat(formData.monto) * formData.tasa_cambio) > (oferta.monto_pendiente + pago.monto_usd) && (
+                        {formData.monto && pago && formData.tasa_cambio > 0 && (parseFloat(formData.monto) / formData.tasa_cambio) > (oferta.monto_pendiente + pago.monto_usd) && (
                             <div className="space-y-2 border-l-4 border-orange-400 pl-4 bg-orange-50 p-3 rounded">
                                 <div className="flex items-start gap-2">
                                     <div className="bg-orange-500 text-white rounded-full p-1 mt-0.5">
@@ -418,7 +435,7 @@ export function EditarPagoDialog({ open, onOpenChange, pago, oferta, onSuccess }
                                     </div>
                                     <div className="flex-1">
                                         <p className="text-sm font-semibold text-orange-800 mb-1">
-                                            El monto excede el disponible en {formatCurrency((parseFloat(formData.monto) * formData.tasa_cambio) - (oferta.monto_pendiente + pago.monto_usd))}
+                                            El monto excede el disponible en {formatCurrency((parseFloat(formData.monto) / formData.tasa_cambio) - (oferta.monto_pendiente + pago.monto_usd))}
                                         </p>
                                         <p className="text-xs text-orange-700 mb-2">
                                             Debe proporcionar una justificación para este pago adicional
@@ -446,7 +463,7 @@ export function EditarPagoDialog({ open, onOpenChange, pago, oferta, onSuccess }
                         )}
 
                         {/* Mostrar diferencia existente si la hay */}
-                        {pago?.diferencia && !(formData.monto && (parseFloat(formData.monto) * formData.tasa_cambio) > (oferta.monto_pendiente + pago.monto_usd)) && (
+                        {pago?.diferencia && !(formData.monto && formData.tasa_cambio > 0 && (parseFloat(formData.monto) / formData.tasa_cambio) > (oferta.monto_pendiente + pago.monto_usd)) && (
                             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                                 <p className="text-sm font-semibold text-blue-800 mb-1">
                                     ℹ️ Este pago tiene un excedente registrado de {formatCurrency(pago.diferencia.monto)}

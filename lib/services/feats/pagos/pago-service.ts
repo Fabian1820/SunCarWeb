@@ -269,6 +269,16 @@ export class PagoService {
         body: JSON.stringify(data),
       });
 
+      // apiRequest devuelve { success: false, error: {...} } para errores 400
+      const responseAny = response as Record<string, unknown>;
+      if (responseAny?.success === false || responseAny?.error) {
+        const errMsg =
+          (responseAny?.error as Record<string, unknown>)?.message as string ||
+          (responseAny?.message as string) ||
+          "Error al crear pago";
+        throw new Error(errMsg);
+      }
+
       console.log("✅ [PagoService.crearPago] Respuesta exitosa:", response);
       return response;
     } catch (error: any) {
@@ -372,6 +382,16 @@ export class PagoService {
         method: "PUT",
         body: JSON.stringify(data),
       });
+
+      // apiRequest devuelve { success: false, error: {...} } para errores 400
+      const responseAny = response as Record<string, unknown>;
+      if (responseAny?.success === false || responseAny?.error) {
+        const errMsg =
+          (responseAny?.error as Record<string, unknown>)?.message as string ||
+          (responseAny?.message as string) ||
+          "Error al actualizar pago";
+        throw new Error(errMsg);
+      }
 
       console.log(
         "✅ [PagoService.actualizarPago] Respuesta exitosa:",
