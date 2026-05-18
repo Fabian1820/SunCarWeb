@@ -956,6 +956,20 @@ export class TrabajosDiariosService {
     return payload;
   }
 
+  static async getTrabajosByCliente(
+    clienteNumero: string,
+  ): Promise<TrabajoDiarioRegistro[]> {
+    const endpoint = `${BASE_ENDPOINT}/cliente/${encodeURIComponent(clienteNumero)}`;
+    const raw = await apiRequest<unknown>(endpoint, { method: "GET" });
+    const rows = toArray(raw);
+    if (rows.length === 0) {
+      if (!looksLikeTrabajoDiario(raw)) return [];
+      const parsed = normalizeTrabajo(raw);
+      return parsed ? [parsed] : [];
+    }
+    return rows.map(normalizeTrabajo).filter(Boolean) as TrabajoDiarioRegistro[];
+  }
+
   static async updateTrabajo(
     trabajoId: string,
     payload: Partial<TrabajoDiarioRegistro>,

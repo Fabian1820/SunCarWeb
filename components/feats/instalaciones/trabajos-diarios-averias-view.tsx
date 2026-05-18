@@ -519,6 +519,36 @@ export function TrabajosDiariosAveriasView() {
     );
   }, [clientesConAverias, searchCliente]);
 
+  const crearBorradorNuevo = useCallback(
+    (item: ClienteConAveria): TrabajoDiarioRegistro => ({
+      cliente_numero: safeText(item.cliente.numero) || undefined,
+      cliente_nombre: safeText(item.cliente.nombre) || undefined,
+      cliente_telefono: safeText(item.cliente.telefono) || undefined,
+      cliente_direccion: safeText(item.cliente.direccion) || undefined,
+      fecha_trabajo: fecha,
+      tipo_trabajo: "AVERIA",
+      averia_id: safeText(item.averia.id) || undefined,
+      problema_encontrado: safeText(item.averia.descripcion),
+      solucion: "",
+      instaladores: instaladores
+        .map((v) => {
+          const w = workersOptions.find((w) => safeText(w.CI) === v || safeText(w.nombre) === v);
+          return safeText(w?.nombre, v);
+        })
+        .filter(Boolean),
+      inicio: { archivos: [], comentario: "", fecha: "" },
+      fin: { archivos: [], comentario: "", fecha: "" },
+      materiales_utilizados: [],
+    }),
+    [fecha, instaladores, workersOptions],
+  );
+
+  const handleNuevoTrabajo = useCallback(() => {
+    if (!selectedItem) return;
+    setMaterialesResumen([]);
+    setSelectedTrabajo(crearBorradorNuevo(selectedItem));
+  }, [selectedItem, crearBorradorNuevo]);
+
   const handleSelectItem = useCallback(
     async (item: ClienteConAveria) => {
       setSelectedItem(item);
@@ -528,45 +558,62 @@ export function TrabajosDiariosAveriasView() {
       setLoadingTrabajo(true);
       try {
         const clienteNumero = safeText(item.cliente.numero);
-        const rows = await TrabajosDiariosService.getTrabajos({
+
+        // 1. Buscar trabajo ABIERTO para hoy
+        const rowsHoy = await TrabajosDiariosService.getTrabajos({
           fecha,
           cliente_numero: clienteNumero || undefined,
           cliente_id: !clienteNumero ? safeText(item.cliente.id) || undefined : undefined,
           solo_abiertos: true,
         });
 
-        const averiaTrabajo = rows.find((t) => t.tipo_trabajo === "AVERIA");
-        if (averiaTrabajo?.id) {
-          const detalle = await TrabajosDiariosService.getTrabajoById(averiaTrabajo.id);
+        const averiaId = safeText(item.averia.id);
+        const trabajoAbiertoHoy = rowsHoy.find(
+          (t) => t.tipo_trabajo === "AVERIA" && (!averiaId || safeText(t.averia_id) === averiaId || !t.averia_id),
+        );
+
+        if (trabajoAbiertoHoy?.id) {
+          const detalle = await TrabajosDiariosService.getTrabajoById(trabajoAbiertoHoy.id);
           draftsById.current[safeText(detalle.id)] = detalle;
           setSelectedTrabajo(detalle);
           try {
             const resumen = await TrabajosDiariosService.getMaterialesResumen(detalle.id!);
             setMaterialesResumen(resumen);
           } catch { /* noop */ }
-        } else {
-          const borrador: TrabajoDiarioRegistro = {
-            cliente_numero: safeText(item.cliente.numero) || undefined,
-            cliente_nombre: safeText(item.cliente.nombre) || undefined,
-            cliente_telefono: safeText(item.cliente.telefono) || undefined,
-            cliente_direccion: safeText(item.cliente.direccion) || undefined,
-            fecha_trabajo: fecha,
-            tipo_trabajo: "AVERIA",
-            averia_id: safeText(item.averia.id) || undefined,
-            problema_encontrado: safeText(item.averia.descripcion),
-            solucion: "",
-            instaladores: instaladores
-              .map((v) => {
-                const w = workersOptions.find((w) => safeText(w.CI) === v || safeText(w.nombre) === v);
-                return safeText(w?.nombre, v);
-              })
-              .filter(Boolean),
-            inicio: { archivos: [], comentario: "", fecha: "" },
-            fin: { archivos: [], comentario: "", fecha: "" },
-            materiales_utilizados: [],
-          };
-          setSelectedTrabajo(borrador);
+          return;
         }
+
+        // 2. No hay abierto hoy — buscar el más reciente de cualquier fecha para esta avería
+        if (clienteNumero) {
+          try {
+            const todos = await TrabajosDiariosService.getTrabajosByCliente(clienteNumero);
+            const deAveria = todos
+              .filter(
+                (t) =>
+                  t.tipo_trabajo === "AVERIA" &&
+                  (!averiaId || safeText(t.averia_id) === averiaId || !t.averia_id),
+              )
+              .sort((a, b) => {
+                const da = safeText(a.fecha_trabajo || a.fecha);
+                const db = safeText(b.fecha_trabajo || b.fecha);
+                return db.localeCompare(da);
+              });
+
+            if (deAveria.length > 0) {
+              const masReciente = deAveria[0];
+              const detalle = masReciente.id
+                ? await TrabajosDiariosService.getTrabajoById(masReciente.id)
+                : masReciente;
+              draftsById.current[safeText(detalle.id)] = detalle;
+              setSelectedTrabajo(detalle);
+              // (trabajo cerrado — el panel lo muestra como bloqueado + botón "Nuevo trabajo")
+              return;
+            }
+          } catch { /* si falla, caer al borrador vacío */ }
+        }
+
+        // 3. Ningún trabajo previo — borrador en blanco
+        setSelectedTrabajo(crearBorradorNuevo(item));
       } catch (error) {
         const message = error instanceof Error ? error.message : "Error al cargar trabajo";
         toast({ title: "Error", description: message, variant: "destructive" });
@@ -575,7 +622,7 @@ export function TrabajosDiariosAveriasView() {
         setLoadingTrabajo(false);
       }
     },
-    [fecha, instaladores, toast, workersOptions],
+    [fecha, instaladores, toast, workersOptions, crearBorradorNuevo],
   );
 
   const handleTrabajoChange = useCallback((next: TrabajoDiarioRegistro) => {
@@ -969,24 +1016,36 @@ export function TrabajosDiariosAveriasView() {
             )}
           </CardContent>
 
-          {selectedTrabajo && !selectedTrabajo.cierre_diario_confirmado && (
+          {selectedTrabajo && (
             <div className="px-6 py-4 border-t shrink-0 flex justify-end gap-2 bg-white">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => void handleSave()}
-                disabled={saving || closing}
-              >
-                {saving ? "Guardando..." : "Guardar"}
-              </Button>
-              <Button
-                type="button"
-                onClick={() => void handleCloseDay()}
-                disabled={saving || closing}
-                className="bg-gradient-to-r from-emerald-500 to-emerald-600"
-              >
-                {closing ? "Cerrando..." : "Cerrar día"}
-              </Button>
+              {selectedTrabajo.cierre_diario_confirmado ? (
+                <Button
+                  type="button"
+                  onClick={handleNuevoTrabajo}
+                  className="bg-gradient-to-r from-orange-500 to-orange-600"
+                >
+                  Nuevo trabajo para hoy
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void handleSave()}
+                    disabled={saving || closing}
+                  >
+                    {saving ? "Guardando..." : "Guardar"}
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => void handleCloseDay()}
+                    disabled={saving || closing}
+                    className="bg-gradient-to-r from-emerald-500 to-emerald-600"
+                  >
+                    {closing ? "Cerrando..." : "Cerrar día"}
+                  </Button>
+                </>
+              )}
             </div>
           )}
         </Card>
