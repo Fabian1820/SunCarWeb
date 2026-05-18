@@ -1027,9 +1027,9 @@ export function ClientsTable({
     if (!cargaSetOfertasTerminada) return;
 
     const numerosPendientes = sortedClients
+      .filter((client) => getTieneOfertasCliente(client))
       .map((client) => normalizeClienteNumero(client.numero))
       .filter(Boolean)
-      .filter((numero) => clientesConOferta.has(numero))
       .filter(
         (numero) =>
           !(numero in clienteListoParaPagarMap) ||
@@ -1105,7 +1105,6 @@ export function ClientsTable({
   }, [
     sortedClients,
     cargaSetOfertasTerminada,
-    clientesConOferta,
     clienteListoParaPagarMap,
     clienteEquipoEntregadoMap,
     clienteEquiposEnServicioMap,
