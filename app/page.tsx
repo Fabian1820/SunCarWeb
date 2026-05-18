@@ -746,36 +746,6 @@ export default function Dashboard() {
                 <span className="hidden sm:inline">Información</span>
                 <span className="sr-only">Información</span>
               </Button>
-              {showDevTools && user?.is_superAdmin && (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={mergingTarget !== null}
-                    onClick={() => handleMerge("frontend")}
-                    className="flex items-center gap-1.5 bg-violet-50 border-violet-300 text-violet-700 hover:bg-violet-100 rounded-md h-9 px-3 sm:px-4 touch-manipulation"
-                    title="Merge dev → main (Frontend)"
-                  >
-                    {mergingTarget === "frontend"
-                      ? <Loader2 className="h-4 w-4 animate-spin" />
-                      : <GitMerge className="h-4 w-4" />}
-                    <span className="hidden sm:inline text-xs font-medium">Merge Frontend</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={mergingTarget !== null}
-                    onClick={() => handleMerge("backend")}
-                    className="flex items-center gap-1.5 bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 rounded-md h-9 px-3 sm:px-4 touch-manipulation"
-                    title="Merge dev → master (Backend)"
-                  >
-                    {mergingTarget === "backend"
-                      ? <Loader2 className="h-4 w-4 animate-spin" />
-                      : <GitMerge className="h-4 w-4" />}
-                    <span className="hidden sm:inline text-xs font-medium">Merge Backend</span>
-                  </Button>
-                </>
-              )}
               <UserMenu />
             </div>
           </div>
@@ -934,6 +904,41 @@ export default function Dashboard() {
 
       {/* Birthday Notification Checker */}
       <BirthdayChecker />
+
+      {/* Dev Tools FAB - Solo en dashboard */}
+      {showDevTools && user?.is_superAdmin && (
+        <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-40 pointer-events-auto">
+          {/* Merge Backend Button */}
+          <Button
+            onClick={() => handleMerge("backend")}
+            disabled={mergingTarget !== null}
+            className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white rounded-full h-14 w-14 sm:w-auto sm:px-4 shadow-lg hover:shadow-xl transition-all"
+            title="Merge dev → master (Backend)"
+          >
+            {mergingTarget === "backend" ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <GitMerge className="h-5 w-5" />
+            )}
+            <span className="hidden sm:inline text-sm font-medium">Backend</span>
+          </Button>
+
+          {/* Merge Frontend Button */}
+          <Button
+            onClick={() => handleMerge("frontend")}
+            disabled={mergingTarget !== null}
+            className="flex items-center gap-2 bg-violet-500 hover:bg-violet-600 text-white rounded-full h-14 w-14 sm:w-auto sm:px-4 shadow-lg hover:shadow-xl transition-all"
+            title="Merge dev → main (Frontend)"
+          >
+            {mergingTarget === "frontend" ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <GitMerge className="h-5 w-5" />
+            )}
+            <span className="hidden sm:inline text-sm font-medium">Frontend</span>
+          </Button>
+        </div>
+      )}
 
       <Toaster />
     </div>
