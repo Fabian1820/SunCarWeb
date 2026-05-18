@@ -35,6 +35,8 @@ import {
   Monitor,
   ClipboardList,
   Clipboard,
+  GitMerge,
+  Loader2,
 } from "lucide-react";
 import { useLayoutEffect, useRef, useState, useEffect } from "react";
 import {
@@ -72,6 +74,9 @@ export default function Dashboard() {
   const [clients, setClients] = useState<any[]>([]);
   const headerRef = useRef<HTMLElement | null>(null);
   const [headerHeight, setHeaderHeight] = useState<number>(120);
+  const [mergingTarget, setMergingTarget] = useState<"frontend" | "backend" | null>(null);
+  const [mergeResult, setMergeResult] = useState<{ target: string; message: string; ok: boolean } | null>(null);
+  const showDevTools = process.env.NEXT_PUBLIC_SHOW_DEV_TOOLS === "true";
 
   // Cargar módulos permitidos cada vez que se monta el dashboard
   useEffect(() => {
@@ -588,6 +593,24 @@ export default function Dashboard() {
     return (1 / parsed).toFixed(4);
   };
 
+  const handleMerge = async (target: "frontend" | "backend") => {
+    setMergingTarget(target);
+    setMergeResult(null);
+    try {
+      const res = await fetch("/api/dev-tools/merge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target }),
+      });
+      const data = await res.json();
+      setMergeResult({ target, message: data.message, ok: data.success });
+    } catch {
+      setMergeResult({ target, message: "Error de red al intentar el merge", ok: false });
+    } finally {
+      setMergingTarget(null);
+    }
+  };
+
   const handleOpenTasaCambioDialog = async () => {
     setIsTasaCambioDialogOpen(true);
     setLoadingTasaCambio(true);
@@ -723,6 +746,36 @@ export default function Dashboard() {
                 <span className="hidden sm:inline">Información</span>
                 <span className="sr-only">Información</span>
               </Button>
+              {showDevTools && user?.is_superAdmin && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={mergingTarget !== null}
+                    onClick={() => handleMerge("frontend")}
+                    className="flex items-center gap-1.5 bg-violet-50 border-violet-300 text-violet-700 hover:bg-violet-100 rounded-md h-9 px-3 sm:px-4 touch-manipulation"
+                    title="Merge dev → main (Frontend)"
+                  >
+                    {mergingTarget === "frontend"
+                      ? <Loader2 className="h-4 w-4 animate-spin" />
+                      : <GitMerge className="h-4 w-4" />}
+                    <span className="hidden sm:inline text-xs font-medium">Merge Frontend</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={mergingTarget !== null}
+                    onClick={() => handleMerge("backend")}
+                    className="flex items-center gap-1.5 bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 rounded-md h-9 px-3 sm:px-4 touch-manipulation"
+                    title="Merge dev → master (Backend)"
+                  >
+                    {mergingTarget === "backend"
+                      ? <Loader2 className="h-4 w-4 animate-spin" />
+                      : <GitMerge className="h-4 w-4" />}
+                    <span className="hidden sm:inline text-xs font-medium">Merge Backend</span>
+                  </Button>
+                </>
+              )}
               <UserMenu />
             </div>
           </div>
@@ -733,6 +786,16 @@ export default function Dashboard() {
         className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8"
         style={{ paddingTop: headerHeight + 8 }}
       >
+        {mergeResult && (
+          <div className={`mb-4 flex items-center justify-between rounded-xl border px-4 py-3 text-sm ${
+            mergeResult.ok
+              ? "border-green-200 bg-green-50 text-green-800"
+              : "border-red-200 bg-red-50 text-red-800"
+          }`}>
+            <span>{mergeResult.message}</span>
+            <button onClick={() => setMergeResult(null)} className="ml-4 opacity-60 hover:opacity-100">✕</button>
+          </div>
+        )}
         {/* Full width layout for modules */}
         <div className="flex flex-col">
           {groupedAvailableModules.length === 0 ? (
