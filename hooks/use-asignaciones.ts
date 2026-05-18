@@ -384,6 +384,89 @@ export function useInstalacionAsignaciones(tipo: TipoInstalacion | null) {
   }
 }
 
+// ── Hook para asignaciones de TODAS las instalaciones (las 3 secciones) ──────
+
+export interface InstalacionesAgrupadas {
+  almacen: InstalacionConAsignaciones[]
+  tienda: InstalacionConAsignaciones[]
+  sede: InstalacionConAsignaciones[]
+}
+
+export function useAllInstalacionesAsignaciones() {
+  const [data, setData] = useState<InstalacionesAgrupadas>({ almacen: [], tienda: [], sede: [] })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const reload = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const [almacenes, tiendas, sedes] = await Promise.all([
+        AsignacionService.getAsignacionesInstalaciones('almacen'),
+        AsignacionService.getAsignacionesInstalaciones('tienda'),
+        AsignacionService.getAsignacionesInstalaciones('sede'),
+      ])
+      setData({ almacen: almacenes, tienda: tiendas, sede: sedes })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al cargar instalaciones')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { reload() }, [reload])
+
+  const addAsignacion = useCallback(async (
+    tipo: TipoInstalacion, id: string, data: AsignacionInstalacionCreateData
+  ): Promise<boolean> => {
+    try {
+      await AsignacionService.addAsignacionInstalacion(tipo, id, data)
+      await reload()
+      return true
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al agregar asignación')
+      return false
+    }
+  }, [reload])
+
+  const updateAsignacion = useCallback(async (
+    tipo: TipoInstalacion, id: string, asignacionId: string, data: AsignacionInstalacionUpdateData
+  ): Promise<boolean> => {
+    try {
+      await AsignacionService.updateAsignacionInstalacion(tipo, id, asignacionId, data)
+      await reload()
+      return true
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al actualizar asignación')
+      return false
+    }
+  }, [reload])
+
+  const removeAsignacion = useCallback(async (
+    tipo: TipoInstalacion, id: string, asignacionId: string
+  ): Promise<boolean> => {
+    try {
+      await AsignacionService.removeAsignacionInstalacion(tipo, id, asignacionId)
+      await reload()
+      return true
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al eliminar asignación')
+      return false
+    }
+  }, [reload])
+
+  return {
+    data,
+    loading,
+    error,
+    clearError: () => setError(null),
+    reload,
+    addAsignacion,
+    updateAsignacion,
+    removeAsignacion,
+  }
+}
+
 // ── Hook para búsqueda de materiales ─────────────────────────────────────────
 
 export function useMaterialesCatalogo() {

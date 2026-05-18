@@ -1,14 +1,16 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card"
-import { Plus, Package, Building2, ShoppingBag, MapPin } from "lucide-react"
-import { useInstalacionAsignaciones } from "@/hooks/use-asignaciones"
+import { Input } from "@/components/shared/atom/input"
+import {
+  Plus, Pencil, Trash2, Package, Building2, ShoppingBag, ChevronDown, ChevronRight, Search,
+} from "lucide-react"
+import { useAllInstalacionesAsignaciones } from "@/hooks/use-asignaciones"
 import { AsignacionRecursosDialog } from "./asignacion-recursos-dialog"
 import type {
   TipoInstalacion,
-  Instalacion,
   InstalacionConAsignaciones,
   AsignacionInstalacion,
   AsignacionInstalacionCreateData,
@@ -17,10 +19,54 @@ import type {
 } from "@/lib/types/feats/asignaciones/asignacion-types"
 import { useToast } from "@/hooks/use-toast"
 
-const TIPOS: { value: TipoInstalacion; label: string; labelPlural: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { value: 'almacen', label: 'Almacén', labelPlural: 'Almacenes', icon: Package },
-  { value: 'tienda', label: 'Tienda', labelPlural: 'Tiendas', icon: ShoppingBag },
-  { value: 'sede', label: 'Sede', labelPlural: 'Sedes', icon: Building2 },
+interface SeccionColores {
+  borderL: string
+  iconText: string
+  badgeBg: string
+  badgeText: string
+  cardHover: string
+  btnBorder: string
+  btnText: string
+  btnHover: string
+}
+
+const COLORES: Record<TipoInstalacion, SeccionColores> = {
+  almacen: {
+    borderL: 'border-l-indigo-500',
+    iconText: 'text-indigo-500',
+    badgeBg: 'bg-indigo-100',
+    badgeText: 'text-indigo-700',
+    cardHover: 'hover:border-indigo-300',
+    btnBorder: 'border-indigo-300',
+    btnText: 'text-indigo-600',
+    btnHover: 'hover:bg-indigo-50',
+  },
+  tienda: {
+    borderL: 'border-l-amber-500',
+    iconText: 'text-amber-500',
+    badgeBg: 'bg-amber-100',
+    badgeText: 'text-amber-700',
+    cardHover: 'hover:border-amber-300',
+    btnBorder: 'border-amber-300',
+    btnText: 'text-amber-600',
+    btnHover: 'hover:bg-amber-50',
+  },
+  sede: {
+    borderL: 'border-l-emerald-500',
+    iconText: 'text-emerald-500',
+    badgeBg: 'bg-emerald-100',
+    badgeText: 'text-emerald-700',
+    cardHover: 'hover:border-emerald-300',
+    btnBorder: 'border-emerald-300',
+    btnText: 'text-emerald-600',
+    btnHover: 'hover:bg-emerald-50',
+  },
+}
+
+const SECCIONES: { tipo: TipoInstalacion; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { tipo: 'almacen', label: 'Almacenes', icon: Package },
+  { tipo: 'tienda', label: 'Tiendas', icon: ShoppingBag },
+  { tipo: 'sede', label: 'Sedes', icon: Building2 },
 ]
 
 interface InstalacionAsignacionesTabProps {
@@ -28,30 +74,36 @@ interface InstalacionAsignacionesTabProps {
 }
 
 export function InstalacionAsignacionesTab({ mediosBasicos }: InstalacionAsignacionesTabProps) {
-  const [tipoSeleccionado, setTipoSeleccionado] = useState<TipoInstalacion | 'todos'>('todos')
-  const [instalacionId, setInstalacionId] = useState<string>("")
-
-  const tipoParaHook = tipoSeleccionado === 'todos' ? null : tipoSeleccionado
-  const { instalaciones, entidades, loading, error, clearError, addAsignacion, updateAsignacion, removeAsignacion } =
-    useInstalacionAsignaciones(tipoParaHook)
-
+  const {
+    data, loading, error, clearError,
+    addAsignacion, updateAsignacion, removeAsignacion,
+  } = useAllInstalacionesAsignaciones()
   const { toast } = useToast()
 
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [editingAsignacion, setEditingAsignacion] = useState<AsignacionInstalacion | null>(null)
-  const [dialogInstalacionId, setDialogInstalacionId] = useState<string>("")
-  const [dialogEntityLabel, setDialogEntityLabel] = useState("")
+  const [busqueda, setBusqueda] = useState("")
+  const [seccionesAbiertas, setSeccionesAbiertas] = useState<Record<TipoInstalacion, boolean>>({
+    almacen: true, tienda: true, sede: true,
+  })
 
-  const openAdd = (inst: InstalacionConAsignaciones) => {
+  // Dialog state
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [dialogTipo, setDialogTipo] = useState<TipoInstalacion>('almacen')
+  const [dialogInstalacionId, setDialogInstalacionId] = useState("")
+  const [dialogInstalacionNombre, setDialogInstalacionNombre] = useState("")
+  const [editingAsignacion, setEditingAsignacion] = useState<AsignacionInstalacion | null>(null)
+
+  const openAdd = (tipo: TipoInstalacion, inst: InstalacionConAsignaciones) => {
+    setDialogTipo(tipo)
     setDialogInstalacionId(inst.id)
-    setDialogEntityLabel(inst.nombre)
+    setDialogInstalacionNombre(inst.nombre)
     setEditingAsignacion(null)
     setDialogOpen(true)
   }
 
-  const openEdit = (inst: InstalacionConAsignaciones, a: AsignacionInstalacion) => {
+  const openEdit = (tipo: TipoInstalacion, inst: InstalacionConAsignaciones, a: AsignacionInstalacion) => {
+    setDialogTipo(tipo)
     setDialogInstalacionId(inst.id)
-    setDialogEntityLabel(inst.nombre)
+    setDialogInstalacionNombre(inst.nombre)
     setEditingAsignacion(a)
     setDialogOpen(true)
   }
@@ -60,35 +112,37 @@ export function InstalacionAsignacionesTab({ mediosBasicos }: InstalacionAsignac
     data: AsignacionInstalacionCreateData | AsignacionInstalacionUpdateData,
     asignacionId?: string
   ): Promise<boolean> => {
-    let ok: boolean
-    if (asignacionId) {
-      ok = await updateAsignacion(dialogInstalacionId, asignacionId, data as AsignacionInstalacionUpdateData)
-      if (ok) toast({ title: "Éxito", description: "Asignación actualizada" })
-      else toast({ title: "Error", description: "No se pudo actualizar", variant: "destructive" })
-    } else {
-      ok = await addAsignacion(dialogInstalacionId, data as AsignacionInstalacionCreateData)
-      if (ok) toast({ title: "Éxito", description: "Asignación agregada" })
-      else toast({ title: "Error", description: "No se pudo agregar", variant: "destructive" })
-    }
+    const ok = asignacionId
+      ? await updateAsignacion(dialogTipo, dialogInstalacionId, asignacionId, data as AsignacionInstalacionUpdateData)
+      : await addAsignacion(dialogTipo, dialogInstalacionId, data as AsignacionInstalacionCreateData)
+    if (ok) toast({ title: "Éxito", description: asignacionId ? "Asignación actualizada" : "Asignación agregada" })
+    else toast({ title: "Error", description: "No se pudo guardar", variant: "destructive" })
     return ok
   }
 
-  const handleDelete = async (instalacionId: string, asignacionId: string) => {
+  const handleDelete = async (tipo: TipoInstalacion, instalacionId: string, asignacionId: string) => {
     if (!confirm("¿Eliminar esta asignación?")) return
-    const ok = await removeAsignacion(instalacionId, asignacionId)
+    const ok = await removeAsignacion(tipo, instalacionId, asignacionId)
     if (ok) toast({ title: "Éxito", description: "Asignación eliminada" })
     else toast({ title: "Error", description: "No se pudo eliminar", variant: "destructive" })
   }
 
-  // Determinar qué instalaciones mostrar según filtros
-  const instalacionesMostradas: InstalacionConAsignaciones[] = (() => {
-    if (tipoSeleccionado === 'todos') return instalaciones
-    if (instalacionId) return instalaciones.filter(i => i.id === instalacionId)
-    return instalaciones
-  })()
+  const toggleSeccion = (tipo: TipoInstalacion) =>
+    setSeccionesAbiertas(prev => ({ ...prev, [tipo]: !prev[tipo] }))
 
-  // Label del tipo seleccionado
-  const tipoInfo = TIPOS.find(t => t.value === tipoSeleccionado)
+  // Filtrado por búsqueda
+  const dataFiltrada = useMemo(() => {
+    const q = busqueda.trim().toLowerCase()
+    if (!q) return data
+    const matches = (inst: InstalacionConAsignaciones) =>
+      inst.nombre.toLowerCase().includes(q) ||
+      (inst.codigo?.toLowerCase().includes(q) ?? false)
+    return {
+      almacen: data.almacen.filter(matches),
+      tienda: data.tienda.filter(matches),
+      sede: data.sede.filter(matches),
+    }
+  }, [data, busqueda])
 
   return (
     <div className="space-y-4">
@@ -101,176 +155,164 @@ export function InstalacionAsignacionesTab({ mediosBasicos }: InstalacionAsignac
         </Card>
       )}
 
-      {/* Filtros */}
-      <Card className="border-l-4 border-l-indigo-500">
-        <CardContent className="p-4">
-          <div className="flex flex-wrap gap-3 items-end">
-            {/* Selector tipo */}
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-gray-600">Tipo de instalación</label>
-              <div className="flex gap-1">
-                <button
-                  onClick={() => { setTipoSeleccionado('todos'); setInstalacionId("") }}
-                  className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
-                    tipoSeleccionado === 'todos'
-                      ? 'bg-indigo-600 text-white border-indigo-600'
-                      : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300'
-                  }`}
-                >
-                  Todos
-                </button>
-                {TIPOS.map(({ value, label, icon: Icon }) => (
-                  <button
-                    key={value}
-                    onClick={() => { setTipoSeleccionado(value); setInstalacionId("") }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border transition-colors ${
-                      tipoSeleccionado === value
-                        ? 'bg-indigo-600 text-white border-indigo-600'
-                        : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300'
-                    }`}
-                  >
-                    <Icon className="h-3.5 w-3.5" />
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
+      {/* Búsqueda global */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+        <Input
+          className="pl-9"
+          placeholder="Buscar instalación por nombre o código..."
+          value={busqueda}
+          onChange={e => setBusqueda(e.target.value)}
+        />
+      </div>
 
-            {/* Selector entidad específica */}
-            {tipoSeleccionado !== 'todos' && entidades.length > 0 && (
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-gray-600">
-                  {tipoInfo?.label} específico/a
-                </label>
-                <select
-                  className="text-sm border border-gray-200 rounded-md px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300 min-w-[200px]"
-                  value={instalacionId}
-                  onChange={e => setInstalacionId(e.target.value)}
-                >
-                  <option value="">— Todos los {tipoInfo?.labelPlural} —</option>
-                  {entidades.map(e => (
-                    <option key={e.id} value={e.id}>
-                      {e.nombre}{e.codigo ? ` (${e.codigo})` : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Tabla de instalaciones */}
-      {tipoSeleccionado === 'todos' ? (
-        <div className="text-center py-16 text-gray-400">
-          <MapPin className="h-12 w-12 mx-auto mb-3 opacity-30" />
-          <p className="text-sm">Selecciona un tipo de instalación para ver las asignaciones</p>
-        </div>
-      ) : loading && instalaciones.length === 0 ? (
-        <div className="text-center py-12 text-gray-400 text-sm">Cargando...</div>
-      ) : instalacionesMostradas.length === 0 ? (
-        <div className="text-center py-12 text-gray-400 text-sm">
-          No hay instalaciones con asignaciones
-        </div>
+      {loading && data.almacen.length === 0 && data.tienda.length === 0 && data.sede.length === 0 ? (
+        <div className="text-center py-12 text-gray-400 text-sm">Cargando instalaciones...</div>
       ) : (
-        <div className="space-y-4">
-          {instalacionesMostradas.map(inst => (
-            <Card key={inst.id} className="border-l-4 border-l-indigo-400">
-              <CardHeader className="flex flex-row items-center justify-between py-3 px-4">
+        SECCIONES.map(({ tipo, label, icon: Icon }) => {
+          const items = dataFiltrada[tipo]
+          const abierta = seccionesAbiertas[tipo]
+          const totalAsignaciones = items.reduce((acc, i) => acc + i.asignaciones.length, 0)
+          const colores = COLORES[tipo]
+          return (
+            <Card key={tipo} className={`border-l-4 ${colores.borderL}`}>
+              <CardHeader
+                className="flex flex-row items-center justify-between py-3 px-4 cursor-pointer hover:bg-gray-50/60"
+                onClick={() => toggleSeccion(tipo)}
+              >
                 <div className="flex items-center gap-2">
-                  {tipoInfo?.icon && <tipoInfo.icon className="h-4 w-4 text-indigo-500" />}
-                  <CardTitle className="text-sm font-semibold">
-                    {inst.nombre}
-                    {inst.codigo && <span className="ml-2 text-xs font-normal text-gray-400">({inst.codigo})</span>}
-                  </CardTitle>
-                  <span className="text-xs text-gray-400">{inst.asignaciones.length} asignaciones</span>
+                  {abierta ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronRight className="h-4 w-4 text-gray-400" />}
+                  <Icon className={`h-4 w-4 ${colores.iconText}`} />
+                  <CardTitle className="text-sm font-semibold">{label}</CardTitle>
+                  <span className="text-xs text-gray-400">
+                    {items.length} {items.length === 1 ? 'instalación' : 'instalaciones'} · {totalAsignaciones} recursos
+                  </span>
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="border-indigo-300 text-indigo-600 hover:bg-indigo-50"
-                  onClick={() => openAdd(inst)}
-                  disabled={loading}
-                >
-                  <Plus className="h-3.5 w-3.5 mr-1" />
-                  Asignar
-                </Button>
               </CardHeader>
-              {inst.asignaciones.length > 0 && (
+
+              {abierta && (
                 <CardContent className="px-4 pb-4 pt-0">
-                  <div className="rounded-md border overflow-hidden">
-                    <table className="w-full text-sm">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="text-left px-3 py-2 font-medium text-gray-600">Recurso</th>
-                          <th className="text-left px-3 py-2 font-medium text-gray-600">Tipo</th>
-                          <th className="text-right px-3 py-2 font-medium text-gray-600">Cant.</th>
-                          <th className="text-left px-3 py-2 font-medium text-gray-600">N° Serie</th>
-                          <th className="text-right px-3 py-2 font-medium text-gray-600">Acciones</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {inst.asignaciones.map((a, i) => (
-                          <tr key={a.id} className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
-                            <td className="px-3 py-2 font-medium">{a.nombre}</td>
-                            <td className="px-3 py-2">
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                                a.item_tipo === 'medio_basico'
-                                  ? 'bg-orange-100 text-orange-700'
-                                  : 'bg-blue-100 text-blue-700'
-                              }`}>
-                                {a.item_tipo === 'medio_basico' ? 'Medio básico' : 'Material'}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 text-right font-medium">{a.cantidad}</td>
-                            <td className="px-3 py-2 text-gray-500 font-mono text-xs">
-                              {a.numero_serie || <span className="text-gray-300">—</span>}
-                            </td>
-                            <td className="px-3 py-2 text-right">
-                              <div className="flex justify-end gap-1">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => openEdit(inst, a)}
-                                  disabled={loading}
-                                >
-                                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                  </svg>
-                                </Button>
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  onClick={() => handleDelete(inst.id, a.id)}
-                                  disabled={loading}
-                                >
-                                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                  </svg>
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  {items.length === 0 ? (
+                    <p className="text-center text-sm text-gray-400 py-6">
+                      {busqueda ? "Sin resultados con esa búsqueda" : `No hay ${label.toLowerCase()} registrados`}
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {items.map(inst => (
+                        <InstalacionCard
+                          key={inst.id}
+                          colores={colores}
+                          inst={inst}
+                          loading={loading}
+                          onAdd={() => openAdd(tipo, inst)}
+                          onEdit={a => openEdit(tipo, inst, a)}
+                          onDelete={asignacionId => handleDelete(tipo, inst.id, asignacionId)}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               )}
             </Card>
-          ))}
-        </div>
+          )
+        })
       )}
 
       <AsignacionRecursosDialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
-        entityLabel={dialogEntityLabel}
+        entityLabel={dialogInstalacionNombre}
         mediosBasicos={mediosBasicos}
         asignacion={editingAsignacion}
         onSave={handleSave as any}
         loading={loading}
       />
+    </div>
+  )
+}
+
+// ── Card individual ────────────────────────────────────────────────────────────
+
+interface InstalacionCardProps {
+  colores: SeccionColores
+  inst: InstalacionConAsignaciones
+  loading?: boolean
+  onAdd: () => void
+  onEdit: (a: AsignacionInstalacion) => void
+  onDelete: (asignacionId: string) => void
+}
+
+function InstalacionCard({ inst, colores, loading, onAdd, onEdit, onDelete }: InstalacionCardProps) {
+  const [expandida, setExpandida] = useState(false)
+  const total = inst.asignaciones.length
+
+  return (
+    <div className={`rounded-lg border bg-white transition-colors ${colores.cardHover}`}>
+      <div className="p-3 flex items-start justify-between gap-2">
+        <button
+          className="flex-1 text-left min-w-0"
+          onClick={() => total > 0 && setExpandida(v => !v)}
+          disabled={total === 0}
+        >
+          <div className="flex items-center gap-2">
+            {total > 0 && (
+              expandida
+                ? <ChevronDown className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                : <ChevronRight className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+            )}
+            <p className="font-medium text-sm truncate">{inst.nombre}</p>
+            {inst.codigo && (
+              <span className="text-xs text-gray-400 font-mono shrink-0">{inst.codigo}</span>
+            )}
+          </div>
+          <span className={`mt-1 inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${
+            total > 0 ? `${colores.badgeBg} ${colores.badgeText}` : "bg-gray-100 text-gray-500"
+          }`}>
+            {total} {total === 1 ? "recurso" : "recursos"}
+          </span>
+        </button>
+        <Button
+          size="sm"
+          variant="outline"
+          className={`shrink-0 ${colores.btnBorder} ${colores.btnText} ${colores.btnHover}`}
+          onClick={onAdd}
+          disabled={loading}
+        >
+          <Plus className="h-3.5 w-3.5 mr-1" />
+          Asignar
+        </Button>
+      </div>
+
+      {expandida && total > 0 && (
+        <div className="border-t bg-gray-50/50 px-3 py-2 space-y-1.5">
+          {inst.asignaciones.map(a => (
+            <div key={a.id} className="flex items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className={`shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                  a.item_tipo === 'medio_basico'
+                    ? 'bg-orange-100 text-orange-700'
+                    : 'bg-blue-100 text-blue-700'
+                }`}>
+                  {a.item_tipo === 'medio_basico' ? 'MB' : 'MAT'}
+                </span>
+                <span className="font-medium truncate">{a.nombre}</span>
+                <span className="text-gray-500 shrink-0">×{a.cantidad}</span>
+                {a.numero_serie && (
+                  <span className="text-gray-400 font-mono shrink-0">{a.numero_serie}</span>
+                )}
+              </div>
+              <div className="flex gap-1 shrink-0">
+                <Button variant="outline" size="sm" className="h-6 w-6 p-0" onClick={() => onEdit(a)} disabled={loading}>
+                  <Pencil className="h-3 w-3" />
+                </Button>
+                <Button variant="destructive" size="sm" className="h-6 w-6 p-0" onClick={() => onDelete(a.id)} disabled={loading}>
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

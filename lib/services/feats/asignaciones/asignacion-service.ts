@@ -1,18 +1,21 @@
 import { apiRequest } from '../../../api-config'
 import { InventarioService } from '../inventario/inventario-service'
 import { SedeService } from '../sedes/sede-service'
+import { RecursosHumanosService } from '../recursos-humanos/recursos-humanos-service'
 import type {
   MedioBasico,
   MedioBasicoCreateData,
   MedioBasicoUpdateData,
   TrabajadorConAsignaciones,
   Asignacion,
+  AsignacionTrabajadorFlat,
   AsignacionCreateData,
   AsignacionUpdateData,
   TipoInstalacion,
   Instalacion,
   InstalacionConAsignaciones,
   AsignacionInstalacion,
+  AsignacionInstalacionFlat,
   AsignacionInstalacionCreateData,
   AsignacionInstalacionUpdateData,
   MaterialCatalogo,
@@ -30,42 +33,17 @@ const extractArray = <T>(response: any): T[] => {
   return []
 }
 
-const normalizeInstalacion = (raw: any): InstalacionConAsignaciones => ({
-  id: String(raw?.id ?? raw?._id ?? ''),
-  nombre: String(raw?.nombre ?? ''),
-  codigo: raw?.codigo ?? undefined,
-  asignaciones: Array.isArray(raw?.asignaciones)
-    ? raw.asignaciones.map(normalizeAsignacionInstalacion)
-    : [],
-})
-
-const normalizeAsignacionInstalacion = (raw: any): AsignacionInstalacion => ({
+const normalizeAsignacionFlat = (raw: any): Asignacion & { ci?: string; instalacion_id?: string } => ({
   id: String(raw?.id ?? raw?._id ?? ''),
   item_tipo: raw?.item_tipo ?? 'medio_basico',
-  item_id: String(raw?.item_id ?? ''),
+  item_id: String(raw?.item_id ?? raw?.medio_basico_id ?? ''),
   nombre: String(raw?.nombre ?? ''),
   precio: raw?.precio ?? null,
   cantidad: Number(raw?.cantidad ?? 1),
   numero_serie: raw?.numero_serie ?? null,
   asignado_por: raw?.asignado_por ?? null,
-})
-
-const normalizeTrabajador = (raw: any): TrabajadorConAsignaciones => ({
-  CI: String(raw?.CI ?? raw?.ci ?? ''),
-  nombre: String(raw?.nombre ?? ''),
-  cargo: String(raw?.cargo ?? ''),
-  asignaciones: Array.isArray(raw?.asignaciones)
-    ? raw.asignaciones.map((a: any): Asignacion => ({
-        id: String(a?.id ?? a?._id ?? ''),
-        item_tipo: a?.item_tipo ?? 'medio_basico',
-        item_id: String(a?.item_id ?? a?.medio_basico_id ?? ''),
-        nombre: String(a?.nombre ?? ''),
-        precio: a?.precio ?? null,
-        cantidad: Number(a?.cantidad ?? 1),
-        numero_serie: a?.numero_serie ?? null,
-        asignado_por: a?.asignado_por ?? null,
-      }))
-    : [],
+  ci: raw?.ci ? String(raw.ci) : undefined,
+  instalacion_id: raw?.instalacion_id ? String(raw.instalacion_id) : undefined,
 })
 
 export class AsignacionService {
@@ -73,7 +51,12 @@ export class AsignacionService {
 
   static async getMediosBasicos(): Promise<MedioBasico[]> {
     const res = await apiRequest<any>('/medios-basicos/')
-    return extractArray<MedioBasico>(res)
+    return extractArray<any>(res).map((m: any): MedioBasico => ({
+      id: String(m?.id ?? m?._id ?? ''),
+      codigo: m?.codigo ?? null,
+      nombre: String(m?.nombre ?? ''),
+      precio: m?.precio ?? null,
+    }))
   }
 
   static async createMedioBasico(data: MedioBasicoCreateData): Promise<MedioBasico> {
@@ -99,24 +82,46 @@ export class AsignacionService {
 
   // ── Asignaciones trabajadores ─────────────────────────────────────────────
 
+  /**
+   * Fuente única de verdad: lista trabajadores desde /recursos-humanos/ (que
+   * incluye cargo y estado activo) y mergea las asignaciones planas devueltas
+   * por /asignaciones-trabajadores/. Cualquier trabajador activo aparece en
+   * la tabla aunque no tenga asignaciones todavía.
+   */
   static async getTrabajadoresConAsignaciones(): Promise<TrabajadorConAsignaciones[]> {
+    const [rrhhResponse, asignacionesFlat] = await Promise.all([
+      RecursosHumanosService.getRecursosHumanos(),
+      this.getAsignacionesTrabajadoresPlanas(),
+    ])
+
+    const porCi = new Map<string, Asignacion[]>()
+    for (const a of asignacionesFlat) {
+      if (!a.ci) continue
+      const arr = porCi.get(a.ci) ?? []
+      arr.push(a)
+      porCi.set(a.ci, arr)
+    }
+
+    return (rrhhResponse.trabajadores || [])
+      .filter(t => t.activo !== false)
+      .map(t => ({
+        CI: t.CI,
+        nombre: t.nombre,
+        cargo: t.cargo ?? '',
+        asignaciones: porCi.get(t.CI) ?? [],
+      }))
+  }
+
+  static async getAsignacionesTrabajadoresPlanas(): Promise<AsignacionTrabajadorFlat[]> {
     const res = await apiRequest<any>('/asignaciones-trabajadores/')
-    return extractArray<any>(res).map(normalizeTrabajador)
+    return extractArray<any>(res)
+      .map(normalizeAsignacionFlat)
+      .filter((a): a is AsignacionTrabajadorFlat => !!a.ci) as AsignacionTrabajadorFlat[]
   }
 
   static async getAsignacionesByCI(ci: string): Promise<Asignacion[]> {
     const res = await apiRequest<any>(`/asignaciones-trabajadores/${ci}`)
-    const raw = extractArray<any>(res)
-    return raw.map((a: any): Asignacion => ({
-      id: String(a?.id ?? a?._id ?? ''),
-      item_tipo: a?.item_tipo ?? 'medio_basico',
-      item_id: String(a?.item_id ?? a?.medio_basico_id ?? ''),
-      nombre: String(a?.nombre ?? ''),
-      precio: a?.precio ?? null,
-      cantidad: Number(a?.cantidad ?? 1),
-      numero_serie: a?.numero_serie ?? null,
-      asignado_por: a?.asignado_por ?? null,
-    }))
+    return extractArray<any>(res).map(normalizeAsignacionFlat)
   }
 
   static async addAsignacion(ci: string, data: AsignacionCreateData): Promise<Asignacion> {
@@ -170,16 +175,45 @@ export class AsignacionService {
 
   // ── Asignaciones instalaciones ────────────────────────────────────────────
 
+  /**
+   * Lista entidades (almacenes/tiendas/sedes) desde sus servicios "core" y
+   * mergea las asignaciones planas devueltas por
+   * /asignaciones-instalaciones/{tipo}. Toda instalación aparece, aunque no
+   * tenga asignaciones aún.
+   */
   static async getAsignacionesInstalaciones(tipo: TipoInstalacion): Promise<InstalacionConAsignaciones[]> {
-    const res = await apiRequest<any>(`/asignaciones-instalaciones/${tipo}`)
-    return extractArray<any>(res).map(normalizeInstalacion)
+    const [entidades, asignacionesFlat] = await Promise.all([
+      this.getEntidadesPorTipo(tipo),
+      this.getAsignacionesInstalacionesPlanas(tipo),
+    ])
+
+    const porId = new Map<string, AsignacionInstalacion[]>()
+    for (const a of asignacionesFlat) {
+      if (!a.instalacion_id) continue
+      const arr = porId.get(a.instalacion_id) ?? []
+      arr.push(a)
+      porId.set(a.instalacion_id, arr)
+    }
+
+    return entidades.map(e => ({
+      id: e.id,
+      nombre: e.nombre,
+      codigo: e.codigo,
+      asignaciones: porId.get(e.id) ?? [],
+    }))
   }
 
-  static async getAsignacionInstalacion(tipo: TipoInstalacion, id: string): Promise<InstalacionConAsignaciones | null> {
-    const res = await apiRequest<any>(`/asignaciones-instalaciones/${tipo}/${id}`)
-    const raw = res?.data ?? res
-    if (!raw) return null
-    return normalizeInstalacion(raw)
+  static async getAsignacionesInstalacionesPlanas(tipo: TipoInstalacion): Promise<AsignacionInstalacionFlat[]> {
+    const res = await apiRequest<any>(`/asignaciones-instalaciones/${tipo}`)
+    return extractArray<any>(res)
+      .map(normalizeAsignacionFlat)
+      .filter((a): a is AsignacionInstalacionFlat => !!a.instalacion_id) as AsignacionInstalacionFlat[]
+  }
+
+  static async getEntidadesPorTipo(tipo: TipoInstalacion): Promise<Instalacion[]> {
+    if (tipo === 'almacen') return this.getAlmacenes()
+    if (tipo === 'tienda') return this.getTiendas()
+    return this.getSedes()
   }
 
   static async addAsignacionInstalacion(

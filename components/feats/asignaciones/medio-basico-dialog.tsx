@@ -40,7 +40,19 @@ export function MedioBasicoDialog({ open, onClose, medio, onSave, loading }: Med
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Editar medio básico" : "Crear medio básico"}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            {isEdit ? "Editar medio básico" : "Crear medio básico"}
+            {isEdit && medio?.codigo && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-medium bg-orange-100 text-orange-700">
+                {medio.codigo}
+              </span>
+            )}
+          </DialogTitle>
+          {!isEdit && (
+            <p className="text-xs text-gray-500">
+              El código se genera automáticamente (MB-XXXXXX) al crear el medio básico.
+            </p>
+          )}
         </DialogHeader>
         <div className="space-y-4 pt-2">
           <div className="space-y-1">

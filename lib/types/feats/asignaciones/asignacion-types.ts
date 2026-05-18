@@ -2,6 +2,7 @@
 
 export interface MedioBasico {
   id: string
+  codigo?: string | null
   nombre: string
   precio?: number | null
 }
@@ -27,6 +28,11 @@ export interface Asignacion {
   cantidad: number
   numero_serie?: string | null
   asignado_por?: string | null
+}
+
+// Forma plana que devuelve el endpoint GET /asignaciones-trabajadores/
+export interface AsignacionTrabajadorFlat extends Asignacion {
+  ci: string
 }
 
 export interface TrabajadorConAsignaciones {
@@ -76,6 +82,11 @@ export interface InstalacionConAsignaciones {
   nombre: string
   codigo?: string
   asignaciones: AsignacionInstalacion[]
+}
+
+// Forma plana que devuelve el endpoint GET /asignaciones-instalaciones/{tipo}
+export interface AsignacionInstalacionFlat extends AsignacionInstalacion {
+  instalacion_id: string
 }
 
 export interface AsignacionInstalacionCreateData {

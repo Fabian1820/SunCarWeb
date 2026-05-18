@@ -27,14 +27,20 @@ export function MediosBasicosTable({ items, onEdit, onDelete, loading }: MediosB
       <Table>
         <TableHeader>
           <TableRow className="bg-gray-50">
+            <TableHead className="w-[140px]">Código</TableHead>
             <TableHead>Nombre</TableHead>
-            <TableHead>Precio</TableHead>
-            <TableHead className="text-right">Acciones</TableHead>
+            <TableHead className="w-[120px]">Precio</TableHead>
+            <TableHead className="text-right w-[120px]">Acciones</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {items.map(item => (
             <TableRow key={item.id}>
+              <TableCell>
+                {item.codigo
+                  ? <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-medium bg-orange-100 text-orange-700">{item.codigo}</span>
+                  : <span className="text-gray-300 text-xs">—</span>}
+              </TableCell>
               <TableCell className="font-medium">{item.nombre}</TableCell>
               <TableCell>
                 {item.precio != null

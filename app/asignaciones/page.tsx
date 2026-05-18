@@ -1,26 +1,24 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card"
-import { ArrowLeft, Plus, Package, Users, Box } from "lucide-react"
+import { ArrowLeft, Plus, Package, Users, Box, Layers } from "lucide-react"
 import { useAsignaciones } from "@/hooks/use-asignaciones"
 import { TrabajadorAsignacionesTable } from "@/components/feats/asignaciones/trabajador-asignaciones-table"
 import { MediosBasicosTable } from "@/components/feats/asignaciones/medios-basicos-table"
 import { MedioBasicoDialog } from "@/components/feats/asignaciones/medio-basico-dialog"
 import { InstalacionAsignacionesTab } from "@/components/feats/asignaciones/instalacion-asignaciones-tab"
+import { MaterialesCatalogoReadonly } from "@/components/feats/asignaciones/materiales-catalogo-readonly"
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/shared/molecule/toaster"
 import { RouteGuard } from "@/components/auth/route-guard"
-import { AsignacionService } from "@/lib/api-services"
 import type {
   MedioBasico, MedioBasicoCreateData, MedioBasicoUpdateData,
   AsignacionCreateData, AsignacionUpdateData,
-  MaterialCatalogo,
 } from "@/lib/types/feats/asignaciones/asignacion-types"
-import { CATEGORIAS_MATERIAL } from "@/lib/types/feats/asignaciones/asignacion-types"
 
 export default function AsignacionesPage() {
   return (
@@ -41,38 +39,6 @@ function AsignacionesPageContent() {
 
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState<Tab>("trabajador")
-
-  // ── Catálogo de materiales (productos/admin/materiales) ───────────────────
-  const [catalogoMateriales, setCatalogoMateriales] = useState<MaterialCatalogo[]>([])
-  const [loadingCatalogo, setLoadingCatalogo] = useState(false)
-  const [categoriaFiltro, setCategoriaFiltro] = useState("")
-  const [busquedaMaterial, setBusquedaMaterial] = useState("")
-
-  const cargarCatalogo = useCallback(async (q: string, categoria: string) => {
-    setLoadingCatalogo(true)
-    try {
-      const data = await AsignacionService.getMaterialesCatalogo(q || undefined, categoria || undefined)
-      setCatalogoMateriales(data)
-    } catch {
-      setCatalogoMateriales([])
-    } finally {
-      setLoadingCatalogo(false)
-    }
-  }, [])
-
-  // Cargar catálogo cuando se activa la tab o cambian los filtros
-  useEffect(() => {
-    if (activeTab === "catalogo-materiales") {
-      cargarCatalogo(busquedaMaterial, categoriaFiltro)
-    }
-  }, [activeTab, categoriaFiltro, cargarCatalogo])
-
-  // Búsqueda con debounce
-  useEffect(() => {
-    if (activeTab !== "catalogo-materiales") return
-    const timer = setTimeout(() => cargarCatalogo(busquedaMaterial, categoriaFiltro), 350)
-    return () => clearTimeout(timer)
-  }, [busquedaMaterial])
 
   // ── Medios básicos dialog ─────────────────────────────────────────────────
   const [medioDialogOpen, setMedioDialogOpen] = useState(false)
@@ -130,14 +96,8 @@ function AsignacionesPageContent() {
     { id: "trabajador", label: "Asignación por trabajador", icon: Users },
     { id: "instalacion", label: "Asignación por instalación", icon: Box },
     { id: "medios-basicos", label: "Catálogo medios básicos", icon: Package },
-    { id: "catalogo-materiales", label: "Catálogo de materiales", icon: Package },
+    { id: "catalogo-materiales", label: "Catálogo de materiales", icon: Layers },
   ]
-
-  // Filtro local sobre el catálogo ya cargado
-  const materialesFiltrados = catalogoMateriales.filter(m =>
-    !busquedaMaterial.trim() ||
-    m.nombre.toLowerCase().includes(busquedaMaterial.toLowerCase())
-  )
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
@@ -238,81 +198,9 @@ function AsignacionesPageContent() {
           </Card>
         )}
 
-        {/* Tab: Catálogo de materiales */}
+        {/* Tab: Catálogo de materiales (read-only) */}
         {activeTab === "catalogo-materiales" && (
-          <Card className="border-l-4 border-l-indigo-500">
-            <CardHeader>
-              <CardTitle className="text-base">Catálogo de materiales</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {/* Filtros */}
-              <div className="flex flex-wrap gap-3 mb-4">
-                <select
-                  className="text-sm border border-gray-200 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300 min-w-[220px]"
-                  value={categoriaFiltro}
-                  onChange={e => setCategoriaFiltro(e.target.value)}
-                >
-                  <option value="">Todas las categorías</option>
-                  {CATEGORIAS_MATERIAL.map(c => (
-                    <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
-                  ))}
-                </select>
-                <input
-                  type="text"
-                  className="flex-1 min-w-[180px] text-sm border border-gray-200 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                  placeholder="Buscar material..."
-                  value={busquedaMaterial}
-                  onChange={e => setBusquedaMaterial(e.target.value)}
-                />
-              </div>
-
-              {loadingCatalogo ? (
-                <div className="text-center py-10 text-gray-400 text-sm">Cargando materiales...</div>
-              ) : materialesFiltrados.length === 0 ? (
-                <div className="text-center py-12">
-                  <Package className="h-10 w-10 text-gray-300 mx-auto mb-2" />
-                  <p className="text-gray-500 text-sm">
-                    {categoriaFiltro || busquedaMaterial ? "No se encontraron materiales con esos filtros" : "No hay materiales en el catálogo"}
-                  </p>
-                </div>
-              ) : (
-                <div className="rounded-md border overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="text-left px-4 py-3 font-medium text-gray-600">Nombre</th>
-                        <th className="text-left px-4 py-3 font-medium text-gray-600">Categoría</th>
-                        <th className="text-right px-4 py-3 font-medium text-gray-600">Precio</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {materialesFiltrados.map((m, i) => (
-                        <tr key={m.material_id} className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
-                          <td className="px-4 py-3 font-medium">{m.nombre}</td>
-                          <td className="px-4 py-3">
-                            {m.categoria ? (
-                              <span className="inline-flex px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700">
-                                {m.categoria}
-                              </span>
-                            ) : <span className="text-gray-300 text-xs">—</span>}
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            {m.precio != null && m.precio > 0 ? (
-                              <span className="text-green-600 font-medium">${m.precio.toFixed(2)}</span>
-                            ) : <span className="text-gray-300">—</span>}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <p className="text-xs text-gray-400 px-4 py-2 border-t">
-                    {materialesFiltrados.length} material{materialesFiltrados.length !== 1 ? "es" : ""}
-                    {!categoriaFiltro && !busquedaMaterial && " — usa los filtros para refinar la búsqueda"}
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <MaterialesCatalogoReadonly />
         )}
       </main>
 
