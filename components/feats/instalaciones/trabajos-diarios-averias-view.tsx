@@ -577,26 +577,24 @@ export function TrabajosDiariosAveriasView() {
           } catch { /* continuar con borrador vacío */ }
         }
 
-        // Trabajos de ESTA avería específica, ordenados del más reciente al más antiguo
+        // Trabajos de ESTA avería, ordenados del más reciente al más antiguo.
+        // Si averia_id aún no coincide (trabajo viejo sin ese campo) también
+        // buscamos por tipo_trabajo AVERIA como fallback, pero priorizamos averia_id.
         const deEstaAveria = todos
-          .filter((t) => safeText(t.averia_id) === averiaId)
+          .filter((t) => averiaId ? safeText(t.averia_id) === averiaId : safeText(t.tipo_trabajo) === "AVERIA")
           .sort((a, b) => safeText(b.fecha_trabajo).localeCompare(safeText(a.fecha_trabajo)));
 
-        // Si hay un trabajo de HOY abierto → cargarlo directamente
-        const abierto = deEstaAveria.find(
-          (t) => safeText(t.fecha_trabajo).slice(0, 10) === fecha && !t.cierre_diario_confirmado,
-        );
+        // Cualquier trabajo no cerrado de esta avería → cargarlo (sin filtrar por fecha)
+        const abierto = deEstaAveria.find((t) => !t.cierre_diario_confirmado);
 
         if (abierto?.id) {
           const detalle = await TrabajosDiariosService.getTrabajoById(abierto.id);
           draftsById.current[safeText(detalle.id)] = detalle;
           setSelectedTrabajo(detalle);
-          // Sincronizar el selector de instaladores con los del trabajo cargado
           if (detalle.instaladores && detalle.instaladores.length > 0) {
             setInstaladores(detalle.instaladores);
           }
-          // Los demás (cerrados) van al resumen
-          const cerrados = deEstaAveria.filter((t) => t.id !== abierto.id && t.cierre_diario_confirmado);
+          const cerrados = deEstaAveria.filter((t) => t.id !== abierto.id && !!t.cierre_diario_confirmado);
           setTrabajosAnteriores(cerrados);
           try {
             const resumen = await TrabajosDiariosService.getMaterialesResumen(detalle.id!);
@@ -605,8 +603,8 @@ export function TrabajosDiariosAveriasView() {
           return;
         }
 
-        // Sin trabajo abierto hoy → todos los cerrados van al resumen, crear borrador nuevo
-        setTrabajosAnteriores(deEstaAveria.filter((t) => t.cierre_diario_confirmado));
+        // Sin trabajo abierto → los cerrados van al resumen, crear borrador nuevo
+        setTrabajosAnteriores(deEstaAveria.filter((t) => !!t.cierre_diario_confirmado));
         setSelectedTrabajo(crearBorradorNuevo(item));
       } catch (error) {
         const message = error instanceof Error ? error.message : "Error al cargar trabajo";
