@@ -565,6 +565,7 @@ export function TrabajosDiariosAveriasView() {
         if (clienteNumero) {
           try {
             const todos = await TrabajosDiariosService.getTrabajosByCliente(clienteNumero);
+            console.log("🔍 [handleSelectItem] todos los trabajos:", todos.length, todos.map(t => ({ id: t.id, tipo: t.tipo_trabajo, fecha: t.fecha_trabajo || (t as any).fecha, cierre: t.cierre_diario_confirmado })));
             const deAveria = todos
               .filter((t) => t.tipo_trabajo === "AVERIA")
               .sort((a, b) => {
@@ -572,10 +573,12 @@ export function TrabajosDiariosAveriasView() {
                 const db = safeText(b.fecha_trabajo || (b as any).fecha);
                 return db.localeCompare(da);
               });
+            console.log("🔍 [handleSelectItem] de tipo AVERIA:", deAveria.length, "fecha hoy:", fecha);
 
             // Solo cargar si hay un trabajo de HOY que está ABIERTO
             const trabajoHoyAbierto = deAveria.find((t) => {
               const f = safeText(t.fecha_trabajo || (t as any).fecha).slice(0, 10);
+              console.log("🔍 comparando fecha:", f, "===", fecha, "cierre:", t.cierre_diario_confirmado);
               return f === fecha && !t.cierre_diario_confirmado;
             });
 
@@ -592,13 +595,15 @@ export function TrabajosDiariosAveriasView() {
 
             // No hay trabajo abierto hoy — guardar el más reciente como referencia y crear borrador nuevo
             const masReciente = deAveria[0] ?? null;
+            console.log("🔍 [handleSelectItem] masReciente:", masReciente?.id, masReciente?.fecha_trabajo);
             if (masReciente?.id) {
               try {
                 const detalle = await TrabajosDiariosService.getTrabajoById(masReciente.id);
+                console.log("✅ [handleSelectItem] setTrabajoAnterior:", detalle.id);
                 setTrabajoAnterior(detalle);
-              } catch { /* noop */ }
+              } catch (e) { console.error("❌ getTrabajoById falló:", e); }
             }
-          } catch { /* si falla, caer al borrador vacío */ }
+          } catch (e) { console.error("❌ getTrabajosByCliente falló:", e); }
         }
 
         // Crear borrador nuevo en blanco
