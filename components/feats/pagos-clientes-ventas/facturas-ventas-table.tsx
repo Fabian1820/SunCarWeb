@@ -109,29 +109,34 @@ export function FacturasVentasTable({
     );
   }), [facturas, search, monedaFilter]);
 
+  const getTotalSinDescuento = (f: FacturaClienteVenta) =>
+    Number(f.total_a_pagar || 0) + Number(f.descuento || 0);
+
   const totalesPorMoneda = useMemo(() => {
-    const map: Record<string, { facturado: number; cobrado: number; pendiente: number; descuento: number }> = {};
+    const map: Record<string, { facturado: number; cobrado: number; pendiente: number; descuento: number; sinDescuento: number }> = {};
     for (const f of filtered) {
       const pagos = Array.isArray(f.pagos) ? f.pagos : [];
       if (pagos.length === 0) {
         const m = "USD";
-        if (!map[m]) map[m] = { facturado: 0, cobrado: 0, pendiente: 0, descuento: 0 };
+        if (!map[m]) map[m] = { facturado: 0, cobrado: 0, pendiente: 0, descuento: 0, sinDescuento: 0 };
         map[m].facturado += Number(f.total_a_pagar || 0);
         map[m].pendiente += Number(f.monto_pendiente || 0);
         map[m].descuento += Number(f.descuento || 0);
+        map[m].sinDescuento += getTotalSinDescuento(f);
       } else {
         const monedas = new Set(pagos.map((p) => p.moneda || "USD"));
         for (const moneda of monedas) {
-          if (!map[moneda]) map[moneda] = { facturado: 0, cobrado: 0, pendiente: 0, descuento: 0 };
+          if (!map[moneda]) map[moneda] = { facturado: 0, cobrado: 0, pendiente: 0, descuento: 0, sinDescuento: 0 };
           const pagosMoneda = pagos.filter((p) => (p.moneda || "USD") === moneda);
           for (const p of pagosMoneda) {
             map[moneda].cobrado += Number(p.monto || 0);
           }
         }
-        if (!map["USD"]) map["USD"] = { facturado: 0, cobrado: 0, pendiente: 0, descuento: 0 };
+        if (!map["USD"]) map["USD"] = { facturado: 0, cobrado: 0, pendiente: 0, descuento: 0, sinDescuento: 0 };
         map["USD"].facturado += Number(f.total_a_pagar || 0);
         map["USD"].pendiente += Number(f.monto_pendiente || 0);
         map["USD"].descuento += Number(f.descuento || 0);
+        map["USD"].sinDescuento += getTotalSinDescuento(f);
       }
     }
     return map;
@@ -194,7 +199,7 @@ export function FacturasVentasTable({
           <div className={`text-sm ${em ? "px-6 pb-2" : "pb-1"}`}>
             <div className="flex flex-wrap gap-3 items-start">
               <span className="text-gray-500">
-                Facturado: <strong className="text-gray-800">{formatCurrency(usd.facturado)}</strong>
+                Total facturado: <strong className="text-gray-800">{formatCurrency(usd.sinDescuento)}</strong>
               </span>
               <span className="text-gray-300">|</span>
               <span className="text-gray-500 inline-flex flex-col">
@@ -252,8 +257,9 @@ export function FacturasVentasTable({
                 <TableHead className="font-semibold">Cliente</TableHead>
                 <TableHead className="font-semibold">Fecha emisión</TableHead>
                 <TableHead className="font-semibold">Emitida por</TableHead>
-                <TableHead className="font-semibold text-right">Total</TableHead>
+                <TableHead className="font-semibold text-right">Total sin desc.</TableHead>
                 <TableHead className="font-semibold text-right">Descuento</TableHead>
+                <TableHead className="font-semibold text-right">Total</TableHead>
                 <TableHead className="font-semibold text-right">Pagado</TableHead>
                 <TableHead className="font-semibold text-right">Pendiente</TableHead>
                 {(onVerDetalles || onExportar || onTicket || onEliminar) && <TableHead className="font-semibold">Acciones</TableHead>}
@@ -285,8 +291,9 @@ export function FacturasVentasTable({
                     {formatDate(f.fecha_emision ?? "")}
                   </TableCell>
                   <TableCell className="text-sm">{f.emitida_por_nombre || f.emitida_por}</TableCell>
-                  <TableCell className="text-sm text-right">{formatCurrency(f.total_a_pagar)}</TableCell>
+                  <TableCell className="text-sm text-right text-gray-700">{formatCurrency(getTotalSinDescuento(f))}</TableCell>
                   <TableCell className="text-sm text-right text-orange-600">{formatCurrency(f.descuento)}</TableCell>
+                  <TableCell className="text-sm text-right">{formatCurrency(f.total_a_pagar)}</TableCell>
                   <TableCell className="text-sm text-right min-w-[180px]">
                     {Array.isArray(f.pagos) && f.pagos.length > 0 ? (
                       <div className="space-y-2">
@@ -382,11 +389,14 @@ export function FacturasVentasTable({
                   <TableCell colSpan={5} className="text-xs text-gray-500 py-2.5">
                     TOTAL — {filtered.length} facturas
                   </TableCell>
-                  <TableCell className="text-right text-sm py-2.5 text-gray-800">
-                    {formatCurrency(filtered.reduce((s, f) => s + Number(f.total_a_pagar || 0), 0))}
+                  <TableCell className="text-right text-sm py-2.5 text-gray-700">
+                    {formatCurrency(filtered.reduce((s, f) => s + getTotalSinDescuento(f), 0))}
                   </TableCell>
                   <TableCell className="text-right text-sm py-2.5 text-orange-600">
                     {formatCurrency(filtered.reduce((s, f) => s + Number(f.descuento || 0), 0))}
+                  </TableCell>
+                  <TableCell className="text-right text-sm py-2.5 text-gray-800">
+                    {formatCurrency(filtered.reduce((s, f) => s + Number(f.total_a_pagar || 0), 0))}
                   </TableCell>
                   <TableCell className="text-right text-sm py-2.5 text-green-700">
                     {formatCurrency(filtered.reduce((s, f) => s + Number(f.total_pagado || 0), 0))}
