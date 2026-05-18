@@ -568,9 +568,7 @@ export function TrabajosDiariosAveriasView() {
         });
 
         const averiaId = safeText(item.averia.id);
-        const trabajoAbiertoHoy = rowsHoy.find(
-          (t) => t.tipo_trabajo === "AVERIA" && (!averiaId || safeText(t.averia_id) === averiaId || !t.averia_id),
-        );
+        const trabajoAbiertoHoy = rowsHoy.find((t) => t.tipo_trabajo === "AVERIA");
 
         if (trabajoAbiertoHoy?.id) {
           const detalle = await TrabajosDiariosService.getTrabajoById(trabajoAbiertoHoy.id);
@@ -588,11 +586,7 @@ export function TrabajosDiariosAveriasView() {
           try {
             const todos = await TrabajosDiariosService.getTrabajosByCliente(clienteNumero);
             const deAveria = todos
-              .filter(
-                (t) =>
-                  t.tipo_trabajo === "AVERIA" &&
-                  (!averiaId || safeText(t.averia_id) === averiaId || !t.averia_id),
-              )
+              .filter((t) => t.tipo_trabajo === "AVERIA")
               .sort((a, b) => {
                 const da = safeText(a.fecha_trabajo || a.fecha);
                 const db = safeText(b.fecha_trabajo || b.fecha);
