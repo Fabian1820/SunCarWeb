@@ -221,6 +221,8 @@ function FichasCostoPageContent() {
         title="Fichas de Costo"
         subtitle="Gestiona fichas producto a producto con costo base y % de incremento"
         badge={{ text: "Costos", className: "bg-teal-100 text-teal-800" }}
+        backHref="/compras-envios-costos"
+        backLabel="Volver a Compras, Envíos y Costos"
         actions={
           <Button
             variant="outline"

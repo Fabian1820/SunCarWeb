@@ -6,7 +6,6 @@ export interface PaginatedMaterialsFilters {
   q: string;
   categoria: string;  // "all" | nombre exacto
   marca_id: string;   // "all" | ObjectId
-  precio_zero: boolean;
 }
 
 interface PaginatedMaterialsMeta {
@@ -33,7 +32,6 @@ const DEFAULT_FILTERS: PaginatedMaterialsFilters = {
   q: "",
   categoria: "all",
   marca_id: "all",
-  precio_zero: false,
 };
 
 const DEFAULT_META: PaginatedMaterialsMeta = {
@@ -86,7 +84,6 @@ export function usePaginatedMaterials(): UsePaginatedMaterialsReturn {
       if (currentDebouncedQ.trim()) params.q = currentDebouncedQ.trim();
       if (currentFilters.categoria !== "all") params.categoria = currentFilters.categoria;
       if (currentFilters.marca_id !== "all") params.marca_id = currentFilters.marca_id;
-      if (currentFilters.precio_zero) params.precio_zero = true;
 
       const result = await MaterialService.getCatalogoAdmin(params);
 
@@ -105,7 +102,7 @@ export function usePaginatedMaterials(): UsePaginatedMaterialsReturn {
   useEffect(() => {
     fetchData(filters, page, debouncedQ);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.categoria, filters.marca_id, filters.precio_zero, page, debouncedQ, fetchData]);
+  }, [filters.categoria, filters.marca_id, page, debouncedQ, fetchData]);
 
   const setFilters = useCallback((patch: Partial<PaginatedMaterialsFilters>) => {
     setFiltersState((prev) => ({ ...prev, ...patch }));

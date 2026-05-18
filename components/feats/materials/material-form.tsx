@@ -72,16 +72,12 @@ export function MaterialForm({
     categoria: initialData?.categoria || "",
     descripcion: initialData?.descripcion || "",
     um: initialData?.um || "",
-    precio: initialData?.precio ?? undefined,
-    precio_instaladora: initialData?.precio_instaladora ?? undefined,
-    porciento_rebajable_venta: initialData?.porciento_rebajable_venta ?? undefined,
     comentario: initialData?.comentario ?? null,
     nombre: initialData?.nombre || "",
     marca_id: initialData?.marca_id || undefined,
     foto: null,
     potenciaKW: initialData?.potenciaKW ?? undefined,
     numero_serie: initialData?.numero_serie ?? null,
-    stockaje_minimo: initialData?.stockaje_minimo ?? null,
   });
 
   const [fotoFile, setFotoFile] = useState<File | null>(null);
@@ -114,15 +110,6 @@ export function MaterialForm({
   const [habilitarVentaWeb, setHabilitarVentaWeb] = useState(
     initialData?.habilitar_venta_web ?? false,
   );
-  const [precioPorCantidad, setPrecioPorCantidad] = useState<
-    { cantidad: string; precio: string }[]
-  >(
-    initialData?.precio_por_cantidad
-      ? Object.entries(initialData.precio_por_cantidad).map(
-          ([cantidad, precio]) => ({ cantidad, precio: String(precio) }),
-        )
-      : [],
-  );
   const [especificaciones, setEspecificaciones] = useState<
     { clave: string; valor: string }[]
   >(
@@ -142,16 +129,12 @@ export function MaterialForm({
       categoria: initialData.categoria || "",
       descripcion: initialData.descripcion || "",
       um: initialData.um || "",
-      precio: initialData.precio ?? undefined,
-      precio_instaladora: initialData.precio_instaladora ?? undefined,
-      porciento_rebajable_venta: initialData.porciento_rebajable_venta ?? undefined,
       comentario: initialData.comentario ?? null,
       nombre: initialData.nombre || "",
       marca_id: initialData.marca_id || undefined,
       foto: null,
       potenciaKW: initialData.potenciaKW ?? undefined,
       numero_serie: initialData.numero_serie ?? null,
-      stockaje_minimo: initialData.stockaje_minimo ?? null,
     });
     setFotoUrl(initialData.foto || null);
     setFotoFile(null);
@@ -160,13 +143,6 @@ export function MaterialForm({
     setCambiarFichaTecnica(false);
     setEliminarFichaTecnica(false);
     setHabilitarVentaWeb(initialData.habilitar_venta_web ?? false);
-    setPrecioPorCantidad(
-      initialData.precio_por_cantidad
-        ? Object.entries(initialData.precio_por_cantidad).map(
-            ([cantidad, precio]) => ({ cantidad, precio: String(precio) }),
-          )
-        : [],
-    );
     setEspecificaciones(
       initialData.especificaciones
         ? Object.entries(initialData.especificaciones).map(
@@ -303,20 +279,6 @@ export function MaterialForm({
 
       // 3. Preparar datos del material
       if (onSubmit) {
-        // Construir precio_por_cantidad como Record o null
-        const precioPorCantidadObj =
-          precioPorCantidad.length > 0
-            ? precioPorCantidad.reduce(
-                (acc, { cantidad, precio }) => {
-                  if (cantidad.trim() && precio.trim()) {
-                    acc[cantidad.trim()] = parseFloat(precio);
-                  }
-                  return acc;
-                },
-                {} as Record<string, number>,
-              )
-            : null;
-
         // Construir especificaciones como Record o null
         const especificacionesObj =
           especificaciones.length > 0
@@ -336,9 +298,6 @@ export function MaterialForm({
           categoria: formData.categoria,
           descripcion: formData.descripcion,
           um: formData.um,
-          precio: formData.precio,
-          precio_instaladora: formData.precio_instaladora,
-          porciento_rebajable_venta: formData.porciento_rebajable_venta,
           comentario: formData.comentario?.trim() || null,
           nombre: formData.nombre,
           foto: finalFotoUrl || undefined,
@@ -349,13 +308,8 @@ export function MaterialForm({
           }),
           // Campos opcionales de inventario
           numero_serie: formData.numero_serie?.trim() || null,
-          stockaje_minimo: formData.stockaje_minimo || null,
           // Campos opcionales para web
           habilitar_venta_web: habilitarVentaWeb,
-          precio_por_cantidad:
-            Object.keys(precioPorCantidadObj || {}).length > 0
-              ? precioPorCantidadObj
-              : null,
           especificaciones:
             Object.keys(especificacionesObj || {}).length > 0
               ? especificacionesObj
@@ -372,16 +326,12 @@ export function MaterialForm({
             categoria: "",
             descripcion: "",
             um: "",
-            precio: undefined,
-            precio_instaladora: undefined,
-            porciento_rebajable_venta: undefined,
             comentario: null,
             nombre: "",
             marca_id: undefined,
             foto: null,
             potenciaKW: undefined,
             numero_serie: null,
-            stockaje_minimo: null,
           });
           setFotoFile(null);
 
@@ -391,7 +341,6 @@ export function MaterialForm({
           setEliminarFichaTecnica(false);
           setIsNewCategory(false);
           setHabilitarVentaWeb(false);
-          setPrecioPorCantidad([]);
           setEspecificaciones([]);
         }
         if (onClose) onClose();
@@ -948,87 +897,8 @@ export function MaterialForm({
             )}
           </div>
 
-          {/* Precios y Unidad de Medida */}
+          {/* Unidad de Medida */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Precio Venta */}
-            <div>
-              <Label
-                htmlFor="material-precio"
-                className="text-sm font-medium text-gray-700 mb-2 block"
-              >
-                Precio Venta
-              </Label>
-              <Input
-                id="material-precio"
-                type="number"
-                step="0.01"
-                min="0"
-                value={formData.precio ?? ""}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setFormData({
-                    ...formData,
-                    precio: value === "" ? undefined : parseFloat(value) || 0,
-                  });
-                }}
-                placeholder="0.00"
-                disabled={isSubmitting || uploadingFoto}
-              />
-            </div>
-
-            {/* Precio Instaladora */}
-            <div>
-              <Label
-                htmlFor="material-precio-instaladora"
-                className="text-sm font-medium text-gray-700 mb-2 block"
-              >
-                Precio Instaladora
-              </Label>
-              <Input
-                id="material-precio-instaladora"
-                type="number"
-                step="0.01"
-                min="0"
-                value={formData.precio_instaladora ?? ""}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setFormData({
-                    ...formData,
-                    precio_instaladora: value === "" ? undefined : parseFloat(value) || 0,
-                  });
-                }}
-                placeholder="0.00"
-                disabled={isSubmitting || uploadingFoto}
-              />
-            </div>
-
-            {/* % Rebajable Venta */}
-            <div>
-              <Label
-                htmlFor="material-porciento-rebajable"
-                className="text-sm font-medium text-gray-700 mb-2 block"
-              >
-                % Rebajable Venta
-              </Label>
-              <Input
-                id="material-porciento-rebajable"
-                type="number"
-                step="0.01"
-                min="0"
-                max="100"
-                value={formData.porciento_rebajable_venta ?? ""}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setFormData({
-                    ...formData,
-                    porciento_rebajable_venta: value === "" ? undefined : parseFloat(value) || 0,
-                  });
-                }}
-                placeholder="0.00"
-                disabled={isSubmitting || uploadingFoto}
-              />
-            </div>
-
             {/* Unidad de Medida */}
             <div>
               <Label
@@ -1153,35 +1023,6 @@ export function MaterialForm({
                 </p>
               </div>
 
-              {/* Stockaje Mínimo */}
-              <div>
-                <Label
-                  htmlFor="material-stockaje-minimo"
-                  className="text-sm font-medium text-gray-700 mb-2 block"
-                >
-                  Stockaje Mínimo
-                </Label>
-                <Input
-                  id="material-stockaje-minimo"
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={formData.stockaje_minimo ?? ""}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setFormData({
-                      ...formData,
-                      stockaje_minimo:
-                        value === "" ? null : parseInt(value) || 0,
-                    });
-                  }}
-                  placeholder="Ej: 10"
-                  disabled={isSubmitting || uploadingFoto}
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Cantidad mínima requerida en almacenes
-                </p>
-              </div>
             </div>
           </div>
 
@@ -1274,72 +1115,6 @@ export function MaterialForm({
                 </Button>
               </div>
 
-              {/* Precio por cantidad */}
-              <div>
-                <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                  Precio por Cantidad
-                </Label>
-                {precioPorCantidad.map((item, index) => (
-                  <div key={index} className="flex gap-2 mb-2">
-                    <Input
-                      placeholder="Cantidad (ej: 10)"
-                      value={item.cantidad}
-                      onChange={(e) => {
-                        const updated = [...precioPorCantidad];
-                        updated[index].cantidad = e.target.value;
-                        setPrecioPorCantidad(updated);
-                      }}
-                      disabled={isSubmitting}
-                      className="flex-1"
-                      type="number"
-                      min="1"
-                    />
-                    <Input
-                      placeholder="Precio (ej: 1400.00)"
-                      value={item.precio}
-                      onChange={(e) => {
-                        const updated = [...precioPorCantidad];
-                        updated[index].precio = e.target.value;
-                        setPrecioPorCantidad(updated);
-                      }}
-                      disabled={isSubmitting}
-                      className="flex-1"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        setPrecioPorCantidad(
-                          precioPorCantidad.filter((_, i) => i !== index),
-                        )
-                      }
-                      disabled={isSubmitting}
-                      className="text-red-600 border-red-300 hover:bg-red-50 h-10 w-10 p-0"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    setPrecioPorCantidad([
-                      ...precioPorCantidad,
-                      { cantidad: "", precio: "" },
-                    ])
-                  }
-                  disabled={isSubmitting}
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Agregar Precio
-                </Button>
-              </div>
             </div>
           </div>
         </div>

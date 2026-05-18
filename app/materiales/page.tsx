@@ -36,14 +36,12 @@ import {
   Grid,
   List,
   Globe,
-  AlertTriangle,
   FileSpreadsheet,
   X,
 } from "lucide-react";
 import { MaterialsTable } from "@/components/feats/materials/materials-table";
 import { CategoriesTable } from "@/components/feats/materials/categories-table";
 import { VistaWeb } from "@/components/feats/materials/vista-web";
-import { StockMinimoView } from "@/components/feats/materials/stock-minimo-view";
 import { MaterialForm } from "@/components/feats/materials/material-form";
 import { EditCategoryForm } from "@/components/feats/materials/edit-category-form";
 import { DuplicatesDashboard } from "@/components/feats/materials/duplicates-dashboard";
@@ -82,12 +80,11 @@ export default function MaterialesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedMarca, setSelectedMarca] = useState("all");
-  const [priceFilter, setPriceFilter] = useState<"all" | "zero">("all");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
   const [viewMode, setViewMode] = useState<
-    "materials" | "categories" | "marcas" | "web" | "stock-minimo"
+    "materials" | "categories" | "marcas" | "web"
   >("materials");
   const [isEditCategoryDialogOpen, setIsEditCategoryDialogOpen] =
     useState(false);
@@ -117,26 +114,22 @@ export default function MaterialesPage() {
     const codigo = (material as any).codigo;
     const descripcion = (material as any).descripcion;
     const um = (material as any).um;
-    const precio = (material as any).precio;
     const nombre = (material as any).nombre;
     const foto = (material as any).foto;
     const marca_id = (material as any).marca_id;
     const potenciaKW = (material as any).potenciaKW;
     const isNewCategory = (material as any).isNewCategory;
     const habilitar_venta_web = (material as any).habilitar_venta_web;
-    const precio_por_cantidad = (material as any).precio_por_cantidad;
     const especificaciones = (material as any).especificaciones;
     const ubicacion_en_almacen = (material as any).ubicacion_en_almacen;
     const comentario = (material as any).comentario;
     const ficha_tecnica_url = (material as any).ficha_tecnica_url;
     const numero_serie = (material as any).numero_serie;
-    const stockaje_minimo = (material as any).stockaje_minimo;
 
     const materialData = {
       codigo: String(codigo),
       descripcion,
       um,
-      precio: precio || 0,
       ...(nombre && { nombre }),
       ...(foto && { foto }),
       ...(marca_id && { marca_id }),
@@ -144,11 +137,9 @@ export default function MaterialesPage() {
       ubicacion_en_almacen: ubicacion_en_almacen?.trim() || null,
       comentario: comentario?.trim() || null,
       habilitar_venta_web: habilitar_venta_web ?? false,
-      precio_por_cantidad: precio_por_cantidad || null,
       especificaciones: especificaciones || null,
       ficha_tecnica_url: ficha_tecnica_url || null,
       numero_serie: numero_serie?.trim() || null,
-      stockaje_minimo: stockaje_minimo || null,
     };
 
     try {
@@ -204,21 +195,16 @@ export default function MaterialesPage() {
     const categoria = (updatedMaterial as any).categoria;
     const descripcion = (updatedMaterial as any).descripcion;
     const um = (updatedMaterial as any).um;
-    const precio = (updatedMaterial as any).precio;
-    const precio_instaladora = (updatedMaterial as any).precio_instaladora;
-    const porciento_rebajable_venta = (updatedMaterial as any).porciento_rebajable_venta;
     const nombre = (updatedMaterial as any).nombre;
     const foto = (updatedMaterial as any).foto;
     const marca_id = (updatedMaterial as any).marca_id;
     const potenciaKW = (updatedMaterial as any).potenciaKW;
     const habilitar_venta_web = (updatedMaterial as any).habilitar_venta_web;
-    const precio_por_cantidad = (updatedMaterial as any).precio_por_cantidad;
     const especificaciones = (updatedMaterial as any).especificaciones;
     const ubicacion_en_almacen = (updatedMaterial as any).ubicacion_en_almacen;
     const comentario = (updatedMaterial as any).comentario;
     const ficha_tecnica_url = (updatedMaterial as any).ficha_tecnica_url;
     const numero_serie = (updatedMaterial as any).numero_serie;
-    const stockaje_minimo = (updatedMaterial as any).stockaje_minimo;
 
     const materialCodigo = String(editingMaterial?.codigo || codigo);
     const categoriaOriginal = editingMaterial?.categoria;
@@ -261,9 +247,6 @@ export default function MaterialesPage() {
             codigo: codigo,
             descripcion,
             um,
-            precio: precio || 0,
-            precio_instaladora: precio_instaladora || undefined,
-            porciento_rebajable_venta: porciento_rebajable_venta || undefined,
             nombre: nombre || undefined,
             foto: foto || undefined,
             marca_id: marca_id || undefined,
@@ -271,11 +254,9 @@ export default function MaterialesPage() {
             ubicacion_en_almacen: ubicacion_en_almacen?.trim() || null,
             comentario: comentario?.trim() || null,
             habilitar_venta_web,
-            precio_por_cantidad,
             especificaciones,
             ficha_tecnica_url: ficha_tecnica_url || null,
             numero_serie: numero_serie?.trim() || null,
-            stockaje_minimo: stockaje_minimo || null,
           },
           categoria,
         );
@@ -305,9 +286,6 @@ export default function MaterialesPage() {
             codigo,
             descripcion,
             um,
-            precio,
-            precio_instaladora: precio_instaladora || undefined,
-            porciento_rebajable_venta: porciento_rebajable_venta || undefined,
             nombre,
             foto,
             marca_id,
@@ -315,11 +293,9 @@ export default function MaterialesPage() {
             ubicacion_en_almacen: ubicacion_en_almacen?.trim() || null,
             comentario: comentario?.trim() || null,
             habilitar_venta_web,
-            precio_por_cantidad,
             especificaciones,
             ficha_tecnica_url: ficha_tecnica_url || null,
             numero_serie: numero_serie?.trim() || null,
-            stockaje_minimo: stockaje_minimo || null,
           },
           categoria,
         );
@@ -394,16 +370,11 @@ export default function MaterialesPage() {
     setSelectedMarca(value);
     paginated.setFilters({ marca_id: value });
   };
-  const handlePriceFilterChange = (value: "all" | "zero") => {
-    setPriceFilter(value);
-    paginated.setFilters({ precio_zero: value === "zero" });
-  };
   const handleClearFilters = () => {
     setSearchTerm("");
     setSelectedCategory("all");
     setSelectedMarca("all");
-    setPriceFilter("all");
-    paginated.setFilters({ q: "", categoria: "all", marca_id: "all", precio_zero: false });
+    paginated.setFilters({ q: "", categoria: "all", marca_id: "all" });
   };
 
   const filteredCategories = catalogs.filter((category) => {
@@ -632,7 +603,6 @@ export default function MaterialesPage() {
       if (currentFilters.q.trim()) exportParams.q = currentFilters.q.trim();
       if (currentFilters.categoria !== "all") exportParams.categoria = currentFilters.categoria;
       if (currentFilters.marca_id !== "all") exportParams.marca_id = currentFilters.marca_id;
-      if (currentFilters.precio_zero) exportParams.precio_zero = true;
 
       const exportResult = await MaterialService.getCatalogoAdmin(exportParams);
       const materialsToExport = exportResult.data;
@@ -642,15 +612,6 @@ export default function MaterialesPage() {
         if (typeof value === "boolean") return value ? "Sí" : "No";
         if (value === null || value === undefined || value === "") return "-";
         return String(value);
-      };
-
-      const normalizeJson = (value: unknown): string => {
-        if (!value) return "-";
-        try {
-          return JSON.stringify(value);
-        } catch {
-          return String(value);
-        }
       };
 
       await exportToExcel({
@@ -663,7 +624,6 @@ export default function MaterialesPage() {
           { header: "Nombre", key: "nombre", width: 32 },
           { header: "Descripción", key: "descripcion", width: 42 },
           { header: "UM", key: "um", width: 10 },
-          { header: "Precio", key: "precio", width: 14 },
           { header: "Marca ID", key: "marca_id", width: 20 },
           { header: "Marca", key: "marca_nombre", width: 22 },
           { header: "Potencia (kW)", key: "potenciaKW", width: 16 },
@@ -690,7 +650,6 @@ export default function MaterialesPage() {
           nombre: normalizeValue(material.nombre),
           descripcion: normalizeValue(material.descripcion),
           um: normalizeValue(material.um),
-          precio: material.precio ?? "-",
           marca_id: normalizeValue(material.marca_id),
           marca_nombre: material.marca_id
             ? normalizeValue(marcaPorId.get(material.marca_id) || material.marca_id)
@@ -894,23 +853,13 @@ export default function MaterialesPage() {
                     <Globe className="h-4 w-4 mr-2" />
                     Vista Web
                   </Button>
-                  <Button
-                    variant={viewMode === "stock-minimo" ? "default" : "outline"}
-                    onClick={() => setViewMode("stock-minimo")}
-                    className={
-                      viewMode === "stock-minimo" ? "bg-red-600 hover:bg-red-700" : ""
-                    }
-                  >
-                    <AlertTriangle className="h-4 w-4 mr-2" />
-                    Stock Mínimo
-                  </Button>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           {/* Filters and Search - Solo para materiales y categorías */}
-          {viewMode !== "marcas" && viewMode !== "web" && viewMode !== "stock-minimo" && (
+          {viewMode !== "marcas" && viewMode !== "web" && (
             <Card className="border-0 shadow-md mb-6 border-l-4 border-l-emerald-600">
               <CardContent className="pt-6">
                 <div className="flex flex-col lg:flex-row gap-4">
@@ -993,33 +942,9 @@ export default function MaterialesPage() {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="lg:w-48">
-                        <Label
-                          htmlFor="price-filter"
-                          className="text-sm font-medium text-gray-700 mb-2 block"
-                        >
-                          Filtrar por Precio
-                        </Label>
-                        <Select
-                          value={priceFilter}
-                          onValueChange={(value: "all" | "zero") =>
-                            handlePriceFilterChange(value)
-                          }
-                        >
-                          <SelectTrigger id="price-filter">
-                            <SelectValue placeholder="Todos los precios" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">
-                              Todos los precios
-                            </SelectItem>
-                            <SelectItem value="zero">Solo precio 0</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
                     </div>
                   )}
-                  {viewMode === "materials" && (searchTerm || selectedCategory !== "all" || selectedMarca !== "all" || priceFilter !== "all") && (
+                  {viewMode === "materials" && (searchTerm || selectedCategory !== "all" || selectedMarca !== "all") && (
                     <div className="flex items-end">
                       <Button
                         variant="outline"
@@ -1065,21 +990,6 @@ export default function MaterialesPage() {
                 return result;
               }}
             />
-          ) : viewMode === "stock-minimo" ? (
-            <Card className="border-0 shadow-md border-l-4 border-l-red-600">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <AlertTriangle className="h-5 w-5 text-red-600" />
-                  <span>Materiales Bajo Stock Mínimo</span>
-                </CardTitle>
-                <CardDescription>
-                  Listado de materiales que requieren reabastecimiento urgente
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <StockMinimoView />
-              </CardContent>
-            </Card>
           ) : (
             <>
               {/* Dynamic Table */}

@@ -18,7 +18,6 @@ interface SubModule {
   description: string
   icon: typeof Ship
   iconClass: string
-  borderClass: string
 }
 
 const SUB_MODULES: SubModule[] = [
@@ -29,7 +28,6 @@ const SUB_MODULES: SubModule[] = [
     description: "Registrar y monitorear envíos de contenedores.",
     icon: Ship,
     iconClass: "text-cyan-700",
-    borderClass: "border-l-cyan-600",
   },
   {
     id: "fichas-costo",
@@ -38,7 +36,6 @@ const SUB_MODULES: SubModule[] = [
     description: "Gestión de fichas de costo de materiales.",
     icon: FileSpreadsheet,
     iconClass: "text-teal-600",
-    borderClass: "border-l-teal-600",
   },
 ]
 
@@ -89,7 +86,7 @@ export default function ComprasEnviosCostosPage() {
         }
       />
 
-      <main className="content-with-fixed-header max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
+      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
         {visibleSubModules.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center text-gray-500 text-sm">
@@ -97,26 +94,22 @@ export default function ComprasEnviosCostosPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
             {visibleSubModules.map((mod) => {
               const Icon = mod.icon
               return (
-                <Link key={mod.id} href={mod.href} className="block group">
-                  <Card
-                    className={`border-l-4 ${mod.borderClass} hover:shadow-md transition-shadow h-full`}
-                  >
-                    <CardContent className="p-5 flex items-start gap-4">
-                      <div className="rounded-lg bg-white border border-gray-200 p-3 flex-shrink-0 group-hover:scale-105 transition-transform">
-                        <Icon className={`h-6 w-6 ${mod.iconClass}`} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-gray-900 mb-1">
-                          {mod.title}
-                        </h3>
-                        <p className="text-sm text-gray-600">
-                          {mod.description}
-                        </p>
-                      </div>
+                <Link key={mod.id} href={mod.href}>
+                  <Card className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer h-full hover:-translate-y-2 bg-white/90 backdrop-blur-sm">
+                    <CardContent className="p-4 sm:p-6 text-center flex flex-col justify-center h-full">
+                      <Icon
+                        className={`h-8 w-8 sm:h-10 sm:w-10 ${mod.iconClass} mx-auto mb-3`}
+                      />
+                      <h4 className="text-lg font-semibold text-gray-900 mb-2">
+                        {mod.title}
+                      </h4>
+                      <p className="text-sm text-gray-600">
+                        {mod.description}
+                      </p>
                     </CardContent>
                   </Card>
                 </Link>

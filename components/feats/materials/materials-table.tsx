@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/shared/atom/button";
 import { Badge } from "@/components/shared/atom/badge";
-import { Edit, Package, DollarSign, FileText, Upload, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Edit, Package, FileText, Upload, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Material } from "@/lib/material-types";
 import { MaterialService } from "@/lib/api-services";
 import { useToast } from "@/hooks/use-toast";
@@ -126,9 +126,6 @@ export function MaterialsTable({
                 <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[120px]">Categoría</th>
                 <th className="text-left py-3 px-2 font-semibold text-gray-900">Nombre</th>
                 <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[50px]">UM</th>
-                <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[100px]">Precio Venta</th>
-                <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[110px]">Precio Instaladora</th>
-                <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[90px]">% Rebajable</th>
                 <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[140px]">Acciones</th>
               </tr>
             </thead>
@@ -203,33 +200,6 @@ export function MaterialsTable({
                     {/* UM */}
                     <td className="py-3 px-2">
                       <span className="text-xs text-gray-600 font-medium">{material.um || "-"}</span>
-                    </td>
-
-                    {/* Precio Venta */}
-                    <td className="py-3 px-2">
-                      <div className="flex items-center space-x-1">
-                        <DollarSign className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
-                        <span className="text-sm font-medium text-gray-900 truncate">
-                          {material.precio != null ? material.precio.toFixed(2) : "N/A"}
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* Precio Instaladora */}
-                    <td className="py-3 px-2">
-                      <div className="flex items-center space-x-1">
-                        <DollarSign className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
-                        <span className="text-sm font-medium text-gray-900 truncate">
-                          {material.precio_instaladora != null ? material.precio_instaladora.toFixed(2) : "N/A"}
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* % Rebajable Venta */}
-                    <td className="py-3 px-2">
-                      <span className="text-sm font-medium text-gray-900">
-                        {material.porciento_rebajable_venta != null ? `${material.porciento_rebajable_venta}%` : "N/A"}
-                      </span>
                     </td>
 
                     {/* Acciones */}
