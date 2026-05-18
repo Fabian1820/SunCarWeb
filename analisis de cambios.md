@@ -2,6 +2,98 @@
 
 ---
 
+## 📅 18 de Mayo, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**Áreas: BACKEND_URL en producción (crítico), Averías/Trabajos Diarios (nuevo flujo completo), Pagos/Tasa de cambio, Auth, Facturas emitidas, Clientes, Asignaciones, Dashboard/Dev-tools, Wallet/Banco CubespAuto, Materiales**
+
+| Commit | Autor | Descripción |
+|--------|-------|-------------|
+| `07803eb` | yany1509/Claude | fix(pagos-ventas): corregir conversión tasa de cambio al enviar al backend |
+| `5d199e8` | yany1509/Claude | fix(trabajos-diarios): cargar trabajo abierto sin filtrar por fecha |
+| `c8acb0d` | yany1509/Claude | fix(pagos): corregir convención tasa de cambio y errores silenciosos |
+| `4a4ea1e` | yany1509/Claude | fix(trabajos-diarios): cargar datos del trabajo abierto al reseleccionar avería |
+| `9926b75` | yany1509/Claude | fix(trabajos-diarios): preservar campos de hora en estado React tras guardar |
+| `eccaaf0` | yany1509/Claude | fix(auth): cargar permisos al restaurar sesión para evitar redirecciones incorrectas |
+| `30f909a` | yany1509/Claude | feat(facturas-emitidas): agregar columna total sin descuento y actualizar total facturado |
+| `b0bc01f` | yany1509/Claude | fix(averias): siempre incluir hora_* en el payload del PATCH |
+| `a01abc1` | yany1509/Claude | fix(api): leer window.__BACKEND_URL__ en buildApiUrl para resolver CORS en producción |
+| `f60c994` | yany1509/Claude | fix(clientes): corregir carga de estado listo para pagar usando oferta_confeccion embebida |
+| `5c79868` | yany1509/Claude | feat(averias): mostrar historial de trabajos de la avería filtrado por averia_id |
+| `33030f4` | Fabian1820 | refactor(asignaciones): eliminar campo asignado_por de interfaces |
+| `525712a` | yany1509/Claude | fix(averias): corregir flujo completo de trabajoAnterior, fallback de búsqueda y eliminar logs de debug |
+| `2aaf80a` | Fabian1820/Claude | feat(asignaciones): subida/borrado de fotos en medios básicos y buscador en tabla de trabajadores |
+| `598d8ae` | Ruben/Claude | fix(dev-tools): inyectar SHOW_DEV_TOOLS como window.__SHOW_DEV_TOOLS__ en runtime |
+| `1bf2da0` | Ruben/Claude | refactor(dashboard): mostrar FAB de merge para todos los superAdmin sin flag dev-tools |
+| `133bf5c` | Ruben/Claude | feat(dashboard): botones FAB de merge dev→main en esquina inferior derecha |
+| `d010c36` | Ruben/Claude | fix(config): eliminar bloque env que horneaba NEXT_PUBLIC_BACKEND_URL en build |
+| `7576602` | yany1509/Claude | feat(averias): mostrar resumen del trabajo anterior al crear nuevo trabajo diario |
+| `a6dd1fc` | Ruben/Claude | fix(layout): force-dynamic para leer NEXT_PUBLIC_BACKEND_URL en runtime |
+| `12c72c4` | Fabian1820/Claude | feat(asignaciones): catálogo de materiales de solo lectura y refactor asignaciones instalación |
+| `5011a4e` | yany1509/Claude | fix(averias): cargar trabajo existente solo si es de hoy y está abierto |
+| `298c7f5` | yany1509/Claude | fix(averias): usar getTrabajosByCliente como búsqueda principal al seleccionar avería |
+| `465a827` | Ruben/Claude | fix(api): usar window.__BACKEND_URL__ para evitar baking en build |
+| `9ee71ef` | Ruben/Claude | fix(api-config): eliminar fallback hardcodeado a api.suncarsrl.com |
+| `6632ae7` | yany1509/Claude | feat(averias): editar código de causa desde el trabajo diario |
+| `aff0c05` | Ruben/Claude | fix(api-config): respetar NEXT_PUBLIC_BACKEND_URL sin sobreescribirla con hostname |
+| `3d59844` | yany1509/Claude | feat(averias): registrar fecha/hora, horarios de trabajo y cierre de día |
+| `fcb6762` | Ruben/Claude | feat(dev-tools): botones Merge Frontend/Backend visibles para superAdmin |
+| `3daa0a7` | Ruben/Claude | fix(banco-global): corregir lectura de pagos Stripe y renombrar a Cubespauto |
+| `62339dc` | Ruben/Claude | feat(wallet): agregar Banco CubespAuto con permiso gestionar_banco_global |
+| `b20a98c` | Fabian1820 | refactor(materials): eliminar price, price_instaladora, porciento_rebajable del form y tabla |
+
+### Análisis de riesgos y consideraciones
+
+#### 🔴 Riesgos altos
+
+1. **Tasa de cambio en pagos — 3er fix en 3 días (máxima probabilidad de regresión)**
+   - Los commits `c8acb0d` y `07803eb` corrigen que la UI enviaba la tasa sin invertir: ahora convierte "moneda por USD" → "USD por moneda" antes del POST a `/pagos-ventas/`. Este es el 3.er cambio en 3 días consecutivos sobre el mismo punto.
+   - Riesgo de que otros formularios de pago no hayan sido actualizados con la misma convención.
+   - **Acción urgente:** Prueba E2E con montos conocidos en CUP, EUR y USD. Revisar todos los puntos de formulario de pago, no solo pagos-ventas.
+
+2. **window.__BACKEND_URL__ — posible race condition en hydration del cliente**
+   - El script que inyecta `window.__BACKEND_URL__` se ejecuta desde layout.tsx como Server Component. Si api-config.ts o buildApiUrl() se evalúan antes de que el script DOM cargue en el cliente (módulo cacheado o tree-shaking), el fallback a `localhost:8000` se activa silenciosamente.
+   - **Acción:** Verificar en Railway post-deploy que el Network tab muestra llamadas al URL correcto. Si no, añadir un log visible cuando la URL resuelve como localhost.
+
+3. **Flujo de averías — complejidad acumulada muy alta (12+ commits en un día)**
+   - Se introdujeron múltiples capas de fallback: `looksLikeTrabajoDiario`, `getTrabajosByCliente` con fallback a `getTrabajos`, `parsed.data` antes de parsear raíz, `setInstaladores` en handleSelectItem. Cada capa cubre un bug del fix anterior.
+   - El flujo es difícil de auditar; cualquier cambio futuro puede romper un fallback silenciosamente.
+   - **Acción recomendada:** Cuando el flujo esté estable, consolidar en un hook limpio con estados explícitos documentados.
+
+#### 🟡 Riesgos medios
+
+4. **Nuevo permiso `gestionar_banco_global` — backend debe reconocerlo y validarlo**
+   - El frontend controla acceso a "Banco CubespAuto" solo en la UI. Si el backend no valida el permiso en sus endpoints, la protección es solo cosmética (bypasseable por llamadas directas a la API).
+   - **Acción:** Verificar en LlegoBackend que `gestionar_banco_global` existe y se valida en los endpoints de banco/wallet.
+
+5. **Campo `averia_id` en trabajos diarios — campo nuevo en el modelo**
+   - El frontend filtra y vincula trabajos por `averia_id`. Si el backend no persiste ni indexa este campo, la búsqueda por avería retornará vacío siempre (el fallback por `tipo_trabajo=AVERIA` degradará la experiencia).
+   - **Acción:** Confirmar en LlegoBackend que `/trabajos-diarios/` acepta y persiste `averia_id`.
+
+6. **Eliminación de price, price_instaladora, porciento_rebajable en materiales**
+   - Si algún otro componente o servicio (fichas de costo, reportes, PDF) lee estos campos del objeto de material, obtendrá `undefined` silenciosamente sin error en consola.
+   - **Acción:** Buscar referencias a `material.price`, `material.price_instaladora` y `material.porciento_rebajable` en el resto del codebase.
+
+7. **`asignado_por` eliminado de interfaces de asignaciones**
+   - Si el backend requiere este campo en el body del POST de asignaciones, fallará con 422. Verificar si es opcional en el backend.
+
+8. **Fix de auth — sin timeout si el endpoint de permisos falla o es lento**
+   - `initAuth()` ahora espera los permisos antes de poner `isLoading=false`. Si el endpoint de permisos falla o tarda, el usuario ve pantalla de carga indefinida sin mensaje de error.
+   - **Consideración:** Añadir timeout y manejo de error explícito con redirección a login si los permisos no cargan en N segundos.
+
+#### 🟢 Mejoras positivas
+
+9. **Resolución del bug crítico de BACKEND_URL en Railway** — El frontend en producción llamaba a `localhost:8000` o al API hardcodeado. Debería resolver los errores CORS y las llamadas incorrectas en despliegues Railway.
+10. **Historial de averías correcto por averia_id** — Muestra solo los trabajos de esa avería específica, no todos los del cliente.
+11. **Auth más robusto** — Ya no hay redirecciones incorrectas al refrescar rutas protegidas.
+12. **Banco CubespAuto con sync Stripe** — Nuevo módulo financiero con saldo e ingresos/gastos manuales.
+13. **Fotos en medios básicos de asignaciones** — Trazabilidad visual de recursos.
+14. **Fallback hardcodeado a api.suncarsrl.com eliminado** — Los errores de configuración ahora son visibles (localhost) en vez de silenciosos (producción hardcodeada).
+15. **Columna total sin descuento en facturas emitidas** — Mejor visibilidad del impacto de descuentos.
+
+---
+
 ## 📅 17 de Mayo, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -179,23 +271,5 @@ Sin commits de desarrollo nuevos. Solo el commit automático de "Analisis diario
 8. **Transferencias con flujo de aceptación** — evita transferencias accidentales.
 9. **Wallet automático en transferencias** — `ensure` previene errores de "destinatario sin wallet".
 10. **Separación recargo/impuesto en ficha de costo** — cálculos más transparentes y auditables.
-
----
-
-## 📅 10 de Mayo, 2026
-
-### Resumen de cambios (últimas 24h)
-
-Sin commits de desarrollo nuevos. Solo el commit automático de "Analisis diario Claude".
-
-#### Consideraciones del día
-
-- Sin actividad nueva hoy.
-- Seguimientos activos de la semana:
-  - **Flag `sin_recargo`**: confirmar en LlegoBackend que el route de generación de link omite la comisión Stripe cuando está presente.
-  - **Fichas de costo — doble-apply de fórmula**: verificar que al abrir y guardar repetidamente una ficha existente, los precios no se inflan progresivamente.
-  - **Campo `stockaje_minimo`**: confirmar que el backend persiste el campo y que `StockajesMinimosSection` no muestra siempre 0 como mínimo.
-  - **Campo `numero_serie`**: confirmar que `FichaCostoService` incluye el campo en el payload de actualización.
-- No hay riesgos nuevos que reportar.
 
 ---
