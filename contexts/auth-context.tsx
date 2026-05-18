@@ -57,24 +57,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // Verificar si hay un token y usuario guardados al cargar la página
-    const savedToken = localStorage.getItem("auth_token")
-    const savedUser = localStorage.getItem("user_data")
+    const initAuth = async () => {
+      const savedToken = localStorage.getItem("auth_token")
+      const savedUser = localStorage.getItem("user_data")
 
-    if (savedToken && savedUser) {
-      try {
-        const userDataRaw = JSON.parse(savedUser)
-        const userData = normalizeUser(userDataRaw) ?? userDataRaw
-        setToken(savedToken)
-        setUser(userData)
-        setIsAuthenticated(true)
-      } catch (error) {
-        console.error("Error parsing saved user data:", error)
-        localStorage.removeItem("auth_token")
-        localStorage.removeItem("user_data")
+      if (savedToken && savedUser) {
+        try {
+          const userDataRaw = JSON.parse(savedUser)
+          const userData = normalizeUser(userDataRaw) ?? userDataRaw
+          setToken(savedToken)
+          setUser(userData)
+          setIsAuthenticated(true)
+
+          // Cargar permisos inmediatamente al restaurar sesión para evitar
+          // que RouteGuard redirija antes de que los permisos estén disponibles
+          if (userData && userData.ci) {
+            try {
+              const modulos = await PermisosService.getTrabajadorModulosNombres(userData.ci)
+              setModulosPermitidos(modulos)
+            } catch (error) {
+              console.error("Error loading módulos permitidos durante init:", error)
+              setModulosPermitidos([])
+            }
+          }
+        } catch (error) {
+          console.error("Error parsing saved user data:", error)
+          localStorage.removeItem("auth_token")
+          localStorage.removeItem("user_data")
+        }
       }
+      setIsLoading(false)
     }
-    setIsLoading(false)
+
+    initAuth()
   }, [])
 
   const login = async (ci: string, adminPass: string): Promise<{ success: boolean; message: string }> => {
