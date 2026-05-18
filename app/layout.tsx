@@ -57,6 +57,10 @@ export const metadata: Metadata = {
   },
 }
 
+// Forzar render dinámico para que process.env.NEXT_PUBLIC_BACKEND_URL
+// se lea en cada request (runtime) y no se hornee en build time.
+export const dynamic = 'force-dynamic'
+
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
