@@ -1,66 +1,32 @@
-// ConfiguraciÃ³n de la API
-// FunciÃ³n para obtener la URL de la API directamente del backend
 function getApiBaseUrl(): string {
-  const PROD_BACKEND_FALLBACK = "https://api.suncarsrl.com";
-  const backendUrlEnvRaw =
-    process.env.NEXT_PUBLIC_BACKEND_URL || PROD_BACKEND_FALLBACK;
-  // Sanitiza comillas accidentales en variables de entorno, ej: "https://api..."
-  const backendUrlEnv = backendUrlEnvRaw
-    .trim()
-    .replace(/^['"]+/, "")
-    .replace(/['"]+$/, "");
+  const envRaw = process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
+  const envClean = envRaw.trim().replace(/^['"]+/, "").replace(/['"]+$/, "").replace(/\/+$/, "");
 
-  let normalized = backendUrlEnv || PROD_BACKEND_FALLBACK;
-  if (!/^https?:\/\//i.test(normalized)) {
-    normalized = `https://${normalized}`;
-  }
+  const resolved = envClean || "http://localhost:8000";
 
-  let backendOrigin = normalized.replace(/\/+$/, "");
+  let origin: string;
   try {
-    const parsed = new URL(normalized);
-    const isLocalhost =
-      parsed.hostname.includes("localhost") || parsed.hostname === "127.0.0.1";
-
-    // En producciÃ³n siempre usar HTTPS para evitar redirects que rompen preflight (CORS)
-    if (!isLocalhost && parsed.protocol === "http:") {
-      parsed.protocol = "https:";
-    }
-
-    // Si la app corre en https y el backend quedÃ³ en http, elevar a https igualmente.
+    const parsed = new URL(resolved);
+    // Elevar a HTTPS si la app corre en HTTPS y el backend no es localhost
     if (
       typeof window !== "undefined" &&
       window.location.protocol === "https:" &&
       parsed.protocol === "http:" &&
-      !isLocalhost
+      !parsed.hostname.includes("localhost") &&
+      parsed.hostname !== "127.0.0.1"
     ) {
       parsed.protocol = "https:";
     }
-
-    const suppliedPath = parsed.pathname.replace(/\/+$/, "");
-    if (
-      suppliedPath &&
-      suppliedPath !== "/" &&
-      suppliedPath !== "/api" &&
-      typeof console !== "undefined"
-    ) {
-    }
-
-    backendOrigin = parsed.origin;
+    origin = parsed.origin;
   } catch {
-    // Fallback conservador
-    const isLocalhost =
-      backendUrlEnv.includes("localhost") ||
-      backendUrlEnv.includes("127.0.0.1");
-
-    const protocol = isLocalhost ? "http" : "https";
-    const hostOnly = backendUrlEnv
-      .replace(/^https?:\/\//i, "")
-      .replace(/\/.*$/, "");
-
-    backendOrigin = `${protocol}://${hostOnly}`;
+    origin = resolved.startsWith("http") ? resolved : `https://${resolved}`;
   }
-  const apiUrl = `${backendOrigin.replace(/\/+$/, "")}/api`;
 
+  const apiUrl = `${origin}/api`;
+  if (typeof window === "undefined") {
+    // Solo en server-side (SSR/build) — visible en logs de Railway
+    console.log(`[api-config] NEXT_PUBLIC_BACKEND_URL="${envRaw}" → ${apiUrl}`);
+  }
   return apiUrl;
 }
 

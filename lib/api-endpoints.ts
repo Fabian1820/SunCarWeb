@@ -49,7 +49,7 @@ export const OFERTAS_CONFECCION_ENDPOINTS = {
  */
 export function buildApiUrl(endpoint: string): string {
   const backendUrlRaw =
-    process.env.NEXT_PUBLIC_BACKEND_URL || "https://api.suncarsrl.com";
+    process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
   const backendUrl = backendUrlRaw
     .trim()
     .replace(/^['"]+/, "")
