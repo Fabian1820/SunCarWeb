@@ -171,7 +171,7 @@ export function BancoGlobalSheet({ open, onOpenChange }: BancoGlobalSheetProps) 
     try {
       const res = await fetch("/api/stripe/listar-pagos?limit=50")
       const data = await res.json()
-      setStripeSessions(Array.isArray(data.pagos) ? data.pagos : [])
+      setStripeSessions(Array.isArray(data.data) ? data.data : [])
     } catch {
       toast({ title: "Error", description: "No se pudieron cargar los pagos de Stripe", variant: "destructive" })
     } finally {
@@ -220,7 +220,7 @@ export function BancoGlobalSheet({ open, onOpenChange }: BancoGlobalSheetProps) 
         <SheetHeader className="mb-4">
           <SheetTitle className="flex items-center gap-2 text-lg">
             <Landmark className="h-5 w-5 text-blue-600" />
-            Banco CubespAuto
+            Banco Cubespauto
           </SheetTitle>
         </SheetHeader>
 

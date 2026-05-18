@@ -57,6 +57,10 @@ export const metadata: Metadata = {
   },
 }
 
+// Forzar render dinámico para que process.env.NEXT_PUBLIC_BACKEND_URL
+// se lea en cada request (runtime) y no se hornee en build time.
+export const dynamic = 'force-dynamic'
+
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
@@ -74,6 +78,16 @@ export default function RootLayout({
     <html lang="es">
       <head>
         <meta name="apple-mobile-web-app-title" content="Suncar Administración" />
+        {/* Inyectar variables en runtime para que el cliente no dependa del build */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.__BACKEND_URL__=${JSON.stringify(
+              (process.env.NEXT_PUBLIC_BACKEND_URL ?? "").replace(/\/+$/, "") || "http://localhost:8000"
+            )};window.__SHOW_DEV_TOOLS__=${JSON.stringify(
+              process.env.NEXT_PUBLIC_SHOW_DEV_TOOLS === "true"
+            )};`,
+          }}
+        />
       </head>
       <body className={inter.className}>
         <AuthProvider>

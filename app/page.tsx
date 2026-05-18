@@ -35,6 +35,8 @@ import {
   Monitor,
   ClipboardList,
   Clipboard,
+  GitMerge,
+  Loader2,
 } from "lucide-react";
 import { useLayoutEffect, useRef, useState, useEffect } from "react";
 import {
@@ -72,6 +74,13 @@ export default function Dashboard() {
   const [clients, setClients] = useState<any[]>([]);
   const headerRef = useRef<HTMLElement | null>(null);
   const [headerHeight, setHeaderHeight] = useState<number>(120);
+  const [mergingTarget, setMergingTarget] = useState<"frontend" | "backend" | null>(null);
+  const [mergeResult, setMergeResult] = useState<{ target: string; message: string; ok: boolean } | null>(null);
+  // Leer desde window.__SHOW_DEV_TOOLS__ (inyectado en layout) en runtime,
+  // con fallback a process.env para SSR. Igual patrón que __BACKEND_URL__.
+  const showDevTools = typeof window !== "undefined"
+    ? Boolean((window as Record<string, unknown>).__SHOW_DEV_TOOLS__)
+    : process.env.NEXT_PUBLIC_SHOW_DEV_TOOLS === "true";
 
   // Cargar módulos permitidos cada vez que se monta el dashboard
   useEffect(() => {
@@ -588,6 +597,24 @@ export default function Dashboard() {
     return (1 / parsed).toFixed(4);
   };
 
+  const handleMerge = async (target: "frontend" | "backend") => {
+    setMergingTarget(target);
+    setMergeResult(null);
+    try {
+      const res = await fetch("/api/dev-tools/merge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target }),
+      });
+      const data = await res.json();
+      setMergeResult({ target, message: data.message, ok: data.success });
+    } catch {
+      setMergeResult({ target, message: "Error de red al intentar el merge", ok: false });
+    } finally {
+      setMergingTarget(null);
+    }
+  };
+
   const handleOpenTasaCambioDialog = async () => {
     setIsTasaCambioDialogOpen(true);
     setLoadingTasaCambio(true);
@@ -733,6 +760,16 @@ export default function Dashboard() {
         className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8"
         style={{ paddingTop: headerHeight + 8 }}
       >
+        {mergeResult && (
+          <div className={`mb-4 flex items-center justify-between rounded-xl border px-4 py-3 text-sm ${
+            mergeResult.ok
+              ? "border-green-200 bg-green-50 text-green-800"
+              : "border-red-200 bg-red-50 text-red-800"
+          }`}>
+            <span>{mergeResult.message}</span>
+            <button onClick={() => setMergeResult(null)} className="ml-4 opacity-60 hover:opacity-100">✕</button>
+          </div>
+        )}
         {/* Full width layout for modules */}
         <div className="flex flex-col">
           {groupedAvailableModules.length === 0 ? (
@@ -871,6 +908,41 @@ export default function Dashboard() {
 
       {/* Birthday Notification Checker */}
       <BirthdayChecker />
+
+      {/* Dev Tools FAB - Solo en dashboard para superAdmin con dev tools habilitadas */}
+      {showDevTools && user?.is_superAdmin && (
+        <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-40 pointer-events-auto">
+          {/* Merge Backend Button */}
+          <Button
+            onClick={() => handleMerge("backend")}
+            disabled={mergingTarget !== null}
+            className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white rounded-full h-14 w-14 sm:w-auto sm:px-4 shadow-lg hover:shadow-xl transition-all"
+            title="Merge dev → master (Backend)"
+          >
+            {mergingTarget === "backend" ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <GitMerge className="h-5 w-5" />
+            )}
+            <span className="hidden sm:inline text-sm font-medium">Backend</span>
+          </Button>
+
+          {/* Merge Frontend Button */}
+          <Button
+            onClick={() => handleMerge("frontend")}
+            disabled={mergingTarget !== null}
+            className="flex items-center gap-2 bg-violet-500 hover:bg-violet-600 text-white rounded-full h-14 w-14 sm:w-auto sm:px-4 shadow-lg hover:shadow-xl transition-all"
+            title="Merge dev → main (Frontend)"
+          >
+            {mergingTarget === "frontend" ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <GitMerge className="h-5 w-5" />
+            )}
+            <span className="hidden sm:inline text-sm font-medium">Frontend</span>
+          </Button>
+        </div>
+      )}
 
       <Toaster />
     </div>
