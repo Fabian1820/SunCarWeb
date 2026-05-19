@@ -498,9 +498,16 @@ export function TrabajosDiariosAveriasView() {
     setLoadingTrabajosAveria((prev) => new Set(prev).add(averiaId));
     try {
       const todos = await TrabajosDiariosService.getTrabajosByCliente(clienteNumero);
-      const deEstaAveria = todos
+      // Filtrar por averia_id exacto; si no hay ninguno con ese campo (datos viejos sin averia_id)
+      // usar todos los de tipo AVERIA para ese cliente como fallback
+      let deEstaAveria = todos
         .filter((t) => safeText(t.averia_id) === averiaId)
         .sort((a, b) => safeText(b.fecha_trabajo).localeCompare(safeText(a.fecha_trabajo)));
+      if (deEstaAveria.length === 0) {
+        deEstaAveria = todos
+          .filter((t) => safeText(t.tipo_trabajo) === "AVERIA")
+          .sort((a, b) => safeText(b.fecha_trabajo).localeCompare(safeText(a.fecha_trabajo)));
+      }
       setTrabajosPorAveria((prev) => ({ ...prev, [averiaId]: deEstaAveria }));
     } catch {
       setTrabajosPorAveria((prev) => ({ ...prev, [averiaId]: [] }));
