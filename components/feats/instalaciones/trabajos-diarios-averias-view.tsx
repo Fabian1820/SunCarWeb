@@ -46,8 +46,12 @@ import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
   Battery,
+  Calendar,
   Check,
+  ChevronDown,
+  ChevronUp,
   ChevronsUpDown,
+  Clock,
   Plus,
   RefreshCw,
   Search,
@@ -444,11 +448,13 @@ export function TrabajosDiariosAveriasView() {
   const [selectedTrabajo, setSelectedTrabajo] = useState<TrabajoDiarioRegistro | null>(null);
   const [trabajosAnteriores, setTrabajosAnteriores] = useState<TrabajoDiarioRegistro[]>([]);
   const [materialesResumen, setMaterialesResumen] = useState<TrabajoDiarioMaterialResumen[]>([]);
-  const [saving, setSaving] = useState(false);
   const [closing, setClosing] = useState(false);
   const [averiaCodigoEdit, setAveriaCodigoEdit] = useState<string>("");
   const [loadingTrabajo, setLoadingTrabajo] = useState(false);
   const draftsById = useRef<Record<string, TrabajoDiarioRegistro>>({});
+  const [expandedAverias, setExpandedAverias] = useState<Set<string>>(new Set());
+  const [trabajosPorAveria, setTrabajosPorAveria] = useState<Record<string, TrabajoDiarioRegistro[]>>({});
+  const [loadingTrabajosAveria, setLoadingTrabajosAveria] = useState<Set<string>>(new Set());
 
   const loadWorkers = useCallback(async () => {
     try {
@@ -479,6 +485,29 @@ export function TrabajosDiariosAveriasView() {
       setLoadingClientes(false);
     }
   }, [toast]);
+
+  const toggleTrabajosDeLaAveria = useCallback(async (averiaId: string, clienteNumero: string) => {
+    if (!averiaId) return;
+    const isExpanded = expandedAverias.has(averiaId);
+    setExpandedAverias((prev) => {
+      const next = new Set(prev);
+      if (isExpanded) { next.delete(averiaId); } else { next.add(averiaId); }
+      return next;
+    });
+    if (isExpanded || trabajosPorAveria[averiaId]) return;
+    setLoadingTrabajosAveria((prev) => new Set(prev).add(averiaId));
+    try {
+      const todos = await TrabajosDiariosService.getTrabajosByCliente(clienteNumero);
+      const deEstaAveria = todos
+        .filter((t) => safeText(t.averia_id) === averiaId)
+        .sort((a, b) => safeText(b.fecha_trabajo).localeCompare(safeText(a.fecha_trabajo)));
+      setTrabajosPorAveria((prev) => ({ ...prev, [averiaId]: deEstaAveria }));
+    } catch {
+      setTrabajosPorAveria((prev) => ({ ...prev, [averiaId]: [] }));
+    } finally {
+      setLoadingTrabajosAveria((prev) => { const next = new Set(prev); next.delete(averiaId); return next; });
+    }
+  }, [expandedAverias, trabajosPorAveria]);
 
   useEffect(() => {
     void Promise.all([loadWorkers(), loadClientesConAverias()]);
@@ -655,64 +684,47 @@ export function TrabajosDiariosAveriasView() {
     };
   };
 
-  const ensureTrabajoCreado = async (payload: TrabajoDiarioRegistro): Promise<{ id: string; merged: TrabajoDiarioRegistro }> => {
-    const trabajoId = safeText(payload.id);
-    if (trabajoId) {
-      const saved = await TrabajosDiariosService.updateTrabajo(trabajoId, payload);
-      const merged = { ...payload, ...saved, id: safeText(saved.id, trabajoId) };
-      return { id: safeText(merged.id), merged };
-    }
-    if (!selectedItem) throw new Error("No hay avería seleccionada");
-    const instNames = (payload.instaladores || []).filter(Boolean);
-    if (instNames.length === 0) throw new Error("Selecciona al menos un instalador antes de guardar");
-    const created = await TrabajosDiariosService.createTrabajoDiarioSinVale({
-      cliente_numero: safeText(selectedItem.cliente.numero),
-      fecha,
-      instaladores: instNames,
-      tipo_trabajo: "AVERIA",
-    });
-    const withData = await TrabajosDiariosService.updateTrabajo(safeText(created.id), {
-      ...payload,
-      id: safeText(created.id),
-    });
-    const merged = { ...payload, ...withData, id: safeText(withData.id || created.id) };
-    return { id: safeText(merged.id), merged };
-  };
-
-  const handleSave = async () => {
-    const payload = buildPayload();
-    if (!payload) return;
-    setSaving(true);
-    try {
-      await actualizarCodigoAveria();
-      const { merged } = await ensureTrabajoCreado(payload);
-      setSelectedTrabajo(merged);
-      draftsById.current[safeText(merged.id)] = merged;
-      toast({ title: "Guardado", description: "Trabajo guardado correctamente." });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "No se pudo guardar";
-      toast({ title: "Error", description: message, variant: "destructive" });
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const handleCloseDay = async () => {
+    if (!selectedItem) return;
     const payload = buildPayload();
     if (!payload) return;
+    const instNames = (payload.instaladores || []).filter(Boolean);
+    if (instNames.length === 0) {
+      toast({ title: "Error", description: "Selecciona al menos un instalador antes de cerrar.", variant: "destructive" });
+      return;
+    }
     setClosing(true);
     try {
       await actualizarCodigoAveria();
-      const { merged } = await ensureTrabajoCreado(payload);
-      await TrabajosDiariosService.updateTrabajo(merged.id!, {
-        ...merged,
+      // Obtener o crear el trabajo diario
+      let trabajoId = safeText(payload.id);
+      if (!trabajoId) {
+        const created = await TrabajosDiariosService.createTrabajoDiarioSinVale({
+          cliente_numero: safeText(selectedItem.cliente.numero),
+          fecha,
+          instaladores: instNames,
+          tipo_trabajo: "AVERIA",
+        });
+        trabajoId = safeText(created.id);
+        if (!trabajoId) throw new Error("No se pudo crear el trabajo diario");
+      }
+      // Un único PATCH con todos los datos + cierre
+      await TrabajosDiariosService.updateTrabajo(trabajoId, {
+        ...payload,
+        id: trabajoId,
         cierre_diario_confirmado: true,
       });
-      const estadoMsg = merged.hay_pendiente ? "La avería quedó como pendiente." : "La avería fue marcada como solucionada.";
+      const estadoMsg = payload.hay_pendiente
+        ? "La avería quedó como pendiente."
+        : "La avería fue marcada como solucionada.";
       toast({ title: "Día cerrado", description: estadoMsg });
       setSelectedItem(null);
       setSelectedTrabajo(null);
+      setInstaladores([]);
       setMaterialesResumen([]);
+      setTrabajosAnteriores([]);
+      // Invalidar caché de trabajos para que se recarguen al expandir
+      setTrabajosPorAveria({});
       void loadClientesConAverias();
     } catch (error) {
       const message = error instanceof Error ? error.message : "No se pudo cerrar el día";
@@ -805,7 +817,6 @@ export function TrabajosDiariosAveriasView() {
                             {cliente.direccion}
                           </p>
                         )}
-
                         {/* Oferta */}
                         <div className="mt-2 rounded-md bg-slate-50 border border-slate-200 px-2.5 py-2">
                           <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">
@@ -813,7 +824,6 @@ export function TrabajosDiariosAveriasView() {
                           </p>
                           <OfertaDisplay cliente={cliente} />
                         </div>
-
                         {/* Avería */}
                         <div className="mt-2 space-y-2">
                           {averia.codigo && (
@@ -821,9 +831,7 @@ export function TrabajosDiariosAveriasView() {
                               <p className="text-[11px] font-semibold uppercase tracking-wide text-blue-600">
                                 Código
                               </p>
-                              <p className="text-xs font-semibold text-blue-800">
-                                {averia.codigo}
-                              </p>
+                              <p className="text-xs font-semibold text-blue-800">{averia.codigo}</p>
                               <p className="text-xs text-blue-700 mt-0.5">
                                 {getAveriaCodigoLabel(averia.codigo).replace(`${averia.codigo} – `, "")}
                               </p>
@@ -841,15 +849,116 @@ export function TrabajosDiariosAveriasView() {
                             <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                               Fecha reporte
                             </p>
-                            <p className="text-xs text-slate-700">
-                              {formatFecha(averia.fecha_reporte)}
-                            </p>
+                            <p className="text-xs text-slate-700">{formatFecha(averia.fecha_reporte)}</p>
                           </div>
                         </div>
                       </button>
 
-                      {/* Botón agregar avería al cliente */}
-                      <div className="px-3.5 pb-3">
+                      {/* Acciones de la card */}
+                      <div className="px-3.5 pb-3 space-y-2">
+                        {/* Ver trabajos diarios */}
+                        <button
+                          type="button"
+                          className="w-full flex items-center justify-between gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-medium text-slate-600 hover:bg-slate-50 transition"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void toggleTrabajosDeLaAveria(safeText(averia.id), safeText(cliente.numero));
+                          }}
+                        >
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            Ver trabajos diarios
+                          </span>
+                          {loadingTrabajosAveria.has(safeText(averia.id)) ? (
+                            <RefreshCw className="h-3 w-3 animate-spin" />
+                          ) : expandedAverias.has(safeText(averia.id)) ? (
+                            <ChevronUp className="h-3 w-3" />
+                          ) : (
+                            <ChevronDown className="h-3 w-3" />
+                          )}
+                        </button>
+
+                        {/* Lista de trabajos expandida */}
+                        {expandedAverias.has(safeText(averia.id)) && (
+                          <div className="space-y-1.5">
+                            {(trabajosPorAveria[safeText(averia.id)] ?? []).length === 0 ? (
+                              <p className="text-[11px] text-slate-400 text-center py-2">
+                                Sin trabajos diarios registrados
+                              </p>
+                            ) : (
+                              (trabajosPorAveria[safeText(averia.id)] ?? []).map((t, ti) => {
+                                const estaAbierto = !t.cierre_diario_confirmado;
+                                const tienePendiente = !!t.hay_pendiente;
+                                return (
+                                  <div
+                                    key={t.id ?? ti}
+                                    className={cn(
+                                      "rounded-md border px-2.5 py-2 space-y-1 text-[11px]",
+                                      estaAbierto
+                                        ? "border-blue-200 bg-blue-50"
+                                        : tienePendiente
+                                          ? "border-amber-200 bg-amber-50"
+                                          : "border-emerald-200 bg-emerald-50",
+                                    )}
+                                  >
+                                    <div className="flex items-center justify-between gap-1">
+                                      <span className="flex items-center gap-1 font-semibold text-slate-700">
+                                        <Calendar className="h-2.5 w-2.5" />
+                                        {safeText(t.fecha_trabajo).slice(0, 10) || "Sin fecha"}
+                                      </span>
+                                      <span
+                                        className={cn(
+                                          "rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+                                          estaAbierto
+                                            ? "bg-blue-200 text-blue-800"
+                                            : tienePendiente
+                                              ? "bg-amber-200 text-amber-800"
+                                              : "bg-emerald-200 text-emerald-800",
+                                        )}
+                                      >
+                                        {estaAbierto ? "Abierto" : tienePendiente ? "Pendiente" : "Cerrado"}
+                                      </span>
+                                    </div>
+                                    {t.instaladores && t.instaladores.length > 0 && (
+                                      <p className="text-slate-600 truncate">
+                                        {t.instaladores.join(", ")}
+                                      </p>
+                                    )}
+                                    {(t.hora_salida || t.hora_llegada_trabajo || t.hora_concluido || t.hora_llegada_almacen) && (
+                                      <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-slate-600">
+                                        {t.hora_salida && (
+                                          <span className="flex items-center gap-0.5">
+                                            <Clock className="h-2.5 w-2.5" />
+                                            Sal: {t.hora_salida}
+                                          </span>
+                                        )}
+                                        {t.hora_llegada_trabajo && (
+                                          <span>Lleg: {t.hora_llegada_trabajo}</span>
+                                        )}
+                                        {t.hora_concluido && (
+                                          <span>Fin: {t.hora_concluido}</span>
+                                        )}
+                                        {t.hora_llegada_almacen && (
+                                          <span>Alm: {t.hora_llegada_almacen}</span>
+                                        )}
+                                      </div>
+                                    )}
+                                    {tienePendiente && t.descripcion_pendiente && (
+                                      <p className="text-amber-700 font-medium">
+                                        ⚠ {t.descripcion_pendiente}
+                                      </p>
+                                    )}
+                                    {t.solucion && !estaAbierto && !tienePendiente && (
+                                      <p className="text-emerald-700 truncate">✓ {t.solucion}</p>
+                                    )}
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        )}
+
+                        {/* Agregar avería al cliente */}
                         <button
                           type="button"
                           className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-orange-300 py-1.5 text-[11px] font-medium text-orange-600 hover:bg-orange-50 transition"
@@ -1036,10 +1145,10 @@ export function TrabajosDiariosAveriasView() {
                   onChange={handleTrabajoChange}
                   materialesResumen={materialesResumen}
                   onMaterialesResumenChange={setMaterialesResumen}
-                  onSubmit={() => void handleSave()}
-                  submitLabel="Guardar avería"
+                  onSubmit={() => void handleCloseDay()}
+                  submitLabel="Cerrar día"
                   showSubmitButton={false}
-                  isSaving={saving}
+                  isSaving={closing}
                   showInicioSection={true}
                   showMaterialesSection={false}
                   forcedTipoTrabajo="AVERIA"
@@ -1059,24 +1168,14 @@ export function TrabajosDiariosAveriasView() {
                   Nuevo trabajo para hoy
                 </Button>
               ) : (
-                <>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => void handleSave()}
-                    disabled={saving || closing}
-                  >
-                    {saving ? "Guardando..." : "Guardar"}
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={() => void handleCloseDay()}
-                    disabled={saving || closing}
-                    className="bg-gradient-to-r from-emerald-500 to-emerald-600"
-                  >
-                    {closing ? "Cerrando..." : "Cerrar día"}
-                  </Button>
-                </>
+                <Button
+                  type="button"
+                  onClick={() => void handleCloseDay()}
+                  disabled={closing}
+                  className="bg-gradient-to-r from-emerald-500 to-emerald-600"
+                >
+                  {closing ? "Cerrando día..." : "Cerrar día"}
+                </Button>
               )}
             </div>
           )}
