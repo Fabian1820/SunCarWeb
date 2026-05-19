@@ -9,6 +9,7 @@ import { Search, Loader2, UserPlus } from "lucide-react"
 import { useBrigadasTrabajadores } from '@/hooks/use-brigadas-trabajadores'
 import { TrabajadoresTable } from '@/components/feats/worker/trabajadores-table'
 import { TrabajadorService, RecursosHumanosService } from '@/lib/api-services'
+import { DEFAULT_ADMIN_PASS, asignarAdminPassDefault } from '@/lib/auth/default-admin-pass'
 import { AsignarBrigadaForm } from '@/components/feats/brigade/AsignarBrigadaForm'
 import { ConvertirJefeForm } from '@/components/feats/brigade/ConvertirJefeForm'
 import { convertBrigadaToFrontend } from "@/lib/utils/brigada-converters"
@@ -127,45 +128,34 @@ export default function TrabajadoresPage() {
         departamento_id: data.departamento_id ?? null,
       }
 
+      let baseMessage = ''
       if (data.mode === 'trabajador') {
-        // Crear trabajador simple
         await TrabajadorService.crearTrabajador(data.ci, data.name, undefined, relaciones)
-        // Actualizar is_brigadista usando endpoint de RRHH
         await RecursosHumanosService.actualizarTrabajadorRRHH(data.ci, { is_brigadista: true })
-        toast({
-          title: "Éxito",
-          description: 'Instalador creado correctamente',
-        });
+        baseMessage = 'Instalador creado correctamente'
       } else if (data.mode === 'trabajador_asignar') {
-        // Crear trabajador y asignar a brigada
         await TrabajadorService.crearTrabajador(data.ci, data.name, undefined, relaciones)
-        // Actualizar is_brigadista usando endpoint de RRHH
         await RecursosHumanosService.actualizarTrabajadorRRHH(data.ci, { is_brigadista: true })
         await TrabajadorService.asignarTrabajadorABrigada(data.brigadeId, data.ci, data.name)
-        toast({
-          title: "Éxito",
-          description: 'Instalador creado y asignado a brigada correctamente',
-        });
+        baseMessage = 'Instalador creado y asignado a brigada correctamente'
       } else if (data.mode === 'jefe') {
-        // Crear jefe sin integrantes
         await TrabajadorService.crearJefeBrigada(data.ci, data.name, data.password, [], relaciones)
-        // Actualizar is_brigadista usando endpoint de RRHH
         await RecursosHumanosService.actualizarTrabajadorRRHH(data.ci, { is_brigadista: true })
-        toast({
-          title: "Éxito",
-          description: 'Jefe de brigada creado correctamente',
-        });
+        baseMessage = 'Jefe de brigada creado correctamente'
       } else if (data.mode === 'jefe_brigada') {
-        // Crear jefe con integrantes
         const integrantesArr = data.integrantes.map((ci: string) => ({ CI: ci }))
         await TrabajadorService.crearJefeBrigada(data.ci, data.name, data.password, integrantesArr, relaciones)
-        // Actualizar is_brigadista usando endpoint de RRHH
         await RecursosHumanosService.actualizarTrabajadorRRHH(data.ci, { is_brigadista: true })
-        toast({
-          title: "Éxito",
-          description: 'Jefe de brigada creado con integrantes correctamente',
-        });
+        baseMessage = 'Jefe de brigada creado con integrantes correctamente'
       }
+
+      const adminPassOk = await asignarAdminPassDefault(data.ci)
+      toast({
+        title: "Éxito",
+        description: adminPassOk
+          ? `${baseMessage}. Contraseña del dashboard: ${DEFAULT_ADMIN_PASS} (puede cambiarla desde su perfil).`
+          : `${baseMessage}. Asigne la contraseña del dashboard manualmente desde /permisos.`,
+      })
 
       if (relaciones.sede_id || relaciones.departamento_id) {
         await TrabajadorService.actualizarRelacionesTrabajador(data.ci, relaciones)

@@ -308,12 +308,19 @@ export function useRecursosHumanos() {
           );
         }
 
+        const { DEFAULT_ADMIN_PASS, asignarAdminPassDefault } = await import(
+          "@/lib/auth/default-admin-pass"
+        );
+        const adminPassOk = await asignarAdminPassDefault(data.ci);
+
         // Recargar lista de trabajadores
         await loadData();
 
         return {
           success: true,
-          message: "Trabajador creado exitosamente",
+          message: adminPassOk
+            ? `Trabajador creado exitosamente. Contraseña del dashboard: ${DEFAULT_ADMIN_PASS}.`
+            : "Trabajador creado exitosamente. Asigne la contraseña del dashboard manualmente desde /permisos.",
           trabajador_id,
         };
       } catch (err: any) {
