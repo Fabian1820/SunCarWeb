@@ -331,7 +331,13 @@ const [anularLoading, setAnularLoading]             = useState(false);
     if (!data.almacen_id?.trim()) throw new Error("Debe seleccionar un almacen");
     if (!data.materiales || data.materiales.length === 0) throw new Error("Debe agregar al menos un material");
     try {
-      await createSolicitud({ cliente_venta_id: clienteVentaId, almacen_id: data.almacen_id, materiales: data.materiales });
+      await createSolicitud({
+        cliente_venta_id: clienteVentaId,
+        almacen_id: data.almacen_id!,
+        materiales: data.materiales,
+        ...(data.oferta_venta_id && { oferta_venta_id: data.oferta_venta_id }),
+        ...(data.descuento_free && { descuento_free: data.descuento_free, motivo_descuento_free: (data as SolicitudVentaCreateData).motivo_descuento_free }),
+      });
       toast({ title: "Exito", description: "Solicitud de venta creada correctamente" });
       refreshAll();
     } catch (error) {

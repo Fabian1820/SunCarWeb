@@ -958,6 +958,7 @@ export function UpsertSolicitudVentaDialog({
       materiales: validMaterials.map((material) => ({
         material_id: material.material_id,
         cantidad: material.cantidad,
+        ...(material.precio > 0 && { precio: material.precio }),
         ...(material.descuento_porcentaje > 0 && { descuento_porcentaje: material.descuento_porcentaje }),
         ...(material.aumento_porcentaje > 0 && { aumento_porcentaje: parseFloat(material.aumento_porcentaje.toFixed(4)) }),
       })),
