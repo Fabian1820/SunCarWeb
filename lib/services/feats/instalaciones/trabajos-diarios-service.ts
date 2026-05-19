@@ -972,17 +972,13 @@ export class TrabajosDiariosService {
   ): Promise<TrabajoDiarioRegistro[]> {
     const endpoint = `${BASE_ENDPOINT}/cliente/${encodeURIComponent(clienteNumero)}`;
     const raw = await apiRequest<unknown>(endpoint, { method: "GET" });
-    console.log(`[getTrabajosByCliente] raw response:`, raw);
     const rows = toArray(raw);
-    console.log(`[getTrabajosByCliente] rows extraídos: ${rows.length}`);
     if (rows.length === 0) {
       if (!looksLikeTrabajoDiario(raw)) return [];
       const parsed = normalizeTrabajo(raw);
       return parsed ? [parsed] : [];
     }
-    const result = rows.map(normalizeTrabajo).filter(Boolean) as TrabajoDiarioRegistro[];
-    console.log(`[getTrabajosByCliente] trabajos normalizados: ${result.length}`, result.map(t => ({ id: t.id, averia_id: t.averia_id })));
-    return result;
+    return rows.map(normalizeTrabajo).filter(Boolean) as TrabajoDiarioRegistro[];
   }
 
   static async updateTrabajo(

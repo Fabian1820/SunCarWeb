@@ -46,12 +46,8 @@ import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
   Battery,
-  Calendar,
   Check,
-  ChevronDown,
-  ChevronUp,
   ChevronsUpDown,
-  Clock,
   Plus,
   RefreshCw,
   Search,
@@ -453,9 +449,6 @@ export function TrabajosDiariosAveriasView() {
   const [averiaCodigoEdit, setAveriaCodigoEdit] = useState<string>("");
   const [loadingTrabajo, setLoadingTrabajo] = useState(false);
   const draftsById = useRef<Record<string, TrabajoDiarioRegistro>>({});
-  const [expandedAverias, setExpandedAverias] = useState<Set<string>>(new Set());
-  const [trabajosPorAveria, setTrabajosPorAveria] = useState<Record<string, TrabajoDiarioRegistro[]>>({});
-  const [loadingTrabajosAveria, setLoadingTrabajosAveria] = useState<Set<string>>(new Set());
 
   const loadWorkers = useCallback(async () => {
     try {
@@ -490,57 +483,6 @@ export function TrabajosDiariosAveriasView() {
     }
   }, [toast]);
 
-  const fetchTrabajosDeAveria = useCallback(async (averiaId: string, clienteNumero: string) => {
-    setLoadingTrabajosAveria((prev) => new Set(prev).add(averiaId));
-    try {
-      const todos = await TrabajosDiariosService.getTrabajosByCliente(clienteNumero);
-      console.log(`[Averías] getTrabajosByCliente(${clienteNumero}) devolvió ${todos.length} trabajos`);
-      console.log(`[Averías] buscando averia_id="${averiaId}"`);
-      console.log(`[Averías] averia_ids en trabajos:`, todos.map((t) => ({ id: t.id, averia_id: t.averia_id, tipo: t.tipo_trabajo, cerrado: t.cierre_diario_confirmado })));
-      // Filtrar por averia_id exacto; si no hay ninguno con ese campo (datos viejos sin averia_id)
-      // usar todos los de tipo AVERIA para ese cliente como fallback
-      let deEstaAveria = todos
-        .filter((t) => safeText(t.averia_id) === averiaId)
-        .sort((a, b) => safeText(b.fecha_trabajo).localeCompare(safeText(a.fecha_trabajo)));
-      console.log(`[Averías] trabajos con averia_id exacto: ${deEstaAveria.length}`);
-      if (deEstaAveria.length === 0) {
-        deEstaAveria = todos
-          .filter((t) => safeText(t.tipo_trabajo) === "AVERIA")
-          .sort((a, b) => safeText(b.fecha_trabajo).localeCompare(safeText(a.fecha_trabajo)));
-        console.log(`[Averías] fallback por tipo AVERIA: ${deEstaAveria.length}`);
-      }
-      setTrabajosPorAveria((prev) => ({ ...prev, [averiaId]: deEstaAveria }));
-    } catch (err) {
-      console.error(`[Averías] error en getTrabajosByCliente(${clienteNumero}):`, err);
-      setTrabajosPorAveria((prev) => ({ ...prev, [averiaId]: [] }));
-    } finally {
-      setLoadingTrabajosAveria((prev) => { const next = new Set(prev); next.delete(averiaId); return next; });
-    }
-  }, []);
-
-  const recargarTrabajosDeAveria = useCallback((averiaId: string, clienteNumero: string) => {
-    if (!averiaId) return;
-    // Limpiar caché de esta avería y re-buscar
-    setTrabajosPorAveria((prev) => {
-      const next = { ...prev };
-      delete next[averiaId];
-      return next;
-    });
-    void fetchTrabajosDeAveria(averiaId, clienteNumero);
-  }, [fetchTrabajosDeAveria]);
-
-  const toggleTrabajosDeLaAveria = useCallback(async (averiaId: string, clienteNumero: string) => {
-    if (!averiaId) return;
-    const isExpanded = expandedAverias.has(averiaId);
-    setExpandedAverias((prev) => {
-      const next = new Set(prev);
-      if (isExpanded) { next.delete(averiaId); } else { next.add(averiaId); }
-      return next;
-    });
-    // Solo saltear la carga si ya hay datos cacheados (usar !== undefined para no confundir [] con "no cargado")
-    if (isExpanded || trabajosPorAveria[averiaId] !== undefined) return;
-    await fetchTrabajosDeAveria(averiaId, clienteNumero);
-  }, [expandedAverias, trabajosPorAveria, fetchTrabajosDeAveria]);
 
   useEffect(() => {
     void Promise.all([loadWorkers(), loadClientesConAverias()]);
@@ -760,22 +702,11 @@ export function TrabajosDiariosAveriasView() {
       if (!quedoPendiente) {
         setSoloPendientes(false);
       }
-      // Resetear el estado expandido de la avería que se acaba de cerrar para forzar recarga
-      const averiaIdCerrada = safeText(selectedItem.averia.id);
-      if (averiaIdCerrada) {
-        setExpandedAverias((prev) => {
-          const next = new Set(prev);
-          next.delete(averiaIdCerrada);
-          return next;
-        });
-      }
       setSelectedItem(null);
       setSelectedTrabajo(null);
       setInstaladores([]);
       setMaterialesResumen([]);
       setTrabajosAnteriores([]);
-      // Invalidar caché de trabajos para que se recarguen al expandir
-      setTrabajosPorAveria({});
       void loadClientesConAverias();
     } catch (error) {
       const message = error instanceof Error ? error.message : "No se pudo cerrar el día";
@@ -937,127 +868,7 @@ export function TrabajosDiariosAveriasView() {
                       </button>
 
                       {/* Acciones de la card */}
-                      <div className="px-3.5 pb-3 space-y-2">
-                        {/* Ver trabajos diarios */}
-                        <button
-                          type="button"
-                          className="w-full flex items-center justify-between gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-medium text-slate-600 hover:bg-slate-50 transition"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void toggleTrabajosDeLaAveria(safeText(averia.id), safeText(cliente.numero));
-                          }}
-                        >
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            Ver trabajos diarios
-                          </span>
-                          {loadingTrabajosAveria.has(safeText(averia.id)) ? (
-                            <RefreshCw className="h-3 w-3 animate-spin" />
-                          ) : expandedAverias.has(safeText(averia.id)) ? (
-                            <ChevronUp className="h-3 w-3" />
-                          ) : (
-                            <ChevronDown className="h-3 w-3" />
-                          )}
-                        </button>
-
-                        {/* Lista de trabajos expandida */}
-                        {expandedAverias.has(safeText(averia.id)) && (
-                          <div className="space-y-1.5">
-                            {/* Header del listado con botón de recarga */}
-                            <div className="flex items-center justify-between px-0.5">
-                              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                                Historial de trabajos
-                              </p>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  recargarTrabajosDeAveria(safeText(averia.id), safeText(cliente.numero));
-                                }}
-                                disabled={loadingTrabajosAveria.has(safeText(averia.id))}
-                                className="text-slate-400 hover:text-slate-600 transition"
-                                title="Recargar trabajos"
-                              >
-                                <RefreshCw className={cn("h-3 w-3", loadingTrabajosAveria.has(safeText(averia.id)) && "animate-spin")} />
-                              </button>
-                            </div>
-                            {(trabajosPorAveria[safeText(averia.id)] ?? []).length === 0 ? (
-                              <p className="text-[11px] text-slate-400 text-center py-2">
-                                Sin trabajos diarios registrados
-                              </p>
-                            ) : (
-                              (trabajosPorAveria[safeText(averia.id)] ?? []).map((t, ti) => {
-                                const estaAbierto = !t.cierre_diario_confirmado;
-                                const tienePendiente = !!t.hay_pendiente;
-                                return (
-                                  <div
-                                    key={t.id ?? ti}
-                                    className={cn(
-                                      "rounded-md border px-2.5 py-2 space-y-1 text-[11px]",
-                                      estaAbierto
-                                        ? "border-blue-200 bg-blue-50"
-                                        : tienePendiente
-                                          ? "border-amber-200 bg-amber-50"
-                                          : "border-emerald-200 bg-emerald-50",
-                                    )}
-                                  >
-                                    <div className="flex items-center justify-between gap-1">
-                                      <span className="flex items-center gap-1 font-semibold text-slate-700">
-                                        <Calendar className="h-2.5 w-2.5" />
-                                        {safeText(t.fecha_trabajo).slice(0, 10) || "Sin fecha"}
-                                      </span>
-                                      <span
-                                        className={cn(
-                                          "rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
-                                          estaAbierto
-                                            ? "bg-blue-200 text-blue-800"
-                                            : tienePendiente
-                                              ? "bg-amber-200 text-amber-800"
-                                              : "bg-emerald-200 text-emerald-800",
-                                        )}
-                                      >
-                                        {estaAbierto ? "Abierto" : tienePendiente ? "Pendiente" : "Cerrado"}
-                                      </span>
-                                    </div>
-                                    {t.instaladores && t.instaladores.length > 0 && (
-                                      <p className="text-slate-600 truncate">
-                                        {t.instaladores.join(", ")}
-                                      </p>
-                                    )}
-                                    {(t.hora_salida || t.hora_llegada_trabajo || t.hora_concluido || t.hora_llegada_almacen) && (
-                                      <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-slate-600">
-                                        {t.hora_salida && (
-                                          <span className="flex items-center gap-0.5">
-                                            <Clock className="h-2.5 w-2.5" />
-                                            Sal: {t.hora_salida}
-                                          </span>
-                                        )}
-                                        {t.hora_llegada_trabajo && (
-                                          <span>Lleg: {t.hora_llegada_trabajo}</span>
-                                        )}
-                                        {t.hora_concluido && (
-                                          <span>Fin: {t.hora_concluido}</span>
-                                        )}
-                                        {t.hora_llegada_almacen && (
-                                          <span>Alm: {t.hora_llegada_almacen}</span>
-                                        )}
-                                      </div>
-                                    )}
-                                    {tienePendiente && t.descripcion_pendiente && (
-                                      <p className="text-amber-700 font-medium">
-                                        ⚠ {t.descripcion_pendiente}
-                                      </p>
-                                    )}
-                                    {t.solucion && !estaAbierto && !tienePendiente && (
-                                      <p className="text-emerald-700 truncate">✓ {t.solucion}</p>
-                                    )}
-                                  </div>
-                                );
-                              })
-                            )}
-                          </div>
-                        )}
-
+                      <div className="px-3.5 pb-3">
                         {/* Agregar avería al cliente */}
                         <button
                           type="button"
