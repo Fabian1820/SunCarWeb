@@ -23,7 +23,6 @@ import {
   ShoppingBag,
   ShoppingCart,
   BarChart3,
-  Trophy,
   FileSpreadsheet,
   PackageSearch,
   Wallet,
@@ -46,9 +45,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/shared/molecule/dialog";
-import FormViewer from "@/components/feats/reports/FormViewerNoSSR";
-import { ReporteService, ClienteService, TasaCambioService } from "@/lib/api-services";
-import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
+import { TasaCambioService } from "@/lib/api-services";
 import ContactosDashboard from "@/components/feats/contactos/contactos-dashboard";
 import { TicketManualDialog } from "@/components/feats/dashboard/ticket-manual-dialog";
 import { Toaster } from "@/components/shared/molecule/toaster";
@@ -61,17 +58,12 @@ import { useMyWalletPermiso } from "@/hooks/use-wallet-permisos";
 export default function Dashboard() {
   const { hasPermission, user, loadModulosPermitidos } = useAuth();
   const { permiso: myWalletPermiso } = useMyWalletPermiso();
-  const [selectedForm, setSelectedForm] = useState<any>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isContactosDialogOpen, setIsContactosDialogOpen] = useState(false);
   const [isTasaCambioDialogOpen, setIsTasaCambioDialogOpen] = useState(false);
   const [isTicketDialogOpen, setIsTicketDialogOpen] = useState(false);
   const [tasaCambioHoy, setTasaCambioHoy] = useState<TasaCambio | null>(null);
   const [loadingTasaCambio, setLoadingTasaCambio] = useState(false);
   const [errorTasaCambio, setErrorTasaCambio] = useState<string | null>(null);
-  const [recentReports, setRecentReports] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [clients, setClients] = useState<any[]>([]);
   const headerRef = useRef<HTMLElement | null>(null);
   const [headerHeight, setHeaderHeight] = useState<number>(120);
   const [mergingTarget, setMergingTarget] = useState<"frontend" | "backend" | null>(null);
@@ -170,15 +162,6 @@ export default function Dashboard() {
       description: "Resultados por vendedor: ofertas, confirmadas y cobros.",
       iconClass: "text-teal-600",
     },
-    // Módulo "Resultados" oculto temporalmente — se reactivará más adelante.
-    // {
-    //   id: "resultados",
-    //   href: "/resultados",
-    //   icon: Trophy,
-    //   title: "Resultados",
-    //   description: "Indicadores principales y presencia nacional.",
-    //   iconClass: "text-amber-600",
-    // },
     {
       id: "centro-control",
       href: "/centro-control",
@@ -236,15 +219,6 @@ export default function Dashboard() {
       description: "Gestionar recursos asignados a trabajadores e instalaciones.",
       iconClass: "text-indigo-600",
     },
-    // Módulo "Gestionar Reportes" oculto temporalmente.
-    // {
-    //   id: "reportes",
-    //   href: "/reportes",
-    //   icon: FileCheck,
-    //   title: "Gestionar Reportes",
-    //   description: "Administrar historial de reportes.",
-    //   iconClass: "text-emerald-600",
-    // },
     {
       id: "materiales",
       href: "/materiales",
@@ -374,15 +348,6 @@ export default function Dashboard() {
       description: "Gestión de inventario contable y tickets de salida",
       iconClass: "text-purple-600",
     },
-    // Comentados temporalmente por no uso u obsolescencia visual:
-    // { id: "articulos-tienda", href: "/articulos-tienda", icon: ShoppingBag, title: "Artículos Tienda", description: "Administrar catálogo de artículos de tienda.", iconClass: "text-blue-600" },
-    // { id: "estadisticas", href: "/estadisticas", icon: BarChart3, title: "Estadísticas", description: "Análisis de crecimiento mensual y métricas clave.", iconClass: "text-purple-600" },
-    // { id: "radar-energetico", permission: "estadisticas", href: "/radar-energetico", icon: Map, title: "Radar Energético", description: "Mapa táctico por municipio con calor de potencia instalada.", iconClass: "text-cyan-600" },
-    // { id: "ofertas", href: "/ofertas", icon: Tag, title: "Ofertas", description: "Gestión de ofertas y promociones.", iconClass: "text-orange-600" },
-    // { id: "ofertas-personalizadas", href: "/ofertas-personalizadas", icon: Sparkles, title: "Ofertas Personalizadas", description: "Crear ofertas personalizadas para clientes.", iconClass: "text-amber-600" },
-    // { id: "ordenes-trabajo", href: "/ordenes-trabajo", icon: ClipboardList, title: "�"rdenes de Trabajo", description: "Crear y gestionar órdenes para brigadas.", iconClass: "text-purple-600" },
-    // { id: "trabajos-pendientes", href: "/trabajos-pendientes", icon: FileText, title: "Trabajos Pendientes", description: "Gestión de trabajos pendientes y seguimiento.", iconClass: "text-indigo-600" },
-    // { id: "whatsapp", href: "/whatsapp", icon: MessageSquare, title: "WhatsApp Business", description: "Gestión de conversaciones y atención al cliente.", iconClass: "text-green-600" },
   ];
 
   const moduleGroups: ModuleGroup[] = [
@@ -495,23 +460,8 @@ export default function Dashboard() {
       ]
     : [];
 
-  const normalizeComparableText = (value: string | undefined | null) =>
-    String(value || "")
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .trim();
-
-  const canViewTrabajadoresCard =
-    user?.is_superAdmin === true ||
-    normalizeComparableText(user?.nombre) ===
-      normalizeComparableText("Ilina Gómez Martínez");
-
   const availableModules = [
     ...allModules.filter((module) => {
-      if (module.id === "trabajadores" && !canViewTrabajadoresCard) {
-        return false;
-      }
       // Wallet es accesible para todos los usuarios autenticados
       if (module.id === "wallet") {
         return true;
@@ -534,61 +484,6 @@ export default function Dashboard() {
         .filter((module): module is DashboardModule => Boolean(module)),
     }))
     .filter((group) => group.modules.length > 0);
-
-  useEffect(() => {
-    // Obtener los reportes más recientes del backend
-    const fetchRecentReports = async () => {
-      setLoading(true);
-      try {
-        const data = await ReporteService.getReportes();
-        // Ordenar por fecha descendente y tomar los 3 más recientes
-        const sorted = Array.isArray(data)
-          ? [...data].sort(
-              (a, b) =>
-                new Date(
-                  b.fecha_hora?.fecha ||
-                    b.dateTime?.date ||
-                    b.fecha_creacion ||
-                    0,
-                ).getTime() -
-                new Date(
-                  a.fecha_hora?.fecha ||
-                    a.dateTime?.date ||
-                    a.fecha_creacion ||
-                    0,
-                ).getTime(),
-            )
-          : [];
-        setRecentReports(sorted.slice(0, 3));
-      } catch (e) {
-        setRecentReports([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    // Cargar clientes siempre
-    const fetchClients = async () => {
-      try {
-        const response = await ClienteService.getClientes();
-        // El servicio devuelve { clients: Cliente[], total, skip, limit }
-        setClients(response.clients || []);
-      } catch (e) {
-        setClients([]);
-      }
-    };
-
-    fetchRecentReports();
-    fetchClients();
-  }, []);
-
-  const openFormDialog = (form: any) => {
-    setSelectedForm(form);
-    setIsDialogOpen(true);
-  };
-
-  const getClienteByNumero = (numero: string | number) =>
-    clients.find((c) => String(c.numero) === String(numero));
 
   const formatExchangeRate = (value: number) => Number(value || 0).toFixed(4);
   const formatInverseExchangeRate = (value: number) => {
@@ -820,23 +715,6 @@ export default function Dashboard() {
           )}
         </div>
       </main>
-
-      {/* Form Viewer Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          {/* DialogTitle oculto para accesibilidad */}
-          <VisuallyHidden asChild>
-            <DialogTitle>Reporte H-1114</DialogTitle>
-          </VisuallyHidden>
-          {/* El encabezado visual se muestra solo dentro de FormViewer */}
-          {selectedForm && (
-            <FormViewer
-              formData={selectedForm}
-              clienteCompleto={getClienteByNumero(selectedForm.cliente?.numero)}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
 
       {/* Contactos Dialog */}
       <Dialog
