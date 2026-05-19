@@ -434,6 +434,7 @@ export function TrabajosDiariosAveriasView() {
   const [clientesConAverias, setClientesConAverias] = useState<ClienteConAveria[]>([]);
   const [selectedItem, setSelectedItem] = useState<ClienteConAveria | null>(null);
   const [searchCliente, setSearchCliente] = useState("");
+  const [soloPendientes, setSoloPendientes] = useState(true);
   const [showNuevaAveriaDialog, setShowNuevaAveriaDialog] = useState(false);
   const [clienteParaNuevaAveria, setClienteParaNuevaAveria] = useState<Cliente | null>(null);
 
@@ -471,8 +472,11 @@ export function TrabajosDiariosAveriasView() {
       const clientes = await ClienteService.getClientesConAverias();
       const items: ClienteConAveria[] = [];
       for (const cliente of clientes) {
-        const pendientes = (cliente.averias || []).filter((a) => a.estado === "Pendiente");
-        for (const averia of pendientes) {
+        // Cargar TODAS las averías (pendientes y solucionadas) para poder ver el historial
+        const todasAverias = (cliente.averias || []).filter(
+          (a) => a.estado === "Pendiente" || a.estado === "Solucionada",
+        );
+        for (const averia of todasAverias) {
           items.push({ cliente, averia });
         }
       }
@@ -486,15 +490,7 @@ export function TrabajosDiariosAveriasView() {
     }
   }, [toast]);
 
-  const toggleTrabajosDeLaAveria = useCallback(async (averiaId: string, clienteNumero: string) => {
-    if (!averiaId) return;
-    const isExpanded = expandedAverias.has(averiaId);
-    setExpandedAverias((prev) => {
-      const next = new Set(prev);
-      if (isExpanded) { next.delete(averiaId); } else { next.add(averiaId); }
-      return next;
-    });
-    if (isExpanded || trabajosPorAveria[averiaId]) return;
+  const fetchTrabajosDeAveria = useCallback(async (averiaId: string, clienteNumero: string) => {
     setLoadingTrabajosAveria((prev) => new Set(prev).add(averiaId));
     try {
       const todos = await TrabajosDiariosService.getTrabajosByCliente(clienteNumero);
@@ -514,7 +510,31 @@ export function TrabajosDiariosAveriasView() {
     } finally {
       setLoadingTrabajosAveria((prev) => { const next = new Set(prev); next.delete(averiaId); return next; });
     }
-  }, [expandedAverias, trabajosPorAveria]);
+  }, []);
+
+  const recargarTrabajosDeAveria = useCallback((averiaId: string, clienteNumero: string) => {
+    if (!averiaId) return;
+    // Limpiar caché de esta avería y re-buscar
+    setTrabajosPorAveria((prev) => {
+      const next = { ...prev };
+      delete next[averiaId];
+      return next;
+    });
+    void fetchTrabajosDeAveria(averiaId, clienteNumero);
+  }, [fetchTrabajosDeAveria]);
+
+  const toggleTrabajosDeLaAveria = useCallback(async (averiaId: string, clienteNumero: string) => {
+    if (!averiaId) return;
+    const isExpanded = expandedAverias.has(averiaId);
+    setExpandedAverias((prev) => {
+      const next = new Set(prev);
+      if (isExpanded) { next.delete(averiaId); } else { next.add(averiaId); }
+      return next;
+    });
+    // Solo saltear la carga si ya hay datos cacheados (usar !== undefined para no confundir [] con "no cargado")
+    if (isExpanded || trabajosPorAveria[averiaId] !== undefined) return;
+    await fetchTrabajosDeAveria(averiaId, clienteNumero);
+  }, [expandedAverias, trabajosPorAveria, fetchTrabajosDeAveria]);
 
   useEffect(() => {
     void Promise.all([loadWorkers(), loadClientesConAverias()]);
@@ -546,15 +566,19 @@ export function TrabajosDiariosAveriasView() {
   );
 
   const itemsFiltrados = useMemo(() => {
-    if (!searchCliente.trim()) return clientesConAverias;
+    let base = clientesConAverias;
+    if (soloPendientes) {
+      base = base.filter(({ averia }) => averia.estado === "Pendiente");
+    }
+    if (!searchCliente.trim()) return base;
     const q = searchCliente.toLowerCase();
-    return clientesConAverias.filter(
+    return base.filter(
       ({ cliente, averia }) =>
         safeText(cliente.nombre).toLowerCase().includes(q) ||
         safeText(cliente.numero).toLowerCase().includes(q) ||
         safeText(averia.descripcion).toLowerCase().includes(q),
     );
-  }, [clientesConAverias, searchCliente]);
+  }, [clientesConAverias, searchCliente, soloPendientes]);
 
   const crearBorradorNuevo = useCallback(
     (item: ClienteConAveria): TrabajoDiarioRegistro => ({
@@ -721,10 +745,24 @@ export function TrabajosDiariosAveriasView() {
         id: trabajoId,
         cierre_diario_confirmado: true,
       });
-      const estadoMsg = payload.hay_pendiente
+      const quedoPendiente = payload.hay_pendiente === true;
+      const estadoMsg = quedoPendiente
         ? "La avería quedó como pendiente."
-        : "La avería fue marcada como solucionada.";
+        : "La avería fue marcada como solucionada. Puedes verla activando 'Ver solucionadas'.";
       toast({ title: "Día cerrado", description: estadoMsg });
+      // Si la avería quedó solucionada, mostrar solucionadas automáticamente para que el usuario la vea
+      if (!quedoPendiente) {
+        setSoloPendientes(false);
+      }
+      // Resetear el estado expandido de la avería que se acaba de cerrar para forzar recarga
+      const averiaIdCerrada = safeText(selectedItem.averia.id);
+      if (averiaIdCerrada) {
+        setExpandedAverias((prev) => {
+          const next = new Set(prev);
+          next.delete(averiaIdCerrada);
+          return next;
+        });
+      }
       setSelectedItem(null);
       setSelectedTrabajo(null);
       setInstaladores([]);
@@ -749,7 +787,7 @@ export function TrabajosDiariosAveriasView() {
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between gap-2">
               <CardTitle className="text-base">
-                Averías pendientes ({itemsFiltrados.length})
+                Averías ({itemsFiltrados.length})
               </CardTitle>
               <div className="flex items-center gap-1.5 shrink-0">
                 <Button
@@ -773,19 +811,36 @@ export function TrabajosDiariosAveriasView() {
                 </Button>
               </div>
             </div>
-            <Input
-              placeholder="Buscar cliente o avería..."
-              value={searchCliente}
-              onChange={(e) => setSearchCliente(e.target.value)}
-              className="mt-2 h-8 text-sm"
-            />
+            <div className="flex items-center gap-2 mt-2">
+              <Input
+                placeholder="Buscar cliente o avería..."
+                value={searchCliente}
+                onChange={(e) => setSearchCliente(e.target.value)}
+                className="h-8 text-sm flex-1"
+              />
+              <button
+                type="button"
+                onClick={() => setSoloPendientes((v) => !v)}
+                className={cn(
+                  "shrink-0 rounded-md px-2 py-1 text-[11px] font-medium border transition",
+                  soloPendientes
+                    ? "bg-orange-50 border-orange-300 text-orange-700"
+                    : "bg-slate-50 border-slate-300 text-slate-600",
+                )}
+                title={soloPendientes ? "Mostrando solo pendientes — click para ver todas" : "Mostrando todas — click para ver solo pendientes"}
+              >
+                {soloPendientes ? "Solo pendientes" : "Ver todas"}
+              </button>
+            </div>
           </CardHeader>
 
           <CardContent className="flex-1 overflow-y-auto px-0 pb-0">
             {loadingClientes ? (
               <p className="text-sm text-muted-foreground px-6 py-4">Cargando...</p>
             ) : itemsFiltrados.length === 0 ? (
-              <p className="text-sm text-muted-foreground px-6 py-4">No hay averías pendientes.</p>
+              <p className="text-sm text-muted-foreground px-6 py-4">
+                {soloPendientes ? "No hay averías pendientes." : "No hay averías registradas."}
+              </p>
             ) : (
               <div className="space-y-3 p-3">
                 {itemsFiltrados.map(({ cliente, averia }) => {
@@ -801,7 +856,9 @@ export function TrabajosDiariosAveriasView() {
                         "w-full text-left rounded-xl border transition shadow-sm overflow-hidden",
                         active
                           ? "border-orange-300 bg-orange-50 ring-1 ring-orange-100"
-                          : "border-slate-200 bg-white",
+                          : averia.estado === "Solucionada"
+                            ? "border-emerald-200 bg-emerald-50/40"
+                            : "border-slate-200 bg-white",
                       )}
                     >
                       {/* Zona clickable principal */}
@@ -810,9 +867,21 @@ export function TrabajosDiariosAveriasView() {
                         className="w-full text-left p-3.5 hover:bg-orange-50/60 transition"
                         onClick={() => void handleSelectItem({ cliente, averia })}
                       >
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                          Cliente
-                        </p>
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                            Cliente
+                          </p>
+                          <span
+                            className={cn(
+                              "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                              averia.estado === "Solucionada"
+                                ? "bg-emerald-100 text-emerald-700"
+                                : "bg-orange-100 text-orange-700",
+                            )}
+                          >
+                            {averia.estado === "Solucionada" ? "✓ Solucionada" : "⚡ Pendiente"}
+                          </span>
+                        </div>
                         <p className="text-sm font-semibold text-slate-900 truncate mt-0.5">
                           {safeText(cliente.nombre, "Sin nombre")}
                         </p>
@@ -888,6 +957,24 @@ export function TrabajosDiariosAveriasView() {
                         {/* Lista de trabajos expandida */}
                         {expandedAverias.has(safeText(averia.id)) && (
                           <div className="space-y-1.5">
+                            {/* Header del listado con botón de recarga */}
+                            <div className="flex items-center justify-between px-0.5">
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                                Historial de trabajos
+                              </p>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  recargarTrabajosDeAveria(safeText(averia.id), safeText(cliente.numero));
+                                }}
+                                disabled={loadingTrabajosAveria.has(safeText(averia.id))}
+                                className="text-slate-400 hover:text-slate-600 transition"
+                                title="Recargar trabajos"
+                              >
+                                <RefreshCw className={cn("h-3 w-3", loadingTrabajosAveria.has(safeText(averia.id)) && "animate-spin")} />
+                              </button>
+                            </div>
                             {(trabajosPorAveria[safeText(averia.id)] ?? []).length === 0 ? (
                               <p className="text-[11px] text-slate-400 text-center py-2">
                                 Sin trabajos diarios registrados
