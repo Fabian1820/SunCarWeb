@@ -13,7 +13,7 @@ interface TrabajadorDetalleModalProps {
   trabajador: TrabajadorConAsignaciones | null
   onAdd: () => void
   onEdit: (a: Asignacion) => void
-  onDelete: (asignacionId: string) => void
+  onDelete: (a: Asignacion) => void
   loading?: boolean
 }
 
@@ -78,7 +78,7 @@ export function TrabajadorDetalleModal({
                     <Button variant="outline" size="sm" onClick={() => onEdit(a)} disabled={loading}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
-                    <Button variant="destructive" size="sm" onClick={() => onDelete(a.id)} disabled={loading}>
+                    <Button variant="destructive" size="sm" onClick={() => onDelete(a)} disabled={loading}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>

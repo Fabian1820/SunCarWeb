@@ -19,6 +19,7 @@ import type {
   AsignacionInstalacionCreateData,
   AsignacionInstalacionUpdateData,
   MaterialCatalogo,
+  MotivoMovimiento,
   HerramientaCatalogo,
   HerramientaAsignada,
   HerramientaAsignarData,
@@ -42,6 +43,9 @@ const normalizeAsignacionFlat = (raw: any): Asignacion & { ci?: string; instalac
   cantidad: Number(raw?.cantidad ?? 1),
   numero_serie: raw?.numero_serie ?? null,
   asignado_por: raw?.asignado_por ?? null,
+  activo: raw?.activo !== undefined ? Boolean(raw.activo) : true,
+  fecha_actualizacion: raw?.fecha_actualizacion ?? null,
+  historial: Array.isArray(raw?.historial) ? raw.historial : [],
   ci: raw?.ci ? String(raw.ci) : undefined,
   instalacion_id: raw?.instalacion_id ? String(raw.instalacion_id) : undefined,
 })
@@ -168,8 +172,19 @@ export class AsignacionService {
     return true
   }
 
-  static async removeAsignacion(ci: string, asignacionId: string): Promise<boolean> {
-    await apiRequest(`/asignaciones-trabajadores/${ci}/${asignacionId}`, { method: 'DELETE' })
+  /**
+   * Soft-delete: el backend ya no expone DELETE. Para "eliminar" hay que
+   * hacer PUT con cantidad=0 + motivo. La asignación queda marcada como
+   * inactiva pero se conserva en el historial.
+   */
+  static async removeAsignacion(
+    ci: string, asignacionId: string,
+    motivo: MotivoMovimiento, nota?: string,
+  ): Promise<boolean> {
+    await apiRequest(`/asignaciones-trabajadores/${ci}/${asignacionId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ cantidad: 0, motivo, ...(nota ? { nota } : {}) }),
+    })
     return true
   }
 
@@ -272,9 +287,14 @@ export class AsignacionService {
   static async removeAsignacionInstalacion(
     tipo: TipoInstalacion,
     id: string,
-    asignacionId: string
+    asignacionId: string,
+    motivo: MotivoMovimiento,
+    nota?: string,
   ): Promise<boolean> {
-    await apiRequest(`/asignaciones-instalaciones/${tipo}/${id}/${asignacionId}`, { method: 'DELETE' })
+    await apiRequest(`/asignaciones-instalaciones/${tipo}/${id}/${asignacionId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ cantidad: 0, motivo, ...(nota ? { nota } : {}) }),
+    })
     return true
   }
 
@@ -323,8 +343,14 @@ export class AsignacionService {
     return true
   }
 
-  static async removeHerramienta(ci: string, herramientaId: string): Promise<boolean> {
-    await apiRequest(`/asignaciones/${ci}/herramientas/${herramientaId}`, { method: 'DELETE' })
+  static async removeHerramienta(
+    ci: string, herramientaId: string,
+    motivo: MotivoMovimiento, nota?: string,
+  ): Promise<boolean> {
+    await apiRequest(`/asignaciones-trabajadores/${ci}/herramientas/${herramientaId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ cantidad: 0, motivo, ...(nota ? { nota } : {}) }),
+    })
     return true
   }
 

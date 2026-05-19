@@ -17,19 +17,19 @@ interface TrabajadorAsignacionesTableProps {
   mediosBasicos: MedioBasico[]
   onAddAsignacion: (ci: string, data: AsignacionCreateData) => Promise<boolean>
   onUpdateAsignacion: (ci: string, id: string, data: AsignacionUpdateData) => Promise<boolean>
-  onDeleteAsignacion: (ci: string, id: string) => void
   loading?: boolean
 }
 
 export function TrabajadorAsignacionesTable({
   trabajadores, mediosBasicos,
-  onAddAsignacion, onUpdateAsignacion, onDeleteAsignacion,
+  onAddAsignacion, onUpdateAsignacion,
   loading,
 }: TrabajadorAsignacionesTableProps) {
   const [selectedTrabajador, setSelectedTrabajador] = useState<TrabajadorConAsignaciones | null>(null)
   const [detalleOpen, setDetalleOpen] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingAsignacion, setEditingAsignacion] = useState<Asignacion | null>(null)
+  const [modoEliminar, setModoEliminar] = useState(false)
   const [busqueda, setBusqueda] = useState("")
 
   const trabajadoresFiltrados = useMemo(() => {
@@ -50,22 +50,23 @@ export function TrabajadorAsignacionesTable({
   const openAdd = (t?: TrabajadorConAsignaciones) => {
     if (t) setSelectedTrabajador(t)
     setEditingAsignacion(null)
+    setModoEliminar(false)
     setDetalleOpen(false)
     setDialogOpen(true)
   }
 
   const openEdit = (a: Asignacion) => {
     setEditingAsignacion(a)
+    setModoEliminar(false)
     setDetalleOpen(false)
     setDialogOpen(true)
   }
 
-  const handleDelete = (asignacionId: string) => {
-    if (!selectedTrabajador) return
-    onDeleteAsignacion(selectedTrabajador.CI, asignacionId)
-    setSelectedTrabajador(prev =>
-      prev ? { ...prev, asignaciones: prev.asignaciones.filter(a => a.id !== asignacionId) } : null
-    )
+  const openDelete = (a: Asignacion) => {
+    setEditingAsignacion(a)
+    setModoEliminar(true)
+    setDetalleOpen(false)
+    setDialogOpen(true)
   }
 
   const handleSave = async (
@@ -177,7 +178,7 @@ export function TrabajadorAsignacionesTable({
         trabajador={freshSelected}
         onAdd={() => openAdd()}
         onEdit={openEdit}
-        onDelete={handleDelete}
+        onDelete={openDelete}
         loading={loading}
       />
 
@@ -188,6 +189,7 @@ export function TrabajadorAsignacionesTable({
           entityLabel={selectedTrabajador.nombre}
           mediosBasicos={mediosBasicos}
           asignacion={editingAsignacion}
+          modoEliminar={modoEliminar}
           onSave={handleSave as any}
           loading={loading}
         />

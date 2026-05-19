@@ -76,7 +76,7 @@ interface InstalacionAsignacionesTabProps {
 export function InstalacionAsignacionesTab({ mediosBasicos }: InstalacionAsignacionesTabProps) {
   const {
     data, loading, error, clearError,
-    addAsignacion, updateAsignacion, removeAsignacion,
+    addAsignacion, updateAsignacion,
   } = useAllInstalacionesAsignaciones()
   const { toast } = useToast()
 
@@ -91,12 +91,14 @@ export function InstalacionAsignacionesTab({ mediosBasicos }: InstalacionAsignac
   const [dialogInstalacionId, setDialogInstalacionId] = useState("")
   const [dialogInstalacionNombre, setDialogInstalacionNombre] = useState("")
   const [editingAsignacion, setEditingAsignacion] = useState<AsignacionInstalacion | null>(null)
+  const [modoEliminar, setModoEliminar] = useState(false)
 
   const openAdd = (tipo: TipoInstalacion, inst: InstalacionConAsignaciones) => {
     setDialogTipo(tipo)
     setDialogInstalacionId(inst.id)
     setDialogInstalacionNombre(inst.nombre)
     setEditingAsignacion(null)
+    setModoEliminar(false)
     setDialogOpen(true)
   }
 
@@ -105,6 +107,16 @@ export function InstalacionAsignacionesTab({ mediosBasicos }: InstalacionAsignac
     setDialogInstalacionId(inst.id)
     setDialogInstalacionNombre(inst.nombre)
     setEditingAsignacion(a)
+    setModoEliminar(false)
+    setDialogOpen(true)
+  }
+
+  const openDelete = (tipo: TipoInstalacion, inst: InstalacionConAsignaciones, a: AsignacionInstalacion) => {
+    setDialogTipo(tipo)
+    setDialogInstalacionId(inst.id)
+    setDialogInstalacionNombre(inst.nombre)
+    setEditingAsignacion(a)
+    setModoEliminar(true)
     setDialogOpen(true)
   }
 
@@ -115,16 +127,9 @@ export function InstalacionAsignacionesTab({ mediosBasicos }: InstalacionAsignac
     const ok = asignacionId
       ? await updateAsignacion(dialogTipo, dialogInstalacionId, asignacionId, data as AsignacionInstalacionUpdateData)
       : await addAsignacion(dialogTipo, dialogInstalacionId, data as AsignacionInstalacionCreateData)
-    if (ok) toast({ title: "Éxito", description: asignacionId ? "Asignación actualizada" : "Asignación agregada" })
+    if (ok) toast({ title: "Éxito", description: asignacionId ? "Asignación guardada" : "Asignación agregada" })
     else toast({ title: "Error", description: "No se pudo guardar", variant: "destructive" })
     return ok
-  }
-
-  const handleDelete = async (tipo: TipoInstalacion, instalacionId: string, asignacionId: string) => {
-    if (!confirm("¿Eliminar esta asignación?")) return
-    const ok = await removeAsignacion(tipo, instalacionId, asignacionId)
-    if (ok) toast({ title: "Éxito", description: "Asignación eliminada" })
-    else toast({ title: "Error", description: "No se pudo eliminar", variant: "destructive" })
   }
 
   const toggleSeccion = (tipo: TipoInstalacion) =>
@@ -206,7 +211,7 @@ export function InstalacionAsignacionesTab({ mediosBasicos }: InstalacionAsignac
                           loading={loading}
                           onAdd={() => openAdd(tipo, inst)}
                           onEdit={a => openEdit(tipo, inst, a)}
-                          onDelete={asignacionId => handleDelete(tipo, inst.id, asignacionId)}
+                          onDelete={a => openDelete(tipo, inst, a)}
                         />
                       ))}
                     </div>
@@ -224,6 +229,7 @@ export function InstalacionAsignacionesTab({ mediosBasicos }: InstalacionAsignac
         entityLabel={dialogInstalacionNombre}
         mediosBasicos={mediosBasicos}
         asignacion={editingAsignacion}
+        modoEliminar={modoEliminar}
         onSave={handleSave as any}
         loading={loading}
       />
@@ -239,7 +245,7 @@ interface InstalacionCardProps {
   loading?: boolean
   onAdd: () => void
   onEdit: (a: AsignacionInstalacion) => void
-  onDelete: (asignacionId: string) => void
+  onDelete: (a: AsignacionInstalacion) => void
 }
 
 function InstalacionCard({ inst, colores, loading, onAdd, onEdit, onDelete }: InstalacionCardProps) {
@@ -305,7 +311,7 @@ function InstalacionCard({ inst, colores, loading, onAdd, onEdit, onDelete }: In
                 <Button variant="outline" size="sm" className="h-6 w-6 p-0" onClick={() => onEdit(a)} disabled={loading}>
                   <Pencil className="h-3 w-3" />
                 </Button>
-                <Button variant="destructive" size="sm" className="h-6 w-6 p-0" onClick={() => onDelete(a.id)} disabled={loading}>
+                <Button variant="destructive" size="sm" className="h-6 w-6 p-0" onClick={() => onDelete(a)} disabled={loading}>
                   <Trash2 className="h-3 w-3" />
                 </Button>
               </div>

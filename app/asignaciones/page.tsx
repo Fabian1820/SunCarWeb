@@ -34,7 +34,7 @@ function AsignacionesPageContent() {
   const {
     trabajadores, mediosBasicos, loading, error, clearError,
     createMedioBasico, updateMedioBasico, deleteMedioBasico,
-    addAsignacion, updateAsignacion, removeAsignacion,
+    addAsignacion, updateAsignacion,
   } = useAsignaciones()
 
   const { toast } = useToast()
@@ -76,16 +76,17 @@ function AsignacionesPageContent() {
 
   const handleUpdateAsignacion = async (ci: string, id: string, data: AsignacionUpdateData) => {
     const ok = await updateAsignacion(ci, id, data)
-    if (ok) toast({ title: "Éxito", description: "Asignación actualizada" })
-    else toast({ title: "Error", description: "No se pudo actualizar", variant: "destructive" })
+    // El "eliminar" llega aquí también con cantidad=0+motivo → mostrar mensaje adecuado
+    const esEliminar = data.cantidad === 0
+    if (ok) {
+      toast({
+        title: "Éxito",
+        description: esEliminar ? "Asignación eliminada" : "Asignación actualizada",
+      })
+    } else {
+      toast({ title: "Error", description: "No se pudo guardar", variant: "destructive" })
+    }
     return ok
-  }
-
-  const handleDeleteAsignacion = async (ci: string, id: string) => {
-    if (!confirm("¿Eliminar esta asignación?")) return
-    const ok = await removeAsignacion(ci, id)
-    if (ok) toast({ title: "Éxito", description: "Asignación eliminada" })
-    else toast({ title: "Error", description: "No se pudo eliminar", variant: "destructive" })
   }
 
   if (loading && trabajadores.length === 0 && mediosBasicos.length === 0) {
@@ -165,7 +166,6 @@ function AsignacionesPageContent() {
                 mediosBasicos={mediosBasicos}
                 onAddAsignacion={handleAddAsignacion}
                 onUpdateAsignacion={handleUpdateAsignacion}
-                onDeleteAsignacion={handleDeleteAsignacion}
                 loading={loading}
               />
             </CardContent>

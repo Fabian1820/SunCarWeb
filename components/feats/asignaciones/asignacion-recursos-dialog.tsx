@@ -16,7 +16,9 @@ import type {
   AsignacionInstalacionCreateData,
   AsignacionInstalacionUpdateData,
   AsignacionInstalacion,
+  MotivoMovimiento,
 } from "@/lib/types/feats/asignaciones/asignacion-types"
+import { MOTIVOS_MOVIMIENTO } from "@/lib/types/feats/asignaciones/asignacion-types"
 import type { Material } from "@/lib/material-types"
 import { MaterialService } from "@/lib/api-services"
 
@@ -28,15 +30,18 @@ interface AsignacionRecursosDialogProps {
   entityLabel: string
   mediosBasicos: MedioBasico[]
   asignacion?: Asignacion | AsignacionInstalacion | null
+  /** Si true, el dialog abre en modo "eliminar" (cantidad preseteada a 0) */
+  modoEliminar?: boolean
   onSave: (data: AsignacionCreateData | AsignacionUpdateData | AsignacionInstalacionCreateData | AsignacionInstalacionUpdateData, id?: string) => Promise<boolean>
   loading?: boolean
 }
 
 export function AsignacionRecursosDialog({
   open, onClose, entityLabel,
-  mediosBasicos, asignacion, onSave, loading,
+  mediosBasicos, asignacion, modoEliminar, onSave, loading,
 }: AsignacionRecursosDialogProps) {
   const isEdit = !!asignacion
+  const cantidadOriginal = asignacion?.cantidad ?? 0
 
   // Item type selection
   const [itemTipo, setItemTipo] = useState<ItemType>('medio_basico')
@@ -58,6 +63,8 @@ export function AsignacionRecursosDialog({
   // Shared state
   const [cantidad, setCantidad] = useState("1")
   const [numeroSerie, setNumeroSerie] = useState("")
+  const [motivo, setMotivo] = useState<MotivoMovimiento | "">("")
+  const [nota, setNota] = useState("")
 
   const resetForm = useCallback(() => {
     setItemTipo(asignacion ? (asignacion.item_tipo ?? 'medio_basico') : 'medio_basico')
@@ -68,9 +75,11 @@ export function AsignacionRecursosDialog({
     setMaterialResults([])
     setMaterialSeleccionado(null)
     setMaterialComboOpen(false)
-    setCantidad(String(asignacion?.cantidad ?? 1))
+    setCantidad(modoEliminar ? "0" : String(asignacion?.cantidad ?? 1))
     setNumeroSerie(asignacion?.numero_serie ?? "")
-  }, [asignacion])
+    setMotivo("")
+    setNota("")
+  }, [asignacion, modoEliminar])
 
   useEffect(() => {
     if (open) resetForm()
@@ -120,12 +129,28 @@ export function AsignacionRecursosDialog({
     return () => clearTimeout(handler)
   }, [materialBusqueda, itemTipo])
 
+  // ── Validación del modo edición ──
+  // El backend solo permite DISMINUIR la cantidad. Cualquier delta exige motivo.
+  const cantidadNum = parseInt(cantidad)
+  const cantidadValida = !isNaN(cantidadNum) && cantidadNum >= 0
+  const cantidadCambio = isEdit && cantidadValida && cantidadNum !== cantidadOriginal
+  const cantidadAumenta = isEdit && cantidadValida && cantidadNum > cantidadOriginal
+  const serieCambio = isEdit && (numeroSerie ?? "") !== (asignacion?.numero_serie ?? "")
+  const motivoRequerido = cantidadCambio
+  const motivoOk = !motivoRequerido || !!motivo
+  const hayAlgoQueGuardar = isEdit ? (cantidadCambio || serieCambio) : true
+
   const handleSave = async () => {
-    const q = Math.max(1, parseInt(cantidad) || 1)
-    const serie = numeroSerie.trim() || undefined
+    const serie = numeroSerie.trim()
 
     if (isEdit) {
-      const data: AsignacionUpdateData = { cantidad: q, numero_serie: serie }
+      const data: AsignacionUpdateData = {}
+      if (cantidadCambio) data.cantidad = cantidadNum
+      if (serieCambio) data.numero_serie = serie || undefined
+      if (motivoRequerido && motivo) {
+        data.motivo = motivo as MotivoMovimiento
+        if (nota.trim()) data.nota = nota.trim()
+      }
       const ok = await onSave(data, asignacion!.id)
       if (ok) onClose()
       return
@@ -134,27 +159,34 @@ export function AsignacionRecursosDialog({
     const data: AsignacionCreateData = {
       item_tipo: itemTipo,
       item_id: itemTipo === 'medio_basico' ? medioSeleccionado!.id : materialSeleccionado!.id,
-      cantidad: q,
-      numero_serie: serie,
+      cantidad: Math.max(1, cantidadNum || 1),
+      numero_serie: serie || undefined,
     }
     const ok = await onSave(data)
     if (ok) onClose()
   }
 
   const canSave = isEdit
-    ? parseInt(cantidad) >= 1
+    ? cantidadValida && !cantidadAumenta && motivoOk && hayAlgoQueGuardar
     : itemTipo === 'medio_basico'
-      ? !!medioSeleccionado
-      : !!materialSeleccionado
+      ? !!medioSeleccionado && cantidadValida && cantidadNum >= 1
+      : !!materialSeleccionado && cantidadValida && cantidadNum >= 1
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-base">
-            {isEdit ? "Editar asignación" : "Agregar asignación"}
+            {!isEdit && "Agregar asignación"}
+            {isEdit && modoEliminar && "Eliminar asignación"}
+            {isEdit && !modoEliminar && "Editar asignación"}
             <span className="ml-2 text-sm font-normal text-gray-400">— {entityLabel}</span>
           </DialogTitle>
+          {isEdit && modoEliminar && (
+            <p className="text-xs text-gray-500">
+              La asignación se marcará como eliminada conservando el historial. Indica el motivo.
+            </p>
+          )}
         </DialogHeader>
 
         <div className="space-y-4 pt-1">
@@ -373,13 +405,26 @@ export function AsignacionRecursosDialog({
           {/* Cantidad y serie */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Cantidad</Label>
+              <Label>
+                Cantidad
+                {isEdit && (
+                  <span className="ml-1 text-xs text-gray-400 font-normal">
+                    (actual: {cantidadOriginal})
+                  </span>
+                )}
+              </Label>
               <Input
                 type="number"
-                min="1"
+                min={isEdit ? "0" : "1"}
+                max={isEdit ? String(cantidadOriginal) : undefined}
                 value={cantidad}
                 onChange={e => setCantidad(e.target.value)}
               />
+              {cantidadAumenta && (
+                <p className="text-xs text-red-600">
+                  Solo se puede disminuir. Para aumentar, crea una nueva asignación.
+                </p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>N° de serie (opcional)</Label>
@@ -391,10 +436,49 @@ export function AsignacionRecursosDialog({
             </div>
           </div>
 
+          {/* Motivo + nota (solo cuando la cantidad cambia) */}
+          {motivoRequerido && (
+            <div className="space-y-3 p-3 rounded-md bg-amber-50 border border-amber-200">
+              <div className="space-y-1.5">
+                <Label>
+                  Motivo <span className="text-red-500">*</span>
+                </Label>
+                <select
+                  className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-amber-300"
+                  value={motivo}
+                  onChange={e => setMotivo(e.target.value as MotivoMovimiento | "")}
+                >
+                  <option value="">Selecciona un motivo...</option>
+                  {MOTIVOS_MOVIMIENTO.map(m => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Nota (opcional)</Label>
+                <Input
+                  placeholder="Detalle adicional..."
+                  value={nota}
+                  onChange={e => setNota(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="outline" onClick={onClose} disabled={loading}>Cancelar</Button>
-            <Button onClick={handleSave} disabled={!canSave || loading}>
-              {loading ? "Guardando..." : isEdit ? "Guardar" : "Asignar"}
+            <Button
+              onClick={handleSave}
+              disabled={!canSave || loading}
+              className={modoEliminar ? "bg-red-600 hover:bg-red-700" : undefined}
+            >
+              {loading
+                ? "Guardando..."
+                : modoEliminar
+                  ? "Eliminar"
+                  : isEdit
+                    ? "Guardar"
+                    : "Asignar"}
             </Button>
           </div>
         </div>

@@ -20,6 +20,31 @@ export interface MedioBasicoUpdateData {
   foto?: string | null
 }
 
+// ── Movimientos / historial ───────────────────────────────────────────────────
+
+export type TipoMovimiento = 'creacion' | 'reduccion' | 'eliminacion'
+
+export type MotivoMovimiento = 'devolucion' | 'perdida' | 'rotura' | 'transferencia' | 'ajuste' | 'otro'
+
+export const MOTIVOS_MOVIMIENTO: { value: MotivoMovimiento; label: string }[] = [
+  { value: 'devolucion', label: 'Devolución' },
+  { value: 'perdida', label: 'Pérdida' },
+  { value: 'rotura', label: 'Rotura' },
+  { value: 'transferencia', label: 'Transferencia' },
+  { value: 'ajuste', label: 'Ajuste' },
+  { value: 'otro', label: 'Otro' },
+]
+
+export interface MovimientoAsignacion {
+  fecha: string
+  tipo: TipoMovimiento
+  actor_ci?: string | null
+  cantidad_anterior: number
+  cantidad_nueva: number
+  motivo?: MotivoMovimiento | null
+  nota?: string | null
+}
+
 // ── Asignaciones trabajadores ─────────────────────────────────────────────────
 
 export interface Asignacion {
@@ -31,6 +56,9 @@ export interface Asignacion {
   cantidad: number
   numero_serie?: string | null
   asignado_por?: string | null
+  activo?: boolean
+  fecha_actualizacion?: string | null
+  historial?: MovimientoAsignacion[]
 }
 
 // Forma plana que devuelve el endpoint GET /asignaciones-trabajadores/
@@ -56,6 +84,8 @@ export interface AsignacionCreateData {
 export interface AsignacionUpdateData {
   cantidad?: number
   numero_serie?: string
+  motivo?: MotivoMovimiento
+  nota?: string
 }
 
 // ── Asignaciones instalaciones ────────────────────────────────────────────────
@@ -77,6 +107,9 @@ export interface AsignacionInstalacion {
   cantidad: number
   numero_serie?: string | null
   asignado_por?: string | null
+  activo?: boolean
+  fecha_actualizacion?: string | null
+  historial?: MovimientoAsignacion[]
 }
 
 export interface InstalacionConAsignaciones {
@@ -101,6 +134,8 @@ export interface AsignacionInstalacionCreateData {
 export interface AsignacionInstalacionUpdateData {
   cantidad?: number
   numero_serie?: string
+  motivo?: MotivoMovimiento
+  nota?: string
 }
 
 // ── Catálogo de materiales ────────────────────────────────────────────────────

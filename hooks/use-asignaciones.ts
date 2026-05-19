@@ -15,6 +15,7 @@ import type {
   AsignacionInstalacionCreateData,
   AsignacionInstalacionUpdateData,
   MaterialCatalogo,
+  MotivoMovimiento,
   HerramientaCatalogo,
   HerramientaAsignarData,
   HerramientaUpdateData,
@@ -139,10 +140,13 @@ export function useAsignaciones() {
     }
   }, [reloadTrabajadores])
 
-  const removeAsignacion = useCallback(async (ci: string, asignacionId: string): Promise<boolean> => {
+  const removeAsignacion = useCallback(async (
+    ci: string, asignacionId: string,
+    motivo: MotivoMovimiento, nota?: string,
+  ): Promise<boolean> => {
     setLoading(true)
     try {
-      await AsignacionService.removeAsignacion(ci, asignacionId)
+      await AsignacionService.removeAsignacion(ci, asignacionId, motivo, nota)
       await reloadTrabajadores()
       return true
     } catch (err) {
@@ -196,10 +200,13 @@ export function useAsignaciones() {
     }
   }, [reloadTrabajadores])
 
-  const removeHerramienta = useCallback(async (ci: string, herramientaId: string): Promise<boolean> => {
+  const removeHerramienta = useCallback(async (
+    ci: string, herramientaId: string,
+    motivo: MotivoMovimiento, nota?: string,
+  ): Promise<boolean> => {
     setLoading(true)
     try {
-      await AsignacionService.removeHerramienta(ci, herramientaId)
+      await AsignacionService.removeHerramienta(ci, herramientaId, motivo, nota)
       await reloadTrabajadores()
       return true
     } catch (err) {
@@ -355,12 +362,13 @@ export function useInstalacionAsignaciones(tipo: TipoInstalacion | null) {
   }, [tipo, loadInstalaciones])
 
   const removeAsignacion = useCallback(async (
-    id: string, asignacionId: string
+    id: string, asignacionId: string,
+    motivo: MotivoMovimiento, nota?: string,
   ): Promise<boolean> => {
     if (!tipo) return false
     setLoading(true)
     try {
-      await AsignacionService.removeAsignacionInstalacion(tipo, id, asignacionId)
+      await AsignacionService.removeAsignacionInstalacion(tipo, id, asignacionId, motivo, nota)
       await loadInstalaciones(tipo)
       return true
     } catch (err) {
@@ -443,10 +451,11 @@ export function useAllInstalacionesAsignaciones() {
   }, [reload])
 
   const removeAsignacion = useCallback(async (
-    tipo: TipoInstalacion, id: string, asignacionId: string
+    tipo: TipoInstalacion, id: string, asignacionId: string,
+    motivo: MotivoMovimiento, nota?: string,
   ): Promise<boolean> => {
     try {
-      await AsignacionService.removeAsignacionInstalacion(tipo, id, asignacionId)
+      await AsignacionService.removeAsignacionInstalacion(tipo, id, asignacionId, motivo, nota)
       await reload()
       return true
     } catch (err) {
