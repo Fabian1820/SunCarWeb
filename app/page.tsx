@@ -70,6 +70,7 @@ export default function Dashboard() {
     description: string;
     iconClass: string;
     alwaysVisible?: boolean;
+    childKeys?: string[];
   };
 
   // Módulos del catálogo (single-source-of-truth en lib/modulos-catalogo.ts).
@@ -83,6 +84,7 @@ export default function Dashboard() {
     description: m.descripcion,
     iconClass: m.iconClass,
     alwaysVisible: m.alwaysVisible,
+    childKeys: m.childKeys,
   });
 
   // Excluir módulos marcados como hideFromDashboard: viven como sub-cards
@@ -149,7 +151,11 @@ export default function Dashboard() {
   const availableModules = [
     ...allModules.filter((module) => {
       if (module.alwaysVisible) return true;
-      return hasPermission(module.permission ?? module.id);
+      if (hasPermission(module.permission ?? module.id)) return true;
+      // Hijos lógicos que no usan formato padre/hijo: si el trabajador tiene
+      // permiso a alguno, el card padre se hace visible.
+      if (module.childKeys?.some((k) => hasPermission(k))) return true;
+      return false;
     }),
     ...superAdminModules,
     ...walletAdminModules,

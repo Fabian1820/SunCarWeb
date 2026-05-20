@@ -163,6 +163,15 @@ export type ModuloCatalogo = {
    * compras-envios-costos.
    */
   hideFromDashboard?: boolean
+  /**
+   * Keys de otros módulos del catálogo que son "hijos lógicos" de éste —
+   * es decir, que viven como sub-cards dentro de su página. Tener permiso
+   * a cualquiera de ellos hace que el card del padre sea visible en el
+   * dashboard, igual que sucede automáticamente con los permisos en formato
+   * `padre/hijo`. Útil cuando el sub-módulo no sigue esa convención de
+   * naming (por compatibilidad con permisos ya asignados).
+   */
+  childKeys?: string[]
 }
 
 export const MODULOS_CATALOGO: ModuloCatalogo[] = [
@@ -317,15 +326,6 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     href: "/instalaciones/solicitudes-materiales",
     grupo: "operaciones",
   },
-  {
-    key: "asignaciones",
-    label: "Asignaciones de Recursos",
-    descripcion: "Gestionar recursos asignados a trabajadores e instalaciones.",
-    icon: Clipboard,
-    iconClass: "text-indigo-600",
-    href: "/asignaciones",
-    grupo: "operaciones",
-  },
 
   // ───────── Economía ─────────
   {
@@ -375,6 +375,10 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-teal-600",
     href: "/compras-envios-costos",
     grupo: "economia",
+    // Estos hijos no usan formato padre/hijo en BD (por compatibilidad con
+    // asignaciones existentes), así que se declaran explícitos para que el
+    // card padre sea visible cuando el trabajador tiene cualquiera de ellos.
+    childKeys: ["envio-contenedores", "fichas-costo"],
   },
 
   // Estos viven bajo "Compras, Envíos y Costos" como sub-cards. Se mantienen
@@ -457,6 +461,15 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     icon: Building,
     iconClass: "text-teal-700",
     href: "/departamentos",
+    grupo: "recursos-humanos",
+  },
+  {
+    key: "asignaciones",
+    label: "Asignaciones de Recursos",
+    descripcion: "Gestionar recursos asignados a trabajadores e instalaciones.",
+    icon: Clipboard,
+    iconClass: "text-indigo-600",
+    href: "/asignaciones",
     grupo: "recursos-humanos",
   },
 
