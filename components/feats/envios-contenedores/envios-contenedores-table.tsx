@@ -157,7 +157,7 @@ export function EnviosContenedoresTable({
                 {/* Fila principal */}
                 <tr
                   className={`border-b border-gray-100 transition-colors align-middle ${
-                    idx % 2 === 0 ? "bg-white hover:bg-gray-50" : "bg-gray-50/40 hover:bg-gray-50"
+                    idx % 2 === 0 ? "bg-white hover:bg-gray-50" : "bg-gray-50 hover:bg-gray-100"
                   } ${isExpanded ? "border-b-0" : ""}`}
                 >
                   {/* Nombre + tipo + BL + contenedor */}
@@ -324,7 +324,7 @@ export function EnviosContenedoresTable({
 
                 {/* Fila expandida: datos + materiales */}
                 {isExpanded && (
-                  <tr className={`border-b border-gray-200 ${idx % 2 === 0 ? "bg-white" : "bg-gray-50/40"}`}>
+                  <tr className={`border-b border-gray-200 ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
                     <td colSpan={7} className="px-4 pb-4 pt-0">
                       <div className="ml-9 space-y-3">
 
