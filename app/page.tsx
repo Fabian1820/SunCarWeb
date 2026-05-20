@@ -85,7 +85,13 @@ export default function Dashboard() {
     alwaysVisible: m.alwaysVisible,
   });
 
-  const allModules: DashboardModule[] = MODULOS_CATALOGO.map(catalogoToDashboard);
+  // Excluir módulos marcados como hideFromDashboard: viven como sub-cards
+  // dentro de otro módulo padre y no deben renderizarse en el dashboard
+  // principal (ej. envio-contenedores y fichas-costo dentro de
+  // compras-envios-costos).
+  const allModules: DashboardModule[] = MODULOS_CATALOGO.filter(
+    (m) => !m.hideFromDashboard,
+  ).map(catalogoToDashboard);
   // Agrupación derivada del catálogo (single-source-of-truth).
   type ModuleGroup = {
     id: string;
@@ -102,15 +108,15 @@ export default function Dashboard() {
       grupo.key === "area-direccion"
         ? [
             // Wallet viene del catálogo; permisos y wallet-manager son virtuales.
-            ...MODULOS_CATALOGO.filter((m) => m.grupo === grupo.key).map(
-              (m) => m.dashboardId ?? m.key,
-            ),
+            ...MODULOS_CATALOGO.filter(
+              (m) => m.grupo === grupo.key && !m.hideFromDashboard,
+            ).map((m) => m.dashboardId ?? m.key),
             "wallet-manager",
             "permisos",
           ]
-        : MODULOS_CATALOGO.filter((m) => m.grupo === grupo.key).map(
-            (m) => m.dashboardId ?? m.key,
-          ),
+        : MODULOS_CATALOGO.filter(
+            (m) => m.grupo === grupo.key && !m.hideFromDashboard,
+          ).map((m) => m.dashboardId ?? m.key),
   }));
 
   const superAdminModules: DashboardModule[] = user?.is_superAdmin

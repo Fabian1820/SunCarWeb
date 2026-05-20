@@ -155,6 +155,14 @@ export type ModuloCatalogo = {
   alwaysVisible?: boolean
   /** Solo visible en dashboard para SuperAdmin. */
   superAdminOnly?: boolean
+  /**
+   * Si es true, el módulo NO se renderiza como card en el dashboard principal
+   * (aunque sigue existiendo como permiso asignable y se sincroniza con BD).
+   * Pensado para sub-módulos que viven dentro de otro módulo padre — por
+   * ejemplo envio-contenedores y fichas-costo viven dentro de
+   * compras-envios-costos.
+   */
+  hideFromDashboard?: boolean
 }
 
 export const MODULOS_CATALOGO: ModuloCatalogo[] = [
@@ -369,9 +377,10 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     grupo: "economia",
   },
 
-  // Estos viven bajo "Compras, Envíos y Costos" pero también son módulos
-  // accesibles directamente. Se mantienen en el catálogo para la sincronización
-  // con BD, aunque no aparezcan como cards independientes en el dashboard.
+  // Estos viven bajo "Compras, Envíos y Costos" como sub-cards. Se mantienen
+  // en el catálogo para que sus permisos sean asignables y sincronizables con
+  // BD, pero NO aparecen como cards independientes en el dashboard principal
+  // (hideFromDashboard).
   {
     key: "envio-contenedores",
     label: "Envío de Contenedores",
@@ -380,6 +389,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-cyan-700",
     href: "/envio-contenedores",
     grupo: "economia",
+    hideFromDashboard: true,
   },
   {
     key: "fichas-costo",
@@ -389,6 +399,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-teal-600",
     href: "/fichas-costo",
     grupo: "economia",
+    hideFromDashboard: true,
   },
 
   // ───────── Gestión de Almacenes ─────────
