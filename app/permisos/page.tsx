@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/shared/atom/button"
 import {
@@ -10,15 +10,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/shared/molecule/card"
-import { ArrowLeft, Shield, Settings } from "lucide-react"
+import { ArrowLeft, Shield, RefreshCw } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
-import { ModulosManagerDialog } from "@/components/feats/permisos/modulos-manager-dialog"
+import { ModulosSyncDialog } from "@/components/feats/permisos/modulos-sync-dialog"
 import { TrabajadorPermisosDialog } from "@/components/feats/permisos/trabajador-permisos-dialog"
 import { TrabajadoresPermisosTable } from "@/components/feats/permisos/trabajadores-permisos-table"
 import { SetPasswordDialog } from "@/components/feats/permisos/set-password-dialog"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/shared/molecule/toaster"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
+import { useModulosSync } from "@/hooks/use-modulos-sync"
 
 export default function PermisosPage() {
   const { user } = useAuth()
@@ -35,6 +36,29 @@ export default function PermisosPage() {
     string | null
   >(null)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
+
+  const { sincronizarFaltantes } = useModulosSync()
+  const autoSyncRan = useRef(false)
+
+  // Auto-sync silencioso al cargar el panel: crea en BD los módulos del catálogo
+  // que falten. No notifica si no hubo cambios.
+  useEffect(() => {
+    if (!user?.is_superAdmin || autoSyncRan.current) return
+    autoSyncRan.current = true
+    sincronizarFaltantes()
+      .then((creados) => {
+        if (creados > 0) {
+          toast({
+            title: "Catálogo sincronizado",
+            description: `Se crearon ${creados} módulo(s) en BD desde el catálogo del frontend.`,
+          })
+          setRefreshTrigger((p) => p + 1)
+        }
+      })
+      .catch((err) => {
+        console.warn("Auto-sync falló (se puede reintentar manualmente):", err)
+      })
+  }, [user?.is_superAdmin, sincronizarFaltantes, toast])
 
   // Verificar si es superAdmin
   if (!user?.is_superAdmin) {
@@ -106,15 +130,13 @@ export default function PermisosPage() {
 	        badge={{ text: "SuperAdmin", className: "bg-red-100 text-red-800" }}
 	        actions={
 	          <Button
-	            size="icon"
 	            onClick={() => setIsModulosDialogOpen(true)}
-	            className="h-9 w-9 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 touch-manipulation"
-	            aria-label="Ver módulos"
-	            title="Ver módulos"
+	            className="h-9 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 touch-manipulation"
+	            aria-label="Sincronizar catálogo con BD"
+	            title="Sincronizar catálogo con BD"
 	          >
-	            <Settings className="h-4 w-4" />
-	            <span className="hidden sm:inline">Ver Módulos</span>
-	            <span className="sr-only">Ver módulos</span>
+	            <RefreshCw className="h-4 w-4 sm:mr-2" />
+	            <span className="hidden sm:inline">Sincronizar Catálogo</span>
 	          </Button>
 	        }
 	      />
@@ -142,10 +164,10 @@ export default function PermisosPage() {
       </main>
 
       {/* Dialogs */}
-      <ModulosManagerDialog
+      <ModulosSyncDialog
         open={isModulosDialogOpen}
         onOpenChange={setIsModulosDialogOpen}
-        onModulosUpdated={handleModulosUpdated}
+        onSynced={handleModulosUpdated}
       />
 
       <TrabajadorPermisosDialog

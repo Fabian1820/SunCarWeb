@@ -5,39 +5,20 @@ import { Card, CardContent } from "@/components/shared/molecule/card";
 import { Button } from "@/components/shared/atom/button";
 import {
   type LucideIcon,
-  Users,
-  FileCheck,
-  Package,
-  User,
-  UserPlus,
   Info,
-  Phone,
-  Briefcase,
-  BookOpen,
-  Image,
-  Zap,
   Shield,
   Calculator,
-  Receipt,
-  Wrench,
-  ShoppingBag,
-  ShoppingCart,
-  BarChart3,
-  Trophy,
-  FileSpreadsheet,
-  PackageSearch,
   Wallet,
-  Building2,
-  Building,
   Coins,
-  BookmarkCheck,
-  Ship,
-  Monitor,
   ClipboardList,
-  Clipboard,
   GitMerge,
   Loader2,
 } from "lucide-react";
+import {
+  MODULOS_CATALOGO,
+  MODULO_GRUPOS,
+  type ModuloCatalogo,
+} from "@/lib/modulos-catalogo";
 import { useLayoutEffect, useRef, useState, useEffect } from "react";
 import {
   Dialog,
@@ -46,9 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/shared/molecule/dialog";
-import FormViewer from "@/components/feats/reports/FormViewerNoSSR";
-import { ReporteService, ClienteService, TasaCambioService } from "@/lib/api-services";
-import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
+import { TasaCambioService } from "@/lib/api-services";
 import ContactosDashboard from "@/components/feats/contactos/contactos-dashboard";
 import { TicketManualDialog } from "@/components/feats/dashboard/ticket-manual-dialog";
 import { Toaster } from "@/components/shared/molecule/toaster";
@@ -61,17 +40,12 @@ import { useMyWalletPermiso } from "@/hooks/use-wallet-permisos";
 export default function Dashboard() {
   const { hasPermission, user, loadModulosPermitidos } = useAuth();
   const { permiso: myWalletPermiso } = useMyWalletPermiso();
-  const [selectedForm, setSelectedForm] = useState<any>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isContactosDialogOpen, setIsContactosDialogOpen] = useState(false);
   const [isTasaCambioDialogOpen, setIsTasaCambioDialogOpen] = useState(false);
   const [isTicketDialogOpen, setIsTicketDialogOpen] = useState(false);
   const [tasaCambioHoy, setTasaCambioHoy] = useState<TasaCambio | null>(null);
   const [loadingTasaCambio, setLoadingTasaCambio] = useState(false);
   const [errorTasaCambio, setErrorTasaCambio] = useState<string | null>(null);
-  const [recentReports, setRecentReports] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [clients, setClients] = useState<any[]>([]);
   const headerRef = useRef<HTMLElement | null>(null);
   const [headerHeight, setHeaderHeight] = useState<number>(120);
   const [mergingTarget, setMergingTarget] = useState<"frontend" | "backend" | null>(null);
@@ -87,7 +61,6 @@ export default function Dashboard() {
     loadModulosPermitidos();
   }, [user]);
 
-  // Definir todos los módulos con sus configuraciones
   type DashboardModule = {
     id: string;
     permission?: string;
@@ -96,8 +69,24 @@ export default function Dashboard() {
     title: string;
     description: string;
     iconClass: string;
+    alwaysVisible?: boolean;
   };
 
+  // Módulos del catálogo (single-source-of-truth en lib/modulos-catalogo.ts).
+  // Para agregar o quitar módulos del dashboard, editar ese archivo.
+  const catalogoToDashboard = (m: ModuloCatalogo): DashboardModule => ({
+    id: m.dashboardId ?? m.key,
+    permission: m.permission ?? m.key,
+    href: m.href,
+    icon: m.icon,
+    title: m.label,
+    description: m.descripcion,
+    iconClass: m.iconClass,
+    alwaysVisible: m.alwaysVisible,
+  });
+
+  const allModules: DashboardModule[] = MODULOS_CATALOGO.map(catalogoToDashboard);
+  // Agrupación derivada del catálogo (single-source-of-truth).
   type ModuleGroup = {
     id: string;
     title: string;
@@ -105,368 +94,24 @@ export default function Dashboard() {
     moduleIds: string[];
   };
 
-  const allModules: DashboardModule[] = [
-    {
-      id: "leads",
-      href: "/leads",
-      icon: Phone,
-      title: "Gestionar Leads Instaladora",
-      description: "Administrar leads y oportunidades de venta.",
-      iconClass: "text-green-600",
-    },
-    {
-      id: "clientes",
-      href: "/clientes",
-      icon: User,
-      title: "Gestionar Clientes Instaladora",
-      description: "Administrar información y reportes de clientes.",
-      iconClass: "text-orange-600",
-    },
-    {
-      id: "clientes-ventas",
-      href: "/clientes-ventas",
-      icon: Users,
-      title: "Gestionar Clientes Ventas",
-      description: "Registrar y gestionar clientes de ventas.",
-      iconClass: "text-teal-600",
-    },
-    {
-      id: "solicitudes-ventas",
-      href: "/solicitudes-ventas",
-      icon: ShoppingCart,
-      title: "Solicitudes Ventas",
-      description: "Crear y administrar solicitudes de ventas web.",
-      iconClass: "text-indigo-600",
-    },
-    {
-      id: "reservas-ventas",
-      href: "/reservas-ventas",
-      icon: BookmarkCheck,
-      title: "Reservas Ventas",
-      description: "Gestionar reservas de materiales para ventas.",
-      iconClass: "text-indigo-700",
-    },
-    {
-      id: "ofertas-gestion",
-      href: "/ofertas-gestion",
-      icon: Zap,
-      title: "Gestionar Ofertas Instaladora",
-      description: "Confección de ofertas y herramientas de ventas.",
-      iconClass: "text-amber-600",
-    },
-    {
-      id: "reportes-comercial",
-      href: "/reportes-comercial",
-      icon: BarChart3,
-      title: "Reportes Comercial Instaladora",
-      description: "Reportes y análisis del área comercial.",
-      iconClass: "text-indigo-600",
-    },
-    {
-      id: "reportes-ventas",
-      href: "/reportes-ventas",
-      icon: BarChart3,
-      title: "Reportes Comercial Ventas",
-      description: "Resultados por vendedor: ofertas, confirmadas y cobros.",
-      iconClass: "text-teal-600",
-    },
-    // Módulo "Resultados" oculto temporalmente — se reactivará más adelante.
-    // {
-    //   id: "resultados",
-    //   href: "/resultados",
-    //   icon: Trophy,
-    //   title: "Resultados",
-    //   description: "Indicadores principales y presencia nacional.",
-    //   iconClass: "text-amber-600",
-    // },
-    {
-      id: "centro-control",
-      href: "/centro-control",
-      icon: Monitor,
-      title: "Centro de Control",
-      description: "Panel operacional en tiempo real con mapa y métricas clave.",
-      iconClass: "text-amber-600",
-    },
-    {
-      id: "todos-trabajos",
-      permission: "trabajos:acceso-directo",
-      href: "/operaciones/todos-trabajos",
-      icon: FileCheck,
-      title: "Trabajos Diarios",
-      description: "Seguimiento diario de todos los trabajos e instalaciones.",
-      iconClass: "text-violet-600",
-    },
-    {
-      id: "instalaciones",
-      href: "/instalaciones",
-      icon: Wrench,
-      title: "Instalaciones",
-      description: "Instalaciones en proceso, nuevas y averías.",
-      iconClass: "text-purple-600",
-    },
-    {
-      id: "solicitudes-materiales",
-      href: "/instalaciones/solicitudes-materiales",
-      icon: PackageSearch,
-      title: "Solicitudes de Materiales",
-      description: "Crear y gestionar solicitudes de materiales.",
-      iconClass: "text-teal-600",
-    },
-    {
-      id: "brigadas",
-      href: "/brigadas",
-      icon: Users,
-      title: "Gestionar Brigadas",
-      description: "Administrar equipos de trabajo y asignaciones.",
-      iconClass: "text-blue-600",
-    },
-    {
-      id: "trabajadores",
-      href: "/trabajadores",
-      icon: UserPlus,
-      title: "Gestionar Instaladores",
-      description: "Administrar personal y asignaciones.",
-      iconClass: "text-blue-600",
-    },
-    {
-      id: "asignaciones",
-      href: "/asignaciones",
-      icon: Clipboard,
-      title: "Asignaciones de Recursos",
-      description: "Gestionar recursos asignados a trabajadores e instalaciones.",
-      iconClass: "text-indigo-600",
-    },
-    // Módulo "Gestionar Reportes" oculto temporalmente.
-    // {
-    //   id: "reportes",
-    //   href: "/reportes",
-    //   icon: FileCheck,
-    //   title: "Gestionar Reportes",
-    //   description: "Administrar historial de reportes.",
-    //   iconClass: "text-emerald-600",
-    // },
-    {
-      id: "materiales",
-      href: "/materiales",
-      icon: Package,
-      title: "Gestionar Materiales",
-      description: "Administrar catálogo de materiales.",
-      iconClass: "text-emerald-600",
-    },
-    {
-      id: "envio-contenedores",
-      href: "/envio-contenedores",
-      icon: Ship,
-      title: "Envío de Contenedores",
-      description: "Registrar y monitorear envíos de contenedores.",
-      iconClass: "text-cyan-700",
-    },
-    {
-      id: "compras-envios-costos",
-      href: "/compras-envios-costos",
-      icon: FileSpreadsheet,
-      title: "Compras, Envíos y Costos",
-      description: "Envíos de contenedores y fichas de costo de materiales.",
-      iconClass: "text-teal-600",
-    },
-    {
-      id: "facturas",
-      href: "/facturas",
-      icon: Receipt,
-      title: "Facturación",
-      description: "Gestión de facturas y vales de venta.",
-      iconClass: "text-sky-600",
-    },
-    {
-      id: "wallet",
-      href: "/wallet",
-      icon: Wallet,
-      title: "Billetera",
-      description: "Ingresos y gastos manuales con trazabilidad global.",
-      iconClass: "text-amber-700",
-    },
-    {
-      id: "tasa-cambio-diaria",
-      href: "/tasa-cambio-diaria",
-      icon: Coins,
-      title: "Tasa de Cambio diaria",
-      description: "Registro diario de 1 USD en EUR y CUP para contabilidad.",
-      iconClass: "text-amber-600",
-    },
-    {
-      id: "almacenes-suncar",
-      href: "/almacenes-suncar",
-      icon: Package,
-      title: "Almacenes Suncar",
-      description: "Gestión de almacenes y control de inventario.",
-      iconClass: "text-blue-600",
-    },
-    {
-      id: "inventario",
-      href: "/inventario",
-      icon: Package,
-      title: "Inventario y Almacenes",
-      description: "Controlar almacenes, stock y movimientos.",
-      iconClass: "text-orange-600",
-    },
-    {
-      id: "tiendas-suncarventas",
-      href: "/tiendas-suncarventas",
-      icon: ShoppingBag,
-      title: "Tiendas Suncar",
-      description: "Gestión de tiendas y puntos de venta.",
-      iconClass: "text-orange-600",
-    },
-    {
-      id: "recursos-humanos",
-      href: "/recursos-humanos",
-      icon: Briefcase,
-      title: "Recursos Humanos",
-      description: "Gestión de nómina y estímulos mensuales.",
-      iconClass: "text-purple-600",
-    },
-    {
-      id: "sedes",
-      href: "/sedes",
-      icon: Building2,
-      title: "Gestionar Sedes",
-      description: "Administrar sedes nacionales y provinciales.",
-      iconClass: "text-blue-700",
-    },
-    {
-      id: "departamentos",
-      href: "/departamentos",
-      icon: Building,
-      title: "Gestionar Departamentos",
-      description: "Administrar departamentos organizacionales.",
-      iconClass: "text-teal-700",
-    },
-    {
-      id: "fichas-costo",
-      href: "/fichas-costo",
-      icon: FileSpreadsheet,
-      title: "Fichas de Costo",
-      description: "Gestión de fichas de costo de materiales.",
-      iconClass: "text-teal-600",
-    },
-    {
-      id: "blog",
-      href: "/blog",
-      icon: BookOpen,
-      title: "Blog",
-      description: "Gestión de artículos y noticias.",
-      iconClass: "text-purple-600",
-    },
-    {
-      id: "galeriaweb",
-      href: "/galeriaweb",
-      icon: Image,
-      title: "Galería Web",
-      description: "Gestión de imágenes para el sitio web.",
-      iconClass: "text-pink-600",
-    },
-    {
-      id: "existencias-contabilidad",
-      permission: "existencias-contabilidad",
-      href: "/existencias-contabilidad",
-      icon: PackageSearch,
-      title: "Existencias Contabilidad",
-      description: "Gestión de inventario contable y tickets de salida",
-      iconClass: "text-purple-600",
-    },
-    // Comentados temporalmente por no uso u obsolescencia visual:
-    // { id: "articulos-tienda", href: "/articulos-tienda", icon: ShoppingBag, title: "Artículos Tienda", description: "Administrar catálogo de artículos de tienda.", iconClass: "text-blue-600" },
-    // { id: "estadisticas", href: "/estadisticas", icon: BarChart3, title: "Estadísticas", description: "Análisis de crecimiento mensual y métricas clave.", iconClass: "text-purple-600" },
-    // { id: "radar-energetico", permission: "estadisticas", href: "/radar-energetico", icon: Map, title: "Radar Energético", description: "Mapa táctico por municipio con calor de potencia instalada.", iconClass: "text-cyan-600" },
-    // { id: "ofertas", href: "/ofertas", icon: Tag, title: "Ofertas", description: "Gestión de ofertas y promociones.", iconClass: "text-orange-600" },
-    // { id: "ofertas-personalizadas", href: "/ofertas-personalizadas", icon: Sparkles, title: "Ofertas Personalizadas", description: "Crear ofertas personalizadas para clientes.", iconClass: "text-amber-600" },
-    // { id: "ordenes-trabajo", href: "/ordenes-trabajo", icon: ClipboardList, title: "�"rdenes de Trabajo", description: "Crear y gestionar órdenes para brigadas.", iconClass: "text-purple-600" },
-    // { id: "trabajos-pendientes", href: "/trabajos-pendientes", icon: FileText, title: "Trabajos Pendientes", description: "Gestión de trabajos pendientes y seguimiento.", iconClass: "text-indigo-600" },
-    // { id: "whatsapp", href: "/whatsapp", icon: MessageSquare, title: "WhatsApp Business", description: "Gestión de conversaciones y atención al cliente.", iconClass: "text-green-600" },
-  ];
-
-  const moduleGroups: ModuleGroup[] = [
-    {
-      id: "resultados-empresa",
-      title: "",
-      subtitle: "",
-      moduleIds: ["centro-control"],
-    },
-    {
-      id: "comercial-instaladora",
-      title: "Comercial Instaladora",
-      subtitle: "Leads, clientes, ofertas y reportes de la instaladora.",
-      moduleIds: [
-        "leads",
-        "clientes",
-        "ofertas-gestion",
-        "reportes-comercial",
-      ],
-    },
-    {
-      id: "comercial-ventas",
-      title: "Comercial Ventas",
-      subtitle: "Clientes, solicitudes, reservas y tiendas del área de ventas.",
-      moduleIds: [
-        "clientes-ventas",
-        "solicitudes-ventas",
-        "reservas-ventas",
-        "tiendas-suncarventas",
-        "reportes-ventas",
-      ],
-    },
-    {
-      id: "operaciones",
-      title: "Operaciones",
-      subtitle: "Brigadas, instaladores, instalaciones y solicitudes.",
-      moduleIds: [
-        "brigadas",
-        "trabajadores",
-        "instalaciones",
-        "todos-trabajos",
-        "solicitudes-materiales",
-      ],
-    },
-    {
-      id: "economia",
-      title: "Economía",
-      subtitle: "Facturación, tasa de cambio, existencias y compras.",
-      moduleIds: [
-        "facturas",
-        "tasa-cambio-diaria",
-        "existencias-contabilidad",
-        "compras-envios-costos",
-      ],
-    },
-    {
-      id: "gestion-almacenes",
-      title: "Gestión de Almacenes",
-      subtitle: "Materiales, almacenes e inventario.",
-      moduleIds: [
-        "materiales",
-        "almacenes-suncar",
-        "inventario",
-      ],
-    },
-    {
-      id: "recursos-humanos-grupo",
-      title: "Recursos Humanos",
-      subtitle: "Personal, sedes, departamentos y asignaciones de recursos.",
-      moduleIds: ["recursos-humanos", "sedes", "departamentos", "asignaciones"],
-    },
-    {
-      id: "area-direccion",
-      title: "Área de Dirección",
-      subtitle: "Billetera y permisos.",
-      moduleIds: ["wallet", "wallet-manager", "permisos"],
-    },
-    {
-      id: "web",
-      title: "Marketing",
-      subtitle: "Blog y galería.",
-      moduleIds: ["blog", "galeriaweb"],
-    },
-  ];
+  const moduleGroups: ModuleGroup[] = MODULO_GRUPOS.map((grupo) => ({
+    id: grupo.key,
+    title: grupo.title,
+    subtitle: grupo.subtitle,
+    moduleIds:
+      grupo.key === "area-direccion"
+        ? [
+            // Wallet viene del catálogo; permisos y wallet-manager son virtuales.
+            ...MODULOS_CATALOGO.filter((m) => m.grupo === grupo.key).map(
+              (m) => m.dashboardId ?? m.key,
+            ),
+            "wallet-manager",
+            "permisos",
+          ]
+        : MODULOS_CATALOGO.filter((m) => m.grupo === grupo.key).map(
+            (m) => m.dashboardId ?? m.key,
+          ),
+  }));
 
   const superAdminModules: DashboardModule[] = user?.is_superAdmin
     ? [
@@ -495,27 +140,9 @@ export default function Dashboard() {
       ]
     : [];
 
-  const normalizeComparableText = (value: string | undefined | null) =>
-    String(value || "")
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .trim();
-
-  const canViewTrabajadoresCard =
-    user?.is_superAdmin === true ||
-    normalizeComparableText(user?.nombre) ===
-      normalizeComparableText("Ilina Gómez Martínez");
-
   const availableModules = [
     ...allModules.filter((module) => {
-      if (module.id === "trabajadores" && !canViewTrabajadoresCard) {
-        return false;
-      }
-      // Wallet es accesible para todos los usuarios autenticados
-      if (module.id === "wallet") {
-        return true;
-      }
+      if (module.alwaysVisible) return true;
       return hasPermission(module.permission ?? module.id);
     }),
     ...superAdminModules,
@@ -534,61 +161,6 @@ export default function Dashboard() {
         .filter((module): module is DashboardModule => Boolean(module)),
     }))
     .filter((group) => group.modules.length > 0);
-
-  useEffect(() => {
-    // Obtener los reportes más recientes del backend
-    const fetchRecentReports = async () => {
-      setLoading(true);
-      try {
-        const data = await ReporteService.getReportes();
-        // Ordenar por fecha descendente y tomar los 3 más recientes
-        const sorted = Array.isArray(data)
-          ? [...data].sort(
-              (a, b) =>
-                new Date(
-                  b.fecha_hora?.fecha ||
-                    b.dateTime?.date ||
-                    b.fecha_creacion ||
-                    0,
-                ).getTime() -
-                new Date(
-                  a.fecha_hora?.fecha ||
-                    a.dateTime?.date ||
-                    a.fecha_creacion ||
-                    0,
-                ).getTime(),
-            )
-          : [];
-        setRecentReports(sorted.slice(0, 3));
-      } catch (e) {
-        setRecentReports([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    // Cargar clientes siempre
-    const fetchClients = async () => {
-      try {
-        const response = await ClienteService.getClientes();
-        // El servicio devuelve { clients: Cliente[], total, skip, limit }
-        setClients(response.clients || []);
-      } catch (e) {
-        setClients([]);
-      }
-    };
-
-    fetchRecentReports();
-    fetchClients();
-  }, []);
-
-  const openFormDialog = (form: any) => {
-    setSelectedForm(form);
-    setIsDialogOpen(true);
-  };
-
-  const getClienteByNumero = (numero: string | number) =>
-    clients.find((c) => String(c.numero) === String(numero));
 
   const formatExchangeRate = (value: number) => Number(value || 0).toFixed(4);
   const formatInverseExchangeRate = (value: number) => {
@@ -820,23 +392,6 @@ export default function Dashboard() {
           )}
         </div>
       </main>
-
-      {/* Form Viewer Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          {/* DialogTitle oculto para accesibilidad */}
-          <VisuallyHidden asChild>
-            <DialogTitle>Reporte H-1114</DialogTitle>
-          </VisuallyHidden>
-          {/* El encabezado visual se muestra solo dentro de FormViewer */}
-          {selectedForm && (
-            <FormViewer
-              formData={selectedForm}
-              clienteCompleto={getClienteByNumero(selectedForm.cliente?.numero)}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
 
       {/* Contactos Dialog */}
       <Dialog

@@ -16,7 +16,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { CentroControlService } from "@/lib/services/feats/centro-control/centro-control-service"
-import type { MunicipioDetallado } from "@/lib/types/feats/resultados/resultados-types"
+import type { MunicipioDetallado } from "@/lib/types/feats/centro-control/centro-control-types"
 import type { Cliente } from "@/lib/api-types"
 import type { Lead } from "@/lib/types/feats/leads/lead-types"
 import type { Brigada } from "@/lib/types/feats/brigade/brigade-types"

@@ -58,10 +58,8 @@ import {
   Battery,
   Sun,
 } from "lucide-react";
-import { ReportsTable } from "@/components/feats/reports/reports-table";
-import { ClienteService, ReporteService } from "@/lib/api-services";
+import { ClienteService } from "@/lib/api-services";
 import { apiRequest } from "@/lib/api-config";
-import { ClientReportsChart } from "@/components/feats/reports/client-reports-chart";
 import MapPicker from "@/components/shared/organism/MapPickerNoSSR";
 import { ClienteDetallesDialog } from "@/components/feats/customer/cliente-detalles-dialog";
 import { useOfertasPersonalizadas } from "@/hooks/use-ofertas-personalizadas";
@@ -605,11 +603,6 @@ export function ClientsTable({
   } = useOfertasConfeccion();
   const { materials } = useMaterials();
   const { marcas } = useMarcas();
-  const [selectedClientReports, setSelectedClientReports] = useState<
-    any[] | null
-  >(null);
-  const [selectedClient, setSelectedClient] = useState<Cliente | null>(null);
-  const [loadingClientReports, setLoadingClientReports] = useState(false);
   const [showClientLocation, setShowClientLocation] = useState(false);
   const [clientLocation, setClientLocation] = useState<{
     lat: number;
@@ -1343,20 +1336,6 @@ export function ClientsTable({
           variant: "destructive",
         });
       }
-    }
-  };
-
-  // Acción para ver reportes de un cliente
-  const handleViewClientReports = async (client: Cliente) => {
-    setSelectedClient(client);
-    setLoadingClientReports(true);
-    try {
-      const data = await ReporteService.getReportesPorCliente(client.numero);
-      setSelectedClientReports(Array.isArray(data) ? data : []);
-    } catch (e: any) {
-      setSelectedClientReports([]);
-    } finally {
-      setLoadingClientReports(false);
     }
   };
 
@@ -4288,35 +4267,6 @@ export function ClientsTable({
     }
   };
 
-  // Columnas para reportes (para el modal de reportes de cliente)
-  const reportColumns = [
-    { key: "tipo_reporte", label: "Tipo de Servicio" },
-    {
-      key: "cliente",
-      label: "Cliente",
-      render: (row: any) => row.cliente?.numero || "-",
-    },
-    {
-      key: "brigada",
-      label: "Líder",
-      render: (row: any) => row.brigada?.lider?.nombre || "-",
-    },
-    {
-      key: "fecha_hora",
-      label: "Fecha",
-      render: (row: any) => row.fecha_hora?.fecha || "-",
-    },
-    {
-      key: "descripcion",
-      label: "Descripción",
-      render: (row: any) =>
-        row.descripcion
-          ? row.descripcion.slice(0, 40) +
-            (row.descripcion.length > 40 ? "..." : "")
-          : "-",
-    },
-  ];
-
   return (
     <>
       <Card className="mb-6 border-l-4 border-l-orange-600">
@@ -5376,38 +5326,6 @@ export function ClientsTable({
               </Button>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal de reportes de cliente */}
-      <Dialog
-        open={!!selectedClientReports}
-        onOpenChange={(v) => {
-          if (!v) {
-            setSelectedClientReports(null);
-            setSelectedClient(null);
-          }
-        }}
-      >
-        <DialogContent className="w-[calc(100vw-1rem)] sm:max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              Reportes de {selectedClient?.nombre || selectedClient?.numero}
-            </DialogTitle>
-          </DialogHeader>
-          {loadingClientReports ? (
-            <div className="text-center py-8">Cargando reportes...</div>
-          ) : (
-            <>
-              <ClientReportsChart reports={selectedClientReports || []} />
-              <ReportsTable
-                data={selectedClientReports || []}
-                columns={reportColumns}
-                getRowId={(row) => row._id || row.id}
-                loading={loadingClientReports}
-              />
-            </>
-          )}
         </DialogContent>
       </Dialog>
 

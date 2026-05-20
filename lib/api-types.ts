@@ -51,26 +51,6 @@ export type {
 } from "./types/feats/ofertas/oferta-types";
 
 export type {
-  TipoReporte,
-  OrdenTrabajo,
-  CreateOrdenTrabajoRequest,
-  UpdateOrdenTrabajoRequest,
-  CreateOrdenTrabajoResponse,
-  ListOrdenesTrabajoResponse,
-  CreateOrdenTrabajoItem,
-} from "./types/feats/ordenes-trabajo/orden-trabajo-types";
-
-export type {
-  ArticuloTienda,
-  ArticuloTiendaFormData,
-  ArticuloTiendaCreateData,
-  ArticuloTiendaUpdateData,
-  ArticuloTiendaFilters,
-  BackendArticuloTiendaResponse,
-  EspecificacionesSugeridas,
-} from "./types/feats/articulos-tienda/articulos-tienda-types";
-
-export type {
   InventarioMovimientoTipo,
   Almacen,
   Tienda,
