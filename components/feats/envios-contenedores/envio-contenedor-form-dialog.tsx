@@ -209,6 +209,10 @@ export function EnvioContenedorFormDialog({
 
   const diasNavegacion = calcDiasNavegacion(fechaEnvio, fechaLlegada);
 
+  // Inicialización del formulario: SOLO cuando se abre el dialog o cuando
+  // cambia el objeto a editar. NO depende de `materials` porque al crear un
+  // material desde el atajo el catálogo se refresca y el formulario se
+  // reseteaba perdiendo todo lo escrito (bug histórico).
   useEffect(() => {
     if (!open) return;
     if (initialData) {
@@ -254,7 +258,8 @@ export function EnvioContenedorFormDialog({
     }
     setMaterialSearch(""); setMaterialResults([]); setShowMaterialDropdown(false);
     setError(null);
-  }, [open, initialData, materials]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialData?.id]);
 
   // Búsqueda con debounce sobre el catálogo ya cargado
   useEffect(() => {
