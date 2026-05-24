@@ -241,6 +241,10 @@ export class SolicitudVentaService {
     if (params.estado) search.append("estado", params.estado);
     if (params.pagada_totalmente !== undefined)
       search.append("pagada_totalmente", String(params.pagada_totalmente));
+    if (params.comercial) search.append("comercial", params.comercial);
+    if (params.estado_pago) search.append("estado_pago", params.estado_pago);
+    if (params.fecha_desde) search.append("fecha_desde", params.fecha_desde);
+    if (params.fecha_hasta) search.append("fecha_hasta", params.fecha_hasta);
 
     const endpoint = search.toString()
       ? `${BASE_ENDPOINT}/summary?${search.toString()}`

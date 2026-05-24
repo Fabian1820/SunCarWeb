@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Plus, Search, ShoppingCart, CreditCard, List, FileText, FilterX } from "lucide-react";
 import { Badge } from "@/components/shared/atom/badge";
 import { Button } from "@/components/shared/atom/button";
@@ -92,17 +92,26 @@ export default function SolicitudesVentasPage() {
   // ── Hook de pagos ──────────────────────────────────────────────────────────
   const {
     solicitudesPendientes,
-    todosPagos,
-    facturas,
+    totalPendientes,
+    hasMorePendientes,
     loadingSolicitudes,
-    loadingPagos,
-    loadingFacturas,
     errorSolicitudes,
-    errorPagos,
-    errorFacturas,
     fetchSolicitudesPendientes,
+    loadMorePendientes,
+    todosPagos,
+    totalPagos,
+    hasMorePagos,
+    loadingPagos,
+    errorPagos,
     fetchTodosPagos,
+    loadMorePagos,
+    facturas,
+    totalFacturas,
+    hasMoreFacturas,
+    loadingFacturas,
+    errorFacturas,
     fetchFacturas,
+    loadMoreFacturas,
     registrarPago,
     crearFactura,
     eliminarFactura,
@@ -133,6 +142,7 @@ const [anularLoading, setAnularLoading]             = useState(false);
   const [f1Hasta, setF1Hasta]         = useState("");
   const [f1Periodo, setF1Periodo]     = useState("");
 
+  const [f2Search, setF2Search]         = useState("");
   const [f2EstadoPago, setF2EstadoPago] = useState("");
   const [f2Comercial, setF2Comercial]   = useState("");
   const [f2Mes, setF2Mes]               = useState("");
@@ -140,6 +150,7 @@ const [anularLoading, setAnularLoading]             = useState(false);
   const [f2Hasta, setF2Hasta]           = useState("");
   const [f2Periodo, setF2Periodo]       = useState("");
 
+  const [f3Search, setF3Search]       = useState("");
   const [f3Metodo, setF3Metodo]       = useState("");
   const [f3Comercial, setF3Comercial] = useState("");
   const [f3Mes, setF3Mes]             = useState("");
@@ -148,6 +159,7 @@ const [anularLoading, setAnularLoading]             = useState(false);
   const [f3Periodo, setF3Periodo]     = useState("");
   const [f3Moneda, setF3Moneda]       = useState("");
 
+  const [f4Search, setF4Search]       = useState("");
   const [f4Estado, setF4Estado]       = useState("");
   const [f4Comercial, setF4Comercial] = useState("");
   const [f4Mes, setF4Mes]             = useState("");
@@ -207,18 +219,24 @@ const [anularLoading, setAnularLoading]             = useState(false);
     return opts;
   }, []);
 
-  const matchFecha = (
-    fechaStr: string | undefined | null,
-    mes: string,
-    desde: string,
-    hasta: string,
-  ) => {
-    if (!fechaStr) return !mes && !desde && !hasta;
-    const d = fechaStr.slice(0, 10);
-    if (mes && !d.startsWith(mes)) return false;
-    if (desde && d < desde) return false;
-    if (hasta && d > hasta) return false;
-    return true;
+  // Convierte mes "YYYY-MM" o desde/hasta a un rango ISO para enviar al backend.
+  // Si hay `mes`, prevalece sobre desde/hasta.
+  const monthToRange = (mes: string, desde: string, hasta: string): {
+    fecha_desde?: string;
+    fecha_hasta?: string;
+  } => {
+    if (mes) {
+      const [y, m] = mes.split("-").map(Number);
+      if (!y || !m) return {};
+      const first = `${mes}-01`;
+      const lastDay = new Date(y, m, 0).getDate();
+      const last = `${mes}-${String(lastDay).padStart(2, "0")}`;
+      return { fecha_desde: first, fecha_hasta: last };
+    }
+    return {
+      fecha_desde: desde || undefined,
+      fecha_hasta: hasta || undefined,
+    };
   };
 
   const getComercialSolicitud = (s: typeof filteredSolicitudes[number]) =>
@@ -248,67 +266,89 @@ const [anularLoading, setAnularLoading]             = useState(false);
     [facturas],
   );
 
-  const solicitudesDisplay = useMemo(() =>
-    filteredSolicitudes.filter((s) => {
-      if (f1Estado && s.estado?.toLowerCase() !== f1Estado) return false;
-      if (f1Comercial && getComercialSolicitud(s) !== f1Comercial) return false;
-      return matchFecha(s.fecha_creacion, f1Mes, f1Desde, f1Hasta);
-    }),
-    [filteredSolicitudes, f1Estado, f1Comercial, f1Mes, f1Desde, f1Hasta],
-  );
+  // ── Params server-side por pestaña ─────────────────────────────────────────
+  const f1Params = useMemo(() => ({
+    estado: f1Estado || undefined,
+    comercial: f1Comercial || undefined,
+    ...monthToRange(f1Mes, f1Desde, f1Hasta),
+  }), [f1Estado, f1Comercial, f1Mes, f1Desde, f1Hasta]);
 
-  const pendientesDisplay = useMemo(() =>
-    solicitudesPendientes.filter((s) => {
-      if (f2EstadoPago === "sin-pago" && Number(s.total_pagado ?? 0) > 0) return false;
-      if (f2EstadoPago === "parcial"  && Number(s.total_pagado ?? 0) <= 0) return false;
-      if (f2Comercial && (s.comercial ?? "") !== f2Comercial) return false;
-      return matchFecha(s.fecha_creacion, f2Mes, f2Desde, f2Hasta);
-    }),
-    [solicitudesPendientes, f2EstadoPago, f2Comercial, f2Mes, f2Desde, f2Hasta],
-  );
+  const f2Params = useMemo(() => ({
+    q: f2Search.trim() || undefined,
+    estado_pago: f2EstadoPago || undefined,
+    comercial: f2Comercial || undefined,
+    ...monthToRange(f2Mes, f2Desde, f2Hasta),
+  }), [f2Search, f2EstadoPago, f2Comercial, f2Mes, f2Desde, f2Hasta]);
 
-  const pagosDisplay = useMemo(() =>
-    todosPagos.filter((p) => {
-      if (f3Metodo && p.metodo_pago !== f3Metodo) return false;
-      if (f3Comercial && (p.comercial ?? "") !== f3Comercial) return false;
-      if (f3Moneda) {
-        const moneda = typeof p.moneda === "string" && p.moneda.trim() ? p.moneda : "USD";
-        if (moneda !== f3Moneda) return false;
-      }
-      return matchFecha(p.fecha || p.fecha_creacion, f3Mes, f3Desde, f3Hasta);
-    }),
-    [todosPagos, f3Metodo, f3Comercial, f3Mes, f3Desde, f3Hasta, f3Moneda],
-  );
+  const f3Params = useMemo(() => ({
+    q: f3Search.trim() || undefined,
+    metodo_pago: f3Metodo || undefined,
+    moneda: f3Moneda || undefined,
+    comercial: f3Comercial || undefined,
+    ...monthToRange(f3Mes, f3Desde, f3Hasta),
+  }), [f3Search, f3Metodo, f3Moneda, f3Comercial, f3Mes, f3Desde, f3Hasta]);
 
-  const facturasDisplay = useMemo(() =>
-    facturas.filter((f) => {
-      if (f4Estado === "pagada"   && (f.monto_pendiente ?? 0) > 0)  return false;
-      if (f4Estado === "pendiente"&& (f.total_pagado   ?? 0) > 0)  return false;
-      if (f4Estado === "parcial") {
-        const pend = f.monto_pendiente ?? 0;
-        const paid = f.total_pagado   ?? 0;
-        if (pend <= 0 || paid <= 0) return false;
-      }
-      if (f4Comercial && (f.comercial ?? "") !== f4Comercial) return false;
-      return matchFecha(f.fecha_emision || f.fecha_creacion, f4Mes, f4Desde, f4Hasta);
-    }),
-    [facturas, f4Estado, f4Comercial, f4Mes, f4Desde, f4Hasta],
-  );
+  const f4Params = useMemo(() => ({
+    q: f4Search.trim() || undefined,
+    estado: f4Estado || undefined,
+    moneda: f4Moneda || undefined,
+    comercial: f4Comercial || undefined,
+    ...monthToRange(f4Mes, f4Desde, f4Hasta),
+  }), [f4Search, f4Estado, f4Moneda, f4Comercial, f4Mes, f4Desde, f4Hasta]);
 
-  // ── Refresca todas las pestañas en paralelo ────────────────────────────────
+  // El filtrado lo hace el backend; aquí solo paseamos lo cargado.
+  const solicitudesDisplay = filteredSolicitudes;
+  const pendientesDisplay  = solicitudesPendientes;
+  const pagosDisplay       = todosPagos;
+  const facturasDisplay    = facturas;
+
+  // ── Refetch reactivo a filtros por pestaña ────────────────────────────────
+  // Pestaña 1: el hook ya hace debounce del search y un primer fetch. Recargamos
+  //   solo en cambios posteriores de filtros.
+  const firstRenderTab1 = useRef(true);
+  useEffect(() => {
+    if (activeTab !== "solicitudes") return;
+    if (firstRenderTab1.current) {
+      firstRenderTab1.current = false;
+      return;
+    }
+    void loadSolicitudes(f1Params);
+    // loadSolicitudes referencia internamente searchTerm/filters, lo dejamos fuera de deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, f1Params]);
+
+  // Pestaña 2: debounce ligero para search.
+  useEffect(() => {
+    if (activeTab !== "pendientes-pago") return;
+    const t = setTimeout(() => { void fetchSolicitudesPendientes(f2Params); }, 400);
+    return () => clearTimeout(t);
+  }, [activeTab, fetchSolicitudesPendientes, f2Params]);
+
+  // Pestaña 3: ídem.
+  useEffect(() => {
+    if (activeTab !== "pagos-realizados") return;
+    const t = setTimeout(() => { void fetchTodosPagos(f3Params); }, 400);
+    return () => clearTimeout(t);
+  }, [activeTab, fetchTodosPagos, f3Params]);
+
+  // Pestaña 4: ídem.
+  useEffect(() => {
+    if (activeTab !== "facturas-emitidas") return;
+    const t = setTimeout(() => { void fetchFacturas(f4Params); }, 400);
+    return () => clearTimeout(t);
+  }, [activeTab, fetchFacturas, f4Params]);
+
+  // ── Refresca la pestaña activa con sus params ──────────────────────────────
   const refreshAll = () => {
-    void loadSolicitudes();
-    void fetchSolicitudesPendientes();
-    void fetchTodosPagos();
-    void fetchFacturas();
+    void loadSolicitudes(f1Params);
+    void fetchSolicitudesPendientes(f2Params);
+    void fetchTodosPagos(f3Params);
+    void fetchFacturas(f4Params);
   };
 
-  // ── Carga lazy por pestaña ─────────────────────────────────────────────────
+  // ── Carga lazy por pestaña (el useEffect arriba se encarga al cambiar tab) ─
   const handleTabChange = (tab: TabId) => {
     setActiveTab(tab);
-    if (tab === "pendientes-pago"   && solicitudesPendientes.length === 0) fetchSolicitudesPendientes();
-    if (tab === "pagos-realizados"  && todosPagos.length === 0)            fetchTodosPagos();
-    if (tab === "facturas-emitidas" && facturas.length === 0)              fetchFacturas();
   };
 
   // ── Loader solo en la primera pestaña ──────────────────────────────────────
@@ -466,7 +506,11 @@ const [anularLoading, setAnularLoading]             = useState(false);
       setSolicitudParaPagarCompleta(null);
     }
     try {
-      const allFacturas = await FacturaClienteVentaService.getFacturas();
+      // Acotamos la búsqueda al código de la solicitud usando `q` server-side.
+      const { data: allFacturas } = await FacturaClienteVentaService.getFacturas({
+        q: solicitud.codigo || undefined,
+        limit: 100,
+      });
       const numero = allFacturas.find((f) => {
         const byId = f.solicitud_venta_id && f.solicitud_venta_id === solicitud.id;
         const byCodigo =
@@ -633,7 +677,12 @@ const [anularLoading, setAnularLoading]             = useState(false);
     let pagosCompletos = todosPagos;
     if (pagosCompletos.length === 0) {
       try {
-        pagosCompletos = await PagoVentaService.getTodosPagos();
+        const fNum = factura.numero_factura;
+        const { data } = await PagoVentaService.getTodosPagos({
+          q: fNum || undefined,
+          limit: 100,
+        });
+        pagosCompletos = data;
       } catch { /* usar lo que hay */ }
     }
 
@@ -988,10 +1037,25 @@ const [anularLoading, setAnularLoading]             = useState(false);
                 solicitudes={pendientesDisplay}
                 loading={loadingSolicitudes}
                 error={errorSolicitudes}
-                onRefresh={fetchSolicitudesPendientes}
+                onRefresh={() => fetchSolicitudesPendientes(f2Params)}
                 onPagar={handlePagar}
                 onVerStripe={(s) => { setStripePagosOpen(true); }}
                 variant="embedded"
+                searchValue={f2Search}
+                onSearchChange={setF2Search}
+                totalCount={totalPendientes}
+                footer={hasMorePendientes && pendientesDisplay.length > 0 ? (
+                  <div className="text-center px-6 py-4 border-t">
+                    <Button
+                      onClick={() => void loadMorePendientes()}
+                      disabled={loadingSolicitudes}
+                      variant="outline"
+                      className="min-w-[200px]"
+                    >
+                      {loadingSolicitudes ? "Cargando..." : "Cargar más solicitudes"}
+                    </Button>
+                  </div>
+                ) : null}
               />
             </CardContent>
           </Card>
@@ -1067,7 +1131,22 @@ const [anularLoading, setAnularLoading]             = useState(false);
                   pagos={pagosDisplay}
                   loading={loadingPagos}
                   error={errorPagos}
-                  onRefresh={fetchTodosPagos}
+                  onRefresh={() => fetchTodosPagos(f3Params)}
+                  searchValue={f3Search}
+                  onSearchChange={setF3Search}
+                  totalCount={totalPagos}
+                  footer={hasMorePagos && pagosDisplay.length > 0 ? (
+                    <div className="text-center py-4 border-t">
+                      <Button
+                        onClick={() => void loadMorePagos()}
+                        disabled={loadingPagos}
+                        variant="outline"
+                        className="min-w-[200px]"
+                      >
+                        {loadingPagos ? "Cargando..." : "Cargar más pagos"}
+                      </Button>
+                    </div>
+                  ) : null}
                 />
               </div>
             </CardContent>
@@ -1142,7 +1221,7 @@ const [anularLoading, setAnularLoading]             = useState(false);
                 facturas={facturasDisplay}
                 loading={loadingFacturas}
                 error={errorFacturas}
-                onRefresh={fetchFacturas}
+                onRefresh={() => fetchFacturas(f4Params)}
                 onVerDetalles={handleVerDetalleFactura}
                 onExportar={(f) => { void handleExportarFactura(f); }}
                 onTicket={(f) => { void handleExportarTicket(f); }}
@@ -1150,6 +1229,21 @@ const [anularLoading, setAnularLoading]             = useState(false);
                 onExportarTodas={handleExportarTodasFacturas}
                 monedaFilter={f4Moneda}
                 variant="embedded"
+                searchValue={f4Search}
+                onSearchChange={setF4Search}
+                totalCount={totalFacturas}
+                footer={hasMoreFacturas && facturasDisplay.length > 0 ? (
+                  <div className="text-center px-6 py-4 border-t">
+                    <Button
+                      onClick={() => void loadMoreFacturas()}
+                      disabled={loadingFacturas}
+                      variant="outline"
+                      className="min-w-[200px]"
+                    >
+                      {loadingFacturas ? "Cargando..." : "Cargar más facturas"}
+                    </Button>
+                  </div>
+                ) : null}
               />
             </CardContent>
           </Card>

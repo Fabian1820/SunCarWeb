@@ -26,10 +26,17 @@ interface FacturasVentasTableProps {
   onTicket?: (factura: FacturaClienteVenta) => void;
   /** Exporta todas las facturas listadas (respetando filtros) en un único PDF, una por página. */
   onExportarTodas?: (facturas: FacturaClienteVenta[]) => Promise<void> | void;
-  /** Filtro externo por moneda de pago */
+  /** Filtro externo por moneda de pago. Solo se aplica client-side cuando el search NO está controlado. */
   monedaFilter?: string;
   /** "embedded": sin borde propio, controles con padding lateral, tabla a todo el ancho */
   variant?: "default" | "embedded";
+  /** Si se pasa, la búsqueda se controla externamente (server-side). */
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
+  /** Total absoluto reportado por el backend tras aplicar filtros. */
+  totalCount?: number;
+  /** Footer (ej. botón "Cargar más"). */
+  footer?: React.ReactNode;
 }
 
 export function FacturasVentasTable({
@@ -44,8 +51,18 @@ export function FacturasVentasTable({
   onExportarTodas,
   monedaFilter,
   variant = "default",
+  searchValue,
+  onSearchChange,
+  totalCount,
+  footer,
 }: FacturasVentasTableProps) {
-  const [search, setSearch] = useState("");
+  const isSearchControlled = searchValue !== undefined;
+  const [internalSearch, setInternalSearch] = useState("");
+  const search = isSearchControlled ? (searchValue as string) : internalSearch;
+  const setSearch = (v: string) => {
+    if (isSearchControlled) onSearchChange?.(v);
+    else setInternalSearch(v);
+  };
   const [exportingAll, setExportingAll] = useState(false);
   const getFacturaId = (f: FacturaClienteVenta): string =>
     f.id || f.factura_id || f.numero_factura;
@@ -87,13 +104,16 @@ export function FacturasVentasTable({
   };
 
   const filtered = useMemo(() => facturas.filter((f) => {
-    if (monedaFilter) {
+    // monedaFilter solo se aplica client-side cuando el search NO está controlado,
+    // ya que en modo server-side el backend filtra por moneda.
+    if (!isSearchControlled && monedaFilter) {
       const pagos = Array.isArray(f.pagos) ? f.pagos : [];
       const tieneMoneda = pagos.length === 0
         ? monedaFilter === "USD"
         : pagos.some((p) => (p.moneda || "USD") === monedaFilter);
       if (!tieneMoneda) return false;
     }
+    if (isSearchControlled) return true;
     if (!search.trim()) return true;
     const term = search.toLowerCase();
     return (
@@ -107,7 +127,7 @@ export function FacturasVentasTable({
       getSolicitudId(f).toLowerCase().includes(term) ||
       getSolicitudesDisplay(f).toLowerCase().includes(term)
     );
-  }), [facturas, search, monedaFilter]);
+  }), [facturas, search, monedaFilter, isSearchControlled]);
 
   const getTotalSinDescuento = (f: FacturaClienteVenta) =>
     Number(f.total_a_pagar || 0) + Number(f.descuento || 0);
@@ -187,7 +207,9 @@ export function FacturasVentasTable({
           </Button>
         )}
         <Badge variant="secondary" className="text-xs">
-          {filtered.length} facturas
+          {totalCount != null
+            ? `${filtered.length} de ${totalCount} facturas`
+            : `${filtered.length} facturas`}
         </Badge>
       </div>
 
@@ -411,6 +433,7 @@ export function FacturasVentasTable({
           </Table>
         </div>
       )}
+      {footer}
     </div>
   );
 }

@@ -165,3 +165,38 @@ export interface FacturaVentaResumen {
 // Alias de compatibilidad — retirar cuando todos los usos migren a PagoVenta
 export type PagoClienteVenta = PagoVenta;
 export type PagoClienteVentaCreateData = PagoVentaCreateData;
+
+export interface PagoVentaListParams {
+  skip?: number;
+  limit?: number;
+  q?: string;
+  metodo_pago?: "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion" | string;
+  moneda?: "USD" | "CUP" | "EUR" | string;
+  comercial?: string;
+  fecha_desde?: string;
+  fecha_hasta?: string;
+  factura_venta_id?: string;
+  solicitud_venta_id?: string;
+  cliente_venta_id?: string;
+}
+
+export interface FacturaVentaListParams {
+  skip?: number;
+  limit?: number;
+  q?: string;
+  estado?: "pagada" | "pendiente" | "parcial" | string;
+  moneda?: "USD" | "CUP" | "EUR" | string;
+  comercial?: string;
+  fecha_desde?: string;
+  fecha_hasta?: string;
+}
+
+export interface PagoVentaListResponse {
+  data: PagoVenta[];
+  total: number;
+}
+
+export interface FacturaVentaListResponse {
+  data: FacturaClienteVenta[];
+  total: number;
+}
