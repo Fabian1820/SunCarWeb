@@ -2,6 +2,66 @@
 
 ---
 
+## 📅 24 de Mayo, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**2 commits** de Fabian1820.
+
+---
+
+#### 1. `feat(reservas-ventas)` — Gestión de stock en CreateReservaVentaDialog
+
+- Lógica de cálculo de stock disponible basada en reservas activas.
+- Nuevas funciones utilitarias: `buildStockMap` y `lookupStock`.
+- Estado de carga (`stockLoading`) para manejar el cálculo asíncrono.
+- Filas de materiales se actualizan dinámicamente con el stock actual.
+
+##### Puede dar bateo
+
+1. **Stock calculado en cliente con carga potencialmente incompleta**: Si las reservas activas están paginadas y no se cargan todas antes de construir el `stockMap`, el stock mostrado será mayor al real. Dos usuarios podrían ver stock disponible y reservar la misma unidad simultáneamente (race condition). Sin validación en backend al hacer el POST, se generan sobrecomisiones.
+
+2. **Definición de "reserva activa" desalineada con backend**: Si el filtro de estados que usa el frontend para construir el `stockMap` no coincide exactamente con la definición del backend, el mapa incluirá o excluirá reservas incorrectamente, haciendo el cálculo de disponibilidad poco fiable.
+
+3. **`stockLoading` sin bloqueo del botón de guardar**: Si el estado de carga del stock no bloquea el botón de confirmación, el usuario puede enviar una reserva antes de que el cálculo termine, reservando sin información de disponibilidad real.
+
+4. **Datos de stock obsoletos**: Si el diálogo lleva tiempo abierto sin refetch, el `stockMap` refleja la realidad de cuando se abrió, no la actual. Reservas realizadas por otros usuarios entre tanto no serán visibles.
+
+---
+
+#### 2. `feat(solicitudes-ventas)` — Filtrado y paginación server-side en solicitudes de pago y facturas
+
+- Búsqueda controlada por servidor en tablas de solicitudes de pago y facturas.
+- Nuevos parámetros: estado de pago, comercial, rangos de fecha.
+- Paginación con totales.
+- UI mejorada: contadores totales y footers de "cargar más".
+
+##### Puede dar bateo
+
+1. **Parámetros de filtrado deben existir en el backend**: Los nuevos params (`estado_pago`, `comercial`, fechas inicio/fin) deben estar implementados en el backend o las llamadas retornarán 422/500. Verificar que el contrato de API esté alineado antes de desplegar en producción.
+
+2. **Race condition al paginar con datos cambiantes**: Si llegan nuevas solicitudes mientras el usuario pagina, los totales y el índice de página quedan desincronizados. El usuario puede ver registros duplicados o perder filas.
+
+3. **Requests duplicados en "cargar más"**: Si el usuario hace scroll rápido o pulsa el footer varias veces antes de que responda el servidor, se pueden acumular múltiples requests simultáneos. Sin un flag de `isFetching` o debounce, se agregarán registros duplicados al listado.
+
+4. **Performance de filtros combinados**: Combinar `estado_pago` + `comercial` + rango de fechas puede generar queries lentas si el backend no tiene índices compuestos sobre estas columnas. Verificar el plan de ejecución bajo carga.
+
+---
+
+#### Seguimientos vigentes
+
+- **AdminPass 123456 hardcodeado**: Al crear cualquier trabajador se asigna automáticamente `123456` como contraseña. Sin mecanismo de forzar cambio en el primer login — brecha de seguridad operativa.
+- **Auto-sync catálogo → BD al abrir /permisos**: Si el catálogo tiene un módulo mal definido, se crearán registros incorrectos en BD sin posibilidad de rollback automático.
+- **Logs de debug en producción**: Los logs de `fetchTrabajosDeAveria` pueden seguir activos, exponiendo datos de clientes en la consola del navegador.
+- **Eliminación lógica `cantidad = 0` en asignaciones**: Todo el código que lista asignaciones debe filtrar `cantidad > 0`, o los registros eliminados aparecerán como activos.
+- **Creación inline sin persistencia inmediata**: Categorías/unidades creadas desde el atajo "Crear material rápido" se pierden si el usuario cierra el diálogo antes de guardar.
+- **Subida de archivos sin rollback**: Si la subida de foto/ficha técnica tiene éxito pero la creación del material falla, el archivo queda huérfano en storage.
+- **Backend debe aceptar nuevos campos**: `motivo` y `nota` en PATCH de asignaciones; `foto` y `ficha_tecnica_url` en materiales; `oferta_venta_id`, `descuento_free`, `motivo_descuento_free` y `precio` en solicitudes desde oferta.
+- **`childKeys` en catálogo de módulos**: Si se agrega un módulo hijo sin declarar `childKeys`, el card padre quedará invisible aunque el usuario tenga el permiso.
+- **`useEffect` con dependencias `[open, initialData?.id]`**: Si `initialData` cambia el contenido pero mantiene el mismo `id`, el formulario del contenedor no se reinicializa.
+
+---
+
 ## 📅 23 de Mayo, 2026
 
 ### Resumen de cambios (últimas 24h)
