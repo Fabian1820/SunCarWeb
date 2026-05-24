@@ -818,11 +818,26 @@ export function UpsertSolicitudVentaDialog({
         };
       });
 
-    // Aplicar stock desde el mapa ya cargado (sin llamadas extra)
+    // Recalcular reservas del cliente de la reserva, filtrando del total ya en memoria
+    const cMap = new Map<string, number>();
+    for (const r of todasReservasVRef.current.filter((r) => r.cliente_id === clienteObj.id)) {
+      for (const mat of r.materiales ?? []) {
+        const neta = Math.max(0, mat.cantidad_reservada - (mat.cantidad_consumida ?? 0));
+        if (neta > 0) cMap.set(mat.material_id, (cMap.get(mat.material_id) ?? 0) + neta);
+      }
+    }
+    clientReservaMapRef.current = cMap;
+
+    // Aplicar stock neto (bruto − reservas totales + reservas del cliente) desde los mapas ya cargados
     const map = stockMapRef.current;
+    const tMap = totalReservaVMapRef.current;
     setMaterialRows(
       baseRows.map((r) => {
-        const stockActual = lookupFromMapV(map, r.material_id, r.codigo);
+        const bruto = lookupFromMapV(map, r.material_id, r.codigo);
+        const stockActual =
+          bruto === null
+            ? null
+            : Math.max(0, bruto - (tMap.get(r.material_id) ?? 0) + (cMap.get(r.material_id) ?? 0));
         return { ...r, stock_actual: stockActual, ...calculateStockAlertV(r.cantidad, stockActual) };
       }),
     );
@@ -923,11 +938,26 @@ export function UpsertSolicitudVentaDialog({
         };
       });
 
-    // Aplicar stock desde el mapa ya cargado (sin llamadas extra al backend)
+    // Recalcular reservas del cliente de la oferta, filtrando del total ya en memoria
+    const cMap = new Map<string, number>();
+    for (const r of todasReservasVRef.current.filter((r) => r.cliente_id === clienteObj.id)) {
+      for (const mat of r.materiales ?? []) {
+        const neta = Math.max(0, mat.cantidad_reservada - (mat.cantidad_consumida ?? 0));
+        if (neta > 0) cMap.set(mat.material_id, (cMap.get(mat.material_id) ?? 0) + neta);
+      }
+    }
+    clientReservaMapRef.current = cMap;
+
+    // Aplicar stock neto (bruto − reservas totales + reservas del cliente) desde los mapas ya cargados
     const map = stockMapRef.current;
+    const tMap = totalReservaVMapRef.current;
     setMaterialRows(
       baseRows.map((r) => {
-        const stockActual = lookupFromMapV(map, r.material_id, r.codigo);
+        const bruto = lookupFromMapV(map, r.material_id, r.codigo);
+        const stockActual =
+          bruto === null
+            ? null
+            : Math.max(0, bruto - (tMap.get(r.material_id) ?? 0) + (cMap.get(r.material_id) ?? 0));
         return { ...r, stock_actual: stockActual, ...calculateStockAlertV(r.cantidad, stockActual) };
       }),
     );

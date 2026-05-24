@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -37,6 +37,7 @@ import {
   ClienteVentaService,
   InventarioService,
   OfertaVentaService,
+  ReservaVentaService,
   SolicitudVentaService,
 } from "@/lib/api-services";
 import type {
@@ -46,6 +47,7 @@ import type {
   OfertaVenta,
   Reserva,
   ReservaCreateData,
+  StockItem,
 } from "@/lib/api-types";
 
 interface MaterialRow {
@@ -55,7 +57,42 @@ interface MaterialRow {
   codigo: string;
   nombre: string;
   um?: string;
+  /** Stock disponible (bruto − reservas activas). null mientras no hay almacén o se carga. */
+  stock_actual: number | null;
+  alerta_stock: boolean;
+  faltante: number;
 }
+
+/** Mapa material_id/codigo → cantidad bruta de stock (sin descontar reservas). */
+const buildStockMap = (items: StockItem[]): Map<string, number> => {
+  const map = new Map<string, number>();
+  for (const item of items) {
+    if (item.material_id) map.set(item.material_id, item.cantidad);
+    if (item.material_codigo) {
+      map.set(`c:${item.material_codigo.trim().toLowerCase()}`, item.cantidad);
+    }
+  }
+  return map;
+};
+
+/**
+ * Busca el stock bruto en el mapa ya cargado.
+ * Devuelve null si el mapa aún no está cargado (almacén no seleccionado).
+ * Devuelve 0 si el mapa está cargado pero el material no tiene stock.
+ */
+const lookupStock = (
+  map: Map<string, number>,
+  materialId: string,
+  codigo?: string,
+): number | null => {
+  if (map.size === 0) return null;
+  if (materialId && map.has(materialId)) return map.get(materialId)!;
+  if (codigo) {
+    const key = `c:${codigo.trim().toLowerCase()}`;
+    if (map.has(key)) return map.get(key)!;
+  }
+  return 0;
+};
 
 interface CreateReservaVentaDialogProps {
   open: boolean;
@@ -92,6 +129,17 @@ export function CreateReservaVentaDialog({
   const [materialSearch, setMaterialSearch] = useState("");
   const [materialRows, setMaterialRows] = useState<MaterialRow[]>([]);
   const [showMaterialSearch, setShowMaterialSearch] = useState(false);
+
+  // Stock precargado del almacén seleccionado (una sola llamada al backend)
+  const [loadingStock, setLoadingStock] = useState(false);
+  const stockMapRef = useRef<Map<string, number>>(new Map());
+  // Mapa material_id → total neto reservado (todas las reservas activas del almacén)
+  const totalReservaMapRef = useRef<Map<string, number>>(new Map());
+  // Espejo de materialRows para recalcular dentro del efecto de carga de stock
+  const materialRowsRef = useRef<MaterialRow[]>([]);
+  useEffect(() => {
+    materialRowsRef.current = materialRows;
+  }, [materialRows]);
 
   // Fecha expiración
   const [fechaExpiracion, setFechaExpiracion] = useState("");
@@ -162,6 +210,96 @@ export function CreateReservaVentaDialog({
     return () => clearTimeout(timer);
   }, [clienteSearch]);
 
+  // Calcula los campos de stock de una fila a partir de los mapas ya cargados.
+  // Stock disponible para una nueva reserva = bruto − reservas activas del almacén.
+  const computeStock = (
+    materialId: string,
+    codigo: string,
+    cantidad: number,
+  ): Pick<MaterialRow, "stock_actual" | "alerta_stock" | "faltante"> => {
+    const bruto = lookupStock(stockMapRef.current, materialId, codigo);
+    if (bruto === null) {
+      return { stock_actual: null, alerta_stock: false, faltante: 0 };
+    }
+    const disponible = Math.max(
+      0,
+      bruto - (totalReservaMapRef.current.get(materialId) ?? 0),
+    );
+    return {
+      stock_actual: disponible,
+      alerta_stock: cantidad > disponible,
+      faltante: Math.max(cantidad - disponible, 0),
+    };
+  };
+
+  // Una sola llamada al cambiar el almacén: carga stock bruto + reservas activas
+  useEffect(() => {
+    if (!selectedAlmacenId) {
+      stockMapRef.current = new Map();
+      totalReservaMapRef.current = new Map();
+      setMaterialRows((prev) =>
+        prev.map((r) => ({
+          ...r,
+          stock_actual: null,
+          alerta_stock: false,
+          faltante: 0,
+        })),
+      );
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      setLoadingStock(true);
+      try {
+        const [{ data: items }, { data: todasReservas }] = await Promise.all([
+          InventarioService.getStock({ almacen_id: selectedAlmacenId, limit: 500 }),
+          ReservaVentaService.getReservas({
+            almacen_id: selectedAlmacenId,
+            estado: "activa",
+            limit: 500,
+          }),
+        ]);
+        if (cancelled) return;
+
+        stockMapRef.current = buildStockMap(items);
+
+        const tMap = new Map<string, number>();
+        for (const reserva of todasReservas) {
+          for (const mat of reserva.materiales ?? []) {
+            const neta = Math.max(
+              0,
+              mat.cantidad_reservada - (mat.cantidad_consumida ?? 0),
+            );
+            if (neta > 0) {
+              tMap.set(mat.material_id, (tMap.get(mat.material_id) ?? 0) + neta);
+            }
+          }
+        }
+        totalReservaMapRef.current = tMap;
+
+        setMaterialRows(
+          materialRowsRef.current.map((r) => ({
+            ...r,
+            ...computeStock(r.material_id, r.codigo, r.cantidad_reservada),
+          })),
+        );
+      } catch {
+        if (!cancelled) {
+          stockMapRef.current = new Map();
+          totalReservaMapRef.current = new Map();
+        }
+      } finally {
+        if (!cancelled) setLoadingStock(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAlmacenId]);
+
   const filteredMateriales = useMemo(() => {
     if (!materialSearch.trim()) return materialesWeb.slice(0, 50);
     const term = materialSearch.toLowerCase();
@@ -186,6 +324,7 @@ export function CreateReservaVentaDialog({
         codigo: mat.codigo,
         nombre: mat.nombre,
         um: mat.um,
+        ...computeStock(mat.id, mat.codigo, 1),
       },
     ]);
     setShowMaterialSearch(false);
@@ -198,11 +337,15 @@ export function CreateReservaVentaDialog({
 
   const updateCantidad = (materialId: string, value: number) => {
     setMaterialRows((prev) =>
-      prev.map((r) =>
-        r.material_id === materialId
-          ? { ...r, cantidad_reservada: Math.max(1, value) }
-          : r,
-      ),
+      prev.map((r) => {
+        if (r.material_id !== materialId) return r;
+        const cantidad = Math.max(1, value);
+        return {
+          ...r,
+          cantidad_reservada: cantidad,
+          ...computeStock(r.material_id, r.codigo, cantidad),
+        };
+      }),
     );
   };
 
@@ -266,13 +409,15 @@ export function CreateReservaVentaDialog({
       .filter((m) => m.material_id)
       .map((m) => {
         const cat = materialesWeb.find((mv) => mv.id === m.material_id);
+        const codigo = m.codigo ?? cat?.codigo ?? "";
         return {
           material_id: m.material_id,
           cantidad_reservada: m.cantidad,
           cantidad_consumida: 0,
-          codigo: m.codigo ?? cat?.codigo ?? "",
+          codigo,
           nombre: m.descripcion ?? cat?.nombre ?? m.codigo ?? m.material_id,
           um: m.um ?? cat?.um,
+          ...computeStock(m.material_id, codigo, m.cantidad),
         };
       });
     setMaterialRows(rows);
@@ -625,13 +770,27 @@ export function CreateReservaVentaDialog({
               </div>
             )}
 
+            {!selectedAlmacenId && materialRows.length > 0 && (
+              <p className="text-xs text-amber-600">
+                Selecciona un almacén arriba para ver el stock disponible.
+              </p>
+            )}
+            {loadingStock && (
+              <p className="flex items-center gap-1.5 text-xs text-gray-500">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Cargando stock del almacén...
+              </p>
+            )}
+
             {/* Material rows */}
             {materialRows.length > 0 && (
               <div className="border rounded-md divide-y">
                 {materialRows.map((row) => (
                   <div
                     key={row.material_id}
-                    className="flex items-center gap-3 px-3 py-2"
+                    className={`flex items-center gap-3 px-3 py-2 ${
+                      row.alerta_stock ? "bg-red-50/60" : ""
+                    }`}
                   >
                     <Package className="h-4 w-4 text-gray-400 shrink-0" />
                     <div className="flex-1 min-w-0">
@@ -640,6 +799,18 @@ export function CreateReservaVentaDialog({
                         {row.codigo}
                         {row.um && ` · ${row.um}`}
                       </p>
+                      {row.stock_actual !== null && (
+                        row.alerta_stock ? (
+                          <p className="text-xs font-medium text-red-600 mt-0.5">
+                            Stock disponible: {row.stock_actual} {row.um || "U"} · Faltan{" "}
+                            {row.faltante}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-emerald-600 mt-0.5">
+                            Stock disponible: {row.stock_actual} {row.um || "U"}
+                          </p>
+                        )
+                      )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <Label className="text-xs text-gray-500 whitespace-nowrap">
@@ -655,7 +826,9 @@ export function CreateReservaVentaDialog({
                             parseInt(e.target.value, 10) || 1,
                           )
                         }
-                        className="w-20 text-center h-8"
+                        className={`w-20 text-center h-8 ${
+                          row.alerta_stock ? "border-red-400" : ""
+                        }`}
                       />
                     </div>
                     <Button
