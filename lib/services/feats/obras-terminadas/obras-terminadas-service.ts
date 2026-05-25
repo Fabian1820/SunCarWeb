@@ -24,6 +24,8 @@ export interface ObraTerminada {
   monto_pendiente?: number | null;
   cantidad_pagos?: number | null;
   almacen_nombre?: string | null;
+  facturada?: boolean | null;
+  numero_factura?: string | null;
 }
 
 export interface ObrasTerminadasListResponse {

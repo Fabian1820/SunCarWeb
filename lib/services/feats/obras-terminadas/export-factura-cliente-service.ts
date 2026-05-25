@@ -329,7 +329,21 @@ export class ExportFacturaClienteService {
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
     const logo = await resolveLogo();
     this.renderFactura(doc, factura, obra, logo);
-    const nombre = factura.numero_oferta || factura.nombre || "factura_cliente";
+    const nombre = factura.numero_factura || factura.numero_oferta || factura.nombre || "factura_cliente";
     doc.save(`Factura_Cliente_${nombre}.pdf`);
+  }
+
+  static async exportarMultiplesPDF(
+    items: { factura: FacturaClienteObra; obra: ObraTerminada }[],
+    nombreArchivo?: string,
+  ): Promise<void> {
+    if (items.length === 0) return;
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const logo = await resolveLogo();
+    items.forEach(({ factura, obra }, idx) => {
+      if (idx > 0) doc.addPage();
+      this.renderFactura(doc, factura, obra, logo);
+    });
+    doc.save(nombreArchivo || `Facturas_Cliente_${new Date().toISOString().slice(0, 10)}.pdf`);
   }
 }

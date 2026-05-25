@@ -3,13 +3,16 @@
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/shared/atom/button"
-import { ArrowLeft, RefreshCw, HardHat, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react"
+import { ArrowLeft, RefreshCw, HardHat, AlertCircle, ChevronLeft, ChevronRight, FileDown, Loader2 } from "lucide-react"
 import { useObrasTerminadas } from "@/hooks/use-obras-terminadas"
 import { ObrasTerminadasTable } from "@/components/feats/obras-terminadas/obras-terminadas-table"
 import type { ObrasTerminadasFiltros } from "@/lib/services/feats/obras-terminadas/obras-terminadas-service"
+import { ObrasTerminadasService } from "@/lib/services/feats/obras-terminadas/obras-terminadas-service"
+import { ExportFacturaClienteService } from "@/lib/services/feats/obras-terminadas/export-factura-cliente-service"
 
 export default function ObrasTerminadasPage() {
   const [serverFiltros, setServerFiltros] = useState<ObrasTerminadasFiltros>({})
+  const [exportingAll, setExportingAll] = useState(false)
 
   const {
     ofertasConPagos, loading, error, fetchData,
@@ -25,6 +28,33 @@ export default function ObrasTerminadasPage() {
   const handleServerFiltersChange = useCallback((next: ObrasTerminadasFiltros) => {
     setServerFiltros(next)
   }, [])
+
+  const handleExportarTodasPDF = useCallback(async () => {
+    const facturadas = ofertasConPagos.filter((o) => o.facturada && o.oferta_id)
+    if (!facturadas.length) return
+
+    setExportingAll(true)
+    try {
+      const results = (
+        await Promise.all(
+          facturadas.map(async (obra) => {
+            try {
+              const facturas = await ObrasTerminadasService.getFacturasCliente(obra.oferta_id!)
+              return facturas.length ? { obra, factura: facturas[0] } : null
+            } catch {
+              return null
+            }
+          }),
+        )
+      ).filter((r): r is { obra: typeof facturadas[0]; factura: Awaited<ReturnType<typeof ObrasTerminadasService.getFacturasCliente>>[0] } => r !== null)
+
+      if (results.length) {
+        await ExportFacturaClienteService.exportarMultiplesPDF(results)
+      }
+    } finally {
+      setExportingAll(false)
+    }
+  }, [ofertasConPagos])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
@@ -67,6 +97,19 @@ export default function ObrasTerminadasPage() {
             </div>
 
             <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportarTodasPDF}
+                disabled={exportingAll || loading || !ofertasConPagos.some((o) => o.facturada)}
+                className="gap-1.5 border-red-300 text-red-700 hover:bg-red-50"
+                title="Exportar todas las facturas cliente en un PDF unificado"
+              >
+                {exportingAll
+                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                  : <FileDown className="h-4 w-4" />}
+                <span className="hidden sm:inline">PDF unificado</span>
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
