@@ -12,6 +12,7 @@ import {
   Image as ImageIcon,
   Save,
   User,
+  Edit,
 } from "lucide-react";
 import { Badge } from "@/components/shared/atom/badge";
 import { Input } from "@/components/shared/atom/input";
@@ -45,6 +46,7 @@ import { LeadSearchSelector } from "@/components/feats/leads/lead-search-selecto
 import { ClienteService } from "@/lib/services/feats/customer/cliente-service";
 import { LeadService } from "@/lib/services/feats/leads/lead-service";
 import { ReservaVentaService } from "@/lib/api-services";
+import type { Reserva } from "@/lib/types/feats/reservas-ventas/reserva-venta-types";
 import type { Material } from "@/lib/material-types";
 import type { Cliente } from "@/lib/types/feats/customer/cliente-types";
 import {
@@ -374,6 +376,10 @@ export function ConfeccionOfertasView({
     Record<string, number>
   >({});
   const [reservandoEnGuardado, setReservandoEnGuardado] = useState(false);
+  const [reservasActivasExistentes, setReservasActivasExistentes] = useState<Reserva[]>([]);
+  const [editandoReservaExistente, setEditandoReservaExistente] = useState(false);
+  const [actualizandoReserva, setActualizandoReserva] = useState(false);
+  const [refreshReservasKey, setRefreshReservasKey] = useState(0);
   const codigoReservaReferencia = useMemo(() => {
     const now = new Date();
     const y = now.getFullYear();
@@ -1329,12 +1335,14 @@ export function ConfeccionOfertasView({
 
         if (!isMounted) return;
 
+        const activas = data.filter((reserva) => reserva.estado === "activa");
+        setReservasActivasExistentes(activas);
+        if (activas.length > 0) setMaterialesReservados(true);
+
         const porMaterialId: Record<string, number> = {};
         const porCodigo: Record<string, number> = {};
 
-        data
-          .filter((reserva) => reserva.estado === "activa")
-          .forEach((reserva) => {
+        activas.forEach((reserva) => {
             (reserva.materiales || []).forEach((material) => {
               const cantidad = Math.max(
                 0,
@@ -1375,7 +1383,7 @@ export function ConfeccionOfertasView({
     return () => {
       isMounted = false;
     };
-  }, [modoEdicion, ofertaParaEditar?.id, ofertaParaEditar?.numero_oferta]);
+  }, [modoEdicion, ofertaParaEditar?.id, ofertaParaEditar?.numero_oferta, refreshReservasKey]);
 
   const reservasExistentesPorKey = useMemo(() => {
     const map: Record<string, number> = {};
@@ -2071,9 +2079,9 @@ export function ConfeccionOfertasView({
       return material?.potenciaKW || null;
     };
 
-    // Función para formatear potencia con coma decimal
+    // Función para formatear potencia con coma decimal (máx 3 decimales para evitar ruido de punto flotante)
     const formatearPotencia = (potencia: number): string => {
-      return potencia.toString().replace(".", ",");
+      return parseFloat(potencia.toFixed(3)).toString().replace(".", ",");
     };
 
     // 1. INVERSORES - Usar el seleccionado
@@ -2159,8 +2167,8 @@ export function ConfeccionOfertasView({
         const potencia = obtenerPotencia(panelSeleccionado);
 
         if (potencia) {
-          // Para paneles, siempre convertir kW a W
-          const potenciaW = potencia * 1000;
+          // Si potenciaKW > 10 el valor fue guardado en W por error (ej: 605 en vez de 0.605)
+          const potenciaW = potencia > 10 ? potencia : potencia * 1000;
           componentes.push(`P-${cantidad}x${formatearPotencia(potenciaW)}W`);
         } else {
           componentes.push(`P-${cantidad}x`);
@@ -2292,7 +2300,10 @@ export function ConfeccionOfertasView({
         const potenciaTotal =
           cantidadSeleccionada * potenciaSeleccionada +
           cantidadEspecial * potenciaEspecial;
-        const potencia = cantidad > 0 ? potenciaTotal / cantidad : 0;
+        const potencia =
+          cantidad > 0
+            ? parseFloat((potenciaTotal / cantidad).toFixed(3))
+            : 0;
         const marca = marcaSeleccionada || marcaEspecial;
 
         console.log(
@@ -2327,11 +2338,11 @@ export function ConfeccionOfertasView({
         const marca = obtenerMarca(panelSeleccionado);
 
         if (potencia && marca) {
-          // Para paneles, siempre convertir kW a W
-          const potenciaW = potencia * 1000;
+          // Si potenciaKW > 10 el valor fue guardado en W por error (ej: 605 en vez de 0.605)
+          const potenciaW = potencia > 10 ? potencia : potencia * 1000;
           componentes.push(`${cantidad}x ${potenciaW}W Paneles ${marca}`);
         } else if (potencia) {
-          const potenciaW = potencia * 1000;
+          const potenciaW = potencia > 10 ? potencia : potencia * 1000;
           componentes.push(`${cantidad}x ${potenciaW}W Paneles`);
         } else if (marca) {
           componentes.push(`${cantidad}x Paneles ${marca}`);
@@ -4673,26 +4684,23 @@ export function ConfeccionOfertasView({
     if (!materialesReservados) return;
 
     try {
-      // TODO: Implementar llamada al backend
-      // await fetch(`/api/ofertas/confeccion/${ofertaId}/liberar-materiales`, {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' }
-      // })
-
-      // Simulación temporal
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (reservasActivasExistentes.length > 0) {
+        for (const reserva of reservasActivasExistentes) {
+          await ReservaVentaService.cancelarReserva(reserva.id);
+        }
+      }
 
       setMaterialesReservados(false);
       setFechaExpiracionReserva(null);
       setTipoReserva(null);
+      setReservasActivasExistentes([]);
+      setEditandoReservaExistente(false);
 
       toast({
         title: "Reserva cancelada",
-        description:
-          "Los materiales han sido liberados y están disponibles nuevamente",
+        description: "Los materiales han sido liberados y están disponibles nuevamente",
       });
 
-      // Refrescar el stock
       if (almacenId) {
         await refetchStock(almacenId);
       }
@@ -4703,6 +4711,54 @@ export function ConfeccionOfertasView({
         description: error.message || "No se pudo cancelar la reserva",
         variant: "destructive",
       });
+    }
+  };
+
+  const actualizarReservasExistentes = async () => {
+    if (reservasActivasExistentes.length === 0) return;
+
+    setActualizandoReserva(true);
+    try {
+      for (const reserva of reservasActivasExistentes) {
+        const nuevasMateriales = reserva.materiales
+          .map((m) => {
+            const matchBase = materialesReservaBase.find(
+              (base) =>
+                base.materialId === String(m.material_id || "") ||
+                base.materialCodigo === String(m.codigo || ""),
+            );
+            const nuevaCantidad = matchBase
+              ? Math.max(0, Math.round(Number(reservaCantidadesPorMaterial[matchBase.key] ?? 0)))
+              : 0;
+            return { ...m, cantidad_reservada: nuevaCantidad };
+          })
+          .filter((m) => m.cantidad_reservada > 0);
+
+        if (nuevasMateriales.length === 0) {
+          await ReservaVentaService.cancelarReserva(reserva.id);
+        } else {
+          await ReservaVentaService.updateReserva(reserva.id, {
+            materiales: nuevasMateriales,
+          });
+        }
+      }
+
+      toast({
+        title: "Reserva actualizada",
+        description: "Los cambios en la reserva se guardaron correctamente",
+      });
+      setEditandoReservaExistente(false);
+      setRefreshReservasKey((k) => k + 1);
+      if (almacenId) await refetchStock(almacenId);
+    } catch (error: any) {
+      console.error("Error al actualizar reserva:", error);
+      toast({
+        title: "Error al actualizar reserva",
+        description: error.message || "No se pudieron guardar los cambios",
+        variant: "destructive",
+      });
+    } finally {
+      setActualizandoReserva(false);
     }
   };
 
@@ -8670,21 +8726,124 @@ export function ConfeccionOfertasView({
                           <div className="flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2">
                             <CheckCircle className="h-4 w-4" />
                             <span className="font-medium">
-                              {items.length} material
+                              {reservasActivasExistentes.reduce(
+                                (sum, r) => sum + (r.materiales?.length ?? 0),
+                                0,
+                              ) || items.length}{" "}
+                              material
                               {items.length !== 1 ? "es" : ""} reservado
                               {items.length !== 1 ? "s" : ""}
                             </span>
                           </div>
-                          {fechaExpiracionReserva && (
+
+                          {/* Botón editar reserva - solo en modo edición */}
+                          {modoEdicion && reservasActivasExistentes.length > 0 && (
                             <Button
-                              onClick={cancelarReserva}
+                              type="button"
+                              onClick={() =>
+                                setEditandoReservaExistente((v) => !v)
+                              }
                               variant="outline"
-                              className="w-full border-red-300 text-red-700 hover:bg-red-50 hover:text-red-800"
+                              size="sm"
+                              className="w-full border-blue-300 text-blue-700 hover:bg-blue-50"
                             >
-                              <X className="h-4 w-4 mr-2" />
-                              Cancelar Reserva
+                              <Edit className="h-3.5 w-3.5 mr-2" />
+                              {editandoReservaExistente
+                                ? "Cerrar edición"
+                                : "Editar Reserva"}
                             </Button>
                           )}
+
+                          {/* Formulario de edición inline */}
+                          {modoEdicion && editandoReservaExistente && (
+                            <div className="space-y-2 border border-blue-200 rounded-md p-2 bg-blue-50/30">
+                              <p className="text-[11px] text-blue-700 font-medium">
+                                Ajusta las cantidades (0 para quitar un
+                                material de la reserva):
+                              </p>
+                              <div className="rounded border bg-white overflow-x-auto">
+                                <table className="w-full text-xs">
+                                  <thead>
+                                    <tr className="border-b bg-slate-50">
+                                      <th className="text-left px-2 py-1.5">
+                                        Material
+                                      </th>
+                                      <th className="text-right px-2 py-1.5">
+                                        Oferta
+                                      </th>
+                                      <th className="text-right px-2 py-1.5">
+                                        Reservar
+                                      </th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {materialesReservaVisibles.map(
+                                      (material) => (
+                                        <tr
+                                          key={material.key}
+                                          className="border-b last:border-b-0"
+                                        >
+                                          <td className="px-2 py-1.5">
+                                            <div className="font-medium">
+                                              {material.materialCodigo}
+                                            </div>
+                                            <div className="text-slate-500 text-[10px] truncate max-w-[120px]">
+                                              {material.descripcion}
+                                            </div>
+                                          </td>
+                                          <td className="px-2 py-1.5 text-right">
+                                            {material.cantidadOferta}
+                                          </td>
+                                          <td className="px-2 py-1.5 text-right">
+                                            <Input
+                                              type="number"
+                                              min={0}
+                                              max={material.cantidadOferta}
+                                              className="h-7 w-16 text-right text-xs"
+                                              value={String(
+                                                reservaCantidadesPorMaterial[
+                                                  material.key
+                                                ] ?? 0,
+                                              )}
+                                              onChange={(e) =>
+                                                actualizarCantidadReservaMaterial(
+                                                  material.key,
+                                                  Number(e.target.value),
+                                                )
+                                              }
+                                            />
+                                          </td>
+                                        </tr>
+                                      ),
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
+                              <Button
+                                type="button"
+                                onClick={actualizarReservasExistentes}
+                                disabled={actualizandoReserva}
+                                size="sm"
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                              >
+                                {actualizandoReserva
+                                  ? "Guardando..."
+                                  : "Guardar cambios de reserva"}
+                              </Button>
+                            </div>
+                          )}
+
+                          {/* Botón cancelar reserva */}
+                          <Button
+                            type="button"
+                            onClick={cancelarReserva}
+                            variant="outline"
+                            size="sm"
+                            className="w-full border-red-300 text-red-700 hover:bg-red-50 hover:text-red-800"
+                          >
+                            <X className="h-4 w-4 mr-2" />
+                            Cancelar Reserva
+                          </Button>
                         </div>
                       ) : (
                         <Button
