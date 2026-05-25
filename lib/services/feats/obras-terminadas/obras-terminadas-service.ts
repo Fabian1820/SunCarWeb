@@ -111,6 +111,22 @@ export interface ValeSalidaObra {
   materiales?: MaterialVale[] | null;
 }
 
+export interface FacturaClienteObra {
+  id?: string | null;
+  nombre?: string | null;
+  nombre_completo?: string | null;
+  numero_oferta?: string | null;
+  fecha_facturacion?: string | null;
+  estado?: string | null;
+  facturada?: boolean | null;
+  precio_final?: number | null;
+  total_materiales?: number | null;
+  total_pagado?: number | null;
+  monto_pendiente?: number | null;
+  materiales?: MaterialOferta[] | null;
+  pagos?: PagoObra[] | null;
+}
+
 export interface OfertaDetalleObras {
   success: boolean;
   materiales: MaterialOferta[];
@@ -118,6 +134,7 @@ export interface OfertaDetalleObras {
   trabajos: TrabajoDiarioObra[];
   vales: ValeSalidaObra[];
   facturas: Factura[];
+  facturas_cliente?: FacturaClienteObra[] | null;
 }
 
 /** @deprecated Usa OfertaDetalleObras — se mantiene por compatibilidad con el hook */

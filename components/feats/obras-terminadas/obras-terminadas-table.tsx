@@ -37,7 +37,9 @@ import type {
   TrabajoDiarioObra,
   ValeSalidaObra,
   ObrasTerminadasFiltros,
+  FacturaClienteObra,
 } from "@/lib/services/feats/obras-terminadas/obras-terminadas-service"
+import { ExportFacturaClienteService } from "@/lib/services/feats/obras-terminadas/export-factura-cliente-service"
 import type { Factura } from "@/lib/types/feats/facturas/factura-types"
 import { ExportComprobanteService } from "@/lib/services/feats/pagos/export-comprobante-service"
 import { ExportFacturaService } from "@/lib/services/feats/facturas/export-factura-service"
@@ -729,10 +731,214 @@ function FacturasPanel({ facturas, oferta }: { facturas: Factura[]; oferta: Ofer
 }
 
 /* ─────────────────────────────────────────────
+   Panel: FACTURAS CLIENTE TERMINADO
+───────────────────────────────────────────── */
+
+function FacturasClientePanel({ facturas, oferta }: { facturas: FacturaClienteObra[]; oferta: OfertaObra }) {
+  const [exportingId, setExportingId] = React.useState<string | null>(null)
+
+  if (!facturas.length)
+    return (
+      <div className="text-center py-6 text-sm text-gray-500 space-y-1">
+        <p>No hay facturas de cliente registradas para esta obra.</p>
+        <p className="text-xs text-gray-400">Se generan cuando el cliente tiene estado &quot;Equipo instalado con éxito&quot; y una oferta confección confirmada.</p>
+      </div>
+    )
+
+  const handleExportPdf = async (factura: FacturaClienteObra) => {
+    const id = factura.id ?? factura.numero_oferta ?? "0"
+    setExportingId(id)
+    try {
+      await ExportFacturaClienteService.exportarPDF(factura, oferta)
+    } finally {
+      setExportingId(null)
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      {facturas.map((factura, idx) => {
+        const id = factura.id ?? factura.numero_oferta ?? String(idx)
+        const preciofinal = factura.precio_final ?? oferta.precio_final ?? 0
+        const totalPagado = factura.total_pagado ?? oferta.total_pagado ?? 0
+        const montoPendiente = factura.monto_pendiente ?? oferta.monto_pendiente ?? 0
+        const pagada = montoPendiente <= 0.01
+        const isLoading = exportingId === id
+        const materiales = factura.materiales ?? []
+        const pagos = factura.pagos ?? []
+
+        return (
+          <div key={id} className="bg-white rounded-lg border border-blue-200 shadow-sm overflow-hidden">
+            {/* Cabecera */}
+            <div className="flex items-center justify-between px-4 py-2.5 bg-blue-50 border-b border-blue-200">
+              <div className="flex items-center gap-3">
+                <Receipt className="h-4 w-4 text-blue-500 shrink-0" />
+                <div>
+                  <span className="font-semibold text-sm text-slate-800">
+                    {factura.numero_oferta || factura.nombre || `Factura cliente ${idx + 1}`}
+                  </span>
+                  {factura.fecha_facturacion && (
+                    <span className="ml-3 text-xs text-slate-500">{fmtDate(factura.fecha_facturacion)}</span>
+                  )}
+                </div>
+                <div className="flex gap-1.5 ml-2">
+                  <Badge className="bg-blue-100 text-blue-700 text-[11px]">Confección</Badge>
+                  {pagada ? (
+                    <Badge className="bg-green-100 text-green-700 text-[11px]">Pagada</Badge>
+                  ) : (
+                    <Badge className="bg-amber-100 text-amber-700 text-[11px]">Pendiente</Badge>
+                  )}
+                  {factura.facturada && (
+                    <Badge className="bg-emerald-100 text-emerald-700 text-[11px]">Facturada</Badge>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-sm text-slate-900 tabular-nums">{fmtCurrency(preciofinal)}</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleExportPdf(factura)}
+                  disabled={isLoading}
+                  className="h-7 px-2 text-xs gap-1 border-red-300 text-red-700 hover:bg-red-50"
+                >
+                  {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+                  PDF
+                </Button>
+              </div>
+            </div>
+
+            {/* Nombre completo de la oferta */}
+            {factura.nombre_completo && (
+              <div className="px-4 py-2 bg-slate-50/60 border-b border-slate-100 text-xs text-slate-600 italic">
+                {factura.nombre_completo}
+              </div>
+            )}
+
+            {/* Materiales */}
+            {materiales.length > 0 && (
+              <div className="border-b border-slate-100">
+                <div className="px-4 pt-3 pb-1">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Materiales</span>
+                </div>
+                <table className="w-full text-sm table-fixed">
+                  <thead className="bg-slate-50/70 text-slate-500 border-b border-slate-100">
+                    <tr>
+                      <th className="w-[52%] text-left px-4 py-2 text-xs font-semibold">Descripción</th>
+                      <th className="w-[12%] text-center px-3 py-2 text-xs font-semibold">Cant.</th>
+                      <th className="w-[18%] text-right px-3 py-2 text-xs font-semibold">Precio</th>
+                      <th className="w-[18%] text-right px-4 py-2 text-xs font-semibold">Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {materiales.map((m, i) => (
+                      <tr key={m.material_codigo || i} className="border-t border-slate-100 hover:bg-slate-50 transition-colors">
+                        <td className="px-4 py-2 text-xs text-slate-800 break-words">
+                          <span className="block font-medium">{m.descripcion || m.material_codigo || "—"}</span>
+                          {m.material_codigo && <span className="text-[10px] text-slate-400">{m.material_codigo}</span>}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-center tabular-nums">{m.cantidad ?? "—"}</td>
+                        <td className="px-3 py-2 text-xs text-right tabular-nums">{m.precio != null ? fmtCurrency(m.precio) : "—"}</td>
+                        <td className="px-4 py-2 text-xs text-right font-medium tabular-nums">
+                          {m.precio != null && m.cantidad != null ? fmtCurrency(m.precio * m.cantidad) : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Pagos */}
+            {pagos.length > 0 && (
+              <div className="border-b border-slate-100">
+                <div className="px-4 pt-3 pb-1">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Pagos</span>
+                </div>
+                <div className="px-4 pb-3 space-y-2">
+                  {ordenarPagos(pagos).map((pago, pidx) => {
+                    const sorted = ordenarPagos(pagos)
+                    const antes = sorted.slice(0, pidx).reduce((s, p) => s + getMontoAplicadoUsd(p), 0)
+                    const conEste = antes + getMontoAplicadoUsd(pago)
+                    const pendDespues = roundToCents(Math.max(0, preciofinal - conEste))
+                    const metodo = pago.metodo_pago ?? ""
+                    const moneda = pago.moneda ?? "USD"
+
+                    return (
+                      <div key={pago.id || pidx} className="rounded border border-slate-200 p-2 bg-white shadow-sm">
+                        <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                          <span className="text-xs font-semibold text-slate-500">#{pidx + 1}</span>
+                          <TipoPagoBadge tipo={pago.tipo_pago ?? ""} />
+                          {metodo && <MetodoPagoBadge metodo={metodo} />}
+                          <span className="text-xs text-slate-500">{fmtDate(pago.fecha ?? "")}</span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                          <div>
+                            <span className="text-slate-500 block">Monto</span>
+                            <span className="font-semibold">
+                              {Number(pago.monto ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2 })} {moneda}
+                            </span>
+                          </div>
+                          {moneda !== "USD" && pago.tasa_cambio && (
+                            <div>
+                              <span className="text-slate-500 block">Equiv. USD</span>
+                              <span className="font-semibold">{fmtCurrency(Number(pago.monto ?? 0) / Number(pago.tasa_cambio))}</span>
+                            </div>
+                          )}
+                          {pago.recibido_por && (
+                            <div>
+                              <span className="text-slate-500 block">Recibido por</span>
+                              <span className="font-medium">{pago.recibido_por}</span>
+                            </div>
+                          )}
+                          <div>
+                            <span className="text-slate-500 block">Pendiente tras pago</span>
+                            <span className={cn("font-bold", pendDespues > 0 ? "text-orange-600" : "text-green-600")}>
+                              {pendDespues > 0 ? fmtCurrency(pendDespues) : "Pagado ✓"}
+                            </span>
+                          </div>
+                        </div>
+                        {pago.notas && (
+                          <p className="mt-1 text-[11px] text-slate-400 italic">{pago.notas}</p>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Totales */}
+            <div className="px-4 py-3 bg-slate-50/60">
+              <div className="flex justify-end gap-6 text-sm">
+                <div className="text-right">
+                  <span className="block text-xs text-slate-500">Total a pagar</span>
+                  <span className="font-bold text-slate-900 tabular-nums">{fmtCurrency(preciofinal)}</span>
+                </div>
+                <div className="text-right">
+                  <span className="block text-xs text-slate-500">Cobrado</span>
+                  <span className="font-bold text-green-700 tabular-nums">{fmtCurrency(totalPagado)}</span>
+                </div>
+                <div className="text-right">
+                  <span className="block text-xs text-slate-500">Pendiente</span>
+                  <span className={cn("font-bold tabular-nums", pagada ? "text-green-600" : "text-orange-600")}>
+                    {pagada ? "Pagada ✓" : fmtCurrency(montoPendiente)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/* ─────────────────────────────────────────────
    Tipos de pestaña expandida
 ───────────────────────────────────────────── */
 
-type SectionTab = "materiales" | "pagos" | "trabajos" | "vales" | "facturas"
+type SectionTab = "materiales" | "pagos" | "trabajos" | "vales" | "facturas" | "facturas_cliente"
 
 /* ─────────────────────────────────────────────
    Componente principal
@@ -1056,6 +1262,7 @@ export function ObrasTerminadasTable({
                                 { key: "trabajos" as const, icon: <Wrench className="h-3.5 w-3.5" />, label: "Trabajos Diarios", count: detalle?.trabajos?.length },
                                 { key: "vales" as const, icon: <Package className="h-3.5 w-3.5" />, label: "Vales", count: detalle?.vales?.length },
                                 { key: "facturas" as const, icon: <Receipt className="h-3.5 w-3.5" />, label: "Facturas Instaladora", count: detalle?.facturas?.length },
+                                { key: "facturas_cliente" as const, icon: <FileText className="h-3.5 w-3.5" />, label: "Facturas Cliente", count: detalle?.facturas_cliente?.length },
                               ]).map((t) => (
                                 <button
                                   key={t.key}
@@ -1094,6 +1301,7 @@ export function ObrasTerminadasTable({
                                 {tab === "trabajos" && <TrabajosPanel trabajos={detalle?.trabajos ?? []} />}
                                 {tab === "vales" && <ValesPanel vales={detalle?.vales ?? []} />}
                                 {tab === "facturas" && <FacturasPanel facturas={detalle?.facturas ?? []} oferta={oferta} />}
+                                {tab === "facturas_cliente" && <FacturasClientePanel facturas={detalle?.facturas_cliente ?? []} oferta={oferta} />}
                               </>
                             )}
                           </div>
