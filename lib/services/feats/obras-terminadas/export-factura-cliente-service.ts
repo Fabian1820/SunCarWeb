@@ -155,13 +155,11 @@ export class ExportFacturaClienteService {
       const rows = materiales.map((m) => [
         m.descripcion || m.material_codigo || "—",
         String(m.cantidad ?? 0),
-        fmt(m.precio),
-        fmt((m.cantidad ?? 0) * (m.precio ?? 0)),
       ]);
 
       autoTable(doc, {
         startY: y,
-        head: [["Descripción", "Cant.", "Precio", "Subtotal"]],
+        head: [["Descripción", "Cant."]],
         body: rows,
         margin: { left: ml, right: ml },
         theme: "plain",
@@ -183,9 +181,7 @@ export class ExportFacturaClienteService {
         alternateRowStyles: { fillColor: [249, 250, 251] },
         columnStyles: {
           0: { cellWidth: "auto" },
-          1: { cellWidth: 13, halign: "center" },
-          2: { cellWidth: 26, halign: "right" },
-          3: { cellWidth: 26, halign: "right", fontStyle: "bold" },
+          1: { cellWidth: 18, halign: "center" },
         },
       });
       y = ((doc as jsPDF & { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY ?? y) + 5;
@@ -207,9 +203,10 @@ export class ExportFacturaClienteService {
         efectivo: "Efectivo",
         transferencia_bancaria: "Transferencia",
         stripe: "Stripe",
+        financiacion: "Financiación",
       };
 
-      const pagoLine = (label: string, value: string) => {
+      const pagoDetail = (label: string, value: string) => {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(8.5);
         doc.setTextColor(107, 114, 128);
@@ -235,16 +232,44 @@ export class ExportFacturaClienteService {
 
         const moneda = p.moneda ?? "USD";
         const monto = Number(p.monto ?? 0);
-        pagoLine("Monto Pagado", `${monto.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${moneda}`);
+        pagoDetail("Monto Pagado", `${monto.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${moneda}`);
 
         if (moneda !== "USD" && p.tasa_cambio && Number(p.tasa_cambio) > 0) {
-          pagoLine("Tasa de Cambio", Number(p.tasa_cambio).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 }));
-          pagoLine("Equivalente USD", fmt(monto / Number(p.tasa_cambio)));
+          const tasa = Number(p.tasa_cambio);
+          pagoDetail("Tasa de Cambio", tasa.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 }));
+          pagoDetail("Equivalente USD", fmt(monto / tasa));
         }
 
-        if (p.metodo_pago) pagoLine("Forma de Pago", METODO_LABELS[p.metodo_pago] || p.metodo_pago);
-        if (p.recibido_por) pagoLine("Recibido por", p.recibido_por);
-        if (p.notas) pagoLine("Notas", p.notas);
+        // Desglose de billetes
+        const desglose = (p as PagoObra & { desglose_billetes?: Record<string, number> }).desglose_billetes;
+        if (desglose && typeof desglose === "object") {
+          const entries = Object.entries(desglose).filter(([, cant]) => Number(cant) > 0);
+          if (entries.length > 0) {
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(8.5);
+            doc.setTextColor(107, 114, 128);
+            doc.text("Desglose de Billetes:", ml + 4, y);
+            y += 5;
+            let totalBilletes = 0;
+            for (const [denominacion, cantidad] of entries) {
+              const subtotal = Number(denominacion) * Number(cantidad);
+              totalBilletes += subtotal;
+              doc.setFont("helvetica", "normal");
+              doc.setFontSize(8);
+              doc.setTextColor(55, 65, 81);
+              doc.text(`${cantidad} x ${denominacion} ${moneda}`, ml + 10, y);
+              doc.setFont("helvetica", "bold");
+              doc.text(subtotal.toLocaleString("en-US", { minimumFractionDigits: 2 }), mr - 2, y, { align: "right" });
+              y += 4.5;
+            }
+            const cambio = totalBilletes - monto;
+            if (cambio > 0) pagoDetail("Cambio", `${cambio.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${moneda}`);
+          }
+        }
+
+        if (p.metodo_pago) pagoDetail("Forma de Pago", METODO_LABELS[p.metodo_pago] || p.metodo_pago);
+        if (p.recibido_por) pagoDetail("Recibido por", p.recibido_por);
+        if (p.notas) pagoDetail("Notas", p.notas);
 
         // Pendiente acumulado después de este pago
         const antes = pagos.slice(0, idx).reduce((s, pp) => s + getMontoAplicadoUsd(pp), 0);
@@ -254,7 +279,7 @@ export class ExportFacturaClienteService {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(8.5);
         doc.setTextColor(107, 114, 128);
-        doc.text("Pendiente tras pago:", ml + 4, y);
+        doc.text("Monto Pendiente:", ml + 4, y);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(pendVal > 0 ? 185 : 21, pendVal > 0 ? 28 : 128, pendVal > 0 ? 28 : 61);
         doc.text(`${pendVal.toLocaleString("en-US", { minimumFractionDigits: 2 })} USD`, mr - 2, y, { align: "right" });
@@ -281,11 +306,9 @@ export class ExportFacturaClienteService {
     };
 
     const preciofinal = factura.precio_final ?? obra.precio_final ?? 0;
-    const totalMat = factura.total_materiales ?? obra.total_materiales ?? 0;
     const totalPagado = factura.total_pagado ?? obra.total_pagado ?? 0;
     const montoPendiente = factura.monto_pendiente ?? obra.monto_pendiente ?? 0;
 
-    totalRow("Total materiales", fmt(totalMat));
     totalRow("Total a pagar",    fmt(preciofinal));
     totalRow("Total pagado",     fmt(totalPagado), false, [21, 128, 61]);
 
