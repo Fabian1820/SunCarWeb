@@ -1337,7 +1337,15 @@ export function ConfeccionOfertasView({
 
         const activas = data.filter((reserva) => reserva.estado === "activa");
         setReservasActivasExistentes(activas);
-        if (activas.length > 0) setMaterialesReservados(true);
+        if (activas.length > 0) {
+          setMaterialesReservados(true);
+        } else {
+          // No quedan reservas activas: limpiar estado de reserva en UI
+          setMaterialesReservados(false);
+          setFechaExpiracionReserva(null);
+          setTipoReserva(null);
+          setEditandoReservaExistente(false);
+        }
 
         const porMaterialId: Record<string, number> = {};
         const porCodigo: Record<string, number> = {};
@@ -4743,9 +4751,34 @@ export function ConfeccionOfertasView({
         }
       }
 
+      // Verificar si quedaron reservas activas o se cancelaron todas
+      const todasCanceladas = reservasActivasExistentes.every((reserva) => {
+        return reserva.materiales
+          .map((m) => {
+            const matchBase = materialesReservaBase.find(
+              (base) =>
+                base.materialId === String(m.material_id || "") ||
+                base.materialCodigo === String(m.codigo || ""),
+            );
+            return matchBase
+              ? Math.max(0, Math.round(Number(reservaCantidadesPorMaterial[matchBase.key] ?? 0)))
+              : 0;
+          })
+          .every((cant) => cant === 0);
+      });
+
+      if (todasCanceladas) {
+        setMaterialesReservados(false);
+        setReservasActivasExistentes([]);
+        setFechaExpiracionReserva(null);
+        setTipoReserva(null);
+      }
+
       toast({
-        title: "Reserva actualizada",
-        description: "Los cambios en la reserva se guardaron correctamente",
+        title: todasCanceladas ? "Reserva cancelada" : "Reserva actualizada",
+        description: todasCanceladas
+          ? "Todos los materiales fueron liberados del almacén"
+          : "Los cambios en la reserva se guardaron correctamente",
       });
       setEditandoReservaExistente(false);
       setRefreshReservasKey((k) => k + 1);
