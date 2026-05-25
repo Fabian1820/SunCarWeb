@@ -338,7 +338,7 @@ export class ExportFacturaVentaConsolidadaService {
             }
             const cambio = totalBilletes - monto;
             if (cambio > 0) {
-              pagoDetail("Cambio", `${cambio.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${moneda}`);
+              pagoDetail("Cambio original", `${cambio.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${moneda}`);
             }
           }
         }
@@ -353,19 +353,25 @@ export class ExportFacturaVentaConsolidadaService {
           pagoDetail("Notas", p.notas);
         }
 
-        // Cambio real dado al cliente (prioritario) o cambio calculado (fallback)
+        // Cambio dado al cliente
         const pr = p as typeof p & { cambio?: number; cambio_real_monto?: number; cambio_real_moneda?: string; cambio_real_tasa?: number };
-        if (pr.cambio_real_monto != null && Number(pr.cambio_real_monto) > 0) {
+        const hayCambioReal = pr.cambio_real_monto != null && Number(pr.cambio_real_monto) > 0;
+        const hayCambioOriginal = pr.cambio != null && Number(pr.cambio) > 0;
+
+        if (hayCambioOriginal && !hayCambioReal) {
+          // Solo cambio calculado (sin cambio real diferente)
+          pagoDetail("Cambio original", `${Number(pr.cambio).toLocaleString("en-US", { minimumFractionDigits: 2 })} ${moneda}`);
+        } else if (hayCambioReal) {
           const crMonto = Number(pr.cambio_real_monto);
           const crMoneda = pr.cambio_real_moneda || moneda;
           const crTasa = Number(pr.cambio_real_tasa || 0);
-          let crLabel = `${crMonto.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${crMoneda}`;
+          // Cambio dado: monto + moneda
+          pagoDetail("Cambio dado", `${crMonto.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${crMoneda}`);
+          // Tasa del cambio: expresada como "no-USD por 1 USD"
           if (crMoneda !== moneda && crTasa > 0) {
-            crLabel += ` × ${crTasa} ≈ ${(crMonto * crTasa).toLocaleString("en-US", { minimumFractionDigits: 2 })} ${moneda}`;
+            const nonUsd = crMoneda === "USD" ? moneda : crMoneda;
+            pagoDetail("Tasa del cambio", `1 USD = ${crTasa.toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 4 })} ${nonUsd}`);
           }
-          pagoDetail("Cambio real dado", crLabel);
-        } else if (pr.cambio != null && Number(pr.cambio) > 0) {
-          pagoDetail("Cambio", `${Number(pr.cambio).toLocaleString("en-US", { minimumFractionDigits: 2 })} ${moneda}`);
         }
 
         if (p.monto_pendiente_despues_pago != null && Number.isFinite(Number(p.monto_pendiente_despues_pago))) {

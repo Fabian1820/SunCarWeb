@@ -672,21 +672,36 @@ export function RegistrarPagoVentaDialog({
             // Equivalente en moneda original del cambio real
             const cambioRealMontoNum = Number(cambioRealMonto) || 0;
             const cambioRealTasaNum = Number(cambioRealTasa) || 0;
-            // Si el cambio real está en la misma moneda → no necesita tasa
-            const cambioRealEnMonedaOriginal =
-              cambioRealMonedaEsIgual()
-                ? cambioRealMontoNum
-                : cambioRealTasaNum > 0
-                ? cambioRealMontoNum * cambioRealTasaNum
-                : null;
 
             function cambioRealMonedaEsIgual() {
               return cambioRealMoneda === moneda;
             }
 
+            // Tasa siempre expresada como "no-USD por 1 USD" (igual que la tasa principal)
+            // Si cambioRealMoneda=USD: result = monto_usd × tasa  (ej: 78 USD × 0.92 = 71.76 EUR)
+            // Si moneda=USD:           result = monto_noUSD ÷ tasa (ej: 72 EUR ÷ 0.92 = 78.26 USD)
+            // Si ninguna es USD:       result = monto × tasa (caso CUP↔EUR, menos habitual)
+            const cambioRealEnMonedaOriginal: number | null = (() => {
+              if (cambioRealMonedaEsIgual()) return cambioRealMontoNum;
+              if (cambioRealTasaNum <= 0) return null;
+              if (cambioRealMoneda === "USD") return cambioRealMontoNum * cambioRealTasaNum;
+              if (moneda === "USD") return cambioRealMontoNum / cambioRealTasaNum;
+              return cambioRealMontoNum * cambioRealTasaNum;
+            })();
+
             const equivalenciaOk =
               cambioRealEnMonedaOriginal !== null &&
               Math.abs(cambioRealEnMonedaOriginal - cambioOriginal) <= cambioOriginal * 0.02 + 0.01;
+
+            // Etiqueta de la tasa: siempre "no-USD por 1 USD"
+            const usdInvolucrado = cambioRealMoneda === "USD" || moneda === "USD";
+            const nonUsdMoneda = cambioRealMoneda === "USD" ? moneda : cambioRealMoneda;
+            const tasaLabel = usdInvolucrado
+              ? `${nonUsdMoneda} por 1 USD`
+              : `${moneda} por 1 ${cambioRealMoneda}`;
+            const tasaPlaceholder = usdInvolucrado
+              ? `Ej: 0.92 (1 USD = 0.92 ${nonUsdMoneda})`
+              : `Cuántos ${moneda} vale 1 ${cambioRealMoneda}`;
 
             return (
               <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
@@ -765,7 +780,7 @@ export function RegistrarPagoVentaDialog({
                     {!cambioRealMonedaEsIgual() && (
                       <div className="space-y-1">
                         <Label className="text-xs text-amber-800">
-                          Tasa de cambio ({cambioRealMoneda} → {moneda})
+                          Tasa de cambio ({tasaLabel})
                         </Label>
                         <Input
                           type="number"
@@ -773,14 +788,9 @@ export function RegistrarPagoVentaDialog({
                           step="0.0001"
                           value={cambioRealTasa}
                           onChange={(e) => setCambioRealTasa(e.target.value)}
-                          placeholder={`Ej: cuántos ${moneda} vale 1 ${cambioRealMoneda}`}
+                          placeholder={tasaPlaceholder}
                           className="bg-white h-8 text-sm"
                         />
-                        <p className="text-[11px] text-amber-600">
-                          {moneda === "EUR" && cambioRealMoneda === "USD" ? "Ej: 0.92 (1 USD = 0.92 EUR)" :
-                           moneda === "USD" && cambioRealMoneda === "EUR" ? "Ej: 1.09 (1 EUR = 1.09 USD)" :
-                           `Cuántos ${moneda} equivale 1 ${cambioRealMoneda}`}
-                        </p>
                       </div>
                     )}
 
@@ -793,6 +803,10 @@ export function RegistrarPagoVentaDialog({
                         <span>
                           {cambioRealMonedaEsIgual()
                             ? `${cambioRealMontoNum.toFixed(2)} ${cambioRealMoneda}`
+                            : cambioRealMoneda === "USD"
+                            ? `${cambioRealMontoNum.toFixed(2)} USD × ${cambioRealTasaNum} = ${(cambioRealMontoNum * cambioRealTasaNum).toFixed(2)} ${moneda}`
+                            : moneda === "USD"
+                            ? `${cambioRealMontoNum.toFixed(2)} ${cambioRealMoneda} ÷ ${cambioRealTasaNum} = ${cambioRealTasaNum > 0 ? (cambioRealMontoNum / cambioRealTasaNum).toFixed(2) : "?"} USD`
                             : `${cambioRealMontoNum.toFixed(2)} ${cambioRealMoneda} × ${cambioRealTasaNum} = ${(cambioRealMontoNum * cambioRealTasaNum).toFixed(2)} ${moneda}`}
                         </span>
                         <span>
