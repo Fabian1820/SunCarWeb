@@ -196,6 +196,16 @@ export const ObrasTerminadasService = {
     );
   },
 
+  async getFacturasCliente(
+    ofertaId: string,
+    signal?: AbortSignal,
+  ): Promise<FacturaClienteObra[]> {
+    return apiRequest<FacturaClienteObra[]>(
+      `${BASE}/oferta/${encodeURIComponent(ofertaId)}/facturas-cliente`,
+      { method: "GET", signal },
+    );
+  },
+
   /** @deprecated Usa getOfertaDetalle */
   async getClienteDetalle(
     clienteNumero: string,

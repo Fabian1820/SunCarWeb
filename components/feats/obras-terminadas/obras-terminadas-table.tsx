@@ -30,7 +30,7 @@ import {
   Receipt,
   Download,
 } from "lucide-react"
-import type { OfertaObra, OfertaDetalleObras } from "@/hooks/use-obras-terminadas"
+import type { OfertaObra, OfertaDetalleObras, FacturaClienteObra as FacturaClienteObraHook } from "@/hooks/use-obras-terminadas"
 import type {
   PagoObra,
   MaterialOferta,
@@ -977,6 +977,10 @@ interface ObrasTerminadasTableProps {
   detalleCache: Record<string, OfertaDetalleObras>
   detalleLoading: Record<string, boolean>
   detalleError: Record<string, string>
+  fetchFacturasCliente: (ofertaId: string) => Promise<void>
+  facturasClienteCache: Record<string, FacturaClienteObraHook[]>
+  facturasClienteLoading: Record<string, boolean>
+  facturasClienteError: Record<string, string>
   serverFiltros: ObrasTerminadasFiltros
   onServerFiltersChange: (filtros: ObrasTerminadasFiltros) => void
 }
@@ -988,6 +992,10 @@ export function ObrasTerminadasTable({
   detalleCache,
   detalleLoading,
   detalleError,
+  fetchFacturasCliente,
+  facturasClienteCache,
+  facturasClienteLoading,
+  facturasClienteError,
   serverFiltros,
   onServerFiltersChange,
 }: ObrasTerminadasTableProps) {
@@ -1288,18 +1296,24 @@ export function ObrasTerminadasTable({
                                 { key: "trabajos" as const, icon: <Wrench className="h-3.5 w-3.5" />, label: "Trabajos Diarios", count: detalle?.trabajos?.length },
                                 { key: "vales" as const, icon: <Package className="h-3.5 w-3.5" />, label: "Vales", count: detalle?.vales?.length },
                                 { key: "facturas" as const, icon: <Receipt className="h-3.5 w-3.5" />, label: "Facturas Instaladora", count: detalle?.facturas?.length },
-                                { key: "facturas_cliente" as const, icon: <FileText className="h-3.5 w-3.5" />, label: "Facturas Cliente", count: detalle?.facturas_cliente?.length },
+                                { key: "facturas_cliente" as const, icon: <FileText className="h-3.5 w-3.5" />, label: "Facturas Cliente", count: detalleId ? facturasClienteCache[detalleId]?.length : undefined },
                               ]).map((t) => (
                                 <button
                                   key={t.key}
-                                  onClick={() => setActiveTab((p) => ({ ...p, [rowId]: t.key }))}
+                                  onClick={() => {
+                                    setActiveTab((p) => ({ ...p, [rowId]: t.key }))
+                                    // Lazy: solo carga facturas_cliente al tocar esa pestaña
+                                    if (t.key === "facturas_cliente" && detalleId) {
+                                      fetchFacturasCliente(detalleId)
+                                    }
+                                  }}
                                   className={cn(
                                     "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-t transition-colors",
                                     tab === t.key ? "bg-white border border-orange-200 text-orange-700 shadow-sm" : "text-gray-500 hover:text-gray-700",
                                   )}
                                 >
                                   {t.icon}
-                                  {t.label} {detalle && t.count != null ? `(${t.count})` : ""}
+                                  {t.label} {t.count != null ? `(${t.count})` : ""}
                                 </button>
                               ))}
                             </div>
@@ -1327,18 +1341,35 @@ export function ObrasTerminadasTable({
                                 {tab === "trabajos" && <TrabajosPanel trabajos={detalle?.trabajos ?? []} />}
                                 {tab === "vales" && <ValesPanel vales={detalle?.vales ?? []} />}
                                 {tab === "facturas" && <FacturasPanel facturas={detalle?.facturas ?? []} oferta={oferta} />}
-                                {tab === "facturas_cliente" && (
-                                  <FacturasClientePanel
-                                    facturas={
-                                      detalle?.facturas_cliente?.length
-                                        ? detalle.facturas_cliente
-                                        : detalle && isThisMonth(oferta.fecha_equipo_instalado)
-                                          ? [buildFacturaCliente(oferta, detalle)]
-                                          : []
-                                    }
-                                    oferta={oferta}
-                                  />
-                                )}
+                                {tab === "facturas_cliente" && (() => {
+                                  const fcLoading = detalleId ? facturasClienteLoading[detalleId] : false
+                                  const fcError   = detalleId ? facturasClienteError[detalleId]   : undefined
+                                  const fcData    = detalleId ? facturasClienteCache[detalleId]    : undefined
+
+                                  if (fcLoading) return (
+                                    <div className="flex items-center justify-center py-10 gap-2 text-gray-500">
+                                      <Loader2 className="h-5 w-5 animate-spin text-blue-400" />
+                                      <span className="text-sm">Cargando facturas cliente…</span>
+                                    </div>
+                                  )
+                                  if (fcError) return (
+                                    <div className="flex items-center gap-2 py-6 px-4 text-sm text-red-600 bg-red-50 rounded-md border border-red-200">
+                                      <AlertTriangle className="h-4 w-4 shrink-0" />
+                                      <span>{fcError}</span>
+                                      <button onClick={() => detalleId && fetchFacturasCliente(detalleId)} className="ml-auto text-xs underline">Reintentar</button>
+                                    </div>
+                                  )
+
+                                  // Si ya tiene datos del backend, usarlos
+                                  const facturas = fcData?.length
+                                    ? fcData
+                                    // Fallback temporal: construir desde detalle si es este mes y backend devuelve vacío
+                                    : fcData !== undefined && detalle && isThisMonth(oferta.fecha_equipo_instalado)
+                                      ? [buildFacturaCliente(oferta, detalle)]
+                                      : (fcData ?? [])
+
+                                  return <FacturasClientePanel facturas={facturas} oferta={oferta} />
+                                })()}
                               </>
                             )}
                           </div>

@@ -14,6 +14,7 @@ export default function ObrasTerminadasPage() {
   const {
     ofertasConPagos, loading, error, fetchData,
     fetchDetalle, detalleCache, detalleLoading, detalleError,
+    fetchFacturasCliente, facturasClienteCache, facturasClienteLoading, facturasClienteError,
     page, total, totalPages, goToPage,
   } = useObrasTerminadas()
 
@@ -111,6 +112,10 @@ export default function ObrasTerminadasPage() {
             detalleCache={detalleCache}
             detalleLoading={detalleLoading}
             detalleError={detalleError}
+            fetchFacturasCliente={fetchFacturasCliente}
+            facturasClienteCache={facturasClienteCache}
+            facturasClienteLoading={facturasClienteLoading}
+            facturasClienteError={facturasClienteError}
             serverFiltros={serverFiltros}
             onServerFiltersChange={handleServerFiltersChange}
           />
