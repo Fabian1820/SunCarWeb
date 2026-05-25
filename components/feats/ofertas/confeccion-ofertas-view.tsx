@@ -1428,14 +1428,19 @@ export function ConfeccionOfertasView({
     user?.is_superAdmin || (user?.ci && AUTORIZADOS_REDUCIR_RESERVA.has(user.ci)),
   );
 
-  // Mapa de stock disponible por código de material (para el almacén seleccionado)
+  // Stock libre por código de material = total en almacén − ya reservado por cualquier oferta/reserva activa
   const stockDisponiblePorCodigo = useMemo(() => {
     const map = new Map<string, number>();
-    materialesConStock.forEach((m) => {
-      map.set(String(m.codigo ?? ""), (m as any).stock_disponible ?? 0);
-    });
+    stock
+      .filter((s) => s.almacen_id === almacenId)
+      .forEach((s) => {
+        const codigo = String((s as any).material_codigo ?? "");
+        const total = Number((s as any).cantidad || 0);
+        const reservado = Number((s as any).cantidad_reservada || 0);
+        map.set(codigo, Math.max(0, total - reservado));
+      });
     return map;
-  }, [materialesConStock]);
+  }, [stock, almacenId]);
 
   useEffect(() => {
     setReservaCantidadesPorMaterial((prev) => {
@@ -4760,7 +4765,10 @@ export function ConfeccionOfertasView({
         Math.round(Number(reservaCantidadesPorMaterial[material.key] ?? 0)),
       );
       const prevCantidad = reservasExistentesPorKey[material.key] ?? 0;
-      const stockDisponible = stockDisponiblePorCodigo.get(material.materialCodigo) ?? 0;
+      // stockLibre = total − reservado por todas (incluida esta oferta)
+      // Para aumentar: incremento máximo permitido = stockLibre
+      // Para bajar: no hace falta stock adicional
+      const stockLibre = stockDisponiblePorCodigo.get(material.materialCodigo) ?? 0;
 
       // Control de permisos: ¿reduce o elimina un material ya reservado?
       if (prevCantidad > 0 && nuevaCantidad < prevCantidad && !puedeReducirReservas) {
@@ -4772,9 +4780,9 @@ export function ConfeccionOfertasView({
       // Validación de stock: solo aplica si aumenta la cantidad
       if (nuevaCantidad > prevCantidad) {
         const incremento = nuevaCantidad - prevCantidad;
-        if (incremento > stockDisponible) {
+        if (incremento > stockLibre) {
           erroresValidacion.push(
-            `Stock insuficiente para "${material.descripcion}": necesitas ${incremento} unidad(es) adicional(es) pero solo hay ${stockDisponible} disponible(s)`,
+            `Stock insuficiente para "${material.descripcion}": necesitas ${incremento} unidad(es) adicional(es) pero solo hay ${stockLibre} libre(s) en el almacén`,
           );
         }
       }
@@ -8621,7 +8629,7 @@ export function ConfeccionOfertasView({
                                 <th className="text-left px-2 py-2">Descripción</th>
                                 <th className="text-left px-2 py-2">Categoría</th>
                                 <th className="text-right px-2 py-2">Cantidad oferta</th>
-                                <th className="text-right px-2 py-2">Stock</th>
+                                <th className="text-right px-2 py-2">Libre</th>
                                 <th className="text-right px-2 py-2">Cantidad a reservar</th>
                               </tr>
                             </thead>
@@ -8632,6 +8640,7 @@ export function ConfeccionOfertasView({
 	                                const filaConReservaPrevia = cantidadReservadaPrevia > 0;
                                 const stockDisponibleFila = stockDisponiblePorCodigo.get(material.materialCodigo) ?? 0;
                                 const cantidadAReservar = reservaCantidadesPorMaterial[material.key] ?? 0;
+                                // Para nueva reserva: no puede pedir más de lo libre
                                 const superaStock = cantidadAReservar > 0 && cantidadAReservar > stockDisponibleFila;
 
 	                                return (
@@ -8681,7 +8690,7 @@ export function ConfeccionOfertasView({
                                     <Input
                                       type="number"
                                       min={0}
-                                      max={material.cantidadOferta}
+                                      max={Math.min(material.cantidadOferta, stockDisponibleFila)}
                                       className={`h-8 text-right${superaStock ? " border-red-400" : ""}`}
                                       value={String(
                                         reservaCantidadesPorMaterial[material.key] ?? 0,
@@ -8907,7 +8916,7 @@ export function ConfeccionOfertasView({
                                         Oferta
                                       </th>
                                       <th className="text-right px-2 py-1.5">
-                                        Stock
+                                        Libre
                                       </th>
                                       <th className="text-right px-2 py-1.5">
                                         Reservar
@@ -8918,9 +8927,13 @@ export function ConfeccionOfertasView({
                                     {materialesReservaVisibles.map(
                                       (material) => {
                                         const prevCantidad = reservasExistentesPorKey[material.key] ?? 0;
-                                        const stockDisponible = stockDisponiblePorCodigo.get(material.materialCodigo) ?? 0;
+                                        // stockLibre = stock total − reservado por TODAS las ofertas (incluida esta)
+                                        // El máximo que puede poner = lo que ya tiene (prevCantidad) + lo libre en almacén
+                                        const stockLibre = stockDisponiblePorCodigo.get(material.materialCodigo) ?? 0;
+                                        const stockDisponible = stockLibre; // alias para claridad en mensajes
+                                        const maxPermitido = Math.min(material.cantidadOferta, prevCantidad + stockLibre);
                                         const nuevaCantidad = reservaCantidadesPorMaterial[material.key] ?? 0;
-                                        const exceedsStock = nuevaCantidad > prevCantidad && (nuevaCantidad - prevCantidad) > stockDisponible;
+                                        const exceedsStock = nuevaCantidad > maxPermitido;
                                         const noPermitidoReducir = !puedeReducirReservas && nuevaCantidad < prevCantidad && prevCantidad > 0;
                                         return (
                                         <tr
@@ -8939,9 +8952,16 @@ export function ConfeccionOfertasView({
                                             {material.cantidadOferta}
                                           </td>
                                           <td className="px-2 py-1.5 text-right">
-                                            <span className={stockDisponible === 0 ? "text-red-600 font-semibold" : "text-slate-600"}>
-                                              {stockDisponible}
-                                            </span>
+                                            <div className="flex flex-col items-end gap-0.5">
+                                              <span className={stockLibre === 0 ? "text-red-600 font-semibold" : "text-slate-600"}>
+                                                {stockLibre}
+                                              </span>
+                                              {prevCantidad > 0 && (
+                                                <span className="text-[10px] text-emerald-700">
+                                                  +{prevCantidad} tuyo
+                                                </span>
+                                              )}
+                                            </div>
                                           </td>
                                           <td className="px-2 py-1.5 text-right">
                                             <div className="flex items-center justify-end gap-1">
@@ -8951,7 +8971,7 @@ export function ConfeccionOfertasView({
                                               <Input
                                                 type="number"
                                                 min={puedeReducirReservas ? 0 : (reservasExistentesPorKey[material.key] ?? 0)}
-                                                max={material.cantidadOferta}
+                                                max={maxPermitido}
                                                 className={`h-7 w-16 text-right text-xs${exceedsStock ? " border-red-400" : ""}`}
                                                 title={noPermitidoReducir ? "No tienes permiso para reducir esta reserva" : undefined}
                                                 value={String(
