@@ -116,6 +116,7 @@ export interface FacturaClienteObra {
   nombre?: string | null;
   nombre_completo?: string | null;
   numero_oferta?: string | null;
+  numero_factura?: string | null;
   fecha_facturacion?: string | null;
   estado?: string | null;
   facturada?: boolean | null;

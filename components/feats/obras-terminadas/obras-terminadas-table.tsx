@@ -116,6 +116,28 @@ const ordenarPagos = (pagos: PagoObra[]) =>
     return (a.id ?? "").localeCompare(b.id ?? "")
   })
 
+const isThisMonth = (fecha: string | null | undefined): boolean => {
+  if (!fecha) return false
+  const [y, m] = fecha.slice(0, 7).split("-").map(Number)
+  const now = new Date()
+  return y === now.getFullYear() && m === now.getMonth() + 1
+}
+
+const buildFacturaCliente = (obra: OfertaObra, detalle: OfertaDetalleObras): FacturaClienteObra => ({
+  id: obra.oferta_id ?? undefined,
+  nombre: obra.cliente_nombre ?? obra.nombre_completo ?? undefined,
+  nombre_completo: obra.nombre_completo ?? undefined,
+  numero_oferta: obra.numero_oferta ?? undefined,
+  fecha_facturacion: obra.fecha_equipo_instalado ?? undefined,
+  facturada: true,
+  precio_final: obra.precio_final,
+  total_materiales: obra.total_materiales,
+  total_pagado: obra.total_pagado,
+  monto_pendiente: obra.monto_pendiente,
+  materiales: detalle.materiales,
+  pagos: detalle.pagos,
+})
+
 /* ─────────────────────────────────────────────
    Date utils
 ───────────────────────────────────────────── */
@@ -774,11 +796,15 @@ function FacturasClientePanel({ facturas, oferta }: { facturas: FacturaClienteOb
               <div className="flex items-center gap-3">
                 <Receipt className="h-4 w-4 text-blue-500 shrink-0" />
                 <div>
-                  <span className="font-semibold text-sm text-slate-800">
-                    {factura.numero_oferta || factura.nombre || `Factura cliente ${idx + 1}`}
+                  {/* Número de factura destacado */}
+                  <span className="font-bold text-base text-blue-800 tracking-wide">
+                    {factura.numero_factura || factura.numero_oferta || `Factura cliente ${idx + 1}`}
                   </span>
+                  {factura.numero_factura && factura.numero_oferta && (
+                    <span className="ml-2 text-xs text-slate-500">· {factura.numero_oferta}</span>
+                  )}
                   {factura.fecha_facturacion && (
-                    <span className="ml-3 text-xs text-slate-500">{fmtDate(factura.fecha_facturacion)}</span>
+                    <span className="ml-2 text-xs text-slate-500">{fmtDate(factura.fecha_facturacion)}</span>
                   )}
                 </div>
                 <div className="flex gap-1.5 ml-2">
@@ -789,7 +815,7 @@ function FacturasClientePanel({ facturas, oferta }: { facturas: FacturaClienteOb
                     <Badge className="bg-amber-100 text-amber-700 text-[11px]">Pendiente</Badge>
                   )}
                   {factura.facturada && (
-                    <Badge className="bg-emerald-100 text-emerald-700 text-[11px]">Facturada</Badge>
+                    <Badge className="bg-emerald-100 text-emerald-700 text-[11px]">✓ Facturada</Badge>
                   )}
                 </div>
               </div>
@@ -1301,7 +1327,18 @@ export function ObrasTerminadasTable({
                                 {tab === "trabajos" && <TrabajosPanel trabajos={detalle?.trabajos ?? []} />}
                                 {tab === "vales" && <ValesPanel vales={detalle?.vales ?? []} />}
                                 {tab === "facturas" && <FacturasPanel facturas={detalle?.facturas ?? []} oferta={oferta} />}
-                                {tab === "facturas_cliente" && <FacturasClientePanel facturas={detalle?.facturas_cliente ?? []} oferta={oferta} />}
+                                {tab === "facturas_cliente" && (
+                                  <FacturasClientePanel
+                                    facturas={
+                                      detalle?.facturas_cliente?.length
+                                        ? detalle.facturas_cliente
+                                        : detalle && isThisMonth(oferta.fecha_equipo_instalado)
+                                          ? [buildFacturaCliente(oferta, detalle)]
+                                          : []
+                                    }
+                                    oferta={oferta}
+                                  />
+                                )}
                               </>
                             )}
                           </div>
