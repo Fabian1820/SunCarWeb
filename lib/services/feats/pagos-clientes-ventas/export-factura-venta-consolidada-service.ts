@@ -119,12 +119,10 @@ export class ExportFacturaVentaConsolidadaService {
     doc.setFillColor(255, 255, 255);
     doc.rect(0, 0, W, 297, "F");
 
-    // ── Franja de cabecera ─────────────────────────────────────────────────────
+    // ── Cabecera sin fondo (ahorro de tóner) ──────────────────────────────────
     const HEADER_H = 38;
-    doc.setFillColor(30, 41, 59);
-    doc.rect(0, 0, W, HEADER_H, "F");
 
-    // Logo (más grande)
+    // Logo
     const LOGO_SIZE = 22;
     const LOGO_Y = (HEADER_H - LOGO_SIZE) / 2;
     if (logo) doc.addImage(logo, "PNG", ml, LOGO_Y, LOGO_SIZE, LOGO_SIZE);
@@ -133,13 +131,13 @@ export class ExportFacturaVentaConsolidadaService {
     // Nombre empresa grande
     doc.setFont("helvetica", "bold");
     doc.setFontSize(15);
-    doc.setTextColor(255, 255, 255);
+    doc.setTextColor(30, 41, 59);
     doc.text(EMPRESA.nombre, nx, LOGO_Y + 9);
 
-    // Nombre largo y dirección (sin teléfono ni email)
+    // Nombre largo y dirección
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
-    doc.setTextColor(148, 163, 184);
+    doc.setTextColor(107, 114, 128);
     doc.text(EMPRESA.nombreLargo, nx, LOGO_Y + 15);
     doc.text(EMPRESA.direccion, nx, LOGO_Y + 20.5);
 
