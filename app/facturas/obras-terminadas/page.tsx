@@ -30,11 +30,15 @@ export default function ObrasTerminadasPage() {
   }, [])
 
   const handleExportarTodasPDF = useCallback(async () => {
-    const facturadas = ofertasConPagos.filter((o) => o.facturada && o.oferta_id)
-    if (!facturadas.length) return
-
     setExportingAll(true)
     try {
+      // Traer TODOS los resultados filtrados (no solo la página actual)
+      const todosResp = await ObrasTerminadasService.getDatos(
+        { ...serverFiltros, limit: Math.max(total, 1000), skip: 0 },
+      )
+      const facturadas = todosResp.data.filter((o) => o.facturada && o.oferta_id)
+      if (!facturadas.length) return
+
       const results = (
         await Promise.all(
           facturadas.map(async (obra) => {
@@ -54,7 +58,7 @@ export default function ObrasTerminadasPage() {
     } finally {
       setExportingAll(false)
     }
-  }, [ofertasConPagos])
+  }, [serverFiltros, total])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
