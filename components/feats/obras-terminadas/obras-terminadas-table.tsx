@@ -1094,7 +1094,9 @@ export function ObrasTerminadasTable({
       </div>
     )
 
-  if (ofertasConPagos.length === 0)
+  // Solo mostrar empty state puro si no hay filtros activos.
+  // Si hay filtros, renderizar el panel completo para que puedan limpiarse.
+  if (ofertasConPagos.length === 0 && activeFilterCount === 0)
     return (
       <div className="text-center py-16">
         <Briefcase className="h-12 w-12 text-gray-300 mx-auto mb-3" />
@@ -1235,9 +1237,16 @@ export function ObrasTerminadasTable({
         )}
       </div>
 
-      {filteredOfertas.length === 0 ? (
-        <div className="text-center py-10 text-gray-500 text-sm bg-white rounded-lg border border-orange-100 p-6">
-          No se encontraron resultados con los filtros aplicados
+      {(filteredOfertas.length === 0 || ofertasConPagos.length === 0) ? (
+        <div className="text-center py-10 bg-white rounded-lg border border-orange-100 p-6 space-y-3">
+          <Briefcase className="h-10 w-10 text-gray-300 mx-auto" />
+          <p className="text-gray-500 text-sm">No se encontraron resultados con los filtros aplicados.</p>
+          <button
+            onClick={clearAllFilters}
+            className="text-sm text-orange-600 hover:text-orange-700 font-medium underline underline-offset-2"
+          >
+            Limpiar filtros
+          </button>
         </div>
       ) : (
         <div className="bg-white rounded-lg border border-orange-100 shadow-sm">
