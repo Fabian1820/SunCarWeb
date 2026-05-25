@@ -117,6 +117,15 @@ export function RegistrarPagoVentaDialog({
   const [cambioRealMoneda, setCambioRealMoneda] = useState<"USD" | "CUP" | "EUR">("USD");
   const [cambioRealTasa, setCambioRealTasa] = useState("");
 
+  // Autocompletar tasa del cambio real cuando coincide con la dirección de la tasa principal
+  // (cambio en USD + pago en no-USD → misma dirección "no-USD por 1 USD")
+  useEffect(() => {
+    if (cambioRealMoneda === "USD" && moneda !== "USD" && tasaCambio && !cambioRealTasa) {
+      setCambioRealTasa(tasaCambio);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cambioRealMoneda, moneda, tasaCambio]);
+
   // Pre-rellenar monto con el pendiente al abrir
   useEffect(() => {
     if (!open || !solicitud) return;
@@ -762,7 +771,13 @@ export function RegistrarPagoVentaDialog({
                         value={cambioRealMoneda}
                         onValueChange={(v) => {
                           setCambioRealMoneda(v as "USD" | "CUP" | "EUR");
-                          setCambioRealTasa("");
+                          // Si el cambio es en USD y el pago es en no-USD,
+                          // la tasa tiene la misma dirección que la de arriba → autocompletar
+                          if (v === "USD" && moneda !== "USD" && tasaCambio) {
+                            setCambioRealTasa(tasaCambio);
+                          } else {
+                            setCambioRealTasa("");
+                          }
                         }}
                       >
                         <SelectTrigger className="w-24 h-8 bg-white">
