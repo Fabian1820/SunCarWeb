@@ -1457,10 +1457,18 @@ export function ConfeccionOfertasView({
 
   useEffect(() => {
     if (!modoEdicion) return;
-    if (Object.keys(reservasExistentesPorKey).length === 0) return;
 
+    // Sincronizar cantidades con el estado real del backend:
+    // - materiales que siguen reservados → su cantidad
+    // - materiales que ya no están en la reserva → 0 (eliminados)
+    // NO se usa el guard "length === 0" para que también limpie cuando se quita todo
     setReservaCantidadesPorMaterial((prev) => {
-      const next: Record<string, number> = { ...prev };
+      const next: Record<string, number> = {};
+      // Primero copiar todas las claves previas poniéndolas a 0
+      Object.keys(prev).forEach((key) => {
+        next[key] = 0;
+      });
+      // Luego sobrescribir con las cantidades que realmente están reservadas
       Object.entries(reservasExistentesPorKey).forEach(([key, cantidad]) => {
         next[key] = cantidad;
       });
@@ -8485,8 +8493,8 @@ export function ConfeccionOfertasView({
                   </div>
                 </div>
 
-                {/* Solo mostrar si no hay reservas activas ya (cuando hay reservas, se edita desde el panel azul de abajo) */}
-                {modoEdicion && reservasActivasExistentes.length === 0 && (
+                {/* Solo mostrar si no hay reservas activas y ya terminó de cargar (evita parpadeo mientras carga) */}
+                {modoEdicion && reservasActivasExistentes.length === 0 && !cargandoReservasOferta && (
                   <div className="rounded-md border border-amber-300 bg-amber-50 p-4 space-y-3">
                     <label className="flex items-center gap-2 text-sm font-medium text-amber-900">
                       <input
@@ -8797,8 +8805,8 @@ export function ConfeccionOfertasView({
                     </div>
                   )}
 
-                {/* Sección de Reserva - visible al crear la oferta O en edición con reservas activas */}
-                {(ofertaCreada || (modoEdicion && reservasActivasExistentes.length > 0)) && items.length > 0 && almacenId && (
+                {/* Sección de Reserva - visible al crear la oferta O en edición (cargando o con reservas activas) */}
+                {(ofertaCreada || (modoEdicion && (cargandoReservasOferta || reservasActivasExistentes.length > 0))) && items.length > 0 && almacenId && (
                   <div className="rounded-md border-2 border-blue-600 bg-blue-50 px-4 py-4">
                     <div className="space-y-3">
                       <div className="flex items-start gap-3">
@@ -8807,7 +8815,11 @@ export function ConfeccionOfertasView({
                           <h4 className="text-sm font-semibold text-blue-900 mb-1">
                             Reservar Materiales del Almacén
                           </h4>
-                          {materialesReservados ? (
+                          {cargandoReservasOferta ? (
+                            <p className="text-xs text-blue-600 animate-pulse">
+                              Verificando reservas existentes…
+                            </p>
+                          ) : materialesReservados ? (
                             <div className="space-y-2">
                               <p className="text-xs text-blue-700">
                                 Los materiales de esta oferta están reservados
