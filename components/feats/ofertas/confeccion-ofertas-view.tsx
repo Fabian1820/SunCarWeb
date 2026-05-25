@@ -1418,6 +1418,25 @@ export function ConfeccionOfertasView({
     return map;
   }, [materialesReservaBase, reservasOfertaPorMaterialId, reservasOfertaPorCodigo]);
 
+  // CI con permiso para reducir/cancelar materiales de reservas
+  const AUTORIZADOS_REDUCIR_RESERVA = useMemo(
+    () => new Set(["87120119233"]),
+    [],
+  );
+
+  const puedeReducirReservas = Boolean(
+    user?.is_superAdmin || (user?.ci && AUTORIZADOS_REDUCIR_RESERVA.has(user.ci)),
+  );
+
+  // Mapa de stock disponible por código de material (para el almacén seleccionado)
+  const stockDisponiblePorCodigo = useMemo(() => {
+    const map = new Map<string, number>();
+    materialesConStock.forEach((m) => {
+      map.set(String(m.codigo ?? ""), (m as any).stock_disponible ?? 0);
+    });
+    return map;
+  }, [materialesConStock]);
+
   useEffect(() => {
     setReservaCantidadesPorMaterial((prev) => {
       const next: Record<string, number> = {};
@@ -4725,6 +4744,43 @@ export function ConfeccionOfertasView({
   const actualizarReservasExistentes = async () => {
     if (reservasActivasExistentes.length === 0) return;
 
+    // Validar permisos y stock antes de guardar
+    const erroresValidacion: string[] = [];
+    for (const material of materialesReservaVisibles) {
+      const nuevaCantidad = Math.max(
+        0,
+        Math.round(Number(reservaCantidadesPorMaterial[material.key] ?? 0)),
+      );
+      const prevCantidad = reservasExistentesPorKey[material.key] ?? 0;
+      const stockDisponible = stockDisponiblePorCodigo.get(material.materialCodigo) ?? 0;
+
+      // Control de permisos: ¿reduce o elimina un material ya reservado?
+      if (prevCantidad > 0 && nuevaCantidad < prevCantidad && !puedeReducirReservas) {
+        erroresValidacion.push(
+          `No tienes permiso para reducir la reserva de "${material.descripcion}" (${prevCantidad} → ${nuevaCantidad})`,
+        );
+      }
+
+      // Validación de stock: solo aplica si aumenta la cantidad
+      if (nuevaCantidad > prevCantidad) {
+        const incremento = nuevaCantidad - prevCantidad;
+        if (incremento > stockDisponible) {
+          erroresValidacion.push(
+            `Stock insuficiente para "${material.descripcion}": necesitas ${incremento} unidad(es) adicional(es) pero solo hay ${stockDisponible} disponible(s)`,
+          );
+        }
+      }
+    }
+
+    if (erroresValidacion.length > 0) {
+      toast({
+        title: "No se puede guardar la reserva",
+        description: erroresValidacion[0],
+        variant: "destructive",
+      });
+      return;
+    }
+
     setActualizandoReserva(true);
     try {
       for (const reserva of reservasActivasExistentes) {
@@ -5051,6 +5107,30 @@ export function ConfeccionOfertasView({
     }
     if (fechaExp.getTime() <= Date.now()) {
       throw new Error("La fecha de expiración de la reserva debe ser futura.");
+    }
+
+    // Validar stock disponible para cada material a reservar
+    const erroresStock: string[] = [];
+    for (const material of materialesReservaBase) {
+      const cantidad = Math.max(
+        0,
+        Math.min(
+          material.cantidadOferta,
+          Math.round(Number(reservaCantidadesPorMaterial[material.key] ?? 0)),
+        ),
+      );
+      if (cantidad <= 0) continue;
+      const stockDisponible = stockDisponiblePorCodigo.get(material.materialCodigo) ?? 0;
+      if (cantidad > stockDisponible) {
+        erroresStock.push(
+          `"${material.descripcion}": necesitas ${cantidad} pero solo hay ${stockDisponible} en almacén`,
+        );
+      }
+    }
+    if (erroresStock.length > 0) {
+      throw new Error(
+        `Stock insuficiente:\n${erroresStock.slice(0, 3).join("\n")}`,
+      );
     }
 
     const materialesPayload = materialesReservaBase
@@ -8532,6 +8612,7 @@ export function ConfeccionOfertasView({
                                 <th className="text-left px-2 py-2">Descripción</th>
                                 <th className="text-left px-2 py-2">Categoría</th>
                                 <th className="text-right px-2 py-2">Cantidad oferta</th>
+                                <th className="text-right px-2 py-2">Stock</th>
                                 <th className="text-right px-2 py-2">Cantidad a reservar</th>
                               </tr>
                             </thead>
@@ -8540,6 +8621,9 @@ export function ConfeccionOfertasView({
 	                                const cantidadReservadaPrevia =
 	                                  reservasExistentesPorKey[material.key] ?? 0;
 	                                const filaConReservaPrevia = cantidadReservadaPrevia > 0;
+                                const stockDisponibleFila = stockDisponiblePorCodigo.get(material.materialCodigo) ?? 0;
+                                const cantidadAReservar = reservaCantidadesPorMaterial[material.key] ?? 0;
+                                const superaStock = cantidadAReservar > 0 && cantidadAReservar > stockDisponibleFila;
 
 	                                return (
 	                                <tr
@@ -8579,12 +8663,17 @@ export function ConfeccionOfertasView({
                                   <td className="px-2 py-1.5 text-right">
                                     {material.cantidadOferta}
                                   </td>
+                                  <td className="px-2 py-1.5 text-right">
+                                    <span className={stockDisponibleFila === 0 ? "text-red-600 font-semibold" : superaStock ? "text-amber-600 font-semibold" : "text-slate-600"}>
+                                      {stockDisponibleFila}
+                                    </span>
+                                  </td>
                                   <td className="px-2 py-1.5">
                                     <Input
                                       type="number"
                                       min={0}
                                       max={material.cantidadOferta}
-                                      className="h-8 text-right"
+                                      className={`h-8 text-right${superaStock ? " border-red-400" : ""}`}
                                       value={String(
                                         reservaCantidadesPorMaterial[material.key] ?? 0,
                                       )}
@@ -8605,7 +8694,7 @@ export function ConfeccionOfertasView({
                               {materialesReservaVisibles.length === 0 && (
                                 <tr>
                                   <td
-                                    colSpan={6}
+                                    colSpan={7}
                                     className="text-center px-2 py-3 text-slate-500"
                                   >
                                     No hay materiales de la oferta para reservar.
@@ -8805,13 +8894,22 @@ export function ConfeccionOfertasView({
                                         Oferta
                                       </th>
                                       <th className="text-right px-2 py-1.5">
+                                        Stock
+                                      </th>
+                                      <th className="text-right px-2 py-1.5">
                                         Reservar
                                       </th>
                                     </tr>
                                   </thead>
                                   <tbody>
                                     {materialesReservaVisibles.map(
-                                      (material) => (
+                                      (material) => {
+                                        const prevCantidad = reservasExistentesPorKey[material.key] ?? 0;
+                                        const stockDisponible = stockDisponiblePorCodigo.get(material.materialCodigo) ?? 0;
+                                        const nuevaCantidad = reservaCantidadesPorMaterial[material.key] ?? 0;
+                                        const exceedsStock = nuevaCantidad > prevCantidad && (nuevaCantidad - prevCantidad) > stockDisponible;
+                                        const noPermitidoReducir = !puedeReducirReservas && nuevaCantidad < prevCantidad && prevCantidad > 0;
+                                        return (
                                         <tr
                                           key={material.key}
                                           className="border-b last:border-b-0"
@@ -8828,26 +8926,43 @@ export function ConfeccionOfertasView({
                                             {material.cantidadOferta}
                                           </td>
                                           <td className="px-2 py-1.5 text-right">
-                                            <Input
-                                              type="number"
-                                              min={0}
-                                              max={material.cantidadOferta}
-                                              className="h-7 w-16 text-right text-xs"
-                                              value={String(
-                                                reservaCantidadesPorMaterial[
-                                                  material.key
-                                                ] ?? 0,
+                                            <span className={stockDisponible === 0 ? "text-red-600 font-semibold" : "text-slate-600"}>
+                                              {stockDisponible}
+                                            </span>
+                                          </td>
+                                          <td className="px-2 py-1.5 text-right">
+                                            <div className="flex items-center justify-end gap-1">
+                                              {noPermitidoReducir && (
+                                                <span className="text-amber-500" title="No tienes permiso para reducir esta reserva">🔒</span>
                                               )}
-                                              onChange={(e) =>
-                                                actualizarCantidadReservaMaterial(
-                                                  material.key,
-                                                  Number(e.target.value),
-                                                )
-                                              }
-                                            />
+                                              <Input
+                                                type="number"
+                                                min={puedeReducirReservas ? 0 : (reservasExistentesPorKey[material.key] ?? 0)}
+                                                max={material.cantidadOferta}
+                                                className={`h-7 w-16 text-right text-xs${exceedsStock ? " border-red-400" : ""}`}
+                                                title={noPermitidoReducir ? "No tienes permiso para reducir esta reserva" : undefined}
+                                                value={String(
+                                                  reservaCantidadesPorMaterial[
+                                                    material.key
+                                                  ] ?? 0,
+                                                )}
+                                                onChange={(e) =>
+                                                  actualizarCantidadReservaMaterial(
+                                                    material.key,
+                                                    Number(e.target.value),
+                                                  )
+                                                }
+                                              />
+                                            </div>
+                                            {exceedsStock && (
+                                              <div className="text-[10px] text-red-500 text-right mt-0.5">
+                                                Stock insuficiente
+                                              </div>
+                                            )}
                                           </td>
                                         </tr>
-                                      ),
+                                        );
+                                      },
                                     )}
                                   </tbody>
                                 </table>
