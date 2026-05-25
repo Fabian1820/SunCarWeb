@@ -1007,7 +1007,7 @@ export function ObrasTerminadasTable({
   const [searchTerm, setSearchTerm] = useState(serverFiltros.q ?? "")
   const [comercialFilter, setComercialFilter] = useState(serverFiltros.comercial ?? "todos")
   const [estadoPago, setEstadoPago] = useState<"todos" | "pagado" | "pendiente">("todos")
-  const [filtroFacturada, setFiltroFacturada] = useState<"todos" | "facturada" | "sin_factura">("todos")
+  const [filtroFacturada, setFiltroFacturada] = useState<"todos" | "pagada" | "pendiente" | "sin_factura">("todos")
   const [filtroFechaCliente, setFiltroFechaCliente] = useState<DateFilterState>(initialDateFilter)
   const [filtroFechaEquipo, setFiltroFechaEquipo] = useState<DateFilterState>(initialDateFilter)
   const [showFilters, setShowFilters] = useState(true)
@@ -1035,7 +1035,7 @@ export function ObrasTerminadasTable({
     setSearchTerm("")
     setComercialFilter("todos")
     setEstadoPago("todos")
-    setFiltroFacturada("todos")
+    setFiltroFacturada("todos" as const)
     setFiltroFechaCliente(initialDateFilter())
     setFiltroFechaEquipo(initialDateFilter())
     onServerFiltersChange({})
@@ -1045,7 +1045,7 @@ export function ObrasTerminadasTable({
     searchTerm.trim() !== "",
     comercialFilter !== "todos",
     estadoPago !== "todos",
-    filtroFacturada !== "todos",
+    filtroFacturada !== ("todos" as string),
     filtroFechaCliente.mode !== "off",
     filtroFechaEquipo.mode !== "off",
   ].filter(Boolean).length
@@ -1079,8 +1079,11 @@ export function ObrasTerminadasTable({
 
   const filteredOfertas = useMemo(() => {
     if (filtroFacturada === "todos") return ofertasConPagos
-    if (filtroFacturada === "facturada") return ofertasConPagos.filter((o) => o.facturada === true)
-    return ofertasConPagos.filter((o) => !o.facturada)
+    if (filtroFacturada === "sin_factura") return ofertasConPagos.filter((o) => !o.facturada)
+    if (filtroFacturada === "pagada")
+      return ofertasConPagos.filter((o) => o.facturada && (o.precio_final ?? 0) - (o.total_pagado ?? 0) <= 0.01)
+    // pendiente
+    return ofertasConPagos.filter((o) => o.facturada && (o.precio_final ?? 0) - (o.total_pagado ?? 0) > 0.01)
   }, [ofertasConPagos, filtroFacturada])
 
   if (loading)
@@ -1181,24 +1184,19 @@ export function ObrasTerminadasTable({
 
               <div className="flex flex-col gap-1">
                 <span className="text-xs font-semibold text-gray-500">Factura cliente</span>
-                <div className="flex gap-1">
+                <div className="flex gap-1 flex-wrap">
                   {([
-                    { v: "todos", label: "Todos" },
-                    { v: "facturada", label: "✓ Facturada" },
-                    { v: "sin_factura", label: "Sin factura" },
-                  ] as const).map(({ v, label }) => (
+                    { v: "todos",       label: "Todos",           active: "bg-orange-500 text-white border-orange-500" },
+                    { v: "pagada",      label: "✓ Pagada",        active: "bg-emerald-600 text-white border-emerald-600" },
+                    { v: "pendiente",   label: "Con pendiente",   active: "bg-orange-600 text-white border-orange-600" },
+                    { v: "sin_factura", label: "Sin factura",     active: "bg-gray-500 text-white border-gray-500" },
+                  ] as const).map(({ v, label, active }) => (
                     <button
                       key={v}
                       onClick={() => setFiltroFacturada(v)}
                       className={cn(
                         "px-2.5 py-1 text-xs rounded border transition-colors",
-                        filtroFacturada === v
-                          ? v === "facturada"
-                            ? "bg-emerald-600 text-white border-emerald-600"
-                            : v === "sin_factura"
-                            ? "bg-amber-500 text-white border-amber-500"
-                            : "bg-orange-500 text-white border-orange-500"
-                          : "border-gray-300 text-gray-600 hover:border-orange-400",
+                        filtroFacturada === v ? active : "border-gray-300 text-gray-600 hover:border-orange-400",
                       )}
                     >
                       {label}
@@ -1298,17 +1296,29 @@ export function ObrasTerminadasTable({
                             <Badge variant="outline" className={`text-xs px-2 py-0 ${getEstadoBadgeClass(estadoCliente)}`}>
                               {estadoCliente}
                             </Badge>
-                            {oferta.facturada && oferta.numero_factura ? (
-                              <Badge className="text-[10px] px-1.5 py-0 bg-emerald-50 text-emerald-700 border border-emerald-300 flex items-center gap-0.5">
-                                <CheckCircle2 className="h-2.5 w-2.5 shrink-0" />
-                                {oferta.numero_factura}
-                              </Badge>
-                            ) : (
-                              <Badge className="text-[10px] px-1.5 py-0 bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-0.5">
-                                <Clock className="h-2.5 w-2.5 shrink-0" />
-                                Sin factura
-                              </Badge>
-                            )}
+                            {(() => {
+                              if (!oferta.facturada || !oferta.numero_factura) {
+                                return (
+                                  <span className="inline-flex items-center gap-1 rounded-full border border-gray-300 bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-500">
+                                    <Clock className="h-2.5 w-2.5" />
+                                    Sin factura
+                                  </span>
+                                )
+                              }
+                              const pendiente = (oferta.precio_final ?? 0) - (oferta.total_pagado ?? 0)
+                              const pagada = pendiente <= 0.01
+                              return pagada ? (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                                  <CheckCircle2 className="h-2.5 w-2.5" />
+                                  {oferta.numero_factura} · Pagada
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-orange-300 bg-orange-50 px-2 py-0.5 text-[10px] font-semibold text-orange-700">
+                                  <Receipt className="h-2.5 w-2.5" />
+                                  {oferta.numero_factura} · Pendiente
+                                </span>
+                              )
+                            })()}
                           </div>
                         </div>
                       </TableCell>
