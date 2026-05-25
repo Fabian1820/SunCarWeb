@@ -352,6 +352,22 @@ export class ExportFacturaVentaConsolidadaService {
         if (p.notas) {
           pagoDetail("Notas", p.notas);
         }
+
+        // Cambio real dado al cliente (prioritario) o cambio calculado (fallback)
+        const pr = p as typeof p & { cambio?: number; cambio_real_monto?: number; cambio_real_moneda?: string; cambio_real_tasa?: number };
+        if (pr.cambio_real_monto != null && Number(pr.cambio_real_monto) > 0) {
+          const crMonto = Number(pr.cambio_real_monto);
+          const crMoneda = pr.cambio_real_moneda || moneda;
+          const crTasa = Number(pr.cambio_real_tasa || 0);
+          let crLabel = `${crMonto.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${crMoneda}`;
+          if (crMoneda !== moneda && crTasa > 0) {
+            crLabel += ` × ${crTasa} ≈ ${(crMonto * crTasa).toLocaleString("en-US", { minimumFractionDigits: 2 })} ${moneda}`;
+          }
+          pagoDetail("Cambio real dado", crLabel);
+        } else if (pr.cambio != null && Number(pr.cambio) > 0) {
+          pagoDetail("Cambio", `${Number(pr.cambio).toLocaleString("en-US", { minimumFractionDigits: 2 })} ${moneda}`);
+        }
+
         if (p.monto_pendiente_despues_pago != null && Number.isFinite(Number(p.monto_pendiente_despues_pago))) {
           doc.setFont("helvetica", "bold");
           doc.setFontSize(8.5);

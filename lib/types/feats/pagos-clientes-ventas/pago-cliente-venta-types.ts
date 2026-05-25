@@ -25,6 +25,10 @@ export interface PagoVenta {
   recibido_por?: string | null;
   notas?: string | null;
   desglose_billetes?: Record<string, number> | null;
+  cambio?: number | null;
+  cambio_real_monto?: number | null;
+  cambio_real_moneda?: "USD" | "CUP" | "EUR" | null;
+  cambio_real_tasa?: number | null;
   fecha?: string;
   fecha_creacion?: string;
   fecha_actualizacion?: string | null;
@@ -39,6 +43,9 @@ export interface PagoVentaCreateData {
   stripe_link?: string;
   desglose_billetes?: Record<string, number>;
   cambio?: number;
+  cambio_real_monto?: number;
+  cambio_real_moneda?: "USD" | "CUP" | "EUR";
+  cambio_real_tasa?: number;
   monto_comision?: number;
   recibido_por: string;
   notas?: string;
@@ -82,6 +89,10 @@ export interface FacturaClienteVenta {
     recibido_por?: string;
     notas?: string;
     desglose_billetes?: Record<string, number> | null;
+    cambio?: number | null;
+    cambio_real_monto?: number | null;
+    cambio_real_moneda?: string | null;
+    cambio_real_tasa?: number | null;
     descuento_porcentaje?: number | null;
     monto_pendiente_despues_pago?: number | null;
     fecha?: string;
