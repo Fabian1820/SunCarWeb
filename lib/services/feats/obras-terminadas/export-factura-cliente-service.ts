@@ -187,16 +187,52 @@ export class ExportFacturaClienteService {
       y = ((doc as jsPDF & { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY ?? y) + 5;
     }
 
-    // ── Pagos ──────────────────────────────────────────────────────────────────
+    // ── Resumen de totales ─────────────────────────────────────────────────────
+    drawLine(doc, y, ml, mr);
+    y += 5;
+
+    const totalRow = (label: string, value: string, bold = false, color: [number, number, number] = [17, 24, 39]) => {
+      doc.setFont("helvetica", bold ? "bold" : "normal");
+      doc.setFontSize(bold ? 9.5 : 8.5);
+      doc.setTextColor(107, 114, 128);
+      doc.text(label, ml + 2, y);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(bold ? 9.5 : 8.5);
+      doc.setTextColor(...color);
+      doc.text(value, mr, y, { align: "right" });
+      y += bold ? 6.5 : 5.5;
+    };
+
+    const preciofinal = factura.precio_final ?? obra.precio_final ?? 0;
+    const totalPagado = factura.total_pagado ?? obra.total_pagado ?? 0;
+    const montoPendiente = roundToCents(Math.max(0, preciofinal - totalPagado));
+
+    totalRow("Total",         fmt(preciofinal));
+    totalRow("Monto pagado",  fmt(totalPagado), false, [21, 128, 61]);
+
+    y += 1;
+    drawLine(doc, y, ml, mr);
+    y += 5;
+
+    const pagada = montoPendiente <= 0.01;
+    totalRow(
+      "Monto pendiente",
+      pagada ? "PAGADA ✓" : fmt(montoPendiente),
+      true,
+      pagada ? [21, 128, 61] : [185, 28, 28],
+    );
+
+    // ── Detalle de pagos ───────────────────────────────────────────────────────
     const pagos = sortPagos(factura.pagos ?? []);
     if (pagos.length > 0) {
+      y += 3;
       drawLine(doc, y, ml, mr);
       y += 5;
 
       doc.setFont("helvetica", "bold");
       doc.setFontSize(7);
       doc.setTextColor(107, 114, 128);
-      doc.text("PAGOS", ml, y);
+      doc.text("DETALLE DE PAGOS", ml, y);
       y += 5;
 
       const METODO_LABELS: Record<string, string> = {
@@ -217,18 +253,14 @@ export class ExportFacturaClienteService {
         y += 5;
       };
 
-      const precioFinal = factura.precio_final ?? obra.precio_final ?? 0;
-
       pagos.forEach((p, idx) => {
         if (idx > 0) { y += 2; drawLine(doc, y, ml + 4, mr - 4); y += 4; }
 
-        if (pagos.length > 1) {
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(7.5);
-          doc.setTextColor(79, 70, 229);
-          doc.text(`Pago ${idx + 1}  ·  ${fmtDate(p.fecha)}`, ml + 4, y);
-          y += 5;
-        }
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.5);
+        doc.setTextColor(79, 70, 229);
+        doc.text(`Pago ${idx + 1}  ·  ${fmtDate(p.fecha)}`, ml + 4, y);
+        y += 5;
 
         const moneda = p.moneda ?? "USD";
         const monto = Number(p.monto ?? 0);
@@ -274,55 +306,17 @@ export class ExportFacturaClienteService {
         // Pendiente acumulado después de este pago
         const antes = pagos.slice(0, idx).reduce((s, pp) => s + getMontoAplicadoUsd(pp), 0);
         const conEste = antes + getMontoAplicadoUsd(p);
-        const pendVal = roundToCents(Math.max(0, precioFinal - conEste));
+        const pendVal = roundToCents(Math.max(0, preciofinal - conEste));
 
         doc.setFont("helvetica", "bold");
         doc.setFontSize(8.5);
         doc.setTextColor(107, 114, 128);
         doc.text("Monto Pendiente:", ml + 4, y);
-        doc.setFont("helvetica", "bold");
         doc.setTextColor(pendVal > 0 ? 185 : 21, pendVal > 0 ? 28 : 128, pendVal > 0 ? 28 : 61);
         doc.text(`${pendVal.toLocaleString("en-US", { minimumFractionDigits: 2 })} USD`, mr - 2, y, { align: "right" });
         y += 5;
       });
-      y += 2;
     }
-
-    // ── Totales ────────────────────────────────────────────────────────────────
-    y += 2;
-    drawLine(doc, y, ml, mr);
-    y += 5;
-
-    const totalRow = (label: string, value: string, bold = false, color: [number, number, number] = [17, 24, 39]) => {
-      doc.setFont("helvetica", bold ? "bold" : "normal");
-      doc.setFontSize(bold ? 9.5 : 8.5);
-      doc.setTextColor(107, 114, 128);
-      doc.text(label, ml + 2, y);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(bold ? 9.5 : 8.5);
-      doc.setTextColor(...color);
-      doc.text(value, mr, y, { align: "right" });
-      y += bold ? 6.5 : 5.5;
-    };
-
-    const preciofinal = factura.precio_final ?? obra.precio_final ?? 0;
-    const totalPagado = factura.total_pagado ?? obra.total_pagado ?? 0;
-    const montoPendiente = factura.monto_pendiente ?? obra.monto_pendiente ?? 0;
-
-    totalRow("Total a pagar",    fmt(preciofinal));
-    totalRow("Total pagado",     fmt(totalPagado), false, [21, 128, 61]);
-
-    y += 1;
-    drawLine(doc, y, ml, mr);
-    y += 5;
-
-    const pagada = montoPendiente <= 0.01;
-    totalRow(
-      "Pendiente",
-      pagada ? "PAGADA ✓" : fmt(montoPendiente),
-      true,
-      pagada ? [21, 128, 61] : [185, 28, 28],
-    );
 
     // ── Pie ────────────────────────────────────────────────────────────────────
     doc.setFont("helvetica", "normal");
