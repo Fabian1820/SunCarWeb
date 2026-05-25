@@ -21,14 +21,15 @@ export default function FacturacionPage() {
             description: 'Gestión de pagos recibidos de clientes y seguimiento de cuentas por cobrar',
             color: 'green-600',
         },
-        {
-            id: 'vales-facturas-instaladora',
-            href: '/facturas/vales-facturas-instaladora',
-            icon: FileText,
-            title: 'Vales y Facturas de Instaladora',
-            description: 'Control de facturación y vales de venta de la instaladora',
-            color: 'orange-600',
-        },
+        // TODO: módulo temporalmente comentado
+        // {
+        //     id: 'vales-facturas-instaladora',
+        //     href: '/facturas/vales-facturas-instaladora',
+        //     icon: FileText,
+        //     title: 'Vales y Facturas de Instaladora',
+        //     description: 'Control de facturación y vales de venta de la instaladora',
+        //     color: 'orange-600',
+        // },
         {
             id: 'facturas-solar-carros',
             href: '/facturas/facturas-solar-carros',
