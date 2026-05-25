@@ -8485,7 +8485,8 @@ export function ConfeccionOfertasView({
                   </div>
                 </div>
 
-                {modoEdicion && (
+                {/* Solo mostrar si no hay reservas activas ya (cuando hay reservas, se edita desde el panel azul de abajo) */}
+                {modoEdicion && reservasActivasExistentes.length === 0 && (
                   <div className="rounded-md border border-amber-300 bg-amber-50 p-4 space-y-3">
                     <label className="flex items-center gap-2 text-sm font-medium text-amber-900">
                       <input
@@ -8796,8 +8797,8 @@ export function ConfeccionOfertasView({
                     </div>
                   )}
 
-                {/* Sección de Reserva - Solo visible después de crear la oferta */}
-                {ofertaCreada && items.length > 0 && almacenId && (
+                {/* Sección de Reserva - visible al crear la oferta O en edición con reservas activas */}
+                {(ofertaCreada || (modoEdicion && reservasActivasExistentes.length > 0)) && items.length > 0 && almacenId && (
                   <div className="rounded-md border-2 border-blue-600 bg-blue-50 px-4 py-4">
                     <div className="space-y-3">
                       <div className="flex items-start gap-3">
