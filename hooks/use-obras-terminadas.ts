@@ -5,10 +5,11 @@ import {
   ObrasTerminadasService,
   type ObraTerminada,
   type OfertaDetalleObras,
+  type FacturaClienteObra,
   type ObrasTerminadasFiltros,
 } from "@/lib/services/feats/obras-terminadas/obras-terminadas-service"
 
-export type { ObraTerminada, OfertaDetalleObras }
+export type { ObraTerminada, OfertaDetalleObras, FacturaClienteObra }
 
 export type OfertaObra = ObraTerminada
 
@@ -24,6 +25,12 @@ export function useObrasTerminadas() {
   const [detalleCache, setDetalleCache] = useState<Record<string, OfertaDetalleObras>>({})
   const [detalleLoading, setDetalleLoading] = useState<Record<string, boolean>>({})
   const [detalleError, setDetalleError] = useState<Record<string, string>>({})
+
+  // Facturas cliente — carga lazy al tocar la pestaña
+  const [facturasClienteCache, setFacturasClienteCache] = useState<Record<string, FacturaClienteObra[]>>({})
+  const [facturasClienteLoading, setFacturasClienteLoading] = useState<Record<string, boolean>>({})
+  const [facturasClienteError, setFacturasClienteError] = useState<Record<string, string>>({})
+  const facturasClienteInFlightRef = useRef<Set<string>>(new Set())
 
   const cacheRef = useRef<Record<string, OfertaDetalleObras>>({})
   const inFlightRef = useRef<Set<string>>(new Set())
@@ -43,9 +50,13 @@ export function useObrasTerminadas() {
     if (pageNum === 0) {
       cacheRef.current = {}
       inFlightRef.current.clear()
+      facturasClienteInFlightRef.current.clear()
       setDetalleCache({})
       setDetalleLoading({})
       setDetalleError({})
+      setFacturasClienteCache({})
+      setFacturasClienteLoading({})
+      setFacturasClienteError({})
     }
 
     try {
@@ -98,6 +109,29 @@ export function useObrasTerminadas() {
     }
   }, [])
 
+  const fetchFacturasCliente = useCallback(async (ofertaId: string) => {
+    if (!ofertaId) return
+    if (facturasClienteCache[ofertaId] !== undefined) return
+    if (facturasClienteInFlightRef.current.has(ofertaId)) return
+
+    facturasClienteInFlightRef.current.add(ofertaId)
+    setFacturasClienteLoading((prev) => ({ ...prev, [ofertaId]: true }))
+    setFacturasClienteError((prev) => { const n = { ...prev }; delete n[ofertaId]; return n })
+
+    try {
+      const data = await ObrasTerminadasService.getFacturasCliente(ofertaId)
+      setFacturasClienteCache((prev) => ({ ...prev, [ofertaId]: data }))
+    } catch (err) {
+      setFacturasClienteError((prev) => ({
+        ...prev,
+        [ofertaId]: err instanceof Error ? err.message : "Error al cargar facturas cliente",
+      }))
+    } finally {
+      facturasClienteInFlightRef.current.delete(ofertaId)
+      setFacturasClienteLoading((prev) => { const n = { ...prev }; delete n[ofertaId]; return n })
+    }
+  }, [facturasClienteCache])
+
   const ofertasConPagos = obras
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
@@ -116,5 +150,9 @@ export function useObrasTerminadas() {
     detalleCache,
     detalleLoading,
     detalleError,
+    fetchFacturasCliente,
+    facturasClienteCache,
+    facturasClienteLoading,
+    facturasClienteError,
   }
 }

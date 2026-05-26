@@ -26,6 +26,13 @@ interface SolicitudesPendientesPagoTableProps {
   ocultarAnuladas?: boolean;
   /** "embedded": sin borde propio, controles con padding lateral, tabla a todo el ancho */
   variant?: "default" | "embedded";
+  /** Si se pasa, la búsqueda se controla externamente (server-side). Cuando es `undefined`, se usa estado local. */
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
+  /** Total absoluto reportado por el backend (cuando search/filtros son server-side). */
+  totalCount?: number;
+  /** Footer (ej. botón "Cargar más"). */
+  footer?: React.ReactNode;
 }
 
 export function SolicitudesPendientesPagoTable({
@@ -37,8 +44,18 @@ export function SolicitudesPendientesPagoTable({
   onVerStripe,
   ocultarAnuladas = true,
   variant = "default",
+  searchValue,
+  onSearchChange,
+  totalCount,
+  footer,
 }: SolicitudesPendientesPagoTableProps) {
-  const [search, setSearch] = useState("");
+  const isSearchControlled = searchValue !== undefined;
+  const [internalSearch, setInternalSearch] = useState("");
+  const search = isSearchControlled ? (searchValue as string) : internalSearch;
+  const setSearch = (v: string) => {
+    if (isSearchControlled) onSearchChange?.(v);
+    else setInternalSearch(v);
+  };
 
   const formatCurrency = (v: number) =>
     new Intl.NumberFormat("en-US", {
@@ -69,6 +86,8 @@ export function SolicitudesPendientesPagoTable({
 
   const filtered = solicitudes.filter((s) => {
     if (ocultarAnuladas && s.estado === "anulada") return false;
+    // Si el search lo controla la página (server-side), no filtramos de nuevo aquí.
+    if (isSearchControlled) return true;
     if (!search.trim()) return true;
     const term = search.toLowerCase();
     return (
@@ -101,7 +120,9 @@ export function SolicitudesPendientesPagoTable({
           <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
         </Button>
         <Badge variant="secondary" className="text-xs">
-          {filtered.length} solicitudes
+          {totalCount != null
+            ? `${filtered.length} de ${totalCount} solicitudes`
+            : `${filtered.length} solicitudes`}
         </Badge>
       </div>
 
@@ -204,6 +225,7 @@ export function SolicitudesPendientesPagoTable({
           </Table>
         </div>
       )}
+      {footer}
     </div>
   );
 }

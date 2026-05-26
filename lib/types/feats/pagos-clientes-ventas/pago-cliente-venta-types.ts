@@ -25,6 +25,10 @@ export interface PagoVenta {
   recibido_por?: string | null;
   notas?: string | null;
   desglose_billetes?: Record<string, number> | null;
+  cambio?: number | null;
+  cambio_real_monto?: number | null;
+  cambio_real_moneda?: "USD" | "CUP" | "EUR" | null;
+  cambio_real_tasa?: number | null;
   fecha?: string;
   fecha_creacion?: string;
   fecha_actualizacion?: string | null;
@@ -39,6 +43,9 @@ export interface PagoVentaCreateData {
   stripe_link?: string;
   desglose_billetes?: Record<string, number>;
   cambio?: number;
+  cambio_real_monto?: number;
+  cambio_real_moneda?: "USD" | "CUP" | "EUR";
+  cambio_real_tasa?: number;
   monto_comision?: number;
   recibido_por: string;
   notas?: string;
@@ -82,6 +89,10 @@ export interface FacturaClienteVenta {
     recibido_por?: string;
     notas?: string;
     desglose_billetes?: Record<string, number> | null;
+    cambio?: number | null;
+    cambio_real_monto?: number | null;
+    cambio_real_moneda?: string | null;
+    cambio_real_tasa?: number | null;
     descuento_porcentaje?: number | null;
     monto_pendiente_despues_pago?: number | null;
     fecha?: string;
@@ -165,3 +176,38 @@ export interface FacturaVentaResumen {
 // Alias de compatibilidad — retirar cuando todos los usos migren a PagoVenta
 export type PagoClienteVenta = PagoVenta;
 export type PagoClienteVentaCreateData = PagoVentaCreateData;
+
+export interface PagoVentaListParams {
+  skip?: number;
+  limit?: number;
+  q?: string;
+  metodo_pago?: "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion" | string;
+  moneda?: "USD" | "CUP" | "EUR" | string;
+  comercial?: string;
+  fecha_desde?: string;
+  fecha_hasta?: string;
+  factura_venta_id?: string;
+  solicitud_venta_id?: string;
+  cliente_venta_id?: string;
+}
+
+export interface FacturaVentaListParams {
+  skip?: number;
+  limit?: number;
+  q?: string;
+  estado?: "pagada" | "pendiente" | "parcial" | string;
+  moneda?: "USD" | "CUP" | "EUR" | string;
+  comercial?: string;
+  fecha_desde?: string;
+  fecha_hasta?: string;
+}
+
+export interface PagoVentaListResponse {
+  data: PagoVenta[];
+  total: number;
+}
+
+export interface FacturaVentaListResponse {
+  data: FacturaClienteVenta[];
+  total: number;
+}

@@ -70,6 +70,7 @@ export default function Dashboard() {
     description: string;
     iconClass: string;
     alwaysVisible?: boolean;
+    childKeys?: string[];
   };
 
   // Módulos del catálogo (single-source-of-truth en lib/modulos-catalogo.ts).
@@ -83,9 +84,16 @@ export default function Dashboard() {
     description: m.descripcion,
     iconClass: m.iconClass,
     alwaysVisible: m.alwaysVisible,
+    childKeys: m.childKeys,
   });
 
-  const allModules: DashboardModule[] = MODULOS_CATALOGO.map(catalogoToDashboard);
+  // Excluir módulos marcados como hideFromDashboard: viven como sub-cards
+  // dentro de otro módulo padre y no deben renderizarse en el dashboard
+  // principal (ej. envio-contenedores y fichas-costo dentro de
+  // compras-envios-costos).
+  const allModules: DashboardModule[] = MODULOS_CATALOGO.filter(
+    (m) => !m.hideFromDashboard,
+  ).map(catalogoToDashboard);
   // Agrupación derivada del catálogo (single-source-of-truth).
   type ModuleGroup = {
     id: string;
@@ -102,15 +110,15 @@ export default function Dashboard() {
       grupo.key === "area-direccion"
         ? [
             // Wallet viene del catálogo; permisos y wallet-manager son virtuales.
-            ...MODULOS_CATALOGO.filter((m) => m.grupo === grupo.key).map(
-              (m) => m.dashboardId ?? m.key,
-            ),
+            ...MODULOS_CATALOGO.filter(
+              (m) => m.grupo === grupo.key && !m.hideFromDashboard,
+            ).map((m) => m.dashboardId ?? m.key),
             "wallet-manager",
             "permisos",
           ]
-        : MODULOS_CATALOGO.filter((m) => m.grupo === grupo.key).map(
-            (m) => m.dashboardId ?? m.key,
-          ),
+        : MODULOS_CATALOGO.filter(
+            (m) => m.grupo === grupo.key && !m.hideFromDashboard,
+          ).map((m) => m.dashboardId ?? m.key),
   }));
 
   const superAdminModules: DashboardModule[] = user?.is_superAdmin
@@ -143,7 +151,11 @@ export default function Dashboard() {
   const availableModules = [
     ...allModules.filter((module) => {
       if (module.alwaysVisible) return true;
-      return hasPermission(module.permission ?? module.id);
+      if (hasPermission(module.permission ?? module.id)) return true;
+      // Hijos lógicos que no usan formato padre/hijo: si el trabajador tiene
+      // permiso a alguno, el card padre se hace visible.
+      if (module.childKeys?.some((k) => hasPermission(k))) return true;
+      return false;
     }),
     ...superAdminModules,
     ...walletAdminModules,

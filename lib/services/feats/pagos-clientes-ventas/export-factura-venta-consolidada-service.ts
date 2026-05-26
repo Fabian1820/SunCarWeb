@@ -119,12 +119,10 @@ export class ExportFacturaVentaConsolidadaService {
     doc.setFillColor(255, 255, 255);
     doc.rect(0, 0, W, 297, "F");
 
-    // ── Franja de cabecera ─────────────────────────────────────────────────────
+    // ── Cabecera sin fondo (ahorro de tóner) ──────────────────────────────────
     const HEADER_H = 38;
-    doc.setFillColor(30, 41, 59);
-    doc.rect(0, 0, W, HEADER_H, "F");
 
-    // Logo (más grande)
+    // Logo
     const LOGO_SIZE = 22;
     const LOGO_Y = (HEADER_H - LOGO_SIZE) / 2;
     if (logo) doc.addImage(logo, "PNG", ml, LOGO_Y, LOGO_SIZE, LOGO_SIZE);
@@ -133,13 +131,13 @@ export class ExportFacturaVentaConsolidadaService {
     // Nombre empresa grande
     doc.setFont("helvetica", "bold");
     doc.setFontSize(15);
-    doc.setTextColor(255, 255, 255);
+    doc.setTextColor(30, 41, 59);
     doc.text(EMPRESA.nombre, nx, LOGO_Y + 9);
 
-    // Nombre largo y dirección (sin teléfono ni email)
+    // Nombre largo y dirección
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
-    doc.setTextColor(148, 163, 184);
+    doc.setTextColor(107, 114, 128);
     doc.text(EMPRESA.nombreLargo, nx, LOGO_Y + 15);
     doc.text(EMPRESA.direccion, nx, LOGO_Y + 20.5);
 
@@ -338,7 +336,7 @@ export class ExportFacturaVentaConsolidadaService {
             }
             const cambio = totalBilletes - monto;
             if (cambio > 0) {
-              pagoDetail("Cambio", `${cambio.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${moneda}`);
+              pagoDetail("Cambio original", `${cambio.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${moneda}`);
             }
           }
         }
@@ -352,6 +350,28 @@ export class ExportFacturaVentaConsolidadaService {
         if (p.notas) {
           pagoDetail("Notas", p.notas);
         }
+
+        // Cambio dado al cliente
+        const pr = p as typeof p & { cambio?: number; cambio_real_monto?: number; cambio_real_moneda?: string; cambio_real_tasa?: number };
+        const hayCambioReal = pr.cambio_real_monto != null && Number(pr.cambio_real_monto) > 0;
+        const hayCambioOriginal = pr.cambio != null && Number(pr.cambio) > 0;
+
+        if (hayCambioOriginal && !hayCambioReal) {
+          // Solo cambio calculado (sin cambio real diferente)
+          pagoDetail("Cambio original", `${Number(pr.cambio).toLocaleString("en-US", { minimumFractionDigits: 2 })} ${moneda}`);
+        } else if (hayCambioReal) {
+          const crMonto = Number(pr.cambio_real_monto);
+          const crMoneda = pr.cambio_real_moneda || moneda;
+          const crTasa = Number(pr.cambio_real_tasa || 0);
+          // Cambio dado: monto + moneda
+          pagoDetail("Cambio dado", `${crMonto.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${crMoneda}`);
+          // Tasa del cambio: expresada como "no-USD por 1 USD"
+          if (crMoneda !== moneda && crTasa > 0) {
+            const nonUsd = crMoneda === "USD" ? moneda : crMoneda;
+            pagoDetail("Tasa del cambio", `1 USD = ${crTasa.toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 4 })} ${nonUsd}`);
+          }
+        }
+
         if (p.monto_pendiente_despues_pago != null && Number.isFinite(Number(p.monto_pendiente_despues_pago))) {
           doc.setFont("helvetica", "bold");
           doc.setFontSize(8.5);

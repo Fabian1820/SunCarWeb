@@ -29,7 +29,8 @@
       "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
       "Bash(awk '{print $1}')",
       "Bash(awk -F: '{print $NF}')",
-      "Bash(grep -E \"\\\\.\\(tsx?|jsx?\\)$\")"
+      "Bash(grep -E \"\\\\.\\(tsx?|jsx?\\)$\")",
+      "Bash(xargs -I '{}' bash -c 'dir=\"{}\"; name=$\\(basename \"$dir\"\\); refs=$\\(grep -r \"feats/$name\" /Users/fabi/Proyectos/SunCar/SunCarWeb --include=\"*.tsx\" --include=\"*.ts\" 2>/dev/null | wc -l\\); if [ $refs -eq 0 ]; then echo \"ORPHAN_SERVICE: $name\"; fi')"
     ],
     "deny": [],
     "ask": []

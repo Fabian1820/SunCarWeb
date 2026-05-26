@@ -955,4 +955,55 @@ export class InventarioService {
       almacenes_disponibles,
     };
   }
+
+  async getStockHistorico(params: {
+    fecha: string;
+    almacen_id?: string;
+    material_ids?: string[];
+    q?: string;
+  }): Promise<StockHistoricoResponse> {
+    const qs = new URLSearchParams();
+    qs.set("fecha", params.fecha);
+    if (params.almacen_id) qs.set("almacen_id", params.almacen_id);
+    if (params.material_ids?.length) qs.set("material_ids", params.material_ids.join(","));
+    if (params.q) qs.set("q", params.q);
+
+    const response = await apiRequest<any>(`/inventario/stock-historico?${qs.toString()}`);
+    const dataRaw: any[] = Array.isArray(response?.data) ? response.data : [];
+    return {
+      success: !!response?.success,
+      message: response?.message ?? "",
+      fecha: response?.fecha ?? params.fecha,
+      almacen_id: response?.almacen_id ?? null,
+      data: dataRaw.map((item: any) => ({
+        almacen_id: String(item.almacen_id ?? ""),
+        material_id: String(item.material_id ?? ""),
+        material_codigo: String(item.material_codigo ?? ""),
+        material_nombre: String(item.material_nombre ?? ""),
+        categoria: item.categoria ?? null,
+        marca: item.marca ?? null,
+        cantidad: Number(item.cantidad ?? 0),
+      })),
+      total: Number(response?.total ?? dataRaw.length),
+    };
+  }
+}
+
+export interface StockHistoricoItem {
+  almacen_id: string;
+  material_id: string;
+  material_codigo: string;
+  material_nombre: string;
+  categoria: string | null;
+  marca: string | null;
+  cantidad: number;
+}
+
+export interface StockHistoricoResponse {
+  success: boolean;
+  message: string;
+  fecha: string;
+  almacen_id: string | null;
+  data: StockHistoricoItem[];
+  total: number;
 }

@@ -186,6 +186,14 @@ export function UpsertSolicitudVentaDialog({
   const [reservasActivas, setReservasActivas] = useState<Reserva[]>([]);
   const [loadingReservas, setLoadingReservas] = useState(false);
   const [reservaAplicada, setReservaAplicada] = useState<Reserva | null>(null);
+  /**
+   * Id de la reserva con la que queda vinculada la solicitud al guardar.
+   * - En crear: se setea cuando el usuario aplica una reserva desde el panel.
+   * - En editar: se inicializa con `solicitud.reserva_id` y se preserva salvo que
+   *   el usuario seleccione otra reserva o lo limpie con la "X".
+   * Si vale `null`, se envía explícitamente al backend para desvincular.
+   */
+  const [linkedReservaId, setLinkedReservaId] = useState<string | null>(null);
 
   // Oferta shortcut
   const [showOfertaPanel, setShowOfertaPanel] = useState(false);
@@ -308,6 +316,7 @@ export function UpsertSolicitudVentaDialog({
     setShowReservaPanel(false);
     setReservasActivas([]);
     setReservaAplicada(null);
+    setLinkedReservaId(solicitud?.reserva_id ?? null);
 
     setOfertasDelCliente([]);
     setOfertaVinculadaManual(null);
@@ -818,16 +827,32 @@ export function UpsertSolicitudVentaDialog({
         };
       });
 
-    // Aplicar stock desde el mapa ya cargado (sin llamadas extra)
+    // Recalcular reservas del cliente de la reserva, filtrando del total ya en memoria
+    const cMap = new Map<string, number>();
+    for (const r of todasReservasVRef.current.filter((r) => r.cliente_id === clienteObj.id)) {
+      for (const mat of r.materiales ?? []) {
+        const neta = Math.max(0, mat.cantidad_reservada - (mat.cantidad_consumida ?? 0));
+        if (neta > 0) cMap.set(mat.material_id, (cMap.get(mat.material_id) ?? 0) + neta);
+      }
+    }
+    clientReservaMapRef.current = cMap;
+
+    // Aplicar stock neto (bruto − reservas totales + reservas del cliente) desde los mapas ya cargados
     const map = stockMapRef.current;
+    const tMap = totalReservaVMapRef.current;
     setMaterialRows(
       baseRows.map((r) => {
-        const stockActual = lookupFromMapV(map, r.material_id, r.codigo);
+        const bruto = lookupFromMapV(map, r.material_id, r.codigo);
+        const stockActual =
+          bruto === null
+            ? null
+            : Math.max(0, bruto - (tMap.get(r.material_id) ?? 0) + (cMap.get(r.material_id) ?? 0));
         return { ...r, stock_actual: stockActual, ...calculateStockAlertV(r.cantidad, stockActual) };
       }),
     );
 
     setReservaAplicada(reserva);
+    setLinkedReservaId(reserva.id);
     setOfertaAplicada(null);
     setShowReservaPanel(false);
   };
@@ -923,11 +948,26 @@ export function UpsertSolicitudVentaDialog({
         };
       });
 
-    // Aplicar stock desde el mapa ya cargado (sin llamadas extra al backend)
+    // Recalcular reservas del cliente de la oferta, filtrando del total ya en memoria
+    const cMap = new Map<string, number>();
+    for (const r of todasReservasVRef.current.filter((r) => r.cliente_id === clienteObj.id)) {
+      for (const mat of r.materiales ?? []) {
+        const neta = Math.max(0, mat.cantidad_reservada - (mat.cantidad_consumida ?? 0));
+        if (neta > 0) cMap.set(mat.material_id, (cMap.get(mat.material_id) ?? 0) + neta);
+      }
+    }
+    clientReservaMapRef.current = cMap;
+
+    // Aplicar stock neto (bruto − reservas totales + reservas del cliente) desde los mapas ya cargados
     const map = stockMapRef.current;
+    const tMap = totalReservaVMapRef.current;
     setMaterialRows(
       baseRows.map((r) => {
-        const stockActual = lookupFromMapV(map, r.material_id, r.codigo);
+        const bruto = lookupFromMapV(map, r.material_id, r.codigo);
+        const stockActual =
+          bruto === null
+            ? null
+            : Math.max(0, bruto - (tMap.get(r.material_id) ?? 0) + (cMap.get(r.material_id) ?? 0));
         return { ...r, stock_actual: stockActual, ...calculateStockAlertV(r.cantidad, stockActual) };
       }),
     );
@@ -943,6 +983,7 @@ export function UpsertSolicitudVentaDialog({
 
     setOfertaAplicada(oferta);
     setReservaAplicada(null);
+    setLinkedReservaId(null);
     setShowOfertaPanel(false);
   };
 
@@ -952,16 +993,24 @@ export function UpsertSolicitudVentaDialog({
     // Preferimos la oferta cargada desde el panel; si no, la seleccionada manualmente.
     const ofertaIdVinculada = ofertaAplicada?.id ?? ofertaVinculadaManual?.id;
 
+    // En crear: solo enviamos reserva_id si hay una vinculada.
+    // En editar: lo enviamos siempre (string para vincular/cambiar, null para desvincular).
+    const originalReservaId = solicitud?.reserva_id ?? null;
+    const reservaIdChanged = linkedReservaId !== originalReservaId;
+    const incluirReservaId = isEdit ? reservaIdChanged : Boolean(linkedReservaId);
+
     const payload: SolicitudVentaCreateData | SolicitudVentaUpdateData = {
       cliente_venta_id: selectedClienteVenta.id,
       almacen_id: selectedAlmacenId,
       materiales: validMaterials.map((material) => ({
         material_id: material.material_id,
         cantidad: material.cantidad,
+        ...(material.precio > 0 && { precio: material.precio }),
         ...(material.descuento_porcentaje > 0 && { descuento_porcentaje: material.descuento_porcentaje }),
         ...(material.aumento_porcentaje > 0 && { aumento_porcentaje: parseFloat(material.aumento_porcentaje.toFixed(4)) }),
       })),
       ...(ofertaIdVinculada && { oferta_venta_id: ofertaIdVinculada }),
+      ...(incluirReservaId && { reserva_id: linkedReservaId }),
       ...(descuentoFree && { descuento_free: true, motivo_descuento_free: motivoDescuentoFree.trim() }),
     };
 
@@ -999,6 +1048,31 @@ export function UpsertSolicitudVentaDialog({
               {loadError}
             </div>
           ) : null}
+
+          {!isEdit && (
+            <div className="flex gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+              <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-semibold">
+                  ¿Esta solicitud consume de una reserva activa?
+                </p>
+                <p className="text-amber-800">
+                  Si el cliente ya tiene una <strong>reserva activa</strong> para
+                  los materiales que vas a vender, debes vincularla ahora con el
+                  botón <strong>"Seleccionar reserva activa"</strong> de abajo.
+                  Solo así los vales de salida que se emitan contra esta
+                  solicitud descontarán de la reserva. Si no la vinculas, la
+                  solicitud quedará sin asociar y los materiales se cargarán
+                  como stock libre.
+                </p>
+                {linkedReservaId ? (
+                  <p className="text-emerald-700 font-medium pt-1">
+                    ✓ Reserva vinculada — los vales descontarán de ella.
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label className="flex items-center gap-2">
@@ -1125,9 +1199,12 @@ export function UpsertSolicitudVentaDialog({
                   </span>
                   <button
                     type="button"
-                    onClick={() => setReservaAplicada(null)}
+                    onClick={() => {
+                      setReservaAplicada(null);
+                      setLinkedReservaId(null);
+                    }}
                     className="ml-3 hover:text-indigo-900 shrink-0"
-                    title="Quitar indicador"
+                    title="Desvincular reserva"
                   >
                     <X className="h-3 w-3" />
                   </button>

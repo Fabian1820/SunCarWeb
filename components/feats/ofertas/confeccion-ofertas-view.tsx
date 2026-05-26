@@ -12,6 +12,7 @@ import {
   Image as ImageIcon,
   Save,
   User,
+  Edit,
 } from "lucide-react";
 import { Badge } from "@/components/shared/atom/badge";
 import { Input } from "@/components/shared/atom/input";
@@ -45,6 +46,7 @@ import { LeadSearchSelector } from "@/components/feats/leads/lead-search-selecto
 import { ClienteService } from "@/lib/services/feats/customer/cliente-service";
 import { LeadService } from "@/lib/services/feats/leads/lead-service";
 import { ReservaVentaService } from "@/lib/api-services";
+import type { Reserva } from "@/lib/types/feats/reservas-ventas/reserva-venta-types";
 import type { Material } from "@/lib/material-types";
 import type { Cliente } from "@/lib/types/feats/customer/cliente-types";
 import {
@@ -374,6 +376,10 @@ export function ConfeccionOfertasView({
     Record<string, number>
   >({});
   const [reservandoEnGuardado, setReservandoEnGuardado] = useState(false);
+  const [reservasActivasExistentes, setReservasActivasExistentes] = useState<Reserva[]>([]);
+  const [editandoReservaExistente, setEditandoReservaExistente] = useState(false);
+  const [actualizandoReserva, setActualizandoReserva] = useState(false);
+  const [refreshReservasKey, setRefreshReservasKey] = useState(0);
   const codigoReservaReferencia = useMemo(() => {
     const now = new Date();
     const y = now.getFullYear();
@@ -1329,12 +1335,22 @@ export function ConfeccionOfertasView({
 
         if (!isMounted) return;
 
+        const activas = data.filter((reserva) => reserva.estado === "activa");
+        setReservasActivasExistentes(activas);
+        if (activas.length > 0) {
+          setMaterialesReservados(true);
+        } else {
+          // No quedan reservas activas: limpiar estado de reserva en UI
+          setMaterialesReservados(false);
+          setFechaExpiracionReserva(null);
+          setTipoReserva(null);
+          setEditandoReservaExistente(false);
+        }
+
         const porMaterialId: Record<string, number> = {};
         const porCodigo: Record<string, number> = {};
 
-        data
-          .filter((reserva) => reserva.estado === "activa")
-          .forEach((reserva) => {
+        activas.forEach((reserva) => {
             (reserva.materiales || []).forEach((material) => {
               const cantidad = Math.max(
                 0,
@@ -1375,7 +1391,7 @@ export function ConfeccionOfertasView({
     return () => {
       isMounted = false;
     };
-  }, [modoEdicion, ofertaParaEditar?.id, ofertaParaEditar?.numero_oferta]);
+  }, [modoEdicion, ofertaParaEditar?.id, ofertaParaEditar?.numero_oferta, refreshReservasKey]);
 
   const reservasExistentesPorKey = useMemo(() => {
     const map: Record<string, number> = {};
@@ -1402,6 +1418,30 @@ export function ConfeccionOfertasView({
     return map;
   }, [materialesReservaBase, reservasOfertaPorMaterialId, reservasOfertaPorCodigo]);
 
+  // CI con permiso para reducir/cancelar materiales de reservas
+  const AUTORIZADOS_REDUCIR_RESERVA = useMemo(
+    () => new Set(["87120119233"]),
+    [],
+  );
+
+  const puedeReducirReservas = Boolean(
+    user?.is_superAdmin || (user?.ci && AUTORIZADOS_REDUCIR_RESERVA.has(user.ci)),
+  );
+
+  // Stock libre por código de material = total en almacén − ya reservado por cualquier oferta/reserva activa
+  const stockDisponiblePorCodigo = useMemo(() => {
+    const map = new Map<string, number>();
+    stock
+      .filter((s) => s.almacen_id === almacenId)
+      .forEach((s) => {
+        const codigo = String((s as any).material_codigo ?? "");
+        const total = Number((s as any).cantidad || 0);
+        const reservado = Number((s as any).cantidad_reservada || 0);
+        map.set(codigo, Math.max(0, total - reservado));
+      });
+    return map;
+  }, [stock, almacenId]);
+
   useEffect(() => {
     setReservaCantidadesPorMaterial((prev) => {
       const next: Record<string, number> = {};
@@ -1422,10 +1462,18 @@ export function ConfeccionOfertasView({
 
   useEffect(() => {
     if (!modoEdicion) return;
-    if (Object.keys(reservasExistentesPorKey).length === 0) return;
 
+    // Sincronizar cantidades con el estado real del backend:
+    // - materiales que siguen reservados → su cantidad
+    // - materiales que ya no están en la reserva → 0 (eliminados)
+    // NO se usa el guard "length === 0" para que también limpie cuando se quita todo
     setReservaCantidadesPorMaterial((prev) => {
-      const next: Record<string, number> = { ...prev };
+      const next: Record<string, number> = {};
+      // Primero copiar todas las claves previas poniéndolas a 0
+      Object.keys(prev).forEach((key) => {
+        next[key] = 0;
+      });
+      // Luego sobrescribir con las cantidades que realmente están reservadas
       Object.entries(reservasExistentesPorKey).forEach(([key, cantidad]) => {
         next[key] = cantidad;
       });
@@ -2071,9 +2119,9 @@ export function ConfeccionOfertasView({
       return material?.potenciaKW || null;
     };
 
-    // Función para formatear potencia con coma decimal
+    // Función para formatear potencia con coma decimal (máx 3 decimales para evitar ruido de punto flotante)
     const formatearPotencia = (potencia: number): string => {
-      return potencia.toString().replace(".", ",");
+      return parseFloat(potencia.toFixed(3)).toString().replace(".", ",");
     };
 
     // 1. INVERSORES - Usar el seleccionado
@@ -2159,8 +2207,8 @@ export function ConfeccionOfertasView({
         const potencia = obtenerPotencia(panelSeleccionado);
 
         if (potencia) {
-          // Para paneles, siempre convertir kW a W
-          const potenciaW = potencia * 1000;
+          // Si potenciaKW > 10 el valor fue guardado en W por error (ej: 605 en vez de 0.605)
+          const potenciaW = potencia > 10 ? potencia : potencia * 1000;
           componentes.push(`P-${cantidad}x${formatearPotencia(potenciaW)}W`);
         } else {
           componentes.push(`P-${cantidad}x`);
@@ -2292,7 +2340,10 @@ export function ConfeccionOfertasView({
         const potenciaTotal =
           cantidadSeleccionada * potenciaSeleccionada +
           cantidadEspecial * potenciaEspecial;
-        const potencia = cantidad > 0 ? potenciaTotal / cantidad : 0;
+        const potencia =
+          cantidad > 0
+            ? parseFloat((potenciaTotal / cantidad).toFixed(3))
+            : 0;
         const marca = marcaSeleccionada || marcaEspecial;
 
         console.log(
@@ -2327,11 +2378,11 @@ export function ConfeccionOfertasView({
         const marca = obtenerMarca(panelSeleccionado);
 
         if (potencia && marca) {
-          // Para paneles, siempre convertir kW a W
-          const potenciaW = potencia * 1000;
+          // Si potenciaKW > 10 el valor fue guardado en W por error (ej: 605 en vez de 0.605)
+          const potenciaW = potencia > 10 ? potencia : potencia * 1000;
           componentes.push(`${cantidad}x ${potenciaW}W Paneles ${marca}`);
         } else if (potencia) {
-          const potenciaW = potencia * 1000;
+          const potenciaW = potencia > 10 ? potencia : potencia * 1000;
           componentes.push(`${cantidad}x ${potenciaW}W Paneles`);
         } else if (marca) {
           componentes.push(`${cantidad}x Paneles ${marca}`);
@@ -4673,26 +4724,23 @@ export function ConfeccionOfertasView({
     if (!materialesReservados) return;
 
     try {
-      // TODO: Implementar llamada al backend
-      // await fetch(`/api/ofertas/confeccion/${ofertaId}/liberar-materiales`, {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' }
-      // })
-
-      // Simulación temporal
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (reservasActivasExistentes.length > 0) {
+        for (const reserva of reservasActivasExistentes) {
+          await ReservaVentaService.cancelarReserva(reserva.id);
+        }
+      }
 
       setMaterialesReservados(false);
       setFechaExpiracionReserva(null);
       setTipoReserva(null);
+      setReservasActivasExistentes([]);
+      setEditandoReservaExistente(false);
 
       toast({
         title: "Reserva cancelada",
-        description:
-          "Los materiales han sido liberados y están disponibles nuevamente",
+        description: "Los materiales han sido liberados y están disponibles nuevamente",
       });
 
-      // Refrescar el stock
       if (almacenId) {
         await refetchStock(almacenId);
       }
@@ -4703,6 +4751,119 @@ export function ConfeccionOfertasView({
         description: error.message || "No se pudo cancelar la reserva",
         variant: "destructive",
       });
+    }
+  };
+
+  const actualizarReservasExistentes = async () => {
+    if (reservasActivasExistentes.length === 0) return;
+
+    // Validar permisos y stock antes de guardar
+    const erroresValidacion: string[] = [];
+    for (const material of materialesReservaVisibles) {
+      const nuevaCantidad = Math.max(
+        0,
+        Math.round(Number(reservaCantidadesPorMaterial[material.key] ?? 0)),
+      );
+      const prevCantidad = reservasExistentesPorKey[material.key] ?? 0;
+      // stockLibre = total − reservado por todas (incluida esta oferta)
+      // Para aumentar: incremento máximo permitido = stockLibre
+      // Para bajar: no hace falta stock adicional
+      const stockLibre = stockDisponiblePorCodigo.get(material.materialCodigo) ?? 0;
+
+      // Control de permisos: ¿reduce o elimina un material ya reservado?
+      if (prevCantidad > 0 && nuevaCantidad < prevCantidad && !puedeReducirReservas) {
+        erroresValidacion.push(
+          `No tienes permiso para reducir la reserva de "${material.descripcion}" (${prevCantidad} → ${nuevaCantidad})`,
+        );
+      }
+
+      // Validación de stock: solo aplica si aumenta la cantidad
+      if (nuevaCantidad > prevCantidad) {
+        const incremento = nuevaCantidad - prevCantidad;
+        if (incremento > stockLibre) {
+          erroresValidacion.push(
+            `Stock insuficiente para "${material.descripcion}": necesitas ${incremento} unidad(es) adicional(es) pero solo hay ${stockLibre} libre(s) en el almacén`,
+          );
+        }
+      }
+    }
+
+    if (erroresValidacion.length > 0) {
+      toast({
+        title: "No se puede guardar la reserva",
+        description: erroresValidacion[0],
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setActualizandoReserva(true);
+    try {
+      for (const reserva of reservasActivasExistentes) {
+        const nuevasMateriales = reserva.materiales
+          .map((m) => {
+            const matchBase = materialesReservaBase.find(
+              (base) =>
+                base.materialId === String(m.material_id || "") ||
+                base.materialCodigo === String(m.codigo || ""),
+            );
+            const nuevaCantidad = matchBase
+              ? Math.max(0, Math.round(Number(reservaCantidadesPorMaterial[matchBase.key] ?? 0)))
+              : 0;
+            return { ...m, cantidad_reservada: nuevaCantidad };
+          })
+          .filter((m) => m.cantidad_reservada > 0);
+
+        if (nuevasMateriales.length === 0) {
+          await ReservaVentaService.cancelarReserva(reserva.id);
+        } else {
+          await ReservaVentaService.updateReserva(reserva.id, {
+            materiales: nuevasMateriales,
+          });
+        }
+      }
+
+      // Verificar si quedaron reservas activas o se cancelaron todas
+      const todasCanceladas = reservasActivasExistentes.every((reserva) => {
+        return reserva.materiales
+          .map((m) => {
+            const matchBase = materialesReservaBase.find(
+              (base) =>
+                base.materialId === String(m.material_id || "") ||
+                base.materialCodigo === String(m.codigo || ""),
+            );
+            return matchBase
+              ? Math.max(0, Math.round(Number(reservaCantidadesPorMaterial[matchBase.key] ?? 0)))
+              : 0;
+          })
+          .every((cant) => cant === 0);
+      });
+
+      if (todasCanceladas) {
+        setMaterialesReservados(false);
+        setReservasActivasExistentes([]);
+        setFechaExpiracionReserva(null);
+        setTipoReserva(null);
+      }
+
+      toast({
+        title: todasCanceladas ? "Reserva cancelada" : "Reserva actualizada",
+        description: todasCanceladas
+          ? "Todos los materiales fueron liberados del almacén"
+          : "Los cambios en la reserva se guardaron correctamente",
+      });
+      setEditandoReservaExistente(false);
+      setRefreshReservasKey((k) => k + 1);
+      if (almacenId) await refetchStock(almacenId);
+    } catch (error: any) {
+      console.error("Error al actualizar reserva:", error);
+      toast({
+        title: "Error al actualizar reserva",
+        description: error.message || "No se pudieron guardar los cambios",
+        variant: "destructive",
+      });
+    } finally {
+      setActualizandoReserva(false);
     }
   };
 
@@ -4962,6 +5123,30 @@ export function ConfeccionOfertasView({
     }
     if (fechaExp.getTime() <= Date.now()) {
       throw new Error("La fecha de expiración de la reserva debe ser futura.");
+    }
+
+    // Validar stock disponible para cada material a reservar
+    const erroresStock: string[] = [];
+    for (const material of materialesReservaBase) {
+      const cantidad = Math.max(
+        0,
+        Math.min(
+          material.cantidadOferta,
+          Math.round(Number(reservaCantidadesPorMaterial[material.key] ?? 0)),
+        ),
+      );
+      if (cantidad <= 0) continue;
+      const stockDisponible = stockDisponiblePorCodigo.get(material.materialCodigo) ?? 0;
+      if (cantidad > stockDisponible) {
+        erroresStock.push(
+          `"${material.descripcion}": necesitas ${cantidad} pero solo hay ${stockDisponible} en almacén`,
+        );
+      }
+    }
+    if (erroresStock.length > 0) {
+      throw new Error(
+        `Stock insuficiente:\n${erroresStock.slice(0, 3).join("\n")}`,
+      );
     }
 
     const materialesPayload = materialesReservaBase
@@ -8316,7 +8501,8 @@ export function ConfeccionOfertasView({
                   </div>
                 </div>
 
-                {modoEdicion && (
+                {/* Solo mostrar si no hay reservas activas y ya terminó de cargar (evita parpadeo mientras carga) */}
+                {modoEdicion && reservasActivasExistentes.length === 0 && !cargandoReservasOferta && (
                   <div className="rounded-md border border-amber-300 bg-amber-50 p-4 space-y-3">
                     <label className="flex items-center gap-2 text-sm font-medium text-amber-900">
                       <input
@@ -8443,6 +8629,7 @@ export function ConfeccionOfertasView({
                                 <th className="text-left px-2 py-2">Descripción</th>
                                 <th className="text-left px-2 py-2">Categoría</th>
                                 <th className="text-right px-2 py-2">Cantidad oferta</th>
+                                <th className="text-right px-2 py-2">Libre</th>
                                 <th className="text-right px-2 py-2">Cantidad a reservar</th>
                               </tr>
                             </thead>
@@ -8451,6 +8638,10 @@ export function ConfeccionOfertasView({
 	                                const cantidadReservadaPrevia =
 	                                  reservasExistentesPorKey[material.key] ?? 0;
 	                                const filaConReservaPrevia = cantidadReservadaPrevia > 0;
+                                const stockDisponibleFila = stockDisponiblePorCodigo.get(material.materialCodigo) ?? 0;
+                                const cantidadAReservar = reservaCantidadesPorMaterial[material.key] ?? 0;
+                                // Para nueva reserva: no puede pedir más de lo libre
+                                const superaStock = cantidadAReservar > 0 && cantidadAReservar > stockDisponibleFila;
 
 	                                return (
 	                                <tr
@@ -8490,12 +8681,17 @@ export function ConfeccionOfertasView({
                                   <td className="px-2 py-1.5 text-right">
                                     {material.cantidadOferta}
                                   </td>
+                                  <td className="px-2 py-1.5 text-right">
+                                    <span className={stockDisponibleFila === 0 ? "text-red-600 font-semibold" : superaStock ? "text-amber-600 font-semibold" : "text-slate-600"}>
+                                      {stockDisponibleFila}
+                                    </span>
+                                  </td>
                                   <td className="px-2 py-1.5">
                                     <Input
                                       type="number"
                                       min={0}
-                                      max={material.cantidadOferta}
-                                      className="h-8 text-right"
+                                      max={Math.min(material.cantidadOferta, stockDisponibleFila)}
+                                      className={`h-8 text-right${superaStock ? " border-red-400" : ""}`}
                                       value={String(
                                         reservaCantidadesPorMaterial[material.key] ?? 0,
                                       )}
@@ -8516,7 +8712,7 @@ export function ConfeccionOfertasView({
                               {materialesReservaVisibles.length === 0 && (
                                 <tr>
                                   <td
-                                    colSpan={6}
+                                    colSpan={7}
                                     className="text-center px-2 py-3 text-slate-500"
                                   >
                                     No hay materiales de la oferta para reservar.
@@ -8618,8 +8814,8 @@ export function ConfeccionOfertasView({
                     </div>
                   )}
 
-                {/* Sección de Reserva - Solo visible después de crear la oferta */}
-                {ofertaCreada && items.length > 0 && almacenId && (
+                {/* Sección de Reserva - visible al crear la oferta O en edición (cargando o con reservas activas) */}
+                {(ofertaCreada || (modoEdicion && (cargandoReservasOferta || reservasActivasExistentes.length > 0))) && items.length > 0 && almacenId && (
                   <div className="rounded-md border-2 border-blue-600 bg-blue-50 px-4 py-4">
                     <div className="space-y-3">
                       <div className="flex items-start gap-3">
@@ -8628,7 +8824,11 @@ export function ConfeccionOfertasView({
                           <h4 className="text-sm font-semibold text-blue-900 mb-1">
                             Reservar Materiales del Almacén
                           </h4>
-                          {materialesReservados ? (
+                          {cargandoReservasOferta ? (
+                            <p className="text-xs text-blue-600 animate-pulse">
+                              Verificando reservas existentes…
+                            </p>
+                          ) : materialesReservados ? (
                             <div className="space-y-2">
                               <p className="text-xs text-blue-700">
                                 Los materiales de esta oferta están reservados
@@ -8670,21 +8870,161 @@ export function ConfeccionOfertasView({
                           <div className="flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2">
                             <CheckCircle className="h-4 w-4" />
                             <span className="font-medium">
-                              {items.length} material
+                              {reservasActivasExistentes.reduce(
+                                (sum, r) => sum + (r.materiales?.length ?? 0),
+                                0,
+                              ) || items.length}{" "}
+                              material
                               {items.length !== 1 ? "es" : ""} reservado
                               {items.length !== 1 ? "s" : ""}
                             </span>
                           </div>
-                          {fechaExpiracionReserva && (
+
+                          {/* Botón editar reserva - solo en modo edición */}
+                          {modoEdicion && reservasActivasExistentes.length > 0 && (
                             <Button
-                              onClick={cancelarReserva}
+                              type="button"
+                              onClick={() =>
+                                setEditandoReservaExistente((v) => !v)
+                              }
                               variant="outline"
-                              className="w-full border-red-300 text-red-700 hover:bg-red-50 hover:text-red-800"
+                              size="sm"
+                              className="w-full border-blue-300 text-blue-700 hover:bg-blue-50"
                             >
-                              <X className="h-4 w-4 mr-2" />
-                              Cancelar Reserva
+                              <Edit className="h-3.5 w-3.5 mr-2" />
+                              {editandoReservaExistente
+                                ? "Cerrar edición"
+                                : "Editar Reserva"}
                             </Button>
                           )}
+
+                          {/* Formulario de edición inline */}
+                          {modoEdicion && editandoReservaExistente && (
+                            <div className="space-y-2 border border-blue-200 rounded-md p-2 bg-blue-50/30">
+                              <p className="text-[11px] text-blue-700 font-medium">
+                                Ajusta las cantidades (0 para quitar un
+                                material de la reserva):
+                              </p>
+                              <div className="rounded border bg-white overflow-x-auto">
+                                <table className="w-full text-xs">
+                                  <thead>
+                                    <tr className="border-b bg-slate-50">
+                                      <th className="text-left px-2 py-1.5">
+                                        Material
+                                      </th>
+                                      <th className="text-right px-2 py-1.5">
+                                        Oferta
+                                      </th>
+                                      <th className="text-right px-2 py-1.5">
+                                        Libre
+                                      </th>
+                                      <th className="text-right px-2 py-1.5">
+                                        Reservar
+                                      </th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {materialesReservaVisibles.map(
+                                      (material) => {
+                                        const prevCantidad = reservasExistentesPorKey[material.key] ?? 0;
+                                        // stockLibre = stock total − reservado por TODAS las ofertas (incluida esta)
+                                        // El máximo que puede poner = lo que ya tiene (prevCantidad) + lo libre en almacén
+                                        const stockLibre = stockDisponiblePorCodigo.get(material.materialCodigo) ?? 0;
+                                        const stockDisponible = stockLibre; // alias para claridad en mensajes
+                                        const maxPermitido = Math.min(material.cantidadOferta, prevCantidad + stockLibre);
+                                        const nuevaCantidad = reservaCantidadesPorMaterial[material.key] ?? 0;
+                                        const exceedsStock = nuevaCantidad > maxPermitido;
+                                        const noPermitidoReducir = !puedeReducirReservas && nuevaCantidad < prevCantidad && prevCantidad > 0;
+                                        return (
+                                        <tr
+                                          key={material.key}
+                                          className="border-b last:border-b-0"
+                                        >
+                                          <td className="px-2 py-1.5">
+                                            <div className="font-medium">
+                                              {material.materialCodigo}
+                                            </div>
+                                            <div className="text-slate-500 text-[10px] truncate max-w-[120px]">
+                                              {material.descripcion}
+                                            </div>
+                                          </td>
+                                          <td className="px-2 py-1.5 text-right">
+                                            {material.cantidadOferta}
+                                          </td>
+                                          <td className="px-2 py-1.5 text-right">
+                                            <div className="flex flex-col items-end gap-0.5">
+                                              <span className={stockLibre === 0 ? "text-red-600 font-semibold" : "text-slate-600"}>
+                                                {stockLibre}
+                                              </span>
+                                              {prevCantidad > 0 && (
+                                                <span className="text-[10px] text-emerald-700">
+                                                  +{prevCantidad} tuyo
+                                                </span>
+                                              )}
+                                            </div>
+                                          </td>
+                                          <td className="px-2 py-1.5 text-right">
+                                            <div className="flex items-center justify-end gap-1">
+                                              {noPermitidoReducir && (
+                                                <span className="text-amber-500" title="No tienes permiso para reducir esta reserva">🔒</span>
+                                              )}
+                                              <Input
+                                                type="number"
+                                                min={puedeReducirReservas ? 0 : (reservasExistentesPorKey[material.key] ?? 0)}
+                                                max={maxPermitido}
+                                                className={`h-7 w-16 text-right text-xs${exceedsStock ? " border-red-400" : ""}`}
+                                                title={noPermitidoReducir ? "No tienes permiso para reducir esta reserva" : undefined}
+                                                value={String(
+                                                  reservaCantidadesPorMaterial[
+                                                    material.key
+                                                  ] ?? 0,
+                                                )}
+                                                onChange={(e) =>
+                                                  actualizarCantidadReservaMaterial(
+                                                    material.key,
+                                                    Number(e.target.value),
+                                                  )
+                                                }
+                                              />
+                                            </div>
+                                            {exceedsStock && (
+                                              <div className="text-[10px] text-red-500 text-right mt-0.5">
+                                                Stock insuficiente
+                                              </div>
+                                            )}
+                                          </td>
+                                        </tr>
+                                        );
+                                      },
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
+                              <Button
+                                type="button"
+                                onClick={actualizarReservasExistentes}
+                                disabled={actualizandoReserva}
+                                size="sm"
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                              >
+                                {actualizandoReserva
+                                  ? "Guardando..."
+                                  : "Guardar cambios de reserva"}
+                              </Button>
+                            </div>
+                          )}
+
+                          {/* Botón cancelar reserva */}
+                          <Button
+                            type="button"
+                            onClick={cancelarReserva}
+                            variant="outline"
+                            size="sm"
+                            className="w-full border-red-300 text-red-700 hover:bg-red-50 hover:text-red-800"
+                          >
+                            <X className="h-4 w-4 mr-2" />
+                            Cancelar Reserva
+                          </Button>
                         </div>
                       ) : (
                         <Button

@@ -46,12 +46,8 @@ import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
   Battery,
-  Calendar,
   Check,
-  ChevronDown,
-  ChevronUp,
   ChevronsUpDown,
-  Clock,
   Plus,
   RefreshCw,
   Search,
@@ -434,6 +430,7 @@ export function TrabajosDiariosAveriasView() {
   const [clientesConAverias, setClientesConAverias] = useState<ClienteConAveria[]>([]);
   const [selectedItem, setSelectedItem] = useState<ClienteConAveria | null>(null);
   const [searchCliente, setSearchCliente] = useState("");
+  const [soloPendientes, setSoloPendientes] = useState(true);
   const [showNuevaAveriaDialog, setShowNuevaAveriaDialog] = useState(false);
   const [clienteParaNuevaAveria, setClienteParaNuevaAveria] = useState<Cliente | null>(null);
 
@@ -452,9 +449,6 @@ export function TrabajosDiariosAveriasView() {
   const [averiaCodigoEdit, setAveriaCodigoEdit] = useState<string>("");
   const [loadingTrabajo, setLoadingTrabajo] = useState(false);
   const draftsById = useRef<Record<string, TrabajoDiarioRegistro>>({});
-  const [expandedAverias, setExpandedAverias] = useState<Set<string>>(new Set());
-  const [trabajosPorAveria, setTrabajosPorAveria] = useState<Record<string, TrabajoDiarioRegistro[]>>({});
-  const [loadingTrabajosAveria, setLoadingTrabajosAveria] = useState<Set<string>>(new Set());
 
   const loadWorkers = useCallback(async () => {
     try {
@@ -471,8 +465,11 @@ export function TrabajosDiariosAveriasView() {
       const clientes = await ClienteService.getClientesConAverias();
       const items: ClienteConAveria[] = [];
       for (const cliente of clientes) {
-        const pendientes = (cliente.averias || []).filter((a) => a.estado === "Pendiente");
-        for (const averia of pendientes) {
+        // Cargar TODAS las averías (pendientes y solucionadas) para poder ver el historial
+        const todasAverias = (cliente.averias || []).filter(
+          (a) => a.estado === "Pendiente" || a.estado === "Solucionada",
+        );
+        for (const averia of todasAverias) {
           items.push({ cliente, averia });
         }
       }
@@ -486,28 +483,6 @@ export function TrabajosDiariosAveriasView() {
     }
   }, [toast]);
 
-  const toggleTrabajosDeLaAveria = useCallback(async (averiaId: string, clienteNumero: string) => {
-    if (!averiaId) return;
-    const isExpanded = expandedAverias.has(averiaId);
-    setExpandedAverias((prev) => {
-      const next = new Set(prev);
-      if (isExpanded) { next.delete(averiaId); } else { next.add(averiaId); }
-      return next;
-    });
-    if (isExpanded || trabajosPorAveria[averiaId]) return;
-    setLoadingTrabajosAveria((prev) => new Set(prev).add(averiaId));
-    try {
-      const todos = await TrabajosDiariosService.getTrabajosByCliente(clienteNumero);
-      const deEstaAveria = todos
-        .filter((t) => safeText(t.averia_id) === averiaId)
-        .sort((a, b) => safeText(b.fecha_trabajo).localeCompare(safeText(a.fecha_trabajo)));
-      setTrabajosPorAveria((prev) => ({ ...prev, [averiaId]: deEstaAveria }));
-    } catch {
-      setTrabajosPorAveria((prev) => ({ ...prev, [averiaId]: [] }));
-    } finally {
-      setLoadingTrabajosAveria((prev) => { const next = new Set(prev); next.delete(averiaId); return next; });
-    }
-  }, [expandedAverias, trabajosPorAveria]);
 
   useEffect(() => {
     void Promise.all([loadWorkers(), loadClientesConAverias()]);
@@ -539,15 +514,19 @@ export function TrabajosDiariosAveriasView() {
   );
 
   const itemsFiltrados = useMemo(() => {
-    if (!searchCliente.trim()) return clientesConAverias;
+    let base = clientesConAverias;
+    if (soloPendientes) {
+      base = base.filter(({ averia }) => averia.estado === "Pendiente");
+    }
+    if (!searchCliente.trim()) return base;
     const q = searchCliente.toLowerCase();
-    return clientesConAverias.filter(
+    return base.filter(
       ({ cliente, averia }) =>
         safeText(cliente.nombre).toLowerCase().includes(q) ||
         safeText(cliente.numero).toLowerCase().includes(q) ||
         safeText(averia.descripcion).toLowerCase().includes(q),
     );
-  }, [clientesConAverias, searchCliente]);
+  }, [clientesConAverias, searchCliente, soloPendientes]);
 
   const crearBorradorNuevo = useCallback(
     (item: ClienteConAveria): TrabajoDiarioRegistro => ({
@@ -714,17 +693,20 @@ export function TrabajosDiariosAveriasView() {
         id: trabajoId,
         cierre_diario_confirmado: true,
       });
-      const estadoMsg = payload.hay_pendiente
+      const quedoPendiente = payload.hay_pendiente === true;
+      const estadoMsg = quedoPendiente
         ? "La avería quedó como pendiente."
-        : "La avería fue marcada como solucionada.";
+        : "La avería fue marcada como solucionada. Puedes verla activando 'Ver solucionadas'.";
       toast({ title: "Día cerrado", description: estadoMsg });
+      // Si la avería quedó solucionada, mostrar solucionadas automáticamente para que el usuario la vea
+      if (!quedoPendiente) {
+        setSoloPendientes(false);
+      }
       setSelectedItem(null);
       setSelectedTrabajo(null);
       setInstaladores([]);
       setMaterialesResumen([]);
       setTrabajosAnteriores([]);
-      // Invalidar caché de trabajos para que se recarguen al expandir
-      setTrabajosPorAveria({});
       void loadClientesConAverias();
     } catch (error) {
       const message = error instanceof Error ? error.message : "No se pudo cerrar el día";
@@ -742,7 +724,7 @@ export function TrabajosDiariosAveriasView() {
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between gap-2">
               <CardTitle className="text-base">
-                Averías pendientes ({itemsFiltrados.length})
+                Averías ({itemsFiltrados.length})
               </CardTitle>
               <div className="flex items-center gap-1.5 shrink-0">
                 <Button
@@ -766,19 +748,36 @@ export function TrabajosDiariosAveriasView() {
                 </Button>
               </div>
             </div>
-            <Input
-              placeholder="Buscar cliente o avería..."
-              value={searchCliente}
-              onChange={(e) => setSearchCliente(e.target.value)}
-              className="mt-2 h-8 text-sm"
-            />
+            <div className="flex items-center gap-2 mt-2">
+              <Input
+                placeholder="Buscar cliente o avería..."
+                value={searchCliente}
+                onChange={(e) => setSearchCliente(e.target.value)}
+                className="h-8 text-sm flex-1"
+              />
+              <button
+                type="button"
+                onClick={() => setSoloPendientes((v) => !v)}
+                className={cn(
+                  "shrink-0 rounded-md px-2 py-1 text-[11px] font-medium border transition",
+                  soloPendientes
+                    ? "bg-orange-50 border-orange-300 text-orange-700"
+                    : "bg-slate-50 border-slate-300 text-slate-600",
+                )}
+                title={soloPendientes ? "Mostrando solo pendientes — click para ver todas" : "Mostrando todas — click para ver solo pendientes"}
+              >
+                {soloPendientes ? "Solo pendientes" : "Ver todas"}
+              </button>
+            </div>
           </CardHeader>
 
           <CardContent className="flex-1 overflow-y-auto px-0 pb-0">
             {loadingClientes ? (
               <p className="text-sm text-muted-foreground px-6 py-4">Cargando...</p>
             ) : itemsFiltrados.length === 0 ? (
-              <p className="text-sm text-muted-foreground px-6 py-4">No hay averías pendientes.</p>
+              <p className="text-sm text-muted-foreground px-6 py-4">
+                {soloPendientes ? "No hay averías pendientes." : "No hay averías registradas."}
+              </p>
             ) : (
               <div className="space-y-3 p-3">
                 {itemsFiltrados.map(({ cliente, averia }) => {
@@ -794,7 +793,9 @@ export function TrabajosDiariosAveriasView() {
                         "w-full text-left rounded-xl border transition shadow-sm overflow-hidden",
                         active
                           ? "border-orange-300 bg-orange-50 ring-1 ring-orange-100"
-                          : "border-slate-200 bg-white",
+                          : averia.estado === "Solucionada"
+                            ? "border-emerald-200 bg-emerald-50/40"
+                            : "border-slate-200 bg-white",
                       )}
                     >
                       {/* Zona clickable principal */}
@@ -803,9 +804,21 @@ export function TrabajosDiariosAveriasView() {
                         className="w-full text-left p-3.5 hover:bg-orange-50/60 transition"
                         onClick={() => void handleSelectItem({ cliente, averia })}
                       >
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                          Cliente
-                        </p>
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                            Cliente
+                          </p>
+                          <span
+                            className={cn(
+                              "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                              averia.estado === "Solucionada"
+                                ? "bg-emerald-100 text-emerald-700"
+                                : "bg-orange-100 text-orange-700",
+                            )}
+                          >
+                            {averia.estado === "Solucionada" ? "✓ Solucionada" : "⚡ Pendiente"}
+                          </span>
+                        </div>
                         <p className="text-sm font-semibold text-slate-900 truncate mt-0.5">
                           {safeText(cliente.nombre, "Sin nombre")}
                         </p>
@@ -855,109 +868,7 @@ export function TrabajosDiariosAveriasView() {
                       </button>
 
                       {/* Acciones de la card */}
-                      <div className="px-3.5 pb-3 space-y-2">
-                        {/* Ver trabajos diarios */}
-                        <button
-                          type="button"
-                          className="w-full flex items-center justify-between gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-medium text-slate-600 hover:bg-slate-50 transition"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void toggleTrabajosDeLaAveria(safeText(averia.id), safeText(cliente.numero));
-                          }}
-                        >
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            Ver trabajos diarios
-                          </span>
-                          {loadingTrabajosAveria.has(safeText(averia.id)) ? (
-                            <RefreshCw className="h-3 w-3 animate-spin" />
-                          ) : expandedAverias.has(safeText(averia.id)) ? (
-                            <ChevronUp className="h-3 w-3" />
-                          ) : (
-                            <ChevronDown className="h-3 w-3" />
-                          )}
-                        </button>
-
-                        {/* Lista de trabajos expandida */}
-                        {expandedAverias.has(safeText(averia.id)) && (
-                          <div className="space-y-1.5">
-                            {(trabajosPorAveria[safeText(averia.id)] ?? []).length === 0 ? (
-                              <p className="text-[11px] text-slate-400 text-center py-2">
-                                Sin trabajos diarios registrados
-                              </p>
-                            ) : (
-                              (trabajosPorAveria[safeText(averia.id)] ?? []).map((t, ti) => {
-                                const estaAbierto = !t.cierre_diario_confirmado;
-                                const tienePendiente = !!t.hay_pendiente;
-                                return (
-                                  <div
-                                    key={t.id ?? ti}
-                                    className={cn(
-                                      "rounded-md border px-2.5 py-2 space-y-1 text-[11px]",
-                                      estaAbierto
-                                        ? "border-blue-200 bg-blue-50"
-                                        : tienePendiente
-                                          ? "border-amber-200 bg-amber-50"
-                                          : "border-emerald-200 bg-emerald-50",
-                                    )}
-                                  >
-                                    <div className="flex items-center justify-between gap-1">
-                                      <span className="flex items-center gap-1 font-semibold text-slate-700">
-                                        <Calendar className="h-2.5 w-2.5" />
-                                        {safeText(t.fecha_trabajo).slice(0, 10) || "Sin fecha"}
-                                      </span>
-                                      <span
-                                        className={cn(
-                                          "rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
-                                          estaAbierto
-                                            ? "bg-blue-200 text-blue-800"
-                                            : tienePendiente
-                                              ? "bg-amber-200 text-amber-800"
-                                              : "bg-emerald-200 text-emerald-800",
-                                        )}
-                                      >
-                                        {estaAbierto ? "Abierto" : tienePendiente ? "Pendiente" : "Cerrado"}
-                                      </span>
-                                    </div>
-                                    {t.instaladores && t.instaladores.length > 0 && (
-                                      <p className="text-slate-600 truncate">
-                                        {t.instaladores.join(", ")}
-                                      </p>
-                                    )}
-                                    {(t.hora_salida || t.hora_llegada_trabajo || t.hora_concluido || t.hora_llegada_almacen) && (
-                                      <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-slate-600">
-                                        {t.hora_salida && (
-                                          <span className="flex items-center gap-0.5">
-                                            <Clock className="h-2.5 w-2.5" />
-                                            Sal: {t.hora_salida}
-                                          </span>
-                                        )}
-                                        {t.hora_llegada_trabajo && (
-                                          <span>Lleg: {t.hora_llegada_trabajo}</span>
-                                        )}
-                                        {t.hora_concluido && (
-                                          <span>Fin: {t.hora_concluido}</span>
-                                        )}
-                                        {t.hora_llegada_almacen && (
-                                          <span>Alm: {t.hora_llegada_almacen}</span>
-                                        )}
-                                      </div>
-                                    )}
-                                    {tienePendiente && t.descripcion_pendiente && (
-                                      <p className="text-amber-700 font-medium">
-                                        ⚠ {t.descripcion_pendiente}
-                                      </p>
-                                    )}
-                                    {t.solucion && !estaAbierto && !tienePendiente && (
-                                      <p className="text-emerald-700 truncate">✓ {t.solucion}</p>
-                                    )}
-                                  </div>
-                                );
-                              })
-                            )}
-                          </div>
-                        )}
-
+                      <div className="px-3.5 pb-3">
                         {/* Agregar avería al cliente */}
                         <button
                           type="button"

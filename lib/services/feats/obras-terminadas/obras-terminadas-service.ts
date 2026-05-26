@@ -24,6 +24,8 @@ export interface ObraTerminada {
   monto_pendiente?: number | null;
   cantidad_pagos?: number | null;
   almacen_nombre?: string | null;
+  facturada?: boolean | null;
+  numero_factura?: string | null;
 }
 
 export interface ObrasTerminadasListResponse {
@@ -111,6 +113,23 @@ export interface ValeSalidaObra {
   materiales?: MaterialVale[] | null;
 }
 
+export interface FacturaClienteObra {
+  id?: string | null;
+  nombre?: string | null;
+  nombre_completo?: string | null;
+  numero_oferta?: string | null;
+  numero_factura?: string | null;
+  fecha_facturacion?: string | null;
+  estado?: string | null;
+  facturada?: boolean | null;
+  precio_final?: number | null;
+  total_materiales?: number | null;
+  total_pagado?: number | null;
+  monto_pendiente?: number | null;
+  materiales?: MaterialOferta[] | null;
+  pagos?: PagoObra[] | null;
+}
+
 export interface OfertaDetalleObras {
   success: boolean;
   materiales: MaterialOferta[];
@@ -118,6 +137,7 @@ export interface OfertaDetalleObras {
   trabajos: TrabajoDiarioObra[];
   vales: ValeSalidaObra[];
   facturas: Factura[];
+  facturas_cliente?: FacturaClienteObra[] | null;
 }
 
 /** @deprecated Usa OfertaDetalleObras — se mantiene por compatibilidad con el hook */
@@ -174,6 +194,16 @@ export const ObrasTerminadasService = {
   ): Promise<OfertaDetalleObras> {
     return apiRequest<OfertaDetalleObras>(
       `${BASE}/oferta/${encodeURIComponent(ofertaId)}/detalle`,
+      { method: "GET", signal },
+    );
+  },
+
+  async getFacturasCliente(
+    ofertaId: string,
+    signal?: AbortSignal,
+  ): Promise<FacturaClienteObra[]> {
+    return apiRequest<FacturaClienteObra[]>(
+      `${BASE}/oferta/${encodeURIComponent(ofertaId)}/facturas-cliente`,
       { method: "GET", signal },
     );
   },

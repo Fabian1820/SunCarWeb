@@ -491,7 +491,8 @@ const serializeTrabajoPayload = (
   body.hora_llegada_trabajo = payload.hora_llegada_trabajo || null;
   body.hora_concluido = payload.hora_concluido || null;
   body.hora_llegada_almacen = payload.hora_llegada_almacen || null;
-  if (typeof payload.hay_pendiente === "boolean") body.hay_pendiente = payload.hay_pendiente;
+  // Siempre enviar hay_pendiente como booleano explícito para que el backend no asuma "Solucionada" por defecto
+  body.hay_pendiente = payload.hay_pendiente === true;
   if (payload.descripcion_pendiente != null) body.descripcion_pendiente = payload.descripcion_pendiente || null;
 
   body.materiales_utilizados = materiales;

@@ -64,8 +64,8 @@ const extractApiError = (response: any): string | null => {
 const normalizeMaterialesPayload = (
   materiales: SolicitudVentaMaterialItem[],
 ): SolicitudVentaMaterialItem[] => {
-  // Merge duplicados sumando cantidades; conservar precio y descuento del primer ítem encontrado
-  const merged = new Map<string, { cantidad: number; precio?: number; descuento_porcentaje?: number }>();
+  // Merge duplicados sumando cantidades; conservar precio, descuento y aumento del primer ítem encontrado
+  const merged = new Map<string, { cantidad: number; precio?: number; descuento_porcentaje?: number; aumento_porcentaje?: number }>();
 
   for (const item of materiales) {
     const materialId = asString(item.material_id);
@@ -76,15 +76,19 @@ const normalizeMaterialesPayload = (
       cantidad: (existing?.cantidad ?? 0) + cantidad,
       precio: existing?.precio ?? (item.precio != null ? item.precio : undefined),
       descuento_porcentaje: existing?.descuento_porcentaje ?? (item.descuento_porcentaje ?? undefined),
+      aumento_porcentaje: existing?.aumento_porcentaje ?? (item.aumento_porcentaje ?? undefined),
     });
   }
 
-  return Array.from(merged.entries()).map(([material_id, { cantidad, precio, descuento_porcentaje }]) => ({
+  return Array.from(merged.entries()).map(([material_id, { cantidad, precio, descuento_porcentaje, aumento_porcentaje }]) => ({
     material_id,
     cantidad,
     ...(precio != null ? { precio } : {}),
     ...(descuento_porcentaje != null && descuento_porcentaje > 0
       ? { descuento_porcentaje }
+      : {}),
+    ...(aumento_porcentaje != null && aumento_porcentaje > 0
+      ? { aumento_porcentaje }
       : {}),
   }));
 };
@@ -237,6 +241,10 @@ export class SolicitudVentaService {
     if (params.estado) search.append("estado", params.estado);
     if (params.pagada_totalmente !== undefined)
       search.append("pagada_totalmente", String(params.pagada_totalmente));
+    if (params.comercial) search.append("comercial", params.comercial);
+    if (params.estado_pago) search.append("estado_pago", params.estado_pago);
+    if (params.fecha_desde) search.append("fecha_desde", params.fecha_desde);
+    if (params.fecha_hasta) search.append("fecha_hasta", params.fecha_hasta);
 
     const endpoint = search.toString()
       ? `${BASE_ENDPOINT}/summary?${search.toString()}`

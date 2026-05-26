@@ -153,6 +153,8 @@ function EnvioContenedoresContent() {
       nombre: data.nombre,
       marca_id: data.marca_id,
       potenciaKW: data.potenciaKW,
+      foto: data.foto,
+      ficha_tecnica_url: data.ficha_tecnica_url,
     };
 
     await addMaterialToProduct(productoId, payload, data.categoria);
@@ -166,6 +168,8 @@ function EnvioContenedoresContent() {
       nombre: data.nombre,
       marca_id: data.marca_id,
       potenciaKW: data.potenciaKW,
+      foto: data.foto,
+      ficha_tecnica_url: data.ficha_tecnica_url ?? null,
       producto_id: productoId,
     };
 

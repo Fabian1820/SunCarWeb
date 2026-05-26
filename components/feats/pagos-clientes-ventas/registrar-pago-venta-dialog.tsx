@@ -54,6 +54,9 @@ interface RegistrarPagoVentaDialogProps {
     stripe_link?: string;
     desglose_billetes?: Record<string, number>;
     cambio?: number;
+    cambio_real_monto?: number;
+    cambio_real_moneda?: "USD" | "CUP" | "EUR";
+    cambio_real_tasa?: number;
     monto_comision?: number;
     recibido_por: string;
     notas?: string;
@@ -110,6 +113,18 @@ export function RegistrarPagoVentaDialog({
   const [generarFactura, setGenerarFactura] = useState(true);
   const [numeroFactura, setNumeroFactura] = useState("");
   const [montoComision, setMontoComision] = useState("");
+  const [cambioRealMonto, setCambioRealMonto] = useState("");
+  const [cambioRealMoneda, setCambioRealMoneda] = useState<"USD" | "CUP" | "EUR">("USD");
+  const [cambioRealTasa, setCambioRealTasa] = useState("");
+
+  // Autocompletar tasa del cambio real cuando coincide con la dirección de la tasa principal
+  // (cambio en USD + pago en no-USD → misma dirección "no-USD por 1 USD")
+  useEffect(() => {
+    if (cambioRealMoneda === "USD" && moneda !== "USD" && tasaCambio && !cambioRealTasa) {
+      setCambioRealTasa(tasaCambio);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cambioRealMoneda, moneda, tasaCambio]);
 
   // Pre-rellenar monto con el pendiente al abrir
   useEffect(() => {
@@ -217,6 +232,9 @@ export function RegistrarPagoVentaDialog({
     setGenerarFactura(false);
     setNumeroFactura("");
     setMontoComision("");
+    setCambioRealMonto("");
+    setCambioRealMoneda("USD");
+    setCambioRealTasa("");
   };
 
   const denominaciones =
@@ -333,6 +351,9 @@ export function RegistrarPagoVentaDialog({
           const diferencia = Math.round((totalBilletes - montoNum) * 100) / 100;
           return diferencia > 0 ? diferencia : undefined;
         })(),
+        cambio_real_monto: cambioRealMonto && Number(cambioRealMonto) > 0 ? Number(cambioRealMonto) : undefined,
+        cambio_real_moneda: cambioRealMonto && Number(cambioRealMonto) > 0 ? cambioRealMoneda : undefined,
+        cambio_real_tasa: cambioRealMonto && Number(cambioRealMonto) > 0 && cambioRealTasa ? Number(cambioRealTasa) : undefined,
         stripe_link: stripeLink || undefined,
         monto_comision: (metodoPago === "stripe" || metodoPago === "transferencia_bancaria") && montoComision
           ? Number(montoComision)
@@ -653,8 +674,44 @@ export function RegistrarPagoVentaDialog({
             }, 0);
             const montoNum2 = Number(monto);
             const hayDesglose = denominaciones.some(d => Number(desgloseBilletes[d] ?? 0) > 0);
-            const cambio = totalBilletes - montoNum2;
-            const valido = !hayDesglose || cambio >= -0.01;
+            const cambioOriginal = Math.round((totalBilletes - montoNum2) * 100) / 100;
+            const valido = !hayDesglose || cambioOriginal >= -0.01;
+            const hayCambio = hayDesglose && cambioOriginal > 0.01;
+
+            // Equivalente en moneda original del cambio real
+            const cambioRealMontoNum = Number(cambioRealMonto) || 0;
+            const cambioRealTasaNum = Number(cambioRealTasa) || 0;
+
+            function cambioRealMonedaEsIgual() {
+              return cambioRealMoneda === moneda;
+            }
+
+            // Tasa siempre expresada como "no-USD por 1 USD" (igual que la tasa principal)
+            // Si cambioRealMoneda=USD: result = monto_usd × tasa  (ej: 78 USD × 0.92 = 71.76 EUR)
+            // Si moneda=USD:           result = monto_noUSD ÷ tasa (ej: 72 EUR ÷ 0.92 = 78.26 USD)
+            // Si ninguna es USD:       result = monto × tasa (caso CUP↔EUR, menos habitual)
+            const cambioRealEnMonedaOriginal: number | null = (() => {
+              if (cambioRealMonedaEsIgual()) return cambioRealMontoNum;
+              if (cambioRealTasaNum <= 0) return null;
+              if (cambioRealMoneda === "USD") return cambioRealMontoNum * cambioRealTasaNum;
+              if (moneda === "USD") return cambioRealMontoNum / cambioRealTasaNum;
+              return cambioRealMontoNum * cambioRealTasaNum;
+            })();
+
+            const equivalenciaOk =
+              cambioRealEnMonedaOriginal !== null &&
+              Math.abs(cambioRealEnMonedaOriginal - cambioOriginal) <= cambioOriginal * 0.02 + 0.01;
+
+            // Etiqueta de la tasa: siempre "no-USD por 1 USD"
+            const usdInvolucrado = cambioRealMoneda === "USD" || moneda === "USD";
+            const nonUsdMoneda = cambioRealMoneda === "USD" ? moneda : cambioRealMoneda;
+            const tasaLabel = usdInvolucrado
+              ? `${nonUsdMoneda} por 1 USD`
+              : `${moneda} por 1 ${cambioRealMoneda}`;
+            const tasaPlaceholder = usdInvolucrado
+              ? `Ej: 0.92 (1 USD = 0.92 ${nonUsdMoneda})`
+              : `Cuántos ${moneda} vale 1 ${cambioRealMoneda}`;
+
             return (
               <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
                 <Label className="text-sm font-medium">
@@ -677,15 +734,103 @@ export function RegistrarPagoVentaDialog({
                   ))}
                 </div>
                 {hayDesglose && (
-                  <div className={`flex items-center justify-between text-xs px-1 pt-1 font-medium ${valido ? (cambio > 0.01 ? "text-amber-600" : "text-emerald-700") : "text-red-600"}`}>
+                  <div className={`flex items-center justify-between text-xs px-1 pt-1 font-medium ${valido ? (cambioOriginal > 0.01 ? "text-amber-600" : "text-emerald-700") : "text-red-600"}`}>
                     <span>Total billetes: {totalBilletes.toFixed(2)}</span>
                     <span>
                       {!valido
-                        ? `✗ Faltan: ${Math.abs(cambio).toFixed(2)}`
-                        : cambio > 0.01
-                        ? `↩ Cambio: ${cambio.toFixed(2)}`
+                        ? `✗ Faltan: ${Math.abs(cambioOriginal).toFixed(2)}`
+                        : cambioOriginal > 0.01
+                        ? `↩ Cambio original: ${cambioOriginal.toFixed(2)} ${moneda}`
                         : "✓ Exacto"}
                     </span>
+                  </div>
+                )}
+
+                {/* ── Cambio real dado al cliente ── */}
+                {hayCambio && (
+                  <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-3 space-y-3">
+                    <div>
+                      <p className="text-xs font-semibold text-amber-800">Cambio real dado al cliente</p>
+                      <p className="text-[11px] text-amber-600 mt-0.5">
+                        Cambio original: <span className="font-bold">{cambioOriginal.toFixed(2)} {moneda}</span>
+                        {" "}— Indica en qué divisa se lo entregaste realmente.
+                      </p>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={cambioRealMonto}
+                        onChange={(e) => setCambioRealMonto(e.target.value)}
+                        placeholder="0.00"
+                        className="flex-1 bg-white h-8 text-sm"
+                      />
+                      <Select
+                        value={cambioRealMoneda}
+                        onValueChange={(v) => {
+                          setCambioRealMoneda(v as "USD" | "CUP" | "EUR");
+                          // Si el cambio es en USD y el pago es en no-USD,
+                          // la tasa tiene la misma dirección que la de arriba → autocompletar
+                          if (v === "USD" && moneda !== "USD" && tasaCambio) {
+                            setCambioRealTasa(tasaCambio);
+                          } else {
+                            setCambioRealTasa("");
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="w-24 h-8 bg-white">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="USD">USD</SelectItem>
+                          <SelectItem value="CUP">CUP</SelectItem>
+                          <SelectItem value="EUR">EUR</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Tasa de cambio solo si la moneda del cambio real es distinta a la del pago */}
+                    {!cambioRealMonedaEsIgual() && (
+                      <div className="space-y-1">
+                        <Label className="text-xs text-amber-800">
+                          Tasa de cambio ({tasaLabel})
+                        </Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.0001"
+                          value={cambioRealTasa}
+                          onChange={(e) => setCambioRealTasa(e.target.value)}
+                          placeholder={tasaPlaceholder}
+                          className="bg-white h-8 text-sm"
+                        />
+                      </div>
+                    )}
+
+                    {/* Validación de equivalencia */}
+                    {cambioRealMontoNum > 0 && (cambioRealMonedaEsIgual() || cambioRealTasaNum > 0) && (
+                      <div className={`text-xs font-medium px-2 py-1.5 rounded border flex items-center justify-between
+                        ${equivalenciaOk
+                          ? "bg-emerald-50 border-emerald-300 text-emerald-700"
+                          : "bg-red-50 border-red-300 text-red-700"}`}>
+                        <span>
+                          {cambioRealMonedaEsIgual()
+                            ? `${cambioRealMontoNum.toFixed(2)} ${cambioRealMoneda}`
+                            : cambioRealMoneda === "USD"
+                            ? `${cambioRealMontoNum.toFixed(2)} USD × ${cambioRealTasaNum} = ${(cambioRealMontoNum * cambioRealTasaNum).toFixed(2)} ${moneda}`
+                            : moneda === "USD"
+                            ? `${cambioRealMontoNum.toFixed(2)} ${cambioRealMoneda} ÷ ${cambioRealTasaNum} = ${cambioRealTasaNum > 0 ? (cambioRealMontoNum / cambioRealTasaNum).toFixed(2) : "?"} USD`
+                            : `${cambioRealMontoNum.toFixed(2)} ${cambioRealMoneda} × ${cambioRealTasaNum} = ${(cambioRealMontoNum * cambioRealTasaNum).toFixed(2)} ${moneda}`}
+                        </span>
+                        <span>
+                          {equivalenciaOk
+                            ? `✓ ≈ ${cambioOriginal.toFixed(2)} ${moneda}`
+                            : `✗ Se esperan ${cambioOriginal.toFixed(2)} ${moneda}`}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

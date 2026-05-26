@@ -29,15 +29,19 @@ import {
   Boxes,
   Receipt,
   Download,
+  CheckCircle2,
+  Clock,
 } from "lucide-react"
-import type { OfertaObra, OfertaDetalleObras } from "@/hooks/use-obras-terminadas"
+import type { OfertaObra, OfertaDetalleObras, FacturaClienteObra as FacturaClienteObraHook } from "@/hooks/use-obras-terminadas"
 import type {
   PagoObra,
   MaterialOferta,
   TrabajoDiarioObra,
   ValeSalidaObra,
   ObrasTerminadasFiltros,
+  FacturaClienteObra,
 } from "@/lib/services/feats/obras-terminadas/obras-terminadas-service"
+import { ExportFacturaClienteService } from "@/lib/services/feats/obras-terminadas/export-factura-cliente-service"
 import type { Factura } from "@/lib/types/feats/facturas/factura-types"
 import { ExportComprobanteService } from "@/lib/services/feats/pagos/export-comprobante-service"
 import { ExportFacturaService } from "@/lib/services/feats/facturas/export-factura-service"
@@ -113,6 +117,28 @@ const ordenarPagos = (pagos: PagoObra[]) =>
     if (dc !== 0) return dc
     return (a.id ?? "").localeCompare(b.id ?? "")
   })
+
+const isThisMonth = (fecha: string | null | undefined): boolean => {
+  if (!fecha) return false
+  const [y, m] = fecha.slice(0, 7).split("-").map(Number)
+  const now = new Date()
+  return y === now.getFullYear() && m === now.getMonth() + 1
+}
+
+const buildFacturaCliente = (obra: OfertaObra, detalle: OfertaDetalleObras): FacturaClienteObra => ({
+  id: obra.oferta_id ?? undefined,
+  nombre: obra.cliente_nombre ?? obra.nombre_completo ?? undefined,
+  nombre_completo: obra.nombre_completo ?? undefined,
+  numero_oferta: obra.numero_oferta ?? undefined,
+  fecha_facturacion: obra.fecha_equipo_instalado ?? undefined,
+  facturada: true,
+  precio_final: obra.precio_final,
+  total_materiales: obra.total_materiales,
+  total_pagado: obra.total_pagado,
+  monto_pendiente: obra.monto_pendiente,
+  materiales: detalle.materiales,
+  pagos: detalle.pagos,
+})
 
 /* ─────────────────────────────────────────────
    Date utils
@@ -729,10 +755,218 @@ function FacturasPanel({ facturas, oferta }: { facturas: Factura[]; oferta: Ofer
 }
 
 /* ─────────────────────────────────────────────
+   Panel: FACTURAS CLIENTE TERMINADO
+───────────────────────────────────────────── */
+
+function FacturasClientePanel({ facturas, oferta }: { facturas: FacturaClienteObra[]; oferta: OfertaObra }) {
+  const [exportingId, setExportingId] = React.useState<string | null>(null)
+
+  if (!facturas.length)
+    return (
+      <div className="text-center py-6 text-sm text-gray-500 space-y-1">
+        <p>No hay facturas de cliente registradas para esta obra.</p>
+        <p className="text-xs text-gray-400">Se generan cuando el cliente tiene estado &quot;Equipo instalado con éxito&quot; y una oferta confección confirmada.</p>
+      </div>
+    )
+
+  const handleExportPdf = async (factura: FacturaClienteObra) => {
+    const id = factura.id ?? factura.numero_oferta ?? "0"
+    setExportingId(id)
+    try {
+      await ExportFacturaClienteService.exportarPDF(factura, oferta)
+    } finally {
+      setExportingId(null)
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      {facturas.map((factura, idx) => {
+        const id = factura.id ?? factura.numero_oferta ?? String(idx)
+        const preciofinal = factura.precio_final ?? oferta.precio_final ?? 0
+        const totalPagado = factura.total_pagado ?? oferta.total_pagado ?? 0
+        const montoPendiente = factura.monto_pendiente ?? oferta.monto_pendiente ?? 0
+        const pagada = montoPendiente <= 0.01
+        const isLoading = exportingId === id
+        const materiales = factura.materiales ?? []
+        const pagos = factura.pagos ?? []
+
+        return (
+          <div key={id} className="bg-white rounded-lg border border-blue-200 shadow-sm overflow-hidden">
+            {/* Cabecera */}
+            <div className="flex items-center justify-between px-4 py-2.5 bg-blue-50 border-b border-blue-200">
+              <div className="flex items-center gap-3">
+                <Receipt className="h-4 w-4 text-blue-500 shrink-0" />
+                <div>
+                  {/* Número de factura destacado */}
+                  <span className="font-bold text-base text-blue-800 tracking-wide">
+                    {factura.numero_factura || factura.numero_oferta || `Factura cliente ${idx + 1}`}
+                  </span>
+                  {factura.numero_factura && factura.numero_oferta && (
+                    <span className="ml-2 text-xs text-slate-500">· {factura.numero_oferta}</span>
+                  )}
+                  {factura.fecha_facturacion && (
+                    <span className="ml-2 text-xs text-slate-500">{fmtDate(factura.fecha_facturacion)}</span>
+                  )}
+                </div>
+                <div className="flex gap-1.5 ml-2">
+                  <Badge className="bg-blue-100 text-blue-700 text-[11px]">Confección</Badge>
+                  {pagada ? (
+                    <Badge className="bg-green-100 text-green-700 text-[11px]">Pagada</Badge>
+                  ) : (
+                    <Badge className="bg-amber-100 text-amber-700 text-[11px]">Pendiente</Badge>
+                  )}
+                  {factura.facturada && (
+                    <Badge className="bg-emerald-100 text-emerald-700 text-[11px]">✓ Facturada</Badge>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-sm text-slate-900 tabular-nums">{fmtCurrency(preciofinal)}</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleExportPdf(factura)}
+                  disabled={isLoading}
+                  className="h-7 px-2 text-xs gap-1 border-red-300 text-red-700 hover:bg-red-50"
+                >
+                  {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+                  PDF
+                </Button>
+              </div>
+            </div>
+
+            {/* Nombre completo de la oferta */}
+            {factura.nombre_completo && (
+              <div className="px-4 py-2 bg-slate-50/60 border-b border-slate-100 text-xs text-slate-600 italic">
+                {factura.nombre_completo}
+              </div>
+            )}
+
+            {/* Materiales */}
+            {materiales.length > 0 && (
+              <div className="border-b border-slate-100">
+                <div className="px-4 pt-3 pb-1">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Materiales</span>
+                </div>
+                <table className="w-full text-sm table-fixed">
+                  <thead className="bg-slate-50/70 text-slate-500 border-b border-slate-100">
+                    <tr>
+                      <th className="w-[52%] text-left px-4 py-2 text-xs font-semibold">Descripción</th>
+                      <th className="w-[12%] text-center px-3 py-2 text-xs font-semibold">Cant.</th>
+                      <th className="w-[18%] text-right px-3 py-2 text-xs font-semibold">Precio</th>
+                      <th className="w-[18%] text-right px-4 py-2 text-xs font-semibold">Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {materiales.map((m, i) => (
+                      <tr key={m.material_codigo || i} className="border-t border-slate-100 hover:bg-slate-50 transition-colors">
+                        <td className="px-4 py-2 text-xs text-slate-800 break-words">
+                          <span className="block font-medium">{m.descripcion || m.material_codigo || "—"}</span>
+                          {m.material_codigo && <span className="text-[10px] text-slate-400">{m.material_codigo}</span>}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-center tabular-nums">{m.cantidad ?? "—"}</td>
+                        <td className="px-3 py-2 text-xs text-right tabular-nums">{m.precio != null ? fmtCurrency(m.precio) : "—"}</td>
+                        <td className="px-4 py-2 text-xs text-right font-medium tabular-nums">
+                          {m.precio != null && m.cantidad != null ? fmtCurrency(m.precio * m.cantidad) : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Pagos */}
+            {pagos.length > 0 && (
+              <div className="border-b border-slate-100">
+                <div className="px-4 pt-3 pb-1">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Pagos</span>
+                </div>
+                <div className="px-4 pb-3 space-y-2">
+                  {ordenarPagos(pagos).map((pago, pidx) => {
+                    const sorted = ordenarPagos(pagos)
+                    const antes = sorted.slice(0, pidx).reduce((s, p) => s + getMontoAplicadoUsd(p), 0)
+                    const conEste = antes + getMontoAplicadoUsd(pago)
+                    const pendDespues = roundToCents(Math.max(0, preciofinal - conEste))
+                    const metodo = pago.metodo_pago ?? ""
+                    const moneda = pago.moneda ?? "USD"
+
+                    return (
+                      <div key={pago.id || pidx} className="rounded border border-slate-200 p-2 bg-white shadow-sm">
+                        <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                          <span className="text-xs font-semibold text-slate-500">#{pidx + 1}</span>
+                          <TipoPagoBadge tipo={pago.tipo_pago ?? ""} />
+                          {metodo && <MetodoPagoBadge metodo={metodo} />}
+                          <span className="text-xs text-slate-500">{fmtDate(pago.fecha ?? "")}</span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                          <div>
+                            <span className="text-slate-500 block">Monto</span>
+                            <span className="font-semibold">
+                              {Number(pago.monto ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2 })} {moneda}
+                            </span>
+                          </div>
+                          {moneda !== "USD" && pago.tasa_cambio && (
+                            <div>
+                              <span className="text-slate-500 block">Equiv. USD</span>
+                              <span className="font-semibold">{fmtCurrency(Number(pago.monto ?? 0) / Number(pago.tasa_cambio))}</span>
+                            </div>
+                          )}
+                          {pago.recibido_por && (
+                            <div>
+                              <span className="text-slate-500 block">Recibido por</span>
+                              <span className="font-medium">{pago.recibido_por}</span>
+                            </div>
+                          )}
+                          <div>
+                            <span className="text-slate-500 block">Pendiente tras pago</span>
+                            <span className={cn("font-bold", pendDespues > 0 ? "text-orange-600" : "text-green-600")}>
+                              {pendDespues > 0 ? fmtCurrency(pendDespues) : "Pagado ✓"}
+                            </span>
+                          </div>
+                        </div>
+                        {pago.notas && (
+                          <p className="mt-1 text-[11px] text-slate-400 italic">{pago.notas}</p>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Totales */}
+            <div className="px-4 py-3 bg-slate-50/60">
+              <div className="flex justify-end gap-6 text-sm">
+                <div className="text-right">
+                  <span className="block text-xs text-slate-500">Total a pagar</span>
+                  <span className="font-bold text-slate-900 tabular-nums">{fmtCurrency(preciofinal)}</span>
+                </div>
+                <div className="text-right">
+                  <span className="block text-xs text-slate-500">Cobrado</span>
+                  <span className="font-bold text-green-700 tabular-nums">{fmtCurrency(totalPagado)}</span>
+                </div>
+                <div className="text-right">
+                  <span className="block text-xs text-slate-500">Pendiente</span>
+                  <span className={cn("font-bold tabular-nums", pagada ? "text-green-600" : "text-orange-600")}>
+                    {pagada ? "Pagada ✓" : fmtCurrency(montoPendiente)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/* ─────────────────────────────────────────────
    Tipos de pestaña expandida
 ───────────────────────────────────────────── */
 
-type SectionTab = "materiales" | "pagos" | "trabajos" | "vales" | "facturas"
+type SectionTab = "materiales" | "pagos" | "trabajos" | "vales" | "facturas" | "facturas_cliente"
 
 /* ─────────────────────────────────────────────
    Componente principal
@@ -745,6 +979,10 @@ interface ObrasTerminadasTableProps {
   detalleCache: Record<string, OfertaDetalleObras>
   detalleLoading: Record<string, boolean>
   detalleError: Record<string, string>
+  fetchFacturasCliente: (ofertaId: string) => Promise<void>
+  facturasClienteCache: Record<string, FacturaClienteObraHook[]>
+  facturasClienteLoading: Record<string, boolean>
+  facturasClienteError: Record<string, string>
   serverFiltros: ObrasTerminadasFiltros
   onServerFiltersChange: (filtros: ObrasTerminadasFiltros) => void
 }
@@ -756,6 +994,10 @@ export function ObrasTerminadasTable({
   detalleCache,
   detalleLoading,
   detalleError,
+  fetchFacturasCliente,
+  facturasClienteCache,
+  facturasClienteLoading,
+  facturasClienteError,
   serverFiltros,
   onServerFiltersChange,
 }: ObrasTerminadasTableProps) {
@@ -765,6 +1007,7 @@ export function ObrasTerminadasTable({
   const [searchTerm, setSearchTerm] = useState(serverFiltros.q ?? "")
   const [comercialFilter, setComercialFilter] = useState(serverFiltros.comercial ?? "todos")
   const [estadoPago, setEstadoPago] = useState<"todos" | "pagado" | "pendiente">("todos")
+  const [filtroFacturada, setFiltroFacturada] = useState<"todos" | "pagada" | "pendiente" | "sin_factura">("todos")
   const [filtroFechaCliente, setFiltroFechaCliente] = useState<DateFilterState>(initialDateFilter)
   const [filtroFechaEquipo, setFiltroFechaEquipo] = useState<DateFilterState>(initialDateFilter)
   const [showFilters, setShowFilters] = useState(true)
@@ -792,6 +1035,7 @@ export function ObrasTerminadasTable({
     setSearchTerm("")
     setComercialFilter("todos")
     setEstadoPago("todos")
+    setFiltroFacturada("todos" as const)
     setFiltroFechaCliente(initialDateFilter())
     setFiltroFechaEquipo(initialDateFilter())
     onServerFiltersChange({})
@@ -801,6 +1045,7 @@ export function ObrasTerminadasTable({
     searchTerm.trim() !== "",
     comercialFilter !== "todos",
     estadoPago !== "todos",
+    filtroFacturada !== ("todos" as string),
     filtroFechaCliente.mode !== "off",
     filtroFechaEquipo.mode !== "off",
   ].filter(Boolean).length
@@ -832,7 +1077,14 @@ export function ObrasTerminadasTable({
     return Array.from(set).sort((a, b) => a.localeCompare(b, "es"))
   }, [ofertasConPagos])
 
-  const filteredOfertas = ofertasConPagos
+  const filteredOfertas = useMemo(() => {
+    if (filtroFacturada === "todos") return ofertasConPagos
+    if (filtroFacturada === "sin_factura") return ofertasConPagos.filter((o) => !o.facturada)
+    if (filtroFacturada === "pagada")
+      return ofertasConPagos.filter((o) => o.facturada && (o.precio_final ?? 0) - (o.total_pagado ?? 0) <= 0.01)
+    // pendiente
+    return ofertasConPagos.filter((o) => o.facturada && (o.precio_final ?? 0) - (o.total_pagado ?? 0) > 0.01)
+  }, [ofertasConPagos, filtroFacturada])
 
   if (loading)
     return (
@@ -842,7 +1094,9 @@ export function ObrasTerminadasTable({
       </div>
     )
 
-  if (ofertasConPagos.length === 0)
+  // Solo mostrar empty state puro si no hay filtros activos.
+  // Si hay filtros, renderizar el panel completo para que puedan limpiarse.
+  if (ofertasConPagos.length === 0 && activeFilterCount === 0)
     return (
       <div className="text-center py-16">
         <Briefcase className="h-12 w-12 text-gray-300 mx-auto mb-3" />
@@ -929,6 +1183,29 @@ export function ObrasTerminadasTable({
                   ))}
                 </div>
               </div>
+
+              <div className="flex flex-col gap-1">
+                <span className="text-xs font-semibold text-gray-500">Factura cliente</span>
+                <div className="flex gap-1 flex-wrap">
+                  {([
+                    { v: "todos",       label: "Todos",           active: "bg-orange-500 text-white border-orange-500" },
+                    { v: "pagada",      label: "✓ Pagada",        active: "bg-emerald-600 text-white border-emerald-600" },
+                    { v: "pendiente",   label: "Con pendiente",   active: "bg-orange-600 text-white border-orange-600" },
+                    { v: "sin_factura", label: "Sin factura",     active: "bg-gray-500 text-white border-gray-500" },
+                  ] as const).map(({ v, label, active }) => (
+                    <button
+                      key={v}
+                      onClick={() => setFiltroFacturada(v)}
+                      className={cn(
+                        "px-2.5 py-1 text-xs rounded border transition-colors",
+                        filtroFacturada === v ? active : "border-gray-300 text-gray-600 hover:border-orange-400",
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             <div className="flex flex-wrap gap-6">
@@ -960,9 +1237,16 @@ export function ObrasTerminadasTable({
         )}
       </div>
 
-      {filteredOfertas.length === 0 ? (
-        <div className="text-center py-10 text-gray-500 text-sm bg-white rounded-lg border border-orange-100 p-6">
-          No se encontraron resultados con los filtros aplicados
+      {(filteredOfertas.length === 0 || ofertasConPagos.length === 0) ? (
+        <div className="text-center py-10 bg-white rounded-lg border border-orange-100 p-6 space-y-3">
+          <Briefcase className="h-10 w-10 text-gray-300 mx-auto" />
+          <p className="text-gray-500 text-sm">No se encontraron resultados con los filtros aplicados.</p>
+          <button
+            onClick={clearAllFilters}
+            className="text-sm text-orange-600 hover:text-orange-700 font-medium underline underline-offset-2"
+          >
+            Limpiar filtros
+          </button>
         </div>
       ) : (
         <div className="bg-white rounded-lg border border-orange-100 shadow-sm">
@@ -1017,10 +1301,33 @@ export function ObrasTerminadasTable({
                           <span className="text-xs text-gray-500 truncate" title={oferta.numero_oferta || "-"}>
                             {oferta.numero_oferta || "-"}
                           </span>
-                          <div className="pt-0.5">
+                          <div className="pt-0.5 flex flex-wrap gap-1">
                             <Badge variant="outline" className={`text-xs px-2 py-0 ${getEstadoBadgeClass(estadoCliente)}`}>
                               {estadoCliente}
                             </Badge>
+                            {(() => {
+                              if (!oferta.facturada || !oferta.numero_factura) {
+                                return (
+                                  <span className="inline-flex items-center gap-1 rounded-full border border-gray-300 bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-500">
+                                    <Clock className="h-2.5 w-2.5" />
+                                    Sin factura
+                                  </span>
+                                )
+                              }
+                              const pendiente = (oferta.precio_final ?? 0) - (oferta.total_pagado ?? 0)
+                              const pagada = pendiente <= 0.01
+                              return pagada ? (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                                  <CheckCircle2 className="h-2.5 w-2.5" />
+                                  {oferta.numero_factura} · Pagada
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-orange-300 bg-orange-50 px-2 py-0.5 text-[10px] font-semibold text-orange-700">
+                                  <Receipt className="h-2.5 w-2.5" />
+                                  {oferta.numero_factura} · Pendiente
+                                </span>
+                              )
+                            })()}
                           </div>
                         </div>
                       </TableCell>
@@ -1056,17 +1363,24 @@ export function ObrasTerminadasTable({
                                 { key: "trabajos" as const, icon: <Wrench className="h-3.5 w-3.5" />, label: "Trabajos Diarios", count: detalle?.trabajos?.length },
                                 { key: "vales" as const, icon: <Package className="h-3.5 w-3.5" />, label: "Vales", count: detalle?.vales?.length },
                                 { key: "facturas" as const, icon: <Receipt className="h-3.5 w-3.5" />, label: "Facturas Instaladora", count: detalle?.facturas?.length },
+                                { key: "facturas_cliente" as const, icon: <FileText className="h-3.5 w-3.5" />, label: "Facturas Cliente", count: detalleId ? facturasClienteCache[detalleId]?.length : undefined },
                               ]).map((t) => (
                                 <button
                                   key={t.key}
-                                  onClick={() => setActiveTab((p) => ({ ...p, [rowId]: t.key }))}
+                                  onClick={() => {
+                                    setActiveTab((p) => ({ ...p, [rowId]: t.key }))
+                                    // Lazy: solo carga facturas_cliente al tocar esa pestaña
+                                    if (t.key === "facturas_cliente" && detalleId) {
+                                      fetchFacturasCliente(detalleId)
+                                    }
+                                  }}
                                   className={cn(
                                     "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-t transition-colors",
                                     tab === t.key ? "bg-white border border-orange-200 text-orange-700 shadow-sm" : "text-gray-500 hover:text-gray-700",
                                   )}
                                 >
                                   {t.icon}
-                                  {t.label} {detalle && t.count != null ? `(${t.count})` : ""}
+                                  {t.label} {t.count != null ? `(${t.count})` : ""}
                                 </button>
                               ))}
                             </div>
@@ -1094,6 +1408,35 @@ export function ObrasTerminadasTable({
                                 {tab === "trabajos" && <TrabajosPanel trabajos={detalle?.trabajos ?? []} />}
                                 {tab === "vales" && <ValesPanel vales={detalle?.vales ?? []} />}
                                 {tab === "facturas" && <FacturasPanel facturas={detalle?.facturas ?? []} oferta={oferta} />}
+                                {tab === "facturas_cliente" && (() => {
+                                  const fcLoading = detalleId ? facturasClienteLoading[detalleId] : false
+                                  const fcError   = detalleId ? facturasClienteError[detalleId]   : undefined
+                                  const fcData    = detalleId ? facturasClienteCache[detalleId]    : undefined
+
+                                  if (fcLoading) return (
+                                    <div className="flex items-center justify-center py-10 gap-2 text-gray-500">
+                                      <Loader2 className="h-5 w-5 animate-spin text-blue-400" />
+                                      <span className="text-sm">Cargando facturas cliente…</span>
+                                    </div>
+                                  )
+                                  if (fcError) return (
+                                    <div className="flex items-center gap-2 py-6 px-4 text-sm text-red-600 bg-red-50 rounded-md border border-red-200">
+                                      <AlertTriangle className="h-4 w-4 shrink-0" />
+                                      <span>{fcError}</span>
+                                      <button onClick={() => detalleId && fetchFacturasCliente(detalleId)} className="ml-auto text-xs underline">Reintentar</button>
+                                    </div>
+                                  )
+
+                                  // Si ya tiene datos del backend, usarlos
+                                  const facturas = fcData?.length
+                                    ? fcData
+                                    // Fallback temporal: construir desde detalle si es este mes y backend devuelve vacío
+                                    : fcData !== undefined && detalle && isThisMonth(oferta.fecha_equipo_instalado)
+                                      ? [buildFacturaCliente(oferta, detalle)]
+                                      : (fcData ?? [])
+
+                                  return <FacturasClientePanel facturas={facturas} oferta={oferta} />
+                                })()}
                               </>
                             )}
                           </div>

@@ -72,6 +72,8 @@ export interface SolicitudVenta {
   cliente_venta_id?: string;
   cliente_venta?: ClienteVenta | null;
   oferta_venta_id?: string | null;
+  /** Reserva de ventas vinculada — los vales emitidos contra esta solicitud descuentan de ella. */
+  reserva_id?: string | null;
   almacen_id: string;
   almacen?: SolicitudVentaAlmacenInfo;
   trabajador_id?: string;
@@ -95,6 +97,8 @@ export interface SolicitudVentaCreateData {
   almacen_id: string;
   materiales: SolicitudVentaMaterialItem[];
   oferta_venta_id?: string;
+  /** Id de la reserva de ventas a la que se vincula la solicitud (opcional). */
+  reserva_id?: string | null;
   descuento_free?: boolean;
   motivo_descuento_free?: string;
 }
@@ -105,6 +109,8 @@ export interface SolicitudVentaUpdateData {
   almacen_id?: string;
   materiales?: SolicitudVentaMaterialItem[];
   oferta_venta_id?: string;
+  /** Vínculo con reserva. Enviar null para desvincular. */
+  reserva_id?: string | null;
   es_a_plazos?: boolean;
   plan_pagos?: PagoProgramado[];
   descuento_free?: boolean;
@@ -130,6 +136,10 @@ export interface SolicitudVentaListParams {
   q?: string; // Búsqueda de texto libre (antes era 'codigo')
   estado?: "nueva" | "usada" | "anulada" | string;
   pagada_totalmente?: boolean;
+  comercial?: string;
+  estado_pago?: "sin-pago" | "parcial" | string;
+  fecha_desde?: string;
+  fecha_hasta?: string;
 }
 
 export interface SolicitudVentaListResponse {

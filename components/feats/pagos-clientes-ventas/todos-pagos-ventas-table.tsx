@@ -33,6 +33,13 @@ interface TodosPagosVentasTableProps {
   loading: boolean;
   error: string | null;
   onRefresh: () => void;
+  /** Si se pasa, la búsqueda se controla externamente (server-side). */
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
+  /** Total absoluto reportado por el backend tras aplicar filtros. */
+  totalCount?: number;
+  /** Footer (ej. botón "Cargar más"). */
+  footer?: React.ReactNode;
 }
 
 type AgrupacionId = "ninguna" | "solicitud" | "cliente" | "fecha";
@@ -54,8 +61,18 @@ export function TodosPagosVentasTable({
   loading,
   error,
   onRefresh,
+  searchValue,
+  onSearchChange,
+  totalCount,
+  footer,
 }: TodosPagosVentasTableProps) {
-  const [search, setSearch] = useState("");
+  const isSearchControlled = searchValue !== undefined;
+  const [internalSearch, setInternalSearch] = useState("");
+  const search = isSearchControlled ? (searchValue as string) : internalSearch;
+  const setSearch = (v: string) => {
+    if (isSearchControlled) onSearchChange?.(v);
+    else setInternalSearch(v);
+  };
   const [planesAbiertos, setPlanesAbiertos] = useState<Set<string>>(new Set());
   const getPagoKey = (p: PagoVenta, index: number): string =>
     [
@@ -163,6 +180,8 @@ export function TodosPagosVentasTable({
   const filtered = useMemo(
     () =>
       pagos.filter((p) => {
+        // Si el search lo controla la página (server-side), no filtramos aquí.
+        if (isSearchControlled) return true;
         if (!search.trim()) return true;
         const term = search.toLowerCase();
         return (
@@ -175,7 +194,7 @@ export function TodosPagosVentasTable({
           (p.notas || "").toLowerCase().includes(term)
         );
       }),
-    [pagos, search],
+    [pagos, search, isSearchControlled],
   );
 
   const grouped = useMemo(() => {
@@ -376,7 +395,9 @@ export function TodosPagosVentasTable({
         </Button>
 
         <Badge variant="secondary" className="text-xs">
-          {filtered.length} pagos
+          {totalCount != null
+            ? `${filtered.length} de ${totalCount} pagos`
+            : `${filtered.length} pagos`}
         </Badge>
 
         {filtered.length > 0 && (
@@ -479,6 +500,7 @@ export function TodosPagosVentasTable({
           })}
         </div>
       )}
+      {footer}
     </div>
   );
 }
