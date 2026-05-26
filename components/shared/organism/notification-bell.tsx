@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Bell, X, CheckCheck, ExternalLink } from "lucide-react"
+import { Bell, X, CheckCheck, ExternalLink, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/contexts/auth-context"
 import {
@@ -264,9 +264,17 @@ export function NotificationBell() {
   }
 
   async function handleMarcarTodasLeidas() {
-    const sinLeer = notificaciones.filter((n) => !n.leida)
-    await Promise.all(sinLeer.map((n) => NotificacionService.marcarLeida(n.id)))
+    // Endpoint global: marca TODAS las no leídas en BD, no solo las cargadas
+    await NotificacionService.marcarTodasLeidas()
     setNotificaciones((prev) => prev.map((n) => ({ ...n, leida: true })))
+    setNoLeidas(0)
+    prevNoLeidasRef.current = 0
+  }
+
+  async function handleEliminarTodas() {
+    if (!confirm("¿Eliminar todas las notificaciones? Esta acción no se puede deshacer.")) return
+    await NotificacionService.eliminarTodas()
+    setNotificaciones([])
     setNoLeidas(0)
     prevNoLeidasRef.current = 0
   }
@@ -331,15 +339,24 @@ export function NotificationBell() {
                 </button>
               </div>
 
-              {/* Marcar todas leídas */}
-              {tieneNoLeidas && (
-                <div className="px-4 py-2 border-b border-gray-100 flex-shrink-0">
+              {/* Acciones globales */}
+              {notificaciones.length > 0 && (
+                <div className="px-4 py-2 border-b border-gray-100 flex-shrink-0 flex items-center justify-between gap-3">
+                  {tieneNoLeidas ? (
+                    <button
+                      onClick={handleMarcarTodasLeidas}
+                      className="flex items-center gap-1.5 text-xs text-orange-600 hover:text-orange-700 font-medium"
+                    >
+                      <CheckCheck className="h-3.5 w-3.5" />
+                      Marcar todas leídas
+                    </button>
+                  ) : <span />}
                   <button
-                    onClick={handleMarcarTodasLeidas}
-                    className="flex items-center gap-1.5 text-xs text-orange-600 hover:text-orange-700 font-medium"
+                    onClick={handleEliminarTodas}
+                    className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-red-600 font-medium"
                   >
-                    <CheckCheck className="h-3.5 w-3.5" />
-                    Marcar todas como leídas
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Eliminar todas
                   </button>
                 </div>
               )}

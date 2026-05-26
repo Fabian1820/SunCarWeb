@@ -59,4 +59,30 @@ export const NotificacionService = {
       console.error("[NotificacionService] Error al eliminar notificación:", error)
     }
   },
+
+  async marcarTodasLeidas(): Promise<number> {
+    try {
+      const r = await apiRequest<{ marcadas: number }>(
+        "/notificaciones/mis-notificaciones/marcar-todas-leidas",
+        { method: "PATCH" }
+      )
+      return (r as { marcadas?: number })?.marcadas ?? 0
+    } catch (error) {
+      console.error("[NotificacionService] Error al marcar todas:", error)
+      return 0
+    }
+  },
+
+  async eliminarTodas(): Promise<number> {
+    try {
+      const r = await apiRequest<{ eliminadas: number }>(
+        "/notificaciones/mis-notificaciones",
+        { method: "DELETE" }
+      )
+      return (r as { eliminadas?: number })?.eliminadas ?? 0
+    } catch (error) {
+      console.error("[NotificacionService] Error al eliminar todas:", error)
+      return 0
+    }
+  },
 }
