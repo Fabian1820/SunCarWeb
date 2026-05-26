@@ -191,6 +191,29 @@ Sin commits de desarrollo nuevos en las últimas 24h.
 
 ---
 
+## 📅 21 de Mayo, 2026
+
+### Resumen de cambios (últimas 24h)
+
+Sin commits de desarrollo nuevos desde el último análisis (último real fue el 20/05 a las 22:11, ya registrado ayer).
+
+#### Seguimientos vigentes
+
+- **AdminPass 123456 hardcodeado**: Todo trabajador creado tiene esta contraseña por defecto sin forzar cambio en el primer login. Brecha operativa de seguridad.
+- **Auto-sync catálogo al abrir /permisos**: Un módulo mal definido en el catálogo (typo, datos inválidos) crea registros incorrectos en BD sin rollback. Validar el catálogo antes de sincronizar.
+- **Logs de debug en producción**: Los logs añadidos en `fetchTrabajosDeAveria` pueden no haber sido limpiados (el commit de limpieza solo menciona `getTrabajosByCliente`). Verificar que no exponen datos de clientes en consola en prod.
+- **Eliminación lógica `cantidad = 0` en asignaciones**: Todas las vistas, APIs y reportes deben filtrar `cantidad > 0` o los registros "eliminados" aparecerán como activos.
+- **Creación inline sin persistencia inmediata**: Categorías/unidades creadas desde "Crear material rápido" se pierden si el usuario cierra sin guardar el material, sin advertencia.
+- **Subida de archivos sin rollback**: Si la foto/ficha técnica se sube correctamente pero el material falla al crearse, el archivo queda huérfano en storage.
+- **Backend debe aceptar campos nuevos**:
+  - `motivo` y `nota` en PATCH de asignaciones (eliminación lógica)
+  - `foto` y `ficha_tecnica_url` en endpoint de materiales
+  - `oferta_venta_id`, `descuento_free`, `motivo_descuento_free`, `precio` en solicitudes desde oferta
+- **`childKeys` en catálogo de módulos**: Olvidar declarar `childKeys` para un hijo no convencional hace invisible el card padre aunque el usuario tenga el permiso. Bug silencioso.
+- **`useEffect` con deps limitadas `[open, initialData?.id]`**: Si `initialData` cambia contenido pero mantiene el mismo `id`, el formulario del contenedor no se reinicializa.
+
+---
+
 ## 📅 20 de Mayo, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -229,7 +252,7 @@ Sin commits de desarrollo nuevos en las últimas 24h.
 
 #### Puede dar bateo
 
-1. **AdminPass 123456 hardcodeado** — Al crear cualquier trabajador se asigna automáticamente `123456` como contraseña del dashboard. No hay mecanismo de forzar cambio en el primer login. Brecha de seguridad operativa.
+1. **AdminPass 123456 hardcodeado** — Al crear cualquier trabajador se asigna automáticamente `123456` como contraseña del dashboard. No hay mecanismo de forzar cambio en el primer login. Si un trabajador no cambia la contraseña, su cuenta es trivialmente accesible. Brecha de seguridad operativa.
 
 2. **Auto-sync catálogo → BD al abrir /permisos** — Si el catálogo tiene un módulo mal definido (typo en la key, datos inválidos), se crearán registros incorrectos en BD en el próximo deploy. Sin validación previa ni transacción que haga rollback, los módulos basura quedan en BD y son difíciles de limpiar.
 
