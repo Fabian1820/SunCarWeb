@@ -20,8 +20,15 @@ export interface ConteoNotificaciones {
 export const NotificacionService = {
   async getMisNotificaciones(): Promise<Notificacion[]> {
     try {
-      const data = await apiRequest<Notificacion[]>("/notificaciones/mis-notificaciones")
-      return Array.isArray(data) ? data : []
+      // El backend responde con { success, data: [...], total } — extraer .data
+      const resp = await apiRequest<
+        { success: boolean; data: Notificacion[]; total: number } | Notificacion[]
+      >("/notificaciones/mis-notificaciones")
+      if (Array.isArray(resp)) return resp
+      if (resp && Array.isArray((resp as { data?: Notificacion[] }).data)) {
+        return (resp as { data: Notificacion[] }).data
+      }
+      return []
     } catch (error) {
       console.error("[NotificacionService] Error al obtener notificaciones:", error)
       return []
