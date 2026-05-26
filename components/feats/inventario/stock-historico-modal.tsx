@@ -213,7 +213,7 @@ export function StockHistoricoModal({
                   </div>
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" disablePortal>
                 <Command>
                   <CommandInput placeholder="Buscar material..." />
                   <CommandList>
