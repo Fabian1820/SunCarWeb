@@ -11,6 +11,7 @@ import { ValidationErrorOverlay } from "@/components/shared/molecule/validation-
 import { PersonalMessageOverlay } from "@/components/shared/molecule/personal-message-overlay"
 import { Toaster } from "@/components/shared/molecule/toaster"
 import { FixedHeaderWatcher } from "@/components/shared/atom/fixed-header-watcher"
+import { ContadorFlotante } from "@/components/feats/sorpresa/contador-flotante"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -95,6 +96,7 @@ export default function RootLayout({
             <FixedHeaderWatcher />
             {children}
             <PersonalMessageOverlay />
+            <ContadorFlotante />
           </AuthGuard>
         </AuthProvider>
         <PWAInstallPrompt />
