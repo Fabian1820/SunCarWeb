@@ -40,9 +40,6 @@ export function NotificationBell() {
   const panelRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
 
-  // No renderizar si no hay usuario autenticado
-  if (!user) return null
-
   // Cerrar al hacer click fuera
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -59,8 +56,9 @@ export function NotificationBell() {
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
-  // Polling del conteo
+  // Polling del conteo (solo si hay usuario)
   useEffect(() => {
+    if (!user) return
     let cancelled = false
 
     async function fetchConteo() {
@@ -74,11 +72,11 @@ export function NotificationBell() {
       cancelled = true
       clearInterval(intervalId)
     }
-  }, [])
+  }, [user])
 
   // Cargar lista completa al abrir
   useEffect(() => {
-    if (!open) return
+    if (!open || !user) return
     let cancelled = false
 
     async function fetchLista() {
@@ -95,7 +93,10 @@ export function NotificationBell() {
     return () => {
       cancelled = true
     }
-  }, [open])
+  }, [open, user])
+
+  // No renderizar si no hay usuario autenticado (DESPUÉS de todos los hooks)
+  if (!user) return null
 
   async function handleMarcarLeida(notif: Notificacion) {
     if (notif.leida) return
