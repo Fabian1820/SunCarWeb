@@ -30,6 +30,7 @@ import {
   ClipboardList,
   ChevronDown,
   AlertTriangle,
+  History,
 } from "lucide-react";
 import { ValeSalidaService } from "@/lib/api-services";
 import { ExportValeSalidaService } from "@/lib/services/feats/vales-salida/export-vale-salida-service";
@@ -40,6 +41,7 @@ import { CreateValeSalidaDialog } from "@/components/feats/vales-salida/create-v
 import { ValeSalidaDetailDialog } from "@/components/feats/vales-salida/vale-salida-detail-dialog";
 import { DevolucionValeDialog } from "@/components/feats/vales-salida/devolucion-vale-dialog";
 import { AnularValeDialog } from "@/components/feats/vales-salida/anular-vale-dialog";
+import { StockHistoricoModal } from "@/components/feats/inventario/stock-historico-modal";
 import type {
   ValeSalida,
   ValeSolicitudPendiente,
@@ -96,6 +98,7 @@ export default function ValesSalidaPage() {
   const [isAnularDialogOpen, setIsAnularDialogOpen] = useState(false);
   const [valeToAnular, setValeToAnular] = useState<ValeSalida | null>(null);
   const [anularLoading, setAnularLoading] = useState(false);
+  const [isStockHistoricoOpen, setIsStockHistoricoOpen] = useState(false);
 
   const [prefillSolicitudId, setPrefillSolicitudId] = useState<string | null>(
     null,
@@ -538,13 +541,25 @@ export default function ValesSalidaPage() {
 
         <Card className="border-0 shadow-md border-l-4 border-l-orange-600">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileOutput className="h-5 w-5 text-orange-600" />
-              Vales de Salida
-              {isSearching && (
-                <Loader2 className="h-4 w-4 text-orange-600 animate-spin" />
-              )}
-            </CardTitle>
+            <div className="flex items-center justify-between gap-4">
+              <CardTitle className="flex items-center gap-2">
+                <FileOutput className="h-5 w-5 text-orange-600" />
+                Vales de Salida
+                {isSearching && (
+                  <Loader2 className="h-4 w-4 text-orange-600 animate-spin" />
+                )}
+              </CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsStockHistoricoOpen(true)}
+                className="gap-1.5 border-orange-300 text-orange-700 hover:bg-orange-50 shrink-0"
+                title="Ver stock del almacén en una fecha pasada"
+              >
+                <History className="h-4 w-4" />
+                <span className="hidden sm:inline">Stock a fecha</span>
+              </Button>
+            </div>
             <CardDescription>
               {isSearching ? (
                 <span className="text-orange-600 flex items-center gap-1">
@@ -650,6 +665,12 @@ export default function ValesSalidaPage() {
         vale={valeToAnular}
         onConfirm={confirmAnular}
         isLoading={anularLoading}
+      />
+
+      <StockHistoricoModal
+        open={isStockHistoricoOpen}
+        onOpenChange={setIsStockHistoricoOpen}
+        almacenId={almacenId}
       />
 
       <Toaster />
