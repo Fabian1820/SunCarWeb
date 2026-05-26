@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Bell, X, CheckCheck, ExternalLink } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/shared/atom/button"
 import { useAuth } from "@/contexts/auth-context"
 import {
   NotificacionService,
@@ -135,26 +136,28 @@ export function NotificationBell() {
 
   return (
     <div className="relative">
-      {/* Botón campanita */}
-      <button
+      {/* Botón campanita — mismo estilo que los demás botones del header */}
+      <Button
         ref={buttonRef}
+        variant="outline"
+        size="sm"
         onClick={() => setOpen((v) => !v)}
-        className="relative flex items-center justify-center w-9 h-9 rounded-full bg-white/90 hover:bg-white shadow-md border border-gray-200 transition-colors"
         aria-label="Notificaciones"
+        className="relative flex items-center justify-center bg-white hover:bg-orange-50 border-orange-200 hover:border-orange-300 rounded-full sm:rounded-md h-9 px-3 sm:h-10 sm:px-4 touch-manipulation"
       >
-        <Bell className="h-5 w-5 text-gray-600" />
+        <Bell className="h-4 w-4 text-orange-600" />
         {noLeidas > 0 && (
-          <span className="absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold leading-none">
+          <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[16px] h-4 px-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold leading-none">
             {noLeidas > 99 ? "99+" : noLeidas}
           </span>
         )}
-      </button>
+      </Button>
 
       {/* Panel de notificaciones */}
       {open && (
         <div
           ref={panelRef}
-          className="fixed right-4 top-14 z-50 w-80 max-h-[calc(100vh-4rem)] flex flex-col rounded-xl shadow-2xl border border-gray-200 bg-white overflow-hidden"
+          className="absolute right-0 top-full mt-2 z-50 w-80 max-h-[calc(100vh-5rem)] flex flex-col rounded-xl shadow-2xl border border-gray-200 bg-white overflow-hidden"
         >
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50 flex-shrink-0">
