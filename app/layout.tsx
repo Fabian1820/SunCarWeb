@@ -12,7 +12,6 @@ import { PersonalMessageOverlay } from "@/components/shared/molecule/personal-me
 import { Toaster } from "@/components/shared/molecule/toaster"
 import { FixedHeaderWatcher } from "@/components/shared/atom/fixed-header-watcher"
 import { ContadorFlotante } from "@/components/feats/sorpresa/contador-flotante"
-import { NotificationBell } from "@/components/shared/organism/notification-bell"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -98,9 +97,6 @@ export default function RootLayout({
             {children}
             <PersonalMessageOverlay />
             <ContadorFlotante />
-            <div className="fixed top-3 right-4 z-50">
-              <NotificationBell />
-            </div>
           </AuthGuard>
         </AuthProvider>
         <PWAInstallPrompt />
