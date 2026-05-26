@@ -10,127 +10,136 @@ import {
   type Notificacion,
 } from "@/lib/services/feats/notificaciones/notificacion-service"
 
-const POLLING_INTERVAL = 30_000 // 30 segundos
-const TOAST_DURATION = 10_000   // 10 segundos
+const POLLING_INTERVAL = 30_000
+const TOAST_DURATION   = 10_000
 
-// ── Sonido de notificación (Web Audio API, sin archivos externos) ─────────────
+// ── Sonido (Web Audio API) ────────────────────────────────────────────────────
 function playNotificationSound() {
   try {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
-
-    // Nota 1
-    const osc1 = ctx.createOscillator()
-    const gain1 = ctx.createGain()
-    osc1.connect(gain1)
-    gain1.connect(ctx.destination)
-    osc1.type = "sine"
-    osc1.frequency.setValueAtTime(880, ctx.currentTime)
-    gain1.gain.setValueAtTime(0.25, ctx.currentTime)
-    gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3)
-    osc1.start(ctx.currentTime)
-    osc1.stop(ctx.currentTime + 0.3)
-
-    // Nota 2 (ligeramente después)
-    const osc2 = ctx.createOscillator()
-    const gain2 = ctx.createGain()
-    osc2.connect(gain2)
-    gain2.connect(ctx.destination)
-    osc2.type = "sine"
-    osc2.frequency.setValueAtTime(1100, ctx.currentTime + 0.18)
-    gain2.gain.setValueAtTime(0, ctx.currentTime)
-    gain2.gain.setValueAtTime(0.2, ctx.currentTime + 0.18)
-    gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.55)
-    osc2.start(ctx.currentTime + 0.18)
-    osc2.stop(ctx.currentTime + 0.55)
-  } catch {
-    // Si el navegador bloquea el audio, ignorar silenciosamente
-  }
+    const play = (freq: number, start: number, dur: number, vol = 0.22) => {
+      const osc  = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain); gain.connect(ctx.destination)
+      osc.type = "sine"
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + start)
+      gain.gain.setValueAtTime(vol, ctx.currentTime + start)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur)
+      osc.start(ctx.currentTime + start)
+      osc.stop(ctx.currentTime + start + dur)
+    }
+    play(880, 0, 0.3)
+    play(1100, 0.18, 0.37)
+  } catch { /* navegador bloquea audio */ }
 }
 
+// ── Helpers de fecha ──────────────────────────────────────────────────────────
 function fechaRelativa(fechaStr: string): string {
   try {
     const fecha = new Date(fechaStr)
     const ahora = new Date()
-    const diffMs = ahora.getTime() - fecha.getTime()
+    const diffMs  = ahora.getTime() - fecha.getTime()
     const diffMin = Math.floor(diffMs / 60_000)
-    const diffHoras = Math.floor(diffMin / 60)
-    const diffDias = Math.floor(diffHoras / 24)
-
-    if (diffMin < 1) return "ahora mismo"
+    const diffH   = Math.floor(diffMin / 60)
+    const diffD   = Math.floor(diffH / 24)
+    if (diffMin < 1)  return "ahora mismo"
     if (diffMin < 60) return `hace ${diffMin} min`
-    if (diffHoras < 24) return `hace ${diffHoras} h`
-    if (diffDias === 1) return "ayer"
-    if (diffDias < 30) return `hace ${diffDias} días`
+    if (diffH < 24)   return `hace ${diffH} h`
+    if (diffD === 1)  return "ayer"
+    if (diffD < 30)   return `hace ${diffD} días`
     return fecha.toLocaleDateString("es-ES", { day: "2-digit", month: "short" })
-  } catch {
-    return ""
+  } catch { return "" }
+}
+
+type Grupo = "Hoy" | "Ayer" | "Esta semana" | "Anteriores"
+
+function getGrupoFecha(fechaStr: string): Grupo {
+  try {
+    const d    = new Date(fechaStr)
+    const hoy  = new Date()
+    const diff = Math.floor((hoy.getTime() - d.getTime()) / 86_400_000)
+    if (diff === 0) return "Hoy"
+    if (diff === 1) return "Ayer"
+    if (diff <= 7)  return "Esta semana"
+    return "Anteriores"
+  } catch { return "Anteriores" }
+}
+
+const ORDEN_GRUPOS: Grupo[] = ["Hoy", "Ayer", "Esta semana", "Anteriores"]
+
+/** Ordena y agrupa las notificaciones para el panel. */
+function agruparNotificaciones(lista: Notificacion[]) {
+  // Orden base: demora → por dias_alerta desc; resto → por fecha desc
+  const sorted = [...lista].sort((a, b) => {
+    if (a.tipo === "demora_instalacion" && b.tipo === "demora_instalacion") {
+      return (b.dias_alerta ?? 0) - (a.dias_alerta ?? 0)
+    }
+    return new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
+  })
+
+  const grupos: Record<Grupo, Notificacion[]> = {
+    "Hoy": [], "Ayer": [], "Esta semana": [], "Anteriores": [],
   }
+  for (const n of sorted) {
+    grupos[getGrupoFecha(n.fecha)].push(n)
+  }
+  return ORDEN_GRUPOS
+    .filter((g) => grupos[g].length > 0)
+    .map((g) => ({ label: g, items: grupos[g] }))
 }
 
 // ── Toast de notificación entrante ───────────────────────────────────────────
-interface ToastNotifProps {
+interface ToastProps {
   notif: Notificacion
-  count: number  // cuántas nuevas llegaron
+  count: number
   onClose: () => void
   onVerCliente?: () => void
 }
 
-function ToastNotif({ notif, count, onClose, onVerCliente }: ToastNotifProps) {
-  const [progress, setProgress] = useState(100)
+function ToastNotif({ notif, count, onClose, onVerCliente }: ToastProps) {
+  const [pct, setPct] = useState(100)
 
   useEffect(() => {
     const start = Date.now()
-    const tick = setInterval(() => {
+    const id = setInterval(() => {
       const elapsed = Date.now() - start
-      const pct = Math.max(0, 100 - (elapsed / TOAST_DURATION) * 100)
-      setProgress(pct)
-      if (pct === 0) clearInterval(tick)
+      const v = Math.max(0, 100 - (elapsed / TOAST_DURATION) * 100)
+      setPct(v)
+      if (v === 0) clearInterval(id)
     }, 50)
-    return () => clearInterval(tick)
+    return () => clearInterval(id)
   }, [])
 
   return (
     <div className="fixed bottom-24 right-4 z-[70] w-80 rounded-xl bg-white shadow-2xl border border-orange-200 overflow-hidden animate-in slide-in-from-right-4 fade-in duration-300">
-      {/* Barra de progreso */}
       <div
-        className="h-1 bg-orange-500 transition-none"
-        style={{ width: `${progress}%`, transition: "width 50ms linear" }}
+        className="h-1 bg-orange-500"
+        style={{ width: `${pct}%`, transition: "width 50ms linear" }}
       />
-
-      <div className="p-4">
-        <div className="flex items-start gap-3">
-          {/* Icono */}
-          <div className="flex-shrink-0 w-9 h-9 rounded-full bg-orange-100 flex items-center justify-center">
-            <Bell className="h-4 w-4 text-orange-600" />
-          </div>
-
-          {/* Contenido */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-semibold text-orange-700 truncate">
-                {count > 1 ? `${count} notificaciones nuevas` : notif.titulo}
-              </p>
-              <button
-                onClick={onClose}
-                className="flex-shrink-0 text-gray-300 hover:text-gray-500 transition-colors"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">
-              {count > 1 ? `Tienes ${count} notificaciones nuevas sin leer.` : notif.mensaje}
+      <div className="p-4 flex items-start gap-3">
+        <div className="flex-shrink-0 w-9 h-9 rounded-full bg-orange-100 flex items-center justify-center">
+          <Bell className="h-4 w-4 text-orange-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-semibold text-orange-700 truncate">
+              {count > 1 ? `${count} notificaciones nuevas` : notif.titulo}
             </p>
-
-            {count === 1 && notif.link_cliente && notif.cliente_numero && onVerCliente && (
-              <button
-                onClick={onVerCliente}
-                className="mt-2 flex items-center gap-1 text-[11px] font-medium text-orange-600 hover:text-orange-700 hover:underline"
-              >
-                <ExternalLink className="h-3 w-3" />
-                Ver cliente
-              </button>
-            )}
+            <button onClick={onClose} className="flex-shrink-0 text-gray-300 hover:text-gray-500">
+              <X className="h-3.5 w-3.5" />
+            </button>
           </div>
+          <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">
+            {count > 1 ? `Tienes ${count} notificaciones nuevas sin leer.` : notif.mensaje}
+          </p>
+          {count === 1 && notif.link_cliente && notif.cliente_numero && onVerCliente && (
+            <button
+              onClick={onVerCliente}
+              className="mt-2 flex items-center gap-1 text-[11px] font-medium text-orange-600 hover:text-orange-700 hover:underline"
+            >
+              <ExternalLink className="h-3 w-3" /> Ver cliente
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -139,95 +148,72 @@ function ToastNotif({ notif, count, onClose, onVerCliente }: ToastNotifProps) {
 
 // ── Componente principal ──────────────────────────────────────────────────────
 export function NotificationBell() {
-  const { user } = useAuth()
-  const router = useRouter()
-  const [open, setOpen] = useState(false)
+  const { user }  = useAuth()
+  const router    = useRouter()
+  const [open, setOpen]                   = useState(false)
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([])
-  const [noLeidas, setNoLeidas] = useState(0)
-  const [loading, setLoading] = useState(false)
+  const [noLeidas, setNoLeidas]           = useState(0)
+  const [loading, setLoading]             = useState(false)
+  const [toastData, setToastData]         = useState<{ notif: Notificacion; count: number } | null>(null)
 
-  // Toast de notificación entrante
-  const [toastNotif, setToastNotif] = useState<{ notif: Notificacion; count: number } | null>(null)
-  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // Referencia para detectar incrementos de conteo
   const prevNoLeidasRef = useRef<number | null>(null)
+  const toastTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const panelRef        = useRef<HTMLDivElement>(null)
+  const buttonRef       = useRef<HTMLButtonElement>(null)
 
-  // Referencia al panel para cerrar al hacer clic fuera
-  const panelRef = useRef<HTMLDivElement>(null)
-  const buttonRef = useRef<HTMLButtonElement>(null)
-
-  // Mostrar toast + sonido cuando llegan nuevas notificaciones
   const dispararToast = useCallback((nuevas: number, lista: Notificacion[]) => {
     playNotificationSound()
-
-    // Tomar la primera no leída como representativa
-    const representativa = lista.find((n) => !n.leida) ?? lista[0]
-    if (!representativa) return
-
-    setToastNotif({ notif: representativa, count: nuevas })
-
+    const rep = lista.find((n) => !n.leida) ?? lista[0]
+    if (!rep) return
+    setToastData({ notif: rep, count: nuevas })
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
-    toastTimerRef.current = setTimeout(() => setToastNotif(null), TOAST_DURATION)
+    toastTimerRef.current = setTimeout(() => setToastData(null), TOAST_DURATION)
   }, [])
 
-  // Cerrar al hacer click fuera del panel
+  // Cerrar panel al hacer clic fuera
   useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
+    const fn = (e: MouseEvent) => {
       if (
-        panelRef.current &&
-        !panelRef.current.contains(e.target as Node) &&
-        buttonRef.current &&
-        !buttonRef.current.contains(e.target as Node)
-      ) {
-        setOpen(false)
-      }
+        panelRef.current  && !panelRef.current.contains(e.target as Node) &&
+        buttonRef.current && !buttonRef.current.contains(e.target as Node)
+      ) setOpen(false)
     }
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
+    document.addEventListener("mousedown", fn)
+    return () => document.removeEventListener("mousedown", fn)
   }, [])
 
-  // Polling del conteo — detecta nuevas notificaciones
+  // ── Polling del conteo ────────────────────────────────────────────────────
   useEffect(() => {
     if (!user) return
     let cancelled = false
 
     async function fetchConteo() {
-      try {
-        const { no_leidas } = await NotificacionService.getConteo()
-        if (cancelled) return
+      const resultado = await NotificacionService.getConteo()
+      if (cancelled) return
 
-        setNoLeidas(no_leidas)
+      // Si la llamada falló (null), conservamos el último valor conocido sin tocar el estado
+      if (resultado === null) return
 
-        // Si el conteo aumentó respecto al último valor conocido → hay nuevas
-        if (
-          prevNoLeidasRef.current !== null &&
-          no_leidas > prevNoLeidasRef.current
-        ) {
-          const nuevas = no_leidas - prevNoLeidasRef.current
-          // Traer lista completa para saber el contenido
-          const lista = await NotificacionService.getMisNotificaciones()
-          if (!cancelled) {
-            setNotificaciones(lista)
-            dispararToast(nuevas, lista)
-          }
+      const { no_leidas } = resultado
+      setNoLeidas(no_leidas)
+
+      if (prevNoLeidasRef.current !== null && no_leidas > prevNoLeidasRef.current) {
+        const nuevas = no_leidas - prevNoLeidasRef.current
+        const lista  = await NotificacionService.getMisNotificaciones()
+        if (!cancelled) {
+          setNotificaciones(lista)
+          dispararToast(nuevas, lista)
         }
-
-        prevNoLeidasRef.current = no_leidas
-      } catch {
-        // silencioso
       }
+      prevNoLeidasRef.current = no_leidas
     }
 
     fetchConteo()
     const id = setInterval(fetchConteo, POLLING_INTERVAL)
-    return () => {
-      cancelled = true
-      clearInterval(id)
-    }
+    return () => { cancelled = true; clearInterval(id) }
   }, [user, dispararToast])
 
-  // Cargar lista completa al abrir el panel
+  // ── Carga completa al abrir el panel ─────────────────────────────────────
   useEffect(() => {
     if (!open || !user) return
     let cancelled = false
@@ -235,13 +221,12 @@ export function NotificationBell() {
     async function fetchLista() {
       setLoading(true)
       try {
-        const lista = await NotificacionService.getMisNotificaciones()
-        if (!cancelled) {
-          setNotificaciones(lista)
-          const sinLeer = lista.filter((n) => !n.leida).length
-          setNoLeidas(sinLeer)
-          prevNoLeidasRef.current = sinLeer
-        }
+        const lista    = await NotificacionService.getMisNotificaciones()
+        if (cancelled) return
+        const sinLeer  = lista.filter((n) => !n.leida).length
+        setNotificaciones(lista)
+        setNoLeidas(sinLeer)
+        prevNoLeidasRef.current = sinLeer   // sincronizar ref con valor real
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -251,31 +236,24 @@ export function NotificationBell() {
     return () => { cancelled = true }
   }, [open, user])
 
-  // Limpiar timer al desmontar
-  useEffect(() => () => {
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
-  }, [])
+  useEffect(() => () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current) }, [])
 
-  // NO renderizar si no hay usuario (después de todos los hooks)
   if (!user) return null
 
-  // ── Handlers ────────────────────────────────────────────────────────────────
+  // ── Handlers ─────────────────────────────────────────────────────────────
   async function handleMarcarLeida(notif: Notificacion) {
     if (notif.leida) return
     await NotificacionService.marcarLeida(notif.id)
-    setNotificaciones((prev) =>
-      prev.map((n) => (n.id === notif.id ? { ...n, leida: true } : n))
-    )
+    setNotificaciones((prev) => prev.map((n) => n.id === notif.id ? { ...n, leida: true } : n))
     setNoLeidas((prev) => Math.max(0, prev - 1))
   }
 
   async function handleEliminar(e: React.MouseEvent, id: string) {
     e.stopPropagation()
-    await NotificacionService.eliminar(id)
     const eliminada = notificaciones.find((n) => n.id === id)
+    await NotificacionService.eliminar(id)
     setNotificaciones((prev) => prev.filter((n) => n.id !== id))
-    if (eliminada && !eliminada.leida)
-      setNoLeidas((prev) => Math.max(0, prev - 1))
+    if (eliminada && !eliminada.leida) setNoLeidas((prev) => Math.max(0, prev - 1))
   }
 
   async function handleVerCliente(e: React.MouseEvent, notif: Notificacion) {
@@ -290,9 +268,11 @@ export function NotificationBell() {
     await Promise.all(sinLeer.map((n) => NotificacionService.marcarLeida(n.id)))
     setNotificaciones((prev) => prev.map((n) => ({ ...n, leida: true })))
     setNoLeidas(0)
+    prevNoLeidasRef.current = 0
   }
 
   const tieneNoLeidas = noLeidas > 0
+  const grupos        = agruparNotificaciones(notificaciones)
 
   return (
     <>
@@ -310,19 +290,15 @@ export function NotificationBell() {
                 : "bg-white hover:bg-gray-50 focus:ring-gray-300 border border-gray-200"
             )}
           >
-            <Bell
-              className={cn(
-                "h-6 w-6 transition-colors duration-300",
-                tieneNoLeidas ? "text-white" : "text-gray-500"
-              )}
-            />
+            <Bell className={cn(
+              "h-6 w-6 transition-colors duration-300",
+              tieneNoLeidas ? "text-white" : "text-gray-500"
+            )} />
 
-            {/* Pulso animado cuando hay no leídas */}
             {tieneNoLeidas && (
               <span className="absolute inset-0 rounded-full bg-orange-400 animate-ping opacity-40 pointer-events-none" />
             )}
 
-            {/* Badge con número */}
             {tieneNoLeidas && (
               <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[20px] h-5 px-1 rounded-full bg-red-500 text-white text-[11px] font-bold shadow-sm z-10">
                 {noLeidas > 99 ? "99+" : noLeidas}
@@ -330,7 +306,7 @@ export function NotificationBell() {
             )}
           </button>
 
-          {/* ── Panel desplegable ─────────────────────────────────────────── */}
+          {/* ── Panel ─────────────────────────────────────────────────────── */}
           {open && (
             <div
               ref={panelRef}
@@ -350,7 +326,6 @@ export function NotificationBell() {
                 <button
                   onClick={() => setOpen(false)}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
-                  aria-label="Cerrar"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -361,7 +336,7 @@ export function NotificationBell() {
                 <div className="px-4 py-2 border-b border-gray-100 flex-shrink-0">
                   <button
                     onClick={handleMarcarTodasLeidas}
-                    className="flex items-center gap-1.5 text-xs text-orange-600 hover:text-orange-700 font-medium transition-colors"
+                    className="flex items-center gap-1.5 text-xs text-orange-600 hover:text-orange-700 font-medium"
                   >
                     <CheckCheck className="h-3.5 w-3.5" />
                     Marcar todas como leídas
@@ -369,7 +344,7 @@ export function NotificationBell() {
                 </div>
               )}
 
-              {/* Lista */}
+              {/* Lista agrupada */}
               <div className="overflow-y-auto flex-1">
                 {loading ? (
                   <div className="flex items-center justify-center py-10">
@@ -381,78 +356,81 @@ export function NotificationBell() {
                     <p className="text-sm">Sin notificaciones</p>
                   </div>
                 ) : (
-                  <ul className="divide-y divide-gray-100">
-                    {notificaciones.map((notif) => (
-                      <li
-                        key={notif.id}
-                        onClick={() => handleMarcarLeida(notif)}
-                        className={cn(
-                          "relative flex gap-3 px-4 py-3 cursor-pointer transition-colors group",
-                          notif.leida
-                            ? "bg-white hover:bg-gray-50"
-                            : "bg-orange-50 hover:bg-orange-100"
-                        )}
-                      >
-                        {/* Indicador */}
-                        <div className="flex-shrink-0 mt-1">
-                          <div
-                            className={cn(
-                              "w-2 h-2 rounded-full",
-                              notif.leida ? "bg-transparent" : "bg-orange-500"
-                            )}
-                          />
-                        </div>
+                  grupos.map(({ label, items }) => (
+                    <div key={label}>
+                      {/* Cabecera del grupo */}
+                      <div className="sticky top-0 z-10 px-4 py-1.5 bg-gray-50 border-b border-gray-100">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                          {label}
+                        </span>
+                      </div>
 
-                        {/* Contenido */}
-                        <div className="flex-1 min-w-0">
-                          <p
+                      <ul className="divide-y divide-gray-100">
+                        {items.map((notif) => (
+                          <li
+                            key={notif.id}
+                            onClick={() => handleMarcarLeida(notif)}
                             className={cn(
-                              "text-sm font-medium leading-tight truncate",
-                              notif.leida ? "text-gray-500" : "text-gray-800"
+                              "relative flex gap-3 px-4 py-3 cursor-pointer transition-colors group",
+                              notif.leida ? "bg-white hover:bg-gray-50" : "bg-orange-50 hover:bg-orange-100"
                             )}
                           >
-                            {notif.titulo}
-                          </p>
-                          <p
-                            className={cn(
-                              "text-xs mt-0.5 line-clamp-2",
-                              notif.leida ? "text-gray-400" : "text-gray-600"
-                            )}
-                          >
-                            {notif.mensaje}
-                          </p>
-                          {notif.cliente_nombre && (
-                            <p className="text-xs mt-0.5 text-orange-500 truncate">
-                              {notif.cliente_nombre}
-                            </p>
-                          )}
-                          <div className="flex items-center justify-between mt-1">
-                            <p className="text-[10px] text-gray-400">
-                              {fechaRelativa(notif.fecha)}
-                            </p>
-                            {notif.link_cliente && notif.cliente_numero && (
-                              <button
-                                onClick={(e) => handleVerCliente(e, notif)}
-                                className="flex items-center gap-1 text-[11px] font-medium text-orange-600 hover:text-orange-700 hover:underline transition-colors"
-                              >
-                                <ExternalLink className="h-3 w-3" />
-                                Ver cliente
-                              </button>
-                            )}
-                          </div>
-                        </div>
+                            {/* Punto */}
+                            <div className="flex-shrink-0 mt-1">
+                              <div className={cn(
+                                "w-2 h-2 rounded-full",
+                                notif.leida ? "bg-transparent" : "bg-orange-500"
+                              )} />
+                            </div>
 
-                        {/* Botón eliminar */}
-                        <button
-                          onClick={(e) => handleEliminar(e, notif.id)}
-                          className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-red-400 hover:bg-red-50 rounded p-0.5"
-                          aria-label="Eliminar notificación"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
+                            {/* Contenido */}
+                            <div className="flex-1 min-w-0">
+                              <p className={cn(
+                                "text-sm font-medium leading-tight truncate",
+                                notif.leida ? "text-gray-500" : "text-gray-800"
+                              )}>
+                                {notif.titulo}
+                              </p>
+                              <p className={cn(
+                                "text-xs mt-0.5 line-clamp-2",
+                                notif.leida ? "text-gray-400" : "text-gray-600"
+                              )}>
+                                {notif.mensaje}
+                              </p>
+                              {notif.cliente_nombre && (
+                                <p className="text-xs mt-0.5 text-orange-500 truncate">
+                                  {notif.cliente_nombre}
+                                </p>
+                              )}
+                              <div className="flex items-center justify-between mt-1">
+                                <p className="text-[10px] text-gray-400">
+                                  {fechaRelativa(notif.fecha)}
+                                </p>
+                                {notif.link_cliente && notif.cliente_numero && (
+                                  <button
+                                    onClick={(e) => handleVerCliente(e, notif)}
+                                    className="flex items-center gap-1 text-[11px] font-medium text-orange-600 hover:text-orange-700 hover:underline"
+                                  >
+                                    <ExternalLink className="h-3 w-3" />
+                                    Ver cliente
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Eliminar */}
+                            <button
+                              onClick={(e) => handleEliminar(e, notif.id)}
+                              className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-red-400 hover:bg-red-50 rounded p-0.5"
+                              aria-label="Eliminar"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))
                 )}
               </div>
             </div>
@@ -460,19 +438,17 @@ export function NotificationBell() {
         </div>
       </div>
 
-      {/* ── Toast de notificación nueva ───────────────────────────────────── */}
-      {toastNotif && (
+      {/* ── Toast de notificación nueva ──────────────────────────────────── */}
+      {toastData && (
         <ToastNotif
-          notif={toastNotif.notif}
-          count={toastNotif.count}
-          onClose={() => setToastNotif(null)}
+          notif={toastData.notif}
+          count={toastData.count}
+          onClose={() => setToastData(null)}
           onVerCliente={
-            toastNotif.notif.link_cliente && toastNotif.notif.cliente_numero
+            toastData.notif.link_cliente && toastData.notif.cliente_numero
               ? () => {
-                  setToastNotif(null)
-                  router.push(
-                    `/clientes?buscar=${encodeURIComponent(toastNotif.notif.cliente_numero)}`
-                  )
+                  setToastData(null)
+                  router.push(`/clientes?buscar=${encodeURIComponent(toastData.notif.cliente_numero)}`)
                 }
               : undefined
           }

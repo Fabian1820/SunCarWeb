@@ -28,15 +28,15 @@ export const NotificacionService = {
     }
   },
 
-  async getConteo(): Promise<ConteoNotificaciones> {
+  async getConteo(): Promise<ConteoNotificaciones | null> {
     try {
       const data = await apiRequest<ConteoNotificaciones>("/notificaciones/mis-notificaciones/conteo")
       return data && typeof (data as ConteoNotificaciones).no_leidas === "number"
         ? (data as ConteoNotificaciones)
-        : { no_leidas: 0 }
-    } catch (error) {
-      console.error("[NotificacionService] Error al obtener conteo:", error)
-      return { no_leidas: 0 }
+        : null
+    } catch {
+      // Devuelve null para que el componente conserve el último valor conocido
+      return null
     }
   },
 
