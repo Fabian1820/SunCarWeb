@@ -12,7 +12,6 @@
 // EN MAIN: deja SOLO la CI de ella.
 export const CI_SORPRESA: string[] = [
   "96021609459", // ella
-  "03111866962", // tú — QUITAR antes de mergear a main
 ]
 
 // WhatsApp — número en formato internacional sin "+" ni espacios.
