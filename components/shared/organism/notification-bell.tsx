@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Bell, X, Check, CheckCheck } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { Bell, X, CheckCheck, ExternalLink } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/contexts/auth-context"
 import {
@@ -33,6 +34,7 @@ function fechaRelativa(fechaStr: string): string {
 
 export function NotificationBell() {
   const { user } = useAuth()
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([])
   const [noLeidas, setNoLeidas] = useState(0)
@@ -115,6 +117,13 @@ export function NotificationBell() {
       const eliminada = notificaciones.find((n) => n.id === id)
       return eliminada && !eliminada.leida ? Math.max(0, prev - 1) : prev
     })
+  }
+
+  async function handleVerCliente(e: React.MouseEvent, notif: Notificacion) {
+    e.stopPropagation()
+    if (!notif.leida) await NotificacionService.marcarLeida(notif.id)
+    setOpen(false)
+    router.push(`/clientes?buscar=${encodeURIComponent(notif.cliente_numero)}`)
   }
 
   async function handleMarcarTodasLeidas() {
@@ -236,9 +245,20 @@ export function NotificationBell() {
                           {notif.cliente_nombre}
                         </p>
                       )}
-                      <p className="text-[10px] mt-1 text-gray-400">
-                        {fechaRelativa(notif.fecha)}
-                      </p>
+                      <div className="flex items-center justify-between mt-1">
+                        <p className="text-[10px] text-gray-400">
+                          {fechaRelativa(notif.fecha)}
+                        </p>
+                        {notif.link_cliente && notif.cliente_numero && (
+                          <button
+                            onClick={(e) => handleVerCliente(e, notif)}
+                            className="flex items-center gap-1 text-[11px] font-medium text-orange-600 hover:text-orange-700 hover:underline transition-colors"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            Ver cliente
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {/* Botón eliminar */}

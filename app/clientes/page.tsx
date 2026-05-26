@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/shared/atom/button";
 import {
   Dialog,
@@ -267,6 +268,9 @@ const matchesClientDateFilters = (
 };
 
 export default function ClientesPage() {
+  const searchParams = useSearchParams();
+  const buscarParam = searchParams.get("buscar") ?? "";
+
   const [clients, setClients] = useState<Cliente[]>([]);
   const [totalClients, setTotalClients] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -289,7 +293,7 @@ export default function ClientesPage() {
 
   // Estado para capturar los filtros aplicados desde ClientsTable
   const [appliedFilters, setAppliedFilters] = useState<ClientesFilters>({
-    searchTerm: "",
+    searchTerm: buscarParam,
     estado: [] as string[],
     fuente: "",
     comercial: "",
@@ -980,6 +984,7 @@ export default function ClientesPage() {
             onUpdatePrioridad={handleUpdateClientPrioridad}
             loading={loading}
             onFiltersChange={handleFiltersChange}
+            initialSearchTerm={buscarParam}
             exportButtons={
               totalClients > 0 ? (
                 <ExportButtons

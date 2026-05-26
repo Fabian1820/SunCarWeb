@@ -121,6 +121,7 @@ interface ClientsTableProps {
     tiempo: string;
   }) => void;
   exportButtons?: React.ReactNode;
+  initialSearchTerm?: string;
 }
 
 const CLIENT_ESTADOS = [
@@ -583,6 +584,7 @@ export function ClientsTable({
   loading = false,
   onFiltersChange,
   exportButtons,
+  initialSearchTerm = "",
 }: ClientsTableProps) {
   const { toast } = useToast();
   const {
@@ -766,7 +768,7 @@ export function ClientsTable({
   const [terminosCondicionesPayload, setTerminosCondicionesPayload] =
     useState<TerminosCondicionesPayload | null>(null);
 
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [filters, setFilters] = useState({
     estado: [] as string[],

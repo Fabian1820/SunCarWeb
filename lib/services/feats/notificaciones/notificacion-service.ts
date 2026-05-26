@@ -9,6 +9,7 @@ export interface Notificacion {
   fecha: string
   cliente_numero: string
   cliente_nombre: string
+  link_cliente?: boolean
 }
 
 export interface ConteoNotificaciones {
