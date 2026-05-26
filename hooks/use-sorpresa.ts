@@ -9,6 +9,9 @@ import {
   LS_KEY_FECHA_REGRESO,
 } from "@/lib/sorpresa-config"
 
+// Custom event para sincronizar todas las instancias del hook en la misma pestaña.
+const SORPRESA_EVENT = "sorpresa-state-change"
+
 export function useSorpresa() {
   const { user } = useAuth()
 
@@ -20,15 +23,26 @@ export function useSorpresa() {
 
   useEffect(() => {
     if (typeof window === "undefined") return
-    try {
-      const flag = localStorage.getItem(LS_KEY_COMPLETADA)
-      setCompletada(flag === "true")
-      const fecha = localStorage.getItem(LS_KEY_FECHA_REGRESO)
-      if (fecha) setFechaRegresoState(fecha)
-    } catch {
-      // ignore
-    } finally {
-      setHidratado(true)
+
+    const releer = () => {
+      try {
+        const flag = localStorage.getItem(LS_KEY_COMPLETADA)
+        setCompletada(flag === "true")
+        const fecha = localStorage.getItem(LS_KEY_FECHA_REGRESO)
+        if (fecha) setFechaRegresoState(fecha)
+      } catch {
+        // ignore
+      }
+    }
+
+    releer()
+    setHidratado(true)
+
+    window.addEventListener(SORPRESA_EVENT, releer)
+    window.addEventListener("storage", releer)
+    return () => {
+      window.removeEventListener(SORPRESA_EVENT, releer)
+      window.removeEventListener("storage", releer)
     }
   }, [])
 
@@ -39,6 +53,9 @@ export function useSorpresa() {
       // ignore
     }
     setCompletada(true)
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event(SORPRESA_EVENT))
+    }
   }, [])
 
   const setFechaRegreso = useCallback((nueva: string) => {
@@ -48,6 +65,9 @@ export function useSorpresa() {
       // ignore
     }
     setFechaRegresoState(nueva)
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event(SORPRESA_EVENT))
+    }
   }, [])
 
   return {

@@ -45,10 +45,11 @@ export function SorpresaScreen() {
   }
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-gradient-to-br from-[#fdf6ef] via-[#fbeadd] to-[#f7d9c4] overflow-y-auto">
-      <FloatingHearts />
+    <div className="fixed inset-0 z-[9999] overflow-y-auto bg-gradient-to-br from-[#fdf6ef] via-[#fbeadd] to-[#f7d9c4]">
+      {fase === "reveal" && <FloatingHearts />}
 
-      <div className="relative w-full max-w-2xl px-6 sm:px-10 py-12 text-center">
+      <div className="relative min-h-full flex items-center justify-center px-6 sm:px-10 py-12">
+        <div className="w-full max-w-2xl text-center">
         {fase === "intriga" && (
           <div className="animate-in fade-in duration-700">
             <p className="text-xs uppercase tracking-[0.3em] text-stone-500 mb-6">Sistema</p>
@@ -90,6 +91,7 @@ export function SorpresaScreen() {
             onCerrar={marcarCompletada}
           />
         )}
+        </div>
       </div>
     </div>
   )
@@ -119,20 +121,21 @@ function Reveal({
 
       <CartaTypewriter lineas={lineas} onTerminar={() => setTerminado(true)} />
 
-      <div
-        className={`transition-all duration-1000 ${terminado ? "opacity-100 translate-y-0 mt-14" : "opacity-0 translate-y-4 mt-0 pointer-events-none h-0 overflow-hidden"}`}
-      >
-        <p className="text-xs uppercase tracking-[0.3em] text-stone-500 mb-5">
-          {TEXTO_CONTADOR_REVEAL}
-        </p>
-        <CountdownBlock targetISO={fechaRegresoISO} size="large" />
-        <button
-          onClick={onCerrar}
-          className="mt-12 inline-flex items-center gap-2 rounded-full bg-rose-700 hover:bg-rose-800 text-white px-8 py-3 text-sm font-medium tracking-wide transition shadow-sm hover:shadow-md"
-        >
-          {TEXTO_BOTON_CERRAR}
-        </button>
-      </div>
+      {terminado && (
+        <div className="mt-14 animate-in fade-in slide-in-from-bottom-2 duration-1000">
+          <p className="text-xs uppercase tracking-[0.3em] text-stone-500 mb-5">
+            {TEXTO_CONTADOR_REVEAL}
+          </p>
+          <CountdownBlock targetISO={fechaRegresoISO} size="large" />
+          <button
+            type="button"
+            onClick={onCerrar}
+            className="relative z-10 mt-12 inline-flex items-center gap-2 rounded-full bg-rose-700 hover:bg-rose-800 active:bg-rose-900 text-white px-8 py-3 text-sm font-medium tracking-wide transition shadow-sm hover:shadow-md cursor-pointer"
+          >
+            {TEXTO_BOTON_CERRAR}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
