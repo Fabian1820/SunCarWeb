@@ -67,6 +67,20 @@ function getGrupoFecha(fechaStr: string): Grupo {
 
 const ORDEN_GRUPOS: Grupo[] = ["Hoy", "Ayer", "Esta semana", "Anteriores"]
 
+// ── Pestañas por tipo ────────────────────────────────────────────────────────
+type TabKey = "nuevos" | "atrasados" | "instaladas"
+
+const TABS: { key: TabKey; label: string; tipo: string }[] = [
+  { key: "nuevos",     label: "Nuevos",     tipo: "lead_convertido"     },
+  { key: "atrasados",  label: "Atrasados",  tipo: "demora_instalacion"  },
+  { key: "instaladas", label: "Instaladas", tipo: "instalacion_exitosa" },
+]
+
+function tipoToTab(tipo: string): TabKey {
+  const t = TABS.find((x) => x.tipo === tipo)
+  return t?.key ?? "instaladas"
+}
+
 /** Ordena y agrupa las notificaciones para el panel. */
 function agruparNotificaciones(lista: Notificacion[]) {
   // Orden base: demora → por dias_alerta desc; resto → por fecha desc
@@ -155,6 +169,7 @@ export function NotificationBell() {
   const [noLeidas, setNoLeidas]           = useState(0)
   const [loading, setLoading]             = useState(false)
   const [toastData, setToastData]         = useState<{ notif: Notificacion; count: number } | null>(null)
+  const [activeTab, setActiveTab]         = useState<TabKey>("atrasados")
 
   const prevNoLeidasRef = useRef<number | null>(null)
   const toastTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -264,23 +279,44 @@ export function NotificationBell() {
   }
 
   async function handleMarcarTodasLeidas() {
-    // Endpoint global: marca TODAS las no leídas en BD, no solo las cargadas
-    await NotificacionService.marcarTodasLeidas()
-    setNotificaciones((prev) => prev.map((n) => ({ ...n, leida: true })))
-    setNoLeidas(0)
-    prevNoLeidasRef.current = 0
+    // Marca solo las de la pestaña activa
+    const tipo = TABS.find((t) => t.key === activeTab)!.tipo
+    await NotificacionService.marcarTodasLeidas(tipo)
+    setNotificaciones((prev) =>
+      prev.map((n) => (n.tipo === tipo ? { ...n, leida: true } : n))
+    )
+    const nuevasNoLeidas = notificaciones.filter(
+      (n) => n.tipo !== tipo && !n.leida
+    ).length
+    setNoLeidas(nuevasNoLeidas)
+    prevNoLeidasRef.current = nuevasNoLeidas
   }
 
   async function handleEliminarTodas() {
-    if (!confirm("¿Eliminar todas las notificaciones? Esta acción no se puede deshacer.")) return
-    await NotificacionService.eliminarTodas()
-    setNotificaciones([])
-    setNoLeidas(0)
-    prevNoLeidasRef.current = 0
+    const tabLabel = TABS.find((t) => t.key === activeTab)!.label.toLowerCase()
+    if (!confirm(`¿Eliminar todas las notificaciones de "${tabLabel}"? Esta acción no se puede deshacer.`)) return
+    const tipo = TABS.find((t) => t.key === activeTab)!.tipo
+    await NotificacionService.eliminarTodas(tipo)
+    setNotificaciones((prev) => prev.filter((n) => n.tipo !== tipo))
+    const nuevasNoLeidas = notificaciones.filter(
+      (n) => n.tipo !== tipo && !n.leida
+    ).length
+    setNoLeidas(nuevasNoLeidas)
+    prevNoLeidasRef.current = nuevasNoLeidas
   }
 
   const tieneNoLeidas = noLeidas > 0
-  const grupos        = agruparNotificaciones(notificaciones)
+
+  // Notificaciones de la pestaña activa
+  const activeTipo  = TABS.find((t) => t.key === activeTab)!.tipo
+  const visibles    = notificaciones.filter((n) => n.tipo === activeTipo)
+  const grupos      = agruparNotificaciones(visibles)
+
+  // Conteo de no leídas por pestaña
+  const conteoPorTab: Record<TabKey, number> = { nuevos: 0, atrasados: 0, instaladas: 0 }
+  for (const n of notificaciones) {
+    if (!n.leida) conteoPorTab[tipoToTab(n.tipo)]++
+  }
 
   return (
     <>
@@ -339,10 +375,42 @@ export function NotificationBell() {
                 </button>
               </div>
 
-              {/* Acciones globales */}
-              {notificaciones.length > 0 && (
+              {/* Pestañas por tipo */}
+              <div className="flex border-b border-gray-100 bg-white flex-shrink-0">
+                {TABS.map((tab) => {
+                  const count = conteoPorTab[tab.key]
+                  const isActive = activeTab === tab.key
+                  return (
+                    <button
+                      key={tab.key}
+                      onClick={() => setActiveTab(tab.key)}
+                      className={cn(
+                        "flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors relative",
+                        isActive
+                          ? "text-orange-600 border-b-2 border-orange-500 -mb-px"
+                          : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                      )}
+                    >
+                      <span>{tab.label}</span>
+                      {count > 0 && (
+                        <span className={cn(
+                          "inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold",
+                          isActive
+                            ? "bg-orange-500 text-white"
+                            : "bg-gray-200 text-gray-600"
+                        )}>
+                          {count > 99 ? "99+" : count}
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Acciones de la pestaña activa */}
+              {visibles.length > 0 && (
                 <div className="px-4 py-2 border-b border-gray-100 flex-shrink-0 flex items-center justify-between gap-3">
-                  {tieneNoLeidas ? (
+                  {conteoPorTab[activeTab] > 0 ? (
                     <button
                       onClick={handleMarcarTodasLeidas}
                       className="flex items-center gap-1.5 text-xs text-orange-600 hover:text-orange-700 font-medium"
@@ -367,7 +435,7 @@ export function NotificationBell() {
                   <div className="flex items-center justify-center py-10">
                     <div className="w-5 h-5 border-2 border-orange-400 border-t-transparent rounded-full animate-spin" />
                   </div>
-                ) : notificaciones.length === 0 ? (
+                ) : visibles.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-10 gap-2 text-gray-400">
                     <Bell className="h-8 w-8 opacity-30" />
                     <p className="text-sm">Sin notificaciones</p>

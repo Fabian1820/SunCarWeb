@@ -67,10 +67,11 @@ export const NotificacionService = {
     }
   },
 
-  async marcarTodasLeidas(): Promise<number> {
+  async marcarTodasLeidas(tipo?: string): Promise<number> {
     try {
+      const qs = tipo ? `?tipo=${encodeURIComponent(tipo)}` : ""
       const r = await apiRequest<{ marcadas: number }>(
-        "/notificaciones/mis-notificaciones/marcar-todas-leidas",
+        `/notificaciones/mis-notificaciones/marcar-todas-leidas${qs}`,
         { method: "PATCH" }
       )
       return (r as { marcadas?: number })?.marcadas ?? 0
@@ -80,10 +81,11 @@ export const NotificacionService = {
     }
   },
 
-  async eliminarTodas(): Promise<number> {
+  async eliminarTodas(tipo?: string): Promise<number> {
     try {
+      const qs = tipo ? `?tipo=${encodeURIComponent(tipo)}` : ""
       const r = await apiRequest<{ eliminadas: number }>(
-        "/notificaciones/mis-notificaciones",
+        `/notificaciones/mis-notificaciones${qs}`,
         { method: "DELETE" }
       )
       return (r as { eliminadas?: number })?.eliminadas ?? 0
