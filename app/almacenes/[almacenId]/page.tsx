@@ -22,6 +22,7 @@ import {
   ArrowRightLeft,
   X,
   BarChart3,
+  History,
 } from "lucide-react";
 import { Button } from "@/components/shared/atom/button";
 import { Label } from "@/components/shared/atom/label";
@@ -69,6 +70,7 @@ import { SolicitudTransferenciaDialog } from "@/components/feats/inventario/soli
 import { SolicitudesTransferenciaTable } from "@/components/feats/inventario/solicitudes-transferencia-table";
 import { exportToExcel, generateFilename } from "@/lib/export-service";
 import { StockMinimoAnalisisModal } from "@/components/feats/inventario/stock-minimo-analisis-modal";
+import { StockHistoricoModal } from "@/components/feats/inventario/stock-historico-modal";
 
 const STOCK_LIMIT = 40;
 const MOVIMIENTOS_LIMIT = 40;
@@ -127,6 +129,7 @@ export default function AlmacenDetallePage() {
   const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
   const [transferTableKey, setTransferTableKey] = useState(0);
   const [showAnalisisModal, setShowAnalisisModal] = useState(false);
+  const [showStockHistoricoModal, setShowStockHistoricoModal] = useState(false);
 
   // ── Lote resumen ─────────────────────────────────────────────
   const [ultimoResumenLote, setUltimoResumenLote] = useState<MovimientoLoteResponse | null>(null);
@@ -721,12 +724,22 @@ export default function AlmacenDetallePage() {
                     <Button
                       variant="outline"
                       size="sm"
+                      onClick={() => setShowStockHistoricoModal(true)}
+                      className="gap-1.5 border-orange-300 text-orange-700 hover:bg-orange-50"
+                      title="Ver stock del almacén en una fecha pasada"
+                    >
+                      <History className="h-4 w-4" />
+                      <span className="hidden sm:inline">Stock a fecha</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={handleExportStockExcel}
                       disabled={exportingStock || stock.length === 0}
                       className="border-green-300 text-green-700 hover:bg-green-50"
                     >
                       {exportingStock ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
-                      <span className="ml-2">Exportar Excel</span>
+                      <span className="ml-2 hidden sm:inline">Exportar Excel</span>
                     </Button>
                     <Button variant="outline" size="icon" onClick={refreshStock} title="Refrescar">
                       {loadingStock ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
@@ -989,6 +1002,14 @@ export default function AlmacenDetallePage() {
           almacenNombre={almacen?.nombre}
           open={showAnalisisModal}
           onClose={() => setShowAnalisisModal(false)}
+        />
+
+        {/* Modal de stock histórico */}
+        <StockHistoricoModal
+          open={showStockHistoricoModal}
+          onOpenChange={setShowStockHistoricoModal}
+          almacenId={almacenId}
+          almacenNombre={almacen?.nombre}
         />
       </div>
     </RouteGuard>
