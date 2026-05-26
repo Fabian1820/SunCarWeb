@@ -111,6 +111,17 @@ function Reveal({
   onCerrar: () => void
 }) {
   const [terminado, setTerminado] = useState(false)
+  const finalRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!terminado) return
+    // Espero un poco para que el bloque esté montado y empiece el fade-in;
+    // el scroll suave acompaña la aparición.
+    const timer = setTimeout(() => {
+      finalRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
+    }, 150)
+    return () => clearTimeout(timer)
+  }, [terminado])
 
   return (
     <div className="animate-in fade-in duration-1000">
@@ -122,7 +133,10 @@ function Reveal({
       <CartaTypewriter lineas={lineas} onTerminar={() => setTerminado(true)} />
 
       {terminado && (
-        <div className="mt-14 animate-in fade-in slide-in-from-bottom-2 duration-1000">
+        <div
+          ref={finalRef}
+          className="mt-14 pb-4 animate-in fade-in slide-in-from-bottom-4 duration-[1800ms] ease-out"
+        >
           <p className="text-xs uppercase tracking-[0.3em] text-stone-500 mb-5">
             {TEXTO_CONTADOR_REVEAL}
           </p>
