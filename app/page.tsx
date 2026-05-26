@@ -33,7 +33,6 @@ import { TicketManualDialog } from "@/components/feats/dashboard/ticket-manual-d
 import { Toaster } from "@/components/shared/molecule/toaster";
 import { useAuth } from "@/contexts/auth-context";
 import { UserMenu } from "@/components/auth/user-menu";
-import { NotificationBell } from "@/components/shared/organism/notification-bell";
 import { BirthdayChecker } from "@/components/shared/molecule/birthday-checker";
 import type { TasaCambio } from "@/lib/types/feats/tasa-cambio/tasa-cambio-types";
 import { useMyWalletPermiso } from "@/hooks/use-wallet-permisos";
@@ -335,7 +334,6 @@ export default function Dashboard() {
                 <span className="hidden sm:inline">Información</span>
                 <span className="sr-only">Información</span>
               </Button>
-              <NotificationBell />
               <UserMenu />
             </div>
           </div>
