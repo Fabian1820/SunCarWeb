@@ -2,6 +2,97 @@
 
 ---
 
+## 📅 26 de Mayo, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**21 commits** — autores: yany1509 y Fabian1820 — actividad muy alta en 3 áreas.
+
+---
+
+### Área 1: Sistema de Notificaciones (11 commits — yany1509)
+
+- **`feat(notificaciones)`: campana de notificaciones** — Nuevo servicio `NotificacionService` con métodos para obtener, marcar como leída y eliminar notificaciones vía API. Componente `NotificationBell` con panel desplegable, badge rojo con conteo de no leídas, polling cada 30s.
+- **Fix posición inicial**: Primero añadida como `fixed top-right` en el layout raíz, luego movida al header del dashboard en estilo `variant=outline` (mismo que botones de "Tasa de cambio" e "Información").
+- **Fix React Rules of Hooks**: `if (!user) return null` estaba antes de los `useEffect`, violando las reglas de hooks. Movido al final.
+- **`feat(notificaciones)`: botón "Ver cliente"** — Nuevo campo `link_cliente` en la interfaz `Notificacion`. Al hacer click: marca como leída, cierra el panel y navega a `/clientes?buscar={numero_cliente}`. `ClientsTable` acepta prop `initialSearchTerm`; `ClientesPage` lee el param `buscar` de la URL.
+- **Global en todas las vistas**: Movido al layout global con posición `fixed bottom-right`, círculo naranja/gris. Sonido via Web Audio API al recibir nuevas notificaciones. Toast automático 10s con barra de progreso y botón "Ver cliente".
+- **Reintegrado en header del dashboard**: Reversa del global-layout — la campana vuelve al header del dashboard.
+- **`feat`: campo `dias_alerta`** — Campo opcional para notificaciones de tipo `demora_instalacion`.
+- **Fix contador + agrupación por fecha**: `getConteo` retorna `null` en error (antes devolvía 0, reseteando el badge). Agrupación: Hoy / Ayer / Esta semana / Anteriores. Dentro de cada grupo: `demora_instalacion` ordenada por `dias_alerta` desc, resto por fecha desc. `prevNoLeidasRef` se sincroniza al abrir el panel.
+- **`feat`: marcar/eliminar todas** — `marcarTodasLeidas` usa endpoint global (marca TODAS en BD, no solo las cargadas en el panel). Nuevo botón "Eliminar todas" con confirmación. Acciones en barra al tope del panel.
+- **Fix mismatch backend/frontend**: El backend responde `{ success, data: [...], total }` pero el servicio intentaba leerlo como array directo → `Array.isArray` era `false` → panel vacío, aunque el badge sí mostraba 99+.
+- **`feat`: pestañas Nuevos / Atrasados / Instaladas** — Barra de tabs con conteo de no leídas por pestaña. Tab por defecto: "Atrasados" (más urgente). Cada tab filtra por tipo: `lead_convertido`, `demora_instalacion`, `instalacion_exitosa`. Agrupación por fecha y ordenamiento preservados dentro de cada pestaña. Marcar/eliminar todas ahora actúa solo en la pestaña activa (filtra por tipo en el backend).
+
+---
+
+### Área 2: Stock Histórico (4 commits — yany1509)
+
+- **`feat`: botón "Stock a fecha" en vales de salida** — Nuevo servicio `getStockHistorico()` llamando a `GET /inventario/stock-historico`. `StockHistoricoModal`: dialog con selector de fecha, búsqueda de material, tabla de resultados y exportación a Excel.
+- **Refactor combobox de material**: Reemplaza input de texto libre por `Popover + Command` (mismo patrón que `MaterialCombobox`). Carga materiales del almacén lazily al abrir el desplegable. La X del trigger limpia la selección sin cerrar el modal.
+- **`feat`: botón "Stock a fecha" en pestaña Stock del almacén** — Mismo `StockHistoricoModal` reutilizado, filtrado por el almacén actual, colocado junto a "Exportar Excel".
+- **Fix Popover dentro de Dialog (Radix UI)**: `disablePortal` en `PopoverContent` para evitar que el `PopoverContent` se renderice en el `body` (fuera del árbol DOM del Dialog), lo que hacía que el focus trap bloqueara el desplegable.
+
+---
+
+### Área 3: Pantalla de Bienvenida Personalizada (4 commits — Fabian1820)
+
+- **`feat`: pantalla de bienvenida con cuenta regresiva** — Widget de countdown personalizado. Animación de fondo oculta en la fase inicial para preservar la intriga.
+- **Fix scroll y sincronización de estado**: Layout `min-h-full` para permitir scroll cuando el contenido excede el viewport. Sincronización de instancias del hook con custom event para que el botón final actúe globalmente sobre todas las instancias montadas.
+- **`feat`: scroll automático y aparición suave del bloque final** — Al terminar la carta, scroll automático con aparición suave del bloque final.
+- **`chore`: ajuste final y merge a main** — Configuración final de la pantalla y merge de `dev` a `main`.
+
+---
+
+### Puede dar bateo
+
+1. **Sistema de notificaciones con 11 commits y múltiples reversas en 1.5 horas**: La campana pasó de `fixed top-right` → header dashboard → layout global → vuelta al header. Estas reversas indican que la arquitectura de dónde vive el componente no estaba definida. Puede haber código muerto en el layout raíz si el componente no fue eliminado de todos los puntos de montaje.
+
+2. **Doble instancia de NotificationBell**: Si el componente quedó montado en el layout global Y en el header del dashboard, habrá dos instancias polleando el backend cada 30s en paralelo → doble carga de red y posibles estados inconsistentes (dos badges con conteos diferentes). Verificar que solo existe una instancia activa.
+
+3. **Backend de notificaciones requiere múltiples endpoints confirmados**:
+   - `GET /mis-notificaciones` respondiendo `{ success, data: [...], total }` (ya confirmado que existe por el fix de mismatch).
+   - Endpoint de marcar/eliminar todas **filtrado por tipo** para que las acciones de pestaña actúen solo en esa categoría.
+   - Campo `dias_alerta` en la respuesta para tipo `demora_instalacion`.
+   - Campo `link_cliente` con número de cliente navegable.
+   - Si alguno de estos no está implementado, las pestañas o el botón "Ver cliente" fallarán silenciosamente o con error.
+
+4. **Sonido Web Audio API sin interacción previa del usuario**: Los navegadores modernos bloquean audio automático hasta que el usuario haya interactuado con la página (autoplay policy). Si llega una notificación antes de que el usuario haga clic en algo, el sonido no se reproducirá y no habrá feedback de error visible.
+
+5. **Toast 10s sin marcar como leída automáticamente**: El toast muestra la notificación nueva pero si el usuario no interactúa antes de que se cierre, la notificación permanece como no leída. El contador puede mantenerse en 99+ aunque el usuario haya "visto" el aviso.
+
+6. **`GET /inventario/stock-historico` sin confirmación de existencia**: El endpoint es nuevo en el contrato. Si no existe en el backend, el modal "Stock a fecha" mostrará error al abrirse. No hay fallback visible en la UI.
+
+7. **Stock histórico: carga de materiales sin caché**: Cada vez que el usuario abre el desplegable de material dentro del modal, se dispara una llamada al backend. Sin caché, en almacenes con muchos materiales el desplegable puede ser lento o generar demasiadas llamadas si el usuario abre y cierra el desplegable repetidamente.
+
+8. **Pantalla de bienvenida: sincronización por custom event frágil**: El fix de "sincronizar instancias del hook con custom event" implica que el mismo hook está montado en más de un lugar. Si el custom event no llega a todas las instancias (timing de hydration, SSR, o race condition), el estado del botón final puede quedar inconsistente entre instancias.
+
+9. **Merge con conflicto en `analisis de cambios.md`**: El commit `a29b8bd` registra un conflicto en este mismo archivo durante el merge de `dev` a `main`. Verificar que la resolución fue correcta y no se perdió contenido del análisis anterior.
+
+---
+
+#### Seguimientos vigentes
+
+- **CI `87120119233` hardcodeado para control de permisos**: El CI de un trabajador específico está hardcodeado como excepción de acceso en la lógica de negocio. Si esa persona cambia, requiere un nuevo deploy. Debería moverse a un campo de permiso en BD.
+- **Campos `cambio_real_*` requieren backend actualizado**: `cambio_real_monto`, `cambio_real_moneda` y `cambio_real_tasa` son nuevos en el payload de `PagoVenta`. Si el backend no los acepta, los POSTs con cambio real fallarán con 422 o perderán datos silenciosamente.
+- **Endpoint lazy load `GET /obras-terminadas/oferta/{id}/facturas-cliente`**: Si no existe, al hacer clic en la pestaña el usuario verá error de carga.
+- **PDF unificado con `limit=total` sin cota máxima**: La llamada extra para el PDF unificado puede generar timeout o saturar memoria del navegador si hay miles de registros filtrados.
+- **Badge de estado calculado en frontend con flotantes**: `precio_final − total_pagado` puede dar `0.0000001` por redondeo, mostrando "pendiente" en una factura realmente pagada. El backend debería devolver un campo de estado ya calculado.
+- **Módulo Vales/Facturas Instaladora comentado sin aviso explícito**: Usuarios que dependían de ese flujo quedan sin acceso. Verificar que el cambio fue coordinado.
+- **Sistema de notificaciones — endpoints bulk por tipo (nuevo)**: Confirmar que marcar/eliminar todas acepta filtro por tipo de notificación en el backend.
+- **`GET /inventario/stock-historico` (nuevo)**: Confirmar que existe y acepta params de almacén, material y fecha.
+- **AdminPass 123456 hardcodeado**: Al crear cualquier trabajador se asigna automáticamente `123456` como contraseña. Sin mecanismo de forzar cambio en el primer login — brecha de seguridad operativa.
+- **Auto-sync catálogo → BD al abrir /permisos**: Si el catálogo tiene un módulo mal definido, se crearán registros incorrectos en BD sin posibilidad de rollback automático.
+- **Logs de debug en producción**: Los logs de `fetchTrabajosDeAveria` pueden seguir activos, exponiendo datos de clientes en la consola del navegador.
+- **Eliminación lógica `cantidad = 0` en asignaciones**: Todo el código que lista asignaciones debe filtrar `cantidad > 0`, o los registros eliminados aparecerán como activos.
+- **Creación inline sin persistencia inmediata**: Categorías/unidades creadas desde el atajo "Crear material rápido" se pierden si el usuario cierra el diálogo antes de guardar.
+- **Subida de archivos sin rollback**: Si la subida de foto/ficha técnica tiene éxito pero la creación del material falla, el archivo queda huérfano en storage.
+- **Backend debe aceptar nuevos campos**: `motivo` y `nota` en PATCH de asignaciones; `foto` y `ficha_tecnica_url` en materiales; `oferta_venta_id`, `descuento_free`, `motivo_descuento_free` y `precio` en solicitudes desde oferta.
+- **`childKeys` en catálogo de módulos**: Si se agrega un módulo hijo sin declarar `childKeys`, el card padre quedará invisible aunque el usuario tenga el permiso.
+- **`useEffect` con dependencias `[open, initialData?.id]`**: Si `initialData` cambia el contenido pero mantiene el mismo `id`, el formulario del contenedor no se reinicializa.
+
+---
+
 ## 📅 25 de Mayo, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -51,7 +142,7 @@
 
 - **Módulo Vales y Facturas de Instaladora comentado** en Facturación (intencional, verificar comunicación con usuarios afectados).
 - **Encabezados PDF sin fondo azul** en facturas de ventas y facturas cliente de obras terminadas — mejor para imprimir y ahorrar tóner.
-- **Fix panel de filtros** visible cuando no hay resultados en obras terminadas (ya cubierto en Área 2).
+- **Fix panel de filtros** visible cuando no hay resultados en obras terminadas.
 
 ---
 
