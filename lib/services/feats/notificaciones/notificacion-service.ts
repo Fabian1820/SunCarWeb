@@ -10,6 +10,7 @@ export interface Notificacion {
   cliente_numero: string
   cliente_nombre: string
   link_cliente?: boolean
+  dias_alerta?: number  // solo en tipo "demora_instalacion"
 }
 
 export interface ConteoNotificaciones {
