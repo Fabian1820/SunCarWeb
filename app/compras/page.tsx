@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   AlertTriangle,
-  Package,
   Plane,
   Plus,
   RefreshCw,
   Search,
   Ship,
+  Store,
   Truck,
   X,
 } from "lucide-react";
@@ -35,34 +35,34 @@ import {
 import { Toaster } from "@/components/shared/molecule/toaster";
 import { useToast } from "@/hooks/use-toast";
 import { useMaterials } from "@/hooks/use-materials";
-import { useEnviosContenedores } from "@/hooks/use-envios-contenedores";
+import { useCompras } from "@/hooks/use-compras";
+import { useSolicitudesEntradaAlmacen } from "@/hooks/use-solicitudes-entrada-almacen";
+import { InventarioService } from "@/lib/api-services";
 import type { Material } from "@/lib/material-types";
-import type { QuickMaterialData } from "@/components/feats/envios-contenedores/quick-material-create-dialog";
-import { EnvioContenedorFormDialog } from "@/components/feats/envios-contenedores/envio-contenedor-form-dialog";
-import { EnviosContenedoresTable } from "@/components/feats/envios-contenedores/envios-contenedores-table";
-import { EnvioDocumentosPanel } from "@/components/feats/envios-contenedores/envio-documentos-panel";
+import type { Almacen } from "@/lib/types/feats/inventario/inventario-types";
+import type { QuickMaterialData } from "@/components/feats/compras/quick-material-create-dialog";
+import { CompraFormDialog } from "@/components/feats/compras/compra-form-dialog";
+import { ComprasTable } from "@/components/feats/compras/compras-table";
+import { CompraDocumentosPanel } from "@/components/feats/compras/compra-documentos-panel";
+import { CrearSolicitudEntradaDialog } from "@/components/feats/solicitudes-entrada-almacen/crear-solicitud-entrada-dialog";
 import { Paperclip } from "lucide-react";
 import type {
-  ArchivoEnvioContenedor,
-  EnvioContenedor,
-  EnvioContenedorCreateData,
-  EstadoEnvioContenedor,
-  TipoEnvioContenedor,
-} from "@/lib/types/feats/envios-contenedores/envio-contenedor-types";
+  ArchivoCompra,
+  Compra,
+  CompraCreateData,
+  EstadoCompra,
+  TipoCompra,
+} from "@/lib/types/feats/compras/compra-types";
 
-// ─── page guard ──────────────────────────────────────────────────────────────
-
-export default function EnvioContenedoresPage() {
+export default function ComprasPage() {
   return (
     <RouteGuard requiredModule="envio-contenedores">
-      <EnvioContenedoresContent />
+      <ComprasContent />
     </RouteGuard>
   );
 }
 
-// ─── main content ────────────────────────────────────────────────────────────
-
-function EnvioContenedoresContent() {
+function ComprasContent() {
   const { toast } = useToast();
   const {
     materials,
@@ -74,8 +74,8 @@ function EnvioContenedoresContent() {
   } = useMaterials();
 
   const {
-    envios,
-    filteredEnvios,
+    compras,
+    filteredCompras,
     loading,
     creating,
     updating,
@@ -88,19 +88,37 @@ function EnvioContenedoresContent() {
     setTipoFilter,
     pagadoFilter,
     setPagadoFilter,
-    loadEnvios,
-    createEnvio,
-    updateEnvio,
-    deleteEnvio,
+    loadCompras,
+    createCompra,
+    updateCompra,
+    deleteCompra,
     clearError,
-  } = useEnviosContenedores();
+  } = useCompras();
 
   const [createOpen,   setCreateOpen]   = useState(false);
-  const [editTarget,   setEditTarget]   = useState<EnvioContenedor | null>(null);
-  const [docEnvio,     setDocEnvio]     = useState<EnvioContenedor | null>(null);
-  const [docArchivos,  setDocArchivos]  = useState<ArchivoEnvioContenedor[]>([]);
+  const [editTarget,   setEditTarget]   = useState<Compra | null>(null);
+  const [docCompra,    setDocCompra]    = useState<Compra | null>(null);
+  const [docArchivos,  setDocArchivos]  = useState<ArchivoCompra[]>([]);
+  const [solicitudCompra, setSolicitudCompra] = useState<Compra | null>(null);
+  const [almacenes, setAlmacenes] = useState<Almacen[]>([]);
 
-  // ── active filters count ──
+  const { createSolicitud, creating: creatingSolicitud } = useSolicitudesEntradaAlmacen();
+
+  useEffect(() => {
+    void InventarioService.getAlmacenes().then(setAlmacenes);
+  }, []);
+
+  const handleSolicitarEntrada = (compra: Compra) => {
+    setSolicitudCompra(compra);
+  };
+
+  const handleCrearSolicitud = async (data: Parameters<typeof createSolicitud>[0]) => {
+    await createSolicitud(data);
+    toast({ title: "Solicitud creada", description: "La solicitud quedó pendiente de aprobación." });
+    // Refrescar compras para reflejar cualquier cambio derivado del backend
+    void loadCompras();
+  };
+
   const activeFilters = [
     estadoFilter !== "todos",
     tipoFilter   !== "todos",
@@ -115,31 +133,29 @@ function EnvioContenedoresContent() {
     setPagadoFilter("todos");
   };
 
-  // ── handlers ──
-  const handleCreate = async (data: EnvioContenedorCreateData) => {
-    await createEnvio(data);
-    toast({ title: "Envío registrado", description: "El envío fue creado correctamente." });
+  const handleCreate = async (data: CompraCreateData) => {
+    await createCompra(data);
+    toast({ title: "Compra registrada", description: "La compra fue creada correctamente." });
   };
 
-  const handleEdit = async (data: EnvioContenedorCreateData) => {
+  const handleEdit = async (data: CompraCreateData) => {
     if (!editTarget) return;
-    await updateEnvio(editTarget.id, data);
-    toast({ title: "Envío actualizado", description: "Los cambios fueron guardados." });
+    await updateCompra(editTarget.id, data);
+    toast({ title: "Compra actualizada", description: "Los cambios fueron guardados." });
     setEditTarget(null);
   };
 
-  const handleOpenDocs = (envio: EnvioContenedor) => {
-    setDocEnvio(envio);
-    setDocArchivos(envio.archivos ?? []);
+  const handleOpenDocs = (compra: Compra) => {
+    setDocCompra(compra);
+    setDocArchivos(compra.archivos ?? []);
   };
 
   const handleCloseDocs = () => {
-    setDocEnvio(null);
+    setDocCompra(null);
     setDocArchivos([]);
   };
 
   const handleCreateMaterial = async (data: QuickMaterialData): Promise<Material> => {
-    // Resolver el producto_id por categoría; si no existe, crearla.
     let productoId =
       catalogs.find((c) => c.categoria === data.categoria)?.id;
     if (!productoId) {
@@ -182,25 +198,25 @@ function EnvioContenedoresContent() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("¿Eliminar este envío? Esta acción no se puede deshacer.")) return;
+    if (!confirm("¿Eliminar esta compra? Esta acción no se puede deshacer.")) return;
     try {
-      await deleteEnvio(id);
-      toast({ title: "Envío eliminado", description: "El registro fue eliminado." });
+      await deleteCompra(id);
+      toast({ title: "Compra eliminada", description: "El registro fue eliminado." });
     } catch {
-      toast({ title: "Error", description: "No se pudo eliminar el envío.", variant: "destructive" });
+      toast({ title: "Error", description: "No se pudo eliminar la compra.", variant: "destructive" });
     }
   };
 
-  if (loading && envios.length === 0) {
-    return <PageLoader moduleName="Envío de Contenedores" text="Cargando envíos..." />;
+  if (loading && compras.length === 0) {
+    return <PageLoader moduleName="Compras" text="Cargando compras..." />;
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
 
       <ModuleHeader
-        title="Envío de Contenedores"
-        subtitle="Registro y seguimiento de contenedores y materiales"
+        title="Compras"
+        subtitle="Registro y seguimiento de compras, contenedores y materiales"
         badge={{ text: "Logística", className: "bg-cyan-100 text-cyan-800" }}
         backHref="/compras-envios-costos"
         backLabel="Volver a Compras, Envíos y Costos"
@@ -209,7 +225,7 @@ function EnvioContenedoresContent() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => loadEnvios()}
+              onClick={() => loadCompras()}
               title="Recargar"
               aria-label="Recargar"
               className="touch-manipulation"
@@ -219,12 +235,12 @@ function EnvioContenedoresContent() {
             <Button
               size="icon"
               onClick={() => setCreateOpen(true)}
-              aria-label="Nuevo envío"
-              title="Nuevo envío"
+              aria-label="Nueva compra"
+              title="Nueva compra"
               className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 touch-manipulation"
             >
               <Plus className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Nuevo envío</span>
+              <span className="hidden sm:inline">Nueva compra</span>
             </Button>
           </>
         }
@@ -232,7 +248,6 @@ function EnvioContenedoresContent() {
 
       <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-4">
 
-        {/* ── Error banner ── */}
         {error && (
           <div className="mb-4 flex items-center gap-3 p-3 rounded-lg bg-red-50 border border-red-200">
             <AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />
@@ -243,43 +258,39 @@ function EnvioContenedoresContent() {
           </div>
         )}
 
-        {/* ── Barra de filtros y búsqueda ── */}
         <Card className="border border-gray-200 shadow-none mb-4">
           <CardContent className="p-3">
             <div className="flex flex-wrap gap-2 items-center">
-              {/* Búsqueda */}
               <div className="relative flex-1 min-w-[200px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
                 <Input
-                  placeholder="Buscar por nombre, material, código..."
+                  placeholder="Buscar por nombre, material, código, proveedor..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="h-8 pl-8 pr-3 text-sm bg-gray-50 border-gray-200"
                 />
               </div>
 
-              {/* Estado */}
               <Select
                 value={estadoFilter}
-                onValueChange={(v) => setEstadoFilter(v as "todos" | EstadoEnvioContenedor)}
+                onValueChange={(v) => setEstadoFilter(v as "todos" | EstadoCompra)}
               >
-                <SelectTrigger className="h-8 w-36 text-sm bg-gray-50 border-gray-200">
+                <SelectTrigger className="h-8 w-44 text-sm bg-gray-50 border-gray-200">
                   <SelectValue placeholder="Estado" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todos los estados</SelectItem>
-                  <SelectItem value="solicitado">Solicitado</SelectItem>
-                  <SelectItem value="enviado">Enviado</SelectItem>
-                  <SelectItem value="arribado">Arribado</SelectItem>
-                  <SelectItem value="recibido">Recibido</SelectItem>
-                  <SelectItem value="cancelado">Cancelado</SelectItem>
+                  <SelectItem value="borrador">Borrador</SelectItem>
+                  <SelectItem value="en_transito">En tránsito</SelectItem>
+                  <SelectItem value="recibida_parcial">Recibida parcial</SelectItem>
+                  <SelectItem value="recibida_completa">Recibida completa</SelectItem>
+                  <SelectItem value="cerrada_con_ajuste">Cerrada con ajuste</SelectItem>
                 </SelectContent>
               </Select>
 
-              {/* Tipo */}
               <Select
                 value={tipoFilter}
-                onValueChange={(v) => setTipoFilter(v as "todos" | TipoEnvioContenedor)}
+                onValueChange={(v) => setTipoFilter(v as "todos" | TipoCompra)}
               >
                 <SelectTrigger className="h-8 w-36 text-sm bg-gray-50 border-gray-200">
                   <SelectValue placeholder="Tipo" />
@@ -292,13 +303,15 @@ function EnvioContenedoresContent() {
                   <SelectItem value="aereo">
                     <span className="flex items-center gap-2"><Plane className="h-3.5 w-3.5 text-sky-600" /> Aéreo</span>
                   </SelectItem>
+                  <SelectItem value="local">
+                    <span className="flex items-center gap-2"><Store className="h-3.5 w-3.5 text-emerald-600" /> Local</span>
+                  </SelectItem>
                   <SelectItem value="otro">
                     <span className="flex items-center gap-2"><Truck className="h-3.5 w-3.5 text-gray-500" /> Otro</span>
                   </SelectItem>
                 </SelectContent>
               </Select>
 
-              {/* Pago */}
               <Select
                 value={pagadoFilter}
                 onValueChange={(v) => setPagadoFilter(v as "todos" | "pagado" | "pendiente")}
@@ -313,7 +326,6 @@ function EnvioContenedoresContent() {
                 </SelectContent>
               </Select>
 
-              {/* Limpiar filtros */}
               {activeFilters > 0 && (
                 <Button
                   variant="ghost"
@@ -326,29 +338,27 @@ function EnvioContenedoresContent() {
                 </Button>
               )}
 
-              {/* Contador resultados */}
               <span className="ml-auto text-xs text-gray-400 shrink-0">
-                {filteredEnvios.length} de {envios.length} envío{envios.length !== 1 ? "s" : ""}
+                {filteredCompras.length} de {compras.length} compra{compras.length !== 1 ? "s" : ""}
               </span>
             </div>
           </CardContent>
         </Card>
 
-        {/* ── Tabla ── */}
         <Card className="border border-gray-200 shadow-none mb-6">
           <CardContent className="p-0">
-            <EnviosContenedoresTable
-              envios={filteredEnvios}
+            <ComprasTable
+              compras={filteredCompras}
               onDelete={handleDelete}
-              onEdit={(envio) => setEditTarget(envio)}
+              onEdit={(compra) => setEditTarget(compra)}
               onDocs={handleOpenDocs}
+              onSolicitarEntrada={handleSolicitarEntrada}
             />
           </CardContent>
         </Card>
       </main>
 
-      {/* ── Dialog crear ── */}
-      <EnvioContenedorFormDialog
+      <CompraFormDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
         onSubmit={handleCreate}
@@ -358,8 +368,7 @@ function EnvioContenedoresContent() {
         onCreateMaterial={handleCreateMaterial}
       />
 
-      {/* ── Dialog editar ── */}
-      <EnvioContenedorFormDialog
+      <CompraFormDialog
         open={Boolean(editTarget)}
         onOpenChange={(open) => { if (!open) setEditTarget(null); }}
         onSubmit={handleEdit}
@@ -370,8 +379,7 @@ function EnvioContenedoresContent() {
         onCreateMaterial={handleCreateMaterial}
       />
 
-      {/* ── Dialog documentos ── */}
-      <Dialog open={Boolean(docEnvio)} onOpenChange={(open) => { if (!open) handleCloseDocs(); }}>
+      <Dialog open={Boolean(docCompra)} onOpenChange={(open) => { if (!open) handleCloseDocs(); }}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader className="pb-2 border-b border-gray-100">
             <DialogTitle className="flex items-center gap-2 text-base">
@@ -380,21 +388,30 @@ function EnvioContenedoresContent() {
               </span>
               <div className="min-w-0">
                 <span className="text-gray-900">Documentos adjuntos</span>
-                {docEnvio && (
-                  <p className="text-xs font-normal text-gray-400 truncate mt-0.5">{docEnvio.nombre}</p>
+                {docCompra && (
+                  <p className="text-xs font-normal text-gray-400 truncate mt-0.5">{docCompra.nombre}</p>
                 )}
               </div>
             </DialogTitle>
           </DialogHeader>
-          {docEnvio && (
-            <EnvioDocumentosPanel
-              envioId={docEnvio.id}
+          {docCompra && (
+            <CompraDocumentosPanel
+              compraId={docCompra.id}
               archivos={docArchivos}
               onArchivosChange={setDocArchivos}
             />
           )}
         </DialogContent>
       </Dialog>
+
+      <CrearSolicitudEntradaDialog
+        open={Boolean(solicitudCompra)}
+        onOpenChange={(open) => { if (!open) setSolicitudCompra(null); }}
+        compra={solicitudCompra}
+        almacenes={almacenes}
+        onSubmit={handleCrearSolicitud}
+        isLoading={creatingSolicitud}
+      />
 
       <Toaster />
     </div>

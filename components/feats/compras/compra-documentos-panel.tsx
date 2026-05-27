@@ -3,7 +3,6 @@
 import { useRef, useState } from "react";
 import {
   Download,
-  FileIcon,
   FileText,
   Image,
   Loader2,
@@ -13,11 +12,8 @@ import {
   Upload,
   Video,
 } from "lucide-react";
-import { Button } from "@/components/shared/atom/button";
-import type { ArchivoEnvioContenedor } from "@/lib/types/feats/envios-contenedores/envio-contenedor-types";
-import { EnvioContenedorService } from "@/lib/api-services";
-
-// ─── helpers ─────────────────────────────────────────────────────────────────
+import type { ArchivoCompra } from "@/lib/types/feats/compras/compra-types";
+import { CompraService } from "@/lib/api-services";
 
 const formatBytes = (bytes: number) => {
   if (bytes === 0) return "0 B";
@@ -34,39 +30,31 @@ const formatDate = (iso: string) => {
   return d.toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" });
 };
 
-// ─── icon per type ────────────────────────────────────────────────────────────
-
-function ArchivoIcon({ tipo, className = "h-5 w-5" }: { tipo: ArchivoEnvioContenedor["tipo"]; className?: string }) {
+function ArchivoIcon({ tipo, className = "h-5 w-5" }: { tipo: ArchivoCompra["tipo"]; className?: string }) {
   if (tipo === "imagen") return <Image className={`${className} text-blue-500`} />;
   if (tipo === "video")  return <Video className={`${className} text-purple-500`} />;
   if (tipo === "audio")  return <Music className={`${className} text-pink-500`} />;
   return <FileText className={`${className} text-orange-500`} />;
 }
 
-// ─── props ────────────────────────────────────────────────────────────────────
-
-interface EnvioDocumentosPanelProps {
-  envioId: string;
-  archivos: ArchivoEnvioContenedor[];
-  onArchivosChange: (archivos: ArchivoEnvioContenedor[]) => void;
+interface CompraDocumentosPanelProps {
+  compraId: string;
+  archivos: ArchivoCompra[];
+  onArchivosChange: (archivos: ArchivoCompra[]) => void;
   disabled?: boolean;
 }
-
-// ─── ALLOWED extensions ───────────────────────────────────────────────────────
 
 const ACCEPT_ALL =
   "image/*,video/*,audio/*," +
   "application/pdf," +
   ".doc,.docx,.xls,.xlsx,.txt,.csv";
 
-// ─── component ───────────────────────────────────────────────────────────────
-
-export function EnvioDocumentosPanel({
-  envioId,
+export function CompraDocumentosPanel({
+  compraId,
   archivos,
   onArchivosChange,
   disabled = false,
-}: EnvioDocumentosPanelProps) {
+}: CompraDocumentosPanelProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading]     = useState(false);
   const [deletingId, setDeletingId]   = useState<string | null>(null);
@@ -78,7 +66,7 @@ export function EnvioDocumentosPanel({
     setError(null);
     setUploading(true);
     try {
-      const nuevos = await EnvioContenedorService.uploadArchivos(envioId, files);
+      const nuevos = await CompraService.uploadArchivos(compraId, files);
       onArchivosChange([...archivos, ...nuevos]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error al subir los archivos");
@@ -101,12 +89,12 @@ export function EnvioDocumentosPanel({
     doUpload(files);
   };
 
-  const handleDelete = async (archivo: ArchivoEnvioContenedor) => {
+  const handleDelete = async (archivo: ArchivoCompra) => {
     if (!confirm(`¿Eliminar "${archivo.nombre}"?`)) return;
     setError(null);
     setDeletingId(archivo.id);
     try {
-      await EnvioContenedorService.deleteArchivo(envioId, archivo.id);
+      await CompraService.deleteArchivo(compraId, archivo.id);
       onArchivosChange(archivos.filter((a) => a.id !== archivo.id));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error al eliminar el archivo");
@@ -119,7 +107,6 @@ export function EnvioDocumentosPanel({
 
   return (
     <div className="space-y-3">
-      {/* Drop zone */}
       <div
         onDragOver={(e) => { e.preventDefault(); if (!busy) setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
@@ -166,7 +153,6 @@ export function EnvioDocumentosPanel({
         )}
       </div>
 
-      {/* Error */}
       {error && (
         <div className="flex items-center gap-2 rounded-md bg-red-50 border border-red-200 px-3 py-2">
           <span className="text-red-500 text-xs shrink-0">⚠</span>
@@ -181,7 +167,6 @@ export function EnvioDocumentosPanel({
         </div>
       )}
 
-      {/* Lista de archivos */}
       {archivos.length === 0 ? (
         <div className="flex items-center gap-2 rounded-lg border border-dashed border-gray-200 px-4 py-3">
           <Paperclip className="h-4 w-4 text-gray-300 shrink-0" />
@@ -198,12 +183,10 @@ export function EnvioDocumentosPanel({
                   isDeleting ? "opacity-40" : "hover:bg-gray-50"
                 }`}
               >
-                {/* Icon */}
                 <div className="shrink-0 flex items-center justify-center h-9 w-9 rounded-lg bg-gray-100">
                   <ArchivoIcon tipo={archivo.tipo} />
                 </div>
 
-                {/* Info */}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-800 truncate" title={archivo.nombre}>
                     {archivo.nombre}
@@ -217,7 +200,6 @@ export function EnvioDocumentosPanel({
                   </p>
                 </div>
 
-                {/* Actions */}
                 <div className="flex items-center gap-1 shrink-0">
                   <a
                     href={archivo.url}

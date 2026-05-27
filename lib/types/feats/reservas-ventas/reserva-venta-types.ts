@@ -1,11 +1,13 @@
 export type ReservaEstado = "activa" | "cancelada" | "expirada" | "consumida";
 export type ReservaOrigen = "instaladora" | "ventas";
 export type ReservaClienteTipo = "cliente" | "cliente_venta";
+export type ReservaPool = "indistinto" | "instaladora" | "ventas";
 
 export interface MaterialReserva {
   material_id: string;
   cantidad_reservada: number;
   cantidad_consumida: number;
+  pool?: ReservaPool;
   // Campos populados por el backend en GET
   codigo?: string;
   nombre?: string;

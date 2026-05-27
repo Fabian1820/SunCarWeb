@@ -8,6 +8,8 @@ import { Label } from "@/components/shared/atom/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
 import { Save, X, Loader2, AlertCircle } from "lucide-react"
 import type { Almacen, InventarioMovimientoTipo, MovimientoCreateData, Tienda } from "@/lib/inventario-types"
+import type { PoolStockKey } from "@/lib/types/feats/inventario/inventario-types"
+import { POOL_STOCK_LABELS, POOLS_STOCK } from "@/lib/types/feats/inventario/inventario-types"
 import type { Material } from "@/lib/material-types"
 
 interface MovimientoFormProps {
@@ -22,10 +24,23 @@ interface MovimientoFormProps {
 const tipoOptions: { value: InventarioMovimientoTipo; label: string }[] = [
   { value: "entrada", label: "Entrada" },
   { value: "salida", label: "Salida" },
-  { value: "transferencia", label: "Transferencia" },
+  { value: "transferencia", label: "Transferencia entre almacenes" },
+  { value: "traspaso_sector", label: "Traspaso entre pools (mismo almacén)" },
   { value: "ajuste", label: "Ajuste" },
   { value: "venta", label: "Venta" },
+  { value: "eliminacion", label: "Eliminación" },
 ]
+
+// Tipos que requieren elegir un pool (entrada|salida|ajuste|venta|eliminacion).
+// transferencia opcionalmente toma pool (se mantiene en origen y destino).
+const TIPOS_CON_POOL = new Set<InventarioMovimientoTipo>([
+  "entrada",
+  "salida",
+  "ajuste",
+  "venta",
+  "eliminacion",
+  "transferencia",
+])
 
 export function MovimientoForm({ almacenes, tiendas, materiales, defaultTipo = "entrada", onSubmit, onCancel }: MovimientoFormProps) {
   const [formData, setFormData] = useState({
@@ -35,6 +50,9 @@ export function MovimientoForm({ almacenes, tiendas, materiales, defaultTipo = "
     almacen_origen_id: "",
     almacen_destino_id: "",
     tienda_id: "",
+    pool: "indistinto" as PoolStockKey,
+    pool_origen: "indistinto" as PoolStockKey,
+    pool_destino: "instaladora" as PoolStockKey,
     motivo: "",
     referencia: "",
   })
@@ -50,7 +68,8 @@ export function MovimientoForm({ almacenes, tiendas, materiales, defaultTipo = "
   }, [tiendas, formData.tienda_id])
 
   useEffect(() => {
-    setFormData({
+    setFormData(prev => ({
+      ...prev,
       tipo: defaultTipo,
       material_codigo: "",
       cantidad: "",
@@ -59,12 +78,12 @@ export function MovimientoForm({ almacenes, tiendas, materiales, defaultTipo = "
       tienda_id: "",
       motivo: "",
       referencia: "",
-    })
+    }))
   }, [defaultTipo])
 
   useEffect(() => {
     if (formData.tipo === "venta" && tiendaSeleccionada?.almacen_id) {
-      setFormData(prev => ({ ...prev, almacen_origen_id: tiendaSeleccionada.almacen_id }))
+      setFormData(prev => ({ ...prev, almacen_origen_id: tiendaSeleccionada.almacen_id! }))
     }
   }, [formData.tipo, tiendaSeleccionada])
 
@@ -87,6 +106,15 @@ export function MovimientoForm({ almacenes, tiendas, materiales, defaultTipo = "
         setError("El almacen destino debe ser diferente al origen")
         return false
       }
+    } else if (formData.tipo === "traspaso_sector") {
+      if (!formData.almacen_origen_id) {
+        setError("Selecciona un almacen")
+        return false
+      }
+      if (formData.pool_origen === formData.pool_destino) {
+        setError("El pool destino debe ser diferente al origen")
+        return false
+      }
     } else if (formData.tipo === "venta") {
       if (!formData.tienda_id) {
         setError("Selecciona una tienda")
@@ -105,8 +133,9 @@ export function MovimientoForm({ almacenes, tiendas, materiales, defaultTipo = "
     if (!validate()) return
     setIsSubmitting(true)
     try {
-      await onSubmit({
-        tipo: formData.tipo as InventarioMovimientoTipo,
+      const tipo = formData.tipo as InventarioMovimientoTipo
+      const payload: MovimientoCreateData = {
+        tipo,
         material_codigo: formData.material_codigo,
         cantidad: Number(formData.cantidad),
         almacen_origen_id: formData.almacen_origen_id || undefined,
@@ -114,13 +143,23 @@ export function MovimientoForm({ almacenes, tiendas, materiales, defaultTipo = "
         tienda_id: formData.tienda_id || undefined,
         motivo: formData.motivo || undefined,
         referencia: formData.referencia || undefined,
-      })
+      }
+      if (tipo === "traspaso_sector") {
+        payload.pool_origen = formData.pool_origen
+        payload.pool_destino = formData.pool_destino
+      } else if (TIPOS_CON_POOL.has(tipo)) {
+        payload.pool = formData.pool
+      }
+      await onSubmit(payload)
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo registrar el movimiento")
     } finally {
       setIsSubmitting(false)
     }
   }
+
+  const esTraspaso = formData.tipo === "traspaso_sector"
+  const muestraPoolSimple = TIPOS_CON_POOL.has(formData.tipo) && !esTraspaso
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -183,7 +222,9 @@ export function MovimientoForm({ almacenes, tiendas, materiales, defaultTipo = "
           </div>
         ) : (
           <div>
-            <Label className="text-sm font-medium text-gray-700 mb-2 block">Almacen origen *</Label>
+            <Label className="text-sm font-medium text-gray-700 mb-2 block">
+              {esTraspaso ? "Almacén *" : "Almacen origen *"}
+            </Label>
             <Select value={formData.almacen_origen_id} onValueChange={(value) => setFormData({ ...formData, almacen_origen_id: value })}>
               <SelectTrigger>
                 <SelectValue placeholder="Seleccionar almacen" />
@@ -216,6 +257,55 @@ export function MovimientoForm({ almacenes, tiendas, materiales, defaultTipo = "
             </Select>
           </div>
         ) : null}
+
+        {muestraPoolSimple && (
+          <div>
+            <Label className="text-sm font-medium text-gray-700 mb-2 block">
+              Pool {formData.tipo === "transferencia" ? "(se aplica en ambos almacenes)" : ""}
+            </Label>
+            <Select value={formData.pool} onValueChange={(value) => setFormData({ ...formData, pool: value as PoolStockKey })}>
+              <SelectTrigger>
+                <SelectValue placeholder="Seleccionar pool" />
+              </SelectTrigger>
+              <SelectContent>
+                {POOLS_STOCK.map(p => (
+                  <SelectItem key={p} value={p}>{POOL_STOCK_LABELS[p]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {esTraspaso && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label className="text-sm font-medium text-gray-700 mb-2 block">Pool origen *</Label>
+              <Select value={formData.pool_origen} onValueChange={(value) => setFormData({ ...formData, pool_origen: value as PoolStockKey })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pool origen" />
+                </SelectTrigger>
+                <SelectContent>
+                  {POOLS_STOCK.map(p => (
+                    <SelectItem key={p} value={p}>{POOL_STOCK_LABELS[p]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-sm font-medium text-gray-700 mb-2 block">Pool destino *</Label>
+              <Select value={formData.pool_destino} onValueChange={(value) => setFormData({ ...formData, pool_destino: value as PoolStockKey })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pool destino" />
+                </SelectTrigger>
+                <SelectContent>
+                  {POOLS_STOCK.map(p => (
+                    <SelectItem key={p} value={p}>{POOL_STOCK_LABELS[p]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
 
         <div>
           <Label htmlFor="movimiento-cantidad" className="text-sm font-medium text-gray-700 mb-2 block">

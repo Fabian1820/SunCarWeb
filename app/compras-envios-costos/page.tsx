@@ -1,17 +1,13 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
-import { Calculator, FileSpreadsheet, Ship } from "lucide-react"
-import { Button } from "@/components/shared/atom/button"
+import { Calculator, Ship } from "lucide-react"
 import { Card, CardContent } from "@/components/shared/molecule/card"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
-import { CalcPorcentajeDialog } from "@/components/feats/fichas-costo/calc-porcentaje-dialog"
-import { FichaCostoService } from "@/lib/api-services"
 import { useAuth } from "@/contexts/auth-context"
-import type { MaterialFichaResumen } from "@/lib/types/feats/fichas-costo/ficha-costo-types"
 
 interface SubModule {
+  /** Permission key (cómo está guardado en BD) */
   id: string
   href: string
   title: string
@@ -23,42 +19,26 @@ interface SubModule {
 const SUB_MODULES: SubModule[] = [
   {
     id: "envio-contenedores",
-    href: "/envio-contenedores",
-    title: "Envío de Contenedores",
-    description: "Registrar y monitorear envíos de contenedores.",
+    href: "/compras",
+    title: "Compras",
+    description: "Registrar y monitorear compras y contenedores.",
     icon: Ship,
     iconClass: "text-cyan-700",
   },
   {
-    id: "fichas-costo",
-    href: "/fichas-costo",
-    title: "Fichas de Costo",
-    description: "Gestión de fichas de costo de materiales.",
-    icon: FileSpreadsheet,
-    iconClass: "text-teal-600",
+    // Kardex es el reemplazo del módulo Fichas de Costo: aquí se consulta el
+    // costo promedio ponderado de los materiales por almacén tras cada entrada.
+    id: "kardex-costo",
+    href: "/kardex-costo",
+    title: "Kardex de Costos",
+    description: "Costo promedio ponderado por material y almacén con histórico de entradas.",
+    icon: Calculator,
+    iconClass: "text-violet-600",
   },
 ]
 
 export default function ComprasEnviosCostosPage() {
   const { hasPermission, user } = useAuth()
-  const [isCalcOpen, setIsCalcOpen] = useState(false)
-  const [materiales, setMateriales] = useState<MaterialFichaResumen[]>([])
-  const [loadingCalc, setLoadingCalc] = useState(false)
-
-  const handleOpenCalc = async () => {
-    if (materiales.length === 0) {
-      setLoadingCalc(true)
-      try {
-        const data = await FichaCostoService.getTodosMaterialesConFichas()
-        setMateriales(Array.isArray(data) ? data : [])
-      } catch {
-        setMateriales([])
-      } finally {
-        setLoadingCalc(false)
-      }
-    }
-    setIsCalcOpen(true)
-  }
 
   const visibleSubModules = SUB_MODULES.filter(
     (m) => user?.is_superAdmin === true || hasPermission(m.id),
@@ -68,22 +48,8 @@ export default function ComprasEnviosCostosPage() {
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
       <ModuleHeader
         title="Compras, Envíos y Costos"
-        subtitle="Envíos de contenedores y fichas de costo en un solo lugar"
+        subtitle="Compras, contenedores y kardex de costos en un solo lugar"
         badge={{ text: "Economía", className: "bg-teal-100 text-teal-800" }}
-        actions={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleOpenCalc}
-            disabled={loadingCalc}
-            className="border-teal-200 text-teal-700 hover:bg-teal-50"
-          >
-            <Calculator className="h-4 w-4" />
-            <span className="hidden sm:inline ml-1">
-              {loadingCalc ? "Cargando..." : "Calculadora %"}
-            </span>
-          </Button>
-        }
       />
 
       <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
@@ -118,12 +84,6 @@ export default function ComprasEnviosCostosPage() {
           </div>
         )}
       </main>
-
-      <CalcPorcentajeDialog
-        open={isCalcOpen}
-        onOpenChange={setIsCalcOpen}
-        materiales={materiales}
-      />
     </div>
   )
 }

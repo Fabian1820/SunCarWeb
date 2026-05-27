@@ -35,5 +35,7 @@ export { ContabilidadService } from "./services/feats/contabilidad/contabilidad-
 export { TasaCambioService } from "./services/feats/tasa-cambio/tasa-cambio-service";
 export { ReservaVentaService } from "./services/feats/reservas-ventas/reserva-venta-service";
 export { OfertaVentaService } from "./services/feats/ofertas-venta/oferta-venta-service";
-export { EnvioContenedorService } from "./services/feats/envios-contenedores/envio-contenedor-service";
+export { CompraService } from "./services/feats/compras/compra-service";
+export { SolicitudEntradaAlmacenService } from "./services/feats/solicitudes-entrada-almacen/solicitud-entrada-almacen-service";
+export { KardexCostoService } from "./services/feats/kardex-costo/kardex-costo-service";
 export { AsignacionService } from "./services/feats/asignaciones/asignacion-service";

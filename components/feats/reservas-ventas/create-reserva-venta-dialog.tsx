@@ -450,6 +450,9 @@ export function CreateReservaVentaDialog({
         material_id: r.material_id,
         cantidad_reservada: r.cantidad_reservada,
         cantidad_consumida: 0,
+        // Pool por defecto = "ventas" (este dialog crea reservas para ventas).
+        // Sirve como metadata para trazabilidad; el backend valida disponibilidad.
+        pool: "ventas" as const,
       })),
       fecha_expiracion: new Date(fechaExpiracion).toISOString(),
     };

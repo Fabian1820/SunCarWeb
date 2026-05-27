@@ -2,9 +2,30 @@ export type InventarioMovimientoTipo =
   | "entrada"
   | "salida"
   | "transferencia"
+  | "traspaso_sector"
   | "ajuste"
   | "eliminacion"
   | "venta";
+
+export const POOLS_STOCK = ["indistinto", "instaladora", "ventas"] as const;
+export type PoolStockKey = (typeof POOLS_STOCK)[number];
+
+export interface PoolStockInfo {
+  cantidad: number;
+  cantidad_reservada: number;
+}
+
+export interface StockPools {
+  indistinto: PoolStockInfo;
+  instaladora: PoolStockInfo;
+  ventas: PoolStockInfo;
+}
+
+export const POOL_STOCK_LABELS: Record<PoolStockKey, string> = {
+  indistinto: "Indistinto",
+  instaladora: "Instaladora",
+  ventas: "Ventas",
+};
 
 export interface Almacen {
   id?: string;
@@ -47,6 +68,7 @@ export interface StockItem {
   um?: string;
   cantidad: number;
   cantidad_reservada?: number;
+  pools?: StockPools;
   ubicacion_en_almacen?: string | null;
   actualizado_en?: string;
 }
@@ -66,6 +88,9 @@ export interface MovimientoInventario {
   almacen_destino_nombre?: string;
   tienda_id?: string;
   tienda_nombre?: string;
+  pool?: PoolStockKey;
+  pool_origen?: PoolStockKey;
+  pool_destino?: PoolStockKey;
   motivo?: string;
   referencia?: string;
   fecha?: string;
@@ -102,6 +127,9 @@ export interface MovimientoCreateData {
   almacen_origen_id?: string;
   almacen_destino_id?: string;
   tienda_id?: string;
+  pool?: PoolStockKey;
+  pool_origen?: PoolStockKey;
+  pool_destino?: PoolStockKey;
   motivo?: string;
   referencia?: string;
   ubicacion_en_almacen?: string;
@@ -236,6 +264,7 @@ export interface MaterialStockPorAlmacenItem {
   almacen_nombre: string;
   cantidad: number;
   cantidad_reservada?: number;
+  pools?: StockPools;
 }
 
 export interface MaterialStockItem {

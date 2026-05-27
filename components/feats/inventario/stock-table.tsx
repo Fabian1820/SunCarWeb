@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/shared/atom/button";
 import { Package, MapPin, Loader2, Pencil } from "lucide-react";
 import type { StockItem } from "@/lib/inventario-types";
+import { POOLS_STOCK, POOL_STOCK_LABELS } from "@/lib/types/feats/inventario/inventario-types";
 import type { Material } from "@/lib/material-types";
 import {
   Tooltip,
@@ -272,10 +273,31 @@ export function StockTable({
                     </Tooltip>
                   </td>
                   <td className="py-3 px-2">
-                    <span className="inline-flex rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 text-sm font-semibold">
-                      {item.cantidad}
-                      {item.um ? ` ${item.um}` : ""}
-                    </span>
+                    {item.pools && POOLS_STOCK.some((p) => (item.pools![p]?.cantidad ?? 0) > 0) ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 text-sm font-semibold cursor-help underline decoration-dotted">
+                            {item.cantidad}
+                            {item.um ? ` ${item.um}` : ""}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <div className="text-xs space-y-0.5">
+                            {POOLS_STOCK.map((p) => (
+                              <div key={p} className="flex justify-between gap-3">
+                                <span className="text-gray-300">{POOL_STOCK_LABELS[p]}:</span>
+                                <span className="font-mono">{item.pools![p]?.cantidad ?? 0}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      <span className="inline-flex rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 text-sm font-semibold">
+                        {item.cantidad}
+                        {item.um ? ` ${item.um}` : ""}
+                      </span>
+                    )}
                   </td>
                   <td className="py-3 px-2">
                     {(item.cantidad_reservada ?? 0) > 0 && item.material_id ? (
@@ -291,7 +313,20 @@ export function StockTable({
                           </button>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>Ver reservas activas</p>
+                          {item.pools && POOLS_STOCK.some((p) => (item.pools![p]?.cantidad_reservada ?? 0) > 0) ? (
+                            <div className="text-xs space-y-0.5">
+                              <p className="font-semibold mb-1">Reservas por pool:</p>
+                              {POOLS_STOCK.map((p) => (
+                                <div key={p} className="flex justify-between gap-3">
+                                  <span className="text-gray-300">{POOL_STOCK_LABELS[p]}:</span>
+                                  <span className="font-mono">{item.pools![p]?.cantidad_reservada ?? 0}</span>
+                                </div>
+                              ))}
+                              <p className="pt-1 border-t border-gray-700 text-[10px] text-gray-400">Click para ver reservas activas</p>
+                            </div>
+                          ) : (
+                            <p>Ver reservas activas</p>
+                          )}
                         </TooltipContent>
                       </Tooltip>
                     ) : (

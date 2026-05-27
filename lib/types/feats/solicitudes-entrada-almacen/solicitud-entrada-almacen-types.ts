@@ -1,0 +1,77 @@
+export const ESTADOS_SOLICITUD_ENTRADA = ["pendiente", "aprobada", "denegada"] as const;
+export type EstadoSolicitudEntrada = (typeof ESTADOS_SOLICITUD_ENTRADA)[number];
+
+export const POOLS = ["indistinto", "instaladora", "ventas"] as const;
+export type PoolKey = (typeof POOLS)[number];
+
+export interface SplitPool {
+  indistinto: number;
+  instaladora: number;
+  ventas: number;
+}
+
+export interface MaterialSolicitudEntrada {
+  material_id: string;
+  material_codigo: string;
+  material_nombre: string;
+  cantidad_total: number;
+  costo_unitario: number;
+  split: SplitPool;
+}
+
+export interface SolicitudEntradaAlmacen {
+  id: string;
+  compra_id: string;
+  almacen_id: string;
+  materiales: MaterialSolicitudEntrada[];
+  estado: EstadoSolicitudEntrada;
+  motivo_denegacion?: string;
+  observaciones_recepcion?: string;
+  movimientos_generados: string[];
+  kardex_generados: string[];
+  creado_por_ci?: string;
+  aprobado_por_ci?: string;
+  fecha_creacion: string;
+  fecha_resolucion?: string;
+}
+
+export interface MaterialSolicitudEntradaCreate {
+  material_id: string;
+  material_codigo: string;
+  material_nombre: string;
+  cantidad_total: number;
+  costo_unitario: number;
+  split: SplitPool;
+}
+
+export interface SolicitudEntradaAlmacenCreateData {
+  compra_id: string;
+  almacen_id: string;
+  materiales: MaterialSolicitudEntradaCreate[];
+}
+
+export interface AprobarSolicitudRequest {
+  observaciones_recepcion?: string;
+}
+
+export interface DenegarSolicitudRequest {
+  motivo: string;
+}
+
+export const SOLICITUD_ENTRADA_ESTADO_LABELS: Record<EstadoSolicitudEntrada, string> = {
+  pendiente: "Pendiente",
+  aprobada: "Aprobada",
+  denegada: "Denegada",
+};
+
+export const POOL_LABELS: Record<PoolKey, string> = {
+  indistinto: "Indistinto",
+  instaladora: "Instaladora",
+  ventas: "Ventas",
+};
+
+export const POOL_DESCRIPCIONES: Record<PoolKey, string> = {
+  indistinto: "Disponible para cualquier sector",
+  instaladora: "Reservado para vales de instalación",
+  ventas: "Reservado para ventas en tienda",
+};

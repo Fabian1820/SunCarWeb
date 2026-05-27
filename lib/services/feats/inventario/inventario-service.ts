@@ -26,6 +26,27 @@ import type {
   MaterialStockPorAlmacenItem,
   AlmacenDisponibleItem,
 } from "../../../inventario-types";
+import type {
+  PoolStockKey,
+  StockPools,
+} from "../../../types/feats/inventario/inventario-types";
+
+const POOL_KEYS: PoolStockKey[] = ["indistinto", "instaladora", "ventas"];
+const isPoolKey = (v: unknown): v is PoolStockKey =>
+  typeof v === "string" && POOL_KEYS.includes(v as PoolStockKey);
+
+const mapPools = (raw: any): StockPools | undefined => {
+  if (!raw || typeof raw !== "object") return undefined;
+  const extract = (k: PoolStockKey) => ({
+    cantidad: Number(raw?.[k]?.cantidad ?? 0),
+    cantidad_reservada: Number(raw?.[k]?.cantidad_reservada ?? 0),
+  });
+  return {
+    indistinto: extract("indistinto"),
+    instaladora: extract("instaladora"),
+    ventas: extract("ventas"),
+  };
+};
 import type { MaterialesBajoMinimoResponse } from "../../../types/feats/inventario/stock-minimo-types";
 import type { AnalisisStockMinimoResponse } from "../../../types/feats/inventario/inventario-types";
 
@@ -33,6 +54,7 @@ const MOVIMIENTO_TIPOS: InventarioMovimientoTipo[] = [
   "entrada",
   "salida",
   "transferencia",
+  "traspaso_sector",
   "ajuste",
   "eliminacion",
   "venta",
@@ -227,6 +249,7 @@ export class InventarioService {
       um: asString(row?.um) || asString(materialObj?.um),
       cantidad: asNumber(row?.cantidad) ?? 0,
       cantidad_reservada: asNumber(row?.cantidad_reservada) ?? 0,
+      pools: mapPools(row?.pools),
       ubicacion_en_almacen: asString(row?.ubicacion_en_almacen) ?? null,
       actualizado_en:
         asString(row?.actualizado_en) || asString(row?.updated_at),
@@ -329,6 +352,9 @@ export class InventarioService {
         asString(almacenDestino?.nombre),
       tienda_id: asString(raw?.tienda_id) || resolveEntityId(tienda),
       tienda_nombre: asString(raw?.tienda_nombre) || asString(tienda?.nombre),
+      pool: isPoolKey(raw?.pool) ? raw.pool : undefined,
+      pool_origen: isPoolKey(raw?.pool_origen) ? raw.pool_origen : undefined,
+      pool_destino: isPoolKey(raw?.pool_destino) ? raw.pool_destino : undefined,
       motivo: asString(raw?.motivo),
       referencia: asString(raw?.referencia),
       fecha:
@@ -852,6 +878,7 @@ export class InventarioService {
       almacen_nombre: almacen_nombre ?? almacen_id,
       cantidad: asNumber(raw?.cantidad) ?? 0,
       cantidad_reservada: asNumber(raw?.cantidad_reservada),
+      pools: mapPools(raw?.pools),
     };
   }
 

@@ -3,19 +3,21 @@
 import { apiRequest } from "../../../api-config";
 import type {
   AplicarPreciosMaterialPayload,
-  ArchivoEnvioContenedor,
-  EnvioContenedor,
-  EnvioContenedorCreateData,
-  EnvioContenedorMaterial,
-  EstadoEnvioContenedor,
+  ArchivoCompra,
+  CerrarConAjusteRequest,
+  Compra,
+  CompraCreateData,
+  CompraMaterial,
+  DatosMaritimo,
+  EstadoCompra,
   MaterialDatosBulk,
-  StockMaterialEnvio,
+  StockMaterialCompra,
+  TipoCompra,
   TipoContenedor,
-  TipoEnvioContenedor,
-} from "../../../types/feats/envios-contenedores/envio-contenedor-types";
+} from "../../../types/feats/compras/compra-types";
 
-const BASE_ENDPOINT = "/envios-contenedores";
-const COLLECTION_ENDPOINT = "/envios-contenedores/";
+const BASE_ENDPOINT = "/compras";
+const COLLECTION_ENDPOINT = "/compras/";
 
 const extractApiError = (response: any): string | null => {
   if (!response) return null;
@@ -36,21 +38,21 @@ const unwrapPayload = (response: any): any => {
   return response;
 };
 
-const normalizeEstado = (raw: any): EstadoEnvioContenedor => {
+const normalizeEstado = (raw: any): EstadoCompra => {
   const value = String(raw || "").toLowerCase();
-  if (value === "cancelado") return "cancelado";
-  if (value === "recibido") return "recibido";
-  if (value === "arribado") return "arribado";
-  if (value === "enviado") return "enviado";
-  return "solicitado";
+  if (value === "cerrada_con_ajuste") return "cerrada_con_ajuste";
+  if (value === "recibida_completa") return "recibida_completa";
+  if (value === "recibida_parcial") return "recibida_parcial";
+  if (value === "en_transito") return "en_transito";
+  return "borrador";
 };
 
-const normalizeTipo = (raw: any): TipoEnvioContenedor | undefined => {
+const normalizeTipo = (raw: any): TipoCompra => {
   const value = String(raw || "").toLowerCase();
   if (value === "maritimo") return "maritimo";
   if (value === "aereo") return "aereo";
-  if (value === "otro") return "otro";
-  return undefined;
+  if (value === "local") return "local";
+  return "otro";
 };
 
 const normalizeTipoContenedor = (raw: any): TipoContenedor | undefined => {
@@ -58,17 +60,17 @@ const normalizeTipoContenedor = (raw: any): TipoContenedor | undefined => {
   return undefined;
 };
 
-const mapArchivo = (raw: any): ArchivoEnvioContenedor => ({
+const mapArchivo = (raw: any): ArchivoCompra => ({
   id: String(raw?.id ?? ""),
   url: String(raw?.url ?? ""),
-  tipo: (["imagen", "video", "audio", "documento"].includes(raw?.tipo) ? raw.tipo : "documento") as ArchivoEnvioContenedor["tipo"],
+  tipo: (["imagen", "video", "audio", "documento"].includes(raw?.tipo) ? raw.tipo : "documento") as ArchivoCompra["tipo"],
   nombre: String(raw?.nombre ?? ""),
   tamano: Number(raw?.tamano ?? 0),
   mime_type: String(raw?.mime_type ?? ""),
   created_at: String(raw?.created_at ?? ""),
 });
 
-const mapMaterial = (raw: any): EnvioContenedorMaterial => ({
+const mapMaterial = (raw: any): CompraMaterial => ({
   material_id: String(raw?.material_id ?? raw?.id ?? ""),
   material_codigo: String(raw?.material_codigo ?? raw?.codigo ?? ""),
   material_nombre: String(raw?.material_nombre ?? raw?.nombre ?? raw?.descripcion ?? ""),
@@ -81,32 +83,38 @@ const mapMaterial = (raw: any): EnvioContenedorMaterial => ({
   precio_venta_final: raw?.precio_venta_final != null ? Number(raw.precio_venta_final) : null,
   precio_instaladora_final: raw?.precio_instaladora_final != null ? Number(raw.precio_instaladora_final) : null,
   porciento_rebajable_venta: Number(raw?.porciento_rebajable_venta ?? 0),
+  cantidad_entrada_aprobada: Number(raw?.cantidad_entrada_aprobada ?? 0),
+  cantidad_ajuste_cierre: Number(raw?.cantidad_ajuste_cierre ?? 0),
+  motivo_ajuste_cierre: typeof raw?.motivo_ajuste_cierre === "string" ? raw.motivo_ajuste_cierre : undefined,
 });
 
-const mapEnvio = (raw: any): EnvioContenedor => ({
+const mapDatosMaritimo = (raw: any): DatosMaritimo | null => {
+  if (!raw || typeof raw !== "object") return null;
+  return {
+    bl: raw?.bl ?? undefined,
+    referencia_buque: raw?.referencia_buque ?? undefined,
+    sello: raw?.sello ?? undefined,
+    buque: raw?.buque ?? undefined,
+    tipo_contenedor: normalizeTipoContenedor(raw?.tipo_contenedor),
+    puerto_origen: raw?.puerto_origen ?? undefined,
+    pais_origen: raw?.pais_origen ?? undefined,
+    puerto_destino: raw?.puerto_destino ?? undefined,
+    transitaria: raw?.transitaria ?? undefined,
+  };
+};
+
+const mapCompra = (raw: any): Compra => ({
   id: String(raw?.id ?? raw?._id ?? ""),
   nombre: String(raw?.nombre ?? ""),
   descripcion: typeof raw?.descripcion === "string" ? raw.descripcion : "",
-  // Documental
-  bl: raw?.bl ?? undefined,
-  referencia_buque: raw?.referencia_buque ?? undefined,
-  sello: raw?.sello ?? undefined,
-  // Transporte
-  buque: raw?.buque ?? undefined,
-  tipo_contenedor: normalizeTipoContenedor(raw?.tipo_contenedor),
-  puerto_origen: raw?.puerto_origen ?? undefined,
-  pais_origen: raw?.pais_origen ?? undefined,
-  puerto_destino: raw?.puerto_destino ?? undefined,
-  // Partes
+  tipo: normalizeTipo(raw?.tipo),
   proveedor: raw?.proveedor ?? undefined,
   cliente: raw?.cliente ?? undefined,
-  transitaria: raw?.transitaria ?? undefined,
-  // Fechas
   fecha_envio: String(raw?.fecha_envio ?? ""),
   fecha_llegada_aproximada: String(raw?.fecha_llegada_aproximada ?? ""),
   estado: normalizeEstado(raw?.estado),
-  tipo_envio: normalizeTipo(raw?.tipo_envio),
   pagado: Boolean(raw?.pagado ?? false),
+  datos_maritimo: mapDatosMaritimo(raw?.datos_maritimo),
   costos: Array.isArray(raw?.costos)
     ? raw.costos.map((c: any) => ({
         descripcion: String(c?.descripcion ?? ""),
@@ -114,78 +122,116 @@ const mapEnvio = (raw: any): EnvioContenedor => ({
         moneda: (["USD", "EUR", "MLC", "CUP"].includes(c?.moneda) ? c.moneda : "USD") as any,
       }))
     : [],
-  porciento_instaladora: Number(raw?.porciento_instaladora ?? 0),
-  porciento_ventas: Number(raw?.porciento_ventas ?? 0),
   total_costos: raw?.total_costos != null ? Number(raw.total_costos) : undefined,
   valor_mercancia: raw?.valor_mercancia != null ? Number(raw.valor_mercancia) : undefined,
   tasa_conversion_eur_usd: raw?.tasa_conversion_eur_usd != null ? Number(raw.tasa_conversion_eur_usd) : null,
   porciento_cargo_envio_sugerido: raw?.porciento_cargo_envio_sugerido != null ? Number(raw.porciento_cargo_envio_sugerido) : undefined,
   porciento_cargo_envio_impuestos: raw?.porciento_cargo_envio_impuestos != null ? Number(raw.porciento_cargo_envio_impuestos) : undefined,
+  porciento_instaladora: Number(raw?.porciento_instaladora ?? 0),
+  porciento_ventas: Number(raw?.porciento_ventas ?? 0),
   materiales: Array.isArray(raw?.materiales) ? raw.materiales.map(mapMaterial) : [],
   archivos: Array.isArray(raw?.archivos) ? raw.archivos.map(mapArchivo) : [],
+  motivo_cierre_ajuste: typeof raw?.motivo_cierre_ajuste === "string" ? raw.motivo_cierre_ajuste : undefined,
   created_at: typeof raw?.created_at === "string" ? raw.created_at : undefined,
   updated_at: typeof raw?.updated_at === "string" ? raw.updated_at : undefined,
+  deleted: Boolean(raw?.deleted ?? false),
 });
 
-export class EnvioContenedorService {
-  static async getEnvios(): Promise<EnvioContenedor[]> {
+export interface ListComprasParams {
+  q?: string;
+  estado?: EstadoCompra;
+  tipo?: TipoCompra;
+  skip?: number;
+  limit?: number;
+}
+
+const buildQuery = (params: ListComprasParams | undefined): string => {
+  if (!params) return "";
+  const entries: string[] = [];
+  if (params.q) entries.push(`q=${encodeURIComponent(params.q)}`);
+  if (params.estado) entries.push(`estado=${encodeURIComponent(params.estado)}`);
+  if (params.tipo) entries.push(`tipo=${encodeURIComponent(params.tipo)}`);
+  if (params.skip != null) entries.push(`skip=${params.skip}`);
+  if (params.limit != null) entries.push(`limit=${params.limit}`);
+  return entries.length > 0 ? `?${entries.join("&")}` : "";
+};
+
+export class CompraService {
+  static async getCompras(params?: ListComprasParams): Promise<Compra[]> {
     try {
-      const raw = await apiRequest<any>(COLLECTION_ENDPOINT);
+      const raw = await apiRequest<any>(`${COLLECTION_ENDPOINT}${buildQuery(params)}`);
       const error = extractApiError(raw);
       if (error) throw new Error(error);
       const payload = unwrapPayload(raw);
-      const list = Array.isArray(payload) ? payload : Array.isArray(payload?.envios) ? payload.envios : [];
-      return list.map(mapEnvio);
+      const list = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.compras)
+          ? payload.compras
+          : [];
+      return list.map(mapCompra);
     } catch {
       return [];
     }
   }
 
-  static async createEnvio(data: EnvioContenedorCreateData): Promise<EnvioContenedor> {
+  static async createCompra(data: CompraCreateData): Promise<Compra> {
     const raw = await apiRequest<any>(COLLECTION_ENDPOINT, {
       method: "POST",
       body: JSON.stringify(data),
     });
     const error = extractApiError(raw);
     if (error) throw new Error(error);
-    return mapEnvio(unwrapPayload(raw));
+    return mapCompra(unwrapPayload(raw));
   }
 
-  static async getEnvioById(envioId: string): Promise<EnvioContenedor | null> {
-    if (!envioId.trim()) return null;
+  static async getCompraById(compraId: string): Promise<Compra | null> {
+    if (!compraId.trim()) return null;
     try {
-      const raw = await apiRequest<any>(`${BASE_ENDPOINT}/${encodeURIComponent(envioId.trim())}`);
+      const raw = await apiRequest<any>(`${BASE_ENDPOINT}/${encodeURIComponent(compraId.trim())}`);
       const error = extractApiError(raw);
       if (error) throw new Error(error);
       const payload = unwrapPayload(raw);
       if (!payload || typeof payload !== "object") return null;
-      return mapEnvio(payload);
+      return mapCompra(payload);
     } catch {
       return null;
     }
   }
 
-  static async updateEnvio(envioId: string, data: Partial<EnvioContenedorCreateData>): Promise<EnvioContenedor> {
-    const raw = await apiRequest<any>(`${BASE_ENDPOINT}/${encodeURIComponent(envioId)}`, {
+  static async updateCompra(compraId: string, data: Partial<CompraCreateData>): Promise<Compra> {
+    const raw = await apiRequest<any>(`${BASE_ENDPOINT}/${encodeURIComponent(compraId)}`, {
       method: "PATCH",
       body: JSON.stringify(data),
     });
     const error = extractApiError(raw);
     if (error) throw new Error(error);
-    return mapEnvio(unwrapPayload(raw));
+    return mapCompra(unwrapPayload(raw));
   }
 
-  static async deleteEnvio(envioId: string): Promise<void> {
-    const raw = await apiRequest<any>(`${BASE_ENDPOINT}/${encodeURIComponent(envioId)}`, {
+  static async deleteCompra(compraId: string): Promise<void> {
+    const raw = await apiRequest<any>(`${BASE_ENDPOINT}/${encodeURIComponent(compraId)}`, {
       method: "DELETE",
     });
     const error = extractApiError(raw);
     if (error) throw new Error(error);
   }
 
-  static async getStockMateriales(envioId: string): Promise<StockMaterialEnvio[]> {
+  static async cerrarConAjuste(compraId: string, payload: CerrarConAjusteRequest): Promise<Compra> {
+    const raw = await apiRequest<any>(
+      `${BASE_ENDPOINT}/${encodeURIComponent(compraId)}/cerrar-con-ajuste`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    );
+    const error = extractApiError(raw);
+    if (error) throw new Error(error);
+    return mapCompra(unwrapPayload(raw));
+  }
+
+  static async getStockMateriales(compraId: string): Promise<StockMaterialCompra[]> {
     try {
-      const raw = await apiRequest<any>(`${BASE_ENDPOINT}/${encodeURIComponent(envioId)}/stock-materiales`);
+      const raw = await apiRequest<any>(`${BASE_ENDPOINT}/${encodeURIComponent(compraId)}/stock-materiales`);
       const error = extractApiError(raw);
       if (error) throw new Error(error);
       const list = unwrapPayload(raw);
@@ -232,11 +278,11 @@ export class EnvioContenedorService {
   }
 
   static async aplicarPrecios(
-    envioId: string,
+    compraId: string,
     materiales: AplicarPreciosMaterialPayload[],
-  ): Promise<EnvioContenedor> {
+  ): Promise<Compra> {
     const raw = await apiRequest<any>(
-      `${BASE_ENDPOINT}/${encodeURIComponent(envioId)}/aplicar-precios`,
+      `${BASE_ENDPOINT}/${encodeURIComponent(compraId)}/aplicar-precios`,
       {
         method: "POST",
         body: JSON.stringify({ materiales }),
@@ -244,16 +290,14 @@ export class EnvioContenedorService {
     );
     const error = extractApiError(raw);
     if (error) throw new Error(error);
-    return mapEnvio(unwrapPayload(raw));
+    return mapCompra(unwrapPayload(raw));
   }
 
-  // ─── Archivos adjuntos ───────────────────────────────────────────────────
-
-  static async uploadArchivos(envioId: string, files: File[]): Promise<ArchivoEnvioContenedor[]> {
+  static async uploadArchivos(compraId: string, files: File[]): Promise<ArchivoCompra[]> {
     const formData = new FormData();
     files.forEach((f) => formData.append("archivos", f));
     const raw = await apiRequest<any>(
-      `${BASE_ENDPOINT}/${encodeURIComponent(envioId)}/archivos`,
+      `${BASE_ENDPOINT}/${encodeURIComponent(compraId)}/archivos`,
       { method: "POST", body: formData },
     );
     const error = extractApiError(raw);
@@ -262,9 +306,9 @@ export class EnvioContenedorService {
     return Array.isArray(list) ? list.map(mapArchivo) : [];
   }
 
-  static async getArchivos(envioId: string): Promise<ArchivoEnvioContenedor[]> {
+  static async getArchivos(compraId: string): Promise<ArchivoCompra[]> {
     try {
-      const raw = await apiRequest<any>(`${BASE_ENDPOINT}/${encodeURIComponent(envioId)}/archivos`);
+      const raw = await apiRequest<any>(`${BASE_ENDPOINT}/${encodeURIComponent(compraId)}/archivos`);
       const error = extractApiError(raw);
       if (error) throw new Error(error);
       const list = raw?.data ?? [];
@@ -274,9 +318,9 @@ export class EnvioContenedorService {
     }
   }
 
-  static async deleteArchivo(envioId: string, archivoId: string): Promise<void> {
+  static async deleteArchivo(compraId: string, archivoId: string): Promise<void> {
     const raw = await apiRequest<any>(
-      `${BASE_ENDPOINT}/${encodeURIComponent(envioId)}/archivos/${encodeURIComponent(archivoId)}`,
+      `${BASE_ENDPOINT}/${encodeURIComponent(compraId)}/archivos/${encodeURIComponent(archivoId)}`,
       { method: "DELETE" },
     );
     const error = extractApiError(raw);

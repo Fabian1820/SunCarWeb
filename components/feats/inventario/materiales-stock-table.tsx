@@ -20,6 +20,7 @@ import {
   TooltipTrigger,
 } from "@/components/shared/molecule/tooltip"
 import type { MaterialStockItem } from "@/lib/inventario-types"
+import { POOLS_STOCK, POOL_STOCK_LABELS } from "@/lib/types/feats/inventario/inventario-types"
 import type {
   MaterialesStockSort,
   MaterialesStockSortBy,
@@ -476,6 +477,7 @@ export function MaterialesStockTable({
                             <div className="flex flex-wrap gap-2">
                               {row.por_almacen.map((pa) => {
                                 const reservada = pa.cantidad_reservada ?? 0
+                                const tienePools = pa.pools && POOLS_STOCK.some((p) => (pa.pools![p]?.cantidad ?? 0) > 0)
                                 return (
                                   <div
                                     key={pa.almacen_id}
@@ -488,9 +490,29 @@ export function MaterialesStockTable({
                                     <span className="font-medium">
                                       {pa.almacen_nombre}:
                                     </span>
-                                    <span className="font-semibold">
-                                      {pa.cantidad}
-                                    </span>
+                                    {tienePools ? (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <span className="font-semibold cursor-help underline decoration-dotted">
+                                            {pa.cantidad}
+                                          </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <div className="text-xs space-y-0.5">
+                                            {POOLS_STOCK.map((p) => (
+                                              <div key={p} className="flex justify-between gap-3">
+                                                <span className="text-gray-300">{POOL_STOCK_LABELS[p]}:</span>
+                                                <span className="font-mono">{pa.pools![p]?.cantidad ?? 0}</span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    ) : (
+                                      <span className="font-semibold">
+                                        {pa.cantidad}
+                                      </span>
+                                    )}
                                     {reservada > 0 && (
                                       <Tooltip>
                                         <TooltipTrigger asChild>

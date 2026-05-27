@@ -1,15 +1,14 @@
-export const ESTADOS_ENVIO_CONTENEDOR = [
-  "solicitado",
-  "enviado",
-  "arribado",
-  "recibido",
-  "cancelado",
+export const ESTADOS_COMPRA = [
+  "borrador",
+  "en_transito",
+  "recibida_parcial",
+  "recibida_completa",
+  "cerrada_con_ajuste",
 ] as const;
+export type EstadoCompra = (typeof ESTADOS_COMPRA)[number];
 
-export type EstadoEnvioContenedor = (typeof ESTADOS_ENVIO_CONTENEDOR)[number];
-
-export const TIPOS_ENVIO_CONTENEDOR = ["maritimo", "aereo", "otro"] as const;
-export type TipoEnvioContenedor = (typeof TIPOS_ENVIO_CONTENEDOR)[number];
+export const TIPOS_COMPRA = ["maritimo", "aereo", "local", "otro"] as const;
+export type TipoCompra = (typeof TIPOS_COMPRA)[number];
 
 export const TIPOS_CONTENEDOR = ["20DV", "40DV", "40HC"] as const;
 export type TipoContenedor = (typeof TIPOS_CONTENEDOR)[number];
@@ -23,12 +22,12 @@ export const TIPO_CONTENEDOR_LABELS: Record<TipoContenedor, string> = {
 export const MONEDAS_COSTO = ["USD", "EUR", "MLC", "CUP"] as const;
 export type MonedaCosto = (typeof MONEDAS_COSTO)[number];
 
-export type TipoArchivoEnvio = "imagen" | "video" | "audio" | "documento";
+export type TipoArchivoCompra = "imagen" | "video" | "audio" | "documento";
 
-export interface ArchivoEnvioContenedor {
+export interface ArchivoCompra {
   id: string;
   url: string;
-  tipo: TipoArchivoEnvio;
+  tipo: TipoArchivoCompra;
   nombre: string;
   tamano: number;
   mime_type: string;
@@ -41,7 +40,19 @@ export interface CostoImportacion {
   moneda: MonedaCosto;
 }
 
-export interface EnvioContenedorMaterial {
+export interface DatosMaritimo {
+  bl?: string;
+  referencia_buque?: string;
+  sello?: string;
+  buque?: string;
+  tipo_contenedor?: TipoContenedor;
+  puerto_origen?: string;
+  pais_origen?: string;
+  puerto_destino?: string;
+  transitaria?: string;
+}
+
+export interface CompraMaterial {
   material_id: string;
   material_codigo: string;
   material_nombre: string;
@@ -54,48 +65,40 @@ export interface EnvioContenedorMaterial {
   precio_venta_final?: number | null;
   precio_instaladora_final?: number | null;
   porciento_rebajable_venta: number;
+  cantidad_entrada_aprobada: number;
+  cantidad_ajuste_cierre: number;
+  motivo_ajuste_cierre?: string;
 }
 
-export interface EnvioContenedor {
+export interface Compra {
   id: string;
   nombre: string;
   descripcion?: string;
-  // Identificación documental
-  bl?: string;
-  referencia_buque?: string;
-  sello?: string;
-  // Transporte
-  buque?: string;
-  tipo_contenedor?: TipoContenedor;
-  puerto_origen?: string;
-  pais_origen?: string;
-  puerto_destino?: string;
-  // Partes involucradas
+  tipo: TipoCompra;
   proveedor?: string;
   cliente?: string;
-  transitaria?: string;
-  // Fechas
   fecha_envio: string;
   fecha_llegada_aproximada: string;
-  estado: EstadoEnvioContenedor;
-  tipo_envio?: TipoEnvioContenedor;
+  estado: EstadoCompra;
   pagado: boolean;
+  datos_maritimo?: DatosMaritimo | null;
   costos: CostoImportacion[];
-  porciento_instaladora: number;
-  porciento_ventas: number;
-  // Nuevos campos a nivel contenedor
   total_costos?: number;
   valor_mercancia?: number;
   tasa_conversion_eur_usd?: number | null;
   porciento_cargo_envio_sugerido?: number;
   porciento_cargo_envio_impuestos?: number;
-  materiales: EnvioContenedorMaterial[];
-  archivos: ArchivoEnvioContenedor[];
+  porciento_instaladora: number;
+  porciento_ventas: number;
+  materiales: CompraMaterial[];
+  archivos: ArchivoCompra[];
+  motivo_cierre_ajuste?: string;
   created_at?: string;
   updated_at?: string;
+  deleted?: boolean;
 }
 
-export interface EnvioContenedorMaterialCreate {
+export interface CompraMaterialCreate {
   material_id: string;
   material_codigo: string;
   material_nombre: string;
@@ -110,42 +113,40 @@ export interface EnvioContenedorMaterialCreate {
   porciento_rebajable_venta?: number;
 }
 
-export interface EnvioContenedorCreateData {
+export interface CompraCreateData {
   nombre: string;
   descripcion?: string;
-  // Identificación documental
-  bl?: string;
-  referencia_buque?: string;
-  sello?: string;
-  // Transporte
-  buque?: string;
-  tipo_contenedor?: TipoContenedor;
-  puerto_origen?: string;
-  pais_origen?: string;
-  puerto_destino?: string;
-  // Partes involucradas
+  tipo: TipoCompra;
   proveedor?: string;
   cliente?: string;
-  transitaria?: string;
-  // Fechas
   fecha_envio: string;
   fecha_llegada_aproximada: string;
-  estado: EstadoEnvioContenedor;
-  tipo_envio?: TipoEnvioContenedor;
+  estado?: EstadoCompra;
   pagado?: boolean;
+  datos_maritimo?: DatosMaritimo | null;
   costos?: CostoImportacion[];
   porciento_instaladora?: number;
   porciento_ventas?: number;
-  // Nuevos campos a nivel contenedor
   total_costos?: number;
   valor_mercancia?: number;
   tasa_conversion_eur_usd?: number | null;
   porciento_cargo_envio_sugerido?: number;
   porciento_cargo_envio_impuestos?: number;
-  materiales: EnvioContenedorMaterialCreate[];
+  materiales: CompraMaterialCreate[];
 }
 
-export interface StockMaterialEnvio {
+export interface AjusteCierreItem {
+  material_id: string;
+  cantidad: number;
+  motivo: string;
+}
+
+export interface CerrarConAjusteRequest {
+  ajustes: AjusteCierreItem[];
+  motivo_general?: string;
+}
+
+export interface StockMaterialCompra {
   material_id: string;
   material_codigo: string;
   material_nombre: string;
@@ -173,22 +174,22 @@ export interface AplicarPreciosMaterialPayload {
   porciento_rebajable_venta: number;
 }
 
-export const ENVIO_CONTENEDOR_ESTADO_LABELS: Record<EstadoEnvioContenedor, string> = {
-  solicitado: "Solicitado",
-  enviado: "Enviado",
-  arribado: "Arribado",
-  recibido: "Recibido",
-  cancelado: "Cancelado",
+export const COMPRA_ESTADO_LABELS: Record<EstadoCompra, string> = {
+  borrador: "Borrador",
+  en_transito: "En tránsito",
+  recibida_parcial: "Recibida parcial",
+  recibida_completa: "Recibida completa",
+  cerrada_con_ajuste: "Cerrada con ajuste",
 };
 
-export const TIPO_ENVIO_LABELS: Record<TipoEnvioContenedor, string> = {
+export const TIPO_COMPRA_LABELS: Record<TipoCompra, string> = {
   maritimo: "Marítimo",
   aereo: "Aéreo",
+  local: "Local",
   otro: "Otro",
 };
 
-// Costos pre-cargados según tipo de envío
-export const COSTOS_SUGERIDOS: Record<TipoEnvioContenedor, Omit<CostoImportacion, "monto">[]> = {
+export const COSTOS_SUGERIDOS: Record<TipoCompra, Omit<CostoImportacion, "monto">[]> = {
   maritimo: [
     { descripcion: "Flete marítimo", moneda: "USD" },
     { descripcion: "Seguro de carga", moneda: "USD" },
@@ -210,6 +211,10 @@ export const COSTOS_SUGERIDOS: Record<TipoEnvioContenedor, Omit<CostoImportacion
     { descripcion: "Arancel aduanero", moneda: "USD" },
     { descripcion: "Transporte terrestre interno", moneda: "CUP" },
     { descripcion: "Gastos bancarios / transferencia", moneda: "USD" },
+  ],
+  local: [
+    { descripcion: "Transporte interno", moneda: "CUP" },
+    { descripcion: "Gastos bancarios / transferencia", moneda: "CUP" },
   ],
   otro: [
     { descripcion: "Flete / transporte", moneda: "USD" },

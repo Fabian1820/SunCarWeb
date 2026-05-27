@@ -33,23 +33,23 @@ import { useToast } from "@/hooks/use-toast";
 import { PageLoader } from "@/components/shared/atom/page-loader";
 import { RouteGuard } from "@/components/auth/route-guard";
 
-import { EnvioContenedorService } from "@/lib/api-services";
+import { CompraService } from "@/lib/api-services";
 import type {
   AplicarPreciosMaterialPayload,
   CostoImportacion,
-  EnvioContenedor,
-  EnvioContenedorCreateData,
+  Compra,
+  CompraCreateData,
   MonedaCosto,
-} from "@/lib/types/feats/envios-contenedores/envio-contenedor-types";
+} from "@/lib/types/feats/compras/compra-types";
 import {
   COSTOS_SUGERIDOS,
   MONEDAS_COSTO,
-  TIPO_ENVIO_LABELS,
-} from "@/lib/types/feats/envios-contenedores/envio-contenedor-types";
+  TIPO_COMPRA_LABELS,
+} from "@/lib/types/feats/compras/compra-types";
 import {
   AplicarPreciosConfirmDialog,
   type CambioMaterialPrecio,
-} from "@/components/feats/envios-contenedores/aplicar-precios-confirm-dialog";
+} from "@/components/feats/compras/aplicar-precios-confirm-dialog";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -112,7 +112,7 @@ function FichaCostoContent() {
   const envioId = String(params.id ?? "");
 
   // ── estado global ──
-  const [envio, setEnvio] = useState<EnvioContenedor | null>(null);
+  const [envio, setEnvio] = useState<Compra | null>(null);
   const [loadingEnvio, setLoadingEnvio] = useState(true);
   const [saving, setSaving] = useState(false);
   const [costosCollapsed, setCostosCollapsed] = useState(false);
@@ -141,11 +141,11 @@ function FichaCostoContent() {
   const cargarDatos = useCallback(async () => {
     setLoadingEnvio(true);
     try {
-      const envioData = await EnvioContenedorService.getEnvioById(envioId);
+      const envioData = await CompraService.getCompraById(envioId);
 
       if (!envioData) {
         toast({ title: "Error", description: "Envío no encontrado.", variant: "destructive" });
-        router.push("/envio-contenedores");
+        router.push("/compras");
         return;
       }
 
@@ -159,7 +159,7 @@ function FichaCostoContent() {
       }
 
       const materialIds = envioData.materiales.map((m) => m.material_id).filter(Boolean);
-      const datosBulk = await EnvioContenedorService.getMaterialesDatosBulk(materialIds);
+      const datosBulk = await CompraService.getMaterialesDatosBulk(materialIds);
 
       const impuestosGuardados = envioData.porciento_cargo_envio_impuestos ?? 0;
       const filasInit: FilaMaterial[] = envioData.materiales.map((m) => {
@@ -322,11 +322,11 @@ function FichaCostoContent() {
   };
 
   const sugerirCostos = () => {
-    if (!envio?.tipo_envio) {
+    if (!envio?.tipo) {
       toast({ title: "Aviso", description: "El envío no tiene tipo definido. Edítalo primero." });
       return;
     }
-    const sugeridos = COSTOS_SUGERIDOS[envio.tipo_envio];
+    const sugeridos = COSTOS_SUGERIDOS[envio.tipo];
     const nuevos: CostoImportacion[] = sugeridos
       .filter((s) => !costos.some((c) => c.descripcion === s.descripcion))
       .map((s) => ({ ...s, monto: 0 }));
@@ -470,7 +470,7 @@ function FichaCostoContent() {
     setSaving(true);
     try {
       // 1. PATCH del contenedor con totales y porcentajes
-      const updatePayload: Partial<EnvioContenedorCreateData> = {
+      const updatePayload: Partial<CompraCreateData> = {
         costos,
         porciento_instaladora: porcientoInstaladora,
         porciento_ventas: porcientoVentas,
@@ -480,7 +480,7 @@ function FichaCostoContent() {
         valor_mercancia: totalValorMercancias,
         tasa_conversion_eur_usd: hayCostosEnEur ? tasaEurUsd : null,
       };
-      await EnvioContenedorService.updateEnvio(envioId, updatePayload);
+      await CompraService.updateCompra(envioId, updatePayload);
 
       // 2. POST aplicar-precios con valores (posiblemente editados desde el dialog).
       // El backend espera `porciento_recargo` como TOTAL (recargo de la fila + impuestos globales).
@@ -496,7 +496,7 @@ function FichaCostoContent() {
         porciento_rebajable_venta: c.porciento_rebajable_venta_nuevo,
       }));
 
-      const envioActualizado = await EnvioContenedorService.aplicarPrecios(envioId, payload);
+      const envioActualizado = await CompraService.aplicarPrecios(envioId, payload);
       setEnvio(envioActualizado);
       setConfirmOpen(false);
       toast({
@@ -505,7 +505,7 @@ function FichaCostoContent() {
       });
       // Refrescar valores del catálogo silenciosamente (sin loader completo)
       const materialIds = envioActualizado.materiales.map((m) => m.material_id).filter(Boolean);
-      const datosBulk = await EnvioContenedorService.getMaterialesDatosBulk(materialIds);
+      const datosBulk = await CompraService.getMaterialesDatosBulk(materialIds);
       setFilas((prev) =>
         prev.map((f) => {
           const datos = datosBulk[f.material_id];
@@ -545,7 +545,7 @@ function FichaCostoContent() {
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14">
             <div className="flex items-center gap-3 min-w-0">
-              <Link href="/envio-contenedores">
+              <Link href="/compras">
                 <Button variant="ghost" size="sm" className="gap-1.5 shrink-0 text-gray-600 hover:text-gray-900">
                   <ArrowLeft className="h-4 w-4" />
                   Volver
@@ -559,9 +559,9 @@ function FichaCostoContent() {
                 </h1>
               </div>
               <div className="hidden sm:flex items-center gap-2 shrink-0">
-                {envio.tipo_envio && (
+                {envio.tipo && (
                   <Badge className="bg-cyan-100 text-cyan-800 border-cyan-200 border text-xs font-medium">
-                    {TIPO_ENVIO_LABELS[envio.tipo_envio]}
+                    {TIPO_COMPRA_LABELS[envio.tipo]}
                   </Badge>
                 )}
                 <Badge
@@ -646,7 +646,7 @@ function FichaCostoContent() {
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  {envio.tipo_envio && (
+                  {envio.tipo && (
                     <Button
                       variant="outline"
                       size="sm"

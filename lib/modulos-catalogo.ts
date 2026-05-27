@@ -11,6 +11,8 @@ import {
   FileCheck,
   Wrench,
   PackageSearch,
+  PackagePlus,
+  Calculator,
   UserPlus,
   Clipboard,
   Package,
@@ -359,6 +361,15 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     grupo: "economia",
   },
   {
+    key: "kardex-costo",
+    label: "Kardex de Costos",
+    descripcion: "Costo promedio ponderado por material y almacén con histórico de entradas.",
+    icon: Calculator,
+    iconClass: "text-violet-600",
+    href: "/kardex-costo",
+    grupo: "economia",
+  },
+  {
     key: "existencias-contabilidad",
     label: "Existencias Contabilidad",
     descripcion: "Gestión de inventario contable y tickets de salida.",
@@ -370,7 +381,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
   {
     key: "compras-envios-costos",
     label: "Compras, Envíos y Costos",
-    descripcion: "Envíos de contenedores y fichas de costo de materiales.",
+    descripcion: "Compras, contenedores y fichas de costo de materiales.",
     icon: FileSpreadsheet,
     iconClass: "text-teal-600",
     href: "/compras-envios-costos",
@@ -378,20 +389,22 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     // Estos hijos no usan formato padre/hijo en BD (por compatibilidad con
     // asignaciones existentes), así que se declaran explícitos para que el
     // card padre sea visible cuando el trabajador tiene cualquiera de ellos.
-    childKeys: ["envio-contenedores", "fichas-costo"],
+    childKeys: ["envio-contenedores", "fichas-costo", "kardex-costo"],
   },
 
   // Estos viven bajo "Compras, Envíos y Costos" como sub-cards. Se mantienen
   // en el catálogo para que sus permisos sean asignables y sincronizables con
   // BD, pero NO aparecen como cards independientes en el dashboard principal
   // (hideFromDashboard).
+  // El permission key se mantiene como `envio-contenedores` para preservar
+  // asignaciones existentes; el label/href ya reflejan el módulo renombrado.
   {
     key: "envio-contenedores",
-    label: "Envío de Contenedores",
-    descripcion: "Registrar y monitorear envíos de contenedores.",
+    label: "Compras",
+    descripcion: "Registrar y monitorear compras y contenedores.",
     icon: Ship,
     iconClass: "text-cyan-700",
-    href: "/envio-contenedores",
+    href: "/compras",
     grupo: "economia",
     hideFromDashboard: true,
   },
@@ -432,6 +445,15 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     icon: Package,
     iconClass: "text-orange-600",
     href: "/inventario",
+    grupo: "gestion-almacenes",
+  },
+  {
+    key: "solicitudes-entrada-almacen",
+    label: "Solicitudes de Entrada",
+    descripcion: "Recepción de materiales de compra al almacén con split por pool.",
+    icon: PackagePlus,
+    iconClass: "text-blue-600",
+    href: "/solicitudes-entrada-almacen",
     grupo: "gestion-almacenes",
   },
 
