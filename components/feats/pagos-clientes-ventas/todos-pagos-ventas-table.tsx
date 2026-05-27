@@ -361,7 +361,7 @@ export function TodosPagosVentasTable({
 
   const TableHead_ = () => (
     <TableHeader>
-      <TableRow className="bg-gray-50 sticky top-[var(--fixed-header-height,96px)] z-10 [&>th]:bg-gray-50">
+      <TableRow className="bg-gray-50">
         <TableHead className="font-semibold">Fecha</TableHead>
         <TableHead className="font-semibold">Código solicitud</TableHead>
         <TableHead className="font-semibold">Nº factura</TableHead>

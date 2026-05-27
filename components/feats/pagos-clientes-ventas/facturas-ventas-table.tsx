@@ -328,7 +328,7 @@ export function FacturasVentasTable({
         <div className={em ? "border-t overflow-x-auto" : "rounded-lg border overflow-x-auto"}>
           <Table>
             <TableHeader>
-              <TableRow className="bg-gray-50 sticky top-[var(--fixed-header-height,96px)] z-10 [&>th]:bg-gray-50">
+              <TableRow className="bg-gray-50">
                 <TableHead className="font-semibold">Nº Factura</TableHead>
                 <TableHead className="font-semibold">Solicitudes</TableHead>
                 <TableHead className="font-semibold">Cliente</TableHead>
