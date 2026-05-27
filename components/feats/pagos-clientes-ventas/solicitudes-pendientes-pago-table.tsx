@@ -170,8 +170,8 @@ export function SolicitudesPendientesPagoTable({
       ) : (
         <div className={e ? "border-t overflow-x-auto" : "rounded-lg border overflow-x-auto"}>
           <Table>
-            <TableHeader>
-              <TableRow className="bg-gray-50 sticky top-[var(--fixed-header-height,96px)] z-10 [&>th]:bg-gray-50">
+            <TableHeader className="[&_th]:sticky [&_th]:top-[var(--fixed-header-height,96px)] [&_th]:z-10 [&_th]:bg-gray-50">
+              <TableRow className="bg-gray-50">
                 <TableHead className="font-semibold">Código</TableHead>
                 <TableHead className="font-semibold">Cliente</TableHead>
                 <TableHead className="font-semibold">Materiales</TableHead>
