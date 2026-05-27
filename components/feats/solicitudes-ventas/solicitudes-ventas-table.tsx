@@ -102,7 +102,7 @@ export function SolicitudesVentasTable({
   return (
     <div className="overflow-x-auto">
       <table className="w-full">
-        <thead className="[&_th]:sticky [&_th]:top-[var(--fixed-header-height,96px)] [&_th]:z-10 [&_th]:bg-gray-50">
+        <thead className="sticky top-[var(--fixed-header-height,96px)] z-10 bg-gray-50">
           <tr className="bg-gray-50 border-b border-gray-200">
             <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Codigo</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Estado</th>
