@@ -2,6 +2,68 @@
 
 ---
 
+## 📅 27 de Mayo, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**4 commits** — autor: Fabian1820 — actividad centrada en solicitudes de ventas.
+
+---
+
+### Área 1: Agregados del set filtrado completo — `feat(solicitudes-ventas)` (19:27)
+
+- **Nuevos tipos**: `SolicitudVentaSummaryAgregados`, `PagoVentaAgregados`, `FacturaVentaAgregados`.
+- **Servicios actualizados**: `getSolicitudesSummary`, `getTodosPagos` y `getFacturas` ahora propagan campos de agregados desde el backend.
+- **Hook `usePagosClientesVentas`**: expone `agregadosPendientes`, `agregadosPagos`, `agregadosFacturas`.
+- **Tablas**: usan los agregados devueltos por el backend para mostrar totales globales del set filtrado; fallback al cálculo local si no llegan.
+- **Nuevos campos por ítem en facturas**: `total_sin_descuento`, `total_con_aumento`, `aumento_monto`. La columna "Aumento" solo se muestra cuando al menos una factura la tiene.
+- **Pendientes**: línea Total / Pagado / Pendiente en USD ahora proviene de los agregados del backend.
+
+---
+
+### Área 2: Sticky header en tabla — intentado y revertido
+
+- **19:52** — `feat(solicitudes-ventas)`: encabezado de tabla fijo al hacer scroll. Aplicó `position: sticky` al `<thead>` de las 4 tablas. Cambió `overflow-auto` por `overflow-x-auto` en el wrapper interno.
+- **20:18** — `fix(solicitudes-ventas)`: sticky en los `<th>`, no en `<tr>`/`<thead>` — aplicó el sticky a cada `<th>` vía `[&_th]:sticky`.
+- **20:23** — Ambos commits revertidos. **El encabezado sticky no está en el codebase actualmente.**
+
+---
+
+### Puede dar bateo
+
+1. **Campos de agregados pueden no existir en el backend**: Los totales globales (`total_cobrado`, `total_pendiente`, `total_facturado`, `total_descuentos`) dependen de que el backend los devuelva en los endpoints de solicitudes, pagos y facturas. Hay fallback a cálculo local, pero ese cálculo solo opera sobre la página cargada — en vistas paginadas los totales serán incorrectos si el backend no envía los agregados.
+
+2. **Nuevos campos por ítem en facturas sin confirmación de backend**: `total_sin_descuento`, `total_con_aumento`, `aumento_monto` son nuevos en la respuesta esperada. Si el backend no los incluye, la columna "Aumento" nunca aparecerá y los cálculos de descuento/aumento serán incorrectos silenciosamente.
+
+3. **Sticky header pendiente de resolución**: El encabezado fijo fue intentado dos veces y revertido el mismo día. El problema raíz (ancestro con `overflow: auto` bloqueando el sticky) probablemente sigue presente. El próximo intento debería verificar toda la cadena de ancestros antes de aplicar el sticky.
+
+4. **Reversa a las 20:23 en producción**: Los commits feat+fix fueron revertidos juntos. Si el branch de producción ya había jalado el feat antes del revert, puede haber una ventana corta en que el sticky quedó roto en producción (encabezado superpuesto sobre la primera fila).
+
+---
+
+#### Seguimientos vigentes
+
+- **CI `87120119233` hardcodeado para control de permisos**: El CI de un trabajador específico está hardcodeado como excepción de acceso en la lógica de negocio. Si esa persona cambia, requiere un nuevo deploy. Debería moverse a un campo de permiso en BD.
+- **Campos `cambio_real_*` requieren backend actualizado**: `cambio_real_monto`, `cambio_real_moneda` y `cambio_real_tasa` son nuevos en el payload de `PagoVenta`. Si el backend no los acepta, los POSTs con cambio real fallarán con 422 o perderán datos silenciosamente.
+- **Endpoint lazy load `GET /obras-terminadas/oferta/{id}/facturas-cliente`**: Si no existe, al hacer clic en la pestaña el usuario verá error de carga.
+- **PDF unificado con `limit=total` sin cota máxima**: La llamada extra para el PDF unificado puede generar timeout o saturar memoria del navegador si hay miles de registros filtrados.
+- **Badge de estado calculado en frontend con flotantes**: `precio_final − total_pagado` puede dar `0.0000001` por redondeo, mostrando "pendiente" en una factura realmente pagada. El backend debería devolver un campo de estado ya calculado.
+- **Módulo Vales/Facturas Instaladora comentado sin aviso explícito**: Usuarios que dependían de ese flujo quedan sin acceso. Verificar que el cambio fue coordinado.
+- **Sistema de notificaciones — endpoints bulk por tipo**: Confirmar que marcar/eliminar todas acepta filtro por tipo de notificación en el backend.
+- **`GET /inventario/stock-historico`**: Confirmar que existe y acepta params de almacén, material y fecha.
+- **AdminPass 123456 hardcodeado**: Al crear cualquier trabajador se asigna automáticamente `123456` como contraseña. Sin mecanismo de forzar cambio en el primer login — brecha de seguridad operativa.
+- **Auto-sync catálogo → BD al abrir /permisos**: Si el catálogo tiene un módulo mal definido, se crearán registros incorrectos en BD sin posibilidad de rollback automático.
+- **Logs de debug en producción**: Los logs de `fetchTrabajosDeAveria` pueden seguir activos, exponiendo datos de clientes en la consola del navegador.
+- **Eliminación lógica `cantidad = 0` en asignaciones**: Todo el código que lista asignaciones debe filtrar `cantidad > 0`, o los registros eliminados aparecerán como activos.
+- **Creación inline sin persistencia inmediata**: Categorías/unidades creadas desde el atajo "Crear material rápido" se pierden si el usuario cierra el diálogo antes de guardar.
+- **Subida de archivos sin rollback**: Si la subida de foto/ficha técnica tiene éxito pero la creación del material falla, el archivo queda huérfano en storage.
+- **Backend debe aceptar nuevos campos**: `motivo` y `nota` en PATCH de asignaciones; `foto` y `ficha_tecnica_url` en materiales; `oferta_venta_id`, `descuento_free`, `motivo_descuento_free` y `precio` en solicitudes desde oferta.
+- **`childKeys` en catálogo de módulos**: Si se agrega un módulo hijo sin declarar `childKeys`, el card padre quedará invisible aunque el usuario tenga el permiso.
+- **`useEffect` con dependencias `[open, initialData?.id]`**: Si `initialData` cambia el contenido pero mantiene el mismo `id`, el formulario del contenedor no se reinicializa.
+- **Agregados solicitudes-ventas (nuevo)**: Confirmar que los endpoints de solicitudes, pagos y facturas devuelven campos de agregados globales y campos por ítem (`total_sin_descuento`, `total_con_aumento`, `aumento_monto`) o los totales serán incorrectos en vistas paginadas.
+
+---
+
 ## 📅 26 de Mayo, 2026
 
 ### Resumen de cambios (últimas 24h)
