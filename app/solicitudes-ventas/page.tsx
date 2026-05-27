@@ -94,6 +94,7 @@ export default function SolicitudesVentasPage() {
     solicitudesPendientes,
     totalPendientes,
     hasMorePendientes,
+    agregadosPendientes,
     loadingSolicitudes,
     errorSolicitudes,
     fetchSolicitudesPendientes,
@@ -101,6 +102,7 @@ export default function SolicitudesVentasPage() {
     todosPagos,
     totalPagos,
     hasMorePagos,
+    agregadosPagos,
     loadingPagos,
     errorPagos,
     fetchTodosPagos,
@@ -108,6 +110,7 @@ export default function SolicitudesVentasPage() {
     facturas,
     totalFacturas,
     hasMoreFacturas,
+    agregadosFacturas,
     loadingFacturas,
     errorFacturas,
     fetchFacturas,
@@ -1044,6 +1047,7 @@ const [anularLoading, setAnularLoading]             = useState(false);
                 searchValue={f2Search}
                 onSearchChange={setF2Search}
                 totalCount={totalPendientes}
+                agregados={agregadosPendientes}
                 footer={hasMorePendientes && pendientesDisplay.length > 0 ? (
                   <div className="text-center px-6 py-4 border-t">
                     <Button
@@ -1135,6 +1139,7 @@ const [anularLoading, setAnularLoading]             = useState(false);
                   searchValue={f3Search}
                   onSearchChange={setF3Search}
                   totalCount={totalPagos}
+                  agregados={agregadosPagos}
                   footer={hasMorePagos && pagosDisplay.length > 0 ? (
                     <div className="text-center py-4 border-t">
                       <Button
@@ -1232,6 +1237,7 @@ const [anularLoading, setAnularLoading]             = useState(false);
                 searchValue={f4Search}
                 onSearchChange={setF4Search}
                 totalCount={totalFacturas}
+                agregados={agregadosFacturas}
                 footer={hasMoreFacturas && facturasDisplay.length > 0 ? (
                   <div className="text-center px-6 py-4 border-t">
                     <Button

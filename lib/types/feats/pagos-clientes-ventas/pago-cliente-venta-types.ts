@@ -78,6 +78,12 @@ export interface FacturaClienteVenta {
     | string
     | null;
   total_a_pagar?: number;
+  /** Total bruto antes de descuento y antes de aumento. */
+  total_sin_descuento?: number;
+  /** Igual a `total_a_pagar` ya corregido por descuento/aumento. */
+  total_con_aumento?: number;
+  /** Monto en USD del aumento aplicado (0 si no hay aumento). */
+  aumento_monto?: number;
   descuento?: number;
   pagos?: Array<{
     id?: string;
@@ -202,12 +208,31 @@ export interface FacturaVentaListParams {
   fecha_hasta?: string;
 }
 
+export interface PagoVentaAgregados {
+  /** Total por moneda sobre todo el set filtrado (no solo la página). */
+  por_moneda: Record<string, { monto: number }>;
+  /** Total pendiente en USD sobre el set filtrado, deduplicado por solicitud. */
+  pendiente_usd: number;
+}
+
+export interface FacturaVentaAgregados {
+  facturado_sin_descuento_usd: number;
+  facturado_usd: number;
+  descuento_usd: number;
+  aumento_monto_usd: number;
+  cobrado_usd: number;
+  cobrado_por_moneda: Record<string, number>;
+  pendiente_usd: number;
+}
+
 export interface PagoVentaListResponse {
   data: PagoVenta[];
   total: number;
+  agregados?: PagoVentaAgregados;
 }
 
 export interface FacturaVentaListResponse {
   data: FacturaClienteVenta[];
   total: number;
+  agregados?: FacturaVentaAgregados;
 }

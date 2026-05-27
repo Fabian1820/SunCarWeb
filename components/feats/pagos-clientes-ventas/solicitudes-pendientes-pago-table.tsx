@@ -12,7 +12,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/shared/molecule/table";
-import type { SolicitudVentaSummary } from "@/lib/api-types";
+import type {
+  SolicitudVentaSummary,
+  SolicitudVentaSummaryAgregados,
+} from "@/lib/api-types";
 import { Search, CreditCard, RefreshCw, AlertCircle, ExternalLink } from "lucide-react";
 
 interface SolicitudesPendientesPagoTableProps {
@@ -33,6 +36,8 @@ interface SolicitudesPendientesPagoTableProps {
   totalCount?: number;
   /** Footer (ej. botón "Cargar más"). */
   footer?: React.ReactNode;
+  /** Agregados del set filtrado completo (no solo la página). */
+  agregados?: SolicitudVentaSummaryAgregados | null;
 }
 
 export function SolicitudesPendientesPagoTable({
@@ -48,6 +53,7 @@ export function SolicitudesPendientesPagoTable({
   onSearchChange,
   totalCount,
   footer,
+  agregados,
 }: SolicitudesPendientesPagoTableProps) {
   const isSearchControlled = searchValue !== undefined;
   const [internalSearch, setInternalSearch] = useState("");
@@ -125,6 +131,24 @@ export function SolicitudesPendientesPagoTable({
             : `${filtered.length} solicitudes`}
         </Badge>
       </div>
+
+      {agregados && (
+        <div className={`text-sm ${e ? "px-6 pb-2" : "pb-1"}`}>
+          <div className="flex flex-wrap gap-3 items-center">
+            <span className="text-gray-500">
+              Total: <strong className="text-blue-700">{formatCurrency(agregados.precio_total_usd)}</strong>
+            </span>
+            <span className="text-gray-300">|</span>
+            <span className="text-gray-500">
+              Pagado: <strong className="text-green-700">{formatCurrency(agregados.pagado_usd)}</strong>
+            </span>
+            <span className="text-gray-300">|</span>
+            <span className="text-gray-500">
+              Pendiente: <strong className="text-red-600">{formatCurrency(agregados.pendiente_usd)}</strong>
+            </span>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className={`flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2 ${e ? "mx-6" : ""}`}>

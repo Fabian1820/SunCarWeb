@@ -19,7 +19,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/shared/atom/select";
-import type { PagoVenta } from "@/lib/types/feats/pagos-clientes-ventas/pago-cliente-venta-types";
+import type {
+  PagoVenta,
+  PagoVentaAgregados,
+} from "@/lib/types/feats/pagos-clientes-ventas/pago-cliente-venta-types";
 import {
   Search,
   RefreshCw,
@@ -40,6 +43,8 @@ interface TodosPagosVentasTableProps {
   totalCount?: number;
   /** Footer (ej. botón "Cargar más"). */
   footer?: React.ReactNode;
+  /** Agregados del set filtrado completo (no solo la página). */
+  agregados?: PagoVentaAgregados | null;
 }
 
 type AgrupacionId = "ninguna" | "solicitud" | "cliente" | "fecha";
@@ -65,6 +70,7 @@ export function TodosPagosVentasTable({
   onSearchChange,
   totalCount,
   footer,
+  agregados,
 }: TodosPagosVentasTableProps) {
   const isSearchControlled = searchValue !== undefined;
   const [internalSearch, setInternalSearch] = useState("");
@@ -233,7 +239,7 @@ export function TodosPagosVentasTable({
     });
   };
 
-  const totalesPorMoneda = useMemo(() => {
+  const totalesPorMonedaLocal = useMemo(() => {
     const map: Record<string, number> = {};
     for (const p of filtered) {
       const moneda = getMoneda(p);
@@ -242,7 +248,7 @@ export function TodosPagosVentasTable({
     return map;
   }, [filtered]);
 
-  const totalPendienteUSD = useMemo(() => {
+  const totalPendienteUSDLocal = useMemo(() => {
     return filtered.reduce((sum, p) => {
       const pend = getPendiente(p);
       if (pend != null) {
@@ -255,6 +261,17 @@ export function TodosPagosVentasTable({
       return sum;
     }, 0);
   }, [filtered]);
+
+  // Preferir agregados del backend (set filtrado completo) sobre el cálculo
+  // client-side (solo la página cargada).
+  const totalesPorMoneda: Record<string, number> = agregados
+    ? Object.fromEntries(
+        Object.entries(agregados.por_moneda).map(([k, v]) => [k, v.monto]),
+      )
+    : totalesPorMonedaLocal;
+  const totalPendienteUSD = agregados
+    ? agregados.pendiente_usd
+    : totalPendienteUSDLocal;
 
   const PagoRow = ({ p, rowKey }: { p: PagoVenta; rowKey: string }) => {
     const moneda = getMoneda(p);

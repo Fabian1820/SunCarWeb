@@ -4,11 +4,13 @@ import { SolicitudVentaService } from "@/lib/services/feats/solicitudes-ventas/s
 import type { SolicitudVenta } from "@/lib/api-types";
 import type {
   PagoVenta,
+  PagoVentaAgregados,
   PagoVentaCreateData,
   PagoVentaListParams,
   PagoVentaListResponse,
   FacturaClienteVenta,
   FacturaClienteVentaCreateData,
+  FacturaVentaAgregados,
   FacturaVentaListParams,
   FacturaVentaListResponse,
   FacturaVentaResumen,
@@ -99,28 +101,42 @@ export class PagoVentaService {
       ? [`${BASE}/consolidado?${qs}`, `${BASE}/?${qs}`]
       : [`${BASE}/consolidado`, `${BASE}/`];
 
-    const extract = (res: any): { data: PagoVenta[]; total: number } | null => {
+    const extract = (res: any): PagoVentaListResponse | null => {
       if (res?.detail || res?.error || res?.success === false) return null;
       let arr: any[] | null = null;
       let total: number | undefined;
+      let agregadosRaw: any | undefined;
       if (Array.isArray(res)) {
         arr = res;
         total = res.length;
       } else if (Array.isArray(res?.data)) {
         arr = res.data;
         total = typeof res.total === "number" ? res.total : res.data.length;
+        agregadosRaw = res.agregados;
       } else if (Array.isArray(res?.pagos)) {
         arr = res.pagos;
         total = typeof res.total === "number" ? res.total : res.pagos.length;
+        agregadosRaw = res.agregados;
       } else if (Array.isArray(res?.data?.pagos)) {
         arr = res.data.pagos;
         total =
           typeof res.data.total === "number"
             ? res.data.total
             : res.data.pagos.length;
+        agregadosRaw = res.data.agregados ?? res.agregados;
       }
       if (!arr) return null;
-      return { data: arr.map(normalizePago), total: total ?? arr.length };
+      const agregados: PagoVentaAgregados | undefined = agregadosRaw
+        ? {
+            por_moneda: agregadosRaw.por_moneda || {},
+            pendiente_usd: Number(agregadosRaw.pendiente_usd) || 0,
+          }
+        : undefined;
+      return {
+        data: arr.map(normalizePago),
+        total: total ?? arr.length,
+        agregados,
+      };
     };
 
     for (const endpoint of endpoints) {
@@ -242,37 +258,52 @@ export class FacturaClienteVentaService {
       `${BASE_FACTURAS_LEGACY}/${suffix}`,
     ];
 
-    const extract = (
-      res: any,
-    ): { data: FacturaClienteVenta[]; total: number } | null => {
+    const extract = (res: any): FacturaVentaListResponse | null => {
       if (res?.detail || res?.error || res?.success === false) return null;
       let arr: FacturaClienteVenta[] | null = null;
       let total: number | undefined;
+      let agregadosRaw: any | undefined;
       if (Array.isArray(res)) {
         arr = res;
         total = res.length;
       } else if (Array.isArray(res?.data)) {
         arr = res.data;
         total = typeof res.total === "number" ? res.total : res.data.length;
+        agregadosRaw = res.agregados;
       } else if (Array.isArray(res?.facturas)) {
         arr = res.facturas;
         total =
           typeof res.total === "number" ? res.total : res.facturas.length;
+        agregadosRaw = res.agregados;
       } else if (Array.isArray(res?.data?.facturas)) {
         arr = res.data.facturas;
         total =
           typeof res.data.total === "number"
             ? res.data.total
             : res.data.facturas.length;
+        agregadosRaw = res.data.agregados ?? res.agregados;
       } else if (Array.isArray(res?.data?.data)) {
         arr = res.data.data;
         total =
           typeof res.data.total === "number"
             ? res.data.total
             : res.data.data.length;
+        agregadosRaw = res.data.agregados ?? res.agregados;
       }
       if (!arr) return null;
-      return { data: arr, total: total ?? arr.length };
+      const agregados: FacturaVentaAgregados | undefined = agregadosRaw
+        ? {
+            facturado_sin_descuento_usd:
+              Number(agregadosRaw.facturado_sin_descuento_usd) || 0,
+            facturado_usd: Number(agregadosRaw.facturado_usd) || 0,
+            descuento_usd: Number(agregadosRaw.descuento_usd) || 0,
+            aumento_monto_usd: Number(agregadosRaw.aumento_monto_usd) || 0,
+            cobrado_usd: Number(agregadosRaw.cobrado_usd) || 0,
+            cobrado_por_moneda: agregadosRaw.cobrado_por_moneda || {},
+            pendiente_usd: Number(agregadosRaw.pendiente_usd) || 0,
+          }
+        : undefined;
+      return { data: arr, total: total ?? arr.length, agregados };
     };
 
     for (const endpoint of endpoints) {

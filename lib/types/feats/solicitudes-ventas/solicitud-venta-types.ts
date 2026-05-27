@@ -150,6 +150,14 @@ export interface SolicitudVentaListResponse {
   limit?: number;
 }
 
+/** Agregados devueltos por GET /operaciones/solicitudes-ventas/summary
+ *  (calculados sobre todo el set filtrado, antes de skip/limit). */
+export interface SolicitudVentaSummaryAgregados {
+  precio_total_usd: number;
+  pagado_usd: number;
+  pendiente_usd: number;
+}
+
 export interface MaterialVentaWeb {
   id: string;
   codigo: string;
