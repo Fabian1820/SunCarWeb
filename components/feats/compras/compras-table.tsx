@@ -21,6 +21,7 @@ import {
   ChevronUp,
   ClipboardList,
   Container,
+  Lock,
   MapPin,
   Package,
   PackagePlus,
@@ -34,6 +35,7 @@ import {
 } from "lucide-react";
 
 const ESTADOS_RECEPCION_PERMITIDOS = new Set(["borrador", "en_transito", "recibida_parcial"]);
+const ESTADOS_CIERRE_PERMITIDOS = new Set(["en_transito", "recibida_parcial"]);
 
 const formatDate = (value?: string) => {
   if (!value) return "—";
@@ -94,6 +96,7 @@ interface ComprasTableProps {
   onEdit?:   (compra: Compra) => void;
   onDocs?:   (compra: Compra) => void;
   onSolicitarEntrada?: (compra: Compra) => void;
+  onCerrarConAjuste?: (compra: Compra) => void;
 }
 
 export function ComprasTable({
@@ -102,6 +105,7 @@ export function ComprasTable({
   onEdit,
   onDocs,
   onSolicitarEntrada,
+  onCerrarConAjuste,
 }: ComprasTableProps) {
   const router = useRouter();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -118,29 +122,29 @@ export function ComprasTable({
   }
 
   return (
-    <div className="w-full">
-      <table className="w-full text-sm border-collapse">
+    <div className="w-full overflow-x-auto">
+      <table className="w-full text-sm border-collapse table-fixed min-w-[1024px]">
         <thead>
           <tr className="bg-gray-50 border-y border-gray-200">
-            <th className="text-left py-3 px-4 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[26%]">
+            <th className="text-left py-3 px-4 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[22%]">
               Compra
             </th>
-            <th className="text-center py-3 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[12%]">
+            <th className="text-center py-3 px-2 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[10%]">
               Estado
             </th>
-            <th className="text-center py-3 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[10%]">
+            <th className="text-center py-3 px-2 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[8%]">
               Pago
             </th>
-            <th className="text-center py-3 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[12%]">
+            <th className="text-center py-3 px-2 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[10%]">
               F. Envío
             </th>
-            <th className="text-center py-3 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[12%]">
+            <th className="text-center py-3 px-2 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[10%]">
               Llegada
             </th>
-            <th className="text-center py-3 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[8%]">
+            <th className="text-center py-3 px-2 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[8%]">
               Mats.
             </th>
-            <th className="text-center py-3 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[20%]">
+            <th className="text-center py-3 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[32%]">
               Acciones
             </th>
           </tr>
@@ -197,13 +201,13 @@ export function ComprasTable({
                     </div>
                   </td>
 
-                  <td className="py-3.5 px-3 text-center">
+                  <td className="py-3.5 px-2 text-center">
                     <EstadoBadge estado={compra.estado} />
                   </td>
 
-                  <td className="py-3.5 px-3 text-center">
+                  <td className="py-3.5 px-2 text-center">
                     <span
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
+                      className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium border ${
                         compra.pagado
                           ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                           : "bg-amber-50 text-amber-700 border-amber-200"
@@ -214,7 +218,7 @@ export function ComprasTable({
                     </span>
                   </td>
 
-                  <td className="py-3.5 px-3 text-center">
+                  <td className="py-3.5 px-2 text-center">
                     <div className="flex flex-col items-center gap-0.5">
                       <div className="flex items-center gap-1 text-gray-700">
                         <CalendarDays className="h-3.5 w-3.5 text-gray-400 shrink-0" />
@@ -223,7 +227,7 @@ export function ComprasTable({
                     </div>
                   </td>
 
-                  <td className="py-3.5 px-3 text-center">
+                  <td className="py-3.5 px-2 text-center">
                     <div className="flex flex-col items-center gap-0.5">
                       <div className="flex items-center gap-1 text-gray-700">
                         <ArrowRight className="h-3.5 w-3.5 text-gray-400 shrink-0" />
@@ -235,11 +239,11 @@ export function ComprasTable({
                     </div>
                   </td>
 
-                  <td className="py-3.5 px-3 text-center">
+                  <td className="py-3.5 px-2 text-center">
                     <button
                       type="button"
                       onClick={() => toggle(compra.id)}
-                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border transition-colors ${
                         isExpanded
                           ? "bg-cyan-50 border-cyan-300 text-cyan-700"
                           : "bg-gray-50 border-gray-200 text-gray-600 hover:border-gray-300"
@@ -252,17 +256,17 @@ export function ComprasTable({
                   </td>
 
                   <td className="py-3.5 px-3">
-                    <div className="flex items-center justify-center gap-1.5">
+                    <div className="flex items-center justify-center gap-1 flex-wrap">
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="h-8 px-2.5 gap-1.5 text-xs border-cyan-200 text-cyan-700 hover:bg-cyan-50 hover:border-cyan-300"
+                        className="h-8 px-2 gap-1 text-xs border-cyan-200 text-cyan-700 hover:bg-cyan-50 hover:border-cyan-300"
                         onClick={() => router.push(`/compras/${compra.id}/ficha-costo`)}
                         title="Abrir ficha de costo"
                       >
                         <ClipboardList className="h-3.5 w-3.5" />
-                        <span className="hidden xl:inline">Ficha</span>
+                        <span className="hidden 2xl:inline">Ficha</span>
                       </Button>
 
                       {onSolicitarEntrada && ESTADOS_RECEPCION_PERMITIDOS.has(compra.estado) && (
@@ -270,12 +274,26 @@ export function ComprasTable({
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="h-8 px-2.5 gap-1.5 text-xs border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300"
+                          className="h-8 px-2 gap-1 text-xs border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300"
                           onClick={() => onSolicitarEntrada(compra)}
                           title="Solicitar entrada al almacén"
                         >
                           <PackagePlus className="h-3.5 w-3.5" />
-                          <span className="hidden xl:inline">Recepción</span>
+                          <span className="hidden 2xl:inline">Recepción</span>
+                        </Button>
+                      )}
+
+                      {onCerrarConAjuste && ESTADOS_CIERRE_PERMITIDOS.has(compra.estado) && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-2 gap-1 text-xs border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300"
+                          onClick={() => onCerrarConAjuste(compra)}
+                          title="Cerrar compra con ajuste"
+                        >
+                          <Lock className="h-3.5 w-3.5" />
+                          <span className="hidden 2xl:inline">Cerrar</span>
                         </Button>
                       )}
 
@@ -284,12 +302,12 @@ export function ComprasTable({
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="h-8 px-2.5 gap-1.5 text-xs border-orange-200 text-orange-700 hover:bg-orange-50 hover:border-orange-300 relative"
+                          className="h-8 px-2 gap-1 text-xs border-orange-200 text-orange-700 hover:bg-orange-50 hover:border-orange-300 relative"
                           onClick={() => onDocs(compra)}
                           title="Documentos adjuntos"
                         >
                           <Paperclip className="h-3.5 w-3.5" />
-                          <span className="hidden xl:inline">Docs</span>
+                          <span className="hidden 2xl:inline">Docs</span>
                           {compra.archivos?.length > 0 && (
                             <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-orange-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
                               {compra.archivos.length > 9 ? "9+" : compra.archivos.length}
@@ -303,12 +321,12 @@ export function ComprasTable({
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="h-8 px-2.5 gap-1.5 text-xs border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
+                          className="h-8 px-2 gap-1 text-xs border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
                           onClick={() => onEdit(compra)}
                           title="Editar compra"
                         >
                           <Pencil className="h-3.5 w-3.5" />
-                          <span className="hidden xl:inline">Editar</span>
+                          <span className="hidden 2xl:inline">Editar</span>
                         </Button>
                       )}
 

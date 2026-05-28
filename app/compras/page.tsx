@@ -45,6 +45,7 @@ import { CompraFormDialog } from "@/components/feats/compras/compra-form-dialog"
 import { ComprasTable } from "@/components/feats/compras/compras-table";
 import { CompraDocumentosPanel } from "@/components/feats/compras/compra-documentos-panel";
 import { CrearSolicitudEntradaDialog } from "@/components/feats/solicitudes-entrada-almacen/crear-solicitud-entrada-dialog";
+import { CerrarCompraAjusteDialog } from "@/components/feats/compras/cerrar-compra-ajuste-dialog";
 import { Paperclip } from "lucide-react";
 import type {
   ArchivoCompra,
@@ -79,6 +80,7 @@ function ComprasContent() {
     loading,
     creating,
     updating,
+    closing,
     error,
     searchTerm,
     setSearchTerm,
@@ -92,6 +94,7 @@ function ComprasContent() {
     createCompra,
     updateCompra,
     deleteCompra,
+    cerrarConAjuste,
     clearError,
   } = useCompras();
 
@@ -100,6 +103,7 @@ function ComprasContent() {
   const [docCompra,    setDocCompra]    = useState<Compra | null>(null);
   const [docArchivos,  setDocArchivos]  = useState<ArchivoCompra[]>([]);
   const [solicitudCompra, setSolicitudCompra] = useState<Compra | null>(null);
+  const [cerrarTarget, setCerrarTarget] = useState<Compra | null>(null);
   const [almacenes, setAlmacenes] = useState<Almacen[]>([]);
 
   const { createSolicitud, creating: creatingSolicitud } = useSolicitudesEntradaAlmacen();
@@ -117,6 +121,17 @@ function ComprasContent() {
     toast({ title: "Solicitud creada", description: "La solicitud quedó pendiente de aprobación." });
     // Refrescar compras para reflejar cualquier cambio derivado del backend
     void loadCompras();
+  };
+
+  const handleCerrarConAjuste = async (
+    compraId: string,
+    payload: Parameters<typeof cerrarConAjuste>[1],
+  ) => {
+    await cerrarConAjuste(compraId, payload);
+    toast({
+      title: "Compra cerrada",
+      description: "La compra quedó marcada como cerrada con ajuste.",
+    });
   };
 
   const activeFilters = [
@@ -259,15 +274,15 @@ function ComprasContent() {
         )}
 
         <Card className="border border-gray-200 shadow-none mb-4">
-          <CardContent className="p-3">
-            <div className="flex flex-wrap gap-2 items-center">
-              <div className="relative flex-1 min-w-[200px]">
+          <CardContent className="p-3 space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center">
+              <div className="relative md:col-span-5 lg:col-span-6">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
                 <Input
                   placeholder="Buscar por nombre, material, código, proveedor..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="h-8 pl-8 pr-3 text-sm bg-gray-50 border-gray-200"
+                  className="h-9 pl-8 pr-3 text-sm bg-gray-50 border-gray-200"
                 />
               </div>
 
@@ -275,7 +290,7 @@ function ComprasContent() {
                 value={estadoFilter}
                 onValueChange={(v) => setEstadoFilter(v as "todos" | EstadoCompra)}
               >
-                <SelectTrigger className="h-8 w-44 text-sm bg-gray-50 border-gray-200">
+                <SelectTrigger className="h-9 md:col-span-3 lg:col-span-2 text-sm bg-gray-50 border-gray-200">
                   <SelectValue placeholder="Estado" />
                 </SelectTrigger>
                 <SelectContent>
@@ -292,7 +307,7 @@ function ComprasContent() {
                 value={tipoFilter}
                 onValueChange={(v) => setTipoFilter(v as "todos" | TipoCompra)}
               >
-                <SelectTrigger className="h-8 w-36 text-sm bg-gray-50 border-gray-200">
+                <SelectTrigger className="h-9 md:col-span-2 text-sm bg-gray-50 border-gray-200">
                   <SelectValue placeholder="Tipo" />
                 </SelectTrigger>
                 <SelectContent>
@@ -316,7 +331,7 @@ function ComprasContent() {
                 value={pagadoFilter}
                 onValueChange={(v) => setPagadoFilter(v as "todos" | "pagado" | "pendiente")}
               >
-                <SelectTrigger className="h-8 w-36 text-sm bg-gray-50 border-gray-200">
+                <SelectTrigger className="h-9 md:col-span-2 text-sm bg-gray-50 border-gray-200">
                   <SelectValue placeholder="Pago" />
                 </SelectTrigger>
                 <SelectContent>
@@ -325,20 +340,23 @@ function ComprasContent() {
                   <SelectItem value="pendiente">Pendientes</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
 
-              {activeFilters > 0 && (
+            <div className="flex items-center gap-2 text-xs">
+              {activeFilters > 0 ? (
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={clearFilters}
-                  className="h-8 gap-1.5 text-gray-500 hover:text-gray-700 text-xs"
+                  className="h-7 px-2 gap-1.5 text-gray-500 hover:text-gray-700 text-xs"
                 >
                   <X className="h-3.5 w-3.5" />
-                  Limpiar ({activeFilters})
+                  Limpiar filtros ({activeFilters})
                 </Button>
+              ) : (
+                <span className="text-gray-400">Sin filtros aplicados</span>
               )}
-
-              <span className="ml-auto text-xs text-gray-400 shrink-0">
+              <span className="ml-auto text-gray-500 font-medium">
                 {filteredCompras.length} de {compras.length} compra{compras.length !== 1 ? "s" : ""}
               </span>
             </div>
@@ -353,6 +371,7 @@ function ComprasContent() {
               onEdit={(compra) => setEditTarget(compra)}
               onDocs={handleOpenDocs}
               onSolicitarEntrada={handleSolicitarEntrada}
+              onCerrarConAjuste={(compra) => setCerrarTarget(compra)}
             />
           </CardContent>
         </Card>
@@ -411,6 +430,14 @@ function ComprasContent() {
         almacenes={almacenes}
         onSubmit={handleCrearSolicitud}
         isLoading={creatingSolicitud}
+      />
+
+      <CerrarCompraAjusteDialog
+        open={Boolean(cerrarTarget)}
+        onOpenChange={(open) => { if (!open) setCerrarTarget(null); }}
+        compra={cerrarTarget}
+        onSubmit={handleCerrarConAjuste}
+        isLoading={closing}
       />
 
       <Toaster />

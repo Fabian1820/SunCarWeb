@@ -368,6 +368,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-violet-600",
     href: "/kardex-costo",
     grupo: "economia",
+    hideFromDashboard: true,
   },
   {
     key: "existencias-contabilidad",
@@ -381,7 +382,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
   {
     key: "compras-envios-costos",
     label: "Compras, Envíos y Costos",
-    descripcion: "Compras, contenedores y fichas de costo de materiales.",
+    descripcion: "Compras, contenedores, kardex de costos y recepciones de almacén.",
     icon: FileSpreadsheet,
     iconClass: "text-teal-600",
     href: "/compras-envios-costos",
@@ -389,7 +390,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     // Estos hijos no usan formato padre/hijo en BD (por compatibilidad con
     // asignaciones existentes), así que se declaran explícitos para que el
     // card padre sea visible cuando el trabajador tiene cualquiera de ellos.
-    childKeys: ["envio-contenedores", "fichas-costo", "kardex-costo"],
+    childKeys: ["envio-contenedores", "fichas-costo", "kardex-costo", "solicitudes-entrada-almacen"],
   },
 
   // Estos viven bajo "Compras, Envíos y Costos" como sub-cards. Se mantienen
@@ -448,13 +449,17 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     grupo: "gestion-almacenes",
   },
   {
+    // Vive como sub-card dentro de /compras-envios-costos. Pertenece al flujo
+    // de Compras (recepciones), no al dashboard de almacenes, así que va
+    // hideFromDashboard.
     key: "solicitudes-entrada-almacen",
     label: "Solicitudes de Entrada",
     descripcion: "Recepción de materiales de compra al almacén con split por pool.",
     icon: PackagePlus,
     iconClass: "text-blue-600",
     href: "/solicitudes-entrada-almacen",
-    grupo: "gestion-almacenes",
+    grupo: "economia",
+    hideFromDashboard: true,
   },
 
   // ───────── Recursos Humanos ─────────

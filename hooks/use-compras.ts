@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CompraService } from "@/lib/api-services";
 import type {
+  CerrarConAjusteRequest,
   Compra,
   CompraCreateData,
   EstadoCompra,
@@ -13,6 +14,7 @@ interface UseComprasReturn {
   loading: boolean;
   creating: boolean;
   updating: boolean;
+  closing: boolean;
   error: string | null;
   searchTerm: string;
   setSearchTerm: (value: string) => void;
@@ -26,6 +28,7 @@ interface UseComprasReturn {
   createCompra: (data: CompraCreateData) => Promise<Compra>;
   updateCompra: (id: string, data: Partial<CompraCreateData>) => Promise<Compra>;
   deleteCompra: (id: string) => Promise<void>;
+  cerrarConAjuste: (id: string, payload: CerrarConAjusteRequest) => Promise<Compra>;
   clearError: () => void;
 }
 
@@ -34,6 +37,7 @@ export function useCompras(): UseComprasReturn {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [closing, setClosing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [estadoFilter, setEstadoFilter] = useState<"todos" | EstadoCompra>("todos");
@@ -108,6 +112,22 @@ export function useCompras(): UseComprasReturn {
     }
   }, []);
 
+  const cerrarConAjuste = useCallback(async (id: string, payload: CerrarConAjusteRequest) => {
+    setClosing(true);
+    setError(null);
+    try {
+      const updated = await CompraService.cerrarConAjuste(id, payload);
+      setCompras((prev) => prev.map((c) => (c.id === id ? updated : c)));
+      return updated;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No se pudo cerrar la compra";
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setClosing(false);
+    }
+  }, []);
+
   const filteredCompras = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     return compras.filter((compra) => {
@@ -144,6 +164,7 @@ export function useCompras(): UseComprasReturn {
     loading,
     creating,
     updating,
+    closing,
     error,
     searchTerm,
     setSearchTerm,
@@ -157,6 +178,7 @@ export function useCompras(): UseComprasReturn {
     createCompra,
     updateCompra,
     deleteCompra,
+    cerrarConAjuste,
     clearError,
   };
 }
