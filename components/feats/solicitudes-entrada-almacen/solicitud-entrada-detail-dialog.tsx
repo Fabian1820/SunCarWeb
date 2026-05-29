@@ -6,6 +6,7 @@ import {
   ClipboardList,
   Loader2,
   Package,
+  Pencil,
   Warehouse,
   XCircle,
 } from "lucide-react";
@@ -57,6 +58,12 @@ interface SolicitudEntradaDetailDialogProps {
   almacenName?: string;
   onAprobar: (id: string, payload: AprobarSolicitudRequest) => Promise<void>;
   onDenegar: (id: string, payload: DenegarSolicitudRequest) => Promise<void>;
+  /**
+   * Solo aplica cuando la solicitud está pendiente. Si se pasa, se muestra
+   * un botón "Editar" que delega al caller (el caller abre el modal de
+   * edición). El dialog se cierra al hacer click.
+   */
+  onEdit?: (solicitud: SolicitudEntradaAlmacen) => void;
   isResolving?: boolean;
 }
 
@@ -66,6 +73,7 @@ export function SolicitudEntradaDetailDialog({
   solicitud,
   compraName,
   almacenName,
+  onEdit,
   onAprobar,
   onDenegar,
   isResolving = false,
@@ -249,26 +257,42 @@ export function SolicitudEntradaDetailDialog({
             )}
           </section>
 
-          {/* Acciones de aprobación / denegación */}
+          {/* Acciones de aprobación / denegación / edición */}
           {esPendiente && mode === "view" && (
-            <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-gray-100">
-              <Button
-                type="button"
-                onClick={() => setMode("aprobar")}
-                className="flex-1 gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
-              >
-                <CheckCircle2 className="h-4 w-4" />
-                Aprobar solicitud
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setMode("denegar")}
-                className="flex-1 gap-2 border-red-300 text-red-700 hover:bg-red-50"
-              >
-                <XCircle className="h-4 w-4" />
-                Denegar
-              </Button>
+            <div className="space-y-2 pt-2 border-t border-gray-100">
+              {onEdit && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    onEdit(solicitud);
+                    onOpenChange(false);
+                  }}
+                  className="w-full gap-2 border-blue-300 text-blue-700 hover:bg-blue-50"
+                >
+                  <Pencil className="h-4 w-4" />
+                  Editar solicitud
+                </Button>
+              )}
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button
+                  type="button"
+                  onClick={() => setMode("aprobar")}
+                  className="flex-1 gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  Aprobar solicitud
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setMode("denegar")}
+                  className="flex-1 gap-2 border-red-300 text-red-700 hover:bg-red-50"
+                >
+                  <XCircle className="h-4 w-4" />
+                  Denegar
+                </Button>
+              </div>
             </div>
           )}
 

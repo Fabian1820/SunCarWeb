@@ -4,13 +4,16 @@ import { apiRequest } from "../../../api-config";
 import type {
   AplicarPreciosMaterialPayload,
   ArchivoCompra,
-  CerrarConAjusteRequest,
+  CancelarCompraRequest,
   Compra,
   CompraCreateData,
   CompraMaterial,
   DatosMaritimo,
   EstadoCompra,
+  FichaPatchRequest,
   MaterialDatosBulk,
+  PonderarCostoRequest,
+  PonderarCostoResponse,
   StockMaterialCompra,
   TipoCompra,
   TipoContenedor,
@@ -38,13 +41,26 @@ const unwrapPayload = (response: any): any => {
   return response;
 };
 
+// Nombres canónicos actuales del backend. Se mantiene mapeo defensivo desde
+// los nombres viejos (borrador / en_transito / recibida_completa / cerrada_con_ajuste)
+// por si quedan compras en BD sin migrar — el backend normaliza en escritura
+// pero podría devolverlos en alguna lectura legacy.
 const normalizeEstado = (raw: any): EstadoCompra => {
   const value = String(raw || "").toLowerCase();
-  if (value === "cerrada_con_ajuste") return "cerrada_con_ajuste";
-  if (value === "recibida_completa") return "recibida_completa";
-  if (value === "recibida_parcial") return "recibida_parcial";
-  if (value === "en_transito") return "en_transito";
-  return "borrador";
+  // Nombres nuevos
+  if (value === "solicitado") return "solicitado";
+  if (value === "enviado") return "enviado";
+  if (value === "arribado") return "arribado";
+  if (value === "recibido_parcial") return "recibido_parcial";
+  if (value === "recibido") return "recibido";
+  if (value === "cancelado") return "cancelado";
+  // Compat con nombres viejos
+  if (value === "borrador") return "solicitado";
+  if (value === "en_transito") return "enviado";
+  if (value === "recibida_parcial") return "recibido_parcial";
+  if (value === "recibida_completa") return "recibido";
+  if (value === "cerrada_con_ajuste") return "cancelado";
+  return "solicitado";
 };
 
 const normalizeTipo = (raw: any): TipoCompra => {
@@ -78,6 +94,7 @@ const mapMaterial = (raw: any): CompraMaterial => ({
   precio_unitario_cif: Number(raw?.precio_unitario_cif ?? 0),
   porciento_recargo: Number(raw?.porciento_recargo ?? 0),
   costo: Number(raw?.costo ?? 0),
+  precios_aplicados: raw?.precios_aplicados === true,
   precio_venta_sugerido: raw?.precio_venta_sugerido != null ? Number(raw.precio_venta_sugerido) : null,
   precio_instaladora_sugerido: raw?.precio_instaladora_sugerido != null ? Number(raw.precio_instaladora_sugerido) : null,
   precio_venta_final: raw?.precio_venta_final != null ? Number(raw.precio_venta_final) : null,
@@ -131,6 +148,7 @@ const mapCompra = (raw: any): Compra => ({
   porciento_ventas: Number(raw?.porciento_ventas ?? 0),
   materiales: Array.isArray(raw?.materiales) ? raw.materiales.map(mapMaterial) : [],
   archivos: Array.isArray(raw?.archivos) ? raw.archivos.map(mapArchivo) : [],
+  motivo_cancelacion: typeof raw?.motivo_cancelacion === "string" ? raw.motivo_cancelacion : undefined,
   motivo_cierre_ajuste: typeof raw?.motivo_cierre_ajuste === "string" ? raw.motivo_cierre_ajuste : undefined,
   created_at: typeof raw?.created_at === "string" ? raw.created_at : undefined,
   updated_at: typeof raw?.updated_at === "string" ? raw.updated_at : undefined,
@@ -199,9 +217,14 @@ export class CompraService {
   }
 
   static async updateCompra(compraId: string, data: Partial<CompraCreateData>): Promise<Compra> {
+    // El backend rechaza cambios de estado vía PATCH (400). El estado solo cambia
+    // automáticamente al aprobar solicitudes o vía POST /cancelar. Descartamos
+    // el campo aunque el caller lo haya incluído por inercia.
+    const { estado: _ignored, ...rest } = data;
+    void _ignored;
     const raw = await apiRequest<any>(`${BASE_ENDPOINT}/${encodeURIComponent(compraId)}`, {
       method: "PATCH",
-      body: JSON.stringify(data),
+      body: JSON.stringify(rest),
     });
     const error = extractApiError(raw);
     if (error) throw new Error(error);
@@ -216,9 +239,9 @@ export class CompraService {
     if (error) throw new Error(error);
   }
 
-  static async cerrarConAjuste(compraId: string, payload: CerrarConAjusteRequest): Promise<Compra> {
+  static async cancelarCompra(compraId: string, payload: CancelarCompraRequest = {}): Promise<Compra> {
     const raw = await apiRequest<any>(
-      `${BASE_ENDPOINT}/${encodeURIComponent(compraId)}/cerrar-con-ajuste`,
+      `${BASE_ENDPOINT}/${encodeURIComponent(compraId)}/cancelar`,
       {
         method: "POST",
         body: JSON.stringify(payload),
@@ -227,6 +250,41 @@ export class CompraService {
     const error = extractApiError(raw);
     if (error) throw new Error(error);
     return mapCompra(unwrapPayload(raw));
+  }
+
+  static async guardarFicha(compraId: string, payload: FichaPatchRequest): Promise<Compra> {
+    const raw = await apiRequest<any>(
+      `${BASE_ENDPOINT}/${encodeURIComponent(compraId)}/ficha`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      },
+    );
+    const error = extractApiError(raw);
+    if (error) throw new Error(error);
+    return mapCompra(unwrapPayload(raw));
+  }
+
+  static async ponderarCosto(
+    compraId: string,
+    payload: PonderarCostoRequest = {},
+  ): Promise<PonderarCostoResponse> {
+    const raw = await apiRequest<any>(
+      `${BASE_ENDPOINT}/${encodeURIComponent(compraId)}/ponderar-costo`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    );
+    const error = extractApiError(raw);
+    if (error) throw new Error(error);
+    const data = unwrapPayload(raw) ?? {};
+    return {
+      actualizados: Number(data?.actualizados ?? 0),
+      kardex_recalculados: Array.isArray(data?.kardex_recalculados)
+        ? data.kardex_recalculados.map(String)
+        : [],
+    };
   }
 
   static async getStockMateriales(compraId: string): Promise<StockMaterialCompra[]> {

@@ -46,6 +46,7 @@ import type {
   TipoContenedor,
 } from "@/lib/types/feats/compras/compra-types";
 import {
+  COMPRA_ESTADO_LABELS,
   TIPO_CONTENEDOR_LABELS,
   TIPOS_CONTENEDOR,
 } from "@/lib/types/feats/compras/compra-types";
@@ -130,12 +131,13 @@ const TIPO_OPTIONS: {
   },
 ];
 
-const ESTADO_OPTIONS: { value: EstadoCompra; label: string }[] = [
-  { value: "borrador",           label: "Borrador" },
-  { value: "en_transito",        label: "En tránsito" },
-  { value: "recibida_parcial",   label: "Recibida parcial" },
-  { value: "recibida_completa",  label: "Recibida completa" },
-  { value: "cerrada_con_ajuste", label: "Cerrada con ajuste" },
+// Solo se ofrecen los estados que el operador puede asignar manualmente al
+// crear una compra. recibido / recibido_parcial son automáticos (los marca el
+// backend al aprobar solicitudes); cancelado va por POST /cancelar.
+const ESTADO_OPTIONS_CREATE: { value: EstadoCompra; label: string }[] = [
+  { value: "solicitado", label: "Solicitado" },
+  { value: "enviado",    label: "Enviado / en camino" },
+  { value: "arribado",   label: "Arribado" },
 ];
 
 function SectionHeader({ icon, label }: { icon: React.ReactNode; label: React.ReactNode }) {
@@ -171,7 +173,7 @@ export function CompraFormDialog({
   // General
   const [nombre,       setNombre]       = useState("");
   const [descripcion,  setDescripcion]  = useState("");
-  const [estado,       setEstado]       = useState<EstadoCompra>("borrador");
+  const [estado,       setEstado]       = useState<EstadoCompra>("solicitado");
   const [tipo,         setTipo]         = useState<TipoCompra | "">("");
 
   // Datos marítimos (anidados, solo si tipo === "maritimo")
@@ -205,11 +207,13 @@ export function CompraFormDialog({
 
   const diasNavegacion = calcDiasNavegacion(fechaEnvio, fechaLlegada);
   const esMaritimo = tipo === "maritimo";
-  // Una vez la compra está recibida (total o parcialmente), los materiales y
-  // cantidades quedan congelados — solo se pueden editar los datos informativos.
+  // Materiales y cantidades quedan congelados si la compra está recibida
+  // (total/parcial) o cancelada — solo se pueden editar los datos informativos.
   const materialesBloqueados =
     isEditMode &&
-    (initialData?.estado === "recibida_completa" || initialData?.estado === "recibida_parcial");
+    (initialData?.estado === "recibido" ||
+     initialData?.estado === "recibido_parcial" ||
+     initialData?.estado === "cancelado");
 
   useEffect(() => {
     if (!open) return;
@@ -247,7 +251,7 @@ export function CompraFormDialog({
         }),
       );
     } else {
-      setNombre(""); setDescripcion(""); setEstado("borrador"); setTipo("");
+      setNombre(""); setDescripcion(""); setEstado("solicitado"); setTipo("");
       setBl(""); setReferenciaBuque(""); setSello("");
       setBuque(""); setTipoContenedor(""); setPuertoOrigen(""); setPaisOrigen("");
       setPuertoDestino("Mariel"); setTransitaria("");
@@ -434,16 +438,32 @@ export function CompraFormDialog({
 
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium text-gray-700">Estado</Label>
-                <Select value={estado} onValueChange={(v) => setEstado(v as EstadoCompra)}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ESTADO_OPTIONS.map((e) => (
-                      <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {isEditMode ? (
+                  <div className="h-9 rounded-md border border-gray-200 bg-gray-50 px-3 flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-700">
+                      {COMPRA_ESTADO_LABELS[estado]}
+                    </span>
+                    <span className="text-[10px] text-gray-400 uppercase tracking-wide">
+                      automático
+                    </span>
+                  </div>
+                ) : (
+                  <Select value={estado} onValueChange={(v) => setEstado(v as EstadoCompra)}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ESTADO_OPTIONS_CREATE.map((e) => (
+                        <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {isEditMode && (
+                  <p className="text-[10px] text-gray-400 leading-tight">
+                    El estado cambia automáticamente al aprobar solicitudes de entrada o al cancelar la compra.
+                  </p>
+                )}
               </div>
 
               <div className="md:col-span-2 space-y-1.5">

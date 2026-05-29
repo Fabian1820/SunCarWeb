@@ -15,6 +15,7 @@ import {
 import {
   AnchorIcon,
   ArrowRight,
+  Ban,
   Building2,
   CalendarDays,
   ChevronDown,
@@ -33,7 +34,9 @@ import {
   Truck,
 } from "lucide-react";
 
-const ESTADOS_RECEPCION_PERMITIDOS = new Set(["borrador", "en_transito", "recibida_parcial"]);
+const ESTADOS_RECEPCION_PERMITIDOS = new Set<EstadoCompra>(["solicitado", "enviado", "arribado", "recibido_parcial"]);
+const ESTADOS_CANCELABLES = new Set<EstadoCompra>(["solicitado", "enviado", "arribado"]);
+const ESTADOS_PROXIMA_LLEGADA = new Set<EstadoCompra>(["solicitado", "enviado", "arribado"]);
 
 const formatDate = (value?: string) => {
   if (!value) return "—";
@@ -66,11 +69,12 @@ function TipoIcon({ tipo }: { tipo?: TipoCompra }) {
 
 function EstadoBadge({ estado }: { estado: EstadoCompra }) {
   const styles: Record<EstadoCompra, string> = {
-    borrador:           "bg-gray-50    text-gray-700    border-gray-200",
-    en_transito:        "bg-blue-50    text-blue-700    border-blue-200",
-    recibida_parcial:   "bg-amber-50   text-amber-700   border-amber-200",
-    recibida_completa:  "bg-emerald-50 text-emerald-700 border-emerald-200",
-    cerrada_con_ajuste: "bg-indigo-50  text-indigo-700  border-indigo-200",
+    solicitado:       "bg-amber-50   text-amber-700   border-amber-200",
+    enviado:          "bg-blue-50    text-blue-700    border-blue-200",
+    arribado:         "bg-indigo-50  text-indigo-700  border-indigo-200",
+    recibido_parcial: "bg-cyan-50    text-cyan-700    border-cyan-200",
+    recibido:         "bg-emerald-50 text-emerald-700 border-emerald-200",
+    cancelado:        "bg-red-50     text-red-700     border-red-200",
   };
   return (
     <Badge variant="outline" className={`text-xs font-medium ${styles[estado]}`}>
@@ -94,6 +98,7 @@ interface ComprasTableProps {
   onEdit?:   (compra: Compra) => void;
   onDocs?:   (compra: Compra) => void;
   onSolicitarEntrada?: (compra: Compra) => void;
+  onCancelar?: (compra: Compra) => void;
 }
 
 export function ComprasTable({
@@ -102,6 +107,7 @@ export function ComprasTable({
   onEdit,
   onDocs,
   onSolicitarEntrada,
+  onCancelar,
 }: ComprasTableProps) {
   const router = useRouter();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -229,7 +235,7 @@ export function ComprasTable({
                         <ArrowRight className="h-3.5 w-3.5 text-gray-400 shrink-0" />
                         <span className="text-xs font-medium">{formatDate(compra.fecha_llegada_aproximada)}</span>
                       </div>
-                      {(compra.estado === "borrador" || compra.estado === "en_transito") && (
+                      {ESTADOS_PROXIMA_LLEGADA.has(compra.estado) && (
                         <DaysLeftChip fecha={compra.fecha_llegada_aproximada} />
                       )}
                     </div>
@@ -276,6 +282,20 @@ export function ComprasTable({
                         >
                           <PackagePlus className="h-3.5 w-3.5" />
                           <span className="hidden 2xl:inline">Recepción</span>
+                        </Button>
+                      )}
+
+                      {onCancelar && ESTADOS_CANCELABLES.has(compra.estado) && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-2 gap-1 text-xs border-red-200 text-red-700 hover:bg-red-50 hover:border-red-300"
+                          onClick={() => onCancelar(compra)}
+                          title="Cancelar compra"
+                        >
+                          <Ban className="h-3.5 w-3.5" />
+                          <span className="hidden 2xl:inline">Cancelar</span>
                         </Button>
                       )}
 

@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import {
   AlertTriangle,
   ArrowLeft,
+  Calculator,
+  CheckCircle2,
   ChevronDown,
   ChevronUp,
   Info,
@@ -39,6 +41,7 @@ import type {
   CostoImportacion,
   Compra,
   CompraCreateData,
+  FichaPatchMaterial,
   MonedaCosto,
 } from "@/lib/types/feats/compras/compra-types";
 import {
@@ -115,6 +118,8 @@ function FichaCostoContent() {
   const [envio, setEnvio] = useState<Compra | null>(null);
   const [loadingEnvio, setLoadingEnvio] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingBorrador, setSavingBorrador] = useState(false);
+  const [ponderando, setPonderando] = useState(false);
   const [costosCollapsed, setCostosCollapsed] = useState(false);
 
   // ── costos de importación ──
@@ -172,8 +177,16 @@ function FichaCostoContent() {
         const costoGuardado = m.costo ?? 0;
         const pvSugerido = m.precio_venta_sugerido ?? 0;
         const piSugerido = m.precio_instaladora_sugerido ?? 0;
-        const pvFinal = m.precio_venta_final ?? pvSugerido;
-        const piFinal = m.precio_instaladora_final ?? piSugerido;
+        // Si la compra aún no tiene precios finales, precargar desde el
+        // catálogo de productos cuando el material ya tiene precios definidos
+        // (caso típico: estamos reabasteciendo un producto ya conocido).
+        const pvFinal = m.precio_venta_final ?? (pvSugerido > 0 ? pvSugerido : datos.precio);
+        const piFinal = m.precio_instaladora_final ?? (piSugerido > 0 ? piSugerido : datos.precio_instaladora);
+        // % rebajable: si la compra no lo tiene seteado pero el catálogo sí,
+        // usar el del catálogo como punto de partida.
+        const porcRebajable = m.porciento_rebajable_venta && m.porciento_rebajable_venta > 0
+          ? m.porciento_rebajable_venta
+          : (datos.porciento_rebajable_venta ?? 0);
         return {
           material_id: m.material_id,
           material_codigo: m.material_codigo,
@@ -185,7 +198,7 @@ function FichaCostoContent() {
           stock_actual: datos.stock_total,
           porciento_rebajable_actual: datos.porciento_rebajable_venta ?? m.porciento_rebajable_venta ?? 0,
           precio_unitario_cif: cifUnit,
-          porciento_rebajable_venta: m.porciento_rebajable_venta ?? 0,
+          porciento_rebajable_venta: porcRebajable,
           porciento_recargo: recargoFila,
           porciento_recargo_override: recargoTotalGuardado > 0,
           costo_nuevo: costoGuardado || cifUnit * (1 + recargoTotalGuardado / 100),
@@ -531,6 +544,90 @@ function FichaCostoContent() {
     }
   };
 
+  /**
+   * Guardado parcial de la ficha: persiste los CIF/recargo/costo/precios finales
+   * SIN aplicar precios al catálogo de productos. El flag `precios_aplicados`
+   * queda en false. Permite trabajar la ficha en varias sesiones.
+   */
+  const handleGuardarBorrador = async () => {
+    if (filas.length === 0) {
+      toast({ title: "Sin materiales", description: "No hay materiales en esta compra.", variant: "destructive" });
+      return;
+    }
+    setSavingBorrador(true);
+    try {
+      // 1. PATCH del contenedor con totales y porcentajes
+      const updatePayload: Partial<CompraCreateData> = {
+        costos,
+        porciento_instaladora: porcientoInstaladora,
+        porciento_ventas: porcientoVentas,
+        porciento_cargo_envio_sugerido: porcientoEnvioSugerido,
+        porciento_cargo_envio_impuestos: porcientoImpuestos,
+        total_costos: totalCostosUsd,
+        valor_mercancia: totalValorMercancias,
+        tasa_conversion_eur_usd: hayCostosEnEur ? tasaEurUsd : null,
+      };
+      await CompraService.updateCompra(envioId, updatePayload);
+
+      // 2. PATCH /ficha con los materiales tal como están (sin aplicar al catálogo)
+      const materiales: FichaPatchMaterial[] = filas.map((f) => ({
+        material_id: f.material_id,
+        precio_unitario_cif: f.precio_unitario_cif,
+        porciento_recargo: f.porciento_recargo + porcientoImpuestos,
+        costo: f.costo_nuevo,
+        precio_venta_sugerido: f.precio_venta_sugerido > 0 ? f.precio_venta_sugerido : null,
+        precio_instaladora_sugerido: f.precio_instaladora_sugerido > 0 ? f.precio_instaladora_sugerido : null,
+        precio_venta_final: f.precio_venta_final > 0 ? f.precio_venta_final : null,
+        precio_instaladora_final: f.precio_instaladora_final > 0 ? f.precio_instaladora_final : null,
+        porciento_rebajable_venta: f.porciento_rebajable_venta,
+      }));
+      const compraActualizada = await CompraService.guardarFicha(envioId, { materiales });
+      setEnvio(compraActualizada);
+      toast({
+        title: "Ficha guardada",
+        description: "El progreso quedó guardado. Los precios todavía no se aplicaron al catálogo.",
+      });
+    } catch (err) {
+      toast({
+        title: "Error al guardar ficha",
+        description: err instanceof Error ? err.message : "Error desconocido",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingBorrador(false);
+    }
+  };
+
+  /**
+   * Ponderar costo: el backend recorre el kardex de esta compra, busca entradas
+   * con costo 0 (recepciones hechas antes de tener la ficha) y aplica el costo
+   * de la ficha + recalcula promedios. Útil cuando se dio entrada antes de
+   * confeccionar la ficha.
+   */
+  const handlePonderarCosto = async () => {
+    if (!confirm(
+      "Esto recorre el kardex de esta compra y aplica los costos de la ficha a las entradas que quedaron en 0. ¿Continuar?",
+    )) return;
+    setPonderando(true);
+    try {
+      const r = await CompraService.ponderarCosto(envioId);
+      toast({
+        title: "Costos ponderados",
+        description: r.actualizados > 0
+          ? `${r.actualizados} entrada${r.actualizados !== 1 ? "s" : ""} actualizada${r.actualizados !== 1 ? "s" : ""} en el kardex.`
+          : "No había entradas pendientes de costear.",
+      });
+    } catch (err) {
+      toast({
+        title: "Error al ponderar costo",
+        description: err instanceof Error ? err.message : "Error desconocido",
+        variant: "destructive",
+      });
+    } finally {
+      setPonderando(false);
+    }
+  };
+
   // ─── render ───────────────────────────────────────────────────────────────
 
   if (loadingEnvio) return <PageLoader moduleName="Ficha de Costo" text="Cargando ficha de costo..." />;
@@ -582,16 +679,41 @@ function FichaCostoContent() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2 shrink-0 flex-wrap">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handlePonderarCosto}
+                disabled={ponderando || savingBorrador || saving}
+                className="gap-1.5 border-violet-300 text-violet-700 hover:bg-violet-50"
+                title="Aplicar el costo de esta ficha a entradas anteriores con costo 0"
+              >
+                {ponderando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Calculator className="h-3.5 w-3.5" />}
+                <span className="hidden lg:inline">Ponderar costo</span>
+                <span className="lg:hidden">Ponderar</span>
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleGuardarBorrador}
+                disabled={savingBorrador || saving}
+                className="gap-1.5 border-gray-300 text-gray-700 hover:bg-gray-50"
+                title="Guardar el progreso de la ficha sin aplicar al catálogo"
+              >
+                {savingBorrador ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                <span className="hidden lg:inline">Guardar ficha</span>
+                <span className="lg:hidden">Guardar</span>
+              </Button>
               <Button
                 size="sm"
                 onClick={abrirConfirmacion}
                 disabled={saving || hayErroresValidacion}
                 className="gap-1.5 bg-cyan-600 hover:bg-cyan-700 text-white"
+                title="Aplicar precios al catálogo de productos"
               >
-                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                <span className="hidden sm:inline">Guardar y aplicar precios</span>
-                <span className="sm:hidden">Guardar</span>
+                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                <span className="hidden sm:inline">Aplicar precios</span>
+                <span className="sm:hidden">Aplicar</span>
               </Button>
             </div>
           </div>
@@ -1003,6 +1125,12 @@ function FichaCostoContent() {
                             <td className="py-2.5 px-4">
                               <p className="font-semibold text-gray-900 text-sm leading-tight">{f.material_nombre}</p>
                               <p className="text-xs text-gray-400 mt-0.5 font-mono">{f.material_codigo}</p>
+                              {envio?.materiales.find((m) => m.material_id === f.material_id)?.precios_aplicados && (
+                                <span className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  <CheckCircle2 className="h-2.5 w-2.5" />
+                                  Precios aplicados
+                                </span>
+                              )}
                             </td>
 
                             {/* Cantidad */}

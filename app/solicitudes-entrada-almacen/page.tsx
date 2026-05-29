@@ -44,7 +44,7 @@ import { CrearSolicitudEntradaDialog } from "@/components/feats/solicitudes-entr
 import { SolicitudesEntradaTable } from "@/components/feats/solicitudes-entrada-almacen/solicitudes-entrada-table";
 import { SolicitudEntradaDetailDialog } from "@/components/feats/solicitudes-entrada-almacen/solicitud-entrada-detail-dialog";
 
-const ESTADOS_COMPRA_PERMITIDOS = new Set(["borrador", "en_transito", "recibida_parcial"]);
+const ESTADOS_COMPRA_PERMITIDOS = new Set(["solicitado", "enviado", "arribado", "recibido_parcial"]);
 
 export default function SolicitudesEntradaAlmacenPage() {
   return (
@@ -96,6 +96,7 @@ function SolicitudesEntradaAlmacenContent() {
     setCompraFilter,
     loadSolicitudes,
     createSolicitud,
+    updateSolicitud,
     aprobarSolicitud,
     denegarSolicitud,
     clearError,
@@ -106,6 +107,7 @@ function SolicitudesEntradaAlmacenContent() {
   const [createOpen, setCreateOpen] = useState(false);
   const [compraParaCrear, setCompraParaCrear] = useState<Compra | null>(null);
   const [viewTarget, setViewTarget] = useState<SolicitudEntradaAlmacen | null>(null);
+  const [editTarget, setEditTarget] = useState<SolicitudEntradaAlmacen | null>(null);
 
   const compraNameById = useMemo(() => {
     const map: Record<string, string> = {};
@@ -155,6 +157,16 @@ function SolicitudesEntradaAlmacenContent() {
     await createSolicitud(data);
     toast({ title: "Solicitud creada", description: "La solicitud quedó en estado pendiente." });
   };
+
+  const handleUpdate = async (id: string, data: Parameters<typeof updateSolicitud>[1]) => {
+    await updateSolicitud(id, data);
+    toast({ title: "Solicitud actualizada", description: "Los cambios fueron guardados." });
+  };
+
+  const compraDeEdicion = useMemo(() => {
+    if (!editTarget) return null;
+    return compras.find((c) => c.id === editTarget.compra_id) ?? null;
+  }, [editTarget, compras]);
 
   const handleAprobar = async (id: string, payload: Parameters<typeof aprobarSolicitud>[1]) => {
     await aprobarSolicitud(id, payload);
@@ -309,7 +321,7 @@ function SolicitudesEntradaAlmacenContent() {
           </DialogHeader>
           <div className="space-y-3">
             <p className="text-xs text-gray-500">
-              Solo se muestran compras en estado borrador, en tránsito o recibida parcial.
+              Solo se muestran compras pendientes de recepción (solicitado, enviado, arribado o recibido parcial).
             </p>
             <Select value={compraSeleccionadaId} onValueChange={setCompraSeleccionadaId}>
               <SelectTrigger>
@@ -354,6 +366,17 @@ function SolicitudesEntradaAlmacenContent() {
         isLoading={creating}
       />
 
+      {/* Modal de edición de solicitud pendiente */}
+      <CrearSolicitudEntradaDialog
+        open={Boolean(editTarget)}
+        onOpenChange={(open) => { if (!open) setEditTarget(null); }}
+        compra={compraDeEdicion}
+        almacenes={almacenes}
+        solicitudExistente={editTarget}
+        onSubmit={handleCreate}
+        onUpdate={handleUpdate}
+      />
+
       {/* Detalle */}
       <SolicitudEntradaDetailDialog
         open={Boolean(viewTarget)}
@@ -363,6 +386,7 @@ function SolicitudesEntradaAlmacenContent() {
         almacenName={viewTarget ? almacenNameById[viewTarget.almacen_id] : undefined}
         onAprobar={handleAprobar}
         onDenegar={handleDenegar}
+        onEdit={(s) => setEditTarget(s)}
         isResolving={resolving}
       />
 

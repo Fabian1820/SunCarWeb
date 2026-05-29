@@ -17,6 +17,12 @@ export interface MaterialSolicitudEntrada {
   cantidad_total: number;
   costo_unitario: number;
   split: SplitPool;
+  /**
+   * Motivo cuando `cantidad_total` es menor que lo pendiente de la compra.
+   * Obligatorio en escritura si hay parcial; opcional/null si la cantidad
+   * cubre todo el pendiente.
+   */
+  motivo_parcial?: string | null;
 }
 
 export interface SolicitudEntradaAlmacen {
@@ -47,6 +53,11 @@ export interface MaterialSolicitudEntradaCreate {
    */
   costo_unitario?: number;
   split: SplitPool;
+  /**
+   * Si `cantidad_total` es menor que lo pendiente de la compra, el backend
+   * exige `motivo_parcial`. El frontend debe enviarlo cuando aplique.
+   */
+  motivo_parcial?: string;
 }
 
 export interface SolicitudEntradaAlmacenCreateData {

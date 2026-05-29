@@ -13,6 +13,7 @@ interface UseSolicitudesEntradaAlmacenReturn {
   filteredSolicitudes: SolicitudEntradaAlmacen[];
   loading: boolean;
   creating: boolean;
+  updating: boolean;
   resolving: boolean;
   error: string | null;
   searchTerm: string;
@@ -25,6 +26,7 @@ interface UseSolicitudesEntradaAlmacenReturn {
   setCompraFilter: (value: string) => void;
   loadSolicitudes: () => Promise<void>;
   createSolicitud: (data: SolicitudEntradaAlmacenCreateData) => Promise<SolicitudEntradaAlmacen>;
+  updateSolicitud: (id: string, data: Partial<SolicitudEntradaAlmacenCreateData>) => Promise<SolicitudEntradaAlmacen>;
   aprobarSolicitud: (id: string, payload?: AprobarSolicitudRequest) => Promise<SolicitudEntradaAlmacen>;
   denegarSolicitud: (id: string, payload: DenegarSolicitudRequest) => Promise<SolicitudEntradaAlmacen>;
   clearError: () => void;
@@ -34,6 +36,7 @@ export function useSolicitudesEntradaAlmacen(): UseSolicitudesEntradaAlmacenRetu
   const [solicitudes, setSolicitudes] = useState<SolicitudEntradaAlmacen[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [updating, setUpdating] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -78,6 +81,22 @@ export function useSolicitudesEntradaAlmacen(): UseSolicitudesEntradaAlmacenRetu
       throw new Error(message);
     } finally {
       setCreating(false);
+    }
+  }, []);
+
+  const updateSolicitud = useCallback(async (id: string, data: Partial<SolicitudEntradaAlmacenCreateData>) => {
+    setUpdating(true);
+    setError(null);
+    try {
+      const updated = await SolicitudEntradaAlmacenService.updateSolicitud(id, data);
+      setSolicitudes((prev) => prev.map((s) => (s.id === id ? updated : s)));
+      return updated;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No se pudo actualizar la solicitud";
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setUpdating(false);
     }
   }, []);
 
@@ -145,6 +164,7 @@ export function useSolicitudesEntradaAlmacen(): UseSolicitudesEntradaAlmacenRetu
     filteredSolicitudes,
     loading,
     creating,
+    updating,
     resolving,
     error,
     searchTerm,
@@ -157,6 +177,7 @@ export function useSolicitudesEntradaAlmacen(): UseSolicitudesEntradaAlmacenRetu
     setCompraFilter,
     loadSolicitudes,
     createSolicitud,
+    updateSolicitud,
     aprobarSolicitud,
     denegarSolicitud,
     clearError,

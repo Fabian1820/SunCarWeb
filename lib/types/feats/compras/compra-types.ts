@@ -1,9 +1,10 @@
 export const ESTADOS_COMPRA = [
-  "borrador",
-  "en_transito",
-  "recibida_parcial",
-  "recibida_completa",
-  "cerrada_con_ajuste",
+  "solicitado",
+  "enviado",
+  "arribado",
+  "recibido_parcial",
+  "recibido",
+  "cancelado",
 ] as const;
 export type EstadoCompra = (typeof ESTADOS_COMPRA)[number];
 
@@ -66,7 +67,15 @@ export interface CompraMaterial {
   precio_instaladora_final?: number | null;
   porciento_rebajable_venta: number;
   cantidad_entrada_aprobada: number;
-  cantidad_ajuste_cierre: number;
+  /**
+   * Flag por material: indica si los precios de la ficha ya fueron aplicados
+   * al catálogo de productos (POST /aplicar-precios). Permanece false mientras
+   * se hace guardado parcial con PATCH /ficha.
+   */
+  precios_aplicados?: boolean;
+  /** @deprecated mantenido por compatibilidad con compras antiguas migradas */
+  cantidad_ajuste_cierre?: number;
+  /** @deprecated mantenido por compatibilidad con compras antiguas migradas */
   motivo_ajuste_cierre?: string;
 }
 
@@ -92,6 +101,9 @@ export interface Compra {
   porciento_ventas: number;
   materiales: CompraMaterial[];
   archivos: ArchivoCompra[];
+  /** Motivo informado al hacer POST /cancelar. */
+  motivo_cancelacion?: string;
+  /** @deprecated mantenido por compatibilidad con compras antiguas migradas */
   motivo_cierre_ajuste?: string;
   created_at?: string;
   updated_at?: string;
@@ -135,15 +147,37 @@ export interface CompraCreateData {
   materiales: CompraMaterialCreate[];
 }
 
-export interface AjusteCierreItem {
-  material_id: string;
-  cantidad: number;
-  motivo: string;
+// Payload del POST /api/compras/{id}/cancelar
+export interface CancelarCompraRequest {
+  motivo?: string;
 }
 
-export interface CerrarConAjusteRequest {
-  ajustes: AjusteCierreItem[];
-  motivo_general?: string;
+// Payload del PATCH /api/compras/{id}/ficha (guardado parcial de la ficha sin
+// aplicar precios al catálogo de productos).
+export interface FichaPatchMaterial {
+  material_id: string;
+  precio_unitario_cif?: number;
+  porciento_recargo?: number;
+  costo?: number;
+  precio_venta_sugerido?: number | null;
+  precio_instaladora_sugerido?: number | null;
+  precio_venta_final?: number | null;
+  precio_instaladora_final?: number | null;
+  porciento_rebajable_venta?: number;
+}
+
+export interface FichaPatchRequest {
+  materiales: FichaPatchMaterial[];
+}
+
+// Payload del POST /api/compras/{id}/ponderar-costo
+export interface PonderarCostoRequest {
+  material_ids?: string[];
+}
+
+export interface PonderarCostoResponse {
+  actualizados: number;
+  kardex_recalculados: string[];
 }
 
 export interface StockMaterialCompra {
@@ -175,11 +209,12 @@ export interface AplicarPreciosMaterialPayload {
 }
 
 export const COMPRA_ESTADO_LABELS: Record<EstadoCompra, string> = {
-  borrador: "Borrador",
-  en_transito: "En tránsito",
-  recibida_parcial: "Recibida parcial",
-  recibida_completa: "Recibida completa",
-  cerrada_con_ajuste: "Cerrada con ajuste",
+  solicitado: "Solicitado",
+  enviado: "Enviado",
+  arribado: "Arribado",
+  recibido_parcial: "Recibido parcial",
+  recibido: "Recibido",
+  cancelado: "Cancelado",
 };
 
 export const TIPO_COMPRA_LABELS: Record<TipoCompra, string> = {
