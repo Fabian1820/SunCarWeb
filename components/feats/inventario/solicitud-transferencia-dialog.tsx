@@ -81,16 +81,11 @@ export function SolicitudTransferenciaDialog({
   const [stockReal, setStockReal] = useState<Map<string, number>>(new Map())
   const [fetchingStockIds, setFetchingStockIds] = useState<Set<string>>(new Set())
 
-  const fetchStockMaterial = useCallback(async (materialId: string, almacenId: string, materialCodigo?: string) => {
+  const fetchStockMaterial = useCallback(async (materialId: string, almacenId: string) => {
     if (!materialId || !almacenId) return
     setFetchingStockIds(prev => new Set(prev).add(materialId))
     try {
-      const result = await InventarioService.getStock({
-        almacen_id: almacenId,
-        material_id: materialId,
-        material_codigo: materialCodigo,
-        limit: 1,
-      })
+      const result = await InventarioService.getStock({ almacen_id: almacenId, material_id: materialId, limit: 1 })
       const cantidad = result.data.reduce((sum, item) => sum + (item.cantidad ?? 0), 0)
       setStockReal(prev => new Map(prev).set(materialId, cantidad))
     } catch {
@@ -112,17 +107,33 @@ export function SolicitudTransferenciaDialog({
       setReferencia(solicitud.referencia || "")
 
       const enriched: ItemRow[] = solicitud.items.map((item) => {
+        const codigoStr = item.material_codigo != null ? String(item.material_codigo) : ""
+        // The backend stores (producto_id, codigo) — not necessarily the same
+        // value that the create flow sent as material_id. To get correct stock
+        // we must reconstruct the same `Material.id` the catalog uses (and that
+        // the create flow would use), by finding the exact material in the
+        // catalog via (producto_id + codigo) and using its .id for fetch+submit.
         const mat =
-          materiales.find((m) => m.id === item.material_id) ||
+          (codigoStr
+            ? materiales.find(
+                (m) =>
+                  m.producto_id === item.material_id &&
+                  String(m.codigo) === codigoStr,
+              )
+            : undefined) ||
           materiales.find(
-            (m) => String(m.codigo) === String(item.material_codigo ?? item.material_id),
-          )
-        // Use the resolved frontend Material.id (the compound producto_id_codigo
-        // the backend's /inventario/stock understands). Fall back to the raw
-        // backend value if the material is not in the catalogo lookup.
-        const resolvedId = mat?.id || item.material_id
+            (m) => m.id === item.material_id && (!codigoStr || String(m.codigo) === codigoStr),
+          ) ||
+          materiales.find((m) => m.id === item.material_id) ||
+          (codigoStr
+            ? materiales.find((m) => String(m.codigo) === codigoStr)
+            : undefined)
+
         return {
-          material_id: resolvedId,
+          // Use the catalog's Material.id so /inventario/stock receives the
+          // same key the create flow uses. Fall back to raw backend value if
+          // the material isn't in the catalog.
+          material_id: mat?.id || item.material_id,
           material_codigo: String(mat?.codigo ?? item.material_codigo ?? ""),
           nombre: mat?.nombre || mat?.descripcion || "",
           descripcion: mat?.descripcion || mat?.nombre || "",
@@ -137,7 +148,7 @@ export function SolicitudTransferenciaDialog({
       setFetchingStockIds(new Set())
       if (origen) {
         for (const item of enriched) {
-          if (item.material_id) fetchStockMaterial(item.material_id, origen, item.material_codigo || undefined)
+          if (item.material_id) fetchStockMaterial(item.material_id, origen)
         }
       }
     } else {
@@ -162,7 +173,7 @@ export function SolicitudTransferenciaDialog({
     if (!origenId || items.length === 0) return
     setStockReal(new Map())
     for (const item of items) {
-      if (item.material_id) fetchStockMaterial(item.material_id, origenId, item.material_codigo || undefined)
+      if (item.material_id) fetchStockMaterial(item.material_id, origenId)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [origenId])
@@ -217,7 +228,7 @@ export function SolicitudTransferenciaDialog({
     setMaterialSearch("")
     setShowMaterialDropdown(false)
 
-    if (origenId) fetchStockMaterial(id, origenId, String(material.codigo || "") || undefined)
+    if (origenId) fetchStockMaterial(id, origenId)
   }
 
   const handleRemoveMaterial = (index: number) => {
