@@ -40,7 +40,12 @@ export interface MaterialSolicitudEntradaCreate {
   material_codigo: string;
   material_nombre: string;
   cantidad_total: number;
-  costo_unitario: number;
+  /**
+   * Costo unitario. Opcional: si no se envía, el backend lo deduce de la
+   * Ficha de Costos de la compra. Si la ficha no existe, queda en 0 y se
+   * pondera después con POST /api/compras/{id}/ponderar-costo.
+   */
+  costo_unitario?: number;
   split: SplitPool;
 }
 

@@ -7,7 +7,7 @@ import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import { InventarioService } from "@/lib/api-services"
 import type { Almacen } from "@/lib/inventario-types"
-import { BarChart3, FileOutput } from "lucide-react"
+import { BarChart3, FileOutput, PackagePlus } from "lucide-react"
 
 export default function AlmacenHubPage() {
   const params = useParams()
@@ -46,6 +46,14 @@ export default function AlmacenHubPage() {
       href: `/almacenes/${almacenId}`,
     },
     {
+      id: "solicitudes-entrada",
+      title: "Solicitudes de Entrada",
+      description: "Aprobar o rechazar recepciones de mercancía",
+      icon: PackagePlus,
+      color: "indigo",
+      href: `/almacenes-suncar/${almacenId}/solicitudes-entrada`,
+    },
+    {
       id: "vales-salida",
       title: "Vales de Salida",
       description: "Gestionar vales de salida de materiales",
@@ -68,6 +76,12 @@ export default function AlmacenHubPage() {
         border: "border-orange-200",
         icon: "text-orange-600",
         hover: "hover:bg-orange-100",
+      },
+      indigo: {
+        bg: "bg-indigo-50",
+        border: "border-indigo-200",
+        icon: "text-indigo-600",
+        hover: "hover:bg-indigo-100",
       },
     }
     return colors[color] || colors.blue

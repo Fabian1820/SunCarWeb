@@ -45,7 +45,6 @@ import { CompraFormDialog } from "@/components/feats/compras/compra-form-dialog"
 import { ComprasTable } from "@/components/feats/compras/compras-table";
 import { CompraDocumentosPanel } from "@/components/feats/compras/compra-documentos-panel";
 import { CrearSolicitudEntradaDialog } from "@/components/feats/solicitudes-entrada-almacen/crear-solicitud-entrada-dialog";
-import { CerrarCompraAjusteDialog } from "@/components/feats/compras/cerrar-compra-ajuste-dialog";
 import { Paperclip } from "lucide-react";
 import type {
   ArchivoCompra,
@@ -80,7 +79,6 @@ function ComprasContent() {
     loading,
     creating,
     updating,
-    closing,
     error,
     searchTerm,
     setSearchTerm,
@@ -94,7 +92,6 @@ function ComprasContent() {
     createCompra,
     updateCompra,
     deleteCompra,
-    cerrarConAjuste,
     clearError,
   } = useCompras();
 
@@ -103,7 +100,6 @@ function ComprasContent() {
   const [docCompra,    setDocCompra]    = useState<Compra | null>(null);
   const [docArchivos,  setDocArchivos]  = useState<ArchivoCompra[]>([]);
   const [solicitudCompra, setSolicitudCompra] = useState<Compra | null>(null);
-  const [cerrarTarget, setCerrarTarget] = useState<Compra | null>(null);
   const [almacenes, setAlmacenes] = useState<Almacen[]>([]);
 
   const { createSolicitud, creating: creatingSolicitud } = useSolicitudesEntradaAlmacen();
@@ -121,17 +117,6 @@ function ComprasContent() {
     toast({ title: "Solicitud creada", description: "La solicitud quedó pendiente de aprobación." });
     // Refrescar compras para reflejar cualquier cambio derivado del backend
     void loadCompras();
-  };
-
-  const handleCerrarConAjuste = async (
-    compraId: string,
-    payload: Parameters<typeof cerrarConAjuste>[1],
-  ) => {
-    await cerrarConAjuste(compraId, payload);
-    toast({
-      title: "Compra cerrada",
-      description: "La compra quedó marcada como cerrada con ajuste.",
-    });
   };
 
   const activeFilters = [
@@ -371,7 +356,6 @@ function ComprasContent() {
               onEdit={(compra) => setEditTarget(compra)}
               onDocs={handleOpenDocs}
               onSolicitarEntrada={handleSolicitarEntrada}
-              onCerrarConAjuste={(compra) => setCerrarTarget(compra)}
             />
           </CardContent>
         </Card>
@@ -430,14 +414,6 @@ function ComprasContent() {
         almacenes={almacenes}
         onSubmit={handleCrearSolicitud}
         isLoading={creatingSolicitud}
-      />
-
-      <CerrarCompraAjusteDialog
-        open={Boolean(cerrarTarget)}
-        onOpenChange={(open) => { if (!open) setCerrarTarget(null); }}
-        compra={cerrarTarget}
-        onSubmit={handleCerrarConAjuste}
-        isLoading={closing}
       />
 
       <Toaster />

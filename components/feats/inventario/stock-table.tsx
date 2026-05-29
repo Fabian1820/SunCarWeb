@@ -5,6 +5,7 @@ import { Button } from "@/components/shared/atom/button";
 import { Package, MapPin, Loader2, Pencil } from "lucide-react";
 import type { StockItem } from "@/lib/inventario-types";
 import { POOLS_STOCK, POOL_STOCK_LABELS } from "@/lib/types/feats/inventario/inventario-types";
+import { PoolsDistributionDialog } from "@/components/feats/inventario/pools-distribution-dialog";
 import type { Material } from "@/lib/material-types";
 import {
   Tooltip,
@@ -62,7 +63,29 @@ export function StockTable({
     almacenId: string;
     materialId: string;
     materialNombre?: string;
+    pools?: StockItem["pools"];
+    um?: string;
   }>({ open: false, almacenId: "", materialId: "" });
+
+  const [poolsDialog, setPoolsDialog] = useState<{
+    open: boolean;
+    titulo: string;
+    contexto?: string;
+    pools?: StockItem["pools"];
+    um?: string;
+    mostrarReserva: boolean;
+  }>({ open: false, titulo: "", mostrarReserva: false });
+
+  const handleOpenPoolsDialog = (item: StockItem, nombreMaterial: string, mostrarReserva: boolean) => {
+    setPoolsDialog({
+      open: true,
+      titulo: nombreMaterial,
+      contexto: item.almacen_nombre ?? almacenNombreFallback,
+      pools: item.pools,
+      um: item.um,
+      mostrarReserva,
+    });
+  };
 
   const handleOpenReservasDialog = (item: StockItem, nombreMaterial: string) => {
     if (!item.material_id) return;
@@ -71,6 +94,8 @@ export function StockTable({
       almacenId: item.almacen_id,
       materialId: item.material_id,
       materialNombre: nombreMaterial,
+      pools: item.pools,
+      um: item.um,
     });
   };
 
@@ -276,20 +301,17 @@ export function StockTable({
                     {item.pools && POOLS_STOCK.some((p) => (item.pools![p]?.cantidad ?? 0) > 0) ? (
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <span className="inline-flex rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 text-sm font-semibold cursor-help underline decoration-dotted">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenPoolsDialog(item, nombreMaterial, false)}
+                            className="inline-flex rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 text-sm font-semibold hover:bg-emerald-100 transition-colors cursor-pointer"
+                          >
                             {item.cantidad}
                             {item.um ? ` ${item.um}` : ""}
-                          </span>
+                          </button>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <div className="text-xs space-y-0.5">
-                            {POOLS_STOCK.map((p) => (
-                              <div key={p} className="flex justify-between gap-3">
-                                <span className="text-gray-300">{POOL_STOCK_LABELS[p]}:</span>
-                                <span className="font-mono">{item.pools![p]?.cantidad ?? 0}</span>
-                              </div>
-                            ))}
-                          </div>
+                          <p>Ver distribución por pool</p>
                         </TooltipContent>
                       </Tooltip>
                     ) : (
@@ -457,6 +479,18 @@ export function StockTable({
         almacenId={reservasDialog.almacenId}
         materialId={reservasDialog.materialId}
         materialNombre={reservasDialog.materialNombre}
+        pools={reservasDialog.pools}
+        um={reservasDialog.um}
+      />
+
+      <PoolsDistributionDialog
+        open={poolsDialog.open}
+        onOpenChange={(open) => setPoolsDialog((prev) => ({ ...prev, open }))}
+        titulo={poolsDialog.titulo}
+        contexto={poolsDialog.contexto}
+        pools={poolsDialog.pools}
+        um={poolsDialog.um}
+        mostrarReserva={poolsDialog.mostrarReserva}
       />
         </>
       </TooltipProvider>

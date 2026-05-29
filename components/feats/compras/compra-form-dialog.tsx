@@ -205,6 +205,11 @@ export function CompraFormDialog({
 
   const diasNavegacion = calcDiasNavegacion(fechaEnvio, fechaLlegada);
   const esMaritimo = tipo === "maritimo";
+  // Una vez la compra está recibida (total o parcialmente), los materiales y
+  // cantidades quedan congelados — solo se pueden editar los datos informativos.
+  const materialesBloqueados =
+    isEditMode &&
+    (initialData?.estado === "recibida_completa" || initialData?.estado === "recibida_parcial");
 
   useEffect(() => {
     if (!open) return;
@@ -333,10 +338,13 @@ export function CompraFormDialog({
     if (!tipo) { setError("Selecciona el tipo de compra."); return; }
     if (!fechaEnvio || !fechaLlegada) { setError("Indica ambas fechas."); return; }
     if (new Date(fechaLlegada) < new Date(fechaEnvio)) { setError("La llegada no puede ser anterior al envío."); return; }
-    if (matList.length === 0) { setError("Agrega al menos un material."); return; }
+    if (!materialesBloqueados && matList.length === 0) { setError("Agrega al menos un material."); return; }
     setSubmitting(true);
     try {
-      await onSubmit({
+      // Cuando los materiales están bloqueados (compra ya recibida) no los
+      // mandamos en el payload para no provocar validaciones de "modificación
+      // de materiales en estado X" en el backend.
+      const payload: CompraCreateData = {
         nombre: nombre.trim(),
         descripcion: descripcion.trim() || undefined,
         tipo: tipo as TipoCompra,
@@ -347,17 +355,29 @@ export function CompraFormDialog({
         estado,
         pagado,
         datos_maritimo: buildDatosMaritimo(),
-        materiales: matList.map((m) => ({
-          material_id: m.material_id,
-          material_codigo: m.material_codigo,
-          material_nombre: m.material_nombre,
-          cantidad: m.cantidad,
-          precio_unitario_cif: 0,
-          porciento_recargo: 0,
-          costo: 0,
-          porciento_rebajable_venta: 0,
-        })),
-      });
+        materiales: materialesBloqueados
+          ? (initialData?.materiales.map((m) => ({
+              material_id: m.material_id,
+              material_codigo: m.material_codigo,
+              material_nombre: m.material_nombre,
+              cantidad: m.cantidad,
+              precio_unitario_cif: m.precio_unitario_cif,
+              porciento_recargo: m.porciento_recargo,
+              costo: m.costo,
+              porciento_rebajable_venta: m.porciento_rebajable_venta,
+            })) ?? [])
+          : matList.map((m) => ({
+              material_id: m.material_id,
+              material_codigo: m.material_codigo,
+              material_nombre: m.material_nombre,
+              cantidad: m.cantidad,
+              precio_unitario_cif: 0,
+              porciento_recargo: 0,
+              costo: 0,
+              porciento_rebajable_venta: 0,
+            })),
+      };
+      await onSubmit(payload);
       onOpenChange(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo guardar la compra.");
@@ -740,8 +760,20 @@ export function CompraFormDialog({
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
               <Package className="h-3.5 w-3.5" />
               Materiales de la compra
-              <span className="text-red-400 font-normal normal-case">(mínimo 1)</span>
+              {!materialesBloqueados && (
+                <span className="text-red-400 font-normal normal-case">(mínimo 1)</span>
+              )}
             </p>
+
+            {materialesBloqueados && (
+              <div className="mb-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800 flex items-start gap-2">
+                <span className="shrink-0">🔒</span>
+                <span>
+                  La compra ya está {initialData?.estado === "recibida_parcial" ? "recibida parcialmente" : "recibida"}: los materiales y cantidades quedan
+                  congelados. Podés seguir editando datos informativos, fechas, partes involucradas y adjuntos.
+                </span>
+              </div>
+            )}
 
             {matList.length > 0 && (
               <div className="border border-gray-200 rounded-lg overflow-hidden mb-3">
@@ -751,7 +783,7 @@ export function CompraFormDialog({
                       <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Material</th>
                       <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-20">UM</th>
                       <th className="text-center py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-28">Uds.</th>
-                      <th className="w-10" />
+                      {!materialesBloqueados && <th className="w-10" />}
                     </tr>
                   </thead>
                   <tbody>
@@ -783,23 +815,29 @@ export function CompraFormDialog({
                         </td>
                         <td className="py-2 px-3 text-gray-500">{item.um || "—"}</td>
                         <td className="py-2 px-3">
-                          <Input
-                            type="number"
-                            min="1"
-                            value={item.cantidad}
-                            onChange={(e) => updateCant(item.material_id, e.target.value)}
-                            className="h-7 text-center w-full text-sm"
-                          />
+                          {materialesBloqueados ? (
+                            <span className="block text-center text-sm font-medium text-gray-700">{item.cantidad}</span>
+                          ) : (
+                            <Input
+                              type="number"
+                              min="1"
+                              value={item.cantidad}
+                              onChange={(e) => updateCant(item.material_id, e.target.value)}
+                              className="h-7 text-center w-full text-sm"
+                            />
+                          )}
                         </td>
-                        <td className="py-2 px-2 text-center">
-                          <button
-                            type="button"
-                            onClick={() => removeMat(item.material_id)}
-                            className="text-gray-300 hover:text-red-500 transition-colors"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </td>
+                        {!materialesBloqueados && (
+                          <td className="py-2 px-2 text-center">
+                            <button
+                              type="button"
+                              onClick={() => removeMat(item.material_id)}
+                              className="text-gray-300 hover:text-red-500 transition-colors"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -811,13 +849,14 @@ export function CompraFormDialog({
                       <td className="py-2 px-3 text-center text-xs font-semibold text-gray-600">
                         {matList.reduce((s, m) => s + m.cantidad, 0)} uds. total
                       </td>
-                      <td />
+                      {!materialesBloqueados && <td />}
                     </tr>
                   </tfoot>
                 </table>
               </div>
             )}
 
+            {!materialesBloqueados && (
             <div className="flex gap-2 items-stretch">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -883,8 +922,9 @@ export function CompraFormDialog({
                 </Button>
               )}
             </div>
+            )}
 
-            {matList.length === 0 && !materialSearch && (
+            {!materialesBloqueados && matList.length === 0 && !materialSearch && (
               <div className="border border-dashed border-gray-200 rounded-lg py-6 text-center mt-3">
                 <Package className="h-7 w-7 text-gray-200 mx-auto mb-2" />
                 <p className="text-sm text-gray-400">Aún no hay materiales agregados</p>

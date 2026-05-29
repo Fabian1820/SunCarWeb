@@ -42,8 +42,6 @@ interface FilaMaterial {
   material_codigo: string;
   material_nombre: string;
   pendiente: number;
-  costoSugerido: number;
-  costo_unitario: number;
   cantidad_total: number;
   split: Record<PoolKey, number>;
   incluir: boolean;
@@ -91,18 +89,11 @@ export function CrearSolicitudEntradaDialog({
           m.cantidad_entrada_aprobada,
           m.cantidad_ajuste_cierre,
         );
-        const costoSugerido = m.costo > 0
-          ? m.costo
-          : m.precio_unitario_cif > 0
-            ? m.precio_unitario_cif * (1 + (m.porciento_recargo ?? 0) / 100)
-            : 0;
         return {
           material_id: m.material_id,
           material_codigo: m.material_codigo,
           material_nombre: m.material_nombre,
           pendiente,
-          costoSugerido,
-          costo_unitario: costoSugerido,
           cantidad_total: pendiente,
           split: { indistinto: pendiente, instaladora: 0, ventas: 0 },
           incluir: pendiente > 0,
@@ -161,7 +152,6 @@ export function CrearSolicitudEntradaDialog({
     if (!f.incluir) return null;
     if (f.cantidad_total <= 0) return "Cantidad debe ser > 0";
     if (f.cantidad_total > f.pendiente + epsilon) return `Supera el pendiente (${f.pendiente})`;
-    if (f.costo_unitario < 0) return "Costo no puede ser negativo";
     const sumaSplit = f.split.indistinto + f.split.instaladora + f.split.ventas;
     if (Math.abs(sumaSplit - f.cantidad_total) > epsilon) {
       return `Suma del split (${sumaSplit}) ≠ cantidad (${f.cantidad_total})`;
@@ -189,7 +179,7 @@ export function CrearSolicitudEntradaDialog({
           material_codigo: f.material_codigo,
           material_nombre: f.material_nombre,
           cantidad_total: f.cantidad_total,
-          costo_unitario: f.costo_unitario,
+          // costo_unitario lo deduce el backend de la ficha de la compra.
           split: f.split,
         })),
       });
@@ -282,7 +272,6 @@ export function CrearSolicitudEntradaDialog({
                         <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Material</th>
                         <th className="text-center py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-20">Pend.</th>
                         <th className="text-center py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-24">Cantidad</th>
-                        <th className="text-center py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-24">Costo $</th>
                         <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Split por pool</th>
                       </tr>
                     </thead>
@@ -328,22 +317,6 @@ export function CrearSolicitudEntradaDialog({
                                 onChange={(e) => updateCantidad(f.material_id, e.target.value)}
                                 className="h-8 text-center text-sm"
                               />
-                            </td>
-                            <td className="py-2 px-3 align-top">
-                              <Input
-                                type="number"
-                                min="0"
-                                step="any"
-                                disabled={!f.incluir}
-                                value={f.costo_unitario}
-                                onChange={(e) => updateFila(f.material_id, { costo_unitario: Number(e.target.value) || 0 })}
-                                className="h-8 text-right text-sm"
-                              />
-                              {Math.abs(f.costo_unitario - f.costoSugerido) > epsilon && f.costoSugerido > 0 && (
-                                <p className="text-[10px] text-amber-600 mt-0.5">
-                                  Sugerido: ${f.costoSugerido.toFixed(2)}
-                                </p>
-                              )}
                             </td>
                             <td className="py-2 px-3 align-top">
                               <div className="flex flex-wrap items-end gap-2">

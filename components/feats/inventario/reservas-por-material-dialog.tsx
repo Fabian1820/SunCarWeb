@@ -9,9 +9,11 @@ import {
   DialogTitle,
 } from "@/components/shared/molecule/dialog";
 import { Badge } from "@/components/shared/atom/badge";
-import { Loader2, BookmarkCheck, Calendar, User, Warehouse, Package } from "lucide-react";
+import { Loader2, BookmarkCheck, Calendar, User, Warehouse, Package, Layers } from "lucide-react";
 import { ReservaVentaService } from "@/lib/services/feats/reservas-ventas/reserva-venta-service";
 import type { Reserva, ReservaEstado } from "@/lib/api-types";
+import type { StockPools } from "@/lib/types/feats/inventario/inventario-types";
+import { POOLS_STOCK, POOL_STOCK_LABELS } from "@/lib/types/feats/inventario/inventario-types";
 
 interface ReservasPorMaterialDialogProps {
   open: boolean;
@@ -19,7 +21,17 @@ interface ReservasPorMaterialDialogProps {
   almacenId: string;
   materialId: string;
   materialNombre?: string;
+  /** Distribución por pool del material en este almacén. Si está presente, se muestra como cabecera. */
+  pools?: StockPools;
+  /** Unidad de medida opcional, para mostrar al lado de cantidades en la cabecera. */
+  um?: string;
 }
+
+const POOL_COLORS: Record<keyof StockPools, { bar: string; text: string }> = {
+  indistinto:  { bar: "bg-emerald-500", text: "text-emerald-700" },
+  instaladora: { bar: "bg-blue-500",    text: "text-blue-700" },
+  ventas:      { bar: "bg-amber-500",   text: "text-amber-700" },
+};
 
 const estadoBadgeProps = (estado: ReservaEstado): { className: string; label: string } => {
   switch (estado) {
@@ -61,6 +73,8 @@ export function ReservasPorMaterialDialog({
   almacenId,
   materialId,
   materialNombre,
+  pools,
+  um,
 }: ReservasPorMaterialDialogProps) {
   const [reservas, setReservas] = useState<Reserva[]>([]);
   const [total, setTotal] = useState(0);
@@ -97,6 +111,62 @@ export function ReservasPorMaterialDialog({
             {!loading && ` · ${total} reserva${total !== 1 ? "s" : ""}`}
           </DialogDescription>
         </DialogHeader>
+
+        {pools && POOLS_STOCK.some((p) => pools[p].cantidad_reservada > 0 || pools[p].cantidad > 0) && (() => {
+          const totalCantidad = POOLS_STOCK.reduce((s, p) => s + pools[p].cantidad, 0);
+          const totalReservada = POOLS_STOCK.reduce((s, p) => s + pools[p].cantidad_reservada, 0);
+          return (
+            <div className="rounded-lg border border-indigo-100 bg-indigo-50/40 px-4 py-3 mb-2 space-y-3">
+              <div className="flex items-center gap-2">
+                <Layers className="h-3.5 w-3.5 text-indigo-600" />
+                <span className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">
+                  Distribución por pool en este almacén
+                </span>
+              </div>
+              <div className="flex h-2 rounded-full overflow-hidden bg-white">
+                {POOLS_STOCK.map((p) => {
+                  const c = pools[p].cantidad;
+                  if (c === 0 || totalCantidad === 0) return null;
+                  const pct = (c / totalCantidad) * 100;
+                  return (
+                    <div
+                      key={p}
+                      className={POOL_COLORS[p].bar}
+                      style={{ width: `${pct}%` }}
+                      title={`${POOL_STOCK_LABELS[p]}: ${c}`}
+                    />
+                  );
+                })}
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                {POOLS_STOCK.map((p) => {
+                  const info = pools[p];
+                  return (
+                    <div key={p} className="rounded border border-white bg-white px-2 py-1.5">
+                      <div className={`flex items-center gap-1 font-semibold ${POOL_COLORS[p].text}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${POOL_COLORS[p].bar}`} />
+                        {POOL_STOCK_LABELS[p]}
+                      </div>
+                      <div className="text-gray-900 font-bold text-base mt-0.5">
+                        {info.cantidad}{um ? <span className="text-[10px] font-medium text-gray-500 ml-0.5">{um}</span> : null}
+                      </div>
+                      {info.cantidad_reservada > 0 && (
+                        <div className="text-[10px] text-amber-700">
+                          {info.cantidad_reservada} reservada{info.cantidad_reservada !== 1 ? "s" : ""}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              {totalReservada > 0 && (
+                <div className="text-[11px] text-gray-500 border-t border-indigo-100 pt-2">
+                  Total reservado en todos los pools: <strong className="text-amber-700">{totalReservada}{um ? ` ${um}` : ""}</strong>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {loading ? (
           <div className="flex items-center justify-center py-12">

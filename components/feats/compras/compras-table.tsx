@@ -21,7 +21,6 @@ import {
   ChevronUp,
   ClipboardList,
   Container,
-  Lock,
   MapPin,
   Package,
   PackagePlus,
@@ -35,7 +34,6 @@ import {
 } from "lucide-react";
 
 const ESTADOS_RECEPCION_PERMITIDOS = new Set(["borrador", "en_transito", "recibida_parcial"]);
-const ESTADOS_CIERRE_PERMITIDOS = new Set(["en_transito", "recibida_parcial"]);
 
 const formatDate = (value?: string) => {
   if (!value) return "—";
@@ -96,7 +94,6 @@ interface ComprasTableProps {
   onEdit?:   (compra: Compra) => void;
   onDocs?:   (compra: Compra) => void;
   onSolicitarEntrada?: (compra: Compra) => void;
-  onCerrarConAjuste?: (compra: Compra) => void;
 }
 
 export function ComprasTable({
@@ -105,7 +102,6 @@ export function ComprasTable({
   onEdit,
   onDocs,
   onSolicitarEntrada,
-  onCerrarConAjuste,
 }: ComprasTableProps) {
   const router = useRouter();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -280,20 +276,6 @@ export function ComprasTable({
                         >
                           <PackagePlus className="h-3.5 w-3.5" />
                           <span className="hidden 2xl:inline">Recepción</span>
-                        </Button>
-                      )}
-
-                      {onCerrarConAjuste && ESTADOS_CIERRE_PERMITIDOS.has(compra.estado) && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-8 px-2 gap-1 text-xs border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300"
-                          onClick={() => onCerrarConAjuste(compra)}
-                          title="Cerrar compra con ajuste"
-                        >
-                          <Lock className="h-3.5 w-3.5" />
-                          <span className="hidden 2xl:inline">Cerrar</span>
                         </Button>
                       )}
 
