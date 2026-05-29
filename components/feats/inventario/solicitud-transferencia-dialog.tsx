@@ -28,7 +28,7 @@ import {
   Search,
   Package,
 } from "lucide-react"
-import type { Almacen, StockItem } from "@/lib/inventario-types"
+import type { Almacen, SolicitudTransferencia, StockItem } from "@/lib/inventario-types"
 import type { Material } from "@/lib/material-types"
 import { InventarioService } from "@/lib/api-services"
 
@@ -50,6 +50,7 @@ interface SolicitudTransferenciaDialogProps {
   stock: StockItem[]
   currentAlmacenId?: string
   onSuccess: () => void
+  solicitud?: SolicitudTransferencia
 }
 
 export function SolicitudTransferenciaDialog({
@@ -60,11 +61,14 @@ export function SolicitudTransferenciaDialog({
   stock,
   currentAlmacenId,
   onSuccess,
+  solicitud,
 }: SolicitudTransferenciaDialogProps) {
+  const isEditMode = !!solicitud
   const [origenId, setOrigenId] = useState(currentAlmacenId || "")
   const [destinoId, setDestinoId] = useState("")
   const [items, setItems] = useState<ItemRow[]>([])
   const [motivo, setMotivo] = useState("")
+  const [referencia, setReferencia] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -93,19 +97,56 @@ export function SolicitudTransferenciaDialog({
 
   // Reset form when dialog opens
   useEffect(() => {
-    if (open) {
+    if (!open) return
+
+    if (solicitud) {
+      const origen = solicitud.almacen_origen_id || ""
+      setOrigenId(origen)
+      setDestinoId(solicitud.almacen_destino_id || "")
+      setMotivo(solicitud.motivo || "")
+      setReferencia(solicitud.referencia || "")
+
+      const enriched: ItemRow[] = solicitud.items.map((item) => {
+        const mat =
+          materiales.find((m) => m.id === item.material_id) ||
+          materiales.find(
+            (m) => String(m.codigo) === String(item.material_codigo ?? item.material_id),
+          )
+        return {
+          material_id: item.material_id,
+          material_codigo: String(mat?.codigo ?? item.material_codigo ?? ""),
+          nombre: mat?.nombre || mat?.descripcion || "",
+          descripcion: mat?.descripcion || mat?.nombre || "",
+          um: mat?.um || "U",
+          foto: mat?.foto,
+          cantidad: item.cantidad,
+        }
+      })
+      setItems(enriched)
+
+      setStockReal(new Map())
+      setFetchingStockIds(new Set())
+      if (origen) {
+        for (const item of enriched) {
+          if (item.material_id) fetchStockMaterial(item.material_id, origen)
+        }
+      }
+    } else {
       setOrigenId(currentAlmacenId || "")
       setDestinoId("")
       setItems([])
       setMotivo("")
-      setError(null)
-      setMaterialSearch("")
-      setMaterialResults([])
-      setShowMaterialDropdown(false)
+      setReferencia("")
       setStockReal(new Map())
       setFetchingStockIds(new Set())
     }
-  }, [open, currentAlmacenId])
+
+    setError(null)
+    setMaterialSearch("")
+    setMaterialResults([])
+    setShowMaterialDropdown(false)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, currentAlmacenId, solicitud])
 
   // Re-fetch stock para todos los items cuando cambia el almacén origen
   useEffect(() => {
@@ -227,7 +268,7 @@ export function SolicitudTransferenciaDialog({
     setIsSubmitting(true)
     setError(null)
     try {
-      await InventarioService.createSolicitudTransferencia({
+      const payload = {
         almacen_origen_id: origenId,
         almacen_destino_id: destinoId,
         items: items.map((item) => ({
@@ -235,12 +276,22 @@ export function SolicitudTransferenciaDialog({
           cantidad: item.cantidad,
         })),
         motivo: motivo || undefined,
-      })
+        referencia: referencia || undefined,
+      }
+      if (isEditMode && solicitud) {
+        await InventarioService.updateSolicitudTransferencia(solicitud.id, payload)
+      } else {
+        await InventarioService.createSolicitudTransferencia(payload)
+      }
       onOpenChange(false)
       onSuccess()
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Error al crear la solicitud",
+        err instanceof Error
+          ? err.message
+          : isEditMode
+            ? "Error al actualizar la solicitud"
+            : "Error al crear la solicitud",
       )
     } finally {
       setIsSubmitting(false)
@@ -260,7 +311,7 @@ export function SolicitudTransferenciaDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ArrowRightLeft className="h-5 w-5 text-amber-600" />
-            Solicitar Traspaso de Materiales
+            {isEditMode ? "Editar Solicitud de Traspaso" : "Solicitar Traspaso de Materiales"}
           </DialogTitle>
         </DialogHeader>
 
@@ -489,6 +540,17 @@ export function SolicitudTransferenciaDialog({
             />
           </div>
 
+          {isEditMode && (
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Referencia</Label>
+              <Input
+                value={referencia}
+                onChange={(e) => setReferencia(e.target.value)}
+                placeholder="Referencia (opcional)"
+              />
+            </div>
+          )}
+
           {error && (
             <div className="flex items-start gap-2 text-red-600 text-sm bg-red-50 p-3 rounded-md">
               <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
@@ -514,7 +576,9 @@ export function SolicitudTransferenciaDialog({
               ) : (
                 <ArrowRightLeft className="h-4 w-4 mr-2" />
               )}
-              Solicitar Traspaso ({items.length})
+              {isEditMode
+                ? `Guardar cambios (${items.length})`
+                : `Solicitar Traspaso (${items.length})`}
             </Button>
           </div>
         </div>

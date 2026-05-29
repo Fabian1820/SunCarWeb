@@ -187,6 +187,18 @@ export interface SolicitudTransferenciaCreateData {
   referencia?: string;
 }
 
+export interface SolicitudTransferenciaUpdateData {
+  almacen_origen_id?: string;
+  almacen_destino_id?: string;
+  items?: {
+    material_id: string;
+    cantidad: number;
+    ubicacion_en_almacen?: string;
+  }[];
+  motivo?: string;
+  referencia?: string;
+}
+
 // ── Análisis de Stock Mínimo ──────────────────────────────────────────────────
 
 export type EstadoStock = "critico" | "alerta" | "ok";

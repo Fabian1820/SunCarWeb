@@ -27,6 +27,7 @@ import {
   ChevronUp,
   ArrowRightLeft,
   Package,
+  Pencil,
 } from "lucide-react"
 import { InventarioService } from "@/lib/api-services"
 import type {
@@ -36,6 +37,7 @@ import type {
 } from "@/lib/inventario-types"
 import type { Material } from "@/lib/material-types"
 import { useAuth } from "@/contexts/auth-context"
+import { SolicitudTransferenciaDialog } from "./solicitud-transferencia-dialog"
 
 interface SolicitudesTransferenciaTableProps {
   almacenes: Almacen[]
@@ -102,6 +104,9 @@ export function SolicitudesTransferenciaTable({
   } | null>(null)
   const [comentario, setComentario] = useState("")
   const [resolving, setResolving] = useState(false)
+
+  // Edit dialog
+  const [editingSolicitud, setEditingSolicitud] = useState<SolicitudTransferencia | null>(null)
 
   const almacenNombreMap = useMemo(() => {
     const map = new Map<string, string>()
@@ -209,6 +214,7 @@ export function SolicitudesTransferenciaTable({
     const Icon = config.icon
     const isExpanded = expandedId === solicitud.id
     const canResolve = isReceived && solicitud.estado === "pendiente"
+    const canEdit = !isReceived && solicitud.estado === "pendiente"
 
     return (
       <div key={solicitud.id} className={`border rounded-md ${config.bg}`}>
@@ -363,6 +369,23 @@ export function SolicitudesTransferenciaTable({
                 </Button>
               </div>
             )}
+
+            {canEdit && (
+              <div className="flex gap-2 pt-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-amber-300 text-amber-700 hover:bg-amber-50"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setEditingSolicitud(solicitud)
+                  }}
+                >
+                  <Pencil className="h-4 w-4 mr-1" />
+                  Editar
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -442,6 +465,26 @@ export function SolicitudesTransferenciaTable({
             )}
           </div>
         </div>
+      )}
+
+      {/* Edit dialog */}
+      {editingSolicitud && (
+        <SolicitudTransferenciaDialog
+          open={!!editingSolicitud}
+          onOpenChange={(open) => {
+            if (!open) setEditingSolicitud(null)
+          }}
+          almacenes={almacenes}
+          materiales={materiales}
+          stock={[]}
+          currentAlmacenId={currentAlmacenId}
+          solicitud={editingSolicitud}
+          onSuccess={() => {
+            setEditingSolicitud(null)
+            fetchSolicitudes()
+            onResolved?.()
+          }}
+        />
       )}
 
       {/* Approve/Deny dialog */}
