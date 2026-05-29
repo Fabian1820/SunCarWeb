@@ -2,6 +2,84 @@
 
 ---
 
+## 📅 29 de Mayo, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**6 commits** de Fabian1820 — actividad moderada en 4 áreas.
+
+---
+
+### Área 1: Eliminación de pantalla de bienvenida (1 commit)
+
+- **`chore`** (13:51): Eliminada la pantalla de bienvenida personalizada y el widget de cuenta regresiva implementados el 26/05. La pantalla existió 3 días en el codebase.
+
+---
+
+### Área 2: Edición de Solicitudes de Transferencia (1 commit)
+
+- **`feat: add edit functionality for transfer requests`** (18:37): `SolicitudTransferenciaDialog` ahora acepta un prop opcional `solicitud` que activa el modo edición. En modo edición los campos `origen`, `destino`, `motivo` y `referencia` se pre-rellenan con la solicitud existente. `SolicitudesTransferenciaTable` incorpora un botón "Editar" para solicitudes en estado `pendiente`. Nuevo método `updateSolicitudTransferencia` en `InventarioService`. Nuevo tipo `SolicitudTransferenciaUpdateData`.
+
+---
+
+### Área 3: Stock Fetching en SolicitudTransferenciaDialog (2 commits)
+
+- **`feat`** (18:49): `fetchStockMaterial` recibe parámetro opcional `materialCodigo` para mejorar la resolución del `material_id`; el mapeo de items usa el ID resuelto con fallback al valor del backend; `material_codigo` se pasa correctamente en ambos flujos (creación y edición).
+- **`refactor`** (19:09): Se elimina el parámetro `materialCodigo` añadido 20 minutos antes. La lógica de resolución de `material_id` se consolida directamente en la función. Todas las llamadas actualizadas para reflejar la nueva firma.
+
+  > Dos commits sobre la misma función en 20 minutos: el enfoque con parámetro adicional fue descartado rápidamente en favor de una solución más directa.
+
+---
+
+### Área 4: Búsqueda por número de serie y normalización de historial (2 commits)
+
+- **`feat: enhance material search and stock fetching in inventory components`** (19:56): Soporte para buscar por `numero_serie` en `SalidaLoteForm` y `CreateValeSalidaDialog`. Mejoras adicionales en stock fetching de `SolicitudTransferenciaDialog`. Nuevo método en `InventarioService` para obtener solicitudes de transferencia por ID. Nuevos campos en tipos: `numero_serie` y `stock_disponible_actual`.
+- **`feat: normalize search input for historial in AlmacenDetallePage`** (20:21): Input de búsqueda del historial normalizado (trim de bordes + colapso de espacios internos). Placeholder actualizado para incluir "referencia" como campo de búsqueda.
+
+---
+
+### Puede dar bateo
+
+1. **Edición de solicitudes sin validación de estado en backend**: El botón de edición se muestra para solicitudes `pendiente`, pero el control está en el frontend. Si `updateSolicitudTransferencia` en el backend no valida el estado antes de permitir la modificación, una solicitud ya aprobada o en tránsito podría ser alterada.
+
+2. **`fetchStockMaterial` rediseñada dos veces en 20 minutos**: El feat de 18:49 añadió `materialCodigo` y el refactor de 19:09 lo eliminó. Este patrón indica que la lógica de resolución de `material_id` (catálogo vs backend) es frágil. Si los IDs/códigos del catálogo no coinciden exactamente con los del backend, el stock puede mostrarse como 0 o incorrecto silenciosamente.
+
+3. **Búsqueda por `numero_serie` sin confirmación de backend**: Si el endpoint de búsqueda de materiales no tiene índice en `numero_serie`, las consultas serán lentas o vacías. Confirmar que el backend soporta este campo como filtro antes de usar en producción.
+
+4. **`stock_disponible_actual` — nuevo campo en tipos**: Este campo implica que el backend puede estar devolviendo el stock ya calculado (incluyendo reservas). Si no todos los endpoints de inventario devuelven este campo, habrá discrepancias entre vistas del mismo almacén.
+
+5. **Pantalla de bienvenida eliminada: verificar limpieza completa**: Implementada y eliminada en 3 días. Verificar que todos los componentes asociados fueron eliminados (hooks de sincronización, custom events, CSS específico) para evitar código muerto o efectos secundarios.
+
+6. **Normalización de búsqueda puede romper referencias con espacios múltiples**: El colapso de espacios internos en el historial puede hacer que referencias formateadas con doble espacio no encuentren resultados si el backend almacena los valores sin normalizar. La normalización debería aplicarse también al momento de guardar, o el backend debería normalizar antes de comparar.
+
+---
+
+#### Seguimientos vigentes
+
+- **CI `87120119233` hardcodeado para control de permisos**: El CI de un trabajador específico está hardcodeado como excepción de acceso en la lógica de negocio. Si esa persona cambia, requiere un nuevo deploy. Debería moverse a un campo de permiso en BD.
+- **Campos `cambio_real_*` requieren backend actualizado**: `cambio_real_monto`, `cambio_real_moneda` y `cambio_real_tasa` son nuevos en el payload de `PagoVenta`. Si el backend no los acepta, los POSTs con cambio real fallarán con 422 o perderán datos silenciosamente.
+- **Endpoint lazy load `GET /obras-terminadas/oferta/{id}/facturas-cliente`**: Si no existe, al hacer clic en la pestaña el usuario verá error de carga.
+- **PDF unificado con `limit=total` sin cota máxima**: La llamada extra para el PDF unificado puede generar timeout o saturar memoria del navegador si hay miles de registros filtrados.
+- **Badge de estado calculado en frontend con flotantes**: `precio_final − total_pagado` puede dar `0.0000001` por redondeo, mostrando "pendiente" en una factura realmente pagada. El backend debería devolver un campo de estado ya calculado.
+- **Módulo Vales/Facturas Instaladora comentado sin aviso explícito**: Usuarios que dependían de ese flujo quedan sin acceso. Verificar que el cambio fue coordinado.
+- **Sistema de notificaciones — endpoints bulk por tipo**: Confirmar que marcar/eliminar todas acepta filtro por tipo de notificación en el backend.
+- **`GET /inventario/stock-historico`**: Confirmar que existe y acepta params de almacén, material y fecha.
+- **AdminPass 123456 hardcodeado**: Al crear cualquier trabajador se asigna automáticamente `123456` como contraseña. Sin mecanismo de forzar cambio en el primer login — brecha de seguridad operativa.
+- **Auto-sync catálogo → BD al abrir /permisos**: Si el catálogo tiene un módulo mal definido, se crearán registros incorrectos en BD sin posibilidad de rollback automático.
+- **Logs de debug en producción**: Los logs de `fetchTrabajosDeAveria` pueden seguir activos, exponiendo datos de clientes en la consola del navegador.
+- **Eliminación lógica `cantidad = 0` en asignaciones**: Todo el código que lista asignaciones debe filtrar `cantidad > 0`, o los registros eliminados aparecerán como activos.
+- **Creación inline sin persistencia inmediata**: Categorías/unidades creadas desde el atajo "Crear material rápido" se pierden si el usuario cierra el diálogo antes de guardar.
+- **Subida de archivos sin rollback**: Si la subida de foto/ficha técnica tiene éxito pero la creación del material falla, el archivo queda huérfano en storage.
+- **Backend debe aceptar nuevos campos**: `motivo` y `nota` en PATCH de asignaciones; `foto` y `ficha_tecnica_url` en materiales; `oferta_venta_id`, `descuento_free`, `motivo_descuento_free` y `precio` en solicitudes desde oferta.
+- **`childKeys` en catálogo de módulos**: Si se agrega un módulo hijo sin declarar `childKeys`, el card padre quedará invisible aunque el usuario tenga el permiso.
+- **`useEffect` con dependencias `[open, initialData?.id]`**: Si `initialData` cambia el contenido pero mantiene el mismo `id`, el formulario del contenedor no se reinicializa.
+- **Agregados solicitudes-ventas**: Confirmar que los endpoints de solicitudes, pagos y facturas devuelven campos de agregados globales y campos por ítem (`total_sin_descuento`, `total_con_aumento`, `aumento_monto`) o los totales serán incorrectos en vistas paginadas.
+- **`updateSolicitudTransferencia` — validación de estado en backend**: El backend debe rechazar ediciones de solicitudes que ya no estén en estado `pendiente`.
+- **Búsqueda por `numero_serie`**: Confirmar que el endpoint de búsqueda de materiales indexa este campo en el backend.
+- **`stock_disponible_actual` — consistencia entre endpoints**: Confirmar que todos los endpoints de inventario devuelven este campo para evitar discrepancias entre vistas del mismo almacén.
+
+---
+
 ## 📅 28 de Mayo, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -143,12 +221,7 @@ Sin commits de desarrollo nuevos. Solo el commit automático "Analisis diario Cl
 
 2. **Doble instancia de NotificationBell**: Si el componente quedó montado en el layout global Y en el header del dashboard, habrá dos instancias polleando el backend cada 30s en paralelo → doble carga de red y posibles estados inconsistentes (dos badges con conteos diferentes). Verificar que solo existe una instancia activa.
 
-3. **Backend de notificaciones requiere múltiples endpoints confirmados**:
-   - `GET /mis-notificaciones` respondiendo `{ success, data: [...], total }` (ya confirmado que existe por el fix de mismatch).
-   - Endpoint de marcar/eliminar todas **filtrado por tipo** para que las acciones de pestaña actúen solo en esa categoría.
-   - Campo `dias_alerta` en la respuesta para tipo `demora_instalacion`.
-   - Campo `link_cliente` con número de cliente navegable.
-   - Si alguno de estos no está implementado, las pestañas o el botón "Ver cliente" fallarán silenciosamente o con error.
+3. **Backend de notificaciones requiere múltiples endpoints confirmados**: `GET /mis-notificaciones` respondiendo `{ success, data: [...], total }` (ya confirmado que existe por el fix de mismatch). Endpoint de marcar/eliminar todas **filtrado por tipo** para que las acciones de pestaña actúen solo en esa categoría. Campo `dias_alerta` en la respuesta para tipo `demora_instalacion`. Campo `link_cliente` con número de cliente navegable. Si alguno de estos no está implementado, las pestañas o el botón "Ver cliente" fallarán silenciosamente o con error.
 
 4. **Sonido Web Audio API sin interacción previa del usuario**: Los navegadores modernos bloquean audio automático hasta que el usuario haya interactuado con la página (autoplay policy). Si llega una notificación antes de que el usuario haga clic en algo, el sonido no se reproducirá y no habrá feedback de error visible.
 
@@ -375,27 +448,4 @@ Sin commits de desarrollo nuevos en las últimas 24h.
 
 ---
 
-## 📅 21 de Mayo, 2026
-
-### Resumen de cambios (últimas 24h)
-
-Sin commits de desarrollo nuevos desde el último análisis (último real fue el 20/05 a las 22:11, ya registrado ayer).
-
-#### Seguimientos vigentes
-
-- **AdminPass 123456 hardcodeado**: Todo trabajador creado tiene esta contraseña por defecto sin forzar cambio en el primer login. Brecha operativa de seguridad.
-- **Auto-sync catálogo al abrir /permisos**: Un módulo mal definido en el catálogo (typo, datos inválidos) crea registros incorrectos en BD sin rollback. Validar el catálogo antes de sincronizar.
-- **Logs de debug en producción**: Los logs añadidos en `fetchTrabajosDeAveria` pueden no haber sido limpiados (el commit de limpieza solo menciona `getTrabajosByCliente`). Verificar que no exponen datos de clientes en consola en prod.
-- **Eliminación lógica `cantidad = 0` en asignaciones**: Todas las vistas, APIs y reportes deben filtrar `cantidad > 0` o los registros "eliminados" aparecerán como activos.
-- **Creación inline sin persistencia inmediata**: Categorías/unidades creadas desde "Crear material rápido" se pierden si el usuario cierra sin guardar el material, sin advertencia.
-- **Subida de archivos sin rollback**: Si la foto/ficha técnica se sube correctamente pero el material falla al crearse, el archivo queda huérfano en storage.
-- **Backend debe aceptar campos nuevos**:
-  - `motivo` y `nota` en PATCH de asignaciones (eliminación lógica)
-  - `foto` y `ficha_tecnica_url` en endpoint de materiales
-  - `oferta_venta_id`, `descuento_free`, `motivo_descuento_free`, `precio` en solicitudes desde oferta
-- **`childKeys` en catálogo de módulos**: Olvidar declarar `childKeys` para un hijo no convencional hace invisible el card padre aunque el usuario tenga el permiso. Bug silencioso.
-- **`useEffect` con deps limitadas `[open, initialData?.id]`**: Si `initialData` cambia contenido pero mantiene el mismo `id`, el formulario del contenedor no se reinicializa.
-
----
-
-> ⚠️ **Nota de mantenimiento**: La entrada del **20 de Mayo** fue eliminada al superar los 7 días de antigüedad (política de retención semanal).
+> ⚠️ **Nota de mantenimiento**: La entrada del **21 de Mayo** fue eliminada al superar los 7 días de antigüedad (política de retención semanal).
