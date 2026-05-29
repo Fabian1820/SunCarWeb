@@ -63,6 +63,7 @@ interface MaterialCatalogItem {
   descripcion?: string;
   um?: string;
   foto?: string;
+  numero_serie?: string | null;
 }
 
 interface CreateValeSalidaDialogProps {
@@ -348,7 +349,8 @@ export function CreateValeSalidaDialog({
           (m) =>
             (m.descripcion?.toLowerCase().includes(term) ||
               m.nombre?.toLowerCase().includes(term) ||
-              m.codigo?.toString().toLowerCase().includes(term)) &&
+              m.codigo?.toString().toLowerCase().includes(term) ||
+              m.numero_serie?.toLowerCase().includes(term)) &&
             !materiales.some((row) => row.material_id === (m.id || m._id)),
         )
         .slice(0, 15);
@@ -396,17 +398,10 @@ export function CreateValeSalidaDialog({
     materialCodigo?: string,
   ): Promise<number | null> => {
     try {
-      let stockRows = (await InventarioService.getStock({
+      const stockRows = (await InventarioService.getStock({
         almacen_id: almacenId,
         material_id: materialId,
       })).data;
-
-      if ((!stockRows || stockRows.length === 0) && materialCodigo) {
-        stockRows = (await InventarioService.getStock({
-          almacen_id: almacenId,
-          material_codigo: materialCodigo,
-        })).data;
-      }
 
       if (!stockRows || stockRows.length === 0) return 0;
 

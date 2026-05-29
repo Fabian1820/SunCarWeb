@@ -800,6 +800,15 @@ export class InventarioService {
     return extractArray<SolicitudTransferencia>(response);
   }
 
+  static async getSolicitudTransferenciaById(
+    solicitudId: string,
+  ): Promise<SolicitudTransferencia | undefined> {
+    const response = await apiRequest<any>(
+      `/solicitudes-transferencia/${solicitudId}`,
+    );
+    return extractItem<SolicitudTransferencia>(response) ?? response;
+  }
+
   static async createSolicitudTransferencia(
     data: SolicitudTransferenciaCreateData,
   ): Promise<string> {

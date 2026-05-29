@@ -149,10 +149,12 @@ export function SalidaLoteForm({
       const codigo = normalizarCodigo(String(material.codigo));
       const nombre = normalizarTexto(material.nombre);
       const descripcion = normalizarTexto(material.descripcion);
+      const numeroSerie = normalizarTexto(material.numero_serie ?? "");
       return (
         codigo.includes(term) ||
         nombre.includes(term) ||
-        descripcion.includes(term)
+        descripcion.includes(term) ||
+        (numeroSerie.length > 0 && numeroSerie.includes(term))
       );
     });
 
@@ -217,12 +219,15 @@ export function SalidaLoteForm({
       const nombre = normalizarTexto(item.nombre);
       const descripcion = normalizarTexto(item.descripcion);
       const codigoMaterial = normalizarCodigo(String(item.codigo));
+      const numeroSerie = normalizarTexto(item.numero_serie ?? "");
       return (
         nombre === term ||
         descripcion === term ||
+        numeroSerie === term ||
         codigoMaterial.includes(term) ||
         nombre.includes(term) ||
-        descripcion.includes(term)
+        descripcion.includes(term) ||
+        (numeroSerie.length > 0 && numeroSerie.includes(term))
       );
     });
     if (localByName) return localByName;

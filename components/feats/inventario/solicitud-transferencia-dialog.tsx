@@ -106,50 +106,75 @@ export function SolicitudTransferenciaDialog({
       setMotivo(solicitud.motivo || "")
       setReferencia(solicitud.referencia || "")
 
-      const enriched: ItemRow[] = solicitud.items.map((item) => {
-        const codigoStr = item.material_codigo != null ? String(item.material_codigo) : ""
-        // The backend stores (producto_id, codigo) — not necessarily the same
-        // value that the create flow sent as material_id. To get correct stock
-        // we must reconstruct the same `Material.id` the catalog uses (and that
-        // the create flow would use), by finding the exact material in the
-        // catalog via (producto_id + codigo) and using its .id for fetch+submit.
-        const mat =
-          (codigoStr
-            ? materiales.find(
-                (m) =>
-                  m.producto_id === item.material_id &&
-                  String(m.codigo) === codigoStr,
-              )
-            : undefined) ||
-          materiales.find(
-            (m) => m.id === item.material_id && (!codigoStr || String(m.codigo) === codigoStr),
-          ) ||
-          materiales.find((m) => m.id === item.material_id) ||
-          (codigoStr
-            ? materiales.find((m) => String(m.codigo) === codigoStr)
-            : undefined)
+      const buildRows = (src: SolicitudTransferencia): ItemRow[] =>
+        src.items.map((item) => {
+          const codigoStr = item.material_codigo != null ? String(item.material_codigo) : ""
+          // Display lookup only. Backend normalizes material refs
+          // (ObjectId / codigo / numero_serie) on its side, so material_id
+          // can be passed through as-is to /inventario/stock.
+          const mat =
+            materiales.find((m) => m.id === item.material_id) ||
+            (codigoStr ? materiales.find((m) => String(m.codigo) === codigoStr) : undefined)
 
-        return {
-          // Use the catalog's Material.id so /inventario/stock receives the
-          // same key the create flow uses. Fall back to raw backend value if
-          // the material isn't in the catalog.
-          material_id: mat?.id || item.material_id,
-          material_codigo: String(mat?.codigo ?? item.material_codigo ?? ""),
-          nombre: mat?.nombre || mat?.descripcion || "",
-          descripcion: mat?.descripcion || mat?.nombre || "",
-          um: mat?.um || "U",
-          foto: mat?.foto,
-          cantidad: item.cantidad,
+          return {
+            material_id: item.material_id,
+            material_codigo: String(mat?.codigo ?? item.material_codigo ?? ""),
+            nombre: mat?.nombre || mat?.descripcion || "",
+            descripcion: mat?.descripcion || mat?.nombre || "",
+            um: mat?.um || "U",
+            foto: mat?.foto,
+            cantidad: item.cantidad,
+          }
+        })
+
+      const initialRows = buildRows(solicitud)
+      setItems(initialRows)
+
+      // Seed stockReal from any stock_disponible_actual already present
+      // (in case the parent passed an enriched solicitud).
+      const seedStock = new Map<string, number>()
+      solicitud.items.forEach((item, idx) => {
+        const v = item.stock_disponible_actual
+        if (typeof v === "number") {
+          seedStock.set(initialRows[idx].material_id, v)
         }
       })
-      setItems(enriched)
-
-      setStockReal(new Map())
+      setStockReal(seedStock)
       setFetchingStockIds(new Set())
-      if (origen) {
-        for (const item of enriched) {
-          if (item.material_id) fetchStockMaterial(item.material_id, origen)
+
+      // Fetch the enriched detail (backend computes live stock_disponible_actual
+      // per item against almacen_origen_id). One request replaces N stock calls.
+      let cancelled = false
+      ;(async () => {
+        try {
+          const detail = await InventarioService.getSolicitudTransferenciaById(solicitud.id)
+          if (cancelled || !detail) return
+          const rows = buildRows(detail)
+          setItems(rows)
+          const map = new Map<string, number>()
+          detail.items.forEach((item, idx) => {
+            const v = item.stock_disponible_actual
+            map.set(rows[idx].material_id, typeof v === "number" ? v : 0)
+          })
+          setStockReal(map)
+        } catch (err) {
+          // Fallback: if the enriched GET fails, query stock per item as before.
+          if (cancelled) return
+          console.warn("getSolicitudTransferenciaById failed, falling back to per-item stock fetch", err)
+          if (origen) {
+            for (const item of initialRows) {
+              if (item.material_id) fetchStockMaterial(item.material_id, origen)
+            }
+          }
         }
+      })()
+
+      setError(null)
+      setMaterialSearch("")
+      setMaterialResults([])
+      setShowMaterialDropdown(false)
+      return () => {
+        cancelled = true
       }
     } else {
       setOrigenId(currentAlmacenId || "")
@@ -159,12 +184,11 @@ export function SolicitudTransferenciaDialog({
       setReferencia("")
       setStockReal(new Map())
       setFetchingStockIds(new Set())
+      setError(null)
+      setMaterialSearch("")
+      setMaterialResults([])
+      setShowMaterialDropdown(false)
     }
-
-    setError(null)
-    setMaterialSearch("")
-    setMaterialResults([])
-    setShowMaterialDropdown(false)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, currentAlmacenId, solicitud])
 
@@ -197,7 +221,8 @@ export function SolicitudTransferenciaDialog({
           (m) =>
             (m.descripcion?.toLowerCase().includes(term) ||
               m.nombre?.toLowerCase().includes(term) ||
-              m.codigo?.toString().toLowerCase().includes(term)) &&
+              m.codigo?.toString().toLowerCase().includes(term) ||
+              m.numero_serie?.toLowerCase().includes(term)) &&
             !items.some((row) => row.material_id === m.id),
         )
         .slice(0, 15)
