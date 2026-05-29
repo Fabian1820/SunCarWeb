@@ -81,11 +81,16 @@ export function SolicitudTransferenciaDialog({
   const [stockReal, setStockReal] = useState<Map<string, number>>(new Map())
   const [fetchingStockIds, setFetchingStockIds] = useState<Set<string>>(new Set())
 
-  const fetchStockMaterial = useCallback(async (materialId: string, almacenId: string) => {
+  const fetchStockMaterial = useCallback(async (materialId: string, almacenId: string, materialCodigo?: string) => {
     if (!materialId || !almacenId) return
     setFetchingStockIds(prev => new Set(prev).add(materialId))
     try {
-      const result = await InventarioService.getStock({ almacen_id: almacenId, material_id: materialId, limit: 1 })
+      const result = await InventarioService.getStock({
+        almacen_id: almacenId,
+        material_id: materialId,
+        material_codigo: materialCodigo,
+        limit: 1,
+      })
       const cantidad = result.data.reduce((sum, item) => sum + (item.cantidad ?? 0), 0)
       setStockReal(prev => new Map(prev).set(materialId, cantidad))
     } catch {
@@ -112,8 +117,12 @@ export function SolicitudTransferenciaDialog({
           materiales.find(
             (m) => String(m.codigo) === String(item.material_codigo ?? item.material_id),
           )
+        // Use the resolved frontend Material.id (the compound producto_id_codigo
+        // the backend's /inventario/stock understands). Fall back to the raw
+        // backend value if the material is not in the catalogo lookup.
+        const resolvedId = mat?.id || item.material_id
         return {
-          material_id: item.material_id,
+          material_id: resolvedId,
           material_codigo: String(mat?.codigo ?? item.material_codigo ?? ""),
           nombre: mat?.nombre || mat?.descripcion || "",
           descripcion: mat?.descripcion || mat?.nombre || "",
@@ -128,7 +137,7 @@ export function SolicitudTransferenciaDialog({
       setFetchingStockIds(new Set())
       if (origen) {
         for (const item of enriched) {
-          if (item.material_id) fetchStockMaterial(item.material_id, origen)
+          if (item.material_id) fetchStockMaterial(item.material_id, origen, item.material_codigo || undefined)
         }
       }
     } else {
@@ -153,7 +162,7 @@ export function SolicitudTransferenciaDialog({
     if (!origenId || items.length === 0) return
     setStockReal(new Map())
     for (const item of items) {
-      if (item.material_id) fetchStockMaterial(item.material_id, origenId)
+      if (item.material_id) fetchStockMaterial(item.material_id, origenId, item.material_codigo || undefined)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [origenId])
@@ -208,7 +217,7 @@ export function SolicitudTransferenciaDialog({
     setMaterialSearch("")
     setShowMaterialDropdown(false)
 
-    if (origenId) fetchStockMaterial(id, origenId)
+    if (origenId) fetchStockMaterial(id, origenId, String(material.codigo || "") || undefined)
   }
 
   const handleRemoveMaterial = (index: number) => {
