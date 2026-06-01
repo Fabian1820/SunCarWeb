@@ -582,8 +582,13 @@ export function CreateValeSalidaDialog({
   ).length;
   const canSubmit = selectedSolicitud && validCount > 0 && !submitting;
   const selectedTipoStyles = getTipoStyles(selectedSolicitud?.tipo_solicitud);
+  // Solicitudes de venta no traen fecha_recogida; caemos a fecha_creacion
+  // (recogida el mismo día) para no mostrar "Hoy" como dato real.
+  const selectedRecogidaFecha = selectedSolicitud
+    ? selectedSolicitud.fecha_recogida || selectedSolicitud.fecha_creacion
+    : null;
   const selectedRecogidaBadge = selectedSolicitud
-    ? getFechaRecogidaBadge(selectedSolicitud.fecha_recogida)
+    ? getFechaRecogidaBadge(selectedRecogidaFecha)
     : null;
   const selectedHasStockAlerts = selectedSolicitud?.tiene_alertas_stock === true;
 
@@ -646,7 +651,7 @@ export function CreateValeSalidaDialog({
                     <div className="mt-1 flex flex-wrap items-center gap-2 text-xs opacity-90">
                       <span>
                         Recogida:{" "}
-                        {formatFechaRecogida(selectedSolicitud.fecha_recogida)}
+                        {formatFechaRecogida(selectedRecogidaFecha)}
                       </span>
                       <Badge
                         variant="outline"
@@ -702,9 +707,9 @@ export function CreateValeSalidaDialog({
                 <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-56 overflow-y-auto">
                   {filteredSolicitudes.map((solicitud) => {
                     const styles = getTipoStyles(solicitud.tipo_solicitud);
-                    const recogidaBadge = getFechaRecogidaBadge(
-                      solicitud.fecha_recogida,
-                    );
+                    const recogidaFecha =
+                      solicitud.fecha_recogida || solicitud.fecha_creacion;
+                    const recogidaBadge = getFechaRecogidaBadge(recogidaFecha);
                     const hasStockAlert = solicitud.tiene_alertas_stock === true;
                     return (
                       <button
@@ -747,7 +752,7 @@ export function CreateValeSalidaDialog({
                         </div>
                         <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
                           <span>
-                            {formatFechaRecogida(solicitud.fecha_recogida)}
+                            {formatFechaRecogida(recogidaFecha)}
                           </span>
                           <Badge
                             variant="outline"
