@@ -80,6 +80,15 @@ export function VentasPorComercialTable({
   const fechaReferencia = (f: FacturaVentaConComercial): string | null =>
     f.fecha || f.fecha_creacion || null;
 
+  // Parsear la parte YYYY-MM-DD como fecha local. `new Date("YYYY-MM-DD")`
+  // se interpreta como UTC; en Cuba (UTC-4/-5) eso muestra el día anterior y
+  // hace que el filtro de mes/año caiga en el mes/año equivocado.
+  const parseLocalDate = (d: string): Date | null => {
+    const [y, m, day] = d.slice(0, 10).split("-").map(Number);
+    if (!y || !m || !day) return null;
+    return new Date(y, m - 1, day);
+  };
+
   const comerciales = useMemo(() => {
     const unique = new Set(
       facturas.map((f) => f.cliente.comercial).filter((c): c is string => !!c),
@@ -92,7 +101,8 @@ export function VentasPorComercialTable({
       facturas
         .map((f) => fechaReferencia(f))
         .filter((f): f is string => !!f)
-        .map((f) => new Date(f).getFullYear().toString()),
+        .map((f) => parseLocalDate(f)?.getFullYear().toString())
+        .filter((y): y is string => !!y),
     );
     return Array.from(unique).sort().reverse();
   }, [facturas]);
@@ -118,22 +128,25 @@ export function VentasPorComercialTable({
 
       const ref = fechaReferencia(f);
       if (ref) {
-        const fecha = new Date(ref);
-        if (fechaDesde) {
-          const d = new Date(fechaDesde);
-          d.setHours(0, 0, 0, 0);
-          if (fecha < d) return false;
-        }
-        if (fechaHasta) {
-          const d = new Date(fechaHasta);
-          d.setHours(23, 59, 59, 999);
-          if (fecha > d) return false;
-        }
-        if (!fechaDesde && !fechaHasta && mesFilter !== "todos") {
-          if ((fecha.getMonth() + 1).toString() !== mesFilter) return false;
-        }
-        if (!fechaDesde && !fechaHasta && anioFilter !== "todos") {
-          if (fecha.getFullYear().toString() !== anioFilter) return false;
+        const fecha = parseLocalDate(ref);
+        if (fecha) {
+          if (fechaDesde) {
+            const d = parseLocalDate(fechaDesde);
+            if (d && fecha < d) return false;
+          }
+          if (fechaHasta) {
+            const d = parseLocalDate(fechaHasta);
+            if (d) {
+              d.setHours(23, 59, 59, 999);
+              if (fecha > d) return false;
+            }
+          }
+          if (!fechaDesde && !fechaHasta && mesFilter !== "todos") {
+            if ((fecha.getMonth() + 1).toString() !== mesFilter) return false;
+          }
+          if (!fechaDesde && !fechaHasta && anioFilter !== "todos") {
+            if (fecha.getFullYear().toString() !== anioFilter) return false;
+          }
         }
       }
 
@@ -187,7 +200,9 @@ export function VentasPorComercialTable({
 
   const formatDate = (dateString?: string | null) => {
     if (!dateString) return "—";
-    return new Date(dateString).toLocaleDateString("es-ES", {
+    const d = parseLocalDate(dateString);
+    if (!d) return "—";
+    return d.toLocaleDateString("es-ES", {
       year: "numeric",
       month: "short",
       day: "numeric",
@@ -551,8 +566,8 @@ export function VentasPorComercialTable({
                   <TrendingUp className="h-4 w-4" />
                   <span>
                     Filtrado por fecha:
-                    {fechaDesde && ` desde ${new Date(fechaDesde).toLocaleDateString("es-ES")}`}
-                    {fechaHasta && ` hasta ${new Date(fechaHasta).toLocaleDateString("es-ES")}`}
+                    {fechaDesde && ` desde ${parseLocalDate(fechaDesde)?.toLocaleDateString("es-ES") ?? fechaDesde}`}
+                    {fechaHasta && ` hasta ${parseLocalDate(fechaHasta)?.toLocaleDateString("es-ES") ?? fechaHasta}`}
                   </span>
                 </div>
               )}
