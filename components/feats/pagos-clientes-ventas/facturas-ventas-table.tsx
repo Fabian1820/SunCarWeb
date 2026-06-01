@@ -138,9 +138,12 @@ export function FacturasVentasTable({
         : pagos.some((p) => (p.moneda || "USD") === monedaFilter);
       if (!tieneMoneda) return false;
     }
-    // metodoFilter siempre se aplica client-side como fallback: si el backend
-    // no soporta el query param `metodo_pago`, al menos filtramos la página.
-    if (metodoFilter) {
+    // metodoFilter solo se aplica client-side cuando NO estamos en modo
+    // server-side (mismo patrón que monedaFilter). En modo controlado (tab 4)
+    // el backend ya filtra por `metodo_pago`; un filtro client-side adicional
+    // descartaría facturas cuando la proyección de pagos del listado no
+    // incluye `metodo_pago`.
+    if (!isSearchControlled && metodoFilter) {
       const pagos = Array.isArray(f.pagos) ? f.pagos : [];
       if (pagos.length === 0) return false;
       if (!pagos.some((p) => (p.metodo_pago || "") === metodoFilter)) return false;
