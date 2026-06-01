@@ -2,6 +2,86 @@
 
 ---
 
+## 📅 1 de Junio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**5 commits** de Fabian1820 — exportación Excel de facturas con filtro por método de pago, corrección del filtro en modo server-side, mejora de manejo de fechas en `VentasPorComercialTable` y componentes `ValesSalida`, y ordenamiento de solicitudes pendientes por `fecha_creacion`.
+
+---
+
+#### 1. `feat: add Excel export functionality for invoices and include payment method filter` (7eb49bc)
+
+- Nuevo servicio `export-facturas-excel-service.ts` (+113 líneas): genera y descarga un Excel con las facturas filtradas incluyendo detalles del método de pago.
+- Filtro por método de pago agregado a la búsqueda de facturas en `FacturasVentasTable` y `solicitudes-ventas/page.tsx`.
+- Tipo `MetodoPago` extendido para incluir `'zelle'` como valor válido.
+- Archivos: `app/solicitudes-ventas/page.tsx` (+91/-4), `facturas-ventas-table.tsx` (+59/-2), `registrar-pago-venta-dialog.tsx` (+4/-3), `todos-pagos-ventas-table.tsx` (+2), nuevo servicio Excel (+113), `pago-cliente-venta-types.ts` (+9/-3). Total: 292 cambios.
+
+#### 2. `fix: refine client-side payment method filtering logic in FacturasVentasTable` (b953272)
+
+- Fix 18 min después del commit anterior: el filtro de método de pago se aplicaba client-side incluso en modo server-side, produciendo doble filtrado incorrecto.
+- Corregido para que el filtro client-side solo se active cuando no está en modo server-side.
+
+#### 3. `feat: improve date handling in VentasPorComercialTable for accurate filtering` (81f5b25)
+
+- Nueva función de parsing de fechas locales para evitar el error de interpretación UTC que afectaba los filtros de mes/año.
+- Actualizada lógica de comparación y formateo en `resultados-comercial-table.tsx` (+35/-20).
+
+#### 4. `feat: improve date handling for solicitudes in ValesSalida components` (d84ed76)
+
+- `fecha_creacion` como fallback cuando `fecha_recogida` es null en solicitudes de tipo venta.
+- Refactorizados 3 componentes: `ValesSalidaPage`, `CreateValeSalidaDialog` y `ValeSalidaDetailDialog` (+24/-14).
+
+#### 5. `feat: sort solicitudes pendientes by creation date in ValesSalidaPage` (38c0b00)
+
+- `useMemo` para ordenar las solicitudes pendientes por `fecha_creacion` descendente, mostrando las más recientes primero (+9/-1).
+
+---
+
+### Puede dar bateo
+
+1. **Fix 18 min después del feat**: El filtro de método de pago se rompió en el primer commit y se corrigió de inmediato. Sugiere que el modo server-side no fue testeado antes del push. Caso borde pendiente: al cambiar entre modos con un filtro activo, el filtro podría quedarse aplicado o limpiarse inesperadamente.
+
+2. **Excel export sin cota de registros**: `export-facturas-excel-service.ts` no tiene límite visible de registros. Con miles de facturas filtradas, puede generar timeout del servidor, saturar memoria del navegador o producir un Excel demasiado grande para abrirse correctamente.
+
+3. **`'zelle'` — soporte en backend**: El tipo `MetodoPago` fue extendido en el frontend. Si el backend no acepta `'zelle'` como valor válido en el filtro ni en el registro de pagos, el filtro no devolverá resultados y los POSTs de pagos zelle fallarán con 422.
+
+4. **Sort client-side solo sobre datos cargados**: El `useMemo` de `ValesSalidaPage` ordena únicamente los registros ya en memoria. Si la lista usa paginación server-side, registros de otras páginas podrían tener fechas más recientes sin que el ordenamiento los refleje.
+
+5. **Bug de parsing UTC extendido a otros componentes**: La corrección del bug UTC se aplicó en `VentasPorComercialTable` y `ValesSalida` el mismo día. Es probable que otras tablas con filtros de mes/año usen el mismo patrón erróneo `new Date(fechaString)` que produce errores de ±1 día cerca de medianoche UTC.
+
+---
+
+#### Seguimientos vigentes
+
+- **CI `87120119233` hardcodeado para control de permisos**: El CI de un trabajador específico está hardcodeado como excepción de acceso en la lógica de negocio. Si esa persona cambia, requiere un nuevo deploy. Debería moverse a un campo de permiso en BD.
+- **Campos `cambio_real_*` requieren backend actualizado**: `cambio_real_monto`, `cambio_real_moneda` y `cambio_real_tasa` son nuevos en el payload de `PagoVenta`. Si el backend no los acepta, los POSTs con cambio real fallarán con 422 o perderán datos silenciosamente.
+- **Endpoint lazy load `GET /obras-terminadas/oferta/{id}/facturas-cliente`**: Si no existe, al hacer clic en la pestaña el usuario verá error de carga.
+- **PDF unificado con `limit=total` sin cota máxima**: La llamada extra para el PDF unificado puede generar timeout o saturar memoria del navegador si hay miles de registros filtrados.
+- **Badge de estado calculado en frontend con flotantes**: `precio_final − total_pagado` puede dar `0.0000001` por redondeo, mostrando "pendiente" en una factura realmente pagada. El backend debería devolver un campo de estado ya calculado.
+- **Módulo Vales/Facturas Instaladora comentado sin aviso explícito**: Usuarios que dependían de ese flujo quedan sin acceso. Verificar que el cambio fue coordinado.
+- **Sistema de notificaciones — endpoints bulk por tipo**: Confirmar que marcar/eliminar todas acepta filtro por tipo de notificación en el backend.
+- **`GET /inventario/stock-historico`**: Confirmar que existe y acepta params de almacén, material y fecha.
+- **AdminPass 123456 hardcodeado**: Al crear cualquier trabajador se asigna automáticamente `123456` como contraseña. Sin mecanismo de forzar cambio en el primer login — brecha de seguridad operativa.
+- **Auto-sync catálogo → BD al abrir /permisos**: Si el catálogo tiene un módulo mal definido, se crearán registros incorrectos en BD sin posibilidad de rollback automático.
+- **Logs de debug en producción**: Los logs de `fetchTrabajosDeAveria` pueden seguir activos, exponiendo datos de clientes en la consola del navegador.
+- **Eliminación lógica `cantidad = 0` en asignaciones**: Todo el código que lista asignaciones debe filtrar `cantidad > 0`, o los registros eliminados aparecerán como activos.
+- **Creación inline sin persistencia inmediata**: Categorías/unidades creadas desde el atajo "Crear material rápido" se pierden si el usuario cierra el diálogo antes de guardar.
+- **Subida de archivos sin rollback**: Si la subida de foto/ficha técnica tiene éxito pero la creación del material falla, el archivo queda huérfano en storage.
+- **Backend debe aceptar nuevos campos**: `motivo` y `nota` en PATCH de asignaciones; `foto` y `ficha_tecnica_url` en materiales; `oferta_venta_id`, `descuento_free`, `motivo_descuento_free` y `precio` en solicitudes desde oferta.
+- **`childKeys` en catálogo de módulos**: Si se agrega un módulo hijo sin declarar `childKeys`, el card padre quedará invisible aunque el usuario tenga el permiso.
+- **`useEffect` con dependencias `[open, initialData?.id]`**: Si `initialData` cambia el contenido pero mantiene el mismo `id`, el formulario del contenedor no se reinicializa.
+- **Agregados solicitudes-ventas**: Confirmar que los endpoints devuelven campos de agregados globales y por ítem (`total_sin_descuento`, `total_con_aumento`, `aumento_monto`) o los totales serán incorrectos en vistas paginadas.
+- **`updateSolicitudTransferencia` — validación de estado en backend**: El backend debe rechazar ediciones de solicitudes que ya no estén en estado `pendiente`.
+- **Búsqueda por `numero_serie`**: Confirmar que el endpoint indexa este campo en el backend.
+- **`stock_disponible_actual` — consistencia entre endpoints**: Confirmar que todos los endpoints de inventario devuelven este campo de forma consistente.
+- **Excel export de facturas sin cota de registros (nuevo)**: `export-facturas-excel-service.ts` no tiene límite de registros; con grandes volúmenes puede generar timeout o saturar memoria del navegador.
+- **`'zelle'` como método de pago — soporte en backend (nuevo)**: El tipo `MetodoPago` fue extendido. Confirmar que el backend acepta `'zelle'` en filtros y en registro de pagos; de lo contrario los filtros no devolverán resultados y los POSTs de pagos zelle fallarán con 422.
+- **Sort client-side de solicitudes pendientes en ValesSalida (nuevo)**: El `useMemo` ordena solo los datos cargados; con paginación server-side el orden global no está garantizado.
+- **Parsing UTC→local en otras tablas con filtros de fecha (nuevo)**: La corrección en `VentasPorComercialTable` y `ValesSalida` el mismo día sugiere que el bug de `new Date(fechaString)` interpretado como UTC puede estar presente en otros componentes con filtros de mes/año.
+
+---
+
 ## 📅 31 de Mayo, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -428,64 +508,6 @@ Sin commits de desarrollo nuevos. Solo el commit automático "Analisis diario Cl
 
 ---
 
-## 📅 24 de Mayo, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**2 commits** de Fabian1820.
-
 ---
 
-#### 1. `feat(reservas-ventas)` — Gestión de stock en CreateReservaVentaDialog
-
-- Lógica de cálculo de stock disponible basada en reservas activas.
-- Nuevas funciones utilitarias: `buildStockMap` y `lookupStock`.
-- Estado de carga (`stockLoading`) para manejar el cálculo asíncrono.
-- Filas de materiales se actualizan dinámicamente con el stock actual.
-
-##### Puede dar bateo
-
-1. **Stock calculado en cliente con carga potencialmente incompleta**: Si las reservas activas están paginadas y no se cargan todas antes de construir el `stockMap`, el stock mostrado será mayor al real. Dos usuarios podrían ver stock disponible y reservar la misma unidad simultáneamente (race condition). Sin validación en backend al hacer el POST, se generan sobrecomisiones.
-
-2. **Definición de "reserva activa" desalineada con backend**: Si el filtro de estados que usa el frontend para construir el `stockMap` no coincide exactamente con la definición del backend, el mapa incluirá o excluirá reservas incorrectamente, haciendo el cálculo de disponibilidad poco fiable.
-
-3. **`stockLoading` sin bloqueo del botón de guardar**: Si el estado de carga del stock no bloquea el botón de confirmación, el usuario puede enviar una reserva antes de que el cálculo termine, reservando sin información de disponibilidad real.
-
-4. **Datos de stock obsoletos**: Si el diálogo lleva tiempo abierto sin refetch, el `stockMap` refleja la realidad de cuando se abrió, no la actual. Reservas realizadas por otros usuarios entre tanto no serán visibles.
-
----
-
-#### 2. `feat(solicitudes-ventas)` — Filtrado y paginación server-side en solicitudes de pago y facturas
-
-- Búsqueda controlada por servidor en tablas de solicitudes de pago y facturas.
-- Nuevos parámetros: estado de pago, comercial, rangos de fecha.
-- Paginación con totales.
-- UI mejorada: contadores totales y footers de "cargar más".
-
-##### Puede dar bateo
-
-1. **Parámetros de filtrado deben existir en el backend**: Los nuevos params (`estado_pago`, `comercial`, fechas inicio/fin) deben estar implementados en el backend o las llamadas retornarán 422/500. Verificar que el contrato de API esté alineado antes de desplegar en producción.
-
-2. **Race condition al paginar con datos cambiantes**: Si llegan nuevas solicitudes mientras el usuario pagina, los totales y el índice de página quedan desincronizados. El usuario puede ver registros duplicados o perder filas.
-
-3. **Requests duplicados en "cargar más"**: Si el usuario hace scroll rápido o pulsa el footer varias veces antes de que responda el servidor, se pueden acumular múltiples requests simultáneos. Sin un flag de `isFetching` o debounce, se agregarán registros duplicados al listado.
-
-4. **Performance de filtros combinados**: Combinar `estado_pago` + `comercial` + rango de fechas puede generar queries lentas si el backend no tiene índices compuestos sobre estas columnas. Verificar el plan de ejecución bajo carga.
-
----
-
-#### Seguimientos vigentes
-
-- **AdminPass 123456 hardcodeado**: Al crear cualquier trabajador se asigna automáticamente `123456` como contraseña. Sin mecanismo de forzar cambio en el primer login — brecha de seguridad operativa.
-- **Auto-sync catálogo → BD al abrir /permisos**: Si el catálogo tiene un módulo mal definido, se crearán registros incorrectos en BD sin posibilidad de rollback automático.
-- **Logs de debug en producción**: Los logs de `fetchTrabajosDeAveria` pueden seguir activos, exponiendo datos de clientes en la consola del navegador.
-- **Eliminación lógica `cantidad = 0` en asignaciones**: Todo el código que lista asignaciones debe filtrar `cantidad > 0`, o los registros eliminados aparecerán como activos.
-- **Creación inline sin persistencia inmediata**: Categorías/unidades creadas desde el atajo "Crear material rápido" se pierden si el usuario cierra el diálogo antes de guardar.
-- **Subida de archivos sin rollback**: Si la subida de foto/ficha técnica tiene éxito pero la creación del material falla, el archivo queda huérfano en storage.
-- **Backend debe aceptar nuevos campos**: `motivo` y `nota` en PATCH de asignaciones; `foto` y `ficha_tecnica_url` en materiales; `oferta_venta_id`, `descuento_free`, `motivo_descuento_free` y `precio` en solicitudes desde oferta.
-- **`childKeys` en catálogo de módulos**: Si se agrega un módulo hijo sin declarar `childKeys`, el card padre quedará invisible aunque el usuario tenga el permiso.
-- **`useEffect` con dependencias `[open, initialData?.id]`**: Si `initialData` cambia el contenido pero mantiene el mismo `id`, el formulario del contenedor no se reinicializa.
-
----
-
-> ⚠️ **Nota de mantenimiento**: La entrada del **23 de Mayo** fue eliminada al superar los 7 días de antigüedad (política de retención semanal).
+> ⚠️ **Nota de mantenimiento**: La entrada del **24 de Mayo** fue eliminada al superar los 7 días de antigüedad (política de retención semanal).
