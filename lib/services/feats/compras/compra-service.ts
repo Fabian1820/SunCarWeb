@@ -217,14 +217,13 @@ export class CompraService {
   }
 
   static async updateCompra(compraId: string, data: Partial<CompraCreateData>): Promise<Compra> {
-    // El backend rechaza cambios de estado vía PATCH (400). El estado solo cambia
-    // automáticamente al aprobar solicitudes o vía POST /cancelar. Descartamos
-    // el campo aunque el caller lo haya incluído por inercia.
-    const { estado: _ignored, ...rest } = data;
-    void _ignored;
+    // El backend acepta cambios de estado entre los estados manuales
+    // (solicitado / enviado / arribado). Los estados terminales son
+    // automáticos: recibido y recibido_parcial los marca el backend al
+    // aprobar solicitudes; cancelado va por POST /cancelar.
     const raw = await apiRequest<any>(`${BASE_ENDPOINT}/${encodeURIComponent(compraId)}`, {
       method: "PATCH",
-      body: JSON.stringify(rest),
+      body: JSON.stringify(data),
     });
     const error = extractApiError(raw);
     if (error) throw new Error(error);

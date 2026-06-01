@@ -131,10 +131,17 @@ const TIPO_OPTIONS: {
   },
 ];
 
-// Solo se ofrecen los estados que el operador puede asignar manualmente al
-// crear una compra. recibido / recibido_parcial son automáticos (los marca el
-// backend al aprobar solicitudes); cancelado va por POST /cancelar.
-const ESTADO_OPTIONS_CREATE: { value: EstadoCompra; label: string }[] = [
+// Estados que el operador asigna o cambia manualmente. recibido y
+// recibido_parcial los marca el backend al aprobar solicitudes; cancelado
+// va por POST /cancelar. Tanto en create como en edit (mientras la compra
+// esté en uno de estos 3) el Select ofrece estas opciones.
+const ESTADOS_MANUALES = ["solicitado", "enviado", "arribado"] as const;
+type EstadoManual = (typeof ESTADOS_MANUALES)[number];
+
+const esEstadoManual = (e: EstadoCompra): e is EstadoManual =>
+  (ESTADOS_MANUALES as readonly EstadoCompra[]).includes(e);
+
+const ESTADO_OPTIONS_MANUALES: { value: EstadoManual; label: string }[] = [
   { value: "solicitado", label: "Solicitado" },
   { value: "enviado",    label: "Enviado / en camino" },
   { value: "arribado",   label: "Arribado" },
@@ -436,35 +443,48 @@ export function CompraFormDialog({
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-sm font-medium text-gray-700">Estado</Label>
-                {isEditMode ? (
-                  <div className="h-9 rounded-md border border-gray-200 bg-gray-50 px-3 flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700">
-                      {COMPRA_ESTADO_LABELS[estado]}
-                    </span>
-                    <span className="text-[10px] text-gray-400 uppercase tracking-wide">
-                      automático
-                    </span>
+              {(() => {
+                // En create: Select libre con los 3 manuales.
+                // En edit: si la compra está en uno de los manuales (solicitado/
+                // enviado/arribado), el operador puede mover entre esos tres.
+                // Si está en un estado terminal (recibido*, cancelado), pasa a
+                // readonly: a partir de ahí el estado lo controla el backend.
+                const estadoActualEsManual = esEstadoManual(estado);
+                const puedeEditarEstado = !isEditMode || estadoActualEsManual;
+                return (
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium text-gray-700">Estado</Label>
+                    {puedeEditarEstado ? (
+                      <Select value={estado} onValueChange={(v) => setEstado(v as EstadoCompra)}>
+                        <SelectTrigger className="h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ESTADO_OPTIONS_MANUALES.map((e) => (
+                            <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <div className="h-9 rounded-md border border-gray-200 bg-gray-50 px-3 flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-700">
+                          {COMPRA_ESTADO_LABELS[estado]}
+                        </span>
+                        <span className="text-[10px] text-gray-400 uppercase tracking-wide">
+                          automático
+                        </span>
+                      </div>
+                    )}
+                    {isEditMode && (
+                      <p className="text-[10px] text-gray-400 leading-tight">
+                        {estadoActualEsManual
+                          ? "Avanzá manualmente entre Solicitado, Enviado y Arribado. Recibido y Cancelado se aplican automáticamente."
+                          : "El estado cambia automáticamente al aprobar solicitudes o al cancelar la compra."}
+                      </p>
+                    )}
                   </div>
-                ) : (
-                  <Select value={estado} onValueChange={(v) => setEstado(v as EstadoCompra)}>
-                    <SelectTrigger className="h-9">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ESTADO_OPTIONS_CREATE.map((e) => (
-                        <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-                {isEditMode && (
-                  <p className="text-[10px] text-gray-400 leading-tight">
-                    El estado cambia automáticamente al aprobar solicitudes de entrada o al cancelar la compra.
-                  </p>
-                )}
-              </div>
+                );
+              })()}
 
               <div className="md:col-span-2 space-y-1.5">
                 <Label htmlFor="fc-desc" className="text-sm font-medium text-gray-700">
