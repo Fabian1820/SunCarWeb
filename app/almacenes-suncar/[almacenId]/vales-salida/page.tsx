@@ -110,6 +110,14 @@ export default function ValesSalidaPage() {
   const [showSolicitudesPendientes, setShowSolicitudesPendientes] =
     useState(true);
 
+  const solicitudesPendientesOrdenadas = useMemo(() => {
+    return [...solicitudesPendientes].sort((a, b) => {
+      const ta = a.fecha_creacion ? new Date(a.fecha_creacion).getTime() : 0;
+      const tb = b.fecha_creacion ? new Date(b.fecha_creacion).getTime() : 0;
+      return tb - ta;
+    });
+  }, [solicitudesPendientes]);
+
   const loadSolicitudesPendientes = useCallback(async () => {
     setLoadingPendientes(true);
     try {
@@ -379,7 +387,7 @@ export default function ValesSalidaPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {solicitudesPendientes.map((solicitud) => {
+                      {solicitudesPendientesOrdenadas.map((solicitud) => {
                         const styles = getTipoStyles(solicitud.tipo_solicitud);
                         // Las solicitudes de venta no traen fecha_recogida; el flujo
                         // habitual es que se recogen el mismo día, así que caemos a
