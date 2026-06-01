@@ -18,7 +18,7 @@ export interface PagoVenta {
   tasa_cambio?: number | null;
   monto_usd?: number | null;
   descuento_porcentaje?: number | null;
-  metodo_pago?: "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion" | string;
+  metodo_pago?: "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion" | "zelle" | string;
   es_a_plazos?: boolean;
   plan_pagos?: PagoProgramado[] | null;
   pagos_programados?: PagoProgramado[] | null;
@@ -39,7 +39,7 @@ export interface PagoVentaCreateData {
   monto: number;
   moneda: "USD" | "CUP" | "EUR";
   tasa_cambio?: number;
-  metodo_pago: "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion";
+  metodo_pago: "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion" | "zelle";
   stripe_link?: string;
   desglose_billetes?: Record<string, number>;
   cambio?: number;
@@ -187,7 +187,7 @@ export interface PagoVentaListParams {
   skip?: number;
   limit?: number;
   q?: string;
-  metodo_pago?: "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion" | string;
+  metodo_pago?: "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion" | "zelle" | string;
   moneda?: "USD" | "CUP" | "EUR" | string;
   comercial?: string;
   fecha_desde?: string;
@@ -206,6 +206,12 @@ export interface FacturaVentaListParams {
   comercial?: string;
   fecha_desde?: string;
   fecha_hasta?: string;
+  /**
+   * Filtra facturas por método de pago de cualquiera de sus pagos.
+   * Si el backend no soporta el param, el frontend filtra client-side
+   * sobre la página cargada.
+   */
+  metodo_pago?: "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion" | "zelle" | string;
 }
 
 export interface PagoVentaAgregados {

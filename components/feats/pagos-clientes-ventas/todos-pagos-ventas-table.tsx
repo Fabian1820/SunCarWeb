@@ -53,6 +53,8 @@ const METODO_LABELS: Record<string, string> = {
   efectivo: "Efectivo",
   transferencia_bancaria: "Transferencia",
   stripe: "Stripe",
+  zelle: "Zelle",
+  financiacion: "Financiación",
 };
 
 const MONEDA_COLORS: Record<string, string> = {

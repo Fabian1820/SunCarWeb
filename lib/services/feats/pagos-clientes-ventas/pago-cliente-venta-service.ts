@@ -245,6 +245,7 @@ export class FacturaClienteVentaService {
     if (params.comercial) search.append("comercial", params.comercial);
     if (params.fecha_desde) search.append("fecha_desde", params.fecha_desde);
     if (params.fecha_hasta) search.append("fecha_hasta", params.fecha_hasta);
+    if (params.metodo_pago) search.append("metodo_pago", params.metodo_pago);
 
     const qs = search.toString();
     const suffix = qs ? `?${qs}` : "";

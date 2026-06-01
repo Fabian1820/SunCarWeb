@@ -16,7 +16,7 @@ import type {
   FacturaClienteVenta,
   FacturaVentaAgregados,
 } from "@/lib/types/feats/pagos-clientes-ventas/pago-cliente-venta-types";
-import { Search, RefreshCw, AlertCircle, Trash2, Eye, FileDown, Receipt, Files, Loader2 } from "lucide-react";
+import { Search, RefreshCw, AlertCircle, Trash2, Eye, FileDown, Receipt, Files, Loader2, FileSpreadsheet } from "lucide-react";
 
 interface FacturasVentasTableProps {
   facturas: FacturaClienteVenta[];
@@ -29,8 +29,22 @@ interface FacturasVentasTableProps {
   onTicket?: (factura: FacturaClienteVenta) => void;
   /** Exporta todas las facturas listadas (respetando filtros) en un único PDF, una por página. */
   onExportarTodas?: (facturas: FacturaClienteVenta[]) => Promise<void> | void;
+  /**
+   * Exporta a Excel las facturas listadas (respetando filtros y rango de fecha).
+   * Incluye nº factura, cliente, fecha, total sin desc., descuento, aumento,
+   * total, pagado, pendiente y método de pago.
+   */
+  onExportarExcel?: (facturas: FacturaClienteVenta[]) => Promise<void> | void;
   /** Filtro externo por moneda de pago. Solo se aplica client-side cuando el search NO está controlado. */
   monedaFilter?: string;
+  /**
+   * Filtro client-side por método de pago de cualquiera de los pagos de la
+   * factura. Se aplica siempre (server-side ya se envía por params).
+   */
+  metodoFilter?: string;
+  /** Rango de fecha aplicado (informativo, se muestra en el botón de Excel). */
+  fechaDesde?: string;
+  fechaHasta?: string;
   /** "embedded": sin borde propio, controles con padding lateral, tabla a todo el ancho */
   variant?: "default" | "embedded";
   /** Si se pasa, la búsqueda se controla externamente (server-side). */
@@ -54,7 +68,11 @@ export function FacturasVentasTable({
   onExportar,
   onTicket,
   onExportarTodas,
+  onExportarExcel,
   monedaFilter,
+  metodoFilter,
+  fechaDesde,
+  fechaHasta,
   variant = "default",
   searchValue,
   onSearchChange,
@@ -70,6 +88,7 @@ export function FacturasVentasTable({
     else setInternalSearch(v);
   };
   const [exportingAll, setExportingAll] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
   const getFacturaId = (f: FacturaClienteVenta): string =>
     f.id || f.factura_id || f.numero_factura;
   const getSolicitudId = (f: FacturaClienteVenta): string =>
@@ -119,6 +138,13 @@ export function FacturasVentasTable({
         : pagos.some((p) => (p.moneda || "USD") === monedaFilter);
       if (!tieneMoneda) return false;
     }
+    // metodoFilter siempre se aplica client-side como fallback: si el backend
+    // no soporta el query param `metodo_pago`, al menos filtramos la página.
+    if (metodoFilter) {
+      const pagos = Array.isArray(f.pagos) ? f.pagos : [];
+      if (pagos.length === 0) return false;
+      if (!pagos.some((p) => (p.metodo_pago || "") === metodoFilter)) return false;
+    }
     if (isSearchControlled) return true;
     if (!search.trim()) return true;
     const term = search.toLowerCase();
@@ -133,7 +159,7 @@ export function FacturasVentasTable({
       getSolicitudId(f).toLowerCase().includes(term) ||
       getSolicitudesDisplay(f).toLowerCase().includes(term)
     );
-  }), [facturas, search, monedaFilter, isSearchControlled]);
+  }), [facturas, search, monedaFilter, metodoFilter, isSearchControlled]);
 
   // Prefiere el campo del backend `total_sin_descuento` (bruto sin descuento
   // ni aumento). Fallback al cálculo legacy si el backend aún no lo expone.
@@ -250,6 +276,37 @@ export function FacturasVentasTable({
             )}
             <span className="hidden sm:inline">
               {exportingAll ? "Generando..." : "Exportar todas (PDF)"}
+            </span>
+          </Button>
+        )}
+        {onExportarExcel && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 text-green-700 border-green-300 hover:bg-green-50"
+            disabled={exportingExcel || filtered.length === 0}
+            title={
+              fechaDesde || fechaHasta
+                ? `Exportar a Excel las facturas del rango ${fechaDesde || "—"} a ${fechaHasta || "—"}`
+                : "Exportar a Excel las facturas listadas"
+            }
+            onClick={async () => {
+              if (filtered.length === 0) return;
+              setExportingExcel(true);
+              try {
+                await onExportarExcel(filtered);
+              } finally {
+                setExportingExcel(false);
+              }
+            }}
+          >
+            {exportingExcel ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <FileSpreadsheet className="h-4 w-4" />
+            )}
+            <span className="hidden sm:inline">
+              {exportingExcel ? "Generando..." : "Exportar Excel"}
             </span>
           </Button>
         )}
