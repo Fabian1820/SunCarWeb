@@ -605,6 +605,44 @@ function FichaCostoContent() {
    * SIN aplicar precios al catálogo de productos. El flag `precios_aplicados`
    * queda en false. Permite trabajar la ficha en varias sesiones.
    */
+  /**
+   * Persistencia base de la ficha: PATCH /compras/{id} (totales) + PATCH
+   * /compras/{id}/ficha (materiales). No toca el catálogo. Devuelve la compra
+   * actualizada o lanza el error. No emite toast — el caller decide cómo
+   * comunicar éxito/fracaso (handleGuardarBorrador lo hace de un modo,
+   * handlePonderarCosto lo encadena silenciosamente).
+   */
+  const guardarFichaInterno = async (): Promise<Compra> => {
+    const updatePayload: Partial<CompraCreateData> = {
+      costos,
+      porciento_instaladora: porcientoInstaladora,
+      porciento_ventas: porcientoVentas,
+      porciento_cargo_envio_sugerido: porcientoEnvioSugerido,
+      porciento_cargo_envio_impuestos: porcientoImpuestos,
+      total_costos: totalCostosUsd,
+      valor_mercancia: totalValorMercancias,
+      tasa_conversion_eur_usd: hayCostosEnEur ? tasaEurUsd : null,
+      tasa_conversion_mlc_usd: hayCostosEnMlc ? tasaMlcUsd : null,
+      tasa_conversion_cup_usd: hayCostosEnCup ? tasaCupUsd : null,
+    };
+    await CompraService.updateCompra(envioId, updatePayload);
+
+    const materiales: FichaPatchMaterial[] = filas.map((f) => ({
+      material_id: f.material_id,
+      precio_unitario_cif: f.precio_unitario_cif,
+      porciento_recargo: f.porciento_recargo + porcientoImpuestos,
+      costo: f.costo_nuevo,
+      precio_venta_sugerido: f.precio_venta_sugerido > 0 ? f.precio_venta_sugerido : null,
+      precio_instaladora_sugerido: f.precio_instaladora_sugerido > 0 ? f.precio_instaladora_sugerido : null,
+      precio_venta_final: f.precio_venta_final > 0 ? f.precio_venta_final : null,
+      precio_instaladora_final: f.precio_instaladora_final > 0 ? f.precio_instaladora_final : null,
+      porciento_rebajable_venta: f.porciento_rebajable_venta,
+    }));
+    const compraActualizada = await CompraService.guardarFicha(envioId, { materiales });
+    setEnvio(compraActualizada);
+    return compraActualizada;
+  };
+
   const handleGuardarBorrador = async () => {
     if (filas.length === 0) {
       toast({ title: "Sin materiales", description: "No hay materiales en esta compra.", variant: "destructive" });
@@ -612,35 +650,7 @@ function FichaCostoContent() {
     }
     setSavingBorrador(true);
     try {
-      // 1. PATCH del contenedor con totales y porcentajes
-      const updatePayload: Partial<CompraCreateData> = {
-        costos,
-        porciento_instaladora: porcientoInstaladora,
-        porciento_ventas: porcientoVentas,
-        porciento_cargo_envio_sugerido: porcientoEnvioSugerido,
-        porciento_cargo_envio_impuestos: porcientoImpuestos,
-        total_costos: totalCostosUsd,
-        valor_mercancia: totalValorMercancias,
-        tasa_conversion_eur_usd: hayCostosEnEur ? tasaEurUsd : null,
-        tasa_conversion_mlc_usd: hayCostosEnMlc ? tasaMlcUsd : null,
-        tasa_conversion_cup_usd: hayCostosEnCup ? tasaCupUsd : null,
-      };
-      await CompraService.updateCompra(envioId, updatePayload);
-
-      // 2. PATCH /ficha con los materiales tal como están (sin aplicar al catálogo)
-      const materiales: FichaPatchMaterial[] = filas.map((f) => ({
-        material_id: f.material_id,
-        precio_unitario_cif: f.precio_unitario_cif,
-        porciento_recargo: f.porciento_recargo + porcientoImpuestos,
-        costo: f.costo_nuevo,
-        precio_venta_sugerido: f.precio_venta_sugerido > 0 ? f.precio_venta_sugerido : null,
-        precio_instaladora_sugerido: f.precio_instaladora_sugerido > 0 ? f.precio_instaladora_sugerido : null,
-        precio_venta_final: f.precio_venta_final > 0 ? f.precio_venta_final : null,
-        precio_instaladora_final: f.precio_instaladora_final > 0 ? f.precio_instaladora_final : null,
-        porciento_rebajable_venta: f.porciento_rebajable_venta,
-      }));
-      const compraActualizada = await CompraService.guardarFicha(envioId, { materiales });
-      setEnvio(compraActualizada);
+      await guardarFichaInterno();
       toast({
         title: "Ficha guardada",
         description: "El progreso quedó guardado. Los precios todavía no se aplicaron al catálogo.",
@@ -657,23 +667,40 @@ function FichaCostoContent() {
   };
 
   /**
-   * Ponderar costo: el backend recorre el kardex de esta compra, busca entradas
-   * con costo 0 (recepciones hechas antes de tener la ficha) y aplica el costo
-   * de la ficha + recalcula promedios. Útil cuando se dio entrada antes de
-   * confeccionar la ficha.
+   * Ponderar costo: primero hace un Guardar interno de la ficha (para que el
+   * backend pondere usando los valores que el operador acaba de tipear y no
+   * los del último guardado explícito); después dispara el POST
+   * /ponderar-costo. Si el guardar falla, se aborta sin pegarle al endpoint.
    */
   const handlePonderarCosto = async () => {
+    if (filas.length === 0) {
+      toast({ title: "Sin materiales", description: "No hay materiales en esta compra.", variant: "destructive" });
+      return;
+    }
     if (!confirm(
-      "Esto recorre el kardex de esta compra y aplica los costos de la ficha a las entradas que quedaron en 0. ¿Continuar?",
+      "Se guardará la ficha actual y luego se aplicarán los costos a las entradas del kardex que quedaron en 0. ¿Continuar?",
     )) return;
     setPonderando(true);
     try {
+      // 1. Guardado previo: persiste lo que el operador tiene en pantalla.
+      try {
+        await guardarFichaInterno();
+      } catch (err) {
+        toast({
+          title: "No se pudo guardar la ficha antes de ponderar",
+          description: err instanceof Error ? err.message : "Error desconocido. Se aborta la ponderación.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // 2. Ponderar costo con los datos ya persistidos.
       const r = await CompraService.ponderarCosto(envioId);
       toast({
         title: "Costos ponderados",
         description: r.actualizados > 0
-          ? `${r.actualizados} entrada${r.actualizados !== 1 ? "s" : ""} actualizada${r.actualizados !== 1 ? "s" : ""} en el kardex.`
-          : "No había entradas pendientes de costear.",
+          ? `Ficha guardada y ${r.actualizados} entrada${r.actualizados !== 1 ? "s" : ""} actualizada${r.actualizados !== 1 ? "s" : ""} en el kardex.`
+          : "Ficha guardada. No había entradas pendientes de costear.",
       });
     } catch (err) {
       toast({
