@@ -808,20 +808,58 @@ const [exportingSolicitudes, setExportingSolicitudes] = useState(false);
       return;
     }
     try {
-      // Asegurar metodo_pago en cada pago: si falta, lo buscamos en todosPagos
-      // o pedimos al endpoint individual. Reutilizamos enriquecerPagos a través
-      // de resolveResumen, pero solo necesitamos los pagos enriquecidos.
+      // Para asegurar `metodo_pago` en pagos y `materiales` por factura, hacemos
+      // resolveResumen cuando falte alguno (los materiales vienen agregados desde
+      // `solicitudes_vinculadas` del resumen). El servicio de export ya tolera
+      // facturas sin materiales (la columna queda vacía).
       const conPagos: FacturaClienteVenta[] = await Promise.all(
         lista.map(async (f) => {
           const tienenMetodo =
             Array.isArray(f.pagos) &&
             f.pagos.length > 0 &&
             f.pagos.every((p) => Boolean(p.metodo_pago));
-          if (tienenMetodo) return f;
+          const tieneMateriales =
+            Array.isArray(f.materiales) && f.materiales.length > 0;
+          if (tienenMetodo && tieneMateriales) return f;
           try {
             const resumen = await resolveResumen(f);
+            const materialesAgregados: Array<{
+              material_descripcion?: string;
+              cantidad?: number;
+              precio?: number;
+              subtotal?: number;
+            }> = [];
+            for (const s of resumen.solicitudes_vinculadas || []) {
+              const mats: unknown[] = Array.isArray(s.materiales) ? s.materiales : [];
+              for (const m of mats) {
+                if (typeof m === "string") {
+                  materialesAgregados.push({ material_descripcion: m });
+                } else if (m && typeof m === "object") {
+                  const mo = m as {
+                    material_descripcion?: string;
+                    descripcion?: string;
+                    nombre?: string;
+                    cantidad?: number;
+                    precio?: number;
+                    subtotal?: number;
+                  };
+                  materialesAgregados.push({
+                    material_descripcion:
+                      mo.material_descripcion || mo.descripcion || mo.nombre || "",
+                    cantidad: mo.cantidad,
+                    precio: mo.precio,
+                    subtotal: mo.subtotal,
+                  });
+                }
+              }
+            }
             return {
               ...f,
+              materiales: tieneMateriales
+                ? f.materiales
+                : materialesAgregados.length > 0
+                  ? materialesAgregados
+                  : f.materiales,
               pagos: Array.isArray(resumen.pagos)
                 ? resumen.pagos.map((p) => ({
                     id: p.id,

@@ -14,6 +14,56 @@ const toNumber = (v: unknown): number => {
   return Number.isFinite(n) ? n : 0;
 };
 
+type MaterialFactura =
+  | {
+      material_id?: string;
+      material_codigo?: string;
+      material_descripcion?: string;
+      descripcion?: string;
+      nombre?: string;
+      cantidad?: number;
+      precio?: number;
+      subtotal?: number;
+    }
+  | string;
+
+const getMaterialesList = (f: FacturaClienteVenta): MaterialFactura[] => {
+  if (Array.isArray(f.materiales)) return f.materiales;
+  if (typeof f.materiales === "string" && f.materiales.trim()) {
+    return [f.materiales];
+  }
+  return [];
+};
+
+const getCantidadMateriales = (f: FacturaClienteVenta): number => {
+  return getMaterialesList(f).length;
+};
+
+const formatMaterialesDetalle = (f: FacturaClienteVenta): string => {
+  const lista = getMaterialesList(f);
+  if (lista.length === 0) return "";
+  return lista
+    .map((m) => {
+      if (typeof m === "string") return m.trim();
+      const cant = Number(m.cantidad) || 0;
+      const nombre =
+        m.material_descripcion ||
+        m.descripcion ||
+        m.nombre ||
+        m.material_codigo ||
+        m.material_id ||
+        "";
+      const codigo =
+        m.material_codigo && m.material_codigo !== nombre
+          ? ` [${m.material_codigo}]`
+          : "";
+      const prefijo = cant > 0 ? `${cant}x ` : "";
+      return `${prefijo}${nombre}${codigo}`.trim();
+    })
+    .filter(Boolean)
+    .join("\n");
+};
+
 const getTotalSinDescuento = (f: FacturaClienteVenta): number => {
   if (typeof f.total_sin_descuento === "number") return f.total_sin_descuento;
   return toNumber(f.total_a_pagar) + toNumber(f.descuento);
@@ -73,6 +123,8 @@ export class ExportFacturasExcelService {
       "Nº Factura": f.numero_factura || "",
       "Cliente": f.cliente || f.cliente_nombre || "",
       "Fecha": formatDateFile(f.fecha_emision),
+      "Cantidad materiales": getCantidadMateriales(f),
+      "Materiales": formatMaterialesDetalle(f),
       "Total sin descuento (USD)": Number(getTotalSinDescuento(f).toFixed(2)),
       "Descuento (USD)": Number(toNumber(f.descuento).toFixed(2)),
       "Aumento (USD)": Number(toNumber(f.aumento_monto).toFixed(2)),
@@ -88,6 +140,8 @@ export class ExportFacturasExcelService {
       { wch: 18 }, // Nº Factura
       { wch: 32 }, // Cliente
       { wch: 12 }, // Fecha
+      { wch: 12 }, // Cantidad materiales
+      { wch: 50 }, // Materiales
       { wch: 22 }, // Total sin descuento
       { wch: 16 }, // Descuento
       { wch: 16 }, // Aumento
