@@ -1171,7 +1171,7 @@ function FichaCostoContent() {
                         Costo
                       </th>
                       {/* Grupo actuales */}
-                      <th colSpan={3} className="text-center py-2 px-2 font-semibold text-gray-500 text-xs uppercase tracking-wide bg-slate-50 border-l border-r border-slate-200">
+                      <th colSpan={4} className="text-center py-2 px-2 font-semibold text-gray-500 text-xs uppercase tracking-wide bg-slate-50 border-l border-r border-slate-200">
                         Actuales (catálogo)
                       </th>
                       {/* Grupo nuevos */}
@@ -1186,7 +1186,8 @@ function FichaCostoContent() {
                     <tr className="border-b border-gray-200">
                       <th className="text-center py-1.5 px-2 font-medium text-gray-500 text-xs bg-slate-50 border-l border-slate-200 w-[5%]">Stock</th>
                       <th className="text-center py-1.5 px-2 font-medium text-gray-500 text-xs bg-slate-50 w-[7%]">P. Venta</th>
-                      <th className="text-center py-1.5 px-2 font-medium text-gray-500 text-xs bg-slate-50 border-r border-slate-200 w-[7%]">P. Inst.</th>
+                      <th className="text-center py-1.5 px-2 font-medium text-gray-500 text-xs bg-slate-50 w-[7%]">P. Inst.</th>
+                      <th className="text-center py-1.5 px-2 font-medium text-gray-500 text-xs bg-slate-50 border-r border-slate-200 w-[6%]">Costo</th>
                       <th className="text-center py-1.5 px-2 font-medium text-cyan-600 text-xs bg-cyan-50 border-l border-cyan-200 w-[7%]">P. Venta</th>
                       <th className="text-center py-1.5 px-2 font-medium text-cyan-600 text-xs bg-cyan-50 border-r border-cyan-200 w-[7%]">P. Inst.</th>
                       <th className="text-center py-1.5 px-2 font-medium text-purple-600 text-xs bg-purple-50 border-l border-purple-200 w-[8%]">P. Venta</th>
@@ -1310,9 +1311,14 @@ function FichaCostoContent() {
                                 ? <p className="text-sm font-semibold text-gray-700">${fmt(f.precio_catalogo)}</p>
                                 : <p className="text-xs text-gray-300">—</p>}
                             </td>
-                            <td className="py-2.5 px-2 text-center bg-slate-50/60 border-r border-slate-100">
+                            <td className="py-2.5 px-2 text-center bg-slate-50/60">
                               {f.precio_instaladora_catalogo > 0
                                 ? <p className="text-sm font-semibold text-gray-700">${fmt(f.precio_instaladora_catalogo)}</p>
+                                : <p className="text-xs text-gray-300">—</p>}
+                            </td>
+                            <td className="py-2.5 px-2 text-center bg-slate-50/60 border-r border-slate-100">
+                              {f.costo_actual > 0
+                                ? <p className="text-sm font-semibold text-gray-700">${fmt(f.costo_actual)}</p>
                                 : <p className="text-xs text-gray-300">—</p>}
                             </td>
 
