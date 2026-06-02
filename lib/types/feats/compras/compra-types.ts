@@ -210,13 +210,15 @@ export interface MaterialDatosBulk {
   porciento_rebajable_venta?: number;
 }
 
+/**
+ * Payload de POST /api/compras/{id}/aplicar-precios.
+ * Backend solo propaga al catálogo: precio_venta_final, precio_instaladora_final
+ * y porciento_rebajable_venta. El resto de campos persistidos de la ficha
+ * (CIF, recargo, costo, sugeridos) viven en la compra y se guardan con
+ * PATCH /ficha — no se mandan acá.
+ */
 export interface AplicarPreciosMaterialPayload {
   material_id: string;
-  precio_unitario_cif: number;
-  porciento_recargo: number;
-  costo: number;
-  precio_venta_sugerido?: number | null;
-  precio_instaladora_sugerido?: number | null;
   precio_venta_final?: number | null;
   precio_instaladora_final?: number | null;
   porciento_rebajable_venta: number;

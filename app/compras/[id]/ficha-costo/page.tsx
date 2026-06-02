@@ -539,30 +539,27 @@ function FichaCostoContent() {
   const ejecutarAplicarPrecios = async (cambiosEditados: CambioMaterialPrecio[]) => {
     setSaving(true);
     try {
-      // 1. PATCH del contenedor con totales y porcentajes
-      const updatePayload: Partial<CompraCreateData> = {
-        costos,
-        porciento_instaladora: porcientoInstaladora,
-        porciento_ventas: porcientoVentas,
-        porciento_cargo_envio_sugerido: porcientoEnvioSugerido,
-        porciento_cargo_envio_impuestos: porcientoImpuestos,
-        total_costos: totalCostosUsd,
-        valor_mercancia: totalValorMercancias,
-        tasa_conversion_eur_usd: hayCostosEnEur ? tasaEurUsd : null,
-        tasa_conversion_mlc_usd: hayCostosEnMlc ? tasaMlcUsd : null,
-        tasa_conversion_cup_usd: hayCostosEnCup ? tasaCupUsd : null,
-      };
-      await CompraService.updateCompra(envioId, updatePayload);
+      // 1. Guardar ficha primero: persiste totales + materiales (CIF, recargo,
+      // costo, sugeridos, etc). Si el operador editó algo en el dialog de
+      // confirmación, lo refleja la ficha primero. Si falla, abortamos antes
+      // de tocar el catálogo.
+      try {
+        await guardarFichaInterno();
+      } catch (err) {
+        toast({
+          title: "No se pudo guardar la ficha antes de aplicar precios",
+          description: err instanceof Error ? err.message : "Error desconocido. Se aborta la aplicación.",
+          variant: "destructive",
+        });
+        return;
+      }
 
-      // 2. POST aplicar-precios con valores (posiblemente editados desde el dialog).
-      // El backend espera `porciento_recargo` como TOTAL (recargo de la fila + impuestos globales).
+      // 2. POST aplicar-precios con SOLO los campos que el backend propaga
+      // al catálogo: precio_venta_final, precio_instaladora_final y
+      // porciento_rebajable_venta. El costo / CIF / recargo / sugeridos ya
+      // quedaron persistidos en la ficha en el paso 1.
       const payload: AplicarPreciosMaterialPayload[] = cambiosEditados.map((c) => ({
         material_id: c.material_id,
-        precio_unitario_cif: c.precio_unitario_cif,
-        porciento_recargo: c.porciento_recargo + porcientoImpuestos,
-        costo: c.costo_nuevo,
-        precio_venta_sugerido: c.precio_venta_sugerido > 0 ? c.precio_venta_sugerido : null,
-        precio_instaladora_sugerido: c.precio_instaladora_sugerido > 0 ? c.precio_instaladora_sugerido : null,
         precio_venta_final: c.precio_venta_nuevo > 0 ? c.precio_venta_nuevo : null,
         precio_instaladora_final: c.precio_instaladora_nuevo > 0 ? c.precio_instaladora_nuevo : null,
         porciento_rebajable_venta: c.porciento_rebajable_venta_nuevo,
@@ -594,7 +591,7 @@ function FichaCostoContent() {
       );
     } catch (err) {
       toast({
-        title: "Error al guardar",
+        title: "Error al aplicar precios",
         description: err instanceof Error ? err.message : "Error desconocido",
         variant: "destructive",
       });
