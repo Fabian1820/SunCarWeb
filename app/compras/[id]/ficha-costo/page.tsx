@@ -124,10 +124,8 @@ function FichaCostoContent() {
 
   // ── costos de importación ──
   const [costos, setCostos] = useState<CostoImportacion[]>([]);
-  // Tasas de cambio a USD para cada moneda no-USD. Sin esto, costos en EUR /
-  // MLC / CUP no se podrían sumar al total y no impactarían el % recargo.
-  // Solo tasaEurUsd se persiste en backend (`tasa_conversion_eur_usd`); las
-  // otras viven en sesión y el operador las setea cuando agrega costos.
+  // Tasas de cambio a USD para cada moneda no-USD. Las tres se persisten en
+  // backend: tasa_conversion_eur_usd / mlc_usd / cup_usd.
   const [tasaEurUsd, setTasaEurUsd] = useState<number>(1.08);
   const [tasaMlcUsd, setTasaMlcUsd] = useState<number>(1);
   const [tasaCupUsd, setTasaCupUsd] = useState<number>(1);
@@ -168,6 +166,12 @@ function FichaCostoContent() {
       if (envioData.tasa_conversion_eur_usd != null && envioData.tasa_conversion_eur_usd > 0) {
         setTasaEurUsd(envioData.tasa_conversion_eur_usd);
       }
+      if (envioData.tasa_conversion_mlc_usd != null && envioData.tasa_conversion_mlc_usd > 0) {
+        setTasaMlcUsd(envioData.tasa_conversion_mlc_usd);
+      }
+      if (envioData.tasa_conversion_cup_usd != null && envioData.tasa_conversion_cup_usd > 0) {
+        setTasaCupUsd(envioData.tasa_conversion_cup_usd);
+      }
 
       const materialIds = envioData.materiales.map((m) => m.material_id).filter(Boolean);
       const datosBulk = await CompraService.getMaterialesDatosBulk(materialIds);
@@ -175,13 +179,17 @@ function FichaCostoContent() {
       const impuestosGuardados = envioData.porciento_cargo_envio_impuestos ?? 0;
 
       // Calcular el recargo sugerido a partir de lo que está guardado
-      // (costos + tasa + valor mercancía) — sirve para decidir si el
+      // (costos + tasas + valor mercancía) — sirve para decidir si el
       // porciento_recargo persistido fue una edición manual del usuario
       // (override) o simplemente el sugerido del momento del guardado.
-      const tasaGuardada = envioData.tasa_conversion_eur_usd ?? 0;
+      const tasaEurGuardada = envioData.tasa_conversion_eur_usd ?? 0;
+      const tasaMlcGuardada = envioData.tasa_conversion_mlc_usd ?? 0;
+      const tasaCupGuardada = envioData.tasa_conversion_cup_usd ?? 0;
       const totalCostosUsdGuardado = (envioData.costos ?? []).reduce((acc, c) => {
         if (c.moneda === "USD") return acc + c.monto;
-        if (c.moneda === "EUR" && tasaGuardada > 0) return acc + c.monto * tasaGuardada;
+        if (c.moneda === "EUR" && tasaEurGuardada > 0) return acc + c.monto * tasaEurGuardada;
+        if (c.moneda === "MLC" && tasaMlcGuardada > 0) return acc + c.monto * tasaMlcGuardada;
+        if (c.moneda === "CUP" && tasaCupGuardada > 0) return acc + c.monto * tasaCupGuardada;
         return acc;
       }, 0);
       const valorMercanciasGuardado = envioData.materiales.reduce(
@@ -527,6 +535,8 @@ function FichaCostoContent() {
         total_costos: totalCostosUsd,
         valor_mercancia: totalValorMercancias,
         tasa_conversion_eur_usd: hayCostosEnEur ? tasaEurUsd : null,
+        tasa_conversion_mlc_usd: hayCostosEnMlc ? tasaMlcUsd : null,
+        tasa_conversion_cup_usd: hayCostosEnCup ? tasaCupUsd : null,
       };
       await CompraService.updateCompra(envioId, updatePayload);
 
@@ -601,6 +611,8 @@ function FichaCostoContent() {
         total_costos: totalCostosUsd,
         valor_mercancia: totalValorMercancias,
         tasa_conversion_eur_usd: hayCostosEnEur ? tasaEurUsd : null,
+        tasa_conversion_mlc_usd: hayCostosEnMlc ? tasaMlcUsd : null,
+        tasa_conversion_cup_usd: hayCostosEnCup ? tasaCupUsd : null,
       };
       await CompraService.updateCompra(envioId, updatePayload);
 

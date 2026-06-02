@@ -95,6 +95,8 @@ export interface Compra {
   total_costos?: number;
   valor_mercancia?: number;
   tasa_conversion_eur_usd?: number | null;
+  tasa_conversion_mlc_usd?: number | null;
+  tasa_conversion_cup_usd?: number | null;
   porciento_cargo_envio_sugerido?: number;
   porciento_cargo_envio_impuestos?: number;
   porciento_instaladora: number;
@@ -142,6 +144,8 @@ export interface CompraCreateData {
   total_costos?: number;
   valor_mercancia?: number;
   tasa_conversion_eur_usd?: number | null;
+  tasa_conversion_mlc_usd?: number | null;
+  tasa_conversion_cup_usd?: number | null;
   porciento_cargo_envio_sugerido?: number;
   porciento_cargo_envio_impuestos?: number;
   materiales: CompraMaterialCreate[];

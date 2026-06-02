@@ -142,6 +142,8 @@ const mapCompra = (raw: any): Compra => ({
   total_costos: raw?.total_costos != null ? Number(raw.total_costos) : undefined,
   valor_mercancia: raw?.valor_mercancia != null ? Number(raw.valor_mercancia) : undefined,
   tasa_conversion_eur_usd: raw?.tasa_conversion_eur_usd != null ? Number(raw.tasa_conversion_eur_usd) : null,
+  tasa_conversion_mlc_usd: raw?.tasa_conversion_mlc_usd != null ? Number(raw.tasa_conversion_mlc_usd) : null,
+  tasa_conversion_cup_usd: raw?.tasa_conversion_cup_usd != null ? Number(raw.tasa_conversion_cup_usd) : null,
   porciento_cargo_envio_sugerido: raw?.porciento_cargo_envio_sugerido != null ? Number(raw.porciento_cargo_envio_sugerido) : undefined,
   porciento_cargo_envio_impuestos: raw?.porciento_cargo_envio_impuestos != null ? Number(raw.porciento_cargo_envio_impuestos) : undefined,
   porciento_instaladora: Number(raw?.porciento_instaladora ?? 0),
