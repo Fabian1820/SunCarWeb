@@ -124,7 +124,13 @@ function FichaCostoContent() {
 
   // ── costos de importación ──
   const [costos, setCostos] = useState<CostoImportacion[]>([]);
+  // Tasas de cambio a USD para cada moneda no-USD. Sin esto, costos en EUR /
+  // MLC / CUP no se podrían sumar al total y no impactarían el % recargo.
+  // Solo tasaEurUsd se persiste en backend (`tasa_conversion_eur_usd`); las
+  // otras viven en sesión y el operador las setea cuando agrega costos.
   const [tasaEurUsd, setTasaEurUsd] = useState<number>(1.08);
+  const [tasaMlcUsd, setTasaMlcUsd] = useState<number>(1);
+  const [tasaCupUsd, setTasaCupUsd] = useState<number>(1);
   const [nuevoCostoDesc, setNuevoCostoDesc] = useState("");
   const [nuevoCostoMonto, setNuevoCostoMonto] = useState("");
   const [nuevoCostoMoneda, setNuevoCostoMoneda] = useState<MonedaCosto>("USD");
@@ -252,11 +258,15 @@ function FichaCostoContent() {
     return costos.reduce((acc, c) => {
       if (c.moneda === "USD") return acc + c.monto;
       if (c.moneda === "EUR") return acc + c.monto * tasaEurUsd;
+      if (c.moneda === "MLC") return acc + c.monto * tasaMlcUsd;
+      if (c.moneda === "CUP") return acc + c.monto * tasaCupUsd;
       return acc;
     }, 0);
-  }, [costos, tasaEurUsd]);
+  }, [costos, tasaEurUsd, tasaMlcUsd, tasaCupUsd]);
 
   const hayCostosEnEur = useMemo(() => costos.some((c) => c.moneda === "EUR"), [costos]);
+  const hayCostosEnMlc = useMemo(() => costos.some((c) => c.moneda === "MLC"), [costos]);
+  const hayCostosEnCup = useMemo(() => costos.some((c) => c.moneda === "CUP"), [costos]);
 
   const costosTotalesMLC = useMemo(
     () => costos.filter((c) => c.moneda === "MLC").reduce((a, c) => a + c.monto, 0),
@@ -816,21 +826,61 @@ function FichaCostoContent() {
 
             {!costosCollapsed && (
               <CardContent className="px-4 pt-3 pb-4 space-y-3">
-                {/* Tasa EUR/USD */}
-                {hayCostosEnEur && (
-                  <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-md">
-                    <Info className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                    <span className="text-xs text-amber-700 font-medium">Tasa EUR → USD:</span>
-                    <span className="text-xs text-amber-600">1 EUR =</span>
-                    <Input
-                      type="number"
-                      className="h-6 w-20 text-xs px-1.5 border-amber-300 bg-white"
-                      value={tasaEurUsd}
-                      onChange={(e) => setTasaEurUsd(parseFloat(e.target.value) || 1)}
-                      step="0.01"
-                      min="0.01"
-                    />
-                    <span className="text-xs text-amber-600">USD</span>
+                {/* Tasas de cambio por moneda no-USD. Aparecen solo si hay
+                    costos en esa moneda, así el operador setea la conversión
+                    y los costos no-USD entran al cálculo del % recargo. */}
+                {(hayCostosEnEur || hayCostosEnMlc || hayCostosEnCup) && (
+                  <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 space-y-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <Info className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                      <span className="text-xs text-amber-700 font-medium">
+                        Tasas de cambio a USD
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pl-5">
+                      {hayCostosEnEur && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-amber-700 font-medium">1 EUR =</span>
+                          <Input
+                            type="number"
+                            className="h-6 w-20 text-xs px-1.5 border-amber-300 bg-white"
+                            value={tasaEurUsd}
+                            onChange={(e) => setTasaEurUsd(parseFloat(e.target.value) || 1)}
+                            step="0.01"
+                            min="0.01"
+                          />
+                          <span className="text-xs text-amber-600">USD</span>
+                        </div>
+                      )}
+                      {hayCostosEnMlc && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-amber-700 font-medium">1 MLC =</span>
+                          <Input
+                            type="number"
+                            className="h-6 w-20 text-xs px-1.5 border-amber-300 bg-white"
+                            value={tasaMlcUsd}
+                            onChange={(e) => setTasaMlcUsd(parseFloat(e.target.value) || 0)}
+                            step="0.0001"
+                            min="0"
+                          />
+                          <span className="text-xs text-amber-600">USD</span>
+                        </div>
+                      )}
+                      {hayCostosEnCup && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-amber-700 font-medium">1 CUP =</span>
+                          <Input
+                            type="number"
+                            className="h-6 w-20 text-xs px-1.5 border-amber-300 bg-white"
+                            value={tasaCupUsd}
+                            onChange={(e) => setTasaCupUsd(parseFloat(e.target.value) || 0)}
+                            step="0.0001"
+                            min="0"
+                          />
+                          <span className="text-xs text-amber-600">USD</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 
