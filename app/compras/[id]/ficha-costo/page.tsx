@@ -252,12 +252,15 @@ function FichaCostoContent() {
           precio_instaladora_sugerido: piSugerido,
           precio_venta_final: pvFinal,
           precio_instaladora_final: piFinal,
-          // override = true solo si la compra tenía un final guardado distinto
-          // del sugerido. Si el final fue precargado desde el catálogo (sin
-          // valor guardado), NO es override — sigue al sugerido si cambian
-          // costos/recargo.
-          precio_venta_override: tienePvFinalGuardado && pvSugerido > 0 && Math.abs(pvFinal - pvSugerido) > 0.0001,
-          precio_instaladora_override: tienePiFinalGuardado && piSugerido > 0 && Math.abs(piFinal - piSugerido) > 0.0001,
+          // override = true cuando la compra ya tenía un final guardado real
+          // (> 0). Es decir: fue una decisión deliberada del operador en una
+          // sesión previa y debe quedarse fijo aunque cambien costos/sugeridos.
+          // El operador puede destrabarlo manualmente con el botón "reset"
+          // (icono RefreshCw) y volver a seguir el sugerido.
+          // Si el final fue precargado del catálogo o quedó en 0, override =
+          // false → sigue al sugerido al recalcularse.
+          precio_venta_override: tienePvFinalGuardado,
+          precio_instaladora_override: tienePiFinalGuardado,
           errorValidacion: null,
         };
       });
