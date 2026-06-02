@@ -2,6 +2,114 @@
 
 ---
 
+## 📅 2 de Junio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**23 commits** de Fabian1820 — día de actividad muy alta concentrada en la ficha de costos de compras, traspaso entre pools de inventario, y mejoras en vales de salida y facturas.
+
+---
+
+### Área 1: Ficha de costos de compras (11 commits — 03:24 a 11:03)
+
+- **`fix(ficha)`: no marcar % recargo como override por el solo hecho de tener valor guardado** — Al volver a abrir una ficha, el frontend marcaba `porciento_recargo_override=true` para toda fila con recargo persistido > 0, bloqueando la recalculación al agregar costos nuevos. Corregido: override = true solo si el recargo guardado difiere del sugerido calculado con los costos del momento del guardado.
+- **`chore(ficha)`: quitar logs de diagnóstico y refetch redundante** — Limpieza del código de diagnóstico agregado durante el debug.
+- **`feat(ficha)`: tasas de cambio configurables para MLC y CUP** — Nuevos inputs de tasa por moneda (EUR, MLC, CUP). Todos los costos se convierten a USD y entran al cálculo de `totalCostosUsd` → `porcientoEnvioSugerido` → costos de cada fila.
+- **`feat(compras)`: persistir tasas MLC y CUP a USD** — `tasa_conversion_mlc_usd` y `tasa_conversion_cup_usd` ahora se envían en PATCH de compra. El backend ya los acepta según el comentario del commit.
+- **`fix(ficha)`: precargar precios finales del catálogo aunque la compra los traiga en 0** — Backend devuelve `precio_venta_final = 0` en compras nuevas (no null). Corregido: `tienePvFinalGuardado` ahora es `> 0`, y `precio_venta_override` se setea en true solo si había un final guardado real.
+- **`feat(ficha)`: agregar columna Costo en sección Actuales (catálogo)** — Nueva sub-columna "Costo" que muestra `f.costo_actual` (del bulk-datos) en la sección de precios actuales del catálogo.
+- **`feat(ficha)`: Ponderar costo guarda ficha antes de pegarle al endpoint** — Extraída función `guardarFichaInterno()`. `handlePonderarCosto` guarda la ficha primero; si falla, aborta antes de llamar a `/ponderar-costo`.
+- **`fix(ficha)`: final guardado real queda fijo aunque cambien costos/sugeridos** — `precio_venta_override = true` siempre que haya un final guardado > 0, evitando que `calcularFila` sobrescriba precios previamente validados por el operador.
+- **`feat(ficha)`: adaptar al nuevo contrato de aplicar-precios y ponderar-costo** — `PonderarCostoResponse` extendido con `sin_costo_ficha`, `no_aplicables` y `costos_catalogo_propagados`. `handlePonderarCosto` actualiza `costo_actual` de cada fila in-place con el mapa devuelto.
+- **`fix(aplicar-precios)`: quitar columna Costo del dialog de confirmación** — El backend ya no propaga costo al catálogo vía aplicar-precios. La columna Costo se elimina del confirm dialog para no inducir confusión.
+- **`fix(aplicar-precios)`: no enviar costo ni otros campos que no propagan al catálogo** — `AplicarPreciosMaterialPayload` simplificado a solo 3 campos: `precio_venta_final`, `precio_instaladora_final`, `porciento_rebajable_venta`.
+
+---
+
+### Área 2: Inventario — Pools y Traspaso (5 commits — 07:33 a 09:02)
+
+- **`feat(inventario)`: clic en stock abre pools + traspaso entre pools** — `PoolsDistributionDialog` acepta `material_id`, `almacen_id` y `onTraspasoCompleto`. Muestra botón "Transferir entre pools" que envía `POST /api/inventario/movimientos` con `tipo=traspaso_sector`. Validaciones cliente: cantidad > 0, cantidad <= disponible, pool_origen != pool_destino.
+- **`fix(stock)`: celda "En stock" siempre clicable cuando hay material_id** — Antes requería que `item.pools` existiera y tuviera cantidad > 0. Ahora el botón aparece siempre que haya `material_id`. `PoolsDistributionDialog` recibe `cantidadTotal` para mostrar el total real cuando no hay pools desglosados.
+- **`revert(inventario)`: quitar clic de pools en materiales-stock-table** — El clic de pools se revirtió de la vista matricial de materiales × almacenes. Queda solo en la vista detallada del almacén (`stock-table`). Revertido 35 minutos después del feat.
+- **`fix(inventario)`: incluir pool / pool_origen / pool_destino en el payload de createMovimiento** — Bug crítico: `pool_origen` y `pool_destino` no se enviaban en el POST de traspaso_sector. El backend aplicaba `$inc` sin ellos → el stock no cambiaba. Corregido.
+- **`feat(stock)`: mostrar costo por almacén en el dialog de pools** — Nuevo fetch a `GET /api/kardex-costo/costo-actual` con `material_id + almacen_id`. Muestra el costo ponderado específico de ese almacén junto al dashboard de pools.
+
+---
+
+### Área 3: Solicitudes de entrada (2 commits — 05:24 a 06:13)
+
+- **`fix(solicitudes-entrada)`: ocultar costo unitario en el dialog de detalle** — El almacenero no debe ver costos al aprobar solicitudes de entrada. Quitada la columna "Costo" de la tabla de materiales y el chip de total del header.
+- **`fix(solicitudes-entrada)`: proteger dialogs contra cierre durante submit** — `handleClose` del detail dialog y `onOpenChange` del create dialog ignoran intentos de cerrar mientras `busy=true`, evitando overlays huérfanos y state corrupto.
+
+---
+
+### Área 4: Solicitud de venta, vales y facturas (5 commits — 11:50 a 19:05)
+
+- **`fix(solicitud-venta)`: no perder reserva_id al crear cuando applyReserva fue ejecutado** — Bug silencioso: `handleSubmit` usaba `linkedReservaId` (state) que podía resetearse a null por el `useEffect` de reset/init. Fix: derivar `reserva_id` final priorizando `reservaAplicada?.id` con fallback a `linkedReservaId`.
+- **`feat(vales-salida)`: add Excel export functionality and filters for request creator** — Exportación a Excel de vales de salida. Nuevo filtro por nombre del creador de la solicitud.
+- **`feat(vales-salida)`: add date filters and request creators to ValesSalidaPage** — Filtros `fecha_desde` y `fecha_hasta` para vales por fecha de creación. Dropdown de creador con nombres únicos desde el backend.
+- **`feat(solicitudes-ventas)`: enhance factura processing with materiales and export details** — Nuevas funciones para extraer y formatear materiales por factura. Excel export actualizado para incluir conteo y detalle de materiales.
+- **`Merge branch 'main' into dev`** — Merge de sincronización.
+
+---
+
+### Puede dar bateo
+
+1. **Bug crítico de `reserva_id` activo hasta hoy**: El fix de `reserva_id` resolvió un bug silencioso donde solicitudes llegaban al backend sin el campo aunque el operador hubiera seleccionado una reserva. Solicitudes creadas antes de este commit pueden tener `reserva_id = null` cuando debería tener valor — verificar consistencia histórica en BD.
+
+2. **Traspaso entre pools: validaciones solo client-side**: Las validaciones de traspaso (cantidad > 0, cantidad <= disponible, origen ≠ destino) son client-side. El backend aplica `$inc` atómico sin pre-chequeo de saldo. Dos usuarios haciendo traspasos simultáneos del mismo pool origen pueden llevar el saldo a negativo.
+
+3. **Revert inmediato del clic de pools en materiales-stock-table**: El feature se implementó y revirtió en 35 minutos. La vista matricial (materiales × almacenes) volvió a tooltip con span. Puede haber código residual o importaciones no limpiadas en `materiales-stock-table.tsx`.
+
+4. **Tasas MLC/CUP sin persistencia entre sesiones**: `tasaMlcUsd` y `tasaCupUsd` se reinician en cada sesión (default = 1). Aunque el backend acepta `tasa_conversion_mlc_usd`/`tasa_conversion_cup_usd` en PATCH, si el operador cierra y reabre la ficha sin que esos campos vengan en la respuesta de GET, recalculará con tasa 1 — costos incorrectos hasta corrección manual.
+
+5. **`PonderarCostoResponse` campos nuevos sin confirmación de contrato**: Los campos `sin_costo_ficha`, `no_aplicables` y `costos_catalogo_propagados` son nuevos en la respuesta de `/ponderar-costo`. Si el backend no los incluye aún, el toast consolidado y la actualización in-place de costos del catálogo fallarán silenciosamente (propiedades undefined en lugar de arrays/objetos vacíos).
+
+6. **`AplicarPreciosMaterialPayload` simplificado puede romper si backend los requería**: Se quitaron `costo`, `precio_unitario_cif`, `porciento_recargo` del payload. El commit afirma que el backend los ignoraba — si en algún caso los validaba como requeridos, el endpoint responderá 422. Confirmar con el equipo de backend.
+
+7. **`GET /api/kardex-costo/costo-actual` sin fallback de error explícito**: Si el endpoint no existe o retorna 500, el dialog muestra "Sin kardex en este almacén todavía" — el mismo mensaje que para un almacén real sin kardex. El usuario no puede distinguir entre "no hay datos" y "hay un error de API".
+
+8. **Filtros de vales de salida — soporte backend pendiente**: Los nuevos params `fecha_desde`, `fecha_hasta` y nombre del creador deben ser soportados por el endpoint de vales. Si el backend los ignora, los filtros no tendrán efecto; si los rechaza, retornará 422 al activarlos.
+
+9. **`materiales` en facturas — campo nuevo en respuesta**: El procesamiento actualizado de facturas en solicitudes-ventas espera el campo `materiales` por factura. Si el endpoint no lo devuelve, la columna de materiales en el Excel exportado quedará vacía sin error visible.
+
+---
+
+#### Seguimientos vigentes
+
+- **CI `87120119233` hardcodeado para control de permisos**: El CI de un trabajador específico está hardcodeado como excepción de acceso en la lógica de negocio. Si esa persona cambia, requiere un nuevo deploy. Debería moverse a un campo de permiso en BD.
+- **Campos `cambio_real_*` requieren backend actualizado**: `cambio_real_monto`, `cambio_real_moneda` y `cambio_real_tasa` son nuevos en el payload de `PagoVenta`. Si el backend no los acepta, los POSTs con cambio real fallarán con 422 o perderán datos silenciosamente.
+- **Endpoint lazy load `GET /obras-terminadas/oferta/{id}/facturas-cliente`**: Si no existe, al hacer clic en la pestaña el usuario verá error de carga.
+- **PDF unificado con `limit=total` sin cota máxima**: La llamada extra para el PDF unificado puede generar timeout o saturar memoria del navegador si hay miles de registros filtrados.
+- **Badge de estado calculado en frontend con flotantes**: `precio_final − total_pagado` puede dar `0.0000001` por redondeo, mostrando "pendiente" en una factura realmente pagada. El backend debería devolver un campo de estado ya calculado.
+- **Módulo Vales/Facturas Instaladora comentado sin aviso explícito**: Usuarios que dependían de ese flujo quedan sin acceso. Verificar que el cambio fue coordinado.
+- **Sistema de notificaciones — endpoints bulk por tipo**: Confirmar que marcar/eliminar todas acepta filtro por tipo de notificación en el backend.
+- **`GET /inventario/stock-historico`**: Confirmar que existe y acepta params de almacén, material y fecha.
+- **AdminPass 123456 hardcodeado**: Al crear cualquier trabajador se asigna automáticamente `123456` como contraseña. Sin mecanismo de forzar cambio en el primer login — brecha de seguridad operativa.
+- **Auto-sync catálogo → BD al abrir /permisos**: Si el catálogo tiene un módulo mal definido, se crearán registros incorrectos en BD sin posibilidad de rollback automático.
+- **Logs de debug en producción**: Los logs de `fetchTrabajosDeAveria` pueden seguir activos, exponiendo datos de clientes en la consola del navegador.
+- **Eliminación lógica `cantidad = 0` en asignaciones**: Todo el código que lista asignaciones debe filtrar `cantidad > 0`, o los registros eliminados aparecerán como activos.
+- **Creación inline sin persistencia inmediata**: Categorías/unidades creadas desde el atajo "Crear material rápido" se pierden si el usuario cierra el diálogo antes de guardar.
+- **Subida de archivos sin rollback**: Si la subida de foto/ficha técnica tiene éxito pero la creación del material falla, el archivo queda huérfano en storage.
+- **Backend debe aceptar nuevos campos**: `motivo` y `nota` en PATCH de asignaciones; `foto` y `ficha_tecnica_url` en materiales; `oferta_venta_id`, `descuento_free`, `motivo_descuento_free` y `precio` en solicitudes desde oferta.
+- **`childKeys` en catálogo de módulos**: Si se agrega un módulo hijo sin declarar `childKeys`, el card padre quedará invisible aunque el usuario tenga el permiso.
+- **`useEffect` con dependencias `[open, initialData?.id]`**: Si `initialData` cambia el contenido pero mantiene el mismo `id`, el formulario del contenedor no se reinicializa.
+- **Agregados solicitudes-ventas**: Confirmar que los endpoints devuelven campos de agregados globales y por ítem (`total_sin_descuento`, `total_con_aumento`, `aumento_monto`) o los totales serán incorrectos en vistas paginadas.
+- **`updateSolicitudTransferencia` — validación de estado en backend**: El backend debe rechazar ediciones de solicitudes que ya no estén en estado `pendiente`.
+- **Búsqueda por `numero_serie`**: Confirmar que el endpoint indexa este campo en el backend.
+- **`stock_disponible_actual` — consistencia entre endpoints**: Confirmar que todos los endpoints de inventario devuelven este campo de forma consistente.
+- **Excel export de facturas sin cota de registros**: `export-facturas-excel-service.ts` no tiene límite de registros; con grandes volúmenes puede generar timeout o saturar memoria del navegador.
+- **`'zelle'` como método de pago — soporte en backend**: Confirmar que el backend acepta `'zelle'` en filtros y en registro de pagos; de lo contrario los filtros no devolverán resultados y los POSTs de pagos zelle fallarán con 422.
+- **Sort client-side de solicitudes pendientes en ValesSalida**: El `useMemo` ordena solo los datos cargados; con paginación server-side el orden global no está garantizado.
+- **Parsing UTC→local en otras tablas con filtros de fecha**: La corrección en `VentasPorComercialTable` y `ValesSalida` puede estar pendiente en otros componentes con filtros de mes/año.
+- **Tasas MLC/CUP sin persistencia entre sesiones (nuevo)**: `tasaMlcUsd` y `tasaCupUsd` se reinician en default=1 por sesión. Confirmar que el backend devuelve `tasa_conversion_mlc_usd`/`tasa_conversion_cup_usd` al leer la compra para poder precargarlas.
+- **`PonderarCostoResponse` campos nuevos (nuevo)**: La respuesta de POST `/ponderar-costo` debe incluir `sin_costo_ficha`, `no_aplicables` y `costos_catalogo_propagados`; de lo contrario la actualización in-place y los toasts de ponderar fallarán silenciosamente.
+- **`GET /api/kardex-costo/costo-actual` (nuevo)**: Nuevo endpoint consumido en `PoolsDistributionDialog`. Confirmar que existe y acepta params `material_id + almacen_id`.
+- **`materiales` en respuesta de facturas de solicitudes-ventas (nuevo)**: El nuevo procesamiento espera el campo `materiales` por factura. Confirmar que el endpoint lo devuelve.
+- **Filtros de vales de salida — `fecha_desde`, `fecha_hasta`, creador (nuevo)**: Confirmar soporte en el backend; de lo contrario los filtros no tendrán efecto o retornarán 422.
+
+---
+
 ## 📅 1 de Junio, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -73,8 +181,8 @@
 - **`useEffect` con dependencias `[open, initialData?.id]`**: Si `initialData` cambia el contenido pero mantiene el mismo `id`, el formulario del contenedor no se reinicializa.
 - **Agregados solicitudes-ventas**: Confirmar que los endpoints devuelven campos de agregados globales y por ítem (`total_sin_descuento`, `total_con_aumento`, `aumento_monto`) o los totales serán incorrectos en vistas paginadas.
 - **`updateSolicitudTransferencia` — validación de estado en backend**: El backend debe rechazar ediciones de solicitudes que ya no estén en estado `pendiente`.
-- **Búsqueda por `numero_serie`**: Confirmar que el endpoint indexa este campo en el backend.
-- **`stock_disponible_actual` — consistencia entre endpoints**: Confirmar que todos los endpoints de inventario devuelven este campo de forma consistente.
+- **Búsqueda por `numero_serie`**: Confirmar que el endpoint de búsqueda de materiales indexa este campo en el backend.
+- **`stock_disponible_actual` — consistencia entre endpoints**: Confirmar que todos los endpoints de inventario devuelven este campo para evitar discrepancias entre vistas del mismo almacén.
 - **Excel export de facturas sin cota de registros (nuevo)**: `export-facturas-excel-service.ts` no tiene límite de registros; con grandes volúmenes puede generar timeout o saturar memoria del navegador.
 - **`'zelle'` como método de pago — soporte en backend (nuevo)**: El tipo `MetodoPago` fue extendido. Confirmar que el backend acepta `'zelle'` en filtros y en registro de pagos; de lo contrario los filtros no devolverán resultados y los POSTs de pagos zelle fallarán con 422.
 - **Sort client-side de solicitudes pendientes en ValesSalida (nuevo)**: El `useMemo` ordena solo los datos cargados; con paginación server-side el orden global no está garantizado.
@@ -419,95 +527,6 @@ Sin commits de desarrollo nuevos. Solo el commit automático "Analisis diario Cl
 
 ---
 
-## 📅 25 de Mayo, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**22 commits** de yany1509 — día de actividad muy alta con cambios en 4 áreas críticas.
-
 ---
 
-### Área 1: Reservas de Ofertas (7 commits)
-
-- **Edición de reservas inline**: botón "Editar Reserva" con tabla editable de cantidades, llama a `PUT /reservas/{id}`.
-- **Fix `cancelarReserva`**: ahora llama realmente al backend (`DELETE /reservas/{id}`); antes era un no-op.
-- **Permisos de reducción**: solo superadmin y el trabajador con CI `87120119233` pueden bajar o quitar materiales de una reserva existente. El resto solo puede añadir o aumentar.
-- **Stock real disponible**: `stockDisponiblePorCodigo` ahora descuenta las reservas activas (`cantidad − cantidad_reservada`). Max del input = `min(cantidadOferta, stockLibre)`.
-- **Fix sincronización en edición**: al entrar en modo edición, los materiales que ya no están en la reserva se resetean a 0 (antes quedaban con el valor antiguo).
-- **Fix UI al cancelar**: al recibir reservas vacías del backend, limpia `materialesReservados`, `fechaExpiracion`, `tipoReserva` y cierra el panel.
-- **Fix unificación de secciones**: oculta el checkbox "Hacer reserva antes de guardar" cuando ya existen reservas activas; panel azul siempre visible si hay reservas.
-- **Fix nombres automáticos de ofertas**: corrige floating point en baterías (`5.119999…kWh → 5.12kWh`) y potencia mal guardada en W en lugar de kW (`605000W → 605W`). Parchadas 19 ofertas en MongoDB.
-
----
-
-### Área 2: Facturas Cliente — Obras Terminadas (9 commits)
-
-- **Nueva pestaña "Facturas Cliente"** en el panel expandible de obras terminadas.
-- **Nuevo tipo `FacturaClienteObra`** con materiales, pagos, `precio_final`, `total_pagado` y `numero_factura`.
-- **Nuevo endpoint (backend requerido)**: `GET /obras-terminadas/oferta/{id}/facturas-cliente` — lazy load al hacer clic en la pestaña.
-- **Número de factura `FI-YYYY-NNNNNN`** visible en bold en la cabecera del panel.
-- **Badge de facturación por fila** con 3 estados: Sin factura (gris) / `FI-YYYY-N · Pendiente` (naranja) / `FI-YYYY-N · Pagada` (verde). Estado calculado como `precio_final − total_pagado`.
-- **Filtro de 4 botones**: Todos / ✓ Pagada / Con pendiente / Sin factura.
-- **PDF factura cliente**: sin precios unitarios (solo Descripción y Cant.); totales primero, pagos detallados después.
-- **PDF unificado**: ahora hace una llamada extra con `limit=total` para exportar TODOS los resultados filtrados, no solo la página actual.
-- **Fix panel de filtros**: siempre visible aunque no haya resultados; mensaje de "sin resultados" incluye botón de limpiar filtros.
-
----
-
-### Área 3: Pagos Ventas — Cambio Real (4 commits)
-
-- **Separación cambio original / cambio real**: cambio original = calculado desde desglose de billetes (read-only, informativo); cambio real = sección nueva con monto + moneda + tasa.
-- **Nuevos campos en `PagoVenta`**: `cambio_real_monto`, `cambio_real_moneda`, `cambio_real_tasa`.
-- **Convención de tasa fijada**: siempre "no-USD por 1 USD" (igual que la tasa principal del pago). Cálculo: `× tasa` si cambio=USD, `÷ tasa` si pago=USD.
-- **Autocompletado**: cuando el cambio es en USD y el pago en otra moneda, la tasa del cambio real se autocompleta con la tasa principal.
-- **PDF**: muestra "Cambio dado" + "Tasa del cambio" como `1 USD = X {moneda}`.
-
----
-
-### Área 4: Limpieza y Estilo (3 commits)
-
-- **Módulo Vales y Facturas de Instaladora comentado** en Facturación (intencional, verificar comunicación con usuarios afectados).
-- **Encabezados PDF sin fondo azul** en facturas de ventas y facturas cliente de obras terminadas — mejor para imprimir y ahorrar tóner.
-- **Fix panel de filtros** visible cuando no hay resultados en obras terminadas.
-
----
-
-### Puede dar bateo
-
-1. **CI `87120119233` hardcodeado para control de permisos**: El CI de un trabajador específico está hardcodeado como excepción de acceso en la lógica de negocio. Si esa persona cambia o necesita rotarse, requiere un nuevo deploy. Frágil y difícil de mantener; debería moverse a un campo de permiso en BD.
-
-2. **Campos `cambio_real_*` requieren backend actualizado**: `cambio_real_monto`, `cambio_real_moneda` y `cambio_real_tasa` son nuevos en el payload de `PagoVenta`. Si el backend aún no los acepta, los POSTs de pagos con cambio real fallarán con 422 o ignorarán los campos silenciosamente, perdiendo datos.
-
-3. **Endpoint lazy load debe existir en backend**: `GET /obras-terminadas/oferta/{id}/facturas-cliente` es nuevo. Si no existe, al hacer clic en la pestaña el usuario verá un error de carga. El fallback `isThisMonth` mitiga parcialmente pero puede mostrar datos incorrectos o vacíos para clientes instalados recientemente.
-
-4. **PDF unificado con `limit=total` sin cota máxima**: La llamada extra que trae todos los resultados para el PDF no tiene límite máximo. Si hay miles de registros filtrados, la petición puede ser muy lenta o provocar un timeout. Sin paginación ni límite defensivo, también puede saturar memoria del navegador al generar el PDF.
-
-5. **Badge de estado calculado en frontend con flotantes**: El estado "pagada" vs "pendiente" se calcula como `precio_final − total_pagado` en el cliente. Si hay diferencias de redondeo de flotantes (e.g., `0.0000001` de diferencia), el badge mostrará "pendiente" en una factura realmente pagada. Idealmente el backend debería devolver un campo de estado ya calculado.
-
-6. **Lógica de tasas de cambio: 4 commits en 2 horas**: La complejidad de la convención (dirección, inversión, autocompletado) generó 4 commits consecutivos sobre el mismo código. Verificar que la convención `× tasa / ÷ tasa` sea consistente con lo que guarda y devuelve el backend; si el backend re-invierte, los montos en PDF quedarán incorrectos.
-
-7. **Módulo Vales/Facturas Instaladora comentado sin aviso**: Al comentar el módulo, usuarios que dependían de ese acceso quedan sin flujo de trabajo. Verificar que el cambio fue coordinado y comunicado.
-
-8. **22 commits en un día sobre 4 áreas críticas**: El volumen es muy alto. En el área de reservas hubo 7 commits entre las 13:16 y las 14:44 (88 minutos). Con ese ritmo, hay riesgo de regresiones no detectadas en áreas interdependientes (stock, pagos, permisos).
-
-9. **Race condition stock en frontend persiste**: Aunque ahora se descuentan reservas activas, el cálculo sigue siendo en cliente y con datos del momento en que se abrió el diálogo. Dos usuarios abriendo simultáneamente el mismo diálogo pueden ver el mismo stock libre y reservar la misma unidad. Sin validación de stock en el backend al hacer el POST de la reserva, esto puede generar sobrecomisiones.
-
----
-
-#### Seguimientos vigentes
-
-- **AdminPass 123456 hardcodeado**: Al crear cualquier trabajador se asigna automáticamente `123456` como contraseña. Sin mecanismo de forzar cambio en el primer login — brecha de seguridad operativa.
-- **Auto-sync catálogo → BD al abrir /permisos**: Si el catálogo tiene un módulo mal definido, se crearán registros incorrectos en BD sin posibilidad de rollback automático.
-- **Logs de debug en producción**: Los logs de `fetchTrabajosDeAveria` pueden seguir activos, exponiendo datos de clientes en la consola del navegador.
-- **Eliminación lógica `cantidad = 0` en asignaciones**: Todo el código que lista asignaciones debe filtrar `cantidad > 0`, o los registros eliminados aparecerán como activos.
-- **Creación inline sin persistencia inmediata**: Categorías/unidades creadas desde el atajo "Crear material rápido" se pierden si el usuario cierra el diálogo antes de guardar.
-- **Subida de archivos sin rollback**: Si la subida de foto/ficha técnica tiene éxito pero la creación del material falla, el archivo queda huérfano en storage.
-- **Backend debe aceptar nuevos campos**: `motivo` y `nota` en PATCH de asignaciones; `foto` y `ficha_tecnica_url` en materiales; `oferta_venta_id`, `descuento_free`, `motivo_descuento_free` y `precio` en solicitudes desde oferta.
-- **`childKeys` en catálogo de módulos**: Si se agrega un módulo hijo sin declarar `childKeys`, el card padre quedará invisible aunque el usuario tenga el permiso.
-- **`useEffect` con dependencias `[open, initialData?.id]`**: Si `initialData` cambia el contenido pero mantiene el mismo `id`, el formulario del contenedor no se reinicializa.
-
----
-
----
-
-> ⚠️ **Nota de mantenimiento**: La entrada del **24 de Mayo** fue eliminada al superar los 7 días de antigüedad (política de retención semanal).
+> ⚠️ **Nota de mantenimiento**: La entrada del **25 de Mayo** fue eliminada al superar los 7 días de antigüedad (política de retención semanal).
