@@ -606,16 +606,8 @@ function FichaCostoContent() {
         precio_instaladora_final: f.precio_instaladora_final > 0 ? f.precio_instaladora_final : null,
         porciento_rebajable_venta: f.porciento_rebajable_venta,
       }));
-      // eslint-disable-next-line no-console
-      console.log("[ficha:guardar] PATCH /compras/" + envioId + "/ficha — payload:", { materiales });
       const compraActualizada = await CompraService.guardarFicha(envioId, { materiales });
-      // eslint-disable-next-line no-console
-      console.log("[ficha:guardar] respuesta materiales recibidos:", compraActualizada.materiales);
       setEnvio(compraActualizada);
-      // Re-cargar las filas desde el backend para que la tabla refleje lo que
-      // se persistió (no solo lo que el usuario tipeó). Si después de esto
-      // todavía no aparece, el bug es del endpoint PATCH /ficha.
-      await cargarDatos();
       toast({
         title: "Ficha guardada",
         description: "El progreso quedó guardado. Los precios todavía no se aplicaron al catálogo.",
