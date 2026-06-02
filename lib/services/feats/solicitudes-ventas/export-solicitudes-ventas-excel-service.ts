@@ -24,11 +24,29 @@ const formatNumber = (value?: number | null): number => {
 };
 
 const buildMaterialesResumen = (s: SolicitudVentaSummary): string => {
-  if (s.materiales_resumen) return s.materiales_resumen;
   if (Array.isArray(s.materiales) && s.materiales.length > 0) {
     return `${s.materiales.length} materiales`;
   }
+  if (s.materiales_resumen) return s.materiales_resumen;
   return "";
+};
+
+const buildMaterialesDetalle = (s: SolicitudVentaSummary): string => {
+  if (!Array.isArray(s.materiales) || s.materiales.length === 0) return "";
+  return s.materiales
+    .map((m) => {
+      const cant = Number(m.cantidad) || 0;
+      const nombre =
+        m.material_descripcion ||
+        m.material_nombre ||
+        m.nombre ||
+        m.material_codigo ||
+        m.material_id ||
+        "";
+      const codigo = m.material_codigo ? ` [${m.material_codigo}]` : "";
+      return `${cant}x ${nombre}${codigo}`.trim();
+    })
+    .join("\n");
 };
 
 interface ExportSolicitudesOptions {
@@ -68,6 +86,7 @@ export class ExportSolicitudesVentasExcelService {
       almacen: s.almacen_nombre || "",
       creador: s.creador_nombre || "",
       materiales: buildMaterialesResumen(s),
+      materiales_detalle: buildMaterialesDetalle(s),
       precio_total: formatNumber(s.precio_total),
       total_pagado: formatNumber(s.total_pagado),
       monto_pendiente: formatNumber(s.monto_pendiente),
@@ -107,6 +126,7 @@ export class ExportSolicitudesVentasExcelService {
         { header: "Almacén", key: "almacen", width: 22 },
         { header: "Creador", key: "creador", width: 22 },
         { header: "Materiales", key: "materiales", width: 14 },
+        { header: "Detalle de materiales", key: "materiales_detalle", width: 50 },
         { header: "Precio Total (USD)", key: "precio_total", width: 18 },
         { header: "Total Pagado (USD)", key: "total_pagado", width: 18 },
         { header: "Pendiente (USD)", key: "monto_pendiente", width: 16 },

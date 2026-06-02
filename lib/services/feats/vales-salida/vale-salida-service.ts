@@ -46,6 +46,9 @@ export class ValeSalidaService {
       q?: string; // Búsqueda de texto libre (antes era 'codigo')
       /** Filtro server-side por nombre del trabajador que creó la solicitud asociada. */
       creador_solicitud?: string;
+      /** Filtros de rango sobre `fecha_creacion` del vale (YYYY-MM-DD). */
+      fecha_desde?: string;
+      fecha_hasta?: string;
       estado?: "usado" | "anulado" | string;
       skip?: number;
       limit?: number;
@@ -68,6 +71,8 @@ export class ValeSalidaService {
     if (params.q) search.append("q", params.q); // Búsqueda de texto libre
     if (params.creador_solicitud)
       search.append("creador_solicitud", params.creador_solicitud);
+    if (params.fecha_desde) search.append("fecha_desde", params.fecha_desde);
+    if (params.fecha_hasta) search.append("fecha_hasta", params.fecha_hasta);
     if (params.estado) search.append("estado", params.estado);
     if (params.skip != null) search.append("skip", String(params.skip));
     if (params.limit != null) search.append("limit", String(params.limit));

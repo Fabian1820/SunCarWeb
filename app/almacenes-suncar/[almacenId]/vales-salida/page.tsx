@@ -37,6 +37,7 @@ import {
 import { ValeSalidaService } from "@/lib/api-services";
 import { ExportValeSalidaService } from "@/lib/services/feats/vales-salida/export-vale-salida-service";
 import { ExportValesSalidaListExcelService } from "@/lib/services/feats/vales-salida/export-vales-salida-list-excel-service";
+import { CreadoresSolicitudService } from "@/lib/services/feats/vales-salida/creadores-solicitud-service";
 import { useToast } from "@/hooks/use-toast";
 import { useValesSalida } from "@/hooks/use-vales-salida";
 import { ValesSalidaTable } from "@/components/feats/vales-salida/vales-salida-table";
@@ -88,6 +89,10 @@ export default function ValesSalidaPage() {
     setTipoFilter,
     creadorSolicitudFilter,
     setCreadorSolicitudFilter,
+    fechaDesdeFilter,
+    setFechaDesdeFilter,
+    fechaHastaFilter,
+    setFechaHastaFilter,
     loadVales,
     loadMore, // Nueva función para cargar más
     hasMore, // Flag para saber si hay más registros
@@ -105,6 +110,8 @@ export default function ValesSalidaPage() {
   const [anularLoading, setAnularLoading] = useState(false);
   const [isStockHistoricoOpen, setIsStockHistoricoOpen] = useState(false);
   const [exportingValesExcel, setExportingValesExcel] = useState(false);
+  const [creadoresSolicitud, setCreadoresSolicitud] = useState<string[]>([]);
+  const [loadingCreadores, setLoadingCreadores] = useState(false);
 
   const [prefillSolicitudId, setPrefillSolicitudId] = useState<string | null>(
     null,
@@ -149,6 +156,22 @@ export default function ValesSalidaPage() {
   useEffect(() => {
     void loadSolicitudesPendientes();
   }, [loadSolicitudesPendientes]);
+
+  const loadCreadoresSolicitud = useCallback(async () => {
+    setLoadingCreadores(true);
+    try {
+      const lista = await CreadoresSolicitudService.listar(almacenId);
+      setCreadoresSolicitud(lista);
+    } catch {
+      setCreadoresSolicitud([]);
+    } finally {
+      setLoadingCreadores(false);
+    }
+  }, [almacenId]);
+
+  useEffect(() => {
+    void loadCreadoresSolicitud();
+  }, [loadCreadoresSolicitud]);
 
   // ← Ya no necesitamos filtrar en el frontend, el backend lo hace
   const valesAlmacen = filteredVales;
@@ -297,6 +320,8 @@ export default function ValesSalidaPage() {
         estadoFilter,
         tipoFilter,
         creadorSolicitudFilter,
+        fechaDesde: fechaDesdeFilter || undefined,
+        fechaHasta: fechaHastaFilter || undefined,
       });
       toast({
         title: count > 0 ? "Excel exportado" : "Sin datos",
@@ -523,7 +548,7 @@ export default function ValesSalidaPage() {
 
         <Card className="border-0 shadow-md mb-6 border-l-4 border-l-orange-600">
           <CardContent className="pt-6">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               <div>
                 <Label
                   htmlFor="search"
@@ -543,24 +568,39 @@ export default function ValesSalidaPage() {
                 </div>
               </div>
               <div>
-                <Label
-                  htmlFor="creador-solicitud"
-                  className="text-sm font-medium text-gray-700 mb-2 block"
-                >
+                <Label className="text-sm font-medium text-gray-700 mb-2 block">
                   Creador de la solicitud
                 </Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="creador-solicitud"
-                    placeholder="Filtrar por nombre del creador..."
-                    value={creadorSolicitudFilter}
-                    onChange={(e) => setCreadorSolicitudFilter(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
+                <Select
+                  value={creadorSolicitudFilter || "todos"}
+                  onValueChange={(value) =>
+                    setCreadorSolicitudFilter(value === "todos" ? "" : value)
+                  }
+                  disabled={loadingCreadores && creadoresSolicitud.length === 0}
+                >
+                  <SelectTrigger>
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                      <SelectValue
+                        placeholder={
+                          loadingCreadores
+                            ? "Cargando creadores..."
+                            : "Todos los creadores"
+                        }
+                      />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos los creadores</SelectItem>
+                    {creadoresSolicitud.map((nombre) => (
+                      <SelectItem key={nombre} value={nombre}>
+                        {nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <p className="text-[11px] text-gray-500 mt-1">
-                  Filtra por el trabajador que creó la solicitud asociada.
+                  Trabajador que creó la solicitud asociada al vale.
                 </p>
               </div>
               <div>
@@ -603,6 +643,56 @@ export default function ValesSalidaPage() {
                   </SelectContent>
                 </Select>
               </div>
+              <div>
+                <Label
+                  htmlFor="fecha-desde"
+                  className="text-sm font-medium text-gray-700 mb-2 block"
+                >
+                  Fecha desde
+                </Label>
+                <Input
+                  id="fecha-desde"
+                  type="date"
+                  value={fechaDesdeFilter}
+                  onChange={(e) => setFechaDesdeFilter(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label
+                  htmlFor="fecha-hasta"
+                  className="text-sm font-medium text-gray-700 mb-2 block"
+                >
+                  Fecha hasta
+                </Label>
+                <Input
+                  id="fecha-hasta"
+                  type="date"
+                  value={fechaHastaFilter}
+                  onChange={(e) => setFechaHastaFilter(e.target.value)}
+                />
+              </div>
+              {(fechaDesdeFilter ||
+                fechaHastaFilter ||
+                creadorSolicitudFilter ||
+                tipoFilter !== "todos" ||
+                estadoFilter !== "todos") && (
+                <div className="md:col-span-2 lg:col-span-3 xl:col-span-4 flex justify-end">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setFechaDesdeFilter("");
+                      setFechaHastaFilter("");
+                      setCreadorSolicitudFilter("");
+                      setTipoFilter("todos");
+                      setEstadoFilter("todos");
+                    }}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    Limpiar filtros
+                  </Button>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

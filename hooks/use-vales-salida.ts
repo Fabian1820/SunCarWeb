@@ -21,6 +21,11 @@ interface UseValesSalidaReturn {
   /** Filtro server-side por nombre del trabajador que creó la solicitud asociada. */
   creadorSolicitudFilter: string;
   setCreadorSolicitudFilter: (creador: string) => void;
+  /** Filtros de rango sobre fecha_creacion del vale (YYYY-MM-DD). */
+  fechaDesdeFilter: string;
+  setFechaDesdeFilter: (fecha: string) => void;
+  fechaHastaFilter: string;
+  setFechaHastaFilter: (fecha: string) => void;
   loadVales: (almacenId?: string) => Promise<void>; // ← Agregar parámetro opcional
   loadMore: () => Promise<void>; // Nueva función para cargar más
   hasMore: boolean; // Indica si hay más registros por cargar
@@ -47,6 +52,8 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
     "todos" | "material" | "venta"
   >("todos");
   const [creadorSolicitudFilter, setCreadorSolicitudFilter] = useState("");
+  const [fechaDesdeFilter, setFechaDesdeFilter] = useState("");
+  const [fechaHastaFilter, setFechaHastaFilter] = useState("");
   const [almacenId, setAlmacenId] = useState<string | undefined>(initialAlmacenId); // ← Inicializado con el valor correcto
 
   // Ref para evitar recrear loadVales en cada render
@@ -61,6 +68,8 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
         solicitud_tipo?: "material" | "venta";
         q?: string;
         creador_solicitud?: string;
+        fecha_desde?: string;
+        fecha_hasta?: string;
         almacen_id?: string; // ← Agregar almacen_id
         skip?: number;
         limit?: number;
@@ -84,6 +93,10 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
       if (creadorSolicitudFilter.trim()) {
         params.creador_solicitud = creadorSolicitudFilter.trim();
       }
+
+      // Filtros de fecha (server-side sobre fecha_creacion del vale)
+      if (fechaDesdeFilter) params.fecha_desde = fechaDesdeFilter;
+      if (fechaHastaFilter) params.fecha_hasta = fechaHastaFilter;
 
       // Si hay un almacén especificado, agregarlo al filtro
       const currentAlmacenId = filterAlmacenId ?? almacenId;
@@ -111,7 +124,7 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
     } finally {
       setLoading(false);
     }
-  }, [estadoFilter, tipoFilter, searchTerm, creadorSolicitudFilter, almacenId]);
+  }, [estadoFilter, tipoFilter, searchTerm, creadorSolicitudFilter, fechaDesdeFilter, fechaHastaFilter, almacenId]);
 
   // Ahora filteredVales es igual a vales ya que el filtrado lo hace el backend
   const filteredVales = vales;
@@ -127,6 +140,8 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
         solicitud_tipo?: "material" | "venta";
         q?: string;
         creador_solicitud?: string;
+        fecha_desde?: string;
+        fecha_hasta?: string;
         almacen_id?: string; // ← Agregar almacen_id
         skip?: number;
         limit?: number;
@@ -151,6 +166,10 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
         params.creador_solicitud = creadorSolicitudFilter.trim();
       }
 
+      // Filtros de fecha (server-side sobre fecha_creacion del vale)
+      if (fechaDesdeFilter) params.fecha_desde = fechaDesdeFilter;
+      if (fechaHastaFilter) params.fecha_hasta = fechaHastaFilter;
+
       // Si hay almacén, mantenerlo
       if (almacenId) {
         params.almacen_id = almacenId;
@@ -174,7 +193,7 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
     } finally {
       setLoading(false);
     }
-  }, [loading, hasMore, skip, estadoFilter, tipoFilter, searchTerm, creadorSolicitudFilter, almacenId, vales]);
+  }, [loading, hasMore, skip, estadoFilter, tipoFilter, searchTerm, creadorSolicitudFilter, fechaDesdeFilter, fechaHastaFilter, almacenId, vales]);
 
   const createVale = useCallback(
     async (data: ValeSalidaCreateData): Promise<ValeSalida> => {
@@ -245,7 +264,7 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
       setIsSearching(false); // Limpiar indicador si se cancela
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [estadoFilter, tipoFilter, searchTerm, creadorSolicitudFilter, almacenId]); // ← Agregar almacenId y creador como dependencias
+  }, [estadoFilter, tipoFilter, searchTerm, creadorSolicitudFilter, fechaDesdeFilter, fechaHastaFilter, almacenId]); // ← Agregar almacenId, creador y fechas como dependencias
 
   return {
     vales,
@@ -261,6 +280,10 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
     setTipoFilter,
     creadorSolicitudFilter,
     setCreadorSolicitudFilter,
+    fechaDesdeFilter,
+    setFechaDesdeFilter,
+    fechaHastaFilter,
+    setFechaHastaFilter,
     loadVales,
     loadMore, // Nueva función
     hasMore, // Nuevo flag

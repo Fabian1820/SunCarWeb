@@ -199,6 +199,14 @@ export interface DevolucionValeResumen {
 // Summary Types (Optimized for Table Views)
 // ========================================
 
+export interface ValeSalidaSummaryMaterial {
+  material_id: string;
+  cantidad: number;
+  material_codigo?: string | null;
+  material_descripcion?: string | null;
+  um?: string | null;
+}
+
 export interface ValeSalidaSummary {
   id: string;
   codigo?: string;
@@ -206,6 +214,8 @@ export interface ValeSalidaSummary {
   solicitud_codigo?: string;
   estado?: "usado" | "anulado" | string;
   materiales_resumen?: string; // e.g., "5 materiales"
+  /** Array detallado de materiales — añadido por el backend para el summary. */
+  materiales?: ValeSalidaSummaryMaterial[];
   cliente_nombre?: string;
   /** Nombre del trabajador que creó el vale (operador de almacén). */
   creador_nombre?: string;

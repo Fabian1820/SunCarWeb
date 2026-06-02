@@ -94,6 +94,7 @@ export type {
   ValeSalidaAnularData,
   ValeSalidaListResponse,
   ValeSalidaSummary,
+  ValeSalidaSummaryMaterial,
   ValeSalidaSummaryResponse,
   DevolucionValeCreateData,
   DevolucionVale,
