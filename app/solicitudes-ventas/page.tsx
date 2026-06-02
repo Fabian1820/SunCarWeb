@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Plus, Search, ShoppingCart, CreditCard, List, FileText, FilterX } from "lucide-react";
+import { Plus, Search, ShoppingCart, CreditCard, List, FileText, FilterX, FileSpreadsheet, Loader2 } from "lucide-react";
 import { Badge } from "@/components/shared/atom/badge";
 import { Button } from "@/components/shared/atom/button";
 import {
@@ -55,6 +55,7 @@ import {
 } from "@/lib/services/feats/solicitudes-ventas/export-solicitud-venta-word-service";
 import { ExportFacturaVentaConsolidadaService } from "@/lib/services/feats/pagos-clientes-ventas/export-factura-venta-consolidada-service";
 import { ExportFacturasExcelService } from "@/lib/services/feats/pagos-clientes-ventas/export-facturas-excel-service";
+import { ExportSolicitudesVentasExcelService } from "@/lib/services/feats/solicitudes-ventas/export-solicitudes-ventas-excel-service";
 import { TicketFacturaVentaService } from "@/lib/services/feats/pagos-clientes-ventas/ticket-factura-venta-service";
 import type { ExportTipo } from "@/components/feats/solicitudes-ventas/solicitudes-ventas-table";
 import { FacturaClienteVentaService, PagoVentaService } from "@/lib/services/feats/pagos-clientes-ventas/pago-cliente-venta-service";
@@ -137,6 +138,7 @@ export default function SolicitudesVentasPage() {
   const [solicitudToAnular, setSolicitudToAnular]     = useState<SolicitudVenta | null>(null);
   const [facturaDetalle, setFacturaDetalle]           = useState<FacturaVentaResumen | null>(null);
 const [anularLoading, setAnularLoading]             = useState(false);
+const [exportingSolicitudes, setExportingSolicitudes] = useState(false);
 
   // ── Filtros por pestaña ────────────────────────────────────────────────────
   const [f1Estado, setF1Estado]       = useState("");
@@ -866,6 +868,35 @@ const [anularLoading, setAnularLoading]             = useState(false);
     }
   };
 
+  const handleExportarSolicitudesExcel = async () => {
+    setExportingSolicitudes(true);
+    try {
+      const { count, filename } = await ExportSolicitudesVentasExcelService.exportar({
+        filters: f1Params,
+        searchTerm,
+      });
+      toast({
+        title: count > 0 ? "Excel exportado" : "Sin datos",
+        description:
+          count > 0
+            ? `Se exportaron ${count} solicitud${count === 1 ? "" : "es"} a ${filename}.xlsx`
+            : "No se encontraron solicitudes con los filtros actuales.",
+        variant: count > 0 ? "default" : "destructive",
+      });
+    } catch (e) {
+      toast({
+        title: "Error al exportar",
+        description:
+          e instanceof Error
+            ? e.message
+            : "No se pudo generar el archivo Excel.",
+        variant: "destructive",
+      });
+    } finally {
+      setExportingSolicitudes(false);
+    }
+  };
+
   const handleExportarTicket = async (factura: FacturaClienteVenta) => {
     try {
       const resumen = await resolveResumen(factura);
@@ -891,6 +922,27 @@ const [anularLoading, setAnularLoading]             = useState(false);
         actions={
           activeTab === "solicitudes" ? (
             <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportarSolicitudesExcel}
+                disabled={exportingSolicitudes}
+                className="h-9 sm:h-auto sm:px-4 sm:py-2 border-green-300 text-green-700 hover:bg-green-50 touch-manipulation"
+                title="Exportar a Excel las solicitudes filtradas"
+              >
+                {exportingSolicitudes ? (
+                  <>
+                    <Loader2 className="h-4 w-4 sm:mr-2 animate-spin" />
+                    <span className="hidden sm:inline">Exportando...</span>
+                  </>
+                ) : (
+                  <>
+                    <FileSpreadsheet className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Exportar Excel</span>
+                  </>
+                )}
+                <span className="sr-only">Exportar solicitudes a Excel</span>
+              </Button>
               <Button
                 size="icon"
                 className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-semibold shadow-md touch-manipulation"

@@ -31,9 +31,12 @@ import {
   ChevronDown,
   AlertTriangle,
   History,
+  FileSpreadsheet,
+  User,
 } from "lucide-react";
 import { ValeSalidaService } from "@/lib/api-services";
 import { ExportValeSalidaService } from "@/lib/services/feats/vales-salida/export-vale-salida-service";
+import { ExportValesSalidaListExcelService } from "@/lib/services/feats/vales-salida/export-vales-salida-list-excel-service";
 import { useToast } from "@/hooks/use-toast";
 import { useValesSalida } from "@/hooks/use-vales-salida";
 import { ValesSalidaTable } from "@/components/feats/vales-salida/vales-salida-table";
@@ -83,6 +86,8 @@ export default function ValesSalidaPage() {
     setEstadoFilter,
     tipoFilter,
     setTipoFilter,
+    creadorSolicitudFilter,
+    setCreadorSolicitudFilter,
     loadVales,
     loadMore, // Nueva función para cargar más
     hasMore, // Flag para saber si hay más registros
@@ -99,6 +104,7 @@ export default function ValesSalidaPage() {
   const [valeToAnular, setValeToAnular] = useState<ValeSalida | null>(null);
   const [anularLoading, setAnularLoading] = useState(false);
   const [isStockHistoricoOpen, setIsStockHistoricoOpen] = useState(false);
+  const [exportingValesExcel, setExportingValesExcel] = useState(false);
 
   const [prefillSolicitudId, setPrefillSolicitudId] = useState<string | null>(
     null,
@@ -279,6 +285,38 @@ export default function ValesSalidaPage() {
         description: "No se pudo generar el Excel del vale.",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleExportarValesExcel = async () => {
+    setExportingValesExcel(true);
+    try {
+      const { count, filename } = await ExportValesSalidaListExcelService.exportar({
+        almacenId,
+        searchTerm,
+        estadoFilter,
+        tipoFilter,
+        creadorSolicitudFilter,
+      });
+      toast({
+        title: count > 0 ? "Excel exportado" : "Sin datos",
+        description:
+          count > 0
+            ? `Se exportaron ${count} vale${count === 1 ? "" : "s"} a ${filename}.xlsx`
+            : "No se encontraron vales con los filtros actuales.",
+        variant: count > 0 ? "default" : "destructive",
+      });
+    } catch (error) {
+      toast({
+        title: "Error al exportar",
+        description:
+          error instanceof Error
+            ? error.message
+            : "No se pudo generar el archivo Excel.",
+        variant: "destructive",
+      });
+    } finally {
+      setExportingValesExcel(false);
     }
   };
 
@@ -485,7 +523,7 @@ export default function ValesSalidaPage() {
 
         <Card className="border-0 shadow-md mb-6 border-l-4 border-l-orange-600">
           <CardContent className="pt-6">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
               <div>
                 <Label
                   htmlFor="search"
@@ -503,6 +541,27 @@ export default function ValesSalidaPage() {
                     className="pl-10"
                   />
                 </div>
+              </div>
+              <div>
+                <Label
+                  htmlFor="creador-solicitud"
+                  className="text-sm font-medium text-gray-700 mb-2 block"
+                >
+                  Creador de la solicitud
+                </Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="creador-solicitud"
+                    placeholder="Filtrar por nombre del creador..."
+                    value={creadorSolicitudFilter}
+                    onChange={(e) => setCreadorSolicitudFilter(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <p className="text-[11px] text-gray-500 mt-1">
+                  Filtra por el trabajador que creó la solicitud asociada.
+                </p>
               </div>
               <div>
                 <Label className="text-sm font-medium text-gray-700 mb-2 block">
@@ -558,16 +617,38 @@ export default function ValesSalidaPage() {
                   <Loader2 className="h-4 w-4 text-orange-600 animate-spin" />
                 )}
               </CardTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsStockHistoricoOpen(true)}
-                className="gap-1.5 border-orange-300 text-orange-700 hover:bg-orange-50 shrink-0"
-                title="Ver stock del almacén en una fecha pasada"
-              >
-                <History className="h-4 w-4" />
-                <span className="hidden sm:inline">Stock a fecha</span>
-              </Button>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportarValesExcel}
+                  disabled={exportingValesExcel}
+                  className="gap-1.5 border-green-300 text-green-700 hover:bg-green-50"
+                  title="Exportar a Excel los vales con los filtros aplicados (incluye el creador de la solicitud)"
+                >
+                  {exportingValesExcel ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="hidden sm:inline">Exportando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <FileSpreadsheet className="h-4 w-4" />
+                      <span className="hidden sm:inline">Exportar Excel</span>
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsStockHistoricoOpen(true)}
+                  className="gap-1.5 border-orange-300 text-orange-700 hover:bg-orange-50"
+                  title="Ver stock del almacén en una fecha pasada"
+                >
+                  <History className="h-4 w-4" />
+                  <span className="hidden sm:inline">Stock a fecha</span>
+                </Button>
+              </div>
             </div>
             <CardDescription>
               {isSearching ? (

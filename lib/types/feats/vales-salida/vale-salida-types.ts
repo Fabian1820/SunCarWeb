@@ -207,7 +207,10 @@ export interface ValeSalidaSummary {
   estado?: "usado" | "anulado" | string;
   materiales_resumen?: string; // e.g., "5 materiales"
   cliente_nombre?: string;
+  /** Nombre del trabajador que creó el vale (operador de almacén). */
   creador_nombre?: string;
+  /** Nombre del trabajador que creó la solicitud asociada (material o venta). */
+  solicitud_creador_nombre?: string;
   recibido_por?: string | null;
   fecha_recogida?: string | null; // Fecha en que se recogieron los materiales
   fecha_creacion?: string;

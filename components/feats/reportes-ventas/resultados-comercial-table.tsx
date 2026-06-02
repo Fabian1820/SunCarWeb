@@ -35,12 +35,16 @@ import {
   Receipt,
   Percent,
   Crown,
+  FileSpreadsheet,
+  Loader2,
 } from "lucide-react";
 import type {
   FacturaVentaConComercial,
   EstadisticaVendedor,
 } from "@/lib/types/feats/reportes-ventas/reportes-ventas-types";
 import { useAuth } from "@/contexts/auth-context";
+import { useToast } from "@/hooks/use-toast";
+import { ExportFacturasComercialExcelService } from "@/lib/services/feats/reportes-ventas/export-facturas-comercial-excel-service";
 
 interface VentasPorComercialTableProps {
   facturas: FacturaVentaConComercial[];
@@ -62,6 +66,7 @@ export function VentasPorComercialTable({
   onRefresh,
 }: VentasPorComercialTableProps) {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [comercialFilter, setComercialFilter] = useState<string>("todos");
   const [descuentoFilter, setDescuentoFilter] = useState<string>("todos");
@@ -69,6 +74,7 @@ export function VentasPorComercialTable({
   const [anioFilter, setAnioFilter] = useState<string>("todos");
   const [fechaDesde, setFechaDesde] = useState<string>("");
   const [fechaHasta, setFechaHasta] = useState<string>("");
+  const [exportingExcel, setExportingExcel] = useState(false);
 
   const isRestrictedUser = RESTRICTED_USERS.includes(user?.nombre || "");
 
@@ -236,6 +242,43 @@ export function VentasPorComercialTable({
     );
   }, [filteredFacturas]);
 
+  const handleExportExcel = async () => {
+    if (filteredFacturas.length === 0) {
+      toast({
+        title: "Sin datos",
+        description: "No hay facturas para exportar con los filtros actuales.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setExportingExcel(true);
+    try {
+      const { count, filename } =
+        await ExportFacturasComercialExcelService.exportar(filteredFacturas, {
+          fechaDesde: fechaDesde || undefined,
+          fechaHasta: fechaHasta || undefined,
+          comercial: comercialFilter !== "todos" ? comercialFilter : undefined,
+          searchTerm: searchTerm || undefined,
+          descuento: descuentoFilter as "todos" | "si" | "no",
+          mes: mesFilter !== "todos" ? mesFilter : undefined,
+          anio: anioFilter !== "todos" ? anioFilter : undefined,
+        });
+      toast({
+        title: "Excel exportado",
+        description: `Se exportaron ${count} factura${count === 1 ? "" : "s"} a ${filename}.xlsx`,
+      });
+    } catch (e) {
+      toast({
+        title: "Error al exportar",
+        description:
+          e instanceof Error ? e.message : "No se pudo generar el archivo Excel.",
+        variant: "destructive",
+      });
+    } finally {
+      setExportingExcel(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -330,10 +373,32 @@ export function VentasPorComercialTable({
                 </Button>
               )}
             </div>
-            <Button onClick={onRefresh} disabled={loading} variant="outline" size="sm">
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-              Actualizar
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={handleExportExcel}
+                disabled={exportingExcel || loading || filteredFacturas.length === 0}
+                variant="outline"
+                size="sm"
+                className="border-green-300 text-green-700 hover:bg-green-50"
+                title="Exportar a Excel las facturas filtradas"
+              >
+                {exportingExcel ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Exportando...
+                  </>
+                ) : (
+                  <>
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Exportar Excel
+                  </>
+                )}
+              </Button>
+              <Button onClick={onRefresh} disabled={loading} variant="outline" size="sm">
+                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+                Actualizar
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>

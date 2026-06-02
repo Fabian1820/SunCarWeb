@@ -18,6 +18,9 @@ interface UseValesSalidaReturn {
   setEstadoFilter: (estado: "todos" | "usado" | "anulado") => void;
   tipoFilter: "todos" | "material" | "venta";
   setTipoFilter: (tipo: "todos" | "material" | "venta") => void;
+  /** Filtro server-side por nombre del trabajador que creó la solicitud asociada. */
+  creadorSolicitudFilter: string;
+  setCreadorSolicitudFilter: (creador: string) => void;
   loadVales: (almacenId?: string) => Promise<void>; // ← Agregar parámetro opcional
   loadMore: () => Promise<void>; // Nueva función para cargar más
   hasMore: boolean; // Indica si hay más registros por cargar
@@ -43,6 +46,7 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
   const [tipoFilter, setTipoFilter] = useState<
     "todos" | "material" | "venta"
   >("todos");
+  const [creadorSolicitudFilter, setCreadorSolicitudFilter] = useState("");
   const [almacenId, setAlmacenId] = useState<string | undefined>(initialAlmacenId); // ← Inicializado con el valor correcto
 
   // Ref para evitar recrear loadVales en cada render
@@ -56,6 +60,7 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
         estado?: string;
         solicitud_tipo?: "material" | "venta";
         q?: string;
+        creador_solicitud?: string;
         almacen_id?: string; // ← Agregar almacen_id
         skip?: number;
         limit?: number;
@@ -73,6 +78,11 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
       // Filtro por tipo de solicitud (material/venta)
       if (tipoFilter !== "todos") {
         params.solicitud_tipo = tipoFilter;
+      }
+
+      // Filtro server-side por creador de la solicitud asociada
+      if (creadorSolicitudFilter.trim()) {
+        params.creador_solicitud = creadorSolicitudFilter.trim();
       }
 
       // Si hay un almacén especificado, agregarlo al filtro
@@ -101,7 +111,7 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
     } finally {
       setLoading(false);
     }
-  }, [estadoFilter, tipoFilter, searchTerm, almacenId]);
+  }, [estadoFilter, tipoFilter, searchTerm, creadorSolicitudFilter, almacenId]);
 
   // Ahora filteredVales es igual a vales ya que el filtrado lo hace el backend
   const filteredVales = vales;
@@ -116,6 +126,7 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
         estado?: string;
         solicitud_tipo?: "material" | "venta";
         q?: string;
+        creador_solicitud?: string;
         almacen_id?: string; // ← Agregar almacen_id
         skip?: number;
         limit?: number;
@@ -133,6 +144,11 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
       // Filtro por tipo de solicitud (material/venta)
       if (tipoFilter !== "todos") {
         params.solicitud_tipo = tipoFilter;
+      }
+
+      // Filtro server-side por creador de la solicitud asociada
+      if (creadorSolicitudFilter.trim()) {
+        params.creador_solicitud = creadorSolicitudFilter.trim();
       }
 
       // Si hay almacén, mantenerlo
@@ -158,7 +174,7 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
     } finally {
       setLoading(false);
     }
-  }, [loading, hasMore, skip, estadoFilter, tipoFilter, searchTerm, almacenId, vales.length]);
+  }, [loading, hasMore, skip, estadoFilter, tipoFilter, searchTerm, creadorSolicitudFilter, almacenId, vales]);
 
   const createVale = useCallback(
     async (data: ValeSalidaCreateData): Promise<ValeSalida> => {
@@ -229,7 +245,7 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
       setIsSearching(false); // Limpiar indicador si se cancela
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [estadoFilter, tipoFilter, searchTerm, almacenId]); // ← Agregar almacenId como dependencia
+  }, [estadoFilter, tipoFilter, searchTerm, creadorSolicitudFilter, almacenId]); // ← Agregar almacenId y creador como dependencias
 
   return {
     vales,
@@ -243,6 +259,8 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
     setEstadoFilter,
     tipoFilter,
     setTipoFilter,
+    creadorSolicitudFilter,
+    setCreadorSolicitudFilter,
     loadVales,
     loadMore, // Nueva función
     hasMore, // Nuevo flag
