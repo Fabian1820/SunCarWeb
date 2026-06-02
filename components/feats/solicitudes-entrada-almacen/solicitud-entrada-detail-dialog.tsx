@@ -87,7 +87,6 @@ export function SolicitudEntradaDetailDialog({
   if (!solicitud) return null;
 
   const totalUnidades = solicitud.materiales.reduce((s, m) => s + m.cantidad_total, 0);
-  const valorTotal = solicitud.materiales.reduce((s, m) => s + m.cantidad_total * m.costo_unitario, 0);
 
   const reset = () => {
     setMode("view");
@@ -208,7 +207,7 @@ export function SolicitudEntradaDetailDialog({
                 Materiales solicitados
               </Label>
               <span className="text-xs text-gray-400">
-                {solicitud.materiales.length} ref · {totalUnidades} uds · ${valorTotal.toFixed(2)}
+                {solicitud.materiales.length} ref · {totalUnidades} uds
               </span>
             </div>
 
@@ -218,7 +217,6 @@ export function SolicitudEntradaDetailDialog({
                   <tr className="bg-gray-50 border-b border-gray-200">
                     <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Material</th>
                     <th className="text-center py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-20">Cant.</th>
-                    <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-24">Costo</th>
                     {POOLS.map((pool) => (
                       <th key={pool} className="text-center py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-20">
                         {POOL_LABELS[pool]}
@@ -237,7 +235,6 @@ export function SolicitudEntradaDetailDialog({
                         <p className="text-xs text-gray-400 font-mono mt-0.5">{m.material_codigo}</p>
                       </td>
                       <td className="py-2 px-3 text-center font-medium text-gray-700">{m.cantidad_total}</td>
-                      <td className="py-2 px-3 text-right text-gray-700">${m.costo_unitario.toFixed(2)}</td>
                       {POOLS.map((pool) => (
                         <td key={pool} className="py-2 px-3 text-center text-sm font-mono text-gray-600">
                           {m.split[pool] || "—"}
