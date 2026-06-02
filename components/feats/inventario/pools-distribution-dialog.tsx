@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowRightLeft, Layers, Loader2, Package } from "lucide-react";
+import { ArrowRightLeft, DollarSign, Layers, Loader2, Package } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -23,7 +23,7 @@ import type {
   StockPools,
 } from "@/lib/types/feats/inventario/inventario-types";
 import { POOLS_STOCK, POOL_STOCK_LABELS } from "@/lib/types/feats/inventario/inventario-types";
-import { InventarioService } from "@/lib/api-services";
+import { InventarioService, KardexCostoService } from "@/lib/api-services";
 import { useToast } from "@/hooks/use-toast";
 
 interface PoolsDistributionDialogProps {
@@ -97,12 +97,21 @@ export function PoolsDistributionDialog({
   const [motivo, setMotivo] = useState<string>("");
   const [enviando, setEnviando] = useState(false);
 
+  // ── Costo por almacén (kardex) ──────────────────────────────────────────
+  // Una llamada por apertura: GET /api/kardex-costo/costo-actual?material_id=&almacen_id=
+  // Devuelve el costo específico de este (material, almacén). Distinto al
+  // del catálogo, que es promedio global entre todos los almacenes.
+  const [costoAlmacen, setCostoAlmacen] = useState<number | null | undefined>(undefined);
+  const [costoLoading, setCostoLoading] = useState(false);
+
   // Reset al abrir/cerrar el dialog principal
   useEffect(() => {
     if (!open) {
       setMostrarForm(false);
       setCantidad("");
       setMotivo("");
+      setCostoAlmacen(undefined);
+      setCostoLoading(false);
       return;
     }
     // Default: origen = primer pool con cantidad > 0; destino = el siguiente
@@ -112,7 +121,17 @@ export function PoolsDistributionDialog({
       setPoolOrigen(primero);
       setPoolDestino(otro);
     }
-  }, [open, pools]);
+    // Fetch del costo por almacén si tenemos los ids
+    if (material_id && almacen_id) {
+      setCostoLoading(true);
+      KardexCostoService.getCostoActual(material_id, almacen_id)
+        .then((r) => setCostoAlmacen(r?.costo_actual ?? null))
+        .catch(() => setCostoAlmacen(null))
+        .finally(() => setCostoLoading(false));
+    } else {
+      setCostoAlmacen(undefined);
+    }
+  }, [open, pools, material_id, almacen_id]);
 
   // Cuando cambia origen, asegurarse que destino sea distinto
   useEffect(() => {
@@ -183,6 +202,37 @@ export function PoolsDistributionDialog({
         </DialogHeader>
 
         <div className="px-5 py-5 space-y-4">
+          {/* Costo por almacén (kardex). Solo si tenemos los ids; el dialog
+              "modo info" sin material_id/almacen_id no lo muestra. */}
+          {material_id && almacen_id && (
+            <div className="rounded-lg border border-violet-200 bg-violet-50/40 px-4 py-3 flex items-center gap-3">
+              <div className="p-1.5 rounded-md bg-violet-100 shrink-0">
+                <DollarSign className="h-3.5 w-3.5 text-violet-700" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] uppercase tracking-wide font-semibold text-violet-700">
+                  Costo en este almacén
+                </p>
+                {costoLoading ? (
+                  <div className="flex items-center gap-1.5 text-xs text-violet-500">
+                    <Loader2 className="h-3 w-3 animate-spin" /> Cargando...
+                  </div>
+                ) : costoAlmacen != null ? (
+                  <p className="text-lg font-bold text-violet-900 leading-tight">
+                    ${costoAlmacen.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                ) : (
+                  <p className="text-xs text-gray-400">
+                    Sin kardex en este almacén todavía
+                  </p>
+                )}
+              </div>
+              <p className="text-[10px] text-gray-400 text-right max-w-[140px] leading-tight shrink-0">
+                Promedio ponderado de entradas en este almacén
+              </p>
+            </div>
+          )}
+
           {sinPools ? (
             <div className="rounded-lg border border-dashed border-gray-200 py-6 px-4 text-center space-y-2">
               <Package className="h-8 w-8 text-gray-300 mx-auto" />
