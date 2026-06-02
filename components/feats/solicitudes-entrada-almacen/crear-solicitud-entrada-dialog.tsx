@@ -319,7 +319,10 @@ export function CrearSolicitudEntradaDialog({
   const sinPendientes = compra !== null && filas.length === 0;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    // Mientras está corriendo el submit (creación o edición, posiblemente en
+    // serie con N solicitudes), ignorar intentos de cerrar el dialog (click
+    // fuera, ESC). Sino se cierra a mitad del await y el state queda en limbo.
+    <Dialog open={open} onOpenChange={(o) => { if (!o && busy) return; onOpenChange(o); }}>
       <DialogContent className="max-w-6xl max-h-[92vh] overflow-y-auto p-0 gap-0">
         <DialogHeader className="px-6 py-4 border-b border-gray-100 bg-gray-50 rounded-t-lg shrink-0">
           <div className="flex items-center gap-3">

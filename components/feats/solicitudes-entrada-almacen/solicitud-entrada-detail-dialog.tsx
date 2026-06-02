@@ -96,6 +96,10 @@ export function SolicitudEntradaDetailDialog({
   };
 
   const handleClose = (open: boolean) => {
+    // Mientras se está aprobando o denegando, ignorar intentos de cerrar
+    // (click fuera, ESC). Sino el dialog desaparece a mitad del await y deja
+    // el state local huérfano.
+    if (!open && (isResolving || submitting)) return;
     if (!open) reset();
     onOpenChange(open);
   };
