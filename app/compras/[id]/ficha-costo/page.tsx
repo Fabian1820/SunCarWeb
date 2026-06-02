@@ -216,11 +216,18 @@ function FichaCostoContent() {
         const costoGuardado = m.costo ?? 0;
         const pvSugerido = m.precio_venta_sugerido ?? 0;
         const piSugerido = m.precio_instaladora_sugerido ?? 0;
-        // Si la compra aún no tiene precios finales, precargar desde el
+        // Si la compra aún no tiene precios finales (null, undefined o 0 — el
+        // backend devuelve 0 en compras nuevas, NO null), precargar desde el
         // catálogo de productos cuando el material ya tiene precios definidos
         // (caso típico: estamos reabasteciendo un producto ya conocido).
-        const pvFinal = m.precio_venta_final ?? (pvSugerido > 0 ? pvSugerido : datos.precio);
-        const piFinal = m.precio_instaladora_final ?? (piSugerido > 0 ? piSugerido : datos.precio_instaladora);
+        const tienePvFinalGuardado = (m.precio_venta_final ?? 0) > 0;
+        const tienePiFinalGuardado = (m.precio_instaladora_final ?? 0) > 0;
+        const pvFinal = tienePvFinalGuardado
+          ? m.precio_venta_final!
+          : (pvSugerido > 0 ? pvSugerido : datos.precio);
+        const piFinal = tienePiFinalGuardado
+          ? m.precio_instaladora_final!
+          : (piSugerido > 0 ? piSugerido : datos.precio_instaladora);
         // % rebajable: si la compra no lo tiene seteado pero el catálogo sí,
         // usar el del catálogo como punto de partida.
         const porcRebajable = m.porciento_rebajable_venta && m.porciento_rebajable_venta > 0
@@ -245,8 +252,12 @@ function FichaCostoContent() {
           precio_instaladora_sugerido: piSugerido,
           precio_venta_final: pvFinal,
           precio_instaladora_final: piFinal,
-          precio_venta_override: m.precio_venta_final != null && pvSugerido > 0 && Math.abs(pvFinal - pvSugerido) > 0.0001,
-          precio_instaladora_override: m.precio_instaladora_final != null && piSugerido > 0 && Math.abs(piFinal - piSugerido) > 0.0001,
+          // override = true solo si la compra tenía un final guardado distinto
+          // del sugerido. Si el final fue precargado desde el catálogo (sin
+          // valor guardado), NO es override — sigue al sugerido si cambian
+          // costos/recargo.
+          precio_venta_override: tienePvFinalGuardado && pvSugerido > 0 && Math.abs(pvFinal - pvSugerido) > 0.0001,
+          precio_instaladora_override: tienePiFinalGuardado && piSugerido > 0 && Math.abs(piFinal - piSugerido) > 0.0001,
           errorValidacion: null,
         };
       });
