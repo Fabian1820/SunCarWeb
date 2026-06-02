@@ -38,6 +38,11 @@ interface StockTableProps {
   marcas?: MarcaItem[];
   almacenNombreFallback?: string;
   loading?: boolean;
+  /**
+   * Si está definido, el dialog de pools muestra el botón "Transferir entre
+   * pools" y al confirmar invoca este callback para refrescar el stock.
+   */
+  onTraspasoCompleto?: () => void | Promise<void>;
 }
 
 const normalizarCodigo = (codigo: string) => codigo.trim().toLowerCase();
@@ -51,6 +56,7 @@ export function StockTable({
   marcas = [],
   almacenNombreFallback,
   loading = false,
+  onTraspasoCompleto,
 }: StockTableProps) {
   const [isUbicacionDialogOpen, setIsUbicacionDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<StockItem | null>(null);
@@ -74,6 +80,8 @@ export function StockTable({
     pools?: StockItem["pools"];
     um?: string;
     mostrarReserva: boolean;
+    material_id?: string;
+    almacen_id?: string;
   }>({ open: false, titulo: "", mostrarReserva: false });
 
   const handleOpenPoolsDialog = (item: StockItem, nombreMaterial: string, mostrarReserva: boolean) => {
@@ -84,6 +92,8 @@ export function StockTable({
       pools: item.pools,
       um: item.um,
       mostrarReserva,
+      material_id: item.material_id,
+      almacen_id: item.almacen_id,
     });
   };
 
@@ -491,6 +501,14 @@ export function StockTable({
         pools={poolsDialog.pools}
         um={poolsDialog.um}
         mostrarReserva={poolsDialog.mostrarReserva}
+        material_id={poolsDialog.material_id}
+        almacen_id={poolsDialog.almacen_id}
+        onTraspasoCompleto={onTraspasoCompleto ? async () => {
+          await onTraspasoCompleto();
+          // Cerrar el dialog para que el caller decida si re-mostrarlo con
+          // los nuevos pools tras el refetch.
+          setPoolsDialog((prev) => ({ ...prev, open: false }));
+        } : undefined}
       />
         </>
       </TooltipProvider>

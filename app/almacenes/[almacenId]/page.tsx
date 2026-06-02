@@ -761,6 +761,7 @@ export default function AlmacenDetallePage() {
                       almacenNombreFallback={almacen.nombre}
                       onUpdateUbicacion={handleUpdateUbicacion}
                       loading={loadingStock}
+                      onTraspasoCompleto={refreshStock}
                     />
                   )}
                   {stockTotal > STOCK_LIMIT && (
