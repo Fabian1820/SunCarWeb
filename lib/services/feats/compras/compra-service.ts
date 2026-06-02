@@ -280,11 +280,24 @@ export class CompraService {
     const error = extractApiError(raw);
     if (error) throw new Error(error);
     const data = unwrapPayload(raw) ?? {};
+    const costosCatalogo: Record<string, number | null> = {};
+    if (data?.costos_catalogo_propagados && typeof data.costos_catalogo_propagados === "object") {
+      for (const [matId, val] of Object.entries(data.costos_catalogo_propagados as Record<string, unknown>)) {
+        costosCatalogo[matId] = val == null ? null : Number(val);
+      }
+    }
     return {
       actualizados: Number(data?.actualizados ?? 0),
       kardex_recalculados: Array.isArray(data?.kardex_recalculados)
         ? data.kardex_recalculados.map(String)
         : [],
+      sin_costo_ficha: Array.isArray(data?.sin_costo_ficha)
+        ? data.sin_costo_ficha.map(String)
+        : [],
+      no_aplicables: Array.isArray(data?.no_aplicables)
+        ? data.no_aplicables.map(String)
+        : [],
+      costos_catalogo_propagados: costosCatalogo,
     };
   }
 

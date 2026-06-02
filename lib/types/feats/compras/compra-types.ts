@@ -182,6 +182,16 @@ export interface PonderarCostoRequest {
 export interface PonderarCostoResponse {
   actualizados: number;
   kardex_recalculados: string[];
+  /** material_ids sin costo definido en la ficha — no se ponderaron */
+  sin_costo_ficha: string[];
+  /** kardex_ids que no aplicaban la regla de ponderación */
+  no_aplicables: string[];
+  /**
+   * Mapa material_id → costo global nuevo propagado al catálogo (null si el
+   * cálculo se hizo pero el material no se pudo resolver al producto para
+   * actualizar el catálogo; en ese caso el kardex sí quedó regularizado).
+   */
+  costos_catalogo_propagados: Record<string, number | null>;
 }
 
 export interface StockMaterialCompra {

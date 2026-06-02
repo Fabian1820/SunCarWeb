@@ -121,8 +121,9 @@ export function AplicarPreciosConfirmDialog({
                 Confirmar aplicación de precios al catálogo
               </DialogTitle>
               <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                Al confirmar, los siguientes valores se actualizarán en el catálogo de productos.
-                Puedes ajustar los valores nuevos directamente desde aquí antes de guardar.
+                Al confirmar, los <strong>precios de venta, instaladora y % rebajable</strong> se actualizarán en el catálogo de productos.
+                El <strong>costo</strong> queda guardado en la ficha pero no se propaga al catálogo desde aquí — eso ocurre al recibir mercancía o al ponderar.
+                Podés ajustar los valores antes de guardar.
               </p>
             </div>
           </div>
@@ -169,6 +170,7 @@ export function AplicarPreciosConfirmDialog({
                     </th>
                     <th colSpan={2} className="text-center py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-200 bg-slate-50">
                       Costo
+                      <span className="block text-[10px] font-normal text-gray-400 normal-case tracking-normal">solo ficha</span>
                     </th>
                     <th colSpan={2} className="text-center py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-200 bg-cyan-50">
                       Precio venta

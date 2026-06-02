@@ -573,7 +573,7 @@ function FichaCostoContent() {
       setConfirmOpen(false);
       toast({
         title: "Precios aplicados",
-        description: "Los cambios se han propagado al catálogo de productos.",
+        description: "Precios de venta, instaladora y % rebajable propagados al catálogo. El costo se actualiza al recibir mercancía o ponderar.",
       });
       // Refrescar valores del catálogo silenciosamente (sin loader completo)
       const materialIds = envioActualizado.materiales.map((m) => m.material_id).filter(Boolean);
@@ -674,6 +674,13 @@ function FichaCostoContent() {
    * backend pondere usando los valores que el operador acaba de tipear y no
    * los del último guardado explícito); después dispara el POST
    * /ponderar-costo. Si el guardar falla, se aborta sin pegarle al endpoint.
+   *
+   * Tras el POST, el backend devuelve costos_catalogo_propagados:
+   *   { material_id: costo_global_nuevo | null }
+   * Usamos ese mapa para actualizar `costo_actual` de cada fila en pantalla
+   * sin tener que re-fetchear el catálogo. Si viene null para algún material,
+   * mantenemos el valor anterior (kardex se regularizó pero el catálogo no
+   * se pudo propagar — caso raro de material_id no parseable).
    */
   const handlePonderarCosto = async () => {
     if (filas.length === 0) {
@@ -681,7 +688,7 @@ function FichaCostoContent() {
       return;
     }
     if (!confirm(
-      "Se guardará la ficha actual y luego se aplicarán los costos a las entradas del kardex que quedaron en 0. ¿Continuar?",
+      "Se guardará la ficha actual y luego se aplicará el costo de la ficha a las entradas pendientes del kardex. El costo del catálogo se actualizará con el promedio global de todos los almacenes. ¿Continuar?",
     )) return;
     setPonderando(true);
     try {
@@ -699,11 +706,32 @@ function FichaCostoContent() {
 
       // 2. Ponderar costo con los datos ya persistidos.
       const r = await CompraService.ponderarCosto(envioId);
+
+      // 3. Refresh local del costo_actual con los valores que devuelve el
+      // backend (más eficiente que un re-fetch del bulk de catálogo).
+      const propagados = r.costos_catalogo_propagados;
+      if (Object.keys(propagados).length > 0) {
+        setFilas((prev) =>
+          prev.map((f) => {
+            const nuevo = propagados[f.material_id];
+            if (nuevo == null) return f; // null = kardex OK pero catálogo no propagado
+            return { ...f, costo_actual: nuevo };
+          }),
+        );
+      }
+
+      const partes: string[] = ["Ficha guardada"];
+      if (r.actualizados > 0) {
+        partes.push(`${r.actualizados} entrada${r.actualizados !== 1 ? "s" : ""} del kardex actualizada${r.actualizados !== 1 ? "s" : ""}`);
+      } else {
+        partes.push("sin entradas pendientes de costear");
+      }
+      if (r.sin_costo_ficha.length > 0) {
+        partes.push(`${r.sin_costo_ficha.length} material${r.sin_costo_ficha.length !== 1 ? "es" : ""} sin costo en ficha`);
+      }
       toast({
         title: "Costos ponderados",
-        description: r.actualizados > 0
-          ? `Ficha guardada y ${r.actualizados} entrada${r.actualizados !== 1 ? "s" : ""} actualizada${r.actualizados !== 1 ? "s" : ""} en el kardex.`
-          : "Ficha guardada. No había entradas pendientes de costear.",
+        description: partes.join(" · ") + ".",
       });
     } catch (err) {
       toast({
@@ -774,7 +802,7 @@ function FichaCostoContent() {
                 onClick={handlePonderarCosto}
                 disabled={ponderando || savingBorrador || saving}
                 className="gap-1.5 border-violet-300 text-violet-700 hover:bg-violet-50"
-                title="Aplicar el costo de esta ficha a entradas anteriores con costo 0"
+                title="Aplica el costo de la ficha a las entradas pendientes del kardex y actualiza el costo del catálogo con el promedio global de todos los almacenes. Guarda la ficha primero."
               >
                 {ponderando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Calculator className="h-3.5 w-3.5" />}
                 <span className="hidden lg:inline">Ponderar costo</span>
@@ -797,7 +825,7 @@ function FichaCostoContent() {
                 onClick={abrirConfirmacion}
                 disabled={saving || hayErroresValidacion}
                 className="gap-1.5 bg-cyan-600 hover:bg-cyan-700 text-white"
-                title="Aplicar precios al catálogo de productos"
+                title="Propaga al catálogo los precios de venta, instaladora y % rebajable. El costo se calcula automáticamente al recibir mercancía o al ponderar."
               >
                 {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
                 <span className="hidden sm:inline">Aplicar precios</span>
