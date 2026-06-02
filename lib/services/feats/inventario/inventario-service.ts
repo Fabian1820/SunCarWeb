@@ -694,6 +694,22 @@ export class InventarioService {
       payload.almacen_origen_id = origenId;
     }
 
+    // Pools: el backend espera pool (singular) en entrada/salida/ajuste/venta/
+    // eliminacion/transferencia y pool_origen + pool_destino en traspaso_sector.
+    // Si el caller no los manda, el backend asume indistinto.
+    if (tipo === "traspaso_sector") {
+      if (!data.pool_origen || !data.pool_destino) {
+        throw new Error("El traspaso_sector requiere pool_origen y pool_destino");
+      }
+      if (data.pool_origen === data.pool_destino) {
+        throw new Error("El pool destino debe ser diferente al pool origen");
+      }
+      payload.pool_origen = data.pool_origen;
+      payload.pool_destino = data.pool_destino;
+    } else if (data.pool) {
+      payload.pool = data.pool;
+    }
+
     const response = await apiRequest<any>("/inventario/movimientos", {
       method: "POST",
       body: JSON.stringify(payload),
