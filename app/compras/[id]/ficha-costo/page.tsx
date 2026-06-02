@@ -167,6 +167,25 @@ function FichaCostoContent() {
       const datosBulk = await CompraService.getMaterialesDatosBulk(materialIds);
 
       const impuestosGuardados = envioData.porciento_cargo_envio_impuestos ?? 0;
+
+      // Calcular el recargo sugerido a partir de lo que está guardado
+      // (costos + tasa + valor mercancía) — sirve para decidir si el
+      // porciento_recargo persistido fue una edición manual del usuario
+      // (override) o simplemente el sugerido del momento del guardado.
+      const tasaGuardada = envioData.tasa_conversion_eur_usd ?? 0;
+      const totalCostosUsdGuardado = (envioData.costos ?? []).reduce((acc, c) => {
+        if (c.moneda === "USD") return acc + c.monto;
+        if (c.moneda === "EUR" && tasaGuardada > 0) return acc + c.monto * tasaGuardada;
+        return acc;
+      }, 0);
+      const valorMercanciasGuardado = envioData.materiales.reduce(
+        (acc, m) => acc + (m.precio_unitario_cif ?? 0) * (m.cantidad ?? 0),
+        0,
+      );
+      const recargoSugeridoGuardado = valorMercanciasGuardado > 0
+        ? (totalCostosUsdGuardado / valorMercanciasGuardado) * 100
+        : 0;
+
       const filasInit: FilaMaterial[] = envioData.materiales.map((m) => {
         const datos = datosBulk[m.material_id] ?? { precio: 0, precio_instaladora: 0, costo: 0, stock_total: 0 };
         const cifUnit = m.precio_unitario_cif ?? 0;
@@ -174,6 +193,12 @@ function FichaCostoContent() {
         // El recargo guardado en backend es el TOTAL (recargo + impuestos).
         // Lo descomponemos para mostrarlo separado del % impuestos global.
         const recargoFila = Math.max(0, recargoTotalGuardado - impuestosGuardados);
+        // override = true solo si el recargo persistido difiere del sugerido
+        // que producen los costos guardados (es decir: fue edición manual).
+        // Antes se ponía true siempre que recargoTotalGuardado > 0, lo cual
+        // hacía que al agregar costos nuevos la tabla no actualizara el
+        // recargo/costo/precios sugeridos.
+        const recargoOverride = Math.abs(recargoFila - recargoSugeridoGuardado) > 0.01;
         const costoGuardado = m.costo ?? 0;
         const pvSugerido = m.precio_venta_sugerido ?? 0;
         const piSugerido = m.precio_instaladora_sugerido ?? 0;
@@ -200,7 +225,7 @@ function FichaCostoContent() {
           precio_unitario_cif: cifUnit,
           porciento_rebajable_venta: porcRebajable,
           porciento_recargo: recargoFila,
-          porciento_recargo_override: recargoTotalGuardado > 0,
+          porciento_recargo_override: recargoOverride,
           costo_nuevo: costoGuardado || cifUnit * (1 + recargoTotalGuardado / 100),
           precio_venta_sugerido: pvSugerido,
           precio_instaladora_sugerido: piSugerido,
@@ -581,8 +606,16 @@ function FichaCostoContent() {
         precio_instaladora_final: f.precio_instaladora_final > 0 ? f.precio_instaladora_final : null,
         porciento_rebajable_venta: f.porciento_rebajable_venta,
       }));
+      // eslint-disable-next-line no-console
+      console.log("[ficha:guardar] PATCH /compras/" + envioId + "/ficha — payload:", { materiales });
       const compraActualizada = await CompraService.guardarFicha(envioId, { materiales });
+      // eslint-disable-next-line no-console
+      console.log("[ficha:guardar] respuesta materiales recibidos:", compraActualizada.materiales);
       setEnvio(compraActualizada);
+      // Re-cargar las filas desde el backend para que la tabla refleje lo que
+      // se persistió (no solo lo que el usuario tipeó). Si después de esto
+      // todavía no aparece, el bug es del endpoint PATCH /ficha.
+      await cargarDatos();
       toast({
         title: "Ficha guardada",
         description: "El progreso quedó guardado. Los precios todavía no se aplicaron al catálogo.",
