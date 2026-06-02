@@ -304,7 +304,6 @@ export default function InventarioPage() {
                 }
               }}
               onEditStockMinimo={handleEditStockMinimo}
-              onTraspasoCompleto={refetch}
               pagination={{
                 page: meta.page,
                 totalPages: meta.totalPages,
