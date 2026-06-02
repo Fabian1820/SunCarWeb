@@ -267,6 +267,7 @@ export function MaterialesStockTable({
     titulo: string
     contexto?: string
     pools?: StockPools
+    cantidadTotal?: number
     um?: string
     material_id?: string
     almacen_id?: string
@@ -276,6 +277,7 @@ export function MaterialesStockTable({
     titulo: string
     contexto?: string
     pools?: StockPools
+    cantidadTotal?: number
     um?: string
     material_id?: string
     almacen_id?: string
@@ -492,6 +494,7 @@ export function MaterialesStockTable({
                               titulo: nombre,
                               contexto: almacenSeleccionadoNombre,
                               pools: row.por_almacen[0].pools,
+                              cantidadTotal: row.por_almacen[0].cantidad,
                               um: row.um,
                               material_id: row.material_id,
                               almacen_id: almacenSeleccionadoId,
@@ -551,6 +554,7 @@ export function MaterialesStockTable({
                                           titulo: nombre,
                                           contexto: pa.almacen_nombre,
                                           pools: pa.pools,
+                                          cantidadTotal: pa.cantidad,
                                           um: row.um,
                                           material_id: row.material_id,
                                           almacen_id: pa.almacen_id,
@@ -617,6 +621,7 @@ export function MaterialesStockTable({
         titulo={poolsDialog.titulo}
         contexto={poolsDialog.contexto}
         pools={poolsDialog.pools}
+        cantidadTotal={poolsDialog.cantidadTotal}
         um={poolsDialog.um}
         material_id={poolsDialog.material_id}
         almacen_id={poolsDialog.almacen_id}

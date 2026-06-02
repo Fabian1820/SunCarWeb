@@ -78,6 +78,7 @@ export function StockTable({
     titulo: string;
     contexto?: string;
     pools?: StockItem["pools"];
+    cantidadTotal?: number;
     um?: string;
     mostrarReserva: boolean;
     material_id?: string;
@@ -90,6 +91,7 @@ export function StockTable({
       titulo: nombreMaterial,
       contexto: item.almacen_nombre ?? almacenNombreFallback,
       pools: item.pools,
+      cantidadTotal: item.cantidad,
       um: item.um,
       mostrarReserva,
       material_id: item.material_id,
@@ -308,7 +310,7 @@ export function StockTable({
                     </Tooltip>
                   </td>
                   <td className="py-3 px-2">
-                    {item.pools && POOLS_STOCK.some((p) => (item.pools![p]?.cantidad ?? 0) > 0) ? (
+                    {item.material_id ? (
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <button
@@ -321,7 +323,7 @@ export function StockTable({
                           </button>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>Ver distribución por pool</p>
+                          <p>Ver distribución por pool y transferir</p>
                         </TooltipContent>
                       </Tooltip>
                     ) : (
@@ -499,6 +501,7 @@ export function StockTable({
         titulo={poolsDialog.titulo}
         contexto={poolsDialog.contexto}
         pools={poolsDialog.pools}
+        cantidadTotal={poolsDialog.cantidadTotal}
         um={poolsDialog.um}
         mostrarReserva={poolsDialog.mostrarReserva}
         material_id={poolsDialog.material_id}

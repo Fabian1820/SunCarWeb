@@ -34,6 +34,12 @@ interface PoolsDistributionDialogProps {
   /** Almacén o contexto secundario (ej: "Almacén Mariel") */
   contexto?: string;
   pools: StockPools | undefined;
+  /**
+   * Cantidad total real (StockItem.cantidad). Útil cuando pools no viene del
+   * backend o vienen en 0 pero el material tiene stock — para no mostrar 0
+   * como total cuando en realidad hay stock sin distribuir.
+   */
+  cantidadTotal?: number;
   /** Unidad de medida opcional para mostrar al lado de cada cantidad */
   um?: string;
   /** Mostrar "reservada" además de "cantidad" */
@@ -60,6 +66,7 @@ export function PoolsDistributionDialog({
   titulo,
   contexto,
   pools,
+  cantidadTotal,
   um,
   mostrarReserva = false,
   material_id,
@@ -177,11 +184,16 @@ export function PoolsDistributionDialog({
 
         <div className="px-5 py-5 space-y-4">
           {sinPools ? (
-            <div className="rounded-lg border border-dashed border-gray-200 py-8 text-center">
-              <Package className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+            <div className="rounded-lg border border-dashed border-gray-200 py-6 px-4 text-center space-y-2">
+              <Package className="h-8 w-8 text-gray-300 mx-auto" />
               <p className="text-sm text-gray-500">Sin distribución por pool todavía.</p>
-              <p className="text-xs text-gray-400 mt-1">
-                Los pools se llenan al aprobar solicitudes de entrada al almacén.
+              {((cantidadTotal ?? totales.cantidad) > 0) && (
+                <p className="text-xs text-gray-400">
+                  Stock total: <strong className="text-gray-700">{cantidadTotal ?? totales.cantidad}{um ? ` ${um}` : ""}</strong>
+                </p>
+              )}
+              <p className="text-[11px] text-gray-400">
+                Los pools se llenan al aprobar solicitudes de entrada al almacén con el split correspondiente. Mientras tanto este stock se considera Indistinto.
               </p>
             </div>
           ) : (
