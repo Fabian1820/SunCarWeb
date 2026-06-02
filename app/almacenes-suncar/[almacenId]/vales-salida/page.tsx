@@ -110,6 +110,14 @@ export default function ValesSalidaPage() {
   const [showSolicitudesPendientes, setShowSolicitudesPendientes] =
     useState(true);
 
+  const solicitudesPendientesOrdenadas = useMemo(() => {
+    return [...solicitudesPendientes].sort((a, b) => {
+      const ta = a.fecha_creacion ? new Date(a.fecha_creacion).getTime() : 0;
+      const tb = b.fecha_creacion ? new Date(b.fecha_creacion).getTime() : 0;
+      return tb - ta;
+    });
+  }, [solicitudesPendientes]);
+
   const loadSolicitudesPendientes = useCallback(async () => {
     setLoadingPendientes(true);
     try {
@@ -379,11 +387,14 @@ export default function ValesSalidaPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {solicitudesPendientes.map((solicitud) => {
+                      {solicitudesPendientesOrdenadas.map((solicitud) => {
                         const styles = getTipoStyles(solicitud.tipo_solicitud);
-                        const recogidaBadge = getFechaRecogidaBadge(
-                          solicitud.fecha_recogida,
-                        );
+                        // Las solicitudes de venta no traen fecha_recogida; el flujo
+                        // habitual es que se recogen el mismo día, así que caemos a
+                        // fecha_creacion para no mostrar "Hoy" como dato real.
+                        const fechaRecogidaRef =
+                          solicitud.fecha_recogida || solicitud.fecha_creacion;
+                        const recogidaBadge = getFechaRecogidaBadge(fechaRecogidaRef);
                         const hasStockAlert =
                           solicitud.tiene_alertas_stock === true;
                         return (
@@ -428,9 +439,7 @@ export default function ValesSalidaPage() {
                               <div className="flex flex-col gap-1">
                                 <div className="flex items-center gap-2">
                                   <span>
-                                    {formatFechaRecogida(
-                                      solicitud.fecha_recogida,
-                                    )}
+                                    {formatFechaRecogida(fechaRecogidaRef)}
                                   </span>
                                   <span
                                     className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${getRecogidaBadgeClass(recogidaBadge.kind)}`}

@@ -54,6 +54,7 @@ import {
   generarAmbos,
 } from "@/lib/services/feats/solicitudes-ventas/export-solicitud-venta-word-service";
 import { ExportFacturaVentaConsolidadaService } from "@/lib/services/feats/pagos-clientes-ventas/export-factura-venta-consolidada-service";
+import { ExportFacturasExcelService } from "@/lib/services/feats/pagos-clientes-ventas/export-facturas-excel-service";
 import { TicketFacturaVentaService } from "@/lib/services/feats/pagos-clientes-ventas/ticket-factura-venta-service";
 import type { ExportTipo } from "@/components/feats/solicitudes-ventas/solicitudes-ventas-table";
 import { FacturaClienteVentaService, PagoVentaService } from "@/lib/services/feats/pagos-clientes-ventas/pago-cliente-venta-service";
@@ -94,6 +95,7 @@ export default function SolicitudesVentasPage() {
     solicitudesPendientes,
     totalPendientes,
     hasMorePendientes,
+    agregadosPendientes,
     loadingSolicitudes,
     errorSolicitudes,
     fetchSolicitudesPendientes,
@@ -101,6 +103,7 @@ export default function SolicitudesVentasPage() {
     todosPagos,
     totalPagos,
     hasMorePagos,
+    agregadosPagos,
     loadingPagos,
     errorPagos,
     fetchTodosPagos,
@@ -108,6 +111,7 @@ export default function SolicitudesVentasPage() {
     facturas,
     totalFacturas,
     hasMoreFacturas,
+    agregadosFacturas,
     loadingFacturas,
     errorFacturas,
     fetchFacturas,
@@ -167,6 +171,7 @@ const [anularLoading, setAnularLoading]             = useState(false);
   const [f4Hasta, setF4Hasta]         = useState("");
   const [f4Periodo, setF4Periodo]     = useState("");
   const [f4Moneda, setF4Moneda]       = useState("");
+  const [f4Metodo, setF4Metodo]       = useState("");
 
   const getPeriodoRange = (periodo: string): { desde: string; hasta: string } => {
     const now = new Date();
@@ -293,8 +298,9 @@ const [anularLoading, setAnularLoading]             = useState(false);
     estado: f4Estado || undefined,
     moneda: f4Moneda || undefined,
     comercial: f4Comercial || undefined,
+    metodo_pago: f4Metodo || undefined,
     ...monthToRange(f4Mes, f4Desde, f4Hasta),
-  }), [f4Search, f4Estado, f4Moneda, f4Comercial, f4Mes, f4Desde, f4Hasta]);
+  }), [f4Search, f4Estado, f4Moneda, f4Comercial, f4Metodo, f4Mes, f4Desde, f4Hasta]);
 
   // El filtrado lo hace el backend; aquí solo paseamos lo cargado.
   const solicitudesDisplay = filteredSolicitudes;
@@ -616,7 +622,9 @@ const [anularLoading, setAnularLoading]             = useState(false);
     try {
       const facturaId = factura.id || factura.factura_id;
       if (!facturaId) throw new Error("Factura sin ID.");
-      const resumen = await FacturaClienteVentaService.getFacturaResumen(facturaId);
+      // Usar resolveResumen para que el método de pago de cada pago llegue
+      // enriquecido aunque el endpoint /resumen no lo devuelva.
+      const resumen = await resolveResumen(factura);
       setFacturaDetalle(resumen);
     } catch (e) {
       toast({
@@ -786,6 +794,72 @@ const [anularLoading, setAnularLoading]             = useState(false);
     } catch (e) {
       toast({
         title: "Error al exportar",
+        description: e instanceof Error ? e.message : "No se pudieron exportar las facturas",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleExportarFacturasExcel = async (lista: FacturaClienteVenta[]) => {
+    if (lista.length === 0) {
+      toast({ title: "Sin facturas", description: "No hay facturas para exportar." });
+      return;
+    }
+    try {
+      // Asegurar metodo_pago en cada pago: si falta, lo buscamos en todosPagos
+      // o pedimos al endpoint individual. Reutilizamos enriquecerPagos a través
+      // de resolveResumen, pero solo necesitamos los pagos enriquecidos.
+      const conPagos: FacturaClienteVenta[] = await Promise.all(
+        lista.map(async (f) => {
+          const tienenMetodo =
+            Array.isArray(f.pagos) &&
+            f.pagos.length > 0 &&
+            f.pagos.every((p) => Boolean(p.metodo_pago));
+          if (tienenMetodo) return f;
+          try {
+            const resumen = await resolveResumen(f);
+            return {
+              ...f,
+              pagos: Array.isArray(resumen.pagos)
+                ? resumen.pagos.map((p) => ({
+                    id: p.id,
+                    monto: p.monto,
+                    moneda: p.moneda,
+                    monto_usd: p.monto_usd,
+                    tasa_cambio: p.tasa_cambio ?? undefined,
+                    metodo_pago: p.metodo_pago,
+                    recibido_por: p.recibido_por,
+                    notas: p.notas,
+                    desglose_billetes: p.desglose_billetes ?? null,
+                    descuento_porcentaje: p.descuento_porcentaje ?? null,
+                    monto_pendiente_despues_pago:
+                      p.monto_pendiente_despues_pago ?? null,
+                    fecha: p.fecha,
+                  }))
+                : f.pagos,
+            };
+          } catch {
+            return f;
+          }
+        }),
+      );
+      ExportFacturasExcelService.exportar(conPagos, {
+        fechaDesde: f4Desde || (f4Mes ? `${f4Mes}-01` : undefined),
+        fechaHasta: f4Hasta || (f4Mes
+          ? (() => {
+              const [y, m] = f4Mes.split("-").map(Number);
+              const lastDay = new Date(y, m, 0).getDate();
+              return `${f4Mes}-${String(lastDay).padStart(2, "0")}`;
+            })()
+          : undefined),
+      });
+      toast({
+        title: "Excel exportado",
+        description: `Se exportaron ${conPagos.length} factura${conPagos.length === 1 ? "" : "s"}.`,
+      });
+    } catch (e) {
+      toast({
+        title: "Error al exportar Excel",
         description: e instanceof Error ? e.message : "No se pudieron exportar las facturas",
         variant: "destructive",
       });
@@ -1044,6 +1118,7 @@ const [anularLoading, setAnularLoading]             = useState(false);
                 searchValue={f2Search}
                 onSearchChange={setF2Search}
                 totalCount={totalPendientes}
+                agregados={agregadosPendientes}
                 footer={hasMorePendientes && pendientesDisplay.length > 0 ? (
                   <div className="text-center px-6 py-4 border-t">
                     <Button
@@ -1098,6 +1173,7 @@ const [anularLoading, setAnularLoading]             = useState(false);
                     <SelectItem value="efectivo">Efectivo</SelectItem>
                     <SelectItem value="transferencia_bancaria">Transferencia</SelectItem>
                     <SelectItem value="stripe">Stripe</SelectItem>
+                    <SelectItem value="zelle">Zelle</SelectItem>
                     <SelectItem value="financiacion">Financiación</SelectItem>
                   </SelectContent>
                 </Select>
@@ -1135,6 +1211,7 @@ const [anularLoading, setAnularLoading]             = useState(false);
                   searchValue={f3Search}
                   onSearchChange={setF3Search}
                   totalCount={totalPagos}
+                  agregados={agregadosPagos}
                   footer={hasMorePagos && pagosDisplay.length > 0 ? (
                     <div className="text-center py-4 border-t">
                       <Button
@@ -1201,6 +1278,17 @@ const [anularLoading, setAnularLoading]             = useState(false);
                     <SelectItem value="EUR">EUR</SelectItem>
                   </SelectContent>
                 </Select>
+                <Select value={f4Metodo} onValueChange={(v) => setF4Metodo(v === "all" ? "" : v)}>
+                  <SelectTrigger className="h-8 w-36 text-xs"><SelectValue placeholder="Método pago" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="efectivo">Efectivo</SelectItem>
+                    <SelectItem value="transferencia_bancaria">Transferencia</SelectItem>
+                    <SelectItem value="stripe">Stripe</SelectItem>
+                    <SelectItem value="zelle">Zelle</SelectItem>
+                    <SelectItem value="financiacion">Financiación</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Select value={f4Comercial} onValueChange={(v) => setF4Comercial(v === "all" ? "" : v)}>
                   <SelectTrigger className="h-8 w-40 text-xs"><SelectValue placeholder="Comercial" /></SelectTrigger>
                   <SelectContent>
@@ -1210,9 +1298,9 @@ const [anularLoading, setAnularLoading]             = useState(false);
                     ))}
                   </SelectContent>
                 </Select>
-                {(f4Estado || f4Comercial || f4Mes || f4Desde || f4Hasta || f4Periodo || f4Moneda) && (
+                {(f4Estado || f4Comercial || f4Mes || f4Desde || f4Hasta || f4Periodo || f4Moneda || f4Metodo) && (
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-600"
-                    onClick={() => { setF4Estado(""); setF4Comercial(""); setF4Mes(""); setF4Desde(""); setF4Hasta(""); setF4Periodo(""); setF4Moneda(""); }}>
+                    onClick={() => { setF4Estado(""); setF4Comercial(""); setF4Mes(""); setF4Desde(""); setF4Hasta(""); setF4Periodo(""); setF4Moneda(""); setF4Metodo(""); }}>
                     <FilterX className="h-4 w-4" />
                   </Button>
                 )}
@@ -1227,11 +1315,16 @@ const [anularLoading, setAnularLoading]             = useState(false);
                 onTicket={(f) => { void handleExportarTicket(f); }}
                 onEliminar={handleEliminarFactura}
                 onExportarTodas={handleExportarTodasFacturas}
+                onExportarExcel={(lista) => { void handleExportarFacturasExcel(lista); }}
                 monedaFilter={f4Moneda}
+                metodoFilter={f4Metodo}
+                fechaDesde={f4Desde || (f4Mes ? `${f4Mes}-01` : undefined)}
+                fechaHasta={f4Hasta || undefined}
                 variant="embedded"
                 searchValue={f4Search}
                 onSearchChange={setF4Search}
                 totalCount={totalFacturas}
+                agregados={agregadosFacturas}
                 footer={hasMoreFacturas && facturasDisplay.length > 0 ? (
                   <div className="text-center px-6 py-4 border-t">
                     <Button

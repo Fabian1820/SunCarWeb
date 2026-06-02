@@ -50,7 +50,7 @@ interface RegistrarPagoVentaDialogProps {
     monto: number;
     moneda: "USD" | "CUP" | "EUR";
     tasa_cambio?: number;
-    metodo_pago: "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion";
+    metodo_pago: "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion" | "zelle";
     stripe_link?: string;
     desglose_billetes?: Record<string, number>;
     cambio?: number;
@@ -96,7 +96,7 @@ export function RegistrarPagoVentaDialog({
   const [moneda, setMoneda] = useState<"USD" | "CUP" | "EUR">("USD");
   const [tasaCambio, setTasaCambio] = useState("");
   const [metodoPago, setMetodoPago] = useState<
-    "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion"
+    "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion" | "zelle"
   >("efectivo");
   const [desgloseBilletes, setDesgloseBilletes] = useState<Record<string, string>>({});
   const [notas, setNotas] = useState("");
@@ -541,7 +541,7 @@ export function RegistrarPagoVentaDialog({
             <Select
               value={metodoPago}
               onValueChange={(v: string) => {
-                const m = v as "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion";
+                const m = v as "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion" | "zelle";
                 setMetodoPago(m);
                 if (m !== "stripe" && m !== "transferencia_bancaria") setMontoComision("");
                 if (m === "stripe") {
@@ -559,6 +559,7 @@ export function RegistrarPagoVentaDialog({
                 <SelectItem value="efectivo">Efectivo</SelectItem>
                 <SelectItem value="transferencia_bancaria">Transferencia bancaria</SelectItem>
                 <SelectItem value="stripe">Stripe</SelectItem>
+                <SelectItem value="zelle">Zelle</SelectItem>
                 <SelectItem value="financiacion">Financiación</SelectItem>
               </SelectContent>
             </Select>

@@ -139,6 +139,7 @@ export type {
   SolicitudVentaListParams,
   SolicitudVentaListResponse,
   SolicitudVentaSummary,
+  SolicitudVentaSummaryAgregados,
   SolicitudVentaSummaryResponse,
   SolicitudVentaAlmacenInfo,
   SolicitudVentaTrabajadorInfo,

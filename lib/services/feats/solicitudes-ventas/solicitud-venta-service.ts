@@ -11,6 +11,7 @@ import type {
   SolicitudVentaUpdateData,
   SolicitudVentaPlanPagosData,
   SolicitudVentaSummary,
+  SolicitudVentaSummaryAgregados,
   SolicitudVentaSummaryResponse,
 } from "../../../api-types";
 
@@ -223,7 +224,11 @@ export class SolicitudVentaService {
    */
   static async getSolicitudesSummary(
     params: SolicitudVentaListParams = {},
-  ): Promise<{ data: SolicitudVentaSummary[]; total: number }> {
+  ): Promise<{
+    data: SolicitudVentaSummary[];
+    total: number;
+    agregados?: SolicitudVentaSummaryAgregados;
+  }> {
     const search = new URLSearchParams();
     if (params.skip != null) search.append("skip", String(params.skip));
     if (params.limit != null) search.append("limit", String(params.limit));
@@ -271,7 +276,15 @@ export class SolicitudVentaService {
         s.cliente_venta_nombre ?? s.nombre_cliente ?? s.cliente_venta?.nombre ?? undefined,
     }));
 
-    return { data, total };
+    const agregados: SolicitudVentaSummaryAgregados | undefined = raw.agregados
+      ? {
+          precio_total_usd: Number(raw.agregados.precio_total_usd) || 0,
+          pagado_usd: Number(raw.agregados.pagado_usd) || 0,
+          pendiente_usd: Number(raw.agregados.pendiente_usd) || 0,
+        }
+      : undefined;
+
+    return { data, total, agregados };
   }
 
   static async getSolicitudes(

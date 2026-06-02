@@ -12,8 +12,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/shared/molecule/table";
-import type { FacturaClienteVenta } from "@/lib/types/feats/pagos-clientes-ventas/pago-cliente-venta-types";
-import { Search, RefreshCw, AlertCircle, Trash2, Eye, FileDown, Receipt, Files, Loader2 } from "lucide-react";
+import type {
+  FacturaClienteVenta,
+  FacturaVentaAgregados,
+} from "@/lib/types/feats/pagos-clientes-ventas/pago-cliente-venta-types";
+import { Search, RefreshCw, AlertCircle, Trash2, Eye, FileDown, Receipt, Files, Loader2, FileSpreadsheet } from "lucide-react";
 
 interface FacturasVentasTableProps {
   facturas: FacturaClienteVenta[];
@@ -26,8 +29,22 @@ interface FacturasVentasTableProps {
   onTicket?: (factura: FacturaClienteVenta) => void;
   /** Exporta todas las facturas listadas (respetando filtros) en un único PDF, una por página. */
   onExportarTodas?: (facturas: FacturaClienteVenta[]) => Promise<void> | void;
+  /**
+   * Exporta a Excel las facturas listadas (respetando filtros y rango de fecha).
+   * Incluye nº factura, cliente, fecha, total sin desc., descuento, aumento,
+   * total, pagado, pendiente y método de pago.
+   */
+  onExportarExcel?: (facturas: FacturaClienteVenta[]) => Promise<void> | void;
   /** Filtro externo por moneda de pago. Solo se aplica client-side cuando el search NO está controlado. */
   monedaFilter?: string;
+  /**
+   * Filtro client-side por método de pago de cualquiera de los pagos de la
+   * factura. Se aplica siempre (server-side ya se envía por params).
+   */
+  metodoFilter?: string;
+  /** Rango de fecha aplicado (informativo, se muestra en el botón de Excel). */
+  fechaDesde?: string;
+  fechaHasta?: string;
   /** "embedded": sin borde propio, controles con padding lateral, tabla a todo el ancho */
   variant?: "default" | "embedded";
   /** Si se pasa, la búsqueda se controla externamente (server-side). */
@@ -37,6 +54,8 @@ interface FacturasVentasTableProps {
   totalCount?: number;
   /** Footer (ej. botón "Cargar más"). */
   footer?: React.ReactNode;
+  /** Agregados del set filtrado completo (no solo la página). */
+  agregados?: FacturaVentaAgregados | null;
 }
 
 export function FacturasVentasTable({
@@ -49,12 +68,17 @@ export function FacturasVentasTable({
   onExportar,
   onTicket,
   onExportarTodas,
+  onExportarExcel,
   monedaFilter,
+  metodoFilter,
+  fechaDesde,
+  fechaHasta,
   variant = "default",
   searchValue,
   onSearchChange,
   totalCount,
   footer,
+  agregados,
 }: FacturasVentasTableProps) {
   const isSearchControlled = searchValue !== undefined;
   const [internalSearch, setInternalSearch] = useState("");
@@ -64,6 +88,7 @@ export function FacturasVentasTable({
     else setInternalSearch(v);
   };
   const [exportingAll, setExportingAll] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
   const getFacturaId = (f: FacturaClienteVenta): string =>
     f.id || f.factura_id || f.numero_factura;
   const getSolicitudId = (f: FacturaClienteVenta): string =>
@@ -113,6 +138,16 @@ export function FacturasVentasTable({
         : pagos.some((p) => (p.moneda || "USD") === monedaFilter);
       if (!tieneMoneda) return false;
     }
+    // metodoFilter solo se aplica client-side cuando NO estamos en modo
+    // server-side (mismo patrón que monedaFilter). En modo controlado (tab 4)
+    // el backend ya filtra por `metodo_pago`; un filtro client-side adicional
+    // descartaría facturas cuando la proyección de pagos del listado no
+    // incluye `metodo_pago`.
+    if (!isSearchControlled && metodoFilter) {
+      const pagos = Array.isArray(f.pagos) ? f.pagos : [];
+      if (pagos.length === 0) return false;
+      if (!pagos.some((p) => (p.metodo_pago || "") === metodoFilter)) return false;
+    }
     if (isSearchControlled) return true;
     if (!search.trim()) return true;
     const term = search.toLowerCase();
@@ -127,40 +162,81 @@ export function FacturasVentasTable({
       getSolicitudId(f).toLowerCase().includes(term) ||
       getSolicitudesDisplay(f).toLowerCase().includes(term)
     );
-  }), [facturas, search, monedaFilter, isSearchControlled]);
+  }), [facturas, search, monedaFilter, metodoFilter, isSearchControlled]);
 
-  const getTotalSinDescuento = (f: FacturaClienteVenta) =>
-    Number(f.total_a_pagar || 0) + Number(f.descuento || 0);
+  // Prefiere el campo del backend `total_sin_descuento` (bruto sin descuento
+  // ni aumento). Fallback al cálculo legacy si el backend aún no lo expone.
+  const getTotalSinDescuento = (f: FacturaClienteVenta) => {
+    if (typeof f.total_sin_descuento === "number") return f.total_sin_descuento;
+    return Number(f.total_a_pagar || 0) + Number(f.descuento || 0);
+  };
+  const getAumento = (f: FacturaClienteVenta) =>
+    Number(f.aumento_monto || 0);
+  const hayAumentoEnAlguna = useMemo(
+    () => facturas.some((f) => getAumento(f) > 0),
+    [facturas],
+  );
 
-  const totalesPorMoneda = useMemo(() => {
-    const map: Record<string, { facturado: number; cobrado: number; pendiente: number; descuento: number; sinDescuento: number }> = {};
+  type MonedaTotales = { facturado: number; cobrado: number; pendiente: number; descuento: number; sinDescuento: number; aumento: number };
+  const totalesPorMonedaLocal = useMemo(() => {
+    const map: Record<string, MonedaTotales> = {};
+    const empty = (): MonedaTotales => ({ facturado: 0, cobrado: 0, pendiente: 0, descuento: 0, sinDescuento: 0, aumento: 0 });
     for (const f of filtered) {
       const pagos = Array.isArray(f.pagos) ? f.pagos : [];
       if (pagos.length === 0) {
         const m = "USD";
-        if (!map[m]) map[m] = { facturado: 0, cobrado: 0, pendiente: 0, descuento: 0, sinDescuento: 0 };
+        if (!map[m]) map[m] = empty();
         map[m].facturado += Number(f.total_a_pagar || 0);
         map[m].pendiente += Number(f.monto_pendiente || 0);
         map[m].descuento += Number(f.descuento || 0);
         map[m].sinDescuento += getTotalSinDescuento(f);
+        map[m].aumento += getAumento(f);
       } else {
         const monedas = new Set(pagos.map((p) => p.moneda || "USD"));
         for (const moneda of monedas) {
-          if (!map[moneda]) map[moneda] = { facturado: 0, cobrado: 0, pendiente: 0, descuento: 0, sinDescuento: 0 };
+          if (!map[moneda]) map[moneda] = empty();
           const pagosMoneda = pagos.filter((p) => (p.moneda || "USD") === moneda);
           for (const p of pagosMoneda) {
             map[moneda].cobrado += Number(p.monto || 0);
           }
         }
-        if (!map["USD"]) map["USD"] = { facturado: 0, cobrado: 0, pendiente: 0, descuento: 0, sinDescuento: 0 };
+        if (!map["USD"]) map["USD"] = empty();
         map["USD"].facturado += Number(f.total_a_pagar || 0);
         map["USD"].pendiente += Number(f.monto_pendiente || 0);
         map["USD"].descuento += Number(f.descuento || 0);
         map["USD"].sinDescuento += getTotalSinDescuento(f);
+        map["USD"].aumento += getAumento(f);
       }
     }
     return map;
   }, [filtered]);
+
+  // Prefiere agregados del backend (set filtrado completo). Si no hay agregados,
+  // usa el cálculo client-side sobre la página cargada (modo legacy).
+  const totalesPorMoneda: Record<string, MonedaTotales> = useMemo(() => {
+    if (!agregados) return totalesPorMonedaLocal;
+    const map: Record<string, MonedaTotales> = {};
+    map["USD"] = {
+      facturado: agregados.facturado_usd,
+      cobrado: agregados.cobrado_por_moneda?.USD ?? agregados.cobrado_usd,
+      pendiente: agregados.pendiente_usd,
+      descuento: agregados.descuento_usd,
+      sinDescuento: agregados.facturado_sin_descuento_usd,
+      aumento: agregados.aumento_monto_usd,
+    };
+    for (const [moneda, monto] of Object.entries(agregados.cobrado_por_moneda || {})) {
+      if (moneda === "USD") continue;
+      map[moneda] = {
+        facturado: 0,
+        cobrado: Number(monto) || 0,
+        pendiente: 0,
+        descuento: 0,
+        sinDescuento: 0,
+        aumento: 0,
+      };
+    }
+    return map;
+  }, [agregados, totalesPorMonedaLocal]);
 
   const em = variant === "embedded";
 
@@ -206,6 +282,37 @@ export function FacturasVentasTable({
             </span>
           </Button>
         )}
+        {onExportarExcel && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 text-green-700 border-green-300 hover:bg-green-50"
+            disabled={exportingExcel || filtered.length === 0}
+            title={
+              fechaDesde || fechaHasta
+                ? `Exportar a Excel las facturas del rango ${fechaDesde || "—"} a ${fechaHasta || "—"}`
+                : "Exportar a Excel las facturas listadas"
+            }
+            onClick={async () => {
+              if (filtered.length === 0) return;
+              setExportingExcel(true);
+              try {
+                await onExportarExcel(filtered);
+              } finally {
+                setExportingExcel(false);
+              }
+            }}
+          >
+            {exportingExcel ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <FileSpreadsheet className="h-4 w-4" />
+            )}
+            <span className="hidden sm:inline">
+              {exportingExcel ? "Generando..." : "Exportar Excel"}
+            </span>
+          </Button>
+        )}
         <Badge variant="secondary" className="text-xs">
           {totalCount != null
             ? `${filtered.length} de ${totalCount} facturas`
@@ -215,7 +322,7 @@ export function FacturasVentasTable({
 
       {/* Totales según filtro activo */}
       {filtered.length > 0 && (() => {
-        const usd = totalesPorMoneda["USD"] || { facturado: 0, cobrado: 0, pendiente: 0, descuento: 0 };
+        const usd = totalesPorMoneda["USD"] || { facturado: 0, cobrado: 0, pendiente: 0, descuento: 0, sinDescuento: 0, aumento: 0 };
         const otrasMonedas = Object.entries(totalesPorMoneda).filter(([m]) => m !== "USD").sort(([a], [b]) => a.localeCompare(b));
         return (
           <div className={`text-sm ${em ? "px-6 pb-2" : "pb-1"}`}>
@@ -244,6 +351,14 @@ export function FacturasVentasTable({
                   <span className="text-gray-300">|</span>
                   <span className="text-gray-500">
                     Descuentos: <strong className="text-orange-600">{formatCurrency(usd.descuento)}</strong>
+                  </span>
+                </>
+              )}
+              {usd.aumento > 0 && (
+                <>
+                  <span className="text-gray-300">|</span>
+                  <span className="text-gray-500">
+                    Aumentos: <strong className="text-amber-700">{formatCurrency(usd.aumento)}</strong>
                   </span>
                 </>
               )}
@@ -281,6 +396,9 @@ export function FacturasVentasTable({
                 <TableHead className="font-semibold">Emitida por</TableHead>
                 <TableHead className="font-semibold text-right">Total sin desc.</TableHead>
                 <TableHead className="font-semibold text-right">Descuento</TableHead>
+                {hayAumentoEnAlguna && (
+                  <TableHead className="font-semibold text-right">Aumento</TableHead>
+                )}
                 <TableHead className="font-semibold text-right">Total</TableHead>
                 <TableHead className="font-semibold text-right">Pagado</TableHead>
                 <TableHead className="font-semibold text-right">Pendiente</TableHead>
@@ -315,6 +433,11 @@ export function FacturasVentasTable({
                   <TableCell className="text-sm">{f.emitida_por_nombre || f.emitida_por}</TableCell>
                   <TableCell className="text-sm text-right text-gray-700">{formatCurrency(getTotalSinDescuento(f))}</TableCell>
                   <TableCell className="text-sm text-right text-orange-600">{formatCurrency(f.descuento)}</TableCell>
+                  {hayAumentoEnAlguna && (
+                    <TableCell className="text-sm text-right text-amber-700">
+                      {getAumento(f) > 0 ? formatCurrency(getAumento(f)) : <span className="text-gray-300">—</span>}
+                    </TableCell>
+                  )}
                   <TableCell className="text-sm text-right">{formatCurrency(f.total_a_pagar)}</TableCell>
                   <TableCell className="text-sm text-right min-w-[180px]">
                     {Array.isArray(f.pagos) && f.pagos.length > 0 ? (
@@ -405,30 +528,47 @@ export function FacturasVentasTable({
                   )}
                 </TableRow>
               ))}
-              {/* Fila de totales */}
-              {filtered.length > 1 && (
+              {/* Fila de totales. Prefiere agregados del backend (set filtrado
+                  completo) sobre la suma de la página actual. */}
+              {filtered.length > 1 && (() => {
+                const sumSinDesc   = agregados ? agregados.facturado_sin_descuento_usd : filtered.reduce((s, f) => s + getTotalSinDescuento(f), 0);
+                const sumDesc      = agregados ? agregados.descuento_usd               : filtered.reduce((s, f) => s + Number(f.descuento || 0), 0);
+                const sumAumento   = agregados ? agregados.aumento_monto_usd           : filtered.reduce((s, f) => s + getAumento(f), 0);
+                const sumTotal     = agregados ? agregados.facturado_usd               : filtered.reduce((s, f) => s + Number(f.total_a_pagar || 0), 0);
+                const sumPagado    = agregados ? agregados.cobrado_usd                 : filtered.reduce((s, f) => s + Number(f.total_pagado || 0), 0);
+                const sumPendiente = agregados ? agregados.pendiente_usd               : filtered.reduce((s, f) => s + Number(f.monto_pendiente || 0), 0);
+                const label = totalCount != null
+                  ? `TOTAL — ${totalCount} factura${totalCount === 1 ? "" : "s"}`
+                  : `TOTAL — ${filtered.length} facturas`;
+                return (
                 <TableRow className="bg-gray-50 border-t-2 border-gray-200 font-semibold">
                   <TableCell colSpan={5} className="text-xs text-gray-500 py-2.5">
-                    TOTAL — {filtered.length} facturas
+                    {label}
                   </TableCell>
                   <TableCell className="text-right text-sm py-2.5 text-gray-700">
-                    {formatCurrency(filtered.reduce((s, f) => s + getTotalSinDescuento(f), 0))}
+                    {formatCurrency(sumSinDesc)}
                   </TableCell>
                   <TableCell className="text-right text-sm py-2.5 text-orange-600">
-                    {formatCurrency(filtered.reduce((s, f) => s + Number(f.descuento || 0), 0))}
+                    {formatCurrency(sumDesc)}
                   </TableCell>
+                  {hayAumentoEnAlguna && (
+                    <TableCell className="text-right text-sm py-2.5 text-amber-700">
+                      {formatCurrency(sumAumento)}
+                    </TableCell>
+                  )}
                   <TableCell className="text-right text-sm py-2.5 text-gray-800">
-                    {formatCurrency(filtered.reduce((s, f) => s + Number(f.total_a_pagar || 0), 0))}
+                    {formatCurrency(sumTotal)}
                   </TableCell>
                   <TableCell className="text-right text-sm py-2.5 text-green-700">
-                    {formatCurrency(filtered.reduce((s, f) => s + Number(f.total_pagado || 0), 0))}
+                    {formatCurrency(sumPagado)}
                   </TableCell>
                   <TableCell className="text-right text-sm py-2.5 text-red-600">
-                    {formatCurrency(filtered.reduce((s, f) => s + Number(f.monto_pendiente || 0), 0))}
+                    {formatCurrency(sumPendiente)}
                   </TableCell>
                   {(onVerDetalles || onExportar || onTicket || onEliminar) && <TableCell />}
                 </TableRow>
-              )}
+                );
+              })()}
             </TableBody>
           </Table>
         </div>

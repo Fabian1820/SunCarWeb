@@ -20,6 +20,7 @@ import type {
   VentaCreateData,
   SolicitudTransferencia,
   SolicitudTransferenciaCreateData,
+  SolicitudTransferenciaUpdateData,
   MaterialesStockParams,
   MaterialesStockResponse,
   MaterialStockItem,
@@ -841,6 +842,15 @@ export class InventarioService {
     return extractArray<SolicitudTransferencia>(response);
   }
 
+  static async getSolicitudTransferenciaById(
+    solicitudId: string,
+  ): Promise<SolicitudTransferencia | undefined> {
+    const response = await apiRequest<any>(
+      `/solicitudes-transferencia/${solicitudId}`,
+    );
+    return extractItem<SolicitudTransferencia>(response) ?? response;
+  }
+
   static async createSolicitudTransferencia(
     data: SolicitudTransferenciaCreateData,
   ): Promise<string> {
@@ -849,6 +859,20 @@ export class InventarioService {
       body: JSON.stringify(data),
     });
     return response?.solicitud_id || extractItem<any>(response)?.solicitud_id;
+  }
+
+  static async updateSolicitudTransferencia(
+    solicitudId: string,
+    data: SolicitudTransferenciaUpdateData,
+  ): Promise<SolicitudTransferencia | undefined> {
+    const response = await apiRequest<any>(
+      `/solicitudes-transferencia/${solicitudId}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(data),
+      },
+    );
+    return extractItem<SolicitudTransferencia>(response) ?? response;
   }
 
   static async aprobarSolicitudTransferencia(

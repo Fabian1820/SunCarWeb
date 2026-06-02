@@ -102,7 +102,11 @@ export function ValeSalidaDetailDialog({
     vale.recogido_por || solicitud?.responsable_recogida || null;
   const valeBloqueadoDevolucion =
     vale.estado === "anulado" || vale.facturado === true;
-  const recogidaBadge = getFechaRecogidaBadge(solicitud?.fecha_recogida);
+  // Solicitudes de venta no traen fecha_recogida; caemos a fecha_creacion
+  // (recogida el mismo día) para no mostrar "Hoy" como dato real.
+  const recogidaFecha =
+    solicitud?.fecha_recogida || solicitud?.fecha_creacion || null;
+  const recogidaBadge = getFechaRecogidaBadge(recogidaFecha);
   const recogidaBadgeClass =
     recogidaBadge.kind === "today" || recogidaBadge.kind === "unknown"
       ? "bg-emerald-50 text-emerald-700 border-emerald-200"
@@ -211,7 +215,7 @@ export function ValeSalidaDetailDialog({
                     <p className="text-gray-600">
                       Recogida:{" "}
                       <span className="font-medium text-gray-900">
-                        {formatFechaRecogida(solicitud.fecha_recogida)}
+                        {formatFechaRecogida(recogidaFecha)}
                       </span>
                     </p>
                     <div className="mt-1 flex items-center gap-2">

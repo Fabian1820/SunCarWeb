@@ -325,7 +325,12 @@ export default function AlmacenDetallePage() {
 
   // ── Debounce: historial search ────────────────────────────────
   useEffect(() => {
-    const timer = setTimeout(() => setHistorialSearch(historialSearchInput), 400);
+    const timer = setTimeout(() => {
+      // Normalize: trim edges + collapse internal whitespace so the backend
+      // gets a clean term (referencia strings often paste with stray spaces).
+      const normalized = historialSearchInput.replace(/\s+/g, " ").trim();
+      setHistorialSearch(normalized);
+    }, 400);
     return () => clearTimeout(timer);
   }, [historialSearchInput]);
 
@@ -812,7 +817,7 @@ export default function AlmacenDetallePage() {
                           <Input
                             value={historialSearchInput}
                             onChange={(e) => setHistorialSearchInput(e.target.value)}
-                            placeholder="Código, nombre o serie..."
+                            placeholder="Código, nombre, serie o referencia..."
                             className="pl-9"
                           />
                         </div>

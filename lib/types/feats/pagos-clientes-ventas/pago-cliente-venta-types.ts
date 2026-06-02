@@ -18,7 +18,7 @@ export interface PagoVenta {
   tasa_cambio?: number | null;
   monto_usd?: number | null;
   descuento_porcentaje?: number | null;
-  metodo_pago?: "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion" | string;
+  metodo_pago?: "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion" | "zelle" | string;
   es_a_plazos?: boolean;
   plan_pagos?: PagoProgramado[] | null;
   pagos_programados?: PagoProgramado[] | null;
@@ -39,7 +39,7 @@ export interface PagoVentaCreateData {
   monto: number;
   moneda: "USD" | "CUP" | "EUR";
   tasa_cambio?: number;
-  metodo_pago: "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion";
+  metodo_pago: "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion" | "zelle";
   stripe_link?: string;
   desglose_billetes?: Record<string, number>;
   cambio?: number;
@@ -78,6 +78,12 @@ export interface FacturaClienteVenta {
     | string
     | null;
   total_a_pagar?: number;
+  /** Total bruto antes de descuento y antes de aumento. */
+  total_sin_descuento?: number;
+  /** Igual a `total_a_pagar` ya corregido por descuento/aumento. */
+  total_con_aumento?: number;
+  /** Monto en USD del aumento aplicado (0 si no hay aumento). */
+  aumento_monto?: number;
   descuento?: number;
   pagos?: Array<{
     id?: string;
@@ -181,7 +187,7 @@ export interface PagoVentaListParams {
   skip?: number;
   limit?: number;
   q?: string;
-  metodo_pago?: "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion" | string;
+  metodo_pago?: "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion" | "zelle" | string;
   moneda?: "USD" | "CUP" | "EUR" | string;
   comercial?: string;
   fecha_desde?: string;
@@ -200,14 +206,39 @@ export interface FacturaVentaListParams {
   comercial?: string;
   fecha_desde?: string;
   fecha_hasta?: string;
+  /**
+   * Filtra facturas por método de pago de cualquiera de sus pagos.
+   * Si el backend no soporta el param, el frontend filtra client-side
+   * sobre la página cargada.
+   */
+  metodo_pago?: "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion" | "zelle" | string;
+}
+
+export interface PagoVentaAgregados {
+  /** Total por moneda sobre todo el set filtrado (no solo la página). */
+  por_moneda: Record<string, { monto: number }>;
+  /** Total pendiente en USD sobre el set filtrado, deduplicado por solicitud. */
+  pendiente_usd: number;
+}
+
+export interface FacturaVentaAgregados {
+  facturado_sin_descuento_usd: number;
+  facturado_usd: number;
+  descuento_usd: number;
+  aumento_monto_usd: number;
+  cobrado_usd: number;
+  cobrado_por_moneda: Record<string, number>;
+  pendiente_usd: number;
 }
 
 export interface PagoVentaListResponse {
   data: PagoVenta[];
   total: number;
+  agregados?: PagoVentaAgregados;
 }
 
 export interface FacturaVentaListResponse {
   data: FacturaClienteVenta[];
   total: number;
+  agregados?: FacturaVentaAgregados;
 }

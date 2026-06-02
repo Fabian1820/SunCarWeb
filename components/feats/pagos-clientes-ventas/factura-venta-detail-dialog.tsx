@@ -147,6 +147,7 @@ export function FacturaVentaDetailDialog({
                     efectivo: "Efectivo",
                     transferencia_bancaria: "Transferencia",
                     stripe: "Stripe",
+                    zelle: "Zelle",
                     financiacion: "Financiación",
                   };
                   const desglose = p.desglose_billetes;

@@ -20,6 +20,7 @@ export type {
   SolicitudTransferenciaItem,
   SolicitudTransferencia,
   SolicitudTransferenciaCreateData,
+  SolicitudTransferenciaUpdateData,
   MaterialStockPorAlmacenItem,
   MaterialStockItem,
   AlmacenDisponibleItem,

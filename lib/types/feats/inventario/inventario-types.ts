@@ -183,6 +183,9 @@ export interface SolicitudTransferenciaItem {
   material_codigo?: string;
   cantidad: number;
   ubicacion_en_almacen?: string | null;
+  // Backend-enriched live stock at almacen_origen_id at GET/PUT time.
+  // null if lookup failed; 0 if material has no stock in that almacén.
+  stock_disponible_actual?: number | null;
 }
 
 export interface SolicitudTransferencia {
@@ -207,6 +210,18 @@ export interface SolicitudTransferenciaCreateData {
   almacen_origen_id: string;
   almacen_destino_id: string;
   items: {
+    material_id: string;
+    cantidad: number;
+    ubicacion_en_almacen?: string;
+  }[];
+  motivo?: string;
+  referencia?: string;
+}
+
+export interface SolicitudTransferenciaUpdateData {
+  almacen_origen_id?: string;
+  almacen_destino_id?: string;
+  items?: {
     material_id: string;
     cantidad: number;
     ubicacion_en_almacen?: string;

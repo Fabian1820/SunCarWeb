@@ -28,7 +28,7 @@ import {
   Search,
   Package,
 } from "lucide-react"
-import type { Almacen, StockItem } from "@/lib/inventario-types"
+import type { Almacen, SolicitudTransferencia, StockItem } from "@/lib/inventario-types"
 import type { Material } from "@/lib/material-types"
 import { InventarioService } from "@/lib/api-services"
 
@@ -50,6 +50,7 @@ interface SolicitudTransferenciaDialogProps {
   stock: StockItem[]
   currentAlmacenId?: string
   onSuccess: () => void
+  solicitud?: SolicitudTransferencia
 }
 
 export function SolicitudTransferenciaDialog({
@@ -60,11 +61,14 @@ export function SolicitudTransferenciaDialog({
   stock,
   currentAlmacenId,
   onSuccess,
+  solicitud,
 }: SolicitudTransferenciaDialogProps) {
+  const isEditMode = !!solicitud
   const [origenId, setOrigenId] = useState(currentAlmacenId || "")
   const [destinoId, setDestinoId] = useState("")
   const [items, setItems] = useState<ItemRow[]>([])
   const [motivo, setMotivo] = useState("")
+  const [referencia, setReferencia] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -93,19 +97,100 @@ export function SolicitudTransferenciaDialog({
 
   // Reset form when dialog opens
   useEffect(() => {
-    if (open) {
-      setOrigenId(currentAlmacenId || "")
-      setDestinoId("")
-      setItems([])
-      setMotivo("")
+    if (!open) return
+
+    if (solicitud) {
+      const origen = solicitud.almacen_origen_id || ""
+      setOrigenId(origen)
+      setDestinoId(solicitud.almacen_destino_id || "")
+      setMotivo(solicitud.motivo || "")
+      setReferencia(solicitud.referencia || "")
+
+      const buildRows = (src: SolicitudTransferencia): ItemRow[] =>
+        src.items.map((item) => {
+          const codigoStr = item.material_codigo != null ? String(item.material_codigo) : ""
+          // Display lookup only. Backend normalizes material refs
+          // (ObjectId / codigo / numero_serie) on its side, so material_id
+          // can be passed through as-is to /inventario/stock.
+          const mat =
+            materiales.find((m) => m.id === item.material_id) ||
+            (codigoStr ? materiales.find((m) => String(m.codigo) === codigoStr) : undefined)
+
+          return {
+            material_id: item.material_id,
+            material_codigo: String(mat?.codigo ?? item.material_codigo ?? ""),
+            nombre: mat?.nombre || mat?.descripcion || "",
+            descripcion: mat?.descripcion || mat?.nombre || "",
+            um: mat?.um || "U",
+            foto: mat?.foto,
+            cantidad: item.cantidad,
+          }
+        })
+
+      const initialRows = buildRows(solicitud)
+      setItems(initialRows)
+
+      // Seed stockReal from any stock_disponible_actual already present
+      // (in case the parent passed an enriched solicitud).
+      const seedStock = new Map<string, number>()
+      solicitud.items.forEach((item, idx) => {
+        const v = item.stock_disponible_actual
+        if (typeof v === "number") {
+          seedStock.set(initialRows[idx].material_id, v)
+        }
+      })
+      setStockReal(seedStock)
+      setFetchingStockIds(new Set())
+
+      // Fetch the enriched detail (backend computes live stock_disponible_actual
+      // per item against almacen_origen_id). One request replaces N stock calls.
+      let cancelled = false
+      ;(async () => {
+        try {
+          const detail = await InventarioService.getSolicitudTransferenciaById(solicitud.id)
+          if (cancelled || !detail) return
+          const rows = buildRows(detail)
+          setItems(rows)
+          const map = new Map<string, number>()
+          detail.items.forEach((item, idx) => {
+            const v = item.stock_disponible_actual
+            map.set(rows[idx].material_id, typeof v === "number" ? v : 0)
+          })
+          setStockReal(map)
+        } catch (err) {
+          // Fallback: if the enriched GET fails, query stock per item as before.
+          if (cancelled) return
+          console.warn("getSolicitudTransferenciaById failed, falling back to per-item stock fetch", err)
+          if (origen) {
+            for (const item of initialRows) {
+              if (item.material_id) fetchStockMaterial(item.material_id, origen)
+            }
+          }
+        }
+      })()
+
       setError(null)
       setMaterialSearch("")
       setMaterialResults([])
       setShowMaterialDropdown(false)
+      return () => {
+        cancelled = true
+      }
+    } else {
+      setOrigenId(currentAlmacenId || "")
+      setDestinoId("")
+      setItems([])
+      setMotivo("")
+      setReferencia("")
       setStockReal(new Map())
       setFetchingStockIds(new Set())
+      setError(null)
+      setMaterialSearch("")
+      setMaterialResults([])
+      setShowMaterialDropdown(false)
     }
-  }, [open, currentAlmacenId])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, currentAlmacenId, solicitud])
 
   // Re-fetch stock para todos los items cuando cambia el almacén origen
   useEffect(() => {
@@ -136,7 +221,8 @@ export function SolicitudTransferenciaDialog({
           (m) =>
             (m.descripcion?.toLowerCase().includes(term) ||
               m.nombre?.toLowerCase().includes(term) ||
-              m.codigo?.toString().toLowerCase().includes(term)) &&
+              m.codigo?.toString().toLowerCase().includes(term) ||
+              m.numero_serie?.toLowerCase().includes(term)) &&
             !items.some((row) => row.material_id === m.id),
         )
         .slice(0, 15)
@@ -227,7 +313,7 @@ export function SolicitudTransferenciaDialog({
     setIsSubmitting(true)
     setError(null)
     try {
-      await InventarioService.createSolicitudTransferencia({
+      const payload = {
         almacen_origen_id: origenId,
         almacen_destino_id: destinoId,
         items: items.map((item) => ({
@@ -235,12 +321,22 @@ export function SolicitudTransferenciaDialog({
           cantidad: item.cantidad,
         })),
         motivo: motivo || undefined,
-      })
+        referencia: referencia || undefined,
+      }
+      if (isEditMode && solicitud) {
+        await InventarioService.updateSolicitudTransferencia(solicitud.id, payload)
+      } else {
+        await InventarioService.createSolicitudTransferencia(payload)
+      }
       onOpenChange(false)
       onSuccess()
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Error al crear la solicitud",
+        err instanceof Error
+          ? err.message
+          : isEditMode
+            ? "Error al actualizar la solicitud"
+            : "Error al crear la solicitud",
       )
     } finally {
       setIsSubmitting(false)
@@ -260,7 +356,7 @@ export function SolicitudTransferenciaDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ArrowRightLeft className="h-5 w-5 text-amber-600" />
-            Solicitar Traspaso de Materiales
+            {isEditMode ? "Editar Solicitud de Traspaso" : "Solicitar Traspaso de Materiales"}
           </DialogTitle>
         </DialogHeader>
 
@@ -489,6 +585,17 @@ export function SolicitudTransferenciaDialog({
             />
           </div>
 
+          {isEditMode && (
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Referencia</Label>
+              <Input
+                value={referencia}
+                onChange={(e) => setReferencia(e.target.value)}
+                placeholder="Referencia (opcional)"
+              />
+            </div>
+          )}
+
           {error && (
             <div className="flex items-start gap-2 text-red-600 text-sm bg-red-50 p-3 rounded-md">
               <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
@@ -514,7 +621,9 @@ export function SolicitudTransferenciaDialog({
               ) : (
                 <ArrowRightLeft className="h-4 w-4 mr-2" />
               )}
-              Solicitar Traspaso ({items.length})
+              {isEditMode
+                ? `Guardar cambios (${items.length})`
+                : `Solicitar Traspaso (${items.length})`}
             </Button>
           </div>
         </div>

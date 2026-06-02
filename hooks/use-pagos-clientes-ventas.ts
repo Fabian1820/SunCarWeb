@@ -9,13 +9,16 @@ import { SolicitudVentaService } from "@/lib/services/feats/solicitudes-ventas/s
 import type {
   SolicitudVentaListParams,
   SolicitudVentaSummary,
+  SolicitudVentaSummaryAgregados,
 } from "@/lib/api-types";
 import type {
   PagoVenta,
+  PagoVentaAgregados,
   PagoVentaCreateData,
   PagoVentaListParams,
   FacturaClienteVenta,
   FacturaClienteVentaCreateData,
+  FacturaVentaAgregados,
   FacturaVentaListParams,
 } from "@/lib/types/feats/pagos-clientes-ventas/pago-cliente-venta-types";
 
@@ -30,6 +33,7 @@ export function usePagosClientesVentas() {
   const [solicitudesPendientes, setSolicitudesPendientes] = useState<SolicitudVentaSummary[]>([]);
   const [totalPendientes, setTotalPendientes] = useState(0);
   const [hasMorePendientes, setHasMorePendientes] = useState(false);
+  const [agregadosPendientes, setAgregadosPendientes] = useState<SolicitudVentaSummaryAgregados | null>(null);
   const [loadingSolicitudes, setLoadingSolicitudes] = useState(false);
   const [errorSolicitudes, setErrorSolicitudes] = useState<string | null>(null);
   const pendientesParamsRef = useRef<PendientesParams>({});
@@ -43,6 +47,7 @@ export function usePagosClientesVentas() {
   const [todosPagos, setTodosPagos] = useState<PagoVenta[]>([]);
   const [totalPagos, setTotalPagos] = useState(0);
   const [hasMorePagos, setHasMorePagos] = useState(false);
+  const [agregadosPagos, setAgregadosPagos] = useState<PagoVentaAgregados | null>(null);
   const [loadingPagos, setLoadingPagos] = useState(false);
   const [errorPagos, setErrorPagos] = useState<string | null>(null);
   const pagosParamsRef = useRef<PagosParams>({});
@@ -51,6 +56,7 @@ export function usePagosClientesVentas() {
   const [facturas, setFacturas] = useState<FacturaClienteVenta[]>([]);
   const [totalFacturas, setTotalFacturas] = useState(0);
   const [hasMoreFacturas, setHasMoreFacturas] = useState(false);
+  const [agregadosFacturas, setAgregadosFacturas] = useState<FacturaVentaAgregados | null>(null);
   const [loadingFacturas, setLoadingFacturas] = useState(false);
   const [errorFacturas, setErrorFacturas] = useState<string | null>(null);
   const facturasParamsRef = useRef<FacturasParams>({});
@@ -61,7 +67,7 @@ export function usePagosClientesVentas() {
     setErrorSolicitudes(null);
     pendientesParamsRef.current = params;
     try {
-      const { data, total } = await SolicitudVentaService.getSolicitudesSummary({
+      const { data, total, agregados } = await SolicitudVentaService.getSolicitudesSummary({
         ...params,
         pagada_totalmente: false,
         skip: 0,
@@ -70,11 +76,13 @@ export function usePagosClientesVentas() {
       setSolicitudesPendientes(data || []);
       setTotalPendientes(total || 0);
       setHasMorePendientes((data?.length || 0) < (total || 0));
+      setAgregadosPendientes(agregados ?? null);
     } catch (e) {
       setErrorSolicitudes(e instanceof Error ? e.message : "Error al cargar solicitudes");
       setSolicitudesPendientes([]);
       setTotalPendientes(0);
       setHasMorePendientes(false);
+      setAgregadosPendientes(null);
     } finally {
       setLoadingSolicitudes(false);
     }
@@ -84,7 +92,7 @@ export function usePagosClientesVentas() {
     if (loadingSolicitudes || !hasMorePendientes) return;
     setLoadingSolicitudes(true);
     try {
-      const { data, total } = await SolicitudVentaService.getSolicitudesSummary({
+      const { data, total, agregados } = await SolicitudVentaService.getSolicitudesSummary({
         ...pendientesParamsRef.current,
         pagada_totalmente: false,
         skip: solicitudesPendientes.length,
@@ -94,6 +102,7 @@ export function usePagosClientesVentas() {
       setSolicitudesPendientes(merged);
       setTotalPendientes(total || 0);
       setHasMorePendientes(merged.length < (total || 0));
+      if (agregados) setAgregadosPendientes(agregados);
     } catch (e) {
       setErrorSolicitudes(e instanceof Error ? e.message : "Error al cargar más solicitudes");
     } finally {
@@ -128,7 +137,7 @@ export function usePagosClientesVentas() {
     setErrorPagos(null);
     pagosParamsRef.current = params;
     try {
-      const { data, total } = await PagoVentaService.getTodosPagos({
+      const { data, total, agregados } = await PagoVentaService.getTodosPagos({
         ...params,
         skip: 0,
         limit: PAGE_SIZE,
@@ -136,11 +145,13 @@ export function usePagosClientesVentas() {
       setTodosPagos(data || []);
       setTotalPagos(total || 0);
       setHasMorePagos((data?.length || 0) < (total || 0));
+      setAgregadosPagos(agregados ?? null);
     } catch (e) {
       setErrorPagos(e instanceof Error ? e.message : "Error al cargar pagos");
       setTodosPagos([]);
       setTotalPagos(0);
       setHasMorePagos(false);
+      setAgregadosPagos(null);
     } finally {
       setLoadingPagos(false);
     }
@@ -150,7 +161,7 @@ export function usePagosClientesVentas() {
     if (loadingPagos || !hasMorePagos) return;
     setLoadingPagos(true);
     try {
-      const { data, total } = await PagoVentaService.getTodosPagos({
+      const { data, total, agregados } = await PagoVentaService.getTodosPagos({
         ...pagosParamsRef.current,
         skip: todosPagos.length,
         limit: PAGE_SIZE,
@@ -159,6 +170,7 @@ export function usePagosClientesVentas() {
       setTodosPagos(merged);
       setTotalPagos(total || 0);
       setHasMorePagos(merged.length < (total || 0));
+      if (agregados) setAgregadosPagos(agregados);
     } catch (e) {
       setErrorPagos(e instanceof Error ? e.message : "Error al cargar más pagos");
     } finally {
@@ -172,7 +184,7 @@ export function usePagosClientesVentas() {
     setErrorFacturas(null);
     facturasParamsRef.current = params;
     try {
-      const { data, total } = await FacturaClienteVentaService.getFacturas({
+      const { data, total, agregados } = await FacturaClienteVentaService.getFacturas({
         ...params,
         skip: 0,
         limit: PAGE_SIZE,
@@ -180,11 +192,13 @@ export function usePagosClientesVentas() {
       setFacturas(data || []);
       setTotalFacturas(total || 0);
       setHasMoreFacturas((data?.length || 0) < (total || 0));
+      setAgregadosFacturas(agregados ?? null);
     } catch (e) {
       setErrorFacturas(e instanceof Error ? e.message : "Error al cargar facturas");
       setFacturas([]);
       setTotalFacturas(0);
       setHasMoreFacturas(false);
+      setAgregadosFacturas(null);
     } finally {
       setLoadingFacturas(false);
     }
@@ -194,7 +208,7 @@ export function usePagosClientesVentas() {
     if (loadingFacturas || !hasMoreFacturas) return;
     setLoadingFacturas(true);
     try {
-      const { data, total } = await FacturaClienteVentaService.getFacturas({
+      const { data, total, agregados } = await FacturaClienteVentaService.getFacturas({
         ...facturasParamsRef.current,
         skip: facturas.length,
         limit: PAGE_SIZE,
@@ -203,6 +217,7 @@ export function usePagosClientesVentas() {
       setFacturas(merged);
       setTotalFacturas(total || 0);
       setHasMoreFacturas(merged.length < (total || 0));
+      if (agregados) setAgregadosFacturas(agregados);
     } catch (e) {
       setErrorFacturas(e instanceof Error ? e.message : "Error al cargar más facturas");
     } finally {
@@ -243,6 +258,7 @@ export function usePagosClientesVentas() {
     solicitudesPendientes,
     totalPendientes,
     hasMorePendientes,
+    agregadosPendientes,
     loadingSolicitudes,
     errorSolicitudes,
     fetchSolicitudesPendientes,
@@ -256,6 +272,7 @@ export function usePagosClientesVentas() {
     todosPagos,
     totalPagos,
     hasMorePagos,
+    agregadosPagos,
     loadingPagos,
     errorPagos,
     fetchTodosPagos,
@@ -264,6 +281,7 @@ export function usePagosClientesVentas() {
     facturas,
     totalFacturas,
     hasMoreFacturas,
+    agregadosFacturas,
     loadingFacturas,
     errorFacturas,
     fetchFacturas,
