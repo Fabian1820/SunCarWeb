@@ -80,11 +80,13 @@ export function AplicarPreciosConfirmDialog({
     );
   };
 
+  // costo NO se incluye en el conteo de cambios: el backend de aplicar-precios
+  // ya no lo propaga al catálogo (solo precios y % rebajable). El costo
+  // queda en la ficha y se propaga al catálogo via ponderar-costo.
   const filasMostradas = useMemo(() => {
     if (!soloCambios) return editados;
     return editados.filter((c) => {
       const cambio =
-        hayCambio(c.costo_actual, c.costo_nuevo) ||
         hayCambio(c.precio_venta_actual, c.precio_venta_nuevo) ||
         hayCambio(c.precio_instaladora_actual, c.precio_instaladora_nuevo) ||
         hayCambio(c.porciento_rebajable_venta_actual, c.porciento_rebajable_venta_nuevo);
@@ -95,7 +97,6 @@ export function AplicarPreciosConfirmDialog({
   const totalCambios = useMemo(() => {
     return editados.filter((c) => {
       return (
-        hayCambio(c.costo_actual, c.costo_nuevo) ||
         hayCambio(c.precio_venta_actual, c.precio_venta_nuevo) ||
         hayCambio(c.precio_instaladora_actual, c.precio_instaladora_nuevo) ||
         hayCambio(c.porciento_rebajable_venta_actual, c.porciento_rebajable_venta_nuevo)
@@ -122,8 +123,7 @@ export function AplicarPreciosConfirmDialog({
               </DialogTitle>
               <p className="text-xs text-gray-600 mt-1 leading-relaxed">
                 Al confirmar, los <strong>precios de venta, instaladora y % rebajable</strong> se actualizarán en el catálogo de productos.
-                El <strong>costo</strong> queda guardado en la ficha pero no se propaga al catálogo desde aquí — eso ocurre al recibir mercancía o al ponderar.
-                Podés ajustar los valores antes de guardar.
+                Podés ajustar los valores antes de guardar. El costo del catálogo se actualiza por separado al recibir mercancía o al ponderar.
               </p>
             </div>
           </div>
@@ -168,10 +168,6 @@ export function AplicarPreciosConfirmDialog({
                     <th rowSpan={2} className="text-left py-2.5 px-3 text-xs font-semibold text-gray-600 uppercase tracking-wide border-r border-gray-200 w-[24%]">
                       Material
                     </th>
-                    <th colSpan={2} className="text-center py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-200 bg-slate-50">
-                      Costo
-                      <span className="block text-[10px] font-normal text-gray-400 normal-case tracking-normal">solo ficha</span>
-                    </th>
                     <th colSpan={2} className="text-center py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-200 bg-cyan-50">
                       Precio venta
                     </th>
@@ -183,8 +179,6 @@ export function AplicarPreciosConfirmDialog({
                     </th>
                   </tr>
                   <tr className="border-b border-gray-200">
-                    <th className="text-center py-1.5 px-2 text-xs font-medium text-gray-400 bg-slate-50">Antes</th>
-                    <th className="text-center py-1.5 px-2 text-xs font-medium text-gray-600 bg-slate-50 border-r border-gray-200">Nuevo</th>
                     <th className="text-center py-1.5 px-2 text-xs font-medium text-gray-400 bg-cyan-50">Antes</th>
                     <th className="text-center py-1.5 px-2 text-xs font-medium text-gray-600 bg-cyan-50 border-r border-gray-200">Nuevo</th>
                     <th className="text-center py-1.5 px-2 text-xs font-medium text-gray-400 bg-emerald-50">Antes</th>
@@ -195,7 +189,6 @@ export function AplicarPreciosConfirmDialog({
                 </thead>
                 <tbody>
                   {filasMostradas.map((c, idx) => {
-                    const cambioCosto = hayCambio(c.costo_actual, c.costo_nuevo);
                     const cambioVenta = hayCambio(c.precio_venta_actual, c.precio_venta_nuevo);
                     const cambioInst = hayCambio(c.precio_instaladora_actual, c.precio_instaladora_nuevo);
                     const cambioReb = hayCambio(c.porciento_rebajable_venta_actual, c.porciento_rebajable_venta_nuevo);
@@ -214,34 +207,6 @@ export function AplicarPreciosConfirmDialog({
                             <span className="font-mono text-xs text-gray-400">{c.material_codigo}</span>
                             <span className="text-xs text-gray-400">· {c.cantidad} uds.</span>
                           </div>
-                        </td>
-
-                        {/* Costo Antes */}
-                        <td className="py-2.5 px-2 text-center bg-slate-50/40">
-                          {c.costo_actual > 0
-                            ? <span className="text-xs text-gray-500">${fmt(c.costo_actual)}</span>
-                            : <span className="text-xs text-gray-300">—</span>}
-                        </td>
-                        {/* Costo Nuevo (editable) */}
-                        <td className="py-2.5 px-2 bg-slate-50/40 border-r border-gray-100">
-                          <div className="flex items-center justify-center gap-1">
-                            <span className="text-xs text-gray-400">$</span>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              className={`h-7 text-xs text-right w-24 font-semibold ${NO_SPIN} ${
-                                cambioCosto ? "border-amber-300 text-amber-700" : ""
-                              }`}
-                              value={parseFloat(c.costo_nuevo.toFixed(4)) || ""}
-                              onChange={(e) => updateValor(c.material_id, "costo_nuevo", parseFloat(e.target.value) || 0)}
-                            />
-                          </div>
-                          {cambioCosto && c.costo_actual > 0 && (
-                            <p className={`text-xs font-medium mt-0.5 text-center ${c.costo_nuevo >= c.costo_actual ? "text-emerald-600" : "text-red-500"}`}>
-                              {c.costo_nuevo >= c.costo_actual ? "+" : ""}{fmt(((c.costo_nuevo - c.costo_actual) / c.costo_actual) * 100, 1)}%
-                            </p>
-                          )}
                         </td>
 
                         {/* P. Venta Antes */}
