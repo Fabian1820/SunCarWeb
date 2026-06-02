@@ -993,11 +993,17 @@ export function UpsertSolicitudVentaDialog({
     // Preferimos la oferta cargada desde el panel; si no, la seleccionada manualmente.
     const ofertaIdVinculada = ofertaAplicada?.id ?? ofertaVinculadaManual?.id;
 
-    // En crear: solo enviamos reserva_id si hay una vinculada.
-    // En editar: lo enviamos siempre (string para vincular/cambiar, null para desvincular).
+    // reserva_id final: priorizamos reservaAplicada (el objeto vivo que
+    // refleja la selección actual del operador). Fallback a linkedReservaId
+    // por si reservaAplicada no está cargado (edit que arranca con el id
+    // pero sin el objeto). Esto blinda contra un useEffect de reset que
+    // antes podía pisar linkedReservaId a null si `solicitud` cambiaba
+    // de referencia entre applyReserva y handleSubmit — el bug que dejaba
+    // a la solicitud_venta llegando al backend sin reserva_id.
+    const reservaIdFinal = reservaAplicada?.id ?? linkedReservaId ?? null;
     const originalReservaId = solicitud?.reserva_id ?? null;
-    const reservaIdChanged = linkedReservaId !== originalReservaId;
-    const incluirReservaId = isEdit ? reservaIdChanged : Boolean(linkedReservaId);
+    const reservaIdChanged = reservaIdFinal !== originalReservaId;
+    const incluirReservaId = isEdit ? reservaIdChanged : Boolean(reservaIdFinal);
 
     const payload: SolicitudVentaCreateData | SolicitudVentaUpdateData = {
       cliente_venta_id: selectedClienteVenta.id,
@@ -1010,7 +1016,7 @@ export function UpsertSolicitudVentaDialog({
         ...(material.aumento_porcentaje > 0 && { aumento_porcentaje: parseFloat(material.aumento_porcentaje.toFixed(4)) }),
       })),
       ...(ofertaIdVinculada && { oferta_venta_id: ofertaIdVinculada }),
-      ...(incluirReservaId && { reserva_id: linkedReservaId }),
+      ...(incluirReservaId && { reserva_id: reservaIdFinal }),
       ...(descuentoFree && { descuento_free: true, motivo_descuento_free: motivoDescuentoFree.trim() }),
     };
 
