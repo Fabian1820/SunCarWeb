@@ -50,6 +50,7 @@ import type {
 import type { Material, BackendCatalogoProductos } from "@/lib/material-types";
 import type { MarcaSimplificada } from "@/lib/types/feats/marcas/marca-types";
 import { RouteGuard } from "@/components/auth/route-guard";
+import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -125,6 +126,13 @@ export default function AlmacenDetallePage() {
   const [isSalidaDialogOpen, setIsSalidaDialogOpen] = useState(false);
   const [isEditarStockDialogOpen, setIsEditarStockDialogOpen] = useState(false);
   const [stockToEdit, setStockToEdit] = useState<StockItem | null>(null);
+
+  // Permiso de administrador de almacén: habilita los movimientos manuales
+  // (entrada/salida manual y ajuste de inventario con selección de pool). El
+  // almacenero base (almacenes-suncar) NO los ve; el admin (almacenes-suncar/admin)
+  // y el superAdmin sí. Solo gatea la UI (el resto del sistema es frontend-gated).
+  const { hasPermission } = useAuth();
+  const canAdminAlmacen = hasPermission("almacenes-suncar/admin");
   const [isMaterialDialogOpen, setIsMaterialDialogOpen] = useState(false);
   const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
   const [transferTableKey, setTransferTableKey] = useState(0);
@@ -418,13 +426,14 @@ export default function AlmacenDetallePage() {
     if (loadedTabs.current.has("historial")) fetchMovimientos({ skip: 0, busqueda: historialSearch, tipo: historialTipo, fechaDesde: historialFechaDesde, fechaHasta: historialFechaHasta });
   };
 
-  const handleAjustarStock = async (payload: { cantidad: number; motivo?: string; referencia?: string }) => {
+  const handleAjustarStock = async (payload: { cantidad: number; pool?: string; motivo?: string; referencia?: string }) => {
     if (!almacen?.id || !stockToEdit) return;
     await InventarioService.createMovimiento({
       tipo: "ajuste",
       material_codigo: stockToEdit.material_codigo,
       cantidad: payload.cantidad,
       almacen_origen_id: almacen.id,
+      pool: payload.pool,
       motivo: payload.motivo,
       referencia: payload.referencia,
     });
@@ -566,18 +575,27 @@ export default function AlmacenDetallePage() {
                   <CardDescription>Registra entradas y salidas del almacen.</CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-wrap gap-3">
-                  <Button onClick={() => setIsEntradaDialogOpen(true)}>
-                    <PackagePlus className="h-4 w-4 mr-2" />
-                    Registrar entrada
-                  </Button>
-                  <Button variant="outline" onClick={() => setIsSalidaDialogOpen(true)}>
-                    <PackageMinus className="h-4 w-4 mr-2" />
-                    Registrar salida por lote
-                  </Button>
+                  {canAdminAlmacen && (
+                    <>
+                      <Button onClick={() => setIsEntradaDialogOpen(true)}>
+                        <PackagePlus className="h-4 w-4 mr-2" />
+                        Registrar entrada
+                      </Button>
+                      <Button variant="outline" onClick={() => setIsSalidaDialogOpen(true)}>
+                        <PackageMinus className="h-4 w-4 mr-2" />
+                        Registrar salida por lote
+                      </Button>
+                    </>
+                  )}
                   <Button className="bg-amber-600 hover:bg-amber-700" onClick={() => setIsTransferDialogOpen(true)}>
                     <ArrowRightLeft className="h-4 w-4 mr-2" />
                     Solicitar Traspaso
                   </Button>
+                  {!canAdminAlmacen && (
+                    <p className="text-xs text-gray-500 self-center">
+                      Las entradas se registran desde <strong>Solicitudes de Entrada</strong> (flujo de compras).
+                    </p>
+                  )}
                 </CardContent>
               </Card>
 

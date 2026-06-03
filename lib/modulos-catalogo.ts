@@ -438,6 +438,12 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-blue-600",
     href: "/almacenes-suncar",
     grupo: "gestion-almacenes",
+    subPermisos: [
+      {
+        key: "almacenes-suncar/admin",
+        label: "Almacenes (admin) — ajustes manuales de inventario",
+      },
+    ],
   },
   {
     key: "inventario",
