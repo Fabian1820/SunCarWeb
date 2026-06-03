@@ -47,7 +47,7 @@ interface SolicitudesTransferenciaTableProps {
 }
 
 const ESTADO_CONFIG: Record<
-  SolicitudTransferenciaEstado,
+  string,
   { label: string; icon: typeof Clock; color: string; bg: string }
 > = {
   pendiente: {
@@ -55,6 +55,12 @@ const ESTADO_CONFIG: Record<
     icon: Clock,
     color: "text-yellow-700",
     bg: "bg-yellow-50 border-yellow-200",
+  },
+  procesando: {
+    label: "Procesando",
+    icon: Clock,
+    color: "text-blue-700",
+    bg: "bg-blue-50 border-blue-200",
   },
   aprobada: {
     label: "Aprobada",
@@ -68,6 +74,15 @@ const ESTADO_CONFIG: Record<
     color: "text-red-700",
     bg: "bg-red-50 border-red-200",
   },
+}
+
+// Fallback para cualquier estado no mapeado (evita "undefined is not an object"
+// al leer config.icon si el backend introduce un estado nuevo).
+const ESTADO_FALLBACK = {
+  label: "—",
+  icon: Clock,
+  color: "text-gray-600",
+  bg: "bg-gray-50 border-gray-200",
 }
 
 function formatFecha(fecha?: string | null) {
@@ -210,7 +225,7 @@ export function SolicitudesTransferenciaTable({
     solicitud: SolicitudTransferencia,
     isReceived: boolean,
   ) => {
-    const config = ESTADO_CONFIG[solicitud.estado]
+    const config = ESTADO_CONFIG[solicitud.estado] ?? ESTADO_FALLBACK
     const Icon = config.icon
     const isExpanded = expandedId === solicitud.id
     const canResolve = isReceived && solicitud.estado === "pendiente"
