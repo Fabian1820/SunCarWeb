@@ -1,7 +1,12 @@
+export type TipoCarga = "resistiva" | "electronica" | "motor"
+
 export interface CalculoEnergeticoEquipo {
   nombre: string
   potencia_kw: number
   energia_kwh: number
+  horas_uso_dia?: number
+  tipo_carga?: TipoCarga
+  factor_arranque?: number
 }
 
 export interface CalculoEnergeticoCategoria {
@@ -26,6 +31,9 @@ export interface EquipoCreateRequest {
   nombre: string
   potencia_kw: number
   energia_kwh: number
+  horas_uso_dia?: number
+  tipo_carga?: TipoCarga
+  factor_arranque?: number
   categoria: string
 }
 
@@ -53,6 +61,9 @@ export interface EquipoUpdateRequest {
   nombre?: string
   potencia_kw?: number
   energia_kwh?: number
+  horas_uso_dia?: number
+  tipo_carga?: TipoCarga
+  factor_arranque?: number
 }
 
 export interface EquipoUpdateResponse {

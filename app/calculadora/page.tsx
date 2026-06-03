@@ -40,7 +40,7 @@ import { CalculoEnergeticoService } from "@/lib/api-services"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/shared/molecule/toaster"
 import { PageLoader } from "@/components/shared/atom/page-loader"
-import type { CalculoEnergeticoCategoria } from "@/lib/types/calculo-energetico-types"
+import type { CalculoEnergeticoCategoria, TipoCarga } from "@/lib/types/calculo-energetico-types"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 import { Download } from "lucide-react"
@@ -65,12 +65,17 @@ type EquipoWithMeta = {
   nombre: string
   potencia_kw: number
   energia_kwh: number
+  horas_uso_dia?: number
+  tipo_carga?: TipoCarga
+  factor_arranque?: number
 }
 
 interface CreateEquipoForm {
   nombre: string
   potencia_kw: string
   energia_kwh: string
+  horas_uso_dia: string
+  tipo_carga: TipoCarga
   categoria: string
   categoriaPersonalizada: string
 }
@@ -79,6 +84,8 @@ const createEmptyCreateForm = (): CreateEquipoForm => ({
   nombre: "",
   potencia_kw: "",
   energia_kwh: "",
+  horas_uso_dia: "4",
+  tipo_carga: "resistiva",
   categoria: "",
   categoriaPersonalizada: "",
 })
@@ -87,13 +94,19 @@ interface EditEquipoForm {
   nombre: string
   potencia_kw: string
   energia_kwh: string
+  horas_uso_dia: string
+  tipo_carga: TipoCarga
 }
 
 const createEmptyEditForm = (): EditEquipoForm => ({
   nombre: "",
   potencia_kw: "",
   energia_kwh: "",
+  horas_uso_dia: "4",
+  tipo_carga: "resistiva",
 })
+
+const factorArranquePorTipo = (tipo: TipoCarga) => (tipo === "motor" ? 3.5 : 1)
 
 export default function CalculadoraPage() {
   const { toast } = useToast()
@@ -153,6 +166,8 @@ export default function CalculadoraPage() {
         nombre: equipo.nombre,
         potencia_kw: equipo.potencia_kw,
         energia_kwh: equipo.energia_kwh,
+        horas_uso_dia: equipo.horas_uso_dia,
+        tipo_carga: equipo.tipo_carga,
       }))
     )
   }, [categorias])
@@ -342,12 +357,18 @@ export default function CalculadoraPage() {
       return
     }
 
+    const horas = parseFloat(createForm.horas_uso_dia)
+    const horasUso = Number.isNaN(horas) || horas <= 0 ? 4 : Math.min(24, horas)
+
     setCreateLoading(true)
     try {
       await CalculoEnergeticoService.createEquipo({
         nombre,
         potencia_kw: potencia,
         energia_kwh: energia,
+        horas_uso_dia: horasUso,
+        tipo_carga: createForm.tipo_carga,
+        factor_arranque: factorArranquePorTipo(createForm.tipo_carga),
         categoria: categoriaSeleccionada,
       })
       toast({ title: "Equipo registrado", description: "El equipo se agregó correctamente." })
@@ -371,6 +392,8 @@ export default function CalculadoraPage() {
       nombre: equipo.nombre,
       potencia_kw: equipo.potencia_kw.toString(),
       energia_kwh: equipo.energia_kwh.toString(),
+      horas_uso_dia: (equipo.horas_uso_dia ?? 4).toString(),
+      tipo_carga: equipo.tipo_carga ?? "resistiva",
     })
   }
 
@@ -411,15 +434,26 @@ export default function CalculadoraPage() {
       return
     }
 
+    const horas = parseFloat(editForm.horas_uso_dia)
+    const horasUso = Number.isNaN(horas) || horas <= 0 ? 4 : Math.min(24, horas)
+
     const payload: {
       nombre?: string
       potencia_kw?: number
       energia_kwh?: number
+      horas_uso_dia?: number
+      tipo_carga?: TipoCarga
+      factor_arranque?: number
     } = {}
 
     if (nombre !== editingEquipo.nombre) payload.nombre = nombre
     if (potencia !== editingEquipo.potencia_kw) payload.potencia_kw = potencia
     if (energia !== editingEquipo.energia_kwh) payload.energia_kwh = energia
+    if (horasUso !== (editingEquipo.horas_uso_dia ?? 4)) payload.horas_uso_dia = horasUso
+    if (editForm.tipo_carga !== (editingEquipo.tipo_carga ?? "resistiva")) {
+      payload.tipo_carga = editForm.tipo_carga
+      payload.factor_arranque = factorArranquePorTipo(editForm.tipo_carga)
+    }
 
     if (Object.keys(payload).length === 0) {
       toast({ title: "Sin cambios", description: "Actualiza algún campo antes de guardar." })
@@ -1060,6 +1094,8 @@ export default function CalculadoraPage() {
                               nombre: equipo.nombre,
                               potencia_kw: equipo.potencia_kw,
                               energia_kwh: equipo.energia_kwh,
+                              horas_uso_dia: equipo.horas_uso_dia,
+                              tipo_carga: equipo.tipo_carga,
                             }
 
                           return (
@@ -1198,6 +1234,38 @@ export default function CalculadoraPage() {
                 />
               </div>
             </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="nuevo-equipo-horas">Horas de uso al día</Label>
+                <Input
+                  id="nuevo-equipo-horas"
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="Ej: 4"
+                  min="0"
+                  max="24"
+                  step="0.5"
+                  value={createForm.horas_uso_dia}
+                  onChange={(e) => setCreateForm((prev) => ({ ...prev, horas_uso_dia: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label>Tipo de carga</Label>
+                <Select
+                  value={createForm.tipo_carga}
+                  onValueChange={(value) => setCreateForm((prev) => ({ ...prev, tipo_carga: value as TipoCarga }))}
+                >
+                  <SelectTrigger className="w-full mt-1">
+                    <SelectValue placeholder="Selecciona el tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="resistiva">Resistiva</SelectItem>
+                    <SelectItem value="electronica">Electrónica</SelectItem>
+                    <SelectItem value="motor">Motor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             <div>
               <Label>Categoría</Label>
               <Select
@@ -1285,6 +1353,37 @@ export default function CalculadoraPage() {
                     value={editForm.energia_kwh}
                     onChange={(e) => setEditForm((prev) => ({ ...prev, energia_kwh: e.target.value }))}
                   />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="editar-equipo-horas">Horas de uso al día</Label>
+                  <Input
+                    id="editar-equipo-horas"
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    max="24"
+                    step="0.5"
+                    value={editForm.horas_uso_dia}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, horas_uso_dia: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label>Tipo de carga</Label>
+                  <Select
+                    value={editForm.tipo_carga}
+                    onValueChange={(value) => setEditForm((prev) => ({ ...prev, tipo_carga: value as TipoCarga }))}
+                  >
+                    <SelectTrigger className="w-full mt-1">
+                      <SelectValue placeholder="Selecciona el tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="resistiva">Resistiva</SelectItem>
+                      <SelectItem value="electronica">Electrónica</SelectItem>
+                      <SelectItem value="motor">Motor</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>
