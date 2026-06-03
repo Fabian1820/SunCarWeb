@@ -136,6 +136,45 @@ const lookupFromMapV = (
   return 0;
 };
 
+/**
+ * Mapa material_id (y c:codigo) → disponible por pool {sector, indistinto}.
+ * disponible = cantidad − cantidad_reservada (el backend ya rellena
+ * cantidad_reservada por pool con las reservas activas reales).
+ */
+const buildPoolsDispMapV = (
+  items: StockItem[],
+  sectorKey: "instaladora" | "ventas",
+): Map<string, { sector: number; indistinto: number }> => {
+  const map = new Map<string, { sector: number; indistinto: number }>();
+  const disp = (p?: { cantidad?: number; cantidad_reservada?: number }) =>
+    Math.max(0, (p?.cantidad ?? 0) - (p?.cantidad_reservada ?? 0));
+  for (const item of items) {
+    const entry = {
+      sector: disp(item.pools?.[sectorKey]),
+      indistinto: disp(item.pools?.indistinto),
+    };
+    if (item.material_id) map.set(item.material_id, entry);
+    if (item.material_codigo) {
+      map.set(`c:${item.material_codigo.trim().toLowerCase()}`, entry);
+    }
+  }
+  return map;
+};
+
+const lookupPoolDispV = (
+  map: Map<string, { sector: number; indistinto: number }>,
+  materialId: string,
+  codigo?: string,
+): { sector: number; indistinto: number } | null => {
+  if (map.size === 0) return null;
+  if (materialId && map.has(materialId)) return map.get(materialId)!;
+  if (codigo) {
+    const key = `c:${codigo.trim().toLowerCase()}`;
+    if (map.has(key)) return map.get(key)!;
+  }
+  return { sector: 0, indistinto: 0 };
+};
+
 const formatClienteLabel = (cliente: ClienteVenta) =>
   cliente.numero
     ? `${cliente.nombre} (${cliente.numero})`
@@ -211,6 +250,8 @@ export function UpsertSolicitudVentaDialog({
 
   // Stock precargado del almacén seleccionado (una sola llamada al backend)
   const [loadingStock, setLoadingStock] = useState(false);
+  // Disponible por pool (sector ventas + indistinto) para los badges
+  const [poolsDispMap, setPoolsDispMap] = useState<Map<string, { sector: number; indistinto: number }>>(new Map());
   const stockMapRef = useRef<Map<string, number>>(new Map());
   // Lista raw de reservas activas del almacén y mapas derivados
   const todasReservasVRef = useRef<import("@/lib/types/feats/reservas-ventas/reserva-venta-types").Reserva[]>([]);
@@ -669,6 +710,7 @@ export function UpsertSolicitudVentaDialog({
   useEffect(() => {
     if (!selectedAlmacenId) {
       stockMapRef.current = new Map();
+      setPoolsDispMap(new Map());
       todasReservasVRef.current = [];
       totalReservaVMapRef.current = new Map();
       clientReservaMapRef.current = new Map();
@@ -686,6 +728,7 @@ export function UpsertSolicitudVentaDialog({
 
         const map = buildStockMapV(items);
         stockMapRef.current = map;
+        setPoolsDispMap(buildPoolsDispMapV(items, "ventas"));
 
         todasReservasVRef.current = todasReservas;
         const tMap = new Map<string, number>();
@@ -1716,6 +1759,28 @@ export function UpsertSolicitudVentaDialog({
                                   Stock: {material.stock_actual}
                                 </p>
                               ) : null}
+                              {selectedAlmacenId && (() => {
+                                const pd = lookupPoolDispV(poolsDispMap, material.material_id, material.codigo);
+                                if (!pd) return null;
+                                return (
+                                  <div className="flex flex-wrap items-center gap-1 mt-1">
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200"
+                                      title="Disponible en el sector Ventas"
+                                    >
+                                      Ventas: {pd.sector}
+                                    </Badge>
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[10px] bg-violet-50 text-violet-700 border-violet-200"
+                                      title="Disponible en el pool indistinto (sirve a ambos sectores)"
+                                    >
+                                      Ambos: {pd.indistinto}
+                                    </Badge>
+                                  </div>
+                                );
+                              })()}
                             </div>
                           </div>
                         </td>

@@ -133,6 +133,46 @@ const buildStockMap = (items: StockItem[]): Map<string, number> => {
   return map;
 };
 
+/**
+ * Mapa material_id (y c:codigo) → disponible por pool {sector, indistinto}.
+ * disponible = cantidad − cantidad_reservada. El backend ya rellena
+ * cantidad_reservada por pool con las reservas activas reales, así que esto
+ * refleja lo que de verdad le queda a cada pool.
+ */
+const buildPoolsDispMap = (
+  items: StockItem[],
+  sectorKey: "instaladora" | "ventas",
+): Map<string, { sector: number; indistinto: number }> => {
+  const map = new Map<string, { sector: number; indistinto: number }>();
+  const disp = (p?: { cantidad?: number; cantidad_reservada?: number }) =>
+    Math.max(0, (p?.cantidad ?? 0) - (p?.cantidad_reservada ?? 0));
+  for (const item of items) {
+    const entry = {
+      sector: disp(item.pools?.[sectorKey]),
+      indistinto: disp(item.pools?.indistinto),
+    };
+    if (item.material_id) map.set(item.material_id, entry);
+    if (item.material_codigo) {
+      map.set(`c:${item.material_codigo.trim().toLowerCase()}`, entry);
+    }
+  }
+  return map;
+};
+
+const lookupPoolDisp = (
+  map: Map<string, { sector: number; indistinto: number }>,
+  materialId: string,
+  codigo?: string,
+): { sector: number; indistinto: number } | null => {
+  if (map.size === 0) return null;
+  if (materialId && map.has(materialId)) return map.get(materialId)!;
+  if (codigo) {
+    const key = `c:${codigo.trim().toLowerCase()}`;
+    if (map.has(key)) return map.get(key)!;
+  }
+  return { sector: 0, indistinto: 0 };
+};
+
 /** Mapa inverso codigo → material_id (ObjectId real de MongoDB). */
 const buildCodigoToIdMap = (items: StockItem[]): Map<string, string> => {
   const map = new Map<string, string>();
@@ -238,6 +278,8 @@ export function CreateSolicitudMaterialDialog({
 
   // Stock precargado del almacén seleccionado (una sola llamada al backend)
   const [stockMap, setStockMap] = useState<Map<string, number>>(new Map());
+  // Disponible por pool (sector instaladora + indistinto) para los badges
+  const [poolsDispMap, setPoolsDispMap] = useState<Map<string, { sector: number; indistinto: number }>>(new Map());
   const [loadingStock, setLoadingStock] = useState(false);
   const stockMapRef = useRef<Map<string, number>>(new Map());
   // Lista raw de todas las reservas activas del almacén seleccionado
@@ -806,6 +848,7 @@ export function CreateSolicitudMaterialDialog({
     if (!selectedAlmacenId) {
       const empty = new Map<string, number>();
       setStockMap(empty);
+      setPoolsDispMap(new Map());
       stockMapRef.current = empty;
       todasReservasRef.current = [];
       totalReservaMapRef.current = new Map();
@@ -824,6 +867,7 @@ export function CreateSolicitudMaterialDialog({
 
         const map = buildStockMap(items);
         setStockMap(map);
+        setPoolsDispMap(buildPoolsDispMap(items, "instaladora"));
         stockMapRef.current = map;
         codigoToIdRef.current = buildCodigoToIdMap(items);
 
@@ -1176,6 +1220,28 @@ export function CreateSolicitudMaterialDialog({
                                     </p>
                                   )
                                 )}
+                                {!mat.entregado && !mat.sinVinculo && selectedAlmacenId && (() => {
+                                  const pd = lookupPoolDisp(poolsDispMap, mat.material_id, mat.codigo?.toString());
+                                  if (!pd) return null;
+                                  return (
+                                    <div className="flex flex-wrap items-center gap-1 mt-1">
+                                      <Badge
+                                        variant="outline"
+                                        className="text-[10px] bg-blue-50 text-blue-700 border-blue-200"
+                                        title="Disponible en el sector Instaladora"
+                                      >
+                                        Instaladora: {pd.sector}
+                                      </Badge>
+                                      <Badge
+                                        variant="outline"
+                                        className="text-[10px] bg-violet-50 text-violet-700 border-violet-200"
+                                        title="Disponible en el pool indistinto (sirve a ambos sectores)"
+                                      >
+                                        Ambos: {pd.indistinto}
+                                      </Badge>
+                                    </div>
+                                  );
+                                })()}
                               </div>
                             </div>
                           </td>
