@@ -6,6 +6,7 @@ import { Button } from "@/components/shared/atom/button"
 import { Label } from "@/components/shared/atom/label"
 import { Input } from "@/components/shared/molecule/input"
 import { Slider } from "@/components/shared/molecule/slider"
+import { Switch } from "@/components/shared/molecule/switch"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Badge } from "@/components/shared/atom/badge"
 import {
@@ -76,6 +77,8 @@ interface CreateEquipoForm {
   energia_kwh: string
   horas_uso_dia: string
   tipo_carga: TipoCarga
+  factor_arranque: string
+  factorArranqueManual: boolean
   categoria: string
   categoriaPersonalizada: string
 }
@@ -86,6 +89,8 @@ const createEmptyCreateForm = (): CreateEquipoForm => ({
   energia_kwh: "",
   horas_uso_dia: "4",
   tipo_carga: "resistiva",
+  factor_arranque: "1",
+  factorArranqueManual: false,
   categoria: "",
   categoriaPersonalizada: "",
 })
@@ -96,6 +101,8 @@ interface EditEquipoForm {
   energia_kwh: string
   horas_uso_dia: string
   tipo_carga: TipoCarga
+  factor_arranque: string
+  factorArranqueManual: boolean
 }
 
 const createEmptyEditForm = (): EditEquipoForm => ({
@@ -104,6 +111,8 @@ const createEmptyEditForm = (): EditEquipoForm => ({
   energia_kwh: "",
   horas_uso_dia: "4",
   tipo_carga: "resistiva",
+  factor_arranque: "1",
+  factorArranqueManual: false,
 })
 
 const factorArranquePorTipo = (tipo: TipoCarga) => (tipo === "motor" ? 3.5 : 1)
@@ -168,6 +177,7 @@ export default function CalculadoraPage() {
         energia_kwh: equipo.energia_kwh,
         horas_uso_dia: equipo.horas_uso_dia,
         tipo_carga: equipo.tipo_carga,
+        factor_arranque: equipo.factor_arranque,
       }))
     )
   }, [categorias])
@@ -360,6 +370,12 @@ export default function CalculadoraPage() {
     const horas = parseFloat(createForm.horas_uso_dia)
     const horasUso = Number.isNaN(horas) || horas <= 0 ? 4 : Math.min(24, horas)
 
+    const factorManual = parseFloat(createForm.factor_arranque)
+    const factorArranque =
+      createForm.factorArranqueManual && !Number.isNaN(factorManual) && factorManual >= 1
+        ? factorManual
+        : factorArranquePorTipo(createForm.tipo_carga)
+
     setCreateLoading(true)
     try {
       await CalculoEnergeticoService.createEquipo({
@@ -368,7 +384,7 @@ export default function CalculadoraPage() {
         energia_kwh: energia,
         horas_uso_dia: horasUso,
         tipo_carga: createForm.tipo_carga,
-        factor_arranque: factorArranquePorTipo(createForm.tipo_carga),
+        factor_arranque: factorArranque,
         categoria: categoriaSeleccionada,
       })
       toast({ title: "Equipo registrado", description: "El equipo se agregó correctamente." })
@@ -388,12 +404,17 @@ export default function CalculadoraPage() {
 
   const handleEditEquipo = (equipo: EquipoWithMeta) => {
     setEditingEquipo(equipo)
+    const tipo = equipo.tipo_carga ?? "resistiva"
+    const factorDefault = factorArranquePorTipo(tipo)
+    const factorActual = equipo.factor_arranque ?? factorDefault
     setEditForm({
       nombre: equipo.nombre,
       potencia_kw: equipo.potencia_kw.toString(),
       energia_kwh: equipo.energia_kwh.toString(),
       horas_uso_dia: (equipo.horas_uso_dia ?? 4).toString(),
-      tipo_carga: equipo.tipo_carga ?? "resistiva",
+      tipo_carga: tipo,
+      factor_arranque: factorActual.toString(),
+      factorArranqueManual: factorActual !== factorDefault,
     })
   }
 
@@ -437,6 +458,12 @@ export default function CalculadoraPage() {
     const horas = parseFloat(editForm.horas_uso_dia)
     const horasUso = Number.isNaN(horas) || horas <= 0 ? 4 : Math.min(24, horas)
 
+    const factorManual = parseFloat(editForm.factor_arranque)
+    const factorArranque =
+      editForm.factorArranqueManual && !Number.isNaN(factorManual) && factorManual >= 1
+        ? factorManual
+        : factorArranquePorTipo(editForm.tipo_carga)
+
     const payload: {
       nombre?: string
       potencia_kw?: number
@@ -452,7 +479,9 @@ export default function CalculadoraPage() {
     if (horasUso !== (editingEquipo.horas_uso_dia ?? 4)) payload.horas_uso_dia = horasUso
     if (editForm.tipo_carga !== (editingEquipo.tipo_carga ?? "resistiva")) {
       payload.tipo_carga = editForm.tipo_carga
-      payload.factor_arranque = factorArranquePorTipo(editForm.tipo_carga)
+    }
+    if (factorArranque !== (editingEquipo.factor_arranque ?? factorArranquePorTipo(editingEquipo.tipo_carga ?? "resistiva"))) {
+      payload.factor_arranque = factorArranque
     }
 
     if (Object.keys(payload).length === 0) {
@@ -1096,6 +1125,7 @@ export default function CalculadoraPage() {
                               energia_kwh: equipo.energia_kwh,
                               horas_uso_dia: equipo.horas_uso_dia,
                               tipo_carga: equipo.tipo_carga,
+                              factor_arranque: equipo.factor_arranque,
                             }
 
                           return (
@@ -1253,7 +1283,18 @@ export default function CalculadoraPage() {
                 <Label>Tipo de carga</Label>
                 <Select
                   value={createForm.tipo_carga}
-                  onValueChange={(value) => setCreateForm((prev) => ({ ...prev, tipo_carga: value as TipoCarga }))}
+                  onValueChange={(value) =>
+                    setCreateForm((prev) => {
+                      const tipo = value as TipoCarga
+                      return {
+                        ...prev,
+                        tipo_carga: tipo,
+                        factor_arranque: prev.factorArranqueManual
+                          ? prev.factor_arranque
+                          : factorArranquePorTipo(tipo).toString(),
+                      }
+                    })
+                  }
                 >
                   <SelectTrigger className="w-full mt-1">
                     <SelectValue placeholder="Selecciona el tipo" />
@@ -1265,6 +1306,42 @@ export default function CalculadoraPage() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+            <div className="rounded-md border border-gray-200 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <Label className="text-sm">Pico de arranque (avanzado)</Label>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {createForm.factorArranqueManual
+                      ? "Valor manual"
+                      : `Calculado automático: ${factorArranquePorTipo(createForm.tipo_carga)}× (${createForm.tipo_carga})`}
+                  </p>
+                </div>
+                <Switch
+                  checked={createForm.factorArranqueManual}
+                  onCheckedChange={(checked) =>
+                    setCreateForm((prev) => ({
+                      ...prev,
+                      factorArranqueManual: checked,
+                      factor_arranque: checked
+                        ? prev.factor_arranque
+                        : factorArranquePorTipo(prev.tipo_carga).toString(),
+                    }))
+                  }
+                />
+              </div>
+              {createForm.factorArranqueManual && (
+                <Input
+                  className="mt-3"
+                  type="number"
+                  inputMode="decimal"
+                  min="1"
+                  step="0.1"
+                  placeholder="Ej: 5 (motores grandes)"
+                  value={createForm.factor_arranque}
+                  onChange={(e) => setCreateForm((prev) => ({ ...prev, factor_arranque: e.target.value }))}
+                />
+              )}
             </div>
             <div>
               <Label>Categoría</Label>
@@ -1373,7 +1450,18 @@ export default function CalculadoraPage() {
                   <Label>Tipo de carga</Label>
                   <Select
                     value={editForm.tipo_carga}
-                    onValueChange={(value) => setEditForm((prev) => ({ ...prev, tipo_carga: value as TipoCarga }))}
+                    onValueChange={(value) =>
+                      setEditForm((prev) => {
+                        const tipo = value as TipoCarga
+                        return {
+                          ...prev,
+                          tipo_carga: tipo,
+                          factor_arranque: prev.factorArranqueManual
+                            ? prev.factor_arranque
+                            : factorArranquePorTipo(tipo).toString(),
+                        }
+                      })
+                    }
                   >
                     <SelectTrigger className="w-full mt-1">
                       <SelectValue placeholder="Selecciona el tipo" />
@@ -1385,6 +1473,42 @@ export default function CalculadoraPage() {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+              <div className="rounded-md border border-gray-200 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <Label className="text-sm">Pico de arranque (avanzado)</Label>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {editForm.factorArranqueManual
+                        ? "Valor manual"
+                        : `Calculado automático: ${factorArranquePorTipo(editForm.tipo_carga)}× (${editForm.tipo_carga})`}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={editForm.factorArranqueManual}
+                    onCheckedChange={(checked) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        factorArranqueManual: checked,
+                        factor_arranque: checked
+                          ? prev.factor_arranque
+                          : factorArranquePorTipo(prev.tipo_carga).toString(),
+                      }))
+                    }
+                  />
+                </div>
+                {editForm.factorArranqueManual && (
+                  <Input
+                    className="mt-3"
+                    type="number"
+                    inputMode="decimal"
+                    min="1"
+                    step="0.1"
+                    placeholder="Ej: 5 (motores grandes)"
+                    value={editForm.factor_arranque}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, factor_arranque: e.target.value }))}
+                  />
+                )}
               </div>
             </div>
           )}
