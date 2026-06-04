@@ -890,6 +890,23 @@ export class InventarioService {
     );
   }
 
+  /**
+   * Resuelve una solicitud de transferencia colgada en 'procesando': el backend
+   * la libera a 'pendiente' si no se movió stock, o la cierra 'aprobada' si los
+   * movimientos ya se aplicaron. Devuelve el detalle de la acción tomada.
+   */
+  static async resolverSolicitudTransferencia(
+    solicitudId: string,
+  ): Promise<any> {
+    return await apiRequest<any>(
+      `/solicitudes-transferencia/${solicitudId}/resolver`,
+      {
+        method: "POST",
+        body: JSON.stringify({}),
+      },
+    );
+  }
+
   static async denegarSolicitudTransferencia(
     solicitudId: string,
     comentario?: string,

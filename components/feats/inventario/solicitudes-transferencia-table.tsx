@@ -119,6 +119,8 @@ export function SolicitudesTransferenciaTable({
   } | null>(null)
   const [comentario, setComentario] = useState("")
   const [resolving, setResolving] = useState(false)
+  // Id de la solicitud colgada que se está resolviendo (boton "Resolver")
+  const [resolvingColgada, setResolvingColgada] = useState<string | null>(null)
 
   // Edit dialog
   const [editingSolicitud, setEditingSolicitud] = useState<SolicitudTransferencia | null>(null)
@@ -184,6 +186,21 @@ export function SolicitudesTransferenciaTable({
       console.error("Error resolving solicitud:", err)
     } finally {
       setResolving(false)
+    }
+  }
+
+  // Resuelve una solicitud colgada en 'procesando': el backend libera a
+  // 'pendiente' si no se movió stock, o la cierra 'aprobada' si ya se aplicó.
+  const handleResolverColgada = async (solicitud: SolicitudTransferencia) => {
+    setResolvingColgada(solicitud.id)
+    try {
+      await InventarioService.resolverSolicitudTransferencia(solicitud.id)
+      await fetchSolicitudes()
+      onResolved?.()
+    } catch (err) {
+      console.error("Error resolviendo solicitud colgada:", err)
+    } finally {
+      setResolvingColgada(null)
     }
   }
 
@@ -382,6 +399,26 @@ export function SolicitudesTransferenciaTable({
                   <XCircle className="h-4 w-4 mr-1" />
                   Denegar
                 </Button>
+              </div>
+            )}
+
+            {solicitud.estado === "procesando" && (
+              <div className="flex flex-col gap-1 pt-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={resolvingColgada === solicitud.id}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    void handleResolverColgada(solicitud)
+                  }}
+                >
+                  <RefreshCw className={`h-4 w-4 mr-1 ${resolvingColgada === solicitud.id ? "animate-spin" : ""}`} />
+                  {resolvingColgada === solicitud.id ? "Resolviendo..." : "Resolver (destrabar)"}
+                </Button>
+                <p className="text-[11px] text-gray-500">
+                  Quedó bloqueada a mitad de una aprobación. Esto la libera para reintentar.
+                </p>
               </div>
             )}
 
