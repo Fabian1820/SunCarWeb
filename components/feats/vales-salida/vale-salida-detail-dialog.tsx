@@ -121,11 +121,11 @@ export function ValeSalidaDetailDialog({
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <FileOutput className="h-5 w-5 text-orange-600" />
+            <FileOutput className="h-5 w-5 text-emerald-600" />
             Detalle de Vale de Salida
             <Badge
               variant="outline"
-              className="ml-2 bg-orange-50 text-orange-700 border-orange-200 font-mono text-xs"
+              className="ml-2 bg-emerald-50 text-emerald-700 border-emerald-200 font-mono text-xs"
             >
               {vale.codigo || vale.id.slice(-6).toUpperCase()}
             </Badge>

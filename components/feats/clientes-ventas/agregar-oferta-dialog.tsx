@@ -479,7 +479,7 @@ export function AgregarOfertaDialog({
       <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
         <label className="text-sm font-semibold text-slate-700 whitespace-nowrap">Almacén:</label>
         <Select value={almacenId} onValueChange={setAlmacenId} disabled={loadingAlmacenes}>
-          <SelectTrigger className={`flex-1 h-10 sm:h-9 ${!almacenId ? "border-orange-300 bg-orange-50" : ""}`}>
+          <SelectTrigger className={`flex-1 h-10 sm:h-9 ${!almacenId ? "border-emerald-300 bg-emerald-50" : ""}`}>
             <SelectValue placeholder={loadingAlmacenes ? "Cargando..." : "Seleccionar almacén"} />
           </SelectTrigger>
           <SelectContent>
@@ -534,7 +534,7 @@ export function AgregarOfertaDialog({
       </div>
 
       {!almacenId && (
-        <p className="text-xs text-orange-600 flex items-center gap-1">
+        <p className="text-xs text-emerald-600 flex items-center gap-1">
           <AlertTriangle className="h-3 w-3 shrink-0" />
           Selecciona un almacén para ver el stock disponible
         </p>
@@ -547,7 +547,7 @@ export function AgregarOfertaDialog({
     <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 sm:py-4">
       {loadingCatalogo ? (
         <div className="flex items-center justify-center h-full py-16">
-          <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
+          <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
         </div>
       ) : materialesVisibles.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2 py-16">
@@ -592,7 +592,7 @@ export function AgregarOfertaDialog({
                       <Package className="h-5 w-5 text-slate-300" />
                     )}
                     {enCarrito > 0 && (
-                      <span className="absolute top-1.5 right-1.5 rounded-full bg-orange-600 text-white text-xs font-bold px-2.5 py-1 shadow-lg border-2 border-white z-10">
+                      <span className="absolute top-1.5 right-1.5 rounded-full bg-emerald-600 text-white text-xs font-bold px-2.5 py-1 shadow-lg border-2 border-white z-10">
                         {enCarrito}
                       </span>
                     )}
@@ -628,7 +628,7 @@ export function AgregarOfertaDialog({
 
                     <div className="mt-auto space-y-1">
                       <div className="flex items-center justify-between gap-1">
-                        <p className="text-sm font-semibold text-orange-600">
+                        <p className="text-sm font-semibold text-emerald-600">
                           ${mat.precio != null ? fmt(mat.precio) : "0.00"}
                         </p>
                       </div>
@@ -658,7 +658,7 @@ export function AgregarOfertaDialog({
         Materiales seleccionados
       </p>
       {carrito.length > 0 && (
-        <Badge variant="outline" className="text-xs bg-orange-50 text-orange-600 border-orange-200">
+        <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-600 border-emerald-200">
           {carrito.length} ítem{carrito.length !== 1 ? "s" : ""}
         </Badge>
       )}
@@ -737,13 +737,13 @@ export function AgregarOfertaDialog({
                     <div className="flex rounded border border-gray-200 overflow-hidden shrink-0">
                       <button type="button"
                         onClick={() => handleDescuentoTipoChange(linea.material_id, "%")}
-                        className={`px-2 py-1.5 text-xs font-medium transition-colors ${linea.descuento_tipo === "%" ? "bg-orange-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}>
+                        className={`px-2 py-1.5 text-xs font-medium transition-colors ${linea.descuento_tipo === "%" ? "bg-emerald-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}>
                         %
                       </button>
                       <button type="button"
                         onClick={() => handleDescuentoTipoChange(linea.material_id, "$")}
                         disabled={linea.precio <= 0}
-                        className={`px-2 py-1.5 text-xs font-medium transition-colors ${linea.descuento_tipo === "$" ? "bg-orange-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"} disabled:opacity-40`}>
+                        className={`px-2 py-1.5 text-xs font-medium transition-colors ${linea.descuento_tipo === "$" ? "bg-emerald-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"} disabled:opacity-40`}>
                         $
                       </button>
                     </div>
@@ -760,7 +760,7 @@ export function AgregarOfertaDialog({
                         </p>
                       )}
                       {pct > 0 && !descuentoExcedido && (
-                        <p className="text-[10px] text-right leading-tight mt-0.5 text-orange-500">
+                        <p className="text-[10px] text-right leading-tight mt-0.5 text-emerald-500">
                           {linea.descuento_tipo === "$"
                             ? `= ${pct.toFixed(1)}%`
                             : `= $${(linea.precio * pct / 100).toFixed(2)}`}
@@ -916,13 +916,13 @@ export function AgregarOfertaDialog({
                 <div className="flex rounded border border-gray-200 overflow-hidden shrink-0">
                   <button type="button"
                     onClick={() => handleDescuentoTipoChange(linea.material_id, "%")}
-                    className={`px-2.5 h-9 text-xs touch-manipulation transition-colors ${linea.descuento_tipo === "%" ? "bg-orange-600 text-white" : "bg-white text-gray-600 active:bg-gray-100"}`}>
+                    className={`px-2.5 h-9 text-xs touch-manipulation transition-colors ${linea.descuento_tipo === "%" ? "bg-emerald-600 text-white" : "bg-white text-gray-600 active:bg-gray-100"}`}>
                     %
                   </button>
                   <button type="button"
                     onClick={() => handleDescuentoTipoChange(linea.material_id, "$")}
                     disabled={linea.precio <= 0}
-                    className={`px-2.5 h-9 text-xs touch-manipulation transition-colors ${linea.descuento_tipo === "$" ? "bg-orange-600 text-white" : "bg-white text-gray-600 active:bg-gray-100"} disabled:opacity-40`}>
+                    className={`px-2.5 h-9 text-xs touch-manipulation transition-colors ${linea.descuento_tipo === "$" ? "bg-emerald-600 text-white" : "bg-white text-gray-600 active:bg-gray-100"} disabled:opacity-40`}>
                     $
                   </button>
                 </div>
@@ -969,7 +969,7 @@ export function AgregarOfertaDialog({
                     <span className="text-gray-400">máx desc. {linea.max_descuento}%</span>
                   )}
                   {pct > 0 && !descuentoExcedido && (
-                    <span className="text-orange-600 font-medium block">
+                    <span className="text-emerald-600 font-medium block">
                       {linea.descuento_tipo === "$"
                         ? `${pct.toFixed(1)}% desc.`
                         : `$${(linea.precio * pct / 100).toFixed(2)} desc.`}
@@ -1015,19 +1015,19 @@ export function AgregarOfertaDialog({
               title={descuentoFree ? "Desactivar descuento libre" : "Activar descuento libre (sin límites por material)"}
               className={`text-xs px-3 py-1 rounded-full font-semibold transition-colors ${
                 descuentoFree
-                  ? "bg-orange-500 text-white"
-                  : "bg-gray-200 text-gray-500 hover:bg-orange-100 hover:text-orange-600"
+                  ? "bg-emerald-500 text-white"
+                  : "bg-gray-200 text-gray-500 hover:bg-emerald-100 hover:text-emerald-600"
               }`}
             >
               Descuento Free
             </button>
             {descuentoFree && (
-              <span className="text-xs text-orange-600 font-medium">Límites de descuento desactivados</span>
+              <span className="text-xs text-emerald-600 font-medium">Límites de descuento desactivados</span>
             )}
           </div>
           {descuentoFree && (
-            <div className="rounded-lg border border-orange-300 bg-orange-50 p-3 space-y-1">
-              <label className="text-xs font-semibold text-orange-700 flex items-center gap-1">
+            <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 space-y-1">
+              <label className="text-xs font-semibold text-emerald-700 flex items-center gap-1">
                 Motivo del descuento libre <span className="text-red-500">*</span>
               </label>
               <input
@@ -1035,10 +1035,10 @@ export function AgregarOfertaDialog({
                 value={motivoDescuentoFree}
                 onChange={(e) => setMotivoDescuentoFree(e.target.value)}
                 placeholder="Explica el motivo del descuento especial..."
-                className="w-full rounded-md border border-orange-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                className="w-full rounded-md border border-emerald-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
               />
               {!motivoDescuentoFree.trim() && (
-                <p className="text-xs text-orange-600">Campo obligatorio para aplicar descuento libre.</p>
+                <p className="text-xs text-emerald-600">Campo obligatorio para aplicar descuento libre.</p>
               )}
             </div>
           )}
@@ -1050,7 +1050,7 @@ export function AgregarOfertaDialog({
         <span className="font-medium">${fmt(totalBruto)}</span>
       </div>
 
-      <div className="flex justify-between items-center bg-orange-600 text-white rounded-lg px-3 py-2.5">
+      <div className="flex justify-between items-center bg-emerald-600 text-white rounded-lg px-3 py-2.5">
         <span className="text-sm font-medium">Precio final</span>
         <span className="text-lg font-bold">${fmt(totalFinal)}</span>
       </div>
@@ -1091,7 +1091,7 @@ export function AgregarOfertaDialog({
           onClick={() => onOpenChange(false)} disabled={submitting}>
           Cancelar
         </Button>
-        <Button className="flex-1 h-11 sm:h-9 bg-orange-600 hover:bg-orange-700 text-white touch-manipulation"
+        <Button className="flex-1 h-11 sm:h-9 bg-emerald-600 hover:bg-emerald-700 text-white touch-manipulation"
           onClick={handleSubmit}
           disabled={submitting || carrito.length === 0 || !almacenId || hasDescuentoError || (descuentoFree && !motivoDescuentoFree.trim())}>
           {submitting
@@ -1118,10 +1118,10 @@ export function AgregarOfertaDialog({
         {/* header */}
         <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-5 pb-3 border-b shrink-0">
           <DialogTitle className="flex flex-wrap items-center gap-x-2 gap-y-1 text-base sm:text-lg pr-8">
-            <ShoppingCart className="h-5 w-5 text-orange-600 shrink-0" />
+            <ShoppingCart className="h-5 w-5 text-emerald-600 shrink-0" />
             <span className="whitespace-nowrap">{isEditMode ? "Editar Oferta" : "Nueva Oferta"}</span>
             <span className="text-gray-400 hidden sm:inline">—</span>
-            <span className="text-orange-600 font-semibold break-words min-w-0">{cliente.nombre}</span>
+            <span className="text-emerald-600 font-semibold break-words min-w-0">{cliente.nombre}</span>
             {isEditMode && ofertaToEdit?.codigo && (
               <span className="text-xs sm:text-sm font-normal text-gray-500">({ofertaToEdit.codigo})</span>
             )}
@@ -1137,7 +1137,7 @@ export function AgregarOfertaDialog({
               className={cn(
                 "flex-1 h-11 text-sm font-medium transition-colors touch-manipulation relative",
                 mobileTab === "catalogo"
-                  ? "text-orange-600 border-b-2 border-orange-600 -mb-px"
+                  ? "text-emerald-600 border-b-2 border-emerald-600 -mb-px"
                   : "text-gray-500 active:bg-gray-50",
               )}
             >
@@ -1149,13 +1149,13 @@ export function AgregarOfertaDialog({
               className={cn(
                 "flex-1 h-11 text-sm font-medium transition-colors touch-manipulation relative flex items-center justify-center gap-2",
                 mobileTab === "carrito"
-                  ? "text-orange-600 border-b-2 border-orange-600 -mb-px"
+                  ? "text-emerald-600 border-b-2 border-emerald-600 -mb-px"
                   : "text-gray-500 active:bg-gray-50",
               )}
             >
               Carrito
               {carrito.length > 0 && (
-                <span className="inline-flex items-center justify-center rounded-full bg-orange-600 text-white text-[10px] font-bold min-w-[20px] h-5 px-1.5">
+                <span className="inline-flex items-center justify-center rounded-full bg-emerald-600 text-white text-[10px] font-bold min-w-[20px] h-5 px-1.5">
                   {carrito.length}
                 </span>
               )}
@@ -1183,13 +1183,13 @@ export function AgregarOfertaDialog({
                   <p className="text-[11px] text-gray-500 leading-none">
                     {carrito.length} ítem{carrito.length !== 1 ? "s" : ""} · Total
                   </p>
-                  <p className="text-base font-bold text-orange-600 leading-tight">
+                  <p className="text-base font-bold text-emerald-600 leading-tight">
                     ${fmt(totalFinal)}
                   </p>
                 </div>
                 <Button
                   size="sm"
-                  className="h-11 bg-orange-600 hover:bg-orange-700 text-white touch-manipulation gap-2 shrink-0"
+                  className="h-11 bg-emerald-600 hover:bg-emerald-700 text-white touch-manipulation gap-2 shrink-0"
                   onClick={() => setMobileTab("carrito")}
                 >
                   Ver carrito

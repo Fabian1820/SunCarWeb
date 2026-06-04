@@ -140,7 +140,7 @@ export default function BlogPage() {
 
   if (error && filteredBlogs.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50 flex items-center justify-center p-8">
+      <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee] flex items-center justify-center p-8">
         <Card className="max-w-md w-full border-l-4 border-l-red-600">
           <CardContent className="p-6">
             <div className="flex items-center space-x-3 mb-4">
@@ -166,7 +166,7 @@ export default function BlogPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       {/* Header */}
       <ModuleHeader
         title="Gestión de Blog"

@@ -233,18 +233,18 @@ export function GestionarOfertasVentaDialog({
                     <ArrowLeft className="h-4 w-4" />
                   </Button>
                 )}
-                <ShoppingCart className="h-5 w-5 text-orange-600" />
+                <ShoppingCart className="h-5 w-5 text-emerald-600" />
                 {modo === "listado" ? (
                   <>
                     Ofertas de{" "}
-                    <span className="text-orange-600">{cliente.nombre}</span>
+                    <span className="text-emerald-600">{cliente.nombre}</span>
                     <span className="text-sm font-normal text-gray-500 ml-1">
                       ({ofertas.length})
                     </span>
                   </>
                 ) : (
                   <>
-                    <span className="text-orange-600">{ofertaSeleccionada?.codigo ?? "Detalle"}</span>
+                    <span className="text-emerald-600">{ofertaSeleccionada?.codigo ?? "Detalle"}</span>
                   </>
                 )}
               </DialogTitle>
@@ -253,7 +253,7 @@ export function GestionarOfertasVentaDialog({
               {modo === "listado" && (
                 <Button
                   size="sm"
-                  className="bg-orange-600 hover:bg-orange-700 text-white shrink-0"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white shrink-0"
                   onClick={() => setShowCrear(true)}
                 >
                   <Plus className="h-4 w-4 mr-1" />
@@ -268,7 +268,7 @@ export function GestionarOfertasVentaDialog({
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-8 w-8 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50 border-orange-200"
+                    className="h-8 w-8 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 border-emerald-200"
                     title="Exportar PDF"
                     onClick={() => handleExportar(ofertaSeleccionada)}
                     disabled={exportingId === ofertaSeleccionada.id}
@@ -323,7 +323,7 @@ export function GestionarOfertasVentaDialog({
                   return (
                     <Card
                       key={oferta.id}
-                      className="border border-gray-200 hover:border-orange-300 transition-colors"
+                      className="border border-gray-200 hover:border-emerald-300 transition-colors"
                     >
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between gap-3">
@@ -351,11 +351,11 @@ export function GestionarOfertasVentaDialog({
                             </div>
                             {oferta.descuento_free && (
                               <div className="flex items-center gap-1.5 mt-1">
-                                <span className="text-xs font-semibold text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full">
+                                <span className="text-xs font-semibold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full">
                                   Descuento Free
                                 </span>
                                 {oferta.motivo_descuento_free && (
-                                  <span className="text-xs text-orange-700 truncate max-w-[200px]">
+                                  <span className="text-xs text-emerald-700 truncate max-w-[200px]">
                                     {oferta.motivo_descuento_free}
                                   </span>
                                 )}
@@ -370,7 +370,7 @@ export function GestionarOfertasVentaDialog({
                               type="button"
                               variant="outline"
                               size="sm"
-                              className="h-8 w-8 p-0 text-orange-500 hover:text-orange-700 hover:bg-orange-50 border-orange-200"
+                              className="h-8 w-8 p-0 text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 border-emerald-200"
                               title="Exportar PDF"
                               onClick={() => handleExportar(oferta)}
                               disabled={exportingId === oferta.id}
@@ -407,7 +407,7 @@ export function GestionarOfertasVentaDialog({
                             <Button
                               type="button"
                               size="sm"
-                              className="bg-orange-600 hover:bg-orange-700 text-white h-8 px-3"
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white h-8 px-3"
                               onClick={() => handleVerDetalle(oferta)}
                             >
                               <Eye className="h-3.5 w-3.5 mr-1" />
@@ -453,12 +453,12 @@ export function GestionarOfertasVentaDialog({
                       </div>
                     )}
                     {ofertaSeleccionada.descuento_free && (
-                      <div className="col-span-2 flex items-start gap-2 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2">
-                        <span className="text-xs font-semibold text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full shrink-0">
+                      <div className="col-span-2 flex items-start gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                        <span className="text-xs font-semibold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full shrink-0">
                           Descuento Free
                         </span>
                         {ofertaSeleccionada.motivo_descuento_free && (
-                          <span className="text-xs text-orange-700 leading-snug">
+                          <span className="text-xs text-emerald-700 leading-snug">
                             {ofertaSeleccionada.motivo_descuento_free}
                           </span>
                         )}
@@ -466,7 +466,7 @@ export function GestionarOfertasVentaDialog({
                     )}
                     <div className="col-span-2 pt-2 border-t flex justify-between font-semibold text-base">
                       <span>Total</span>
-                      <span className="text-orange-600">${fmt(ofertaSeleccionada.precio_total)}</span>
+                      <span className="text-emerald-600">${fmt(ofertaSeleccionada.precio_total)}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -526,7 +526,7 @@ export function GestionarOfertasVentaDialog({
                                     ${fmt(mat.precio * mat.cantidad)}
                                   </p>
                                   {(mat.descuento_porcentaje ?? 0) > 0 && (
-                                    <p className="text-xs text-orange-500 font-medium">
+                                    <p className="text-xs text-emerald-500 font-medium">
                                       -{mat.descuento_porcentaje}% desc.
                                     </p>
                                   )}
@@ -539,7 +539,7 @@ export function GestionarOfertasVentaDialog({
                               ) : (
                                 <p className="text-xs text-gray-400">${fmt(mat.precio)}/u</p>
                               )}
-                              <p className="text-sm font-bold text-orange-600">
+                              <p className="text-sm font-bold text-emerald-600">
                                 ${fmt(mat.subtotal ?? mat.precio * mat.cantidad * (1 - (mat.descuento_porcentaje ?? 0) / 100) * (1 + (mat.aumento_porcentaje ?? 0) / 100))}
                               </p>
                             </div>

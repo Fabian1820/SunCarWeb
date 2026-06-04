@@ -105,7 +105,7 @@ export function ModulosSyncDialog({
 
         {loading ? (
           <div className="p-8 text-center">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto text-orange-600" />
+            <Loader2 className="h-8 w-8 animate-spin mx-auto text-emerald-600" />
             <p className="text-sm text-gray-500 mt-2">Cargando estado…</p>
           </div>
         ) : (
@@ -155,7 +155,7 @@ export function ModulosSyncDialog({
                 size="sm"
                 onClick={handleSincronizar}
                 disabled={syncing || faltantes.length === 0}
-                className="bg-orange-600 hover:bg-orange-700"
+                className="bg-emerald-600 hover:bg-emerald-700"
               >
                 {syncing ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

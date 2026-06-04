@@ -115,7 +115,7 @@ export function AsignarOfertaGenericaDialog({
       reservada:            { label: "Reservada",    className: "bg-yellow-100 text-yellow-700" },
       rechazada:            { label: "Rechazada",    className: "bg-red-100 text-red-600" },
       cancelada:            { label: "Cancelada",    className: "bg-red-100 text-red-600" },
-      agotada:              { label: "Agotada",      className: "bg-orange-100 text-orange-600" },
+      agotada:              { label: "Agotada",      className: "bg-emerald-100 text-emerald-600" },
     }
     const cfg = map[estado] ?? { label: estado, className: "bg-gray-100 text-gray-600" }
     return (
@@ -217,7 +217,7 @@ export function AsignarOfertaGenericaDialog({
 
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
+            <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
             <span className="ml-3 text-gray-600">Cargando ofertas genéricas...</span>
           </div>
         ) : ofertas.length === 0 ? (
@@ -256,7 +256,7 @@ export function AsignarOfertaGenericaDialog({
             <div className="flex-shrink-0 text-sm text-gray-600 mb-3">
               {ofertasFiltradas.length} {ofertasFiltradas.length === 1 ? "oferta disponible" : "ofertas disponibles"}
               {searchQuery && ofertasFiltradas.length !== ofertas.length && (
-                <span className="text-orange-600 ml-1">
+                <span className="text-emerald-600 ml-1">
                   (filtradas de {ofertas.length})
                 </span>
               )}
@@ -276,7 +276,7 @@ export function AsignarOfertaGenericaDialog({
                   return (
                     <Card
                       key={oferta.id}
-                      className="border hover:shadow-md transition-all hover:border-orange-300"
+                      className="border hover:shadow-md transition-all hover:border-emerald-300"
                     >
                       <CardContent className="p-2.5">
                         <div className="flex gap-2.5">
@@ -309,7 +309,7 @@ export function AsignarOfertaGenericaDialog({
                               </h3>
                               {estadoBadge(oferta.estado)}
                               <div className="flex items-center gap-1.5 flex-shrink-0">
-                                <span className="text-sm font-bold text-orange-600">
+                                <span className="text-sm font-bold text-emerald-600">
                                   {formatPrice(oferta.precio_final, oferta.moneda_pago)}
                                 </span>
                                 <span className="text-gray-400">|</span>
@@ -323,7 +323,7 @@ export function AsignarOfertaGenericaDialog({
                             <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] mb-1">
                               {maxItems.inversor && (
                                 <div className="flex items-center gap-1 text-gray-700">
-                                  <Zap className="h-2.5 w-2.5 text-orange-500 flex-shrink-0" />
+                                  <Zap className="h-2.5 w-2.5 text-emerald-500 flex-shrink-0" />
                                   <span className="font-medium">{maxItems.inversor.cantidad}x</span>
                                   <span className="truncate max-w-[180px]">{maxItems.inversor.descripcion}</span>
                                 </div>
@@ -395,7 +395,7 @@ export function AsignarOfertaGenericaDialog({
                                 onClick={() => handleAsignar(oferta.id)}
                                 disabled={asignando}
                                 size="sm"
-                                className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 h-auto rounded-md shadow-sm"
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 h-auto rounded-md shadow-sm"
                               >
                                 {asignando && selectedOfertaId === oferta.id ? (
                                   <div className="flex items-center gap-1.5">

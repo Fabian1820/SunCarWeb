@@ -134,7 +134,7 @@ export default function CajaPage() {
   if (loading) {
     return (
       <RouteGuard requiredModule={`tienda:${tiendaId}`}>
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-orange-50 flex items-center justify-center">
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-emerald-50 flex items-center justify-center">
           <Loader />
         </div>
       </RouteGuard>
@@ -143,7 +143,7 @@ export default function CajaPage() {
 
   return (
     <RouteGuard requiredModule={`tienda:${tiendaId}`}>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-orange-50">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-emerald-50">
 <main className="max-w-full h-screen box-border flex min-h-0">
           {sesionActiva ? (
             <PosView tiendaId={tiendaId} sesionId={sesionActiva.id} />
@@ -235,7 +235,7 @@ export default function CajaPage() {
                 <Button
                   onClick={handleAbrirCaja}
                   disabled={abriendo}
-                  className="h-12 px-8 text-base bg-orange-600 hover:bg-orange-700"
+                  className="h-12 px-8 text-base bg-emerald-600 hover:bg-emerald-700"
                 >
                   {abriendo ? "Abriendo..." : "Abrir caja registradora"}
                 </Button>
@@ -301,7 +301,7 @@ export default function CajaPage() {
               <div className="flex items-center justify-between pt-4 border-t">
                 <Button
                   onClick={handleConfirmarCalculadora}
-                  className="h-12 px-8 text-base bg-orange-600 hover:bg-orange-700"
+                  className="h-12 px-8 text-base bg-emerald-600 hover:bg-emerald-700"
                 >
                   Confirmar
                 </Button>

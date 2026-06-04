@@ -501,7 +501,7 @@ export function PendientesInstalacionTable({
                           {instalacion.falta && (
                             <div>
                               <p className="text-xs text-gray-500 mb-1">Qué falta:</p>
-                              <p className="text-sm text-orange-700 font-medium">{instalacion.falta}</p>
+                              <p className="text-sm text-emerald-700 font-medium">{instalacion.falta}</p>
                             </div>
                           )}
                           
@@ -631,7 +631,7 @@ export function PendientesInstalacionTable({
                           <p className="text-sm text-gray-700">{instalacion.oferta}</p>
                         </td>
                         <td className="py-4 px-4">
-                          <p className="text-sm text-orange-700 font-medium">{instalacion.falta || 'N/A'}</p>
+                          <p className="text-sm text-emerald-700 font-medium">{instalacion.falta || 'N/A'}</p>
                         </td>
                         <td className="py-4 px-4">
                           <p className="text-sm text-gray-700">{instalacion.comentario || 'N/A'}</p>

@@ -175,7 +175,7 @@ export default function TrabajadoresPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Gestion de Instaladores"
         subtitle="Administrar personal y asignaciones"

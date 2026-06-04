@@ -132,7 +132,7 @@ function OfertaDisplay({ cliente }: { cliente: Cliente }) {
       <div className="space-y-0.5 text-[12px]">
         {inv && (
           <div className="flex items-center gap-1 text-gray-700">
-            <Zap className="h-3 w-3 text-orange-500 shrink-0" />
+            <Zap className="h-3 w-3 text-emerald-500 shrink-0" />
             <span className="font-medium">{inv.cantidad}x</span>
             <span className="truncate">{inv.descripcion}</span>
           </div>
@@ -761,7 +761,7 @@ export function TrabajosDiariosAveriasView() {
                 className={cn(
                   "shrink-0 rounded-md px-2 py-1 text-[11px] font-medium border transition",
                   soloPendientes
-                    ? "bg-orange-50 border-orange-300 text-orange-700"
+                    ? "bg-emerald-50 border-emerald-300 text-emerald-700"
                     : "bg-slate-50 border-slate-300 text-slate-600",
                 )}
                 title={soloPendientes ? "Mostrando solo pendientes — click para ver todas" : "Mostrando todas — click para ver solo pendientes"}
@@ -792,7 +792,7 @@ export function TrabajosDiariosAveriasView() {
                       className={cn(
                         "w-full text-left rounded-xl border transition shadow-sm overflow-hidden",
                         active
-                          ? "border-orange-300 bg-orange-50 ring-1 ring-orange-100"
+                          ? "border-emerald-300 bg-emerald-50 ring-1 ring-emerald-100"
                           : averia.estado === "Solucionada"
                             ? "border-emerald-200 bg-emerald-50/40"
                             : "border-slate-200 bg-white",
@@ -801,7 +801,7 @@ export function TrabajosDiariosAveriasView() {
                       {/* Zona clickable principal */}
                       <button
                         type="button"
-                        className="w-full text-left p-3.5 hover:bg-orange-50/60 transition"
+                        className="w-full text-left p-3.5 hover:bg-emerald-50/60 transition"
                         onClick={() => void handleSelectItem({ cliente, averia })}
                       >
                         <div className="flex items-center justify-between gap-2 mb-1">
@@ -813,7 +813,7 @@ export function TrabajosDiariosAveriasView() {
                               "rounded-full px-2 py-0.5 text-[10px] font-semibold",
                               averia.estado === "Solucionada"
                                 ? "bg-emerald-100 text-emerald-700"
-                                : "bg-orange-100 text-orange-700",
+                                : "bg-emerald-100 text-emerald-700",
                             )}
                           >
                             {averia.estado === "Solucionada" ? "✓ Solucionada" : "⚡ Pendiente"}
@@ -850,8 +850,8 @@ export function TrabajosDiariosAveriasView() {
                               </p>
                             </div>
                           )}
-                          <div className="rounded-md bg-orange-50 border border-orange-200 px-2.5 py-2">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-orange-600">
+                          <div className="rounded-md bg-emerald-50 border border-emerald-200 px-2.5 py-2">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-600">
                               Descripción
                             </p>
                             <p className="text-xs text-slate-700 line-clamp-3">
@@ -872,7 +872,7 @@ export function TrabajosDiariosAveriasView() {
                         {/* Agregar avería al cliente */}
                         <button
                           type="button"
-                          className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-orange-300 py-1.5 text-[11px] font-medium text-orange-600 hover:bg-orange-50 transition"
+                          className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-emerald-300 py-1.5 text-[11px] font-medium text-emerald-600 hover:bg-emerald-50 transition"
                           onClick={(e) => {
                             e.stopPropagation();
                             setClienteParaNuevaAveria(cliente);
@@ -1074,7 +1074,7 @@ export function TrabajosDiariosAveriasView() {
                 <Button
                   type="button"
                   onClick={handleNuevoTrabajo}
-                  className="bg-gradient-to-r from-orange-500 to-orange-600"
+                  className="bg-gradient-to-r from-emerald-500 to-emerald-600"
                 >
                   Nuevo trabajo para hoy
                 </Button>

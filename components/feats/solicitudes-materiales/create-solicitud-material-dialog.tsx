@@ -1147,7 +1147,7 @@ export function CreateSolicitudMaterialDialog({
                       const rowBg = mat.entregado
                         ? "bg-red-50"
                         : mat.sinVinculo
-                          ? "bg-orange-50"
+                          ? "bg-emerald-50"
                           : mat.alerta_stock
                             ? "bg-red-50/60"
                             : "";
@@ -1175,7 +1175,7 @@ export function CreateSolicitudMaterialDialog({
                               )}
                               <div>
                                 <p
-                                  className={`font-medium leading-tight ${mat.entregado ? "text-red-700 line-through" : mat.sinVinculo ? "text-orange-700" : "text-gray-900"}`}
+                                  className={`font-medium leading-tight ${mat.entregado ? "text-red-700 line-through" : mat.sinVinculo ? "text-emerald-700" : "text-gray-900"}`}
                                 >
                                   {mat.nombre || mat.descripcion || mat.codigo}
                                 </p>
@@ -1195,7 +1195,7 @@ export function CreateSolicitudMaterialDialog({
                                 {mat.sinVinculo && !mat.entregado && (
                                   <Badge
                                     variant="outline"
-                                    className="text-xs bg-orange-100 text-orange-700 border-orange-300"
+                                    className="text-xs bg-emerald-100 text-emerald-700 border-emerald-300"
                                   >
                                     Sin vinculo
                                   </Badge>

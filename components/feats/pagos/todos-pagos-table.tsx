@@ -282,7 +282,7 @@ export function TodosPagosTable({
     const badges = {
       efectivo: <Badge className="bg-green-100 text-green-700">Efectivo</Badge>,
       transferencia_bancaria: (
-        <Badge className="bg-orange-100 text-orange-700">Transferencia</Badge>
+        <Badge className="bg-emerald-100 text-emerald-700">Transferencia</Badge>
       ),
       stripe: <Badge className="bg-indigo-100 text-indigo-700">Stripe</Badge>,
     };
@@ -677,7 +677,7 @@ export function TodosPagosTable({
                       className={
                         isOfertaCancelada(oferta.estado || "")
                           ? "break-words text-red-700"
-                          : "break-words text-orange-700"
+                          : "break-words text-emerald-700"
                       }
                     >
                       {formatCurrency(calcularPendienteOferta(oferta))}
@@ -820,7 +820,7 @@ export function TodosPagosTable({
                                               e.stopPropagation();
                                               toggleExcedente(pago.id);
                                             }}
-                                            className="text-xs text-orange-600 hover:text-orange-700 font-medium flex items-center gap-1 cursor-pointer"
+                                            className="text-xs text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1 cursor-pointer"
                                           >
                                             <svg
                                               className="w-3 h-3"
@@ -864,7 +864,7 @@ export function TodosPagosTable({
                                         <span className="text-xs text-gray-500 block">
                                           Pendiente después
                                         </span>
-                                        <span className="text-sm font-semibold text-orange-700">
+                                        <span className="text-sm font-semibold text-emerald-700">
                                           {formatCurrency(
                                             isOfertaCancelada(
                                               oferta.estado || "",
@@ -950,7 +950,7 @@ export function TodosPagosTable({
                                         {!pago.pago_cliente && (
                                           <Badge
                                             variant="outline"
-                                            className="bg-orange-50 text-orange-700 text-xs mt-1"
+                                            className="bg-emerald-50 text-emerald-700 text-xs mt-1"
                                           >
                                             Tercero
                                           </Badge>

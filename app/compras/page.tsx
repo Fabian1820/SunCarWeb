@@ -227,7 +227,7 @@ function ComprasContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
 
       <ModuleHeader
         title="Compras"
@@ -403,8 +403,8 @@ function ComprasContent() {
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader className="pb-2 border-b border-gray-100">
             <DialogTitle className="flex items-center gap-2 text-base">
-              <span className="inline-flex items-center justify-center h-7 w-7 rounded-lg bg-orange-100 shrink-0">
-                <Paperclip className="h-4 w-4 text-orange-600" />
+              <span className="inline-flex items-center justify-center h-7 w-7 rounded-lg bg-emerald-100 shrink-0">
+                <Paperclip className="h-4 w-4 text-emerald-600" />
               </span>
               <div className="min-w-0">
                 <span className="text-gray-900">Documentos adjuntos</span>

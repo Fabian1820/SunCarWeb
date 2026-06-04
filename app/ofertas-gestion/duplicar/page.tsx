@@ -60,14 +60,14 @@ export default function DuplicarOfertaPage() {
 
   if (loading || !ofertaParaDuplicar) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee] flex items-center justify-center">
         <Loader label="Cargando oferta..." />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee] flex flex-col">
       <ModuleHeader
         title="Duplicar Oferta"
         subtitle={`Creando nueva oferta basada en: ${ofertaParaDuplicar.nombre}`}

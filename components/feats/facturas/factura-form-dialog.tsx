@@ -885,7 +885,7 @@ export function FacturaFormDialog({
           </div>
 
           {valesSeleccionables && (
-            <div className="space-y-3 border border-orange-200 rounded-lg p-4 bg-orange-50/40">
+            <div className="space-y-3 border border-emerald-200 rounded-lg p-4 bg-emerald-50/40">
               <div className="flex items-center justify-between">
                 <div>
                   <Label className="text-sm font-semibold text-gray-900">
@@ -896,7 +896,7 @@ export function FacturaFormDialog({
                   </p>
                 </div>
                 {loadingVales && (
-                  <Loader2 className="h-4 w-4 animate-spin text-orange-600" />
+                  <Loader2 className="h-4 w-4 animate-spin text-emerald-600" />
                 )}
               </div>
 
@@ -920,7 +920,7 @@ export function FacturaFormDialog({
                       <div
                         key={vale.id}
                         className={`flex items-center justify-between rounded-md border p-3 bg-white ${
-                          isChecked ? "border-orange-400" : "border-gray-200"
+                          isChecked ? "border-emerald-400" : "border-gray-200"
                         }`}
                       >
                         <div className="flex items-start gap-3">
@@ -1014,7 +1014,7 @@ export function FacturaFormDialog({
             </Button>
             <Button
               type="submit"
-              className="bg-orange-600 hover:bg-orange-700"
+              className="bg-emerald-600 hover:bg-emerald-700"
               disabled={!isFormValid() || saving}
             >
               {saving ? (

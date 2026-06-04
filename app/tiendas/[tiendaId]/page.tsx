@@ -77,10 +77,10 @@ export default function TiendaDetallePage() {
         hover: 'hover:bg-purple-100'
       },
       orange: {
-        bg: 'bg-orange-50',
-        border: 'border-orange-200',
-        icon: 'text-orange-600',
-        hover: 'hover:bg-orange-100'
+        bg: 'bg-emerald-50',
+        border: 'border-emerald-200',
+        icon: 'text-emerald-600',
+        hover: 'hover:bg-emerald-100'
       }
     }
     return colors[color as keyof typeof colors] || colors.blue
@@ -92,7 +92,7 @@ export default function TiendaDetallePage() {
 
   if (error || !tienda) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-orange-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-emerald-50 flex items-center justify-center">
         <div className="text-center max-w-md">
           <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Error al cargar tienda</h3>
@@ -114,12 +114,12 @@ export default function TiendaDetallePage() {
 
   return (
     <RouteGuard requiredModule={`tienda:${tiendaId}`}>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-orange-50">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-emerald-50">
         <ModuleHeader
           title={`Tienda: ${tienda.nombre}`}
           subtitle={almacen ? `Almacén asociado: ${almacen.nombre}` : "Sin almacén asignado"}
-          badge={{ text: "Gestión", className: "bg-orange-100 text-orange-800" }}
-          className="bg-white shadow-sm border-b border-orange-100"
+          badge={{ text: "Gestión", className: "bg-emerald-100 text-emerald-800" }}
+          className="bg-white shadow-sm border-b border-emerald-100"
           backButton={{
             href: "/tiendas-suncarventas",
             label: "Volver a Tiendas"

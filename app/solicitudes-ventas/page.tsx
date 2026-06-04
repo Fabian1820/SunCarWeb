@@ -951,12 +951,12 @@ const [exportingSolicitudes, setExportingSolicitudes] = useState(false);
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Solicitudes Ventas"
         subtitle="Crea y gestiona solicitudes de ventas con materiales vendibles"
         badge={{ text: "Ventas", className: "bg-indigo-100 text-indigo-800" }}
-        className="bg-white shadow-sm border-b border-orange-100"
+        className="bg-white shadow-sm border-b border-emerald-100"
         actions={
           activeTab === "solicitudes" ? (
             <div className="flex items-center gap-2">

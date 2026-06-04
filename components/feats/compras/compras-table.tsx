@@ -304,14 +304,14 @@ export function ComprasTable({
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="h-8 px-2 gap-1 text-xs border-orange-200 text-orange-700 hover:bg-orange-50 hover:border-orange-300 relative"
+                          className="h-8 px-2 gap-1 text-xs border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-300 relative"
                           onClick={() => onDocs(compra)}
                           title="Documentos adjuntos"
                         >
                           <Paperclip className="h-3.5 w-3.5" />
                           <span className="hidden 2xl:inline">Docs</span>
                           {compra.archivos?.length > 0 && (
-                            <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-orange-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
+                            <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-emerald-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
                               {compra.archivos.length > 9 ? "9+" : compra.archivos.length}
                             </span>
                           )}

@@ -186,7 +186,7 @@ const TipoPagoBadge = ({ tipo }: { tipo: string }) => {
 
 const MetodoPagoBadge = ({ metodo }: { metodo: string }) => {
   if (metodo === "efectivo") return <Badge className="bg-green-100 text-green-700">Efectivo</Badge>
-  if (metodo === "transferencia_bancaria") return <Badge className="bg-orange-100 text-orange-700">Transferencia</Badge>
+  if (metodo === "transferencia_bancaria") return <Badge className="bg-emerald-100 text-emerald-700">Transferencia</Badge>
   if (metodo === "stripe") return <Badge className="bg-indigo-100 text-indigo-700">Stripe</Badge>
   return <Badge>{metodo}</Badge>
 }
@@ -201,7 +201,7 @@ const EstadoTrabajoBadge = ({ terminada }: { terminada?: boolean }) =>
 const colorBarra = (t: TrabajoDiarioObra) => {
   const tipo = safeText(t.tipo_trabajo).toUpperCase()
   if (tipo.includes("AVERIA") || tipo.includes("AVERÍA")) return "bg-red-400"
-  if (tipo.includes("NUEVA")) return "bg-orange-400"
+  if (tipo.includes("NUEVA")) return "bg-emerald-400"
   if (tipo.includes("PROCESO")) return "bg-blue-400"
   if (tipo.includes("ACTUALIZ")) return "bg-violet-500"
   return "bg-slate-400"
@@ -249,8 +249,8 @@ function DateFilterWidget({
           className={cn(
             "px-2 py-1 text-xs rounded border transition-colors",
             state.mode === "mes"
-              ? "bg-orange-500 text-white border-orange-500"
-              : "border-gray-300 text-gray-600 hover:border-orange-400",
+              ? "bg-emerald-500 text-white border-emerald-500"
+              : "border-gray-300 text-gray-600 hover:border-emerald-400",
           )}
         >
           Este mes
@@ -260,8 +260,8 @@ function DateFilterWidget({
           className={cn(
             "px-2 py-1 text-xs rounded border transition-colors",
             state.mode === "rango"
-              ? "bg-orange-500 text-white border-orange-500"
-              : "border-gray-300 text-gray-600 hover:border-orange-400",
+              ? "bg-emerald-500 text-white border-emerald-500"
+              : "border-gray-300 text-gray-600 hover:border-emerald-400",
           )}
         >
           Rango
@@ -281,19 +281,19 @@ function DateFilterWidget({
             type="date"
             value={state.desde}
             onChange={(e) => onChange({ ...state, desde: e.target.value })}
-            className="text-xs border border-gray-300 rounded px-1.5 py-1 w-[120px] focus:outline-none focus:border-orange-400"
+            className="text-xs border border-gray-300 rounded px-1.5 py-1 w-[120px] focus:outline-none focus:border-emerald-400"
           />
           <span className="text-xs text-gray-400">—</span>
           <input
             type="date"
             value={state.hasta}
             onChange={(e) => onChange({ ...state, hasta: e.target.value })}
-            className="text-xs border border-gray-300 rounded px-1.5 py-1 w-[120px] focus:outline-none focus:border-orange-400"
+            className="text-xs border border-gray-300 rounded px-1.5 py-1 w-[120px] focus:outline-none focus:border-emerald-400"
           />
         </div>
       )}
       {state.mode === "mes" && (
-        <span className="text-[11px] text-orange-600">
+        <span className="text-[11px] text-emerald-600">
           {fmtDate(state.desde)} — {fmtDate(state.hasta)}
         </span>
       )}
@@ -380,9 +380,9 @@ function PagosPanel({ pagos, oferta }: { pagos: PagoObra[]; oferta: OfertaObra }
                 </div>
                 <div><span className="text-xs text-gray-500 block">Devuelto</span><span className="text-sm font-semibold text-red-700">{fmtCurrency(pago.total_devuelto ?? 0)} USD</span></div>
                 {pago.diferencia != null && pago.diferencia > 0 && (
-                  <div className="text-xs text-orange-600 font-medium">Excedente: +{fmtCurrency(pago.diferencia)}</div>
+                  <div className="text-xs text-emerald-600 font-medium">Excedente: +{fmtCurrency(pago.diferencia)}</div>
                 )}
-                <div><span className="text-xs text-gray-500 block">Pendiente después</span><span className="text-sm font-semibold text-orange-700">{fmtCurrency(pendienteDespuesPago)} USD</span></div>
+                <div><span className="text-xs text-gray-500 block">Pendiente después</span><span className="text-sm font-semibold text-emerald-700">{fmtCurrency(pendienteDespuesPago)} USD</span></div>
               </div>
               <div className="space-y-1.5">
                 <span className="text-xs font-semibold text-gray-500 block">MÉTODO</span>
@@ -395,7 +395,7 @@ function PagosPanel({ pagos, oferta }: { pagos: PagoObra[]; oferta: OfertaObra }
               <div className="space-y-1.5">
                 <span className="text-xs font-semibold text-gray-500 block">PAGADOR</span>
                 <span className="text-sm font-medium text-gray-900 block">{pago.nombre_pagador || oferta.nombre_completo || "No especificado"}</span>
-                {!pago.pago_cliente && <Badge variant="outline" className="bg-orange-50 text-orange-700 text-xs">Tercero</Badge>}
+                {!pago.pago_cliente && <Badge variant="outline" className="bg-emerald-50 text-emerald-700 text-xs">Tercero</Badge>}
                 {pago.carnet_pagador && <div><span className="text-xs text-gray-500 block">CI</span><span className="text-sm">{pago.carnet_pagador}</span></div>}
               </div>
               <div className="space-y-1.5">
@@ -921,7 +921,7 @@ function FacturasClientePanel({ facturas, oferta }: { facturas: FacturaClienteOb
                           )}
                           <div>
                             <span className="text-slate-500 block">Pendiente tras pago</span>
-                            <span className={cn("font-bold", pendDespues > 0 ? "text-orange-600" : "text-green-600")}>
+                            <span className={cn("font-bold", pendDespues > 0 ? "text-emerald-600" : "text-green-600")}>
                               {pendDespues > 0 ? fmtCurrency(pendDespues) : "Pagado ✓"}
                             </span>
                           </div>
@@ -949,7 +949,7 @@ function FacturasClientePanel({ facturas, oferta }: { facturas: FacturaClienteOb
                 </div>
                 <div className="text-right">
                   <span className="block text-xs text-slate-500">Pendiente</span>
-                  <span className={cn("font-bold tabular-nums", pagada ? "text-green-600" : "text-orange-600")}>
+                  <span className={cn("font-bold tabular-nums", pagada ? "text-green-600" : "text-emerald-600")}>
                     {pagada ? "Pagada ✓" : fmtCurrency(montoPendiente)}
                   </span>
                 </div>
@@ -1089,7 +1089,7 @@ export function ObrasTerminadasTable({
   if (loading)
     return (
       <div className="flex items-center justify-center py-16">
-        <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+        <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
         <span className="ml-3 text-gray-600">Cargando datos...</span>
       </div>
     )
@@ -1107,16 +1107,16 @@ export function ObrasTerminadasTable({
   return (
     <div className="w-full space-y-3">
       {/* ── Panel de filtros ── */}
-      <div className="bg-white rounded-lg border border-orange-100 shadow-sm">
+      <div className="bg-white rounded-lg border border-emerald-100 shadow-sm">
         <div
           className="flex items-center justify-between px-4 py-3 cursor-pointer"
           onClick={() => setShowFilters((v) => !v)}
         >
           <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-orange-500" />
+            <Filter className="h-4 w-4 text-emerald-500" />
             <span className="text-sm font-semibold text-gray-700">Filtros</span>
             {activeFilterCount > 0 && (
-              <Badge className="bg-orange-500 text-white text-[11px] px-1.5 py-0">{activeFilterCount}</Badge>
+              <Badge className="bg-emerald-500 text-white text-[11px] px-1.5 py-0">{activeFilterCount}</Badge>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -1133,7 +1133,7 @@ export function ObrasTerminadasTable({
         </div>
 
         {showFilters && (
-          <div className="px-4 pb-4 border-t border-orange-50 pt-3 space-y-4">
+          <div className="px-4 pb-4 border-t border-emerald-50 pt-3 space-y-4">
             <div className="flex flex-wrap gap-4 items-start">
               <div className="flex-1 min-w-[220px]">
                 <span className="text-xs font-semibold text-gray-500 flex items-center gap-1 mb-1">
@@ -1155,7 +1155,7 @@ export function ObrasTerminadasTable({
                 <select
                   value={comercialFilter}
                   onChange={(e) => setComercialFilter(e.target.value)}
-                  className="h-8 rounded border border-gray-300 px-2 text-sm text-gray-700 focus:border-orange-400 focus:outline-none"
+                  className="h-8 rounded border border-gray-300 px-2 text-sm text-gray-700 focus:border-emerald-400 focus:outline-none"
                 >
                   <option value="todos">Todos</option>
                   {comerciales.map((c) => (
@@ -1174,8 +1174,8 @@ export function ObrasTerminadasTable({
                       className={cn(
                         "px-2.5 py-1 text-xs rounded border transition-colors",
                         estadoPago === v
-                          ? "bg-orange-500 text-white border-orange-500"
-                          : "border-gray-300 text-gray-600 hover:border-orange-400",
+                          ? "bg-emerald-500 text-white border-emerald-500"
+                          : "border-gray-300 text-gray-600 hover:border-emerald-400",
                       )}
                     >
                       {v === "todos" ? "Todos" : v === "pagado" ? "Pagado" : "Con saldo"}
@@ -1188,9 +1188,9 @@ export function ObrasTerminadasTable({
                 <span className="text-xs font-semibold text-gray-500">Factura cliente</span>
                 <div className="flex gap-1 flex-wrap">
                   {([
-                    { v: "todos",       label: "Todos",           active: "bg-orange-500 text-white border-orange-500" },
+                    { v: "todos",       label: "Todos",           active: "bg-emerald-500 text-white border-emerald-500" },
                     { v: "pagada",      label: "✓ Pagada",        active: "bg-emerald-600 text-white border-emerald-600" },
-                    { v: "pendiente",   label: "Con pendiente",   active: "bg-orange-600 text-white border-orange-600" },
+                    { v: "pendiente",   label: "Con pendiente",   active: "bg-emerald-600 text-white border-emerald-600" },
                     { v: "sin_factura", label: "Sin factura",     active: "bg-gray-500 text-white border-gray-500" },
                   ] as const).map(({ v, label, active }) => (
                     <button
@@ -1198,7 +1198,7 @@ export function ObrasTerminadasTable({
                       onClick={() => setFiltroFacturada(v)}
                       className={cn(
                         "px-2.5 py-1 text-xs rounded border transition-colors",
-                        filtroFacturada === v ? active : "border-gray-300 text-gray-600 hover:border-orange-400",
+                        filtroFacturada === v ? active : "border-gray-300 text-gray-600 hover:border-emerald-400",
                       )}
                     >
                       {label}
@@ -1238,21 +1238,21 @@ export function ObrasTerminadasTable({
       </div>
 
       {(filteredOfertas.length === 0 || ofertasConPagos.length === 0) ? (
-        <div className="text-center py-10 bg-white rounded-lg border border-orange-100 p-6 space-y-3">
+        <div className="text-center py-10 bg-white rounded-lg border border-emerald-100 p-6 space-y-3">
           <Briefcase className="h-10 w-10 text-gray-300 mx-auto" />
           <p className="text-gray-500 text-sm">No se encontraron resultados con los filtros aplicados.</p>
           <button
             onClick={clearAllFilters}
-            className="text-sm text-orange-600 hover:text-orange-700 font-medium underline underline-offset-2"
+            className="text-sm text-emerald-600 hover:text-emerald-700 font-medium underline underline-offset-2"
           >
             Limpiar filtros
           </button>
         </div>
       ) : (
-        <div className="bg-white rounded-lg border border-orange-100 shadow-sm">
+        <div className="bg-white rounded-lg border border-emerald-100 shadow-sm">
           <Table className="w-full table-fixed">
             <TableHeader>
-              <TableRow className="bg-orange-50/50">
+              <TableRow className="bg-emerald-50/50">
                 <TableHead className="w-8" />
                 <TableHead className="w-[26%] text-xs">Cliente</TableHead>
                 <TableHead className="w-[14%] text-xs">Comercial</TableHead>
@@ -1284,7 +1284,7 @@ export function ObrasTerminadasTable({
                     <TableRow
                       className={cn(
                         "cursor-pointer transition-colors",
-                        isExpanded ? "bg-orange-50" : "hover:bg-orange-50/50",
+                        isExpanded ? "bg-emerald-50" : "hover:bg-emerald-50/50",
                       )}
                       onClick={() => toggleOferta(oferta, rowId)}
                     >
@@ -1322,7 +1322,7 @@ export function ObrasTerminadasTable({
                                   {oferta.numero_factura} · Pagada
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 rounded-full border border-orange-300 bg-orange-50 px-2 py-0.5 text-[10px] font-semibold text-orange-700">
+                                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
                                   <Receipt className="h-2.5 w-2.5" />
                                   {oferta.numero_factura} · Pendiente
                                 </span>
@@ -1345,7 +1345,7 @@ export function ObrasTerminadasTable({
                       <TableCell className="text-right text-sm py-2.5 text-green-700 font-semibold whitespace-nowrap tabular-nums">{fmtCurrency(oferta.total_pagado ?? 0)}</TableCell>
                       <TableCell className="text-right text-sm py-2.5 text-red-700 font-semibold whitespace-nowrap tabular-nums">{fmtCurrency(oferta.total_devuelto ?? 0)}</TableCell>
                       <TableCell className="text-right text-sm py-2.5 font-semibold whitespace-nowrap tabular-nums">
-                        <span className={pagado ? "text-green-600" : "text-orange-700"}>
+                        <span className={pagado ? "text-green-600" : "text-emerald-700"}>
                           {fmtCurrency(montoPendiente)}
                         </span>
                       </TableCell>
@@ -1354,9 +1354,9 @@ export function ObrasTerminadasTable({
                     {/* Panel expandido */}
                     {isExpanded && (
                       <TableRow>
-                        <TableCell colSpan={10} className="bg-orange-50/60 p-0" onClick={(e) => e.stopPropagation()}>
-                          <div className="border-t border-orange-200 p-3">
-                            <div className="flex gap-1 mb-3 border-b border-orange-200 pb-2">
+                        <TableCell colSpan={10} className="bg-emerald-50/60 p-0" onClick={(e) => e.stopPropagation()}>
+                          <div className="border-t border-emerald-200 p-3">
+                            <div className="flex gap-1 mb-3 border-b border-emerald-200 pb-2">
                               {([
                                 { key: "materiales" as const, icon: <Boxes className="h-3.5 w-3.5" />, label: "Materiales", count: detalle?.materiales?.length },
                                 { key: "pagos" as const, icon: <FileText className="h-3.5 w-3.5" />, label: "Pagos", count: detalle?.pagos?.length },
@@ -1376,7 +1376,7 @@ export function ObrasTerminadasTable({
                                   }}
                                   className={cn(
                                     "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-t transition-colors",
-                                    tab === t.key ? "bg-white border border-orange-200 text-orange-700 shadow-sm" : "text-gray-500 hover:text-gray-700",
+                                    tab === t.key ? "bg-white border border-emerald-200 text-emerald-700 shadow-sm" : "text-gray-500 hover:text-gray-700",
                                   )}
                                 >
                                   {t.icon}
@@ -1387,7 +1387,7 @@ export function ObrasTerminadasTable({
 
                             {isDetalleLoading ? (
                               <div className="flex items-center justify-center py-10 gap-2 text-gray-500">
-                                <Loader2 className="h-5 w-5 animate-spin text-orange-400" />
+                                <Loader2 className="h-5 w-5 animate-spin text-emerald-400" />
                                 <span className="text-sm">Cargando datos...</span>
                               </div>
                             ) : detalleErr ? (

@@ -136,7 +136,7 @@ export default function PendientesVisitaPage() {
         backLabel="Volver a Instalaciones"
         badge={{
           text: "Instalaciones",
-          className: "bg-orange-100 text-orange-800",
+          className: "bg-emerald-100 text-emerald-800",
         }}
       />
 

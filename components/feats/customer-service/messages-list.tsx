@@ -63,7 +63,7 @@ export default function MessagesList({
       case 'sugerencia':
         return <MessageCircle className="h-4 w-4 text-green-500" />
       case 'reclamo':
-        return <FileText className="h-4 w-4 text-orange-500" />
+        return <FileText className="h-4 w-4 text-emerald-500" />
       default:
         return <MessageCircle className="h-4 w-4 text-gray-500" />
     }
@@ -108,7 +108,7 @@ export default function MessagesList({
     const colores = {
       baja: 'bg-gray-100 text-gray-800 border-gray-200',
       media: 'bg-blue-100 text-blue-800 border-blue-200',
-      alta: 'bg-orange-100 text-orange-800 border-orange-200',
+      alta: 'bg-emerald-100 text-emerald-800 border-emerald-200',
       urgente: 'bg-red-100 text-red-800 border-red-200'
     }
     return colores[prioridad as keyof typeof colores] || 'bg-gray-100 text-gray-800 border-gray-200'

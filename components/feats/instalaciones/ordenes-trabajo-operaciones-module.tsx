@@ -1650,7 +1650,7 @@ export function OrdenesTrabajoOperacionesModule() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Órdenes de Trabajo"
         subtitle={
@@ -1660,15 +1660,15 @@ export function OrdenesTrabajoOperacionesModule() {
         }
         badge={{
           text: "Operaciones",
-          className: "bg-orange-100 text-orange-800",
+          className: "bg-emerald-100 text-emerald-800",
         }}
         backButton={{ href: "/instalaciones", label: "Volver a Operaciones" }}
-        className="bg-white shadow-sm border-b border-orange-100"
+        className="bg-white shadow-sm border-b border-emerald-100"
         actions={
           <>
             <Button
               variant="outline"
-              className="border-orange-300 text-orange-800 hover:bg-orange-50"
+              className="border-emerald-300 text-emerald-800 hover:bg-emerald-50"
               onClick={startNewOrder}
               title="Nueva orden"
             >
@@ -1681,7 +1681,7 @@ export function OrdenesTrabajoOperacionesModule() {
                   Cancelar
                 </Button>
                 <Button
-                  className="bg-orange-600 hover:bg-orange-700 text-white"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
                   onClick={handleSave}
                   title="Guardar orden"
                   disabled={savingOrder}
@@ -1704,10 +1704,10 @@ export function OrdenesTrabajoOperacionesModule() {
       <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
         {showForm ? (
           <div className="grid grid-cols-1 gap-6">
-            <Card className="border-0 shadow-md border-l-4 border-l-orange-600">
+            <Card className="border-0 shadow-md border-l-4 border-l-emerald-600">
               <CardHeader className="pb-4">
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-orange-600" />
+                  <FileText className="h-5 w-5 text-emerald-600" />
                   Formulario de orden
                 </CardTitle>
               </CardHeader>
@@ -2177,7 +2177,7 @@ export function OrdenesTrabajoOperacionesModule() {
                 <div className="flex flex-wrap items-center gap-2 pt-1">
                   <Button
                     onClick={handleSave}
-                    className="bg-orange-600 hover:bg-orange-700 text-white"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
                     disabled={savingOrder}
                   >
                     <Save className="h-4 w-4 mr-2" />
@@ -2255,7 +2255,7 @@ export function OrdenesTrabajoOperacionesModule() {
                         return (
                           <tr
                             key={order.id}
-                            className={`border-t ${rowSelected ? "bg-orange-50" : "hover:bg-gray-50"}`}
+                            className={`border-t ${rowSelected ? "bg-emerald-50" : "hover:bg-gray-50"}`}
                           >
                             <td className="p-2">{order.fecha || "-"}</td>
                             <td className="p-2">{order.cliente || "-"}</td>

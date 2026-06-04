@@ -170,7 +170,7 @@ export function EnProcesoPagoTable({
                                     </TableCell>
                                     <TableCell className="text-right py-3">
                                         <div className="break-words">
-                                            <span className="font-bold text-orange-600 text-sm">
+                                            <span className="font-bold text-emerald-600 text-sm">
                                                 {formatCurrency(oferta.monto_pendiente)}
                                             </span>
                                         </div>
@@ -253,7 +253,7 @@ export function EnProcesoPagoTable({
                                                             </div>
                                                             <div>
                                                                 <span className="text-xs text-gray-500 block">Monto Pendiente</span>
-                                                                <span className="text-sm font-bold text-orange-600">
+                                                                <span className="text-sm font-bold text-emerald-600">
                                                                     {formatCurrency(oferta.monto_pendiente)}
                                                                 </span>
                                                             </div>

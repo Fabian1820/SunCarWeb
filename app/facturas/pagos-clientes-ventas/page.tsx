@@ -153,8 +153,8 @@ export default function PagosClientesVentasPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
-      <header className="fixed-header bg-white shadow-sm border-b border-orange-100">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
+      <header className="fixed-header bg-white shadow-sm border-b border-emerald-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-5 gap-4">
             <div className="flex items-center space-x-3">
@@ -170,7 +170,7 @@ export default function PagosClientesVentasPage() {
                   <span className="hidden sm:inline">Volver</span>
                 </Button>
               </Link>
-              <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
+              <div className="p-0 rounded-full bg-white shadow border border-emerald-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
                 <img
                   src="/logo.png"
                   alt="Logo SunCar"

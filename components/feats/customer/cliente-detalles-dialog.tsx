@@ -229,7 +229,7 @@ export function ClienteDetallesDialog({
                       <div className={`w-3 h-3 rounded-full ${
                         cliente.prioridad === 'Alta' ? 'bg-red-500' :
                         cliente.prioridad === 'Baja' ? 'bg-blue-500' :
-                        'bg-orange-500'
+                        'bg-emerald-500'
                       }`} />
                       <span className="text-sm text-gray-900 font-medium">
                         {cliente.prioridad}
@@ -638,7 +638,7 @@ export function ClienteDetallesDialog({
                   onEdit(cliente)
                   onOpenChange(false)
                 }}
-                className="border-orange-300 text-orange-700 hover:bg-orange-50"
+                className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
               >
                 <Edit className="h-4 w-4 mr-2" />
                 Editar Cliente

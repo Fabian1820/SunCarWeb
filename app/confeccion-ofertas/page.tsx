@@ -5,7 +5,7 @@ import { ConfeccionOfertasView } from "@/components/feats/ofertas/confeccion-ofe
 
 export default function ConfeccionOfertasPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Confeccion de Ofertas"
         subtitle="Arma ofertas fotovoltaicas con materiales, margen y redondeo final."

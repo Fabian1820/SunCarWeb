@@ -333,7 +333,7 @@ export function EstadoEquiposStats({
 
   if (!data) {
     return (
-      <Card className="border border-orange-200">
+      <Card className="border border-emerald-200">
         <CardContent className="p-8 text-center">
           <h3 className="text-lg font-semibold text-slate-900">
             No se pudieron cargar los datos
@@ -343,7 +343,7 @@ export function EstadoEquiposStats({
           </p>
           <Button
             onClick={onRefresh}
-            className="mt-5 bg-orange-600 hover:bg-orange-700"
+            className="mt-5 bg-emerald-600 hover:bg-emerald-700"
           >
             <div className="mr-2 h-4 w-4 rounded-full border-2 border-white/40 border-t-white" />
             Reintentar

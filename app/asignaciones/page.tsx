@@ -101,7 +101,7 @@ function AsignacionesPageContent() {
   ]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <header className="fixed-header">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
@@ -112,7 +112,7 @@ function AsignacionesPageContent() {
                   Volver
                 </Button>
               </Link>
-              <div className="p-0 rounded-full bg-white shadow border border-orange-200 h-12 w-12 flex items-center justify-center">
+              <div className="p-0 rounded-full bg-white shadow border border-emerald-200 h-12 w-12 flex items-center justify-center">
                 <img src="/logo.png" alt="Logo" className="h-10 w-10 object-contain rounded-full" />
               </div>
               <div>
@@ -143,7 +143,7 @@ function AsignacionesPageContent() {
               key={id}
               className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
                 activeTab === id
-                  ? "border-orange-500 text-orange-600"
+                  ? "border-emerald-500 text-emerald-600"
                   : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
               onClick={() => setActiveTab(id)}
@@ -156,7 +156,7 @@ function AsignacionesPageContent() {
 
         {/* Tab: Asignación por trabajador */}
         {activeTab === "trabajador" && (
-          <Card className="border-l-4 border-l-orange-500">
+          <Card className="border-l-4 border-l-emerald-500">
             <CardHeader>
               <CardTitle className="text-base">Trabajadores y sus recursos asignados</CardTitle>
             </CardHeader>

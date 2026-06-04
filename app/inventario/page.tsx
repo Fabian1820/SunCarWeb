@@ -76,7 +76,7 @@ export default function InventarioPage() {
 
   if (error && data.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-orange-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-emerald-50 flex items-center justify-center">
         <div className="text-center max-w-md">
           <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
@@ -137,12 +137,12 @@ export default function InventarioPage() {
     : "Cantidad por material y desglose por almacén. Expande una fila para ver el detalle."
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-orange-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-emerald-50">
       <ModuleHeader
         title="Inventario y Almacenes"
         subtitle="Consulta las existencias por almacén y tienda"
-        badge={{ text: "Inventario", className: "bg-orange-100 text-orange-800" }}
-        className="bg-white shadow-sm border-b border-orange-100"
+        badge={{ text: "Inventario", className: "bg-emerald-100 text-emerald-800" }}
+        className="bg-white shadow-sm border-b border-emerald-100"
       />
 
       <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8 space-y-6">

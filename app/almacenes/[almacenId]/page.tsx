@@ -535,7 +535,7 @@ export default function AlmacenDetallePage() {
 
   if (error || !almacen) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-orange-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-emerald-50 flex items-center justify-center">
         <div className="text-center max-w-md">
           <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Error al cargar almacén</h3>
@@ -550,12 +550,12 @@ export default function AlmacenDetallePage() {
 
   return (
     <RouteGuard requiredModule={`almacen:${almacenId}`}>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-orange-50">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-emerald-50">
         <ModuleHeader
           title={`Almacén: ${almacen.nombre}`}
           subtitle={almacen.direccion || "Gestión de entradas y salidas"}
-          badge={{ text: "Inventario", className: "bg-orange-100 text-orange-800" }}
-          className="bg-white shadow-sm border-b border-orange-100"
+          badge={{ text: "Inventario", className: "bg-emerald-100 text-emerald-800" }}
+          className="bg-white shadow-sm border-b border-emerald-100"
           backButton={{ href: `/almacenes-suncar/${almacenId}`, label: "Volver al Almacen" }}
         />
 
@@ -748,7 +748,7 @@ export default function AlmacenDetallePage() {
                       variant="outline"
                       size="sm"
                       onClick={() => setShowStockHistoricoModal(true)}
-                      className="gap-1.5 border-orange-300 text-orange-700 hover:bg-orange-50"
+                      className="gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
                       title="Ver stock del almacén en una fecha pasada"
                     >
                       <History className="h-4 w-4" />
@@ -881,7 +881,7 @@ export default function AlmacenDetallePage() {
                       variant="outline"
                       size="sm"
                       onClick={() => setShowAnalisisModal(true)}
-                      className="gap-2 border-orange-200 text-orange-700 hover:bg-orange-50"
+                      className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
                     >
                       <BarChart3 className="h-4 w-4" />
                       Análisis de stock

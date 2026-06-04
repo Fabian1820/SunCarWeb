@@ -14,7 +14,7 @@ const PRIORIDAD_CONFIG = {
     icon: "🔴"
   },
   Media: {
-    className: "bg-orange-100 text-orange-800 border-orange-300",
+    className: "bg-emerald-100 text-emerald-800 border-emerald-300",
     icon: "🟠"
   },
   Baja: {

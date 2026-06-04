@@ -141,7 +141,7 @@ export function SeleccionarValesSalidaDialog({
 
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
+            <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
           </div>
         ) : (
           <>
@@ -165,8 +165,8 @@ export function SeleccionarValesSalidaDialog({
                       key={vale.id}
                       className={`border rounded-lg p-4 cursor-pointer transition-all ${
                         isSelected
-                          ? "border-orange-500 bg-orange-50"
-                          : "border-gray-200 hover:border-orange-300 hover:bg-orange-50/50"
+                          ? "border-emerald-500 bg-emerald-50"
+                          : "border-gray-200 hover:border-emerald-300 hover:bg-emerald-50/50"
                       }`}
                       onClick={() => toggleVale(vale.id)}
                     >
@@ -187,7 +187,7 @@ export function SeleccionarValesSalidaDialog({
                                 {solicitud?.estado || "usado"}
                               </span>
                             </div>
-                            <span className="font-bold text-orange-600">
+                            <span className="font-bold text-emerald-600">
                               {formatCurrency(total)}
                             </span>
                           </div>
@@ -264,7 +264,7 @@ export function SeleccionarValesSalidaDialog({
                   <Button
                     onClick={handleConfirmar}
                     disabled={valesSeleccionados.size === 0}
-                    className="bg-orange-600 hover:bg-orange-700"
+                    className="bg-emerald-600 hover:bg-emerald-700"
                   >
                     Agregar {valesSeleccionados.size > 0 && `(${valesSeleccionados.size})`}
                   </Button>

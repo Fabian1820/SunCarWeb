@@ -34,7 +34,7 @@ function ArchivoIcon({ tipo, className = "h-5 w-5" }: { tipo: ArchivoCompra["tip
   if (tipo === "imagen") return <Image className={`${className} text-blue-500`} />;
   if (tipo === "video")  return <Video className={`${className} text-purple-500`} />;
   if (tipo === "audio")  return <Music className={`${className} text-pink-500`} />;
-  return <FileText className={`${className} text-orange-500`} />;
+  return <FileText className={`${className} text-emerald-500`} />;
 }
 
 interface CompraDocumentosPanelProps {

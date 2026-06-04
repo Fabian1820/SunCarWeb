@@ -66,18 +66,28 @@ const config: Config = {
           800: "#92400e",
           900: "#78350f",
         },
-        // Suncar business palette
+        // ───────── Marca Suncar 2026 ─────────
+        // Tokens con nombre del manual de identidad visual (Mayo 2026)
+        brand: {
+          emerald: '#012928',   // Emerald Circuit  (verde oscuro, principal)
+          volt: '#AFEB17',      // Volt Green       (verde brillante, principal)
+          solar: '#F2C300',     // Solar Radiance   (amarillo, extra)
+          midnight: '#0A052D',  // Midnight Voltage (azul profundo, extra)
+          clean: '#E6F4EF',     // Clean Current    (verde claro, fondo secundario)
+        },
+        // Suncar business palette (repuntada a la marca 2026 para
+        // compatibilidad con los usos existentes de suncar-*)
         suncar: {
-          primary: '#D09752',         // Naranja principal
-          darkblue: '#0A2A5B',        // Azul oscuro
-          tertiary: '#F07F2D',        // Naranja secundario
-          yellow: '#FDD835',          // Amarillo brillante
-          textdark: '#0A2A5B',        // Texto principal oscuro
+          primary: '#012928',         // Emerald Circuit (antes naranja)
+          darkblue: '#0A052D',        // Midnight Voltage
+          tertiary: '#AFEB17',        // Volt Green
+          yellow: '#F2C300',          // Solar Radiance
+          textdark: '#012928',        // Texto principal oscuro
           textlight: '#FFFFFF',       // Texto claro
-          backgrounddark: '#121212',  // Fondo oscuro
+          backgrounddark: '#012928',  // Fondo oscuro
           backgroundlight: '#FFFFFF', // Fondo claro
-          surfacedark: '#1E1E1E',     // Superficie oscura
-          surfacelight: '#F1EFEF',    // Superficie clara
+          surfacedark: '#0A1F1E',     // Superficie oscura
+          surfacelight: '#E6F4EF',    // Superficie clara (Clean Current)
           error: '#FF0000',           // Error (rojo)
         },
       },

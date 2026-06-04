@@ -424,7 +424,7 @@ export default function LeadsPage() {
   if (error) return <div>Error: {error}</div>;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       {/* Header */}
       <ModuleHeader
         title="Gestión de Leads"

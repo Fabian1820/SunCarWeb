@@ -156,7 +156,7 @@ export function ConsumoElectricoCalculator({
           <div className="flex items-center justify-between">
             <DialogHeader className="flex-1">
               <DialogTitle className="flex items-center gap-2 text-2xl">
-                <Calculator className="h-6 w-6 text-orange-600" />
+                <Calculator className="h-6 w-6 text-emerald-600" />
                 Calculadora de Consumo Eléctrico
               </DialogTitle>
             </DialogHeader>
@@ -164,10 +164,10 @@ export function ConsumoElectricoCalculator({
               onClick={onRestablecer}
               variant="outline"
               size="sm"
-              className="flex items-center gap-2 border-orange-200 hover:bg-orange-50 hover:border-orange-300"
+              className="flex items-center gap-2 border-emerald-200 hover:bg-emerald-50 hover:border-emerald-300"
               disabled={selectedEquipos.size === 0 && equiposPersonalizados.length === 0}
             >
-              <RotateCcw className="h-4 w-4 text-orange-600" />
+              <RotateCcw className="h-4 w-4 text-emerald-600" />
               <span>Restablecer</span>
             </Button>
           </div>
@@ -175,13 +175,13 @@ export function ConsumoElectricoCalculator({
 
         {/* Panel de consumo total fijo */}
         <div className="sticky top-[88px] z-10 bg-white border-b border-gray-200 px-6 py-4">
-          <Card className="bg-gradient-to-br from-orange-50 to-yellow-50 border-orange-200">
+          <Card className="bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee] border-emerald-200">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Consumo Total por Hora</p>
                   <p className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-                    <Zap className="h-8 w-8 text-orange-600" />
+                    <Zap className="h-8 w-8 text-emerald-600" />
                     {consumoTotal.toFixed(3)} kWh
                   </p>
                   <p className="text-xs text-gray-500 mt-2">
@@ -216,7 +216,7 @@ export function ConsumoElectricoCalculator({
               }
 
               return (
-                <Card key={categoria} className="border-orange-100">
+                <Card key={categoria} className="border-emerald-100">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-lg flex items-center gap-2">
                       <span>{iconos[categoria]}</span>
@@ -228,13 +228,13 @@ export function ConsumoElectricoCalculator({
                       {equiposCategoria.map(equipo => (
                         <label
                           key={equipo.id}
-                          className="flex items-start space-x-3 p-3 rounded-lg border border-gray-200 hover:bg-orange-50 cursor-pointer transition-colors"
+                          className="flex items-start space-x-3 p-3 rounded-lg border border-gray-200 hover:bg-emerald-50 cursor-pointer transition-colors"
                         >
                           <input
                             type="checkbox"
                             checked={selectedEquipos.has(equipo.id)}
                             onChange={() => onToggleEquipo(equipo.id)}
-                            className="mt-1 h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                            className="mt-1 h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
                           />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-gray-900">{equipo.nombre}</p>
@@ -253,7 +253,7 @@ export function ConsumoElectricoCalculator({
 
           {/* Equipos personalizados */}
           {equiposPersonalizados.length > 0 && (
-            <Card className="border-orange-200 bg-orange-50">
+            <Card className="border-emerald-200 bg-emerald-50">
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg">Equipos Personalizados</CardTitle>
               </CardHeader>
@@ -262,7 +262,7 @@ export function ConsumoElectricoCalculator({
                   {equiposPersonalizados.map((equipo, index) => (
                     <div
                       key={index}
-                      className="flex items-center justify-between p-3 bg-white rounded-lg border border-orange-200"
+                      className="flex items-center justify-between p-3 bg-white rounded-lg border border-emerald-200"
                     >
                       <div>
                         <p className="text-sm font-medium text-gray-900">{equipo.nombre}</p>
@@ -288,13 +288,13 @@ export function ConsumoElectricoCalculator({
             <Button
               onClick={() => setShowAgregarEquipo(true)}
               variant="outline"
-              className="w-full border-orange-200 hover:bg-orange-50"
+              className="w-full border-emerald-200 hover:bg-emerald-50"
             >
               <Plus className="h-4 w-4 mr-2" />
               Agregar Equipo Personalizado
             </Button>
           ) : (
-            <Card className="border-orange-200 bg-orange-50">
+            <Card className="border-emerald-200 bg-emerald-50">
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg">Nuevo Equipo Personalizado</CardTitle>
               </CardHeader>
@@ -330,7 +330,7 @@ export function ConsumoElectricoCalculator({
                 <div className="flex gap-2">
                   <Button
                     onClick={agregarEquipoPersonalizado}
-                    className="flex-1 bg-orange-600 hover:bg-orange-700"
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700"
                     disabled={!nuevoEquipoNombre.trim()}
                   >
                     Agregar

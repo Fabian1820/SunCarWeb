@@ -472,7 +472,7 @@ export function AveriasTable({
                                       className={`h-7 w-7 flex-shrink-0 ${
                                         averia.estado === "Pendiente"
                                           ? "text-green-600 hover:text-green-700 hover:bg-green-50"
-                                          : "text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                                          : "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
                                       }`}
                                       onClick={() =>
                                         handleCambiarEstado(
@@ -619,7 +619,7 @@ export function AveriasTable({
                                         className={`h-7 w-7 flex-shrink-0 ${
                                           averia.estado === "Pendiente"
                                             ? "text-green-600 hover:text-green-700 hover:bg-green-50"
-                                            : "text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                                            : "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
                                         }`}
                                         onClick={() =>
                                           handleCambiarEstado(

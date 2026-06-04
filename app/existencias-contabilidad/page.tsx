@@ -157,7 +157,7 @@ function ExistenciasContabilidadPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       {/* Header */}
       <header className="fixed-header">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -169,7 +169,7 @@ function ExistenciasContabilidadPageContent() {
                   Volver al Dashboard
                 </Button>
               </Link>
-              <div className="p-0 rounded-full bg-white shadow border border-orange-200 h-12 w-12">
+              <div className="p-0 rounded-full bg-white shadow border border-emerald-200 h-12 w-12">
                 <img
                   src="/logo.png"
                   alt="Logo"

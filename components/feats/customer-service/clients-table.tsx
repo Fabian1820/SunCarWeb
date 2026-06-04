@@ -4271,7 +4271,7 @@ export function ClientsTable({
 
   return (
     <>
-      <Card className="mb-6 border-l-4 border-l-orange-600">
+      <Card className="mb-6 border-l-4 border-l-emerald-600">
         <CardContent className="p-4 sm:p-6">
           <div className="flex gap-3 mb-4 flex-col sm:flex-row">
             <div className="flex-1 relative">
@@ -4621,7 +4621,7 @@ export function ClientsTable({
             typeof totalClients === "number" && (
               <div className="mt-4 text-sm text-gray-700">
                 Total de clientes filtrados:{" "}
-                <span className="font-semibold text-orange-600">
+                <span className="font-semibold text-emerald-600">
                   {totalClients}
                 </span>
               </div>
@@ -4629,7 +4629,7 @@ export function ClientsTable({
         </CardContent>
       </Card>
 
-      <Card className="border-l-4 border-l-orange-600">
+      <Card className="border-l-4 border-l-emerald-600">
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
             <div>
@@ -4722,7 +4722,7 @@ export function ClientsTable({
                           "bg-red-100 text-red-800 hover:bg-red-200",
                         // Estados de clientes
                         "Equipo instalado con éxito":
-                          "bg-orange-100 text-orange-800 hover:bg-orange-200",
+                          "bg-emerald-100 text-emerald-800 hover:bg-emerald-200",
                         "Instalación en Proceso":
                           "bg-blue-100 text-blue-800 hover:bg-blue-200",
                       };
@@ -4739,7 +4739,7 @@ export function ClientsTable({
                       atraso.bucket === "muy"
                         ? "bg-red-100 text-red-800 border border-red-300"
                         : atraso.bucket === "medio"
-                          ? "bg-orange-100 text-orange-800 border border-orange-300"
+                          ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
                           : atraso.bucket === "leve"
                             ? "bg-yellow-100 text-yellow-800 border border-yellow-300"
                             : "";
@@ -4882,7 +4882,7 @@ export function ClientsTable({
                             const sinComponentes = !inv && bats.length === 0 && !pan;
                             const enProceso = client.estado === "Instalación en Proceso";
                             const faltaInfo = enProceso ? (
-                              <div className="mt-1.5 inline-flex items-start gap-1 rounded bg-orange-50 border border-orange-200 px-1.5 py-0.5 text-[12px] text-orange-700">
+                              <div className="mt-1.5 inline-flex items-start gap-1 rounded bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 text-[12px] text-emerald-700">
                                 <span className="font-medium">Falta:</span>
                                 <span className="break-words">
                                   {client.falta_instalacion || "No especificado"}
@@ -4923,7 +4923,7 @@ export function ClientsTable({
                                 <div className="space-y-1 text-[14px]">
                                   {inv && (
                                     <div className="flex items-center gap-1 text-gray-700" title={inv.descripcion}>
-                                      <Zap className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />
+                                      <Zap className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
                                       <span className="font-medium">{inv.cantidad}x</span>
                                       <span className="truncate">{inv.descripcion}</span>
                                     </div>
@@ -5111,7 +5111,7 @@ export function ClientsTable({
                               variant="ghost"
                               size="sm"
                               onClick={() => handleViewClientDetails(client)}
-                              className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 h-7 w-7 p-0"
+                              className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 h-7 w-7 p-0"
                               title="Ver detalles"
                             >
                               <Eye className="h-3 w-3" />
@@ -5460,7 +5460,7 @@ export function ClientsTable({
                   <Label>Selecciona la oferta genérica a duplicar</Label>
                   {loadingOfertasGenericasAprobadas ? (
                     <div className="flex items-center justify-center py-8">
-                      <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
+                      <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
                       <span className="ml-3 text-gray-600">
                         Cargando ofertas...
                       </span>
@@ -5542,8 +5542,8 @@ export function ClientsTable({
                               key={oferta.id}
                               className={`border cursor-pointer transition-all ${
                                 isSelected
-                                  ? "border-orange-500 bg-orange-50 shadow-md"
-                                  : "hover:shadow-md hover:border-orange-300"
+                                  ? "border-emerald-500 bg-emerald-50 shadow-md"
+                                  : "hover:shadow-md hover:border-emerald-300"
                               }`}
                               onClick={() =>
                                 setOfertaGenericaParaDuplicarId(oferta.id)
@@ -5575,7 +5575,7 @@ export function ClientsTable({
                                         {oferta.nombre}
                                       </h3>
                                       <div className="flex items-center gap-1.5 flex-shrink-0">
-                                        <span className="text-sm font-bold text-orange-600">
+                                        <span className="text-sm font-bold text-emerald-600">
                                           {new Intl.NumberFormat("es-ES", {
                                             style: "currency",
                                             currency:
@@ -5629,7 +5629,7 @@ export function ClientsTable({
                                     <div
                                       className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
                                         isSelected
-                                          ? "border-orange-600 bg-orange-600"
+                                          ? "border-emerald-600 bg-emerald-600"
                                           : "border-gray-300 bg-white"
                                       }`}
                                     >

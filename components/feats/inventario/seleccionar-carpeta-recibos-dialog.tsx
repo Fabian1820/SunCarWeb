@@ -111,7 +111,7 @@ export function SeleccionarCarpetaRecibosDialog({
                     <Button
                       onClick={handleSeleccionarCarpeta}
                       disabled={seleccionando}
-                      className="bg-orange-600 hover:bg-orange-700"
+                      className="bg-emerald-600 hover:bg-emerald-700"
                     >
                       {seleccionando ? "Seleccionando..." : "Seleccionar carpeta"}
                     </Button>
@@ -144,7 +144,7 @@ export function SeleccionarCarpetaRecibosDialog({
             <Button
               onClick={handleContinuar}
               disabled={!carpetaSeleccionada && soportaSeleccion}
-              className="flex-1 bg-orange-600 hover:bg-orange-700"
+              className="flex-1 bg-emerald-600 hover:bg-emerald-700"
             >
               Continuar
             </Button>

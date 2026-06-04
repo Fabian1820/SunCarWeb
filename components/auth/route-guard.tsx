@@ -33,13 +33,13 @@ export function RouteGuard({ children, requiredModule }: RouteGuardProps) {
 
   if (!hasPermission(requiredModule)) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-yellow-50">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
         <div className="text-center">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Acceso Denegado</h1>
           <p className="text-gray-600 mb-6">No tienes permisos para acceder a este módulo.</p>
           <button
             onClick={() => router.push("/")}
-            className="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+            className="px-6 py-3 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
           >
             Volver al Inicio
           </button>

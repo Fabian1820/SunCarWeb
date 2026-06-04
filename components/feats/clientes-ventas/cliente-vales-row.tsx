@@ -96,10 +96,10 @@ export function ClienteValesRow({
           {vales.map((vale) => (
             <div key={vale.id} className="px-3 py-2.5 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 min-w-0 flex-1">
-                <FileOutput className="h-4 w-4 text-orange-600 shrink-0" />
+                <FileOutput className="h-4 w-4 text-emerald-600 shrink-0" />
                 <Badge
                   variant="outline"
-                  className="bg-orange-50 text-orange-700 border-orange-200 font-mono text-[11px] shrink-0"
+                  className="bg-emerald-50 text-emerald-700 border-emerald-200 font-mono text-[11px] shrink-0"
                 >
                   {vale.codigo || vale.id.slice(-6).toUpperCase()}
                 </Badge>
@@ -174,10 +174,10 @@ export function ClienteValesRow({
         <tr key={vale.id} className="bg-gray-50 border-b border-gray-200">
           <td className="py-3 px-4 pl-12" colSpan={2}>
             <div className="flex items-center gap-2">
-              <FileOutput className="h-4 w-4 text-orange-600" />
+              <FileOutput className="h-4 w-4 text-emerald-600" />
               <Badge
                 variant="outline"
-                className="bg-orange-50 text-orange-700 border-orange-200 font-mono text-xs"
+                className="bg-emerald-50 text-emerald-700 border-emerald-200 font-mono text-xs"
               >
                 {vale.codigo || vale.id.slice(-6).toUpperCase()}
               </Badge>

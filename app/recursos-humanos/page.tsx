@@ -496,7 +496,7 @@ export default function RecursosHumanosPage() {
 
 	  if (error) {
 	    return (
-	      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50 flex items-center justify-center">
+	      <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee] flex items-center justify-center">
 	        <Card className="max-w-md border-red-200">
 	          <CardContent className="p-6">
 	            <h2 className="text-lg font-bold text-red-800 mb-2">Error al cargar datos</h2>
@@ -518,7 +518,7 @@ export default function RecursosHumanosPage() {
 	  }
 
 	  return (
-	    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+	    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
 	      {/* Header */}
 	      <ModuleHeader
 	        title="Recursos Humanos"

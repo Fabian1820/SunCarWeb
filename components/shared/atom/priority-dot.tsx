@@ -19,8 +19,8 @@ const PRIORIDAD_CONFIG = {
     label: "🔴 Alta"
   },
   Media: {
-    color: "bg-orange-500",
-    hoverColor: "hover:bg-orange-600",
+    color: "bg-emerald-500",
+    hoverColor: "hover:bg-emerald-600",
     label: "🟠 Media"
   },
   Baja: {

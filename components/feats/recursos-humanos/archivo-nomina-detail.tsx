@@ -101,10 +101,10 @@ export function ArchivoNominaDetail({ nomina }: ArchivoNominaDetailProps) {
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-orange-600">
+        <Card className="border-l-4 border-l-emerald-600">
           <CardContent className="p-4">
             <div className="flex items-center space-x-3">
-              <FileText className="h-8 w-8 text-orange-600" />
+              <FileText className="h-8 w-8 text-emerald-600" />
               <div>
                 <p className="text-sm text-gray-600">Total Calculado</p>
                 <p className="text-lg font-bold text-gray-900">

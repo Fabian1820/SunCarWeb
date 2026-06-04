@@ -78,7 +78,7 @@ export function MedioBasicoDialog({ open, onClose, medio, onSave, loading }: Med
           <DialogTitle className="flex items-center gap-2">
             {isEdit ? "Editar medio básico" : "Crear medio básico"}
             {isEdit && medio?.codigo && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-medium bg-orange-100 text-orange-700">
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-medium bg-emerald-100 text-emerald-700">
                 {medio.codigo}
               </span>
             )}

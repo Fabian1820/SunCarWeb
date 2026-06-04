@@ -123,7 +123,7 @@ function isAveriaSolucionada(estado: unknown) {
 const ESTADO_COLORS_MAP: Array<{ keys: string[]; style: { bg: string; dot: string; label: string } }> = [
   { keys: ["instalacion terminada", "instalado", "equipo instalado con exito"], style: { bg: "bg-emerald-500/15", dot: "bg-emerald-400", label: "text-emerald-300" } },
   { keys: ["instalacion en proceso"], style: { bg: "bg-blue-500/15", dot: "bg-blue-400", label: "text-blue-300" } },
-  { keys: ["pendiente de instalacion"], style: { bg: "bg-orange-500/15", dot: "bg-orange-400", label: "text-orange-300" } },
+  { keys: ["pendiente de instalacion"], style: { bg: "bg-emerald-500/15", dot: "bg-emerald-400", label: "text-emerald-300" } },
   { keys: ["pendiente de visita"], style: { bg: "bg-purple-500/15", dot: "bg-purple-400", label: "text-purple-300" } },
   { keys: ["interesado", "revisando ofertas"], style: { bg: "bg-yellow-500/15", dot: "bg-yellow-400", label: "text-yellow-300" } },
 ]
@@ -433,7 +433,7 @@ function MunicipioCard({ muni, onClose }: { muni: MunicipioDetallado; onClose: (
       <div className="bg-slate-900/95 border border-amber-500/30 rounded-xl shadow-2xl backdrop-blur-sm overflow-hidden">
         <CardHeader name={muni.municipio} sub={muni.provincia} color="text-amber-400" onClose={onClose} />
         <div className="px-4 py-2 flex items-center gap-2 border-b border-slate-700/50">
-          <Users className="h-3.5 w-3.5 text-orange-400 shrink-0" />
+          <Users className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
           <span className="text-xs text-slate-300"><span className="font-bold text-white text-sm">{muni.cantidad_clientes}</span> cliente{muni.cantidad_clientes !== 1 ? "s" : ""}</span>
         </div>
         <div className="px-4 py-2">
@@ -463,20 +463,20 @@ function PendientesInstCard({ municipio, clientes, leads, confeccionOfertas, onC
   const [expanded, setExpanded] = useState<"clientes" | "leads" | null>(null)
   return (
     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] w-80 pointer-events-auto">
-      <div className="bg-slate-900/95 border border-orange-500/30 rounded-xl shadow-2xl backdrop-blur-sm overflow-hidden">
-        <CardHeader name={municipio} color="text-orange-400" onClose={onClose} />
+      <div className="bg-slate-900/95 border border-emerald-500/30 rounded-xl shadow-2xl backdrop-blur-sm overflow-hidden">
+        <CardHeader name={municipio} color="text-emerald-400" onClose={onClose} />
         <div className="px-4 py-2 flex items-center gap-4 border-b border-slate-700/50 text-xs">
-          <span className="text-slate-300"><span className="font-bold text-orange-300 text-sm">{clientes.length}</span> clientes</span>
+          <span className="text-slate-300"><span className="font-bold text-emerald-300 text-sm">{clientes.length}</span> clientes</span>
           <span className="text-slate-300"><span className="font-bold text-amber-300 text-sm">{leads.length}</span> leads</span>
         </div>
         <div className="max-h-72 overflow-y-auto divide-y divide-slate-700/30">
           {clientes.length > 0 && (
             <div>
               <button onClick={() => setExpanded(e => e === "clientes" ? null : "clientes")}
-                className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/5 bg-orange-500/10">
+                className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/5 bg-emerald-500/10">
                 <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-orange-400" />
-                  <span className="text-[12px] font-semibold text-orange-300">Clientes pendientes</span>
+                  <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                  <span className="text-[12px] font-semibold text-emerald-300">Clientes pendientes</span>
                   <span className="text-xs text-white bg-white/10 px-1.5 py-0.5 rounded-full">{clientes.length}</span>
                 </div>
                 {expanded === "clientes" ? <ChevronUp className="h-3.5 w-3.5 text-slate-400" /> : <ChevronDown className="h-3.5 w-3.5 text-slate-400" />}
@@ -736,7 +736,7 @@ function catStyle(cat: string): { icon: React.ComponentType<{ className?: string
   const n = normalizeText(cat)
   if (n.includes("inversor"))                             return { icon: Zap,     color: "text-yellow-400",  bg: "bg-yellow-400/10",  border: "border-yellow-400/25" }
   if (n.includes("bateria") || n.includes("batería"))     return { icon: Battery, color: "text-blue-400",    bg: "bg-blue-400/10",    border: "border-blue-400/25" }
-  if (n.includes("panel"))                                return { icon: Sun,     color: "text-orange-400",  bg: "bg-orange-400/10",  border: "border-orange-400/25" }
+  if (n.includes("panel"))                                return { icon: Sun,     color: "text-emerald-400",  bg: "bg-emerald-400/10",  border: "border-emerald-400/25" }
   if (n.includes("cable"))                                return { icon: Zap,     color: "text-cyan-400",    bg: "bg-cyan-400/10",    border: "border-cyan-400/25" }
   if (n.includes("soporte") || n.includes("estructura"))  return { icon: HardHat, color: "text-amber-400",   bg: "bg-amber-400/10",   border: "border-amber-400/25" }
   return { icon: Wrench, color: "text-slate-300", bg: "bg-slate-400/10", border: "border-slate-400/25" }
@@ -1031,11 +1031,11 @@ function AveriasSolucionadasCard({ municipio, clientes, onClose }: { municipio: 
   const [expanded, setExpanded] = useState<string | null>(null)
   return (
     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] w-80 pointer-events-auto">
-      <div className="bg-slate-900/95 border border-orange-500/30 rounded-xl shadow-2xl backdrop-blur-sm overflow-hidden">
-        <CardHeader name={municipio} color="text-orange-400" onClose={onClose} />
+      <div className="bg-slate-900/95 border border-emerald-500/30 rounded-xl shadow-2xl backdrop-blur-sm overflow-hidden">
+        <CardHeader name={municipio} color="text-emerald-400" onClose={onClose} />
         <div className="px-4 py-2 flex items-center gap-2 border-b border-slate-700/50">
-          <Wrench className="h-3.5 w-3.5 text-orange-400 shrink-0" />
-          <span className="text-xs text-slate-300"><span className="font-bold text-orange-300 text-sm">{clientes.length}</span> avería{clientes.length !== 1 ? "s" : ""} solucionada{clientes.length !== 1 ? "s" : ""}</span>
+          <Wrench className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+          <span className="text-xs text-slate-300"><span className="font-bold text-emerald-300 text-sm">{clientes.length}</span> avería{clientes.length !== 1 ? "s" : ""} solucionada{clientes.length !== 1 ? "s" : ""}</span>
         </div>
         <div className="max-h-72 overflow-y-auto divide-y divide-slate-700/30">
           {clientes.map(c => {
@@ -1049,7 +1049,7 @@ function AveriasSolucionadasCard({ municipio, clientes, onClose }: { municipio: 
                   className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/5 text-left">
                   <div className="min-w-0">
                     <p className="text-[12px] font-semibold text-white truncate">{c.nombre}</p>
-                    <p className="text-[10px] text-orange-400">{avsSolucionadas.length} avería{avsSolucionadas.length !== 1 ? "s" : ""} solucionada{avsSolucionadas.length !== 1 ? "s" : ""}</p>
+                    <p className="text-[10px] text-emerald-400">{avsSolucionadas.length} avería{avsSolucionadas.length !== 1 ? "s" : ""} solucionada{avsSolucionadas.length !== 1 ? "s" : ""}</p>
                   </div>
                   {isOpen ? <ChevronUp className="h-3.5 w-3.5 text-slate-400 shrink-0 ml-2" /> : <ChevronDown className="h-3.5 w-3.5 text-slate-400 shrink-0 ml-2" />}
                 </button>
@@ -1058,8 +1058,8 @@ function AveriasSolucionadasCard({ municipio, clientes, onClose }: { municipio: 
                     {c.telefono && <p className="text-[11px] text-slate-400 flex items-center gap-1"><Phone className="h-2.5 w-2.5" />{c.telefono}</p>}
                     {c.direccion && <p className="text-[11px] text-slate-400 flex items-center gap-1"><MapPin className="h-2.5 w-2.5 shrink-0" /><span className="truncate">{c.direccion}</span></p>}
                     {avsSolucionadas.map((a, i) => (
-                      <div key={String(a.id ?? i)} className="p-2 rounded-md bg-orange-500/10 border border-orange-500/20">
-                        <p className="text-[11px] text-orange-200">{String(a.descripcion ?? "Sin descripción")}</p>
+                      <div key={String(a.id ?? i)} className="p-2 rounded-md bg-emerald-500/10 border border-emerald-500/20">
+                        <p className="text-[11px] text-emerald-200">{String(a.descripcion ?? "Sin descripción")}</p>
                         {a.fecha_resolucion != null && <p className="text-[10px] text-slate-500 mt-0.5">Resuelta: {new Date(String(a.fecha_resolucion)).toLocaleDateString("es-CU")}</p>}
                       </div>
                     ))}
@@ -2730,7 +2730,7 @@ export default function CentroControlView() {
                 </div>
                 <div className="space-y-1">
                   <OperacionesBtn icon={Clock} label="Pendientes instalación" value={controlData?.pendientesInstalacion ?? 0}
-                    color="text-orange-400" activeBg="bg-orange-500/20" active={viewMode === "pendientes_instalacion"} loading={loading}
+                    color="text-emerald-400" activeBg="bg-emerald-500/20" active={viewMode === "pendientes_instalacion"} loading={loading}
                     onClick={() => setViewMode(v => v === "pendientes_instalacion" ? "todos" : "pendientes_instalacion")} />
                   <OperacionesBtn icon={Wrench} label="En proceso" value={controlData?.enProceso ?? 0}
                     color="text-blue-400" activeBg="bg-blue-500/20" active={viewMode === "en_proceso"} loading={loading}
@@ -2775,7 +2775,7 @@ export default function CentroControlView() {
                   <div className="mt-2 px-2 py-1.5 rounded-md bg-white/5 border border-white/10">
                     <p className="text-[10px] text-slate-400">
                       Mapa:{" "}
-                      <span className={viewMode === "pendientes_instalacion" ? "text-orange-400 font-semibold"
+                      <span className={viewMode === "pendientes_instalacion" ? "text-emerald-400 font-semibold"
                         : viewMode === "en_proceso" ? "text-blue-400 font-semibold"
                         : viewMode === "averias" ? "text-red-400 font-semibold"
                         : "text-purple-400 font-semibold"}>
@@ -2826,11 +2826,11 @@ export default function CentroControlView() {
                   {/* Clientes */}
                   <div className="w-full flex items-center justify-between py-2 px-3 rounded-lg bg-white/5 gap-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <UserCheck className="h-3.5 w-3.5 text-orange-400 shrink-0" />
+                      <UserCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
                       <span className="text-[11px] text-slate-300 leading-tight truncate">Clientes</span>
                     </div>
                     {loading ? <div className="h-4 w-7 bg-slate-700 rounded animate-pulse shrink-0" />
-                      : <span className="text-sm font-bold text-orange-400 shrink-0">{controlData?.totalClientes ?? 0}</span>}
+                      : <span className="text-sm font-bold text-emerald-400 shrink-0">{controlData?.totalClientes ?? 0}</span>}
                   </div>
 
                   {/* Ofertas confirmadas */}
@@ -2953,7 +2953,7 @@ export default function CentroControlView() {
           <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] w-[min(980px,calc(100%-1.5rem))]">
             <div className="grid grid-cols-5 gap-2 bg-slate-900/92 border border-slate-700/70 rounded-xl px-2.5 py-2 shadow-xl backdrop-blur-sm">
               {[
-                { label: "Clientes",      value: controlData?.totalClientes ?? 0,     icon: Users,    color: "text-orange-400",  bg: "bg-orange-400/10",  dec: 0 },
+                { label: "Clientes",      value: controlData?.totalClientes ?? 0,     icon: Users,    color: "text-emerald-400",  bg: "bg-emerald-400/10",  dec: 0 },
                 { label: "Municipios",    value: controlData?.totalMunicipios ?? 0,   icon: Building2,color: "text-amber-400",   bg: "bg-amber-400/10",   dec: 0 },
                 { label: "kW Paneles",    value: controlData?.totalKwPaneles ?? 0,    icon: Sun,      color: "text-yellow-400",  bg: "bg-yellow-400/10",  dec: 1 },
                 { label: "kW Inversores", value: controlData?.totalKwInversores ?? 0, icon: Cpu,      color: "text-emerald-400", bg: "bg-emerald-400/10", dec: 1 },
@@ -3065,7 +3065,7 @@ export default function CentroControlView() {
           {/* Leyenda densidad */}
           {viewMode !== "todos" && (
             <div className="absolute bottom-16 right-3 z-[1000] bg-slate-900/90 border border-slate-700 rounded-lg px-3 py-2 text-[10px] text-slate-400 space-y-1 backdrop-blur-sm">
-              <p className={`font-semibold mb-1 ${viewMode === "pendientes_instalacion" ? "text-orange-400" : viewMode === "en_proceso" ? "text-blue-400" : viewMode === "averias" ? "text-red-400" : viewMode === "ventas" ? "text-violet-400" : "text-purple-400"}`}>
+              <p className={`font-semibold mb-1 ${viewMode === "pendientes_instalacion" ? "text-emerald-400" : viewMode === "en_proceso" ? "text-blue-400" : viewMode === "averias" ? "text-red-400" : viewMode === "ventas" ? "text-violet-400" : "text-purple-400"}`}>
                 Densidad
               </p>
               {([0.9, 0.65, 0.4, 0.15] as const).map((ratio, i) => (
@@ -3209,7 +3209,7 @@ export default function CentroControlView() {
               <div className="space-y-0.5">
                 {[
                   { icon: Phone,       label: "Nuevos leads",        value: periodoStats.nuevosLeads,        color: "text-amber-400"  },
-                  { icon: UserPlus,    label: "Nuevos clientes",     value: periodoStats.nuevosClientes,     color: "text-orange-400" },
+                  { icon: UserPlus,    label: "Nuevos clientes",     value: periodoStats.nuevosClientes,     color: "text-emerald-400" },
                   { icon: Zap,         label: "Ofertas creadas",     value: periodoStats.ofertasCreadas,     color: "text-yellow-400" },
                   { icon: CheckCircle, label: "Ofertas confirmadas", value: periodoStats.ofertasConfirmadas, color: "text-emerald-400" },
                   { icon: XCircle,     label: "Ofertas canceladas",  value: periodoStats.ofertasCanceladas,  color: "text-red-400"    },

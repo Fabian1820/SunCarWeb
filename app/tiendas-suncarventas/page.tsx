@@ -39,12 +39,12 @@ export default function TiendasSuncarVentasPage() {
   )
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Tiendas Suncar Ventas"
         subtitle="Gestión de tiendas y puntos de venta"
-        badge={{ text: "Ventas", className: "bg-orange-100 text-orange-800" }}
-        className="bg-white shadow-sm border-b border-orange-100"
+        badge={{ text: "Ventas", className: "bg-emerald-100 text-emerald-800" }}
+        className="bg-white shadow-sm border-b border-emerald-100"
         backButton={{
           href: "/",
           label: "Volver al Dashboard"
@@ -61,7 +61,7 @@ export default function TiendasSuncarVentasPage() {
                 <Link href="/inventario/tiendas">
                   <Card className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer hover:-translate-y-2 bg-white/90 backdrop-blur-sm">
                     <CardContent className="p-6 text-center flex flex-col justify-center">
-                      <Settings className="h-10 w-10 text-orange-600 mx-auto mb-3" />
+                      <Settings className="h-10 w-10 text-emerald-600 mx-auto mb-3" />
                       <h3 className="text-lg font-semibold text-gray-900 mb-2">Gestión de Tiendas</h3>
                       <p className="text-sm text-gray-600">Crear y administrar sucursales</p>
                     </CardContent>
@@ -86,7 +86,7 @@ export default function TiendasSuncarVentasPage() {
                   <Link key={tienda.id} href={`/tiendas/${tienda.id}`}>
                     <Card className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer hover:-translate-y-2 bg-white/90 backdrop-blur-sm">
                       <CardContent className="p-6 text-center flex flex-col justify-center">
-                        <ShoppingBag className="h-10 w-10 text-orange-600 mx-auto mb-3" />
+                        <ShoppingBag className="h-10 w-10 text-emerald-600 mx-auto mb-3" />
                         <h3 className="text-lg font-semibold text-gray-900 mb-2">{tienda.nombre}</h3>
                         <p className="text-sm text-gray-600">
                           {tienda.almacen_nombre 

@@ -514,14 +514,14 @@ export function CreateReservaVentaDialog({
             <Button
               type="button"
               variant="outline"
-              className="w-full justify-between border-orange-200 text-orange-700 hover:bg-orange-50 hover:border-orange-300"
+              className="w-full justify-between border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-300"
               onClick={handleToggleOfertaPanel}
             >
               <span className="flex items-center gap-2">
                 <ShoppingCart className="h-4 w-4" />
                 Cargar desde oferta de venta
                 {ofertaAplicada && (
-                  <Badge className="bg-orange-100 text-orange-700 border-orange-200 font-normal">
+                  <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 font-normal">
                     {ofertaAplicada.codigo || ofertaAplicada.id.slice(-8).toUpperCase()}
                   </Badge>
                 )}
@@ -532,7 +532,7 @@ export function CreateReservaVentaDialog({
             </Button>
 
             {showOfertaPanel && (
-              <div className="border border-orange-100 rounded-md bg-orange-50/40 overflow-hidden">
+              <div className="border border-emerald-100 rounded-md bg-emerald-50/40 overflow-hidden">
                 {loadingOfertas ? (
                   <div className="flex items-center gap-2 p-4 text-sm text-gray-500">
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -543,7 +543,7 @@ export function CreateReservaVentaDialog({
                     No hay ofertas de venta disponibles.
                   </p>
                 ) : (
-                  <div className="divide-y divide-orange-100 max-h-60 overflow-y-auto">
+                  <div className="divide-y divide-emerald-100 max-h-60 overflow-y-auto">
                     {ofertasDisponibles.map((oferta) => {
                       const ESTADO_COLOR: Record<string, string> = {
                         enviada:   "bg-blue-50 text-blue-700 border-blue-200",
@@ -558,11 +558,11 @@ export function CreateReservaVentaDialog({
                           key={oferta.id}
                           type="button"
                           onClick={() => applyOferta(oferta)}
-                          className="w-full text-left px-4 py-3 hover:bg-orange-100/60 transition-colors"
+                          className="w-full text-left px-4 py-3 hover:bg-emerald-100/60 transition-colors"
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
-                              <p className="text-sm font-semibold text-orange-800 font-mono">
+                              <p className="text-sm font-semibold text-emerald-800 font-mono">
                                 {oferta.codigo || oferta.id.slice(-8).toUpperCase()}
                               </p>
                               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
@@ -597,7 +597,7 @@ export function CreateReservaVentaDialog({
             )}
 
             {ofertaAplicada && (
-              <div className="flex items-center justify-between rounded-md bg-orange-50 border border-orange-200 px-3 py-2 text-xs text-orange-700">
+              <div className="flex items-center justify-between rounded-md bg-emerald-50 border border-emerald-200 px-3 py-2 text-xs text-emerald-700">
                 <span>
                   Materiales cargados desde oferta{" "}
                   <span className="font-mono font-semibold">
@@ -608,7 +608,7 @@ export function CreateReservaVentaDialog({
                 <button
                   type="button"
                   onClick={() => setOfertaAplicada(null)}
-                  className="ml-3 hover:text-orange-900 shrink-0"
+                  className="ml-3 hover:text-emerald-900 shrink-0"
                 >
                   <X className="h-3 w-3" />
                 </button>

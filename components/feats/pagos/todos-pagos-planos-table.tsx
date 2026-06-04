@@ -248,7 +248,7 @@ export function TodosPagosPlanosTable({
     const badges = {
       efectivo: <Badge className="bg-green-100 text-green-700">Efectivo</Badge>,
       transferencia_bancaria: (
-        <Badge className="bg-orange-100 text-orange-700">Transferencia</Badge>
+        <Badge className="bg-emerald-100 text-emerald-700">Transferencia</Badge>
       ),
       stripe: <Badge className="bg-indigo-100 text-indigo-700">Stripe</Badge>,
     };
@@ -411,7 +411,7 @@ export function TodosPagosPlanosTable({
                   <div className="mt-1 text-xs">
                     <Badge
                       variant="outline"
-                      className="bg-orange-50 text-orange-700"
+                      className="bg-emerald-50 text-emerald-700"
                     >
                       +{formatCurrency(pago.diferencia.monto)}
                     </Badge>
@@ -419,7 +419,7 @@ export function TodosPagosPlanosTable({
                 )}
               </TableCell>
               <TableCell className="text-right py-3">
-                <div className="font-semibold text-sm text-orange-700">
+                <div className="font-semibold text-sm text-emerald-700">
                   {formatCurrency(
                     isOfertaCancelada(pago.oferta.estado)
                       ? 0
@@ -474,7 +474,7 @@ export function TodosPagosPlanosTable({
                   {!pago.pago_cliente && (
                     <Badge
                       variant="outline"
-                      className="bg-orange-50 text-orange-700 w-fit text-xs"
+                      className="bg-emerald-50 text-emerald-700 w-fit text-xs"
                     >
                       Tercero
                     </Badge>
@@ -519,10 +519,10 @@ export function TodosPagosPlanosTable({
                   {!pago.recibido_por && !pago.comprobante_transferencia && "-"}
                   {pago.diferencia && (
                     <details className="mt-1 text-xs">
-                      <summary className="cursor-pointer text-orange-600 hover:underline">
+                      <summary className="cursor-pointer text-emerald-600 hover:underline">
                         Ver justificación excedente
                       </summary>
-                      <div className="mt-1 p-2 bg-orange-50 border border-orange-200 rounded">
+                      <div className="mt-1 p-2 bg-emerald-50 border border-emerald-200 rounded">
                         <p className="text-gray-700 italic">
                           {pago.diferencia.justificacion}
                         </p>

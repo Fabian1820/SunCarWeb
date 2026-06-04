@@ -23,7 +23,7 @@ export default function OfertasGestionPage() {
   }, [searchParams, router]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Gestionar Ofertas"
         subtitle="Consulta las ofertas confeccionadas en formato de cards."
@@ -31,7 +31,7 @@ export default function OfertasGestionPage() {
         actions={
           <Button
             onClick={() => router.push("/ofertas-gestion/confeccion")}
-            className="bg-orange-600 hover:bg-orange-700 text-white"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
           >
             <Plus className="h-4 w-4 mr-2" />
             Crear Oferta

@@ -117,7 +117,7 @@ export function SolicitudVentaDetailDialog({
                   variant="outline"
                   className={
                     isUsada
-                      ? "bg-orange-50 text-orange-700 border-orange-200"
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                       : isAnulada
                         ? "bg-red-50 text-red-700 border-red-200"
                         : "bg-emerald-50 text-emerald-700 border-emerald-200"
@@ -249,7 +249,7 @@ export function SolicitudVentaDetailDialog({
                         </td>
                         <td className="py-2 px-3 text-right">
                           {tieneDescuento ? (
-                            <span className="text-orange-600">
+                            <span className="text-emerald-600">
                               {material.descuento_porcentaje}%
                               {material.precio != null && (
                                 <span className="text-xs text-gray-400 ml-1">

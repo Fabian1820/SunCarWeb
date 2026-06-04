@@ -91,7 +91,7 @@ export default function EstadoEquiposPage() {
       <ModuleHeader
         title="Estado de Equipos"
         subtitle="Seguimiento de equipos vendidos, entregados y en servicio"
-        badge={{ text: "Reporte", className: "bg-orange-100 text-orange-800" }}
+        badge={{ text: "Reporte", className: "bg-emerald-100 text-emerald-800" }}
       />
 
       <main className="content-with-fixed-header max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">

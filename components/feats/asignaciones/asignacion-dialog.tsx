@@ -145,7 +145,7 @@ export function AsignacionDialog({
 
               {/* Medio seleccionado */}
               {medioSeleccionado ? (
-                <div className="flex items-center justify-between gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-md">
+                <div className="flex items-center justify-between gap-2 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-md">
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">{medioSeleccionado.nombre}</p>
                     {medioSeleccionado.precio != null && (
@@ -187,7 +187,7 @@ export function AsignacionDialog({
                     filteredMedios.map(m => (
                       <button
                         key={m.id}
-                        className="w-full flex items-center justify-between px-3 py-2 text-left text-sm hover:bg-orange-50 transition-colors border-b last:border-0"
+                        className="w-full flex items-center justify-between px-3 py-2 text-left text-sm hover:bg-emerald-50 transition-colors border-b last:border-0"
                         onMouseDown={e => { e.preventDefault(); selectMedio(m) }}
                       >
                         <span className="font-medium text-gray-800 truncate pr-2">{m.nombre}</span>

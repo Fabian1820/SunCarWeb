@@ -369,15 +369,15 @@ export default function ValesSalidaPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Vales de Salida"
         subtitle="Gestiona los vales de salida desde solicitudes de materiales y ventas"
         badge={{
           text: "Almacenes",
-          className: "bg-orange-100 text-orange-800",
+          className: "bg-emerald-100 text-emerald-800",
         }}
-        className="bg-white shadow-sm border-b border-orange-100"
+        className="bg-white shadow-sm border-b border-emerald-100"
         backButton={{
           href: `/almacenes-suncar/${almacenId}`,
           label: "Volver al almacén",
@@ -546,7 +546,7 @@ export default function ValesSalidaPage() {
           ) : null}
         </Card>
 
-        <Card className="border-0 shadow-md mb-6 border-l-4 border-l-orange-600">
+        <Card className="border-0 shadow-md mb-6 border-l-4 border-l-emerald-600">
           <CardContent className="pt-6">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               <div>
@@ -697,14 +697,14 @@ export default function ValesSalidaPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-md border-l-4 border-l-orange-600">
+        <Card className="border-0 shadow-md border-l-4 border-l-emerald-600">
           <CardHeader>
             <div className="flex items-center justify-between gap-4">
               <CardTitle className="flex items-center gap-2">
-                <FileOutput className="h-5 w-5 text-orange-600" />
+                <FileOutput className="h-5 w-5 text-emerald-600" />
                 Vales de Salida
                 {isSearching && (
-                  <Loader2 className="h-4 w-4 text-orange-600 animate-spin" />
+                  <Loader2 className="h-4 w-4 text-emerald-600 animate-spin" />
                 )}
               </CardTitle>
               <div className="flex items-center gap-2 shrink-0">
@@ -732,7 +732,7 @@ export default function ValesSalidaPage() {
                   variant="outline"
                   size="sm"
                   onClick={() => setIsStockHistoricoOpen(true)}
-                  className="gap-1.5 border-orange-300 text-orange-700 hover:bg-orange-50"
+                  className="gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
                   title="Ver stock del almacén en una fecha pasada"
                 >
                   <History className="h-4 w-4" />
@@ -742,7 +742,7 @@ export default function ValesSalidaPage() {
             </div>
             <CardDescription>
               {isSearching ? (
-                <span className="text-orange-600 flex items-center gap-1">
+                <span className="text-emerald-600 flex items-center gap-1">
                   <Loader2 className="h-3 w-3 animate-spin" />
                   Buscando...
                 </span>
@@ -781,7 +781,7 @@ export default function ValesSalidaPage() {
                   onClick={() => void loadMore()}
                   disabled={loading}
                   variant="outline"
-                  className="border-orange-300 text-orange-700 hover:bg-orange-50"
+                  className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
                 >
                   {loading ? (
                     <>

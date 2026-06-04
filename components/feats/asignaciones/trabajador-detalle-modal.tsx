@@ -49,14 +49,14 @@ export function TrabajadorDetalleModal({
               {asignaciones.map(a => (
                 <div
                   key={a.id}
-                  className="flex items-start justify-between gap-3 p-3 rounded-lg border border-gray-100 bg-white hover:bg-orange-50/30 transition-colors"
+                  className="flex items-start justify-between gap-3 p-3 rounded-lg border border-gray-100 bg-white hover:bg-emerald-50/30 transition-colors"
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
                       <p className="font-medium text-sm truncate">{a.nombre}</p>
                       <span className={`shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
                         a.item_tipo === 'medio_basico'
-                          ? 'bg-orange-100 text-orange-700'
+                          ? 'bg-emerald-100 text-emerald-700'
                           : 'bg-blue-100 text-blue-700'
                       }`}>
                         {a.item_tipo === 'medio_basico' ? 'Medio básico' : 'Material'}

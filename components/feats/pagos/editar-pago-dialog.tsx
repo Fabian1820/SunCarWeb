@@ -324,7 +324,7 @@ export function EditarPagoDialog({ open, onOpenChange, pago, oferta, onSuccess }
                         </div>
                         <div className="flex justify-between">
                             <span className="text-sm text-gray-600">Monto Pendiente Actual:</span>
-                            <span className="text-sm font-bold text-orange-700">
+                            <span className="text-sm font-bold text-emerald-700">
                                 {formatCurrency(oferta.monto_pendiente)}
                             </span>
                         </div>
@@ -426,18 +426,18 @@ export function EditarPagoDialog({ open, onOpenChange, pago, oferta, onSuccess }
 
                         {/* Justificación de diferencia (solo si excede el disponible) */}
                         {formData.monto && pago && formData.tasa_cambio > 0 && (parseFloat(formData.monto) / formData.tasa_cambio) > (oferta.monto_pendiente + pago.monto_usd) && (
-                            <div className="space-y-2 border-l-4 border-orange-400 pl-4 bg-orange-50 p-3 rounded">
+                            <div className="space-y-2 border-l-4 border-emerald-400 pl-4 bg-emerald-50 p-3 rounded">
                                 <div className="flex items-start gap-2">
-                                    <div className="bg-orange-500 text-white rounded-full p-1 mt-0.5">
+                                    <div className="bg-emerald-500 text-white rounded-full p-1 mt-0.5">
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                                         </svg>
                                     </div>
                                     <div className="flex-1">
-                                        <p className="text-sm font-semibold text-orange-800 mb-1">
+                                        <p className="text-sm font-semibold text-emerald-800 mb-1">
                                             El monto excede el disponible en {formatCurrency((parseFloat(formData.monto) / formData.tasa_cambio) - (oferta.monto_pendiente + pago.monto_usd))}
                                         </p>
-                                        <p className="text-xs text-orange-700 mb-2">
+                                        <p className="text-xs text-emerald-700 mb-2">
                                             Debe proporcionar una justificación para este pago adicional
                                         </p>
                                     </div>
@@ -532,7 +532,7 @@ export function EditarPagoDialog({ open, onOpenChange, pago, oferta, onSuccess }
                             </div>
 
                             {!formData.pago_cliente && (
-                                <div className="space-y-3 pl-6 border-l-2 border-orange-200">
+                                <div className="space-y-3 pl-6 border-l-2 border-emerald-200">
                                     <div className="space-y-2">
                                         <Label htmlFor="nombre_pagador">
                                             Nombre del pagador <span className="text-red-500">*</span>
@@ -649,7 +649,7 @@ export function EditarPagoDialog({ open, onOpenChange, pago, oferta, onSuccess }
                                                 </span>
                                             </div>
                                             {formData.monto && Math.abs(calcularTotalDesglose() - parseFloat(formData.monto)) > 0.01 && (
-                                                <p className="text-xs text-orange-600 mt-1">
+                                                <p className="text-xs text-emerald-600 mt-1">
                                                     ⚠️ El total del desglose no coincide con el monto del pago
                                                 </p>
                                             )}

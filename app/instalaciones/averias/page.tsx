@@ -159,7 +159,7 @@ export default function AveriasPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Averías"
         subtitle="Reportes de averías y mantenimiento"

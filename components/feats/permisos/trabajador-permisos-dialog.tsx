@@ -348,24 +348,24 @@ export function TrabajadorPermisosDialog({
         <button
           type="button"
           onClick={() => toggleSeccion(grupoKey)}
-          className="w-full flex items-center justify-between px-3 py-2 bg-orange-50 hover:bg-orange-100 transition-colors"
+          className="w-full flex items-center justify-between px-3 py-2 bg-emerald-50 hover:bg-emerald-100 transition-colors"
         >
           <div className="flex items-center gap-2 text-left">
             {abierta ? (
-              <ChevronDown className="h-4 w-4 text-orange-700" />
+              <ChevronDown className="h-4 w-4 text-emerald-700" />
             ) : (
-              <ChevronRight className="h-4 w-4 text-orange-700" />
+              <ChevronRight className="h-4 w-4 text-emerald-700" />
             )}
             <div>
-              <p className="font-semibold text-sm text-orange-900">
+              <p className="font-semibold text-sm text-emerald-900">
                 {grupo.title || "Resultados Empresa"}
               </p>
               {grupo.subtitle ? (
-                <p className="text-xs text-orange-700/80">{grupo.subtitle}</p>
+                <p className="text-xs text-emerald-700/80">{grupo.subtitle}</p>
               ) : null}
             </div>
           </div>
-          <span className="text-xs font-medium text-orange-800 bg-white border border-orange-200 px-2 py-0.5 rounded">
+          <span className="text-xs font-medium text-emerald-800 bg-white border border-emerald-200 px-2 py-0.5 rounded">
             {cuentaAsignados}/{modulos.length}
           </span>
         </button>
@@ -404,7 +404,7 @@ export function TrabajadorPermisosDialog({
 
         {isLoading ? (
           <div className="py-12 text-center">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto text-orange-600" />
+            <Loader2 className="h-8 w-8 animate-spin mx-auto text-emerald-600" />
             <p className="text-sm text-gray-500 mt-2">Cargando permisos…</p>
           </div>
         ) : (
@@ -567,7 +567,7 @@ export function TrabajadorPermisosDialog({
           <Button
             onClick={handleSave}
             disabled={isSaving || isLoading}
-            className="bg-orange-600 hover:bg-orange-700"
+            className="bg-emerald-600 hover:bg-emerald-700"
           >
             {isSaving ? (
               <>

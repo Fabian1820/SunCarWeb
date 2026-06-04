@@ -133,7 +133,7 @@ export function TrabajadorAsignacionesTable({
               return (
                 <TableRow
                   key={t.CI}
-                  className="cursor-pointer hover:bg-orange-50/40 transition-colors"
+                  className="cursor-pointer hover:bg-emerald-50/40 transition-colors"
                   onClick={() => openDetalle(t)}
                 >
                   <TableCell className="font-medium">
@@ -143,7 +143,7 @@ export function TrabajadorAsignacionesTable({
                   <TableCell className="text-sm text-gray-600">{t.cargo}</TableCell>
                   <TableCell className="text-center">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                      total > 0 ? "bg-orange-100 text-orange-700" : "bg-gray-100 text-gray-500"
+                      total > 0 ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"
                     }`}>
                       {total}
                     </span>

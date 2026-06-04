@@ -93,7 +93,7 @@ export function BirthdayNotification({ birthdays, onClose }: BirthdayNotificatio
       onClick={handleClose}
     >
       <Card
-        className={`relative max-w-md w-full shadow-2xl border-4 border-yellow-400 bg-gradient-to-br from-yellow-50 via-orange-50 to-red-50 transform transition-all duration-300 ${
+        className={`relative max-w-md w-full shadow-2xl border-4 border-yellow-400 bg-gradient-to-br from-yellow-50 via-emerald-50 to-red-50 transform transition-all duration-300 ${
           isVisible ? 'scale-100 rotate-0' : 'scale-75 rotate-12'
         }`}
         onClick={(e) => e.stopPropagation()}
@@ -110,13 +110,13 @@ export function BirthdayNotification({ birthdays, onClose }: BirthdayNotificatio
         <CardHeader className="text-center pb-4">
           <div className="flex justify-center mb-4">
             <div className="relative">
-              <Cake className="h-16 w-16 text-orange-500 animate-bounce" />
+              <Cake className="h-16 w-16 text-emerald-500 animate-bounce" />
               <div className="absolute -top-2 -right-2 bg-yellow-400 rounded-full p-1">
                 <span className="text-2xl">🎉</span>
               </div>
             </div>
           </div>
-          <CardTitle className="text-3xl font-bold text-orange-600">
+          <CardTitle className="text-3xl font-bold text-emerald-600">
             🎂 ¡Feliz Cumpleaños! 🎂
           </CardTitle>
         </CardHeader>
@@ -130,14 +130,14 @@ export function BirthdayNotification({ birthdays, onClose }: BirthdayNotificatio
             {birthdays.map((birthday, index) => (
               <div
                 key={birthday.CI}
-                className="bg-white p-4 rounded-lg shadow-md border-2 border-orange-200 hover:border-orange-400 transition-colors"
+                className="bg-white p-4 rounded-lg shadow-md border-2 border-emerald-200 hover:border-emerald-400 transition-colors"
                 style={{
                   animation: `slideIn 0.5s ease-out ${index * 0.2}s both`
                 }}
               >
                 <div className="flex items-center gap-3">
                   <div className="flex-shrink-0">
-                    <div className="w-12 h-12 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-white text-2xl font-bold shadow-lg">
+                    <div className="w-12 h-12 bg-gradient-to-br from-yellow-400 to-emerald-500 rounded-full flex items-center justify-center text-white text-2xl font-bold shadow-lg">
                       {birthday.nombre.charAt(0).toUpperCase()}
                     </div>
                   </div>
@@ -163,7 +163,7 @@ export function BirthdayNotification({ birthdays, onClose }: BirthdayNotificatio
 
           <Button
             onClick={handleClose}
-            className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-semibold py-3 text-lg shadow-lg"
+            className="w-full bg-gradient-to-r from-yellow-500 to-emerald-500 hover:from-yellow-600 hover:to-emerald-600 text-white font-semibold py-3 text-lg shadow-lg"
           >
             ¡Entendido! 🎉
           </Button>

@@ -111,7 +111,7 @@ export function TicketManualDialog({ open, onOpenChange }: TicketManualDialogPro
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <ClipboardList className="h-5 w-5 text-orange-600" />
+            <ClipboardList className="h-5 w-5 text-emerald-600" />
             Generar Ticket / Vale de Venta
           </DialogTitle>
         </DialogHeader>
@@ -181,7 +181,7 @@ export function TicketManualDialog({ open, onOpenChange }: TicketManualDialogPro
                         onChange={(e) =>
                           handleItemChange(item.id, "descripcion", e.target.value)
                         }
-                        className="h-8 text-sm border-gray-200 focus:border-orange-300"
+                        className="h-8 text-sm border-gray-200 focus:border-emerald-300"
                       />
                     </td>
                     <td className="py-1.5 px-2">
@@ -198,7 +198,7 @@ export function TicketManualDialog({ open, onOpenChange }: TicketManualDialogPro
                             parseFloat(e.target.value) || 0,
                           )
                         }
-                        className="h-8 text-sm text-right border-gray-200 focus:border-orange-300"
+                        className="h-8 text-sm text-right border-gray-200 focus:border-emerald-300"
                       />
                     </td>
                     <td className="py-1.5 px-2">
@@ -215,7 +215,7 @@ export function TicketManualDialog({ open, onOpenChange }: TicketManualDialogPro
                             parseInt(e.target.value) || 0,
                           )
                         }
-                        className="h-8 text-sm text-center border-gray-200 focus:border-orange-300"
+                        className="h-8 text-sm text-center border-gray-200 focus:border-emerald-300"
                       />
                     </td>
                     <td className="py-1.5 pl-1 text-center">
@@ -238,7 +238,7 @@ export function TicketManualDialog({ open, onOpenChange }: TicketManualDialogPro
             {/* Total */}
             <div className="flex justify-end items-center gap-3 pt-3 border-t border-gray-200">
               <span className="text-sm font-medium text-gray-500">Total:</span>
-              <span className="text-2xl font-bold text-orange-600">
+              <span className="text-2xl font-bold text-emerald-600">
                 {formatMoney(total)}
               </span>
             </div>
@@ -253,7 +253,7 @@ export function TicketManualDialog({ open, onOpenChange }: TicketManualDialogPro
           <Button
             onClick={handleExport}
             disabled={!canExport}
-            className="bg-orange-600 hover:bg-orange-700 gap-2"
+            className="bg-emerald-600 hover:bg-emerald-700 gap-2"
           >
             <Download className="h-4 w-4" />
             Exportar PDF

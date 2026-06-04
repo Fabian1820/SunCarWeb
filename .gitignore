@@ -39,3 +39,8 @@ next-env.d.ts
 .next_*/
 .next_corrupt_*/
 .claude/
+
+# OS / brand source
+.DS_Store
+**/.DS_Store
+Entrega Variantes de marca & Editable/
