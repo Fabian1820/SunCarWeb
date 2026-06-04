@@ -61,6 +61,18 @@ const cleanPayload = <T extends Record<string, unknown>>(
 };
 
 export class ClienteService {
+  /** Total histórico de instalaciones terminadas (liviano, para la bienvenida). */
+  static async getTotalInstalaciones(): Promise<number> {
+    try {
+      const res = await apiRequest<{ success?: boolean; total?: number }>(
+        "/clientes/total-instalaciones",
+      );
+      return res?.total ?? 0;
+    } catch {
+      return 0;
+    }
+  }
+
   static async getClientes(params: ClienteListParams = {}): Promise<{
     clients: Cliente[];
     total: number;

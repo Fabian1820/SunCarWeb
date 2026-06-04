@@ -283,6 +283,30 @@ export class TrabajadorService {
     return response.data
   }
 
+  static async subirFotoTrabajador(ci: string, foto: File): Promise<string> {
+    const formData = new FormData()
+    formData.append('foto', foto)
+
+    const response = await apiRequest<{ success?: boolean; message?: string; foto_perfil?: string }>(
+      `/trabajadores/${ci}/foto`,
+      {
+        method: 'POST',
+        body: formData,
+      }
+    )
+    if (response.success === false || !response.foto_perfil) {
+      throw new Error(response.message || 'No se pudo subir la foto de perfil.')
+    }
+    return response.foto_perfil
+  }
+
+  static async eliminarFotoTrabajador(ci: string): Promise<boolean> {
+    const response = await apiRequest<{ success?: boolean; message?: string }>(`/trabajadores/${ci}/foto`, {
+      method: 'DELETE',
+    })
+    return response.success !== false
+  }
+
   static async eliminarContrasenaTrabajador(ci: string): Promise<boolean> {
     const response = await apiRequest<{ success: boolean }>(`/trabajadores/${ci}/contrasena`, {
       method: 'DELETE',
@@ -303,6 +327,24 @@ export class TrabajadorService {
       return {
         success: false,
         message: 'Error al obtener cumpleaños',
+        data: []
+      }
+    }
+  }
+
+  /**
+   * Obtiene los trabajadores que cumplen años en los próximos 7 días (hoy incluido).
+   * Cada elemento incluye foto_perfil, fecha (YYYY-MM-DD) y es_hoy.
+   */
+  static async getCumpleanosSemana(): Promise<BirthdaysResponse> {
+    try {
+      const response = await apiRequest<BirthdaysResponse>('/trabajadores/cumpleanos/semana')
+      return response
+    } catch (error) {
+      console.error('Error obteniendo cumpleaños de la semana:', error)
+      return {
+        success: false,
+        message: 'Error al obtener cumpleaños de la semana',
         data: []
       }
     }

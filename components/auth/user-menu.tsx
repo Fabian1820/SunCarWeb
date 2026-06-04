@@ -1,77 +1,101 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/shared/atom/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/shared/molecule/dropdown-menu";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/shared/molecule/dialog";
 import { LogOut, User, KeyRound } from "lucide-react";
 import { ChangePasswordDialog } from "@/components/auth/change-password-dialog";
+import { WorkerAvatarUploader } from "@/components/feats/worker/worker-avatar";
 
-export function UserMenu() {
-  const { user, logout } = useAuth();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+interface UserMenuProps {
+  /**
+   * Trigger personalizado. Si se provee, reemplaza al botón por defecto
+   * (se renderiza con asChild). Útil para usarlo como fila de perfil en el
+   * sidebar y evitar mostrar el nombre dos veces.
+   */
+  trigger?: ReactNode;
+  /** @deprecated Conservado por compatibilidad; ya no se usa (la vista es un diálogo). */
+  align?: "start" | "center" | "end";
+}
+
+export function UserMenu({ trigger }: UserMenuProps) {
+  const { user, logout, updateUserFoto } = useAuth();
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
 
   if (!user) return null;
 
   return (
     <>
-      <DropdownMenu
-        open={isMenuOpen}
-        onOpenChange={setIsMenuOpen}
-        modal={false}
-      >
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            aria-label="Abrir menu de cuenta"
-            className="flex items-center justify-center gap-0 sm:gap-2 bg-white hover:bg-emerald-50 border-emerald-200 hover:border-emerald-300 rounded-full sm:rounded-md h-9 w-9 sm:h-9 sm:w-auto px-0 sm:px-3"
-          >
-            <User className="h-4 w-4 text-emerald-600" />
-            <span className="hidden sm:inline text-gray-700">
-              {user.nombre}
-            </span>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <div className="px-2 py-1.5 text-sm">
-            <div className="font-medium text-gray-900">{user.nombre}</div>
-            <div className="text-xs text-gray-500">CI: {user.ci}</div>
-            <div className="text-xs text-gray-500 mt-1">
-              <span className="font-medium">Cargo:</span> {user.rol}
+      <Dialog open={isProfileOpen} onOpenChange={setIsProfileOpen}>
+        <DialogTrigger asChild>
+          {trigger ?? (
+            <Button
+              variant="outline"
+              size="sm"
+              aria-label="Abrir perfil"
+              className="flex items-center justify-center gap-0 sm:gap-2 bg-white hover:bg-emerald-50 border-emerald-200 hover:border-emerald-300 rounded-full sm:rounded-md h-9 w-9 sm:h-9 sm:w-auto px-0 sm:px-3"
+            >
+              <User className="h-4 w-4 text-emerald-600" />
+              <span className="hidden sm:inline text-gray-700">
+                {user.nombre}
+              </span>
+            </Button>
+          )}
+        </DialogTrigger>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Mi Perfil</DialogTitle>
+          </DialogHeader>
+
+          <div className="flex flex-col items-center gap-6 py-2">
+            <WorkerAvatarUploader
+              ci={user.ci}
+              fotoPerfil={user.foto_perfil}
+              nombre={user.nombre}
+              size="lg"
+              onChange={(foto) => updateUserFoto(foto)}
+            />
+
+            <div className="w-full rounded-xl border border-gray-100 bg-gray-50 p-4 text-center">
+              <p className="text-base font-semibold text-gray-900">{user.nombre}</p>
+              <p className="text-sm text-gray-500">CI: {user.ci}</p>
+              <p className="mt-1 text-sm text-gray-500">
+                <span className="font-medium">Cargo:</span> {user.rol}
+              </p>
+            </div>
+
+            <div className="flex w-full flex-col gap-2">
+              <Button
+                variant="outline"
+                className="w-full justify-start"
+                onClick={() => {
+                  setIsProfileOpen(false);
+                  setIsChangePasswordOpen(true);
+                }}
+              >
+                <KeyRound className="mr-2 h-4 w-4" />
+                Cambiar Contraseña
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full justify-start border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                onClick={logout}
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Cerrar Sesión
+              </Button>
             </div>
           </div>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onSelect={(event) => {
-              event.preventDefault();
-              setIsMenuOpen(false);
-              setIsChangePasswordOpen(true);
-            }}
-            className="cursor-pointer"
-          >
-            <KeyRound className="mr-2 h-4 w-4" />
-            <span>Cambiar Contrasena</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={logout}
-            className="text-red-600 cursor-pointer"
-          >
-            <LogOut className="mr-2 h-4 w-4" />
-            <span>Cerrar Sesion</span>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+        </DialogContent>
+      </Dialog>
 
       <ChangePasswordDialog
         open={isChangePasswordOpen}
