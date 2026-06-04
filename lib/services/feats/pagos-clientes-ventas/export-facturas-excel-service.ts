@@ -39,29 +39,25 @@ const getCantidadMateriales = (f: FacturaClienteVenta): number => {
   return getMaterialesList(f).length;
 };
 
-const formatMaterialesDetalle = (f: FacturaClienteVenta): string => {
-  const lista = getMaterialesList(f);
-  if (lista.length === 0) return "";
-  return lista
-    .map((m) => {
-      if (typeof m === "string") return m.trim();
-      const cant = Number(m.cantidad) || 0;
-      const nombre =
-        m.material_descripcion ||
-        m.descripcion ||
-        m.nombre ||
-        m.material_codigo ||
-        m.material_id ||
-        "";
-      const codigo =
-        m.material_codigo && m.material_codigo !== nombre
-          ? ` [${m.material_codigo}]`
-          : "";
-      const prefijo = cant > 0 ? `${cant}x ` : "";
-      return `${prefijo}${nombre}${codigo}`.trim();
-    })
-    .filter(Boolean)
-    .join("\n");
+const formatMaterialNombre = (m: MaterialFactura): string => {
+  if (typeof m === "string") return m.trim();
+  const nombre =
+    m.material_descripcion ||
+    m.descripcion ||
+    m.nombre ||
+    m.material_codigo ||
+    m.material_id ||
+    "";
+  const codigo =
+    m.material_codigo && m.material_codigo !== nombre
+      ? ` [${m.material_codigo}]`
+      : "";
+  return `${nombre}${codigo}`.trim();
+};
+
+const getMaterialCantidad = (m: MaterialFactura): number | "" => {
+  if (typeof m === "string") return "";
+  return Number(m.cantidad) || 0;
 };
 
 const getTotalSinDescuento = (f: FacturaClienteVenta): number => {
@@ -107,8 +103,11 @@ export class ExportFacturasExcelService {
   /**
    * Exporta a Excel las facturas indicadas (ya filtradas por la UI) acotadas
    * por rango de fecha de emisión. Si no se pasa rango, exporta todas las
-   * recibidas. Columnas: nº factura, cliente, fecha, total sin descuento,
-   * descuento, aumento, total, pagado, pendiente, método de pago.
+   * recibidas.
+   *
+   * Los materiales se exportan como pares de columnas dinámicas
+   * `Material N` / `Cant. N`, con `N` desde 1 hasta el máximo de materiales
+   * que tenga cualquier factura del set.
    */
   static exportar(
     facturas: FacturaClienteVenta[],
@@ -119,29 +118,72 @@ export class ExportFacturasExcelService {
       dateInRange(f.fecha_emision, fechaDesde, fechaHasta),
     );
 
-    const rows = filtradas.map((f) => ({
-      "Nº Factura": f.numero_factura || "",
-      "Cliente": f.cliente || f.cliente_nombre || "",
-      "Fecha": formatDateFile(f.fecha_emision),
-      "Cantidad materiales": getCantidadMateriales(f),
-      "Materiales": formatMaterialesDetalle(f),
-      "Total sin descuento (USD)": Number(getTotalSinDescuento(f).toFixed(2)),
-      "Descuento (USD)": Number(toNumber(f.descuento).toFixed(2)),
-      "Aumento (USD)": Number(toNumber(f.aumento_monto).toFixed(2)),
-      "Total (USD)": Number(toNumber(f.total_a_pagar).toFixed(2)),
-      "Pagado (USD)": Number(toNumber(f.total_pagado).toFixed(2)),
-      "Pendiente (USD)": Number(toNumber(f.monto_pendiente).toFixed(2)),
-      "Método de pago": getMetodoPagoLabel(f),
-    }));
+    const maxMateriales = filtradas.reduce(
+      (max, f) => Math.max(max, getMaterialesList(f).length),
+      0,
+    );
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    // Anchos de columna razonables
-    ws["!cols"] = [
+    const buildRow = (f: FacturaClienteVenta): Record<string, unknown> => {
+      const lista = getMaterialesList(f);
+      const row: Record<string, unknown> = {
+        "Nº Factura": f.numero_factura || "",
+        "Cliente": f.cliente || f.cliente_nombre || "",
+        "Fecha": formatDateFile(f.fecha_emision),
+        "Cantidad materiales": getCantidadMateriales(f),
+      };
+      for (let i = 0; i < maxMateriales; i++) {
+        const m = lista[i];
+        row[`Material ${i + 1}`] = m ? formatMaterialNombre(m) : "";
+        row[`Cant. ${i + 1}`] = m ? getMaterialCantidad(m) : "";
+      }
+      row["Total sin descuento (USD)"] = Number(getTotalSinDescuento(f).toFixed(2));
+      row["Descuento (USD)"] = Number(toNumber(f.descuento).toFixed(2));
+      row["Aumento (USD)"] = Number(toNumber(f.aumento_monto).toFixed(2));
+      row["Total (USD)"] = Number(toNumber(f.total_a_pagar).toFixed(2));
+      row["Pagado (USD)"] = Number(toNumber(f.total_pagado).toFixed(2));
+      row["Pendiente (USD)"] = Number(toNumber(f.monto_pendiente).toFixed(2));
+      row["Método de pago"] = getMetodoPagoLabel(f);
+      return row;
+    };
+
+    const rows = filtradas.map(buildRow);
+
+    const headerOrder: string[] = [
+      "Nº Factura",
+      "Cliente",
+      "Fecha",
+      "Cantidad materiales",
+    ];
+    for (let i = 0; i < maxMateriales; i++) {
+      headerOrder.push(`Material ${i + 1}`);
+      headerOrder.push(`Cant. ${i + 1}`);
+    }
+    headerOrder.push(
+      "Total sin descuento (USD)",
+      "Descuento (USD)",
+      "Aumento (USD)",
+      "Total (USD)",
+      "Pagado (USD)",
+      "Pendiente (USD)",
+      "Método de pago",
+    );
+
+    const ws =
+      rows.length > 0
+        ? XLSX.utils.json_to_sheet(rows, { header: headerOrder })
+        : XLSX.utils.aoa_to_sheet([headerOrder]);
+
+    const cols: { wch: number }[] = [
       { wch: 18 }, // Nº Factura
       { wch: 32 }, // Cliente
       { wch: 12 }, // Fecha
       { wch: 12 }, // Cantidad materiales
-      { wch: 50 }, // Materiales
+    ];
+    for (let i = 0; i < maxMateriales; i++) {
+      cols.push({ wch: 30 }); // Material N
+      cols.push({ wch: 10 }); // Cant. N
+    }
+    cols.push(
       { wch: 22 }, // Total sin descuento
       { wch: 16 }, // Descuento
       { wch: 16 }, // Aumento
@@ -149,7 +191,8 @@ export class ExportFacturasExcelService {
       { wch: 16 }, // Pagado
       { wch: 18 }, // Pendiente
       { wch: 30 }, // Método de pago
-    ];
+    );
+    ws["!cols"] = cols;
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Facturas");

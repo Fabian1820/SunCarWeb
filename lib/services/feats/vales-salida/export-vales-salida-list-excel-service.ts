@@ -3,7 +3,11 @@ import type {
   ValeSalidaSummary,
   ValeSalidaSummaryMaterial,
 } from "@/lib/api-types";
-import { exportToExcel, generateFilename } from "@/lib/export-service";
+import {
+  exportToExcel,
+  generateFilename,
+  type ExportColumn,
+} from "@/lib/export-service";
 
 
 const ESTADO_LABEL: Record<string, string> = {
@@ -35,22 +39,14 @@ const formatDateDDMMYYYY = (value?: string | null): string => {
   }
 };
 
-const formatMaterialesDetalle = (
-  materiales: ValeSalidaSummaryMaterial[] | undefined,
-): string => {
-  if (!Array.isArray(materiales) || materiales.length === 0) return "";
-  return materiales
-    .map((m) => {
-      const cant = Number(m.cantidad) || 0;
-      const nombre =
-        m.material_descripcion || m.material_codigo || m.material_id || "";
-      const codigo =
-        m.material_codigo && m.material_codigo !== nombre
-          ? ` [${m.material_codigo}]`
-          : "";
-      return `${cant}x ${nombre}${codigo}`.trim();
-    })
-    .join("\n");
+const formatMaterialNombre = (m: ValeSalidaSummaryMaterial): string => {
+  const nombre =
+    m.material_descripcion || m.material_codigo || m.material_id || "";
+  const codigo =
+    m.material_codigo && m.material_codigo !== nombre
+      ? ` [${m.material_codigo}]`
+      : "";
+  return `${nombre}${codigo}`.trim();
 };
 
 interface ExportValesOptions {
@@ -72,7 +68,8 @@ export class ExportValesSalidaListExcelService {
    *
    * Incluye:
    *  - Columna **"Creador de la solicitud"** desde `solicitud_creador_nombre`.
-   *  - Columna **"Detalle de materiales"** desde `materiales[]` del summary.
+   *  - Pares de columnas dinámicas **Material N / Cant. N** con cada material
+   *    embebido en el vale; `N` va de 1 al máximo de materiales del set.
    */
   static async exportar(
     opts: ExportValesOptions,
@@ -98,9 +95,15 @@ export class ExportValesSalidaListExcelService {
     const response = await ValeSalidaService.getValesSummary(params);
     const vales: ValeSalidaSummary[] = response.data || [];
 
+    const maxMateriales = vales.reduce(
+      (max, v) =>
+        Math.max(max, Array.isArray(v.materiales) ? v.materiales.length : 0),
+      0,
+    );
+
     const rows = vales.map((vale) => {
       const materiales = vale.materiales || [];
-      return {
+      const base: Record<string, string | number> = {
         codigo_vale: vale.codigo || vale.id.slice(-6).toUpperCase(),
         codigo_solicitud: vale.solicitud_codigo || "",
         estado:
@@ -115,11 +118,30 @@ export class ExportValesSalidaListExcelService {
         materiales_resumen:
           vale.materiales_resumen ||
           (materiales.length > 0 ? `${materiales.length} materiales` : ""),
-        materiales_detalle: formatMaterialesDetalle(materiales),
         fecha_creacion: formatDateDDMMYYYY(vale.fecha_creacion),
         fecha_recogida: formatDateDDMMYYYY(vale.fecha_recogida),
       };
+      for (let i = 0; i < maxMateriales; i++) {
+        const m = materiales[i];
+        base[`material_${i + 1}`] = m ? formatMaterialNombre(m) : "";
+        base[`cantidad_${i + 1}`] = m ? Number(m.cantidad) || 0 : "";
+      }
+      return base;
     });
+
+    const materialColumns: ExportColumn[] = [];
+    for (let i = 0; i < maxMateriales; i++) {
+      materialColumns.push({
+        header: `Material ${i + 1}`,
+        key: `material_${i + 1}`,
+        width: 30,
+      });
+      materialColumns.push({
+        header: `Cant. ${i + 1}`,
+        key: `cantidad_${i + 1}`,
+        width: 10,
+      });
+    }
 
     const subtitlePartes: string[] = [`Registros: ${rows.length}`];
     if (opts.fechaDesde && opts.fechaHasta) {
@@ -164,7 +186,7 @@ export class ExportValesSalidaListExcelService {
         { header: "Creador de la solicitud", key: "creador_solicitud", width: 24 },
         { header: "Recibido por", key: "recibido_por", width: 22 },
         { header: "Materiales", key: "materiales_resumen", width: 14 },
-        { header: "Detalle de materiales", key: "materiales_detalle", width: 50 },
+        ...materialColumns,
         { header: "Fecha creación", key: "fecha_creacion", width: 14 },
         { header: "Fecha recogida", key: "fecha_recogida", width: 14 },
       ],
