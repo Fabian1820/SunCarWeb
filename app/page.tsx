@@ -479,7 +479,7 @@ export default function Dashboard() {
             router.push(module.href);
           }
         }}
-        className="group relative flex cursor-pointer flex-col rounded-2xl border border-gray-200/70 bg-white/80 p-5 shadow-sm backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+        className="group relative flex cursor-pointer flex-col items-center rounded-2xl border border-gray-200/70 bg-white/80 p-5 text-center shadow-sm backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
       >
         <button
           type="button"
@@ -498,7 +498,7 @@ export default function Dashboard() {
         <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gray-50 ring-1 ring-gray-100 transition-colors group-hover:bg-emerald-50/60">
           <module.icon className={`h-6 w-6 ${module.iconClass}`} />
         </div>
-        <h4 className="mb-1 pr-6 text-base font-semibold text-gray-900">
+        <h4 className="mb-1 text-base font-semibold text-gray-900">
           {module.title}
         </h4>
         <p className="text-sm leading-relaxed text-gray-500">
@@ -554,14 +554,12 @@ export default function Dashboard() {
     return (
       <div className="flex h-full flex-col">
         {/* Marca */}
-        <div className="flex items-center gap-3 px-5 py-5">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-suncar-primary p-2 shadow-sm">
-            <img
-              src="/brand/suncar-v1-iso.png"
-              alt="Logo Suncar"
-              className="h-full w-full object-contain"
-            />
-          </div>
+        <div className="flex items-center gap-2 px-5 py-5">
+          <img
+            src="/brand/suncar-v2-iso.png"
+            alt="Logo Suncar"
+            className="h-10 w-10 flex-shrink-0 object-contain"
+          />
           <div className="min-w-0">
             <p className="truncate text-sm font-bold tracking-tight text-gray-900">
               SUNCAR
@@ -896,32 +894,10 @@ export default function Dashboard() {
               </div>
             ) : activeGroup ? (
               /* ───────── Vista de grupo ───────── */
-              <div className="space-y-6">
-                <div className="flex items-start gap-4">
-                  <span
-                    className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl ${groupMetaFor(activeGroup.id).chip}`}
-                  >
-                    {(() => {
-                      const GroupIcon = groupMetaFor(activeGroup.id).icon;
-                      return <GroupIcon className="h-6 w-6" />;
-                    })()}
-                  </span>
-                  <div className="min-w-0">
-                    <h1 className="text-xl font-bold tracking-tight text-gray-900 sm:text-2xl">
-                      {activeGroup.title || groupMetaFor(activeGroup.id).label}
-                    </h1>
-                    {activeGroup.subtitle && (
-                      <p className="mt-1 text-sm text-gray-500">
-                        {activeGroup.subtitle}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {activeGroup.modules.map((module) => (
-                    <ModuleCard key={module.id} module={module} />
-                  ))}
-                </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {activeGroup.modules.map((module) => (
+                  <ModuleCard key={module.id} module={module} />
+                ))}
               </div>
             ) : null}
           </div>

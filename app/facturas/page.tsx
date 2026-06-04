@@ -91,15 +91,11 @@ export default function FacturacionPage() {
             </header>
 
             <main className="content-with-fixed-header pb-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="mb-4 sm:mb-6">
-                    <h2 className="text-lg sm:text-xl font-bold text-gray-900">Módulos de Facturación</h2>
-                </div>
-
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
                     {submodules.map((module) => (
                         <Link key={module.id} href={module.href}>
                             <Card className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer h-full hover:-translate-y-2 bg-white/90 backdrop-blur-sm">
-                                <CardContent className="p-4 sm:p-6 text-center flex flex-col justify-center h-full">
+                                <CardContent className="p-4 sm:p-6 flex flex-col items-center justify-center text-center h-full">
                                     <module.icon className={`h-8 w-8 sm:h-10 sm:w-10 text-${module.color} mx-auto mb-3`} />
                                     <h3 className="text-lg font-semibold text-gray-900 mb-2">{module.title}</h3>
                                     <p className="text-sm text-gray-600">{module.description}</p>

@@ -117,9 +117,9 @@ export default function ComprasEnviosCostosPage() {
               return (
                 <Link key={mod.id} href={mod.href}>
                   <Card className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer h-full hover:-translate-y-2 bg-white/90 backdrop-blur-sm">
-                    <CardContent className="p-4 sm:p-6 text-center flex flex-col justify-center h-full">
+                    <CardContent className="p-4 sm:p-6 flex flex-col items-center justify-center text-center h-full">
                       <Icon
-                        className={`h-8 w-8 sm:h-10 sm:w-10 ${mod.iconClass} mx-auto mb-3`}
+                        className={`h-8 w-8 sm:h-10 sm:w-10 ${mod.iconClass} mb-3`}
                       />
                       <h4 className="text-lg font-semibold text-gray-900 mb-2">
                         {mod.title}

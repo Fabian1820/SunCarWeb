@@ -55,25 +55,21 @@ export default function TiendasSuncarVentasPage() {
         <div className="space-y-6">
           {/* Módulo de Gestión de Tiendas */}
           {hasPermission('inventario') && (
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Administración</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <Link href="/inventario/tiendas">
-                  <Card className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer hover:-translate-y-2 bg-white/90 backdrop-blur-sm">
-                    <CardContent className="p-6 text-center flex flex-col justify-center">
-                      <Settings className="h-10 w-10 text-emerald-600 mx-auto mb-3" />
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Gestión de Tiendas</h3>
-                      <p className="text-sm text-gray-600">Crear y administrar sucursales</p>
-                    </CardContent>
-                  </Card>
-                </Link>
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <Link href="/inventario/tiendas">
+                <Card className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer hover:-translate-y-2 bg-white/90 backdrop-blur-sm">
+                  <CardContent className="p-6 flex flex-col items-center justify-center text-center">
+                    <Settings className="h-10 w-10 text-emerald-600 mb-3" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Gestión de Tiendas</h3>
+                    <p className="text-sm text-gray-600">Crear y administrar sucursales</p>
+                  </CardContent>
+                </Card>
+              </Link>
             </div>
           )}
 
           {/* Tiendas Individuales */}
           <div>
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Puntos de Venta</h2>
             {tiendasDisponibles.length === 0 ? (
               <div className="text-center py-12 bg-white rounded-lg shadow">
                 <ShoppingBag className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -85,8 +81,8 @@ export default function TiendasSuncarVentasPage() {
                 {tiendasDisponibles.map((tienda) => (
                   <Link key={tienda.id} href={`/tiendas/${tienda.id}`}>
                     <Card className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer hover:-translate-y-2 bg-white/90 backdrop-blur-sm">
-                      <CardContent className="p-6 text-center flex flex-col justify-center">
-                        <ShoppingBag className="h-10 w-10 text-emerald-600 mx-auto mb-3" />
+                      <CardContent className="p-6 flex flex-col items-center justify-center text-center">
+                        <ShoppingBag className="h-10 w-10 text-emerald-600 mb-3" />
                         <h3 className="text-lg font-semibold text-gray-900 mb-2">{tienda.nombre}</h3>
                         <p className="text-sm text-gray-600">
                           {tienda.almacen_nombre 

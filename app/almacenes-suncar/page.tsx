@@ -54,25 +54,21 @@ export default function AlmacenesSuncarPage() {
         <div className="space-y-6">
           {/* Módulo de Gestión de Almacenes */}
           {hasPermission('inventario') && (
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Administración</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <Link href="/inventario/almacenes">
-                  <Card className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer hover:-translate-y-2 bg-white/90 backdrop-blur-sm">
-                    <CardContent className="p-6 text-center flex flex-col justify-center">
-                      <Settings className="h-10 w-10 text-blue-600 mx-auto mb-3" />
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Gestión de Almacenes</h3>
-                      <p className="text-sm text-gray-600">Crear y administrar almacenes</p>
-                    </CardContent>
-                  </Card>
-                </Link>
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <Link href="/inventario/almacenes">
+                <Card className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer hover:-translate-y-2 bg-white/90 backdrop-blur-sm">
+                  <CardContent className="p-6 flex flex-col items-center justify-center text-center">
+                    <Settings className="h-10 w-10 text-blue-600 mb-3" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Gestión de Almacenes</h3>
+                    <p className="text-sm text-gray-600">Crear y administrar almacenes</p>
+                  </CardContent>
+                </Card>
+              </Link>
             </div>
           )}
 
           {/* Almacenes Individuales */}
           <div>
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Almacenes</h2>
             {almacenesDisponibles.length === 0 ? (
               <div className="text-center py-12 bg-white rounded-lg shadow">
                 <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -84,8 +80,8 @@ export default function AlmacenesSuncarPage() {
                 {almacenesDisponibles.map((almacen) => (
                   <Link key={almacen.id} href={`/almacenes-suncar/${almacen.id}`}>
                     <Card className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer hover:-translate-y-2 bg-white/90 backdrop-blur-sm">
-                      <CardContent className="p-6 text-center flex flex-col justify-center">
-                        <Package className="h-10 w-10 text-blue-600 mx-auto mb-3" />
+                      <CardContent className="p-6 flex flex-col items-center justify-center text-center">
+                        <Package className="h-10 w-10 text-blue-600 mb-3" />
                         <h3 className="text-lg font-semibold text-gray-900 mb-2">{almacen.nombre}</h3>
                         <p className="text-sm text-gray-600">
                           {almacen.direccion || "Entradas, salidas y stock"}
