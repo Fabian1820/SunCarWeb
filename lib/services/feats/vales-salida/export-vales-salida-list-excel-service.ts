@@ -61,9 +61,8 @@ export class ExportValesSalidaListExcelService {
    * Exporta a Excel los vales de salida que coincidan con los filtros aplicados.
    * Omite la paginación local (trae todo con `limit` alto en una sola llamada).
    *
-   * Cada vale se expande verticalmente: una fila por cada material, con todas
-   * las demás columnas repetidas. Si un vale no tiene materiales, se emite una
-   * sola fila con las columnas `Material` y `Cantidad` vacías.
+   * Una fila lógica por vale: `Material` y `Cantidad` se apilan en celdas
+   * verticales; el resto de columnas se fusionan para cubrir esa altura.
    */
   static async exportar(
     opts: ExportValesOptions,
@@ -89,10 +88,11 @@ export class ExportValesSalidaListExcelService {
     const response = await ValeSalidaService.getValesSummary(params);
     const vales: ValeSalidaSummary[] = response.data || [];
 
-    const rows: Array<Record<string, string | number>> = [];
+    const rows: Array<Record<string, string | number | string[] | number[]>> =
+      [];
     for (const vale of vales) {
       const materiales = vale.materiales || [];
-      const base: Record<string, string | number> = {
+      rows.push({
         codigo_vale: vale.codigo || vale.id.slice(-6).toUpperCase(),
         codigo_solicitud: vale.solicitud_codigo || "",
         estado:
@@ -107,20 +107,11 @@ export class ExportValesSalidaListExcelService {
         materiales_resumen:
           vale.materiales_resumen ||
           (materiales.length > 0 ? `${materiales.length} materiales` : ""),
+        material: materiales.map((m) => formatMaterialNombre(m)),
+        cantidad: materiales.map((m) => Number(m.cantidad) || 0),
         fecha_creacion: formatDateDDMMYYYY(vale.fecha_creacion),
         fecha_recogida: formatDateDDMMYYYY(vale.fecha_recogida),
-      };
-      if (materiales.length === 0) {
-        rows.push({ ...base, material: "", cantidad: "" });
-      } else {
-        for (const m of materiales) {
-          rows.push({
-            ...base,
-            material: formatMaterialNombre(m),
-            cantidad: Number(m.cantidad) || 0,
-          });
-        }
-      }
+      });
     }
 
     const subtitlePartes: string[] = [`Registros: ${vales.length}`];
@@ -172,6 +163,7 @@ export class ExportValesSalidaListExcelService {
         { header: "Fecha recogida", key: "fecha_recogida", width: 14 },
       ],
       data: rows,
+      stackedColumnKeys: ["material", "cantidad"],
     });
 
     return { count: vales.length, filename };

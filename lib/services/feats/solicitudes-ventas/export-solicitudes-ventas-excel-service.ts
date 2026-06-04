@@ -59,9 +59,8 @@ export class ExportSolicitudesVentasExcelService {
    * actuales. Omite la paginación local (skip/limit de la UI) y trae el set
    * completo en una sola llamada a `/summary` con un `limit` alto.
    *
-   * Cada solicitud se expande verticalmente: una fila por cada material, con
-   * todas las demás columnas repetidas. Si una solicitud no tiene materiales,
-   * se emite una sola fila con las columnas `Material` y `Cantidad` vacías.
+   * Una fila lógica por solicitud: `Material` y `Cantidad` se apilan en celdas
+   * verticales; el resto de columnas se fusionan para cubrir esa altura.
    */
   static async exportar({
     filters,
@@ -79,9 +78,11 @@ export class ExportSolicitudesVentasExcelService {
     const response = await SolicitudVentaService.getSolicitudesSummary(params);
     const solicitudes: SolicitudVentaSummary[] = response.data || [];
 
-    const rows: Array<Record<string, string | number>> = [];
+    const rows: Array<Record<string, string | number | string[] | number[]>> =
+      [];
     for (const s of solicitudes) {
-      const base: Record<string, string | number> = {
+      const lista = Array.isArray(s.materiales) ? s.materiales : [];
+      rows.push({
         codigo: s.codigo || s.id.slice(-6).toUpperCase(),
         estado:
           ESTADO_LABEL[(s.estado || "").toString().toLowerCase()] ||
@@ -91,24 +92,14 @@ export class ExportSolicitudesVentasExcelService {
         almacen: s.almacen_nombre || "",
         creador: s.creador_nombre || "",
         materiales: buildMaterialesResumen(s),
+        material: lista.map((m) => formatMaterialNombre(m)),
+        cantidad: lista.map((m) => Number(m.cantidad) || 0),
         precio_total: formatNumber(s.precio_total),
         total_pagado: formatNumber(s.total_pagado),
         monto_pendiente: formatNumber(s.monto_pendiente),
         pagada_totalmente: s.pagada_totalmente ? "Sí" : "No",
         fecha_creacion: formatDateDDMMYYYY(s.fecha_creacion),
-      };
-      const lista = Array.isArray(s.materiales) ? s.materiales : [];
-      if (lista.length === 0) {
-        rows.push({ ...base, material: "", cantidad: "" });
-      } else {
-        for (const m of lista) {
-          rows.push({
-            ...base,
-            material: formatMaterialNombre(m),
-            cantidad: Number(m.cantidad) || 0,
-          });
-        }
-      }
+      });
     }
 
     const subtitlePartes: string[] = [`Registros: ${solicitudes.length}`];
@@ -152,6 +143,7 @@ export class ExportSolicitudesVentasExcelService {
         { header: "Fecha", key: "fecha_creacion", width: 14 },
       ],
       data: rows,
+      stackedColumnKeys: ["material", "cantidad"],
     });
 
     return { count: solicitudes.length, filename };

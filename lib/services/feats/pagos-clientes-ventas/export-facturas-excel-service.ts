@@ -105,9 +105,8 @@ export class ExportFacturasExcelService {
    * por rango de fecha de emisión. Si no se pasa rango, exporta todas las
    * recibidas.
    *
-   * Cada factura se expande verticalmente: una fila por cada material, con
-   * todas las demás columnas repetidas. Si una factura no tiene materiales, se
-   * emite una sola fila con las columnas `Material` y `Cantidad` vacías.
+   * Una fila lógica por factura: `Material` y `Cantidad` se apilan en celdas
+   * verticales; el resto de columnas se fusionan para cubrir esa altura.
    */
   static exportar(
     facturas: FacturaClienteVenta[],
@@ -132,47 +131,6 @@ export class ExportFacturasExcelService {
       "Método de pago": getMetodoPagoLabel(f),
     });
 
-    const rows: Array<Record<string, unknown>> = [];
-    for (const f of filtradas) {
-      const base = buildBase(f);
-      const lista = getMaterialesList(f);
-      if (lista.length === 0) {
-        rows.push({
-          "Nº Factura": base["Nº Factura"],
-          "Cliente": base["Cliente"],
-          "Fecha": base["Fecha"],
-          "Cantidad materiales": base["Cantidad materiales"],
-          "Material": "",
-          "Cantidad": "",
-          "Total sin descuento (USD)": base["Total sin descuento (USD)"],
-          "Descuento (USD)": base["Descuento (USD)"],
-          "Aumento (USD)": base["Aumento (USD)"],
-          "Total (USD)": base["Total (USD)"],
-          "Pagado (USD)": base["Pagado (USD)"],
-          "Pendiente (USD)": base["Pendiente (USD)"],
-          "Método de pago": base["Método de pago"],
-        });
-      } else {
-        for (const m of lista) {
-          rows.push({
-            "Nº Factura": base["Nº Factura"],
-            "Cliente": base["Cliente"],
-            "Fecha": base["Fecha"],
-            "Cantidad materiales": base["Cantidad materiales"],
-            "Material": formatMaterialNombre(m),
-            "Cantidad": getMaterialCantidad(m),
-            "Total sin descuento (USD)": base["Total sin descuento (USD)"],
-            "Descuento (USD)": base["Descuento (USD)"],
-            "Aumento (USD)": base["Aumento (USD)"],
-            "Total (USD)": base["Total (USD)"],
-            "Pagado (USD)": base["Pagado (USD)"],
-            "Pendiente (USD)": base["Pendiente (USD)"],
-            "Método de pago": base["Método de pago"],
-          });
-        }
-      }
-    }
-
     const headerOrder: string[] = [
       "Nº Factura",
       "Cliente",
@@ -189,10 +147,60 @@ export class ExportFacturasExcelService {
       "Método de pago",
     ];
 
-    const ws =
-      rows.length > 0
-        ? XLSX.utils.json_to_sheet(rows, { header: headerOrder })
-        : XLSX.utils.aoa_to_sheet([headerOrder]);
+    const materialCol = headerOrder.indexOf("Material");
+    const cantidadCol = headerOrder.indexOf("Cantidad");
+    const mergeColumnIndexes = headerOrder
+      .map((_, i) => i)
+      .filter((i) => i !== materialCol && i !== cantidadCol);
+
+    const aoa: unknown[][] = [headerOrder];
+    const merges: XLSX.Range[] = [];
+
+    for (const f of filtradas) {
+      const base = buildBase(f);
+      const lista = getMaterialesList(f);
+      const materiales =
+        lista.length > 0 ? lista.map((m) => formatMaterialNombre(m)) : [""];
+      const cantidades =
+        lista.length > 0
+          ? lista.map((m) => getMaterialCantidad(m))
+          : [""];
+      const physicalCount = Math.max(1, materiales.length);
+      const startRow = aoa.length;
+
+      for (let i = 0; i < physicalCount; i++) {
+        aoa.push([
+          i === 0 ? base["Nº Factura"] : "",
+          i === 0 ? base["Cliente"] : "",
+          i === 0 ? base["Fecha"] : "",
+          i === 0 ? base["Cantidad materiales"] : "",
+          materiales[i] ?? "",
+          cantidades[i] ?? "",
+          i === 0 ? base["Total sin descuento (USD)"] : "",
+          i === 0 ? base["Descuento (USD)"] : "",
+          i === 0 ? base["Aumento (USD)"] : "",
+          i === 0 ? base["Total (USD)"] : "",
+          i === 0 ? base["Pagado (USD)"] : "",
+          i === 0 ? base["Pendiente (USD)"] : "",
+          i === 0 ? base["Método de pago"] : "",
+        ]);
+      }
+
+      if (physicalCount > 1) {
+        const endRow = startRow + physicalCount - 1;
+        for (const col of mergeColumnIndexes) {
+          merges.push({
+            s: { r: startRow, c: col },
+            e: { r: endRow, c: col },
+          });
+        }
+      }
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    if (merges.length > 0) {
+      ws["!merges"] = merges;
+    }
 
     ws["!cols"] = [
       { wch: 18 }, // Nº Factura

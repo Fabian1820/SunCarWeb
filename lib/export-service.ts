@@ -162,12 +162,59 @@ export interface ExportColumn {
   width?: number;
 }
 
+/** Valores apilados en varias filas Excel; el resto de columnas se fusionan en vertical */
+export type ExportCellValue = string | number | string[] | number[];
+
+export function resolveStackedColumnKeys(
+  rowData: Record<string, unknown>,
+  configured?: string[],
+): string[] {
+  const keys = new Set<string>(configured ?? []);
+  for (const key of Object.keys(rowData)) {
+    if (Array.isArray(rowData[key])) keys.add(key);
+  }
+  return [...keys];
+}
+
+export function countPhysicalRowsForStackedData(
+  rowData: Record<string, unknown>,
+  stackedKeys: string[],
+): number {
+  let max = 0;
+  for (const key of stackedKeys) {
+    const val = rowData[key];
+    if (Array.isArray(val)) max = Math.max(max, val.length);
+  }
+  return Math.max(1, max);
+}
+
+function stackedCellValue(
+  rowData: Record<string, unknown>,
+  key: string,
+  physicalIndex: number,
+  stackedKeys: string[],
+): string | number {
+  if (stackedKeys.includes(key) && Array.isArray(rowData[key])) {
+    const arr = rowData[key] as unknown[];
+    const item = arr[physicalIndex];
+    if (item === null || item === undefined) return "";
+    return typeof item === "number" ? item : String(item);
+  }
+  if (physicalIndex > 0) return "";
+  const val = rowData[key];
+  if (val === null || val === undefined) return "";
+  if (Array.isArray(val)) return "";
+  return typeof val === "number" ? val : String(val);
+}
+
 export interface ExportOptions {
   title: string;
   subtitle?: string;
   filename: string;
   columns: ExportColumn[];
-  data: any[];
+  data: Array<Record<string, ExportCellValue>>;
+  /** Columnas con arrays (Material, Cantidad, etc.). Si se omite, se detectan arrays en `data`. */
+  stackedColumnKeys?: string[];
   logoUrl?: string;
   // Nuevas opciones para ofertas
   clienteData?: {
@@ -263,7 +310,8 @@ async function imageToBase64(url: string): Promise<string> {
  * Exporta datos a formato Excel usando ExcelJS
  */
 export async function exportToExcel(options: ExportOptions): Promise<void> {
-  const { title, subtitle, filename, columns, data } = options;
+  const { title, subtitle, filename, columns, data, stackedColumnKeys } =
+    options;
 
   // Crear un nuevo libro de trabajo
   const workbook = new ExcelJS.Workbook();
@@ -316,46 +364,79 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
   headerRow.height = 25;
   currentRow++;
 
-  // Agregar datos
-  data.forEach((rowData) => {
-    const row = worksheet.getRow(currentRow);
+  const applyDataCellStyle = (
+    cell: ExcelJS.Cell,
+    value: string | number,
+    col: ExportColumn,
+    vertical: "top" | "middle",
+  ): number => {
+    cell.value = value;
     let maxLines = 1;
+    if (typeof value === "string" && value.length > 0) {
+      const colWidth = col.width || 15;
+      const charsPerLine = Math.max(1, Math.floor(colWidth * 0.75));
+      maxLines = Math.max(maxLines, Math.ceil(value.length / charsPerLine));
+    }
+    cell.font = { name: "Arial", size: 11 };
+    cell.alignment = {
+      horizontal: "left",
+      vertical,
+      wrapText: true,
+    };
+    cell.border = {
+      top: { style: "thin", color: { argb: "FFCCCCCC" } },
+      bottom: { style: "thin", color: { argb: "FFCCCCCC" } },
+      left: { style: "thin", color: { argb: "FFCCCCCC" } },
+      right: { style: "thin", color: { argb: "FFCCCCCC" } },
+    };
+    return maxLines;
+  };
 
-    columns.forEach((col, index) => {
-      const cell = row.getCell(index + 2); // +2 porque columna A está vacía
-      const value = rowData[col.key] ?? "";
-      cell.value = value;
+  // Agregar datos (filas lógicas; columnas apiladas → varias filas físicas + merge vertical)
+  data.forEach((rowData) => {
+    const stackedKeys = resolveStackedColumnKeys(rowData, stackedColumnKeys);
+    const physicalCount = countPhysicalRowsForStackedData(rowData, stackedKeys);
+    const startRow = currentRow;
 
-      // Calcular líneas considerando el wrap por ancho de columna
-      if (typeof value === "string" && value.length > 0) {
-        const colWidth = col.width || 15;
-        // Ser más conservador: menos caracteres por línea para asegurar espacio
-        const charsPerLine = Math.max(1, Math.floor(colWidth * 0.75));
+    for (let physicalIndex = 0; physicalIndex < physicalCount; physicalIndex++) {
+      const row = worksheet.getRow(currentRow);
+      let maxLines = 1;
+      const isMergedBlock = physicalCount > 1;
 
-        // Calcular líneas basándose en la longitud total del texto
-        const estimatedLines = Math.ceil(value.length / charsPerLine);
+      columns.forEach((col, index) => {
+        const cell = row.getCell(index + 2);
+        const value = stackedCellValue(
+          rowData,
+          col.key,
+          physicalIndex,
+          stackedKeys,
+        );
+        const vertical =
+          isMergedBlock && !stackedKeys.includes(col.key) ? "middle" : "top";
+        maxLines = Math.max(
+          maxLines,
+          applyDataCellStyle(cell, value, col, vertical),
+        );
+      });
 
-        maxLines = Math.max(maxLines, estimatedLines);
-      }
+      row.height = Math.max(18, 16 * maxLines + 5);
+      currentRow++;
+    }
 
-      // Arial 11
-      cell.font = { name: "Arial", size: 11 };
-      cell.alignment = {
-        horizontal: "left",
-        vertical: "top",
-        wrapText: true,
-      };
-      cell.border = {
-        top: { style: "thin", color: { argb: "FFCCCCCC" } },
-        bottom: { style: "thin", color: { argb: "FFCCCCCC" } },
-        left: { style: "thin", color: { argb: "FFCCCCCC" } },
-        right: { style: "thin", color: { argb: "FFCCCCCC" } },
-      };
-    });
-
-    // Altura de fila: 16pt por línea para Arial 11, con margen extra para asegurar visibilidad
-    row.height = Math.max(18, 16 * maxLines + 5);
-    currentRow++;
+    if (physicalCount > 1) {
+      const endRow = startRow + physicalCount - 1;
+      columns.forEach((col, index) => {
+        if (stackedKeys.includes(col.key)) return;
+        const colNum = index + 2;
+        worksheet.mergeCells(startRow, colNum, endRow, colNum);
+        const master = worksheet.getRow(startRow).getCell(colNum);
+        master.alignment = {
+          ...master.alignment,
+          vertical: "middle",
+          wrapText: true,
+        };
+      });
+    }
   });
 
   // Configurar anchos de columna (empezando en columna B)
