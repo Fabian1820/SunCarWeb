@@ -9,6 +9,7 @@ export interface User {
   nombre: string
   rol: string
   is_superAdmin?: boolean
+  foto_perfil?: string | null
 }
 
 const normalizeUser = (raw: any): User | null => {
@@ -25,11 +26,14 @@ const normalizeUser = (raw: any): User | null => {
     raw.isSuperAdmin ??
     false
 
+  const fotoPerfil = raw.foto_perfil ?? raw.fotoPerfil ?? null
+
   return {
     ci,
     nombre,
     rol,
     is_superAdmin: Boolean(isSuper),
+    foto_perfil: fotoPerfil ? String(fotoPerfil) : null,
   }
 }
 
@@ -45,6 +49,7 @@ interface AuthContextType {
   hasPermission: (module: string) => boolean
   hasSubPermission: (parent: string, child: string) => boolean
   loadModulosPermitidos: () => Promise<void>
+  updateUserFoto: (fotoPerfil: string | null) => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -150,6 +155,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const updateUserFoto = (fotoPerfil: string | null) => {
+    setUser((prev) => {
+      if (!prev) return prev
+      const next = { ...prev, foto_perfil: fotoPerfil }
+      try {
+        localStorage.setItem("user_data", JSON.stringify(next))
+      } catch {
+        // ignorar errores de storage
+      }
+      return next
+    })
+  }
+
   const logout = () => {
     setIsAuthenticated(false)
     setToken(null)
@@ -195,7 +213,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       getAuthHeader,
       hasPermission,
       hasSubPermission,
-      loadModulosPermitidos
+      loadModulosPermitidos,
+      updateUserFoto
     }}>
       {children}
     </AuthContext.Provider>

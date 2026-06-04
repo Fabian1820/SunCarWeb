@@ -18,6 +18,7 @@ export interface TrabajadorRRHH {
   departamento_id?: string | null
   departamento_nombre?: string | null
   telefono?: string
+  foto_perfil?: string | null
 }
 
 export interface IngresoMensual {

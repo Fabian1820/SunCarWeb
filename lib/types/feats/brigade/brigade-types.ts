@@ -11,6 +11,7 @@ export interface Trabajador {
   email?: string
   sede_id?: string | null
   departamento_id?: string | null
+  foto_perfil?: string | null
 }
 
 export interface Brigada {

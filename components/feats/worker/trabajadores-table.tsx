@@ -8,6 +8,7 @@ import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { useToast } from "@/hooks/use-toast"
 import { TrabajadorService } from "@/lib/api-services"
+import { WorkerAvatar, WorkerAvatarUploader } from "@/components/feats/worker/worker-avatar"
 import { Calculator, Clock, Crown, KeyRound, Search, Trash2, Users, X } from "lucide-react"
 
 interface TrabajadoresTableProps {
@@ -204,13 +205,11 @@ export function TrabajadoresTable({
                 title="Ver detalles"
               >
                 <div className="flex items-start gap-3">
-                  <div className="bg-blue-100 p-2 rounded-lg shrink-0">
-                    {hasPassword(worker) ? (
-                      <Crown className="h-4 w-4 text-emerald-500" />
-                    ) : (
-                      <Users className="h-4 w-4 text-blue-500" />
-                    )}
-                  </div>
+                  <WorkerAvatar
+                    src={worker.foto_perfil}
+                    nombre={worker.nombre}
+                    className="h-10 w-10 shrink-0"
+                  />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
                       <p className="font-semibold text-gray-900 truncate">{worker.nombre}</p>
@@ -314,13 +313,7 @@ export function TrabajadoresTable({
                     title="Ver detalles"
                   >
                     <div className="flex items-center space-x-3">
-                      <div className="bg-blue-100 p-2 rounded-lg">
-                        {hasPassword(worker) ? (
-                          <Crown className="h-4 w-4 text-emerald-500" />
-                        ) : (
-                          <Users className="h-4 w-4 text-blue-500" />
-                        )}
-                      </div>
+                      <WorkerAvatar src={worker.foto_perfil} nombre={worker.nombre} className="h-10 w-10" />
                       <div>
                         <p className="font-semibold text-gray-900">{worker.nombre}</p>
                       </div>
@@ -422,9 +415,20 @@ export function TrabajadoresTable({
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-2">
-                    <p className="font-semibold text-gray-900">{selectedWorker.nombre}</p>
-                    <p className="text-sm text-gray-600">CI: {selectedWorker.CI}</p>
+                  <div className="flex flex-col items-center gap-4">
+                    <WorkerAvatarUploader
+                      ci={selectedWorker.CI}
+                      fotoPerfil={selectedWorker.foto_perfil}
+                      nombre={selectedWorker.nombre}
+                      onChange={(foto) => {
+                        setSelectedWorker((prev) => (prev ? { ...prev, foto_perfil: foto } : prev))
+                        onRefresh()
+                      }}
+                    />
+                    <div className="space-y-2 text-center">
+                      <p className="font-semibold text-gray-900">{selectedWorker.nombre}</p>
+                      <p className="text-sm text-gray-600">CI: {selectedWorker.CI}</p>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
