@@ -331,4 +331,22 @@ export class TrabajadorService {
       }
     }
   }
+
+  /**
+   * Obtiene los trabajadores que cumplen años en los próximos 7 días (hoy incluido).
+   * Cada elemento incluye foto_perfil, fecha (YYYY-MM-DD) y es_hoy.
+   */
+  static async getCumpleanosSemana(): Promise<BirthdaysResponse> {
+    try {
+      const response = await apiRequest<BirthdaysResponse>('/trabajadores/cumpleanos/semana')
+      return response
+    } catch (error) {
+      console.error('Error obteniendo cumpleaños de la semana:', error)
+      return {
+        success: false,
+        message: 'Error al obtener cumpleaños de la semana',
+        data: []
+      }
+    }
+  }
 }

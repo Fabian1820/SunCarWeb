@@ -23,10 +23,8 @@ import {
   Package,
   Users,
   Megaphone,
-  Sparkles,
-  TrendingUp,
-  Clock,
   Boxes,
+  Cake,
 } from "lucide-react";
 import {
   MODULOS_CATALOGO,
@@ -47,7 +45,12 @@ import {
   SheetContent,
   SheetTitle,
 } from "@/components/shared/molecule/sheet";
-import { TasaCambioService, TrabajadorService } from "@/lib/api-services";
+import {
+  TasaCambioService,
+  TrabajadorService,
+  ClienteService,
+} from "@/lib/api-services";
+import type { TrabajadorBirthdayInfo } from "@/lib/types/feats/trabajador/birthday-types";
 import { WorkerAvatar } from "@/components/feats/worker/worker-avatar";
 import ContactosDashboard from "@/components/feats/contactos/contactos-dashboard";
 import { TicketManualDialog } from "@/components/feats/dashboard/ticket-manual-dialog";
@@ -175,6 +178,12 @@ export default function Dashboard() {
   const favLoaded = useRef(false);
   const [now, setNow] = useState<Date | null>(null);
 
+  // Datos de la pantalla de bienvenida (livianos, una llamada cada uno).
+  const [cumpleSemana, setCumpleSemana] = useState<TrabajadorBirthdayInfo[]>([]);
+  const [totalInstalaciones, setTotalInstalaciones] = useState<number | null>(
+    null,
+  );
+
   const showDevTools =
     typeof window !== "undefined"
       ? Boolean((window as unknown as Record<string, unknown>).__SHOW_DEV_TOOLS__)
@@ -188,6 +197,23 @@ export default function Dashboard() {
   // Reloj para el saludo de bienvenida (cliente, evita mismatch de hidratación).
   useEffect(() => {
     setNow(new Date());
+  }, []);
+
+  // Datos de bienvenida: cumpleaños de la semana + total de instalaciones.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [cumple, total] = await Promise.all([
+        TrabajadorService.getCumpleanosSemana(),
+        ClienteService.getTotalInstalaciones(),
+      ]);
+      if (cancelled) return;
+      setCumpleSemana(cumple.success ? cumple.data : []);
+      setTotalInstalaciones(total);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Hidratar la foto de perfil del usuario logueado desde su registro de trabajador.
@@ -355,6 +381,22 @@ export default function Dashboard() {
         year: "numeric",
       })
     : "";
+
+  // Etiqueta corta para un cumpleaños de la semana ("Hoy", "mañana", "vie 6").
+  const cumpleLabel = (info: TrabajadorBirthdayInfo): string => {
+    if (info.es_hoy) return "Hoy";
+    if (!info.fecha) return "";
+    const [y, m, d] = info.fecha.split("-").map(Number);
+    const fecha = new Date(y, m - 1, d);
+    const hoy = new Date();
+    const diff = Math.round(
+      (new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate()).getTime() -
+        new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()).getTime()) /
+        86400000,
+    );
+    if (diff === 1) return "Mañana";
+    return fecha.toLocaleDateString("es-ES", { weekday: "short", day: "numeric" });
+  };
 
   // ───────── Formato tasa de cambio ─────────
   const formatExchangeRate = (value: number) => Number(value || 0).toFixed(4);
@@ -705,79 +747,53 @@ export default function Dashboard() {
                   </p>
                 </section>
 
-                {/* Resumen / stats */}
-                <section className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-500">
-                      Resumen general
-                    </h3>
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-700 ring-1 ring-amber-100">
-                      <Sparkles className="h-3 w-3" />
-                      Métricas de ejemplo · en desarrollo
-                    </span>
-                  </div>
+                {/* Contador grande: instalaciones del equipo */}
+                {totalInstalaciones !== null && (
+                  <p className="text-sm text-gray-500">
+                    ☀️ Juntos hemos hecho{" "}
+                    <span className="font-semibold text-gray-700">
+                      {totalInstalaciones.toLocaleString("es-ES")}
+                    </span>{" "}
+                    instalaciones solares.
+                  </p>
+                )}
 
-                  <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-                    {[
-                      {
-                        label: "Accesos este mes",
-                        value: "248",
-                        sub: "+12% vs. mes anterior",
-                        icon: TrendingUp,
-                        tint: "bg-emerald-50 text-emerald-600",
-                        mock: true,
-                      },
-                      {
-                        label: "Módulos disponibles",
-                        value: String(availableModules.length),
-                        sub: "con acceso activo",
-                        icon: Boxes,
-                        tint: "bg-sky-50 text-sky-600",
-                        mock: false,
-                      },
-                      {
-                        label: "Favoritos",
-                        value: String(favoriteModules.length),
-                        sub: "guardados",
-                        icon: Star,
-                        tint: "bg-amber-50 text-amber-500",
-                        mock: false,
-                      },
-                      {
-                        label: "Último acceso",
-                        value: "Hoy",
-                        sub: "09:24 a. m.",
-                        icon: Clock,
-                        tint: "bg-violet-50 text-violet-600",
-                        mock: true,
-                      },
-                    ].map((stat) => (
-                      <div
-                        key={stat.label}
-                        className="relative flex flex-col rounded-2xl border border-gray-200/70 bg-white/80 p-5 shadow-sm backdrop-blur-sm"
+                {/* Resumen rápido (datos reales) */}
+                <section className="grid grid-cols-2 gap-4 sm:max-w-md">
+                  {[
+                    {
+                      label: "Módulos disponibles",
+                      value: String(availableModules.length),
+                      sub: "con acceso activo",
+                      icon: Boxes,
+                      tint: "bg-sky-50 text-sky-600",
+                    },
+                    {
+                      label: "Favoritos",
+                      value: String(favoriteModules.length),
+                      sub: "guardados",
+                      icon: Star,
+                      tint: "bg-amber-50 text-amber-500",
+                    },
+                  ].map((stat) => (
+                    <div
+                      key={stat.label}
+                      className="relative flex flex-col rounded-2xl border border-gray-200/70 bg-white/80 p-5 shadow-sm backdrop-blur-sm"
+                    >
+                      <span
+                        className={`mb-4 flex h-10 w-10 items-center justify-center rounded-xl ${stat.tint}`}
                       >
-                        <div className="mb-4 flex items-center justify-between">
-                          <span
-                            className={`flex h-10 w-10 items-center justify-center rounded-xl ${stat.tint}`}
-                          >
-                            <stat.icon className="h-5 w-5" />
-                          </span>
-                          {stat.mock && (
-                            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-400">
-                              demo
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-2xl font-bold tracking-tight text-gray-900">
-                          {stat.value}
-                        </p>
-                        <p className="mt-0.5 text-sm font-medium text-gray-700">
-                          {stat.label}
-                        </p>
-                        <p className="mt-1 text-xs text-gray-400">{stat.sub}</p>
-                      </div>
-                    ))}
-                  </div>
+                        <stat.icon className="h-5 w-5" />
+                      </span>
+                      <p className="text-2xl font-bold tracking-tight text-gray-900">
+                        {stat.value}
+                      </p>
+                      <p className="mt-0.5 text-sm font-medium text-gray-700">
+                        {stat.label}
+                      </p>
+                      <p className="mt-1 text-xs text-gray-400">{stat.sub}</p>
+                    </div>
+                  ))}
                 </section>
 
                 {/* Favoritos (acceso rápido, compacto) */}
@@ -792,6 +808,58 @@ export default function Dashboard() {
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                       {favoriteModules.map((module) => (
                         <ModuleCard key={module.id} module={module} />
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {/* Cumpleaños de la semana (scroll horizontal) */}
+                {cumpleSemana.length > 0 && (
+                  <section className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Cake className="h-4 w-4 text-pink-500" />
+                      <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-500">
+                        Cumpleaños de la semana
+                      </h3>
+                    </div>
+                    <div className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-2">
+                      {cumpleSemana.map((p) => (
+                        <div
+                          key={p.CI}
+                          className={`flex w-44 flex-shrink-0 flex-col items-center gap-2 rounded-2xl border p-4 text-center shadow-sm backdrop-blur-sm ${
+                            p.es_hoy
+                              ? "border-pink-200 bg-pink-50/80"
+                              : "border-gray-200/70 bg-white/80"
+                          }`}
+                        >
+                          <WorkerAvatar
+                            src={p.foto_perfil}
+                            nombre={p.nombre}
+                            className="h-14 w-14 flex-shrink-0"
+                          />
+                          <p
+                            className="line-clamp-2 text-sm font-semibold leading-tight text-gray-900"
+                            title={p.nombre}
+                          >
+                            {p.nombre}
+                          </p>
+                          <p
+                            className="line-clamp-1 text-xs text-gray-500"
+                            title={p.cargo}
+                          >
+                            {p.cargo}
+                          </p>
+                          <span
+                            className={`mt-1 flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold capitalize ${
+                              p.es_hoy
+                                ? "bg-pink-500 text-white"
+                                : "bg-gray-100 text-gray-600"
+                            }`}
+                          >
+                            {p.es_hoy && <Cake className="h-3 w-3" />}
+                            {cumpleLabel(p)}
+                          </span>
+                        </div>
                       ))}
                     </div>
                   </section>
