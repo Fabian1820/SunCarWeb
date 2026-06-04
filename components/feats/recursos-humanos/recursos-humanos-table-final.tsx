@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/shared/atom/button"
 import { Pencil, UserCheck, UserX, Eye } from "lucide-react"
 import { AsistenciaBadge } from "./asistencia-badge"
+import { WorkerAvatar } from "@/components/feats/worker/worker-avatar"
 import { useToast } from "@/hooks/use-toast"
 import type { TrabajadorRRHH } from "@/lib/recursos-humanos-types"
 import type { Sede, Departamento } from "@/lib/api-types"
@@ -171,17 +172,24 @@ export function RecursosHumanosTableFinal({
                   onMouseEnter={() => setFilaResaltada(trabajador.CI)}
                   onMouseLeave={() => setFilaResaltada(null)}
                 >
-                  <div>
-                    <div className="font-medium text-gray-900">{trabajador.nombre}</div>
-                    <div className="flex items-center gap-1 mt-1">
-                      {!trabajador.is_brigadista ? (
-                        <AsistenciaBadge
-                          estaEnOficina={estadoAsistencia?.get(trabajador.CI) ?? false}
-                          loading={loadingAsistencia}
-                        />
-                      ) : (
-                        <span className="text-xs text-gray-400">Brigadista</span>
-                      )}
+                  <div className="flex items-center gap-3">
+                    <WorkerAvatar
+                      src={trabajador.foto_perfil}
+                      nombre={trabajador.nombre}
+                      className="h-9 w-9 shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <div className="font-medium text-gray-900">{trabajador.nombre}</div>
+                      <div className="flex items-center gap-1 mt-1">
+                        {!trabajador.is_brigadista ? (
+                          <AsistenciaBadge
+                            estaEnOficina={estadoAsistencia?.get(trabajador.CI) ?? false}
+                            loading={loadingAsistencia}
+                          />
+                        ) : (
+                          <span className="text-xs text-gray-400">Brigadista</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </td>

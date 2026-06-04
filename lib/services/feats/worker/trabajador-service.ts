@@ -283,6 +283,30 @@ export class TrabajadorService {
     return response.data
   }
 
+  static async subirFotoTrabajador(ci: string, foto: File): Promise<string> {
+    const formData = new FormData()
+    formData.append('foto', foto)
+
+    const response = await apiRequest<{ success?: boolean; message?: string; foto_perfil?: string }>(
+      `/trabajadores/${ci}/foto`,
+      {
+        method: 'POST',
+        body: formData,
+      }
+    )
+    if (response.success === false || !response.foto_perfil) {
+      throw new Error(response.message || 'No se pudo subir la foto de perfil.')
+    }
+    return response.foto_perfil
+  }
+
+  static async eliminarFotoTrabajador(ci: string): Promise<boolean> {
+    const response = await apiRequest<{ success?: boolean; message?: string }>(`/trabajadores/${ci}/foto`, {
+      method: 'DELETE',
+    })
+    return response.success !== false
+  }
+
   static async eliminarContrasenaTrabajador(ci: string): Promise<boolean> {
     const response = await apiRequest<{ success: boolean }>(`/trabajadores/${ci}/contrasena`, {
       method: 'DELETE',
