@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   type LucideIcon,
@@ -151,6 +151,7 @@ const FAVORITES_STORAGE_KEY = "suncar_dashboard_favorites";
 
 export default function Dashboard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { hasPermission, user, loadModulosPermitidos, updateUserFoto } = useAuth();
   const { permiso: myWalletPermiso } = useMyWalletPermiso();
 
@@ -169,8 +170,8 @@ export default function Dashboard() {
     ok: boolean;
   } | null>(null);
 
-  // Vista activa de la barra lateral: "home" | "favorites" | id de grupo.
-  const [activeKey, setActiveKey] = useState<string>("home");
+  // Vista activa: derivada del parámetro ?area= para que el botón "atrás" funcione.
+  const activeKey = searchParams.get("area") ?? "home";
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // Favoritos persistidos en localStorage.
@@ -449,7 +450,7 @@ export default function Dashboard() {
 
   // ───────── Navegación de la barra lateral ─────────
   const goTo = (key: string) => {
-    setActiveKey(key);
+    router.push(key === "home" ? "/" : `/?area=${encodeURIComponent(key)}`);
     setMobileSidebarOpen(false);
   };
 
