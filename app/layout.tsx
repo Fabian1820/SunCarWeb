@@ -29,16 +29,6 @@ export const metadata: Metadata = {
     address: false,
     telephone: false,
   },
-  icons: {
-    icon: [
-      { url: '/icons/icon-96x96.png', sizes: '96x96', type: 'image/png' },
-      { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
-    ],
-    apple: [
-      { url: '/icons/icon-152x152.png', sizes: '152x152', type: 'image/png' },
-      { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
-    ],
-  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
@@ -79,6 +69,16 @@ export default function RootLayout({
     <html lang="es">
       <head>
         <meta name="apple-mobile-web-app-title" content="Suncar Administración" />
+        {/* Favicon y apple-touch-icon con variante para modo oscuro (verde) */}
+        <link rel="icon" type="image/png" sizes="96x96" href="/icons/icon-96x96.png" media="(prefers-color-scheme: light)" />
+        <link rel="icon" type="image/png" sizes="96x96" href="/icons/icon-dark-96x96.png" media="(prefers-color-scheme: dark)" />
+        <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png" media="(prefers-color-scheme: light)" />
+        <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-dark-192x192.png" media="(prefers-color-scheme: dark)" />
+        <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.png" media="(prefers-color-scheme: light)" />
+        <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-dark-152x152.png" media="(prefers-color-scheme: dark)" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-dark-180x180.png" media="(prefers-color-scheme: dark)" />
+        <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192x192.png" media="(prefers-color-scheme: light)" />
+        <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-dark-192x192.png" media="(prefers-color-scheme: dark)" />
         {/* Inyectar variables en runtime para que el cliente no dependa del build */}
         <script
           dangerouslySetInnerHTML={{
