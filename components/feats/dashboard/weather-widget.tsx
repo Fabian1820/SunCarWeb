@@ -114,7 +114,9 @@ export function WeatherWidget() {
 
   useEffect(() => {
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 6000)
+    const timeout = setTimeout(() => controller.abort(), 8000)
+
+    setError(false)
 
     fetch(
       `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}` +
@@ -134,7 +136,11 @@ export function WeatherWidget() {
           }))
         )
       })
-      .catch((e) => { console.error("[WeatherWidget] Error al cargar clima:", e); setError(true) })
+      .catch((e) => {
+        if (e.name === "AbortError") return
+        console.error("[WeatherWidget] Error al cargar clima:", e)
+        setError(true)
+      })
       .finally(() => { clearTimeout(timeout); setLoading(false) })
 
     return () => { controller.abort(); clearTimeout(timeout) }
