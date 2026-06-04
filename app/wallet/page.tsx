@@ -1218,7 +1218,7 @@ function WalletPageContent() {
               <div className="space-y-2">
                 <p className="text-xs text-slate-400">Saldos disponibles</p>
                 {currencies.length > 0 ? (
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {currencies.map((currency) => {
                       const amount = getWalletBalanceForCurrency(wallet, currency);
                       const isActive = currency.id === selectedCurrencyId;
