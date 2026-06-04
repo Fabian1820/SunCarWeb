@@ -3,12 +3,7 @@ import type {
   ValeSalidaSummary,
   ValeSalidaSummaryMaterial,
 } from "@/lib/api-types";
-import {
-  exportToExcel,
-  generateFilename,
-  type ExportColumn,
-} from "@/lib/export-service";
-
+import { exportToExcel, generateFilename } from "@/lib/export-service";
 
 const ESTADO_LABEL: Record<string, string> = {
   usado: "Usado",
@@ -66,10 +61,9 @@ export class ExportValesSalidaListExcelService {
    * Exporta a Excel los vales de salida que coincidan con los filtros aplicados.
    * Omite la paginación local (trae todo con `limit` alto en una sola llamada).
    *
-   * Incluye:
-   *  - Columna **"Creador de la solicitud"** desde `solicitud_creador_nombre`.
-   *  - Pares de columnas dinámicas **Material N / Cant. N** con cada material
-   *    embebido en el vale; `N` va de 1 al máximo de materiales del set.
+   * Cada vale se expande verticalmente: una fila por cada material, con todas
+   * las demás columnas repetidas. Si un vale no tiene materiales, se emite una
+   * sola fila con las columnas `Material` y `Cantidad` vacías.
    */
   static async exportar(
     opts: ExportValesOptions,
@@ -95,13 +89,8 @@ export class ExportValesSalidaListExcelService {
     const response = await ValeSalidaService.getValesSummary(params);
     const vales: ValeSalidaSummary[] = response.data || [];
 
-    const maxMateriales = vales.reduce(
-      (max, v) =>
-        Math.max(max, Array.isArray(v.materiales) ? v.materiales.length : 0),
-      0,
-    );
-
-    const rows = vales.map((vale) => {
+    const rows: Array<Record<string, string | number>> = [];
+    for (const vale of vales) {
       const materiales = vale.materiales || [];
       const base: Record<string, string | number> = {
         codigo_vale: vale.codigo || vale.id.slice(-6).toUpperCase(),
@@ -121,29 +110,20 @@ export class ExportValesSalidaListExcelService {
         fecha_creacion: formatDateDDMMYYYY(vale.fecha_creacion),
         fecha_recogida: formatDateDDMMYYYY(vale.fecha_recogida),
       };
-      for (let i = 0; i < maxMateriales; i++) {
-        const m = materiales[i];
-        base[`material_${i + 1}`] = m ? formatMaterialNombre(m) : "";
-        base[`cantidad_${i + 1}`] = m ? Number(m.cantidad) || 0 : "";
+      if (materiales.length === 0) {
+        rows.push({ ...base, material: "", cantidad: "" });
+      } else {
+        for (const m of materiales) {
+          rows.push({
+            ...base,
+            material: formatMaterialNombre(m),
+            cantidad: Number(m.cantidad) || 0,
+          });
+        }
       }
-      return base;
-    });
-
-    const materialColumns: ExportColumn[] = [];
-    for (let i = 0; i < maxMateriales; i++) {
-      materialColumns.push({
-        header: `Material ${i + 1}`,
-        key: `material_${i + 1}`,
-        width: 30,
-      });
-      materialColumns.push({
-        header: `Cant. ${i + 1}`,
-        key: `cantidad_${i + 1}`,
-        width: 10,
-      });
     }
 
-    const subtitlePartes: string[] = [`Registros: ${rows.length}`];
+    const subtitlePartes: string[] = [`Registros: ${vales.length}`];
     if (opts.fechaDesde && opts.fechaHasta) {
       subtitlePartes.push(
         `Período: ${formatDateDDMMYYYY(opts.fechaDesde)} a ${formatDateDDMMYYYY(opts.fechaHasta)}`,
@@ -186,13 +166,14 @@ export class ExportValesSalidaListExcelService {
         { header: "Creador de la solicitud", key: "creador_solicitud", width: 24 },
         { header: "Recibido por", key: "recibido_por", width: 22 },
         { header: "Materiales", key: "materiales_resumen", width: 14 },
-        ...materialColumns,
+        { header: "Material", key: "material", width: 36 },
+        { header: "Cantidad", key: "cantidad", width: 10 },
         { header: "Fecha creación", key: "fecha_creacion", width: 14 },
         { header: "Fecha recogida", key: "fecha_recogida", width: 14 },
       ],
       data: rows,
     });
 
-    return { count: rows.length, filename };
+    return { count: vales.length, filename };
   }
 }

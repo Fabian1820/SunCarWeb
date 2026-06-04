@@ -3,11 +3,7 @@ import type {
   SolicitudVentaListParams,
   SolicitudVentaSummary,
 } from "@/lib/api-types";
-import {
-  exportToExcel,
-  generateFilename,
-  type ExportColumn,
-} from "@/lib/export-service";
+import { exportToExcel, generateFilename } from "@/lib/export-service";
 
 const ESTADO_LABEL: Record<string, string> = {
   nueva: "Nueva",
@@ -63,9 +59,9 @@ export class ExportSolicitudesVentasExcelService {
    * actuales. Omite la paginación local (skip/limit de la UI) y trae el set
    * completo en una sola llamada a `/summary` con un `limit` alto.
    *
-   * Los materiales se exportan como pares de columnas dinámicas
-   * `Material N` / `Cantidad N`, con `N` desde 1 hasta el máximo de materiales
-   * que tenga cualquier solicitud del set.
+   * Cada solicitud se expande verticalmente: una fila por cada material, con
+   * todas las demás columnas repetidas. Si una solicitud no tiene materiales,
+   * se emite una sola fila con las columnas `Material` y `Cantidad` vacías.
    */
   static async exportar({
     filters,
@@ -83,13 +79,8 @@ export class ExportSolicitudesVentasExcelService {
     const response = await SolicitudVentaService.getSolicitudesSummary(params);
     const solicitudes: SolicitudVentaSummary[] = response.data || [];
 
-    const maxMateriales = solicitudes.reduce(
-      (max, s) =>
-        Math.max(max, Array.isArray(s.materiales) ? s.materiales.length : 0),
-      0,
-    );
-
-    const rows = solicitudes.map((s) => {
+    const rows: Array<Record<string, string | number>> = [];
+    for (const s of solicitudes) {
       const base: Record<string, string | number> = {
         codigo: s.codigo || s.id.slice(-6).toUpperCase(),
         estado:
@@ -107,29 +98,20 @@ export class ExportSolicitudesVentasExcelService {
         fecha_creacion: formatDateDDMMYYYY(s.fecha_creacion),
       };
       const lista = Array.isArray(s.materiales) ? s.materiales : [];
-      for (let i = 0; i < maxMateriales; i++) {
-        const m = lista[i];
-        base[`material_${i + 1}`] = m ? formatMaterialNombre(m) : "";
-        base[`cantidad_${i + 1}`] = m ? Number(m.cantidad) || 0 : "";
+      if (lista.length === 0) {
+        rows.push({ ...base, material: "", cantidad: "" });
+      } else {
+        for (const m of lista) {
+          rows.push({
+            ...base,
+            material: formatMaterialNombre(m),
+            cantidad: Number(m.cantidad) || 0,
+          });
+        }
       }
-      return base;
-    });
-
-    const materialColumns: ExportColumn[] = [];
-    for (let i = 0; i < maxMateriales; i++) {
-      materialColumns.push({
-        header: `Material ${i + 1}`,
-        key: `material_${i + 1}`,
-        width: 30,
-      });
-      materialColumns.push({
-        header: `Cant. ${i + 1}`,
-        key: `cantidad_${i + 1}`,
-        width: 10,
-      });
     }
 
-    const subtitlePartes: string[] = [`Registros: ${rows.length}`];
+    const subtitlePartes: string[] = [`Registros: ${solicitudes.length}`];
     if (filters.fecha_desde && filters.fecha_hasta) {
       subtitlePartes.push(
         `Período: ${formatDateDDMMYYYY(filters.fecha_desde)} a ${formatDateDDMMYYYY(filters.fecha_hasta)}`,
@@ -161,7 +143,8 @@ export class ExportSolicitudesVentasExcelService {
         { header: "Almacén", key: "almacen", width: 22 },
         { header: "Creador", key: "creador", width: 22 },
         { header: "Materiales", key: "materiales", width: 14 },
-        ...materialColumns,
+        { header: "Material", key: "material", width: 36 },
+        { header: "Cantidad", key: "cantidad", width: 10 },
         { header: "Precio Total (USD)", key: "precio_total", width: 18 },
         { header: "Total Pagado (USD)", key: "total_pagado", width: 18 },
         { header: "Pendiente (USD)", key: "monto_pendiente", width: 16 },
@@ -171,6 +154,6 @@ export class ExportSolicitudesVentasExcelService {
       data: rows,
     });
 
-    return { count: rows.length, filename };
+    return { count: solicitudes.length, filename };
   }
 }
