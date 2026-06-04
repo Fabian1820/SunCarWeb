@@ -3277,7 +3277,7 @@ export function ClientsTable({
           { header: "Total ($)", key: "total", width: 14 },
         ],
         data: rowsCompleto,
-        logoUrl: "/logo Suncar.png",
+        logoUrl: "/brand/suncar-v1-iso.png",
         clienteData:
           oferta.tipo === "personalizada" && cliente
             ? {
@@ -3538,7 +3538,7 @@ export function ClientsTable({
           { header: "Cant", key: "cantidad", width: 10 },
         ],
         data: rowsSinPrecios,
-        logoUrl: "/logo Suncar.png",
+        logoUrl: "/brand/suncar-v1-iso.png",
         clienteData:
           oferta.tipo === "personalizada" && cliente
             ? {
@@ -3876,7 +3876,7 @@ export function ClientsTable({
           { header: "Total ($)", key: "total", width: 15 },
         ],
         data: rowsClienteConPrecios,
-        logoUrl: "/logo Suncar.png",
+        logoUrl: "/brand/suncar-v1-iso.png",
         clienteData:
           oferta.tipo === "personalizada" && cliente
             ? {
@@ -3928,7 +3928,7 @@ export function ClientsTable({
           { header: `Total (${codigoMonedaCambio})`, key: "total", width: 15 },
         ],
         data: rowsClienteConPreciosTasaCambio,
-        logoUrl: "/logo Suncar.png",
+        logoUrl: "/brand/suncar-v1-iso.png",
         clienteData:
           oferta.tipo === "personalizada" && cliente
             ? {

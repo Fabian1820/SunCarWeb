@@ -2957,7 +2957,7 @@ export function ConfeccionOfertasView({
         { header: "Total ($)", key: "total", width: 14 },
       ],
       data: rows,
-      logoUrl: "/logo Suncar.png",
+      logoUrl: "/brand/suncar-v1-iso.png",
       clienteData:
         !ofertaGenerica && selectedCliente
           ? {
@@ -3429,7 +3429,7 @@ export function ConfeccionOfertasView({
         { header: "Cant", key: "cantidad", width: 10 },
       ],
       data: rows,
-      logoUrl: "/logo Suncar.png",
+      logoUrl: "/brand/suncar-v1-iso.png",
       clienteData:
         !ofertaGenerica && selectedCliente
           ? {
@@ -3875,7 +3875,7 @@ export function ConfeccionOfertasView({
         { header: "Total ($)", key: "total", width: 15 },
       ],
       data: rows,
-      logoUrl: "/logo Suncar.png",
+      logoUrl: "/brand/suncar-v1-iso.png",
       clienteData:
         !ofertaGenerica && selectedCliente
           ? {

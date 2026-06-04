@@ -91,7 +91,7 @@ export function ExportButtons({
       await exportToPDF({
         ...resolvedExportOptions,
         filename,
-        logoUrl: "/logo Suncar.png",
+        logoUrl: "/brand/suncar-v1-iso.png",
       });
 
       toast({

@@ -1508,7 +1508,7 @@ export function LeadsTable({
           { header: "Total ($)", key: "total", width: 14 },
         ],
         data: rowsCompleto,
-        logoUrl: "/logo Suncar.png",
+        logoUrl: "/brand/suncar-v1-iso.png",
         leadData:
           oferta.tipo === "personalizada" && lead
             ? {
@@ -1769,7 +1769,7 @@ export function LeadsTable({
           { header: "Cant", key: "cantidad", width: 10 },
         ],
         data: rowsSinPrecios,
-        logoUrl: "/logo Suncar.png",
+        logoUrl: "/brand/suncar-v1-iso.png",
         leadData:
           oferta.tipo === "personalizada" && lead
             ? {
@@ -2107,7 +2107,7 @@ export function LeadsTable({
           { header: "Total ($)", key: "total", width: 15 },
         ],
         data: rowsClienteConPrecios,
-        logoUrl: "/logo Suncar.png",
+        logoUrl: "/brand/suncar-v1-iso.png",
         leadData:
           oferta.tipo === "personalizada" && lead
             ? {
@@ -2159,7 +2159,7 @@ export function LeadsTable({
           { header: `Total (${codigoMonedaCambio})`, key: "total", width: 15 },
         ],
         data: rowsClienteConPreciosTasaCambio,
-        logoUrl: "/logo Suncar.png",
+        logoUrl: "/brand/suncar-v1-iso.png",
         leadData:
           oferta.tipo === "personalizada" && lead
             ? {

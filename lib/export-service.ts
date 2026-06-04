@@ -299,7 +299,7 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
     cell.fill = {
       type: "pattern",
       pattern: "solid",
-      fgColor: { argb: "FFEA580C" }, // Color naranja de SunCar
+      fgColor: { argb: "FF012928" }, // Emerald Circuit (marca Suncar)
     };
     cell.alignment = {
       horizontal: "center",
@@ -509,8 +509,8 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
   ); // Aumentado de 50 a 40 para más ancho de texto
   const headerHeight = 18 + descripcionLines.length * 4.5; // Reducido de 22
 
-  // Fondo verde claro para el encabezado - Color exacto del ejemplo: RGB(189, 215, 176)
-  doc.setFillColor(189, 215, 176);
+  // Fondo Emerald Circuit (marca Suncar 2026) para el encabezado
+  doc.setFillColor(1, 41, 40);
   doc.rect(0, 0, pageWidth, headerHeight, "F");
 
   // Logo en la esquina superior derecha (dentro del espacio verde)
@@ -534,17 +534,17 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     }
   }
 
-  // Título principal - OFERTA en mayúsculas y más robusto
+  // Título principal - OFERTA en mayúsculas y más robusto (texto blanco sobre Emerald)
   doc.setFontSize(20);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(0, 0, 0);
+  doc.setTextColor(255, 255, 255);
   doc.text("OFERTA", 5, 8);
 
   // Descripción del sistema
   if (descripcionSistema) {
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(0, 0, 0);
+    doc.setTextColor(255, 255, 255);
     doc.text(descripcionLines, 5, 16); // Bajado de 15 a 16 para más espacio hacia abajo
   }
 
@@ -1305,7 +1305,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
           yPosition = 15;
         }
 
-        doc.setFillColor(189, 215, 176);
+        doc.setFillColor(230, 244, 239);
         doc.rect(10, yPosition, pageWidth - 20, bloqueAltura, "F");
 
         let lineY = yPosition + paddingTop + 4;
@@ -1321,7 +1321,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
         });
 
         const separadorY = lineY - 2;
-        doc.setDrawColor(120, 150, 110);
+        doc.setDrawColor(1, 41, 40);
         doc.setLineWidth(0.3);
         doc.line(12, separadorY, pageWidth - 12, separadorY);
 
@@ -1338,7 +1338,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
 
         yPosition += bloqueAltura + 2;
       } else {
-        doc.setFillColor(189, 215, 176);
+        doc.setFillColor(230, 244, 239);
         doc.rect(10, yPosition, pageWidth - 20, 10, "F");
 
         doc.setFontSize(13);
@@ -1395,7 +1395,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       yPosition += 5; // Reducido de 8 a 5 para estar más pegado
 
       // Línea separadora decorativa (igual que términos y condiciones)
-      doc.setDrawColor(189, 215, 176); // Color verde de SunCar
+      doc.setDrawColor(1, 41, 40); // Color verde de SunCar
       doc.setLineWidth(1);
       doc.line(margenIzq, yPosition, pageWidth - margenDer, yPosition);
       yPosition += 10;
@@ -1474,7 +1474,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     yPosition += 5; // Reducido de 8 a 5 para estar más pegado
 
     // Línea separadora decorativa (igual que términos y condiciones)
-    doc.setDrawColor(189, 215, 176); // Color verde de SunCar
+    doc.setDrawColor(1, 41, 40); // Color verde de SunCar
     doc.setLineWidth(1);
     doc.line(margenIzq, yPosition, pageWidth - margenDer, yPosition);
     yPosition += 10;
@@ -1654,7 +1654,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     yPosition += 5; // Reducido de 8 a 5 para estar más pegado
 
     // Línea separadora decorativa
-    doc.setDrawColor(189, 215, 176); // Color verde de SunCar
+    doc.setDrawColor(1, 41, 40); // Color verde de SunCar
     doc.setLineWidth(1);
     doc.line(margenIzq, yPosition, pageWidth - margenDer, yPosition);
     yPosition += 10;

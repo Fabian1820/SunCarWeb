@@ -2,10 +2,11 @@ import jsPDF from "jspdf";
 import type { OfertaVenta } from "../../../api-types";
 
 // ─── paleta ───────────────────────────────────────────────────────────────────
+// Paleta Ventas (marca Suncar 2026): Midnight Voltage (navy) + Solar Radiance (amarillo)
 const C = {
-  ink:     [15,  20,  40 ] as [number, number, number],
-  green:   [189, 215, 176] as [number, number, number],
-  greenBg: [240, 247, 237] as [number, number, number], // verde muy suave
+  ink:     [10,  5,   45 ] as [number, number, number], // Midnight Voltage
+  green:   [242, 195, 0  ] as [number, number, number], // Solar Radiance (acento)
+  greenBg: [238, 239, 248] as [number, number, number], // navy muy suave
   white:   [255, 255, 255] as [number, number, number],
   gray50:  [250, 250, 250] as [number, number, number],
   gray100: [243, 244, 246] as [number, number, number],
@@ -91,7 +92,7 @@ export class ExportOfertaVentaService {
 
     // ── 1. Pre-cargar imágenes ─────────────────────────────────────
     let logoData: { b64: string; w: number; h: number } | null = null;
-    try { logoData = await toBase64WithSize("/logo Suncar.png"); } catch { /**/ }
+    try { logoData = await toBase64WithSize("/brand/suncar-v2-horizontal.png"); } catch { /**/ }
 
     const fotosBase64 = new Map<string, string>();
     if (fotosMap && fotosMap.size > 0) {
@@ -337,12 +338,12 @@ export class ExportOfertaVentaService {
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
-    doc.setTextColor(55, 95, 50);
+    doc.setTextColor(10, 5, 45);
     doc.text("TOTAL", MR - 76, y + 9);
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
-    doc.setTextColor(25, 55, 25);
+    doc.setTextColor(10, 5, 45);
     doc.text(`${sim}${fmt(oferta.precio_total)}`, MR - 2, y + 9.5, { align: "right" });
 
     // ── 7. Observaciones ─────────────────────────────────────────
