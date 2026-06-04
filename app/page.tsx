@@ -23,7 +23,6 @@ import {
   Package,
   Users,
   Megaphone,
-  Boxes,
   Cake,
 } from "lucide-react";
 import {
@@ -768,43 +767,6 @@ export default function Dashboard() {
                   </p>
                 )}
 
-                {/* Resumen rápido (datos reales) */}
-                <section className="grid grid-cols-2 gap-4 sm:max-w-md">
-                  {[
-                    {
-                      label: "Módulos disponibles",
-                      value: String(availableModules.length),
-                      sub: "con acceso activo",
-                      icon: Boxes,
-                      tint: "bg-sky-50 text-sky-600",
-                    },
-                    {
-                      label: "Favoritos",
-                      value: String(favoriteModules.length),
-                      sub: "guardados",
-                      icon: Star,
-                      tint: "bg-amber-50 text-amber-500",
-                    },
-                  ].map((stat) => (
-                    <div
-                      key={stat.label}
-                      className="relative flex flex-col rounded-2xl border border-gray-200/70 bg-white/80 p-5 shadow-sm backdrop-blur-sm"
-                    >
-                      <span
-                        className={`mb-4 flex h-10 w-10 items-center justify-center rounded-xl ${stat.tint}`}
-                      >
-                        <stat.icon className="h-5 w-5" />
-                      </span>
-                      <p className="text-2xl font-bold tracking-tight text-gray-900">
-                        {stat.value}
-                      </p>
-                      <p className="mt-0.5 text-sm font-medium text-gray-700">
-                        {stat.label}
-                      </p>
-                      <p className="mt-1 text-xs text-gray-400">{stat.sub}</p>
-                    </div>
-                  ))}
-                </section>
 
                 {/* Favoritos (acceso rápido, compacto) */}
                 {favoriteModules.length > 0 && (
