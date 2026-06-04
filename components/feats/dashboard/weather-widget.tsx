@@ -134,7 +134,7 @@ export function WeatherWidget() {
           }))
         )
       })
-      .catch(() => setError(true))
+      .catch((e) => { console.error("[WeatherWidget] Error al cargar clima:", e); setError(true) })
       .finally(() => { clearTimeout(timeout); setLoading(false) })
 
     return () => { controller.abort(); clearTimeout(timeout) }
