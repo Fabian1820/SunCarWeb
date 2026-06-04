@@ -273,7 +273,7 @@ function TasaCambioDiariaPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Tasa de Cambio diaria"
         subtitle="Registro por fecha para contabilidad (USD contra EUR y CUP)"

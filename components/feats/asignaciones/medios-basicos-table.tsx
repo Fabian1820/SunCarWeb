@@ -46,21 +46,21 @@ export function MediosBasicosTable({ items, onEdit, onDelete, loading }: MediosB
                       className="relative w-full h-full"
                       imgClassName="w-full h-full object-contain p-1"
                       fallback={
-                        <div className="absolute inset-0 bg-orange-100 flex items-center justify-center">
-                          <Package className="h-5 w-5 text-orange-700" />
+                        <div className="absolute inset-0 bg-emerald-100 flex items-center justify-center">
+                          <Package className="h-5 w-5 text-emerald-700" />
                         </div>
                       }
                     />
                   </div>
                 ) : (
-                  <div className="w-12 h-12 rounded-lg bg-orange-50 border border-orange-100 flex items-center justify-center">
-                    <Package className="h-5 w-5 text-orange-300" />
+                  <div className="w-12 h-12 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center">
+                    <Package className="h-5 w-5 text-emerald-300" />
                   </div>
                 )}
               </TableCell>
               <TableCell>
                 {item.codigo
-                  ? <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-medium bg-orange-100 text-orange-700">{item.codigo}</span>
+                  ? <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-medium bg-emerald-100 text-emerald-700">{item.codigo}</span>
                   : <span className="text-gray-300 text-xs">—</span>}
               </TableCell>
               <TableCell className="font-medium">{item.nombre}</TableCell>

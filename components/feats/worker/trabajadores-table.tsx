@@ -206,7 +206,7 @@ export function TrabajadoresTable({
                 <div className="flex items-start gap-3">
                   <div className="bg-blue-100 p-2 rounded-lg shrink-0">
                     {hasPassword(worker) ? (
-                      <Crown className="h-4 w-4 text-orange-500" />
+                      <Crown className="h-4 w-4 text-emerald-500" />
                     ) : (
                       <Users className="h-4 w-4 text-blue-500" />
                     )}
@@ -258,7 +258,7 @@ export function TrabajadoresTable({
                     variant="outline"
                     size="icon"
                     onClick={() => onConvertJefe(worker)}
-                    className="border-orange-300 text-orange-700 hover:bg-orange-50 touch-manipulation"
+                    className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 touch-manipulation"
                     title="Convertir en jefe de brigada"
                     aria-label="Convertir en jefe de brigada"
                   >
@@ -316,7 +316,7 @@ export function TrabajadoresTable({
                     <div className="flex items-center space-x-3">
                       <div className="bg-blue-100 p-2 rounded-lg">
                         {hasPassword(worker) ? (
-                          <Crown className="h-4 w-4 text-orange-500" />
+                          <Crown className="h-4 w-4 text-emerald-500" />
                         ) : (
                           <Users className="h-4 w-4 text-blue-500" />
                         )}
@@ -368,7 +368,7 @@ export function TrabajadoresTable({
                         variant="outline"
                         size="icon"
                         onClick={() => onConvertJefe(worker)}
-                        className="border-orange-300 text-orange-700 hover:bg-orange-50"
+                        className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
                         title="Convertir en jefe de brigada"
                         aria-label="Convertir en jefe de brigada"
                       >
@@ -414,7 +414,7 @@ export function TrabajadoresTable({
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
                     {hasPassword(selectedWorker) ? (
-                      <Crown className="h-5 w-5 text-orange-500" />
+                      <Crown className="h-5 w-5 text-emerald-500" />
                     ) : (
                       <Users className="h-5 w-5 text-blue-500" />
                     )}

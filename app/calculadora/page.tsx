@@ -760,7 +760,7 @@ export default function CalculadoraPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       {/* Header */}
       <header ref={headerRef} className="fixed-header bg-white/90 backdrop-blur">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -778,12 +778,12 @@ export default function CalculadoraPage() {
 	              </Button>
 	            </Link>
             <div className="flex items-center gap-2 sm:gap-3 min-w-0 justify-self-center">
-              <div className="hidden sm:flex p-0 rounded-full bg-white shadow border border-orange-200 items-center justify-center h-12 w-12">
+              <div className="hidden sm:flex p-0 rounded-full bg-white shadow border border-emerald-200 items-center justify-center h-12 w-12">
                 <img src="/logo.png" alt="Logo SunCar" className="h-10 w-10 object-contain rounded-full" />
               </div>
               <div>
                 <h1 className="text-base sm:text-2xl font-bold text-gray-900 flex items-center justify-center gap-2">
-                  <Calculator className="h-5 w-5 sm:h-6 sm:w-6 text-orange-600" />
+                  <Calculator className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-600" />
                   <span className="truncate">Calculadora</span>
                   <span className="hidden sm:inline">de Consumo Eléctrico</span>
                 </h1>
@@ -792,7 +792,7 @@ export default function CalculadoraPage() {
             </div>
             <div className="flex items-center gap-2 sm:gap-3 justify-end">
               {loadingCategorias && (
-                <span className="flex items-center gap-2 text-sm text-orange-700">
+                <span className="flex items-center gap-2 text-sm text-emerald-700">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   <span className="hidden sm:inline">Actualizando</span>
                 </span>
@@ -802,17 +802,17 @@ export default function CalculadoraPage() {
 	                variant="outline"
 	                size="sm"
 	                aria-label="Restablecer"
-	                className="flex items-center justify-center gap-2 border-orange-200 hover:bg-orange-50 hover:border-orange-300 h-9 w-9 p-0 rounded-full sm:rounded-md sm:w-auto sm:px-3"
+	                className="flex items-center justify-center gap-2 border-emerald-200 hover:bg-emerald-50 hover:border-emerald-300 h-9 w-9 p-0 rounded-full sm:rounded-md sm:w-auto sm:px-3"
 	                disabled={totalEquipos === 0}
 	              >
-	                <RotateCcw className="h-4 w-4 text-orange-600" />
+	                <RotateCcw className="h-4 w-4 text-emerald-600" />
 	                <span className="sr-only">Restablecer</span>
 	              </Button>
 	              <Button
 	                onClick={() => setIsCreateDialogOpen(true)}
 	                size="sm"
 	                aria-label="Registrar equipo"
-	                className="flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white h-9 w-9 p-0 rounded-full sm:rounded-md sm:w-auto sm:px-3"
+	                className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white h-9 w-9 p-0 rounded-full sm:rounded-md sm:w-auto sm:px-3"
 	              >
 	                <Plus className="h-4 w-4" />
 	                <span className="sr-only">Registrar equipo</span>
@@ -829,11 +829,11 @@ export default function CalculadoraPage() {
         {/* Panel de consumo total */}
         <div className="-mx-4 sm:mx-0">
           <div
-            className="sticky z-10 bg-gradient-to-br from-orange-50 to-yellow-50 px-4 sm:px-0 pb-3 sm:pb-6"
+            className="sticky z-10 bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee] px-4 sm:px-0 pb-3 sm:pb-6"
             style={{ top: headerHeight }}
           >
             {/* Subheader compacto (móvil) */}
-            <Card className="sm:hidden bg-white/95 backdrop-blur border-orange-200 shadow-sm">
+            <Card className="sm:hidden bg-white/95 backdrop-blur border-emerald-200 shadow-sm">
               <CardContent className="p-3">
                 <div className="grid grid-cols-3 gap-2">
                   <div className="min-w-0">
@@ -854,7 +854,7 @@ export default function CalculadoraPage() {
                 {totalEquipos > 0 && (
                   <Button
                     onClick={handleOpenRecomendaciones}
-                    className="mt-3 w-full h-9 bg-orange-600 hover:bg-orange-700 flex items-center justify-center gap-2"
+                    className="mt-3 w-full h-9 bg-emerald-600 hover:bg-emerald-700 flex items-center justify-center gap-2"
                   >
                     <Lightbulb className="h-4 w-4" />
                     Dimensionar
@@ -865,7 +865,7 @@ export default function CalculadoraPage() {
                     onClick={generarPDF}
                     disabled={exportingPDF}
                     variant="outline"
-                    className="mt-2 w-full h-9 border-orange-200 hover:bg-orange-50 flex items-center justify-center gap-2"
+                    className="mt-2 w-full h-9 border-emerald-200 hover:bg-emerald-50 flex items-center justify-center gap-2"
                   >
                     {exportingPDF ? (
                       <>
@@ -884,7 +884,7 @@ export default function CalculadoraPage() {
             </Card>
 
             {/* Panel completo (desktop/tablet) */}
-            <Card className="hidden sm:block bg-gradient-to-br from-orange-50 to-yellow-50 border-orange-200 shadow-lg">
+            <Card className="hidden sm:block bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee] border-emerald-200 shadow-lg">
               <CardContent className="pt-6">
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
                   <div className="flex-1">
@@ -892,7 +892,7 @@ export default function CalculadoraPage() {
                       <div>
                         <p className="text-sm text-gray-600 mb-1">Potencia Total (Inversor)</p>
                         <p className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center gap-2">
-                          <Cpu className="h-6 w-6 sm:h-8 sm:w-8 text-orange-600" />
+                          <Cpu className="h-6 w-6 sm:h-8 sm:w-8 text-emerald-600" />
                           {potenciaTotalKw.toFixed(2)} kW
                         </p>
                         <p className="text-xs text-gray-500 mt-1">= {(potenciaTotalKw * 1000).toFixed(0)} Watts</p>
@@ -900,7 +900,7 @@ export default function CalculadoraPage() {
                       <div>
                         <p className="text-sm text-gray-600 mb-1">Consumo Real por Hora (Batería)</p>
                         <p className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center gap-2">
-                          <Zap className="h-6 w-6 sm:h-8 sm:w-8 text-orange-600" />
+                          <Zap className="h-6 w-6 sm:h-8 sm:w-8 text-emerald-600" />
                           {consumoRealKwh.toFixed(3)} kWh
                         </p>
                         <p className="text-xs text-gray-500 mt-1">
@@ -917,10 +917,10 @@ export default function CalculadoraPage() {
                 </div>
 
                 {totalEquipos > 0 && (
-                  <div className="border-t border-orange-200 pt-4">
+                  <div className="border-t border-emerald-200 pt-4">
                     <Button
                       onClick={handleOpenRecomendaciones}
-                      className="w-full bg-orange-600 hover:bg-orange-700 flex items-center justify-center gap-2"
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 flex items-center justify-center gap-2"
                     >
                       <Lightbulb className="h-5 w-5" />
                       Dimensionar Inversor y Batería
@@ -929,7 +929,7 @@ export default function CalculadoraPage() {
                       onClick={generarPDF}
                       disabled={exportingPDF}
                       variant="outline"
-                      className="w-full mt-2 border-orange-200 hover:bg-orange-50 flex items-center justify-center gap-2"
+                      className="w-full mt-2 border-emerald-200 hover:bg-emerald-50 flex items-center justify-center gap-2"
                     >
                       {exportingPDF ? (
                         <>
@@ -952,7 +952,7 @@ export default function CalculadoraPage() {
 
         {/* Buscador de equipos */}
         <div className="mb-6">
-          <Card className="border-orange-200">
+          <Card className="border-emerald-200">
             <CardContent className="pt-6">
               <Popover open={openBuscador} onOpenChange={setOpenBuscador}>
                 <PopoverTrigger asChild>
@@ -960,9 +960,9 @@ export default function CalculadoraPage() {
                     variant="outline"
                     role="combobox"
                     aria-expanded={openBuscador}
-                    className="w-full justify-start text-left font-normal border-orange-200 hover:bg-orange-50"
+                    className="w-full justify-start text-left font-normal border-emerald-200 hover:bg-emerald-50"
                   >
-                    <Search className="mr-2 h-4 w-4 shrink-0 text-orange-600" />
+                    <Search className="mr-2 h-4 w-4 shrink-0 text-emerald-600" />
                     <span className="text-gray-500">Buscar equipos...</span>
                   </Button>
                 </PopoverTrigger>
@@ -1061,7 +1061,7 @@ export default function CalculadoraPage() {
                                         agregarDesdeBuscador(equipoKey)
                                       }}
                                       size="sm"
-                                      className="bg-orange-600 hover:bg-orange-700 h-8 px-3"
+                                      className="bg-emerald-600 hover:bg-emerald-700 h-8 px-3"
                                     >
                                       Agregar
                                     </Button>
@@ -1089,7 +1089,7 @@ export default function CalculadoraPage() {
         {/* Contenido principal */}
         <div className="space-y-6">
           {noEquiposRegistrados && !loadingCategorias ? (
-            <Card className="border-dashed border-orange-200">
+            <Card className="border-dashed border-emerald-200">
               <CardContent className="py-10 text-center">
                 <p className="text-gray-600">Aún no hay equipos registrados en el backend.</p>
                 <p className="text-sm text-gray-500 mt-2">Usa el botón &quot;Registrar equipo&quot; para comenzar.</p>
@@ -1102,7 +1102,7 @@ export default function CalculadoraPage() {
                 const icono = categoriaIconos[categoria.nombre] || "⚡️"
 
                 return (
-                  <Card key={categoria.id} className="border-orange-100">
+                  <Card key={categoria.id} className="border-emerald-100">
                     <CardHeader className="pb-3">
                       <CardTitle className="text-lg flex items-center gap-2">
                         <span>{icono}</span>
@@ -1132,7 +1132,7 @@ export default function CalculadoraPage() {
                             <div
                               key={equipoKey}
                               className={`p-3 rounded-lg border transition-colors ${
-                                seleccionado ? "border-orange-300 bg-orange-50" : "border-gray-200 bg-white"
+                                seleccionado ? "border-emerald-300 bg-emerald-50" : "border-gray-200 bg-white"
                               }`}
                             >
                               <div className="flex items-start justify-between mb-2">
@@ -1147,7 +1147,7 @@ export default function CalculadoraPage() {
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-8 w-8 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                                    className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
                                     onClick={() => handleEditEquipo(equipoMeta)}
                                     aria-label={`Editar ${equipo.nombre}`}
                                   >
@@ -1170,7 +1170,7 @@ export default function CalculadoraPage() {
                                   onClick={() => agregarEquipo(equipoKey, 1)}
                                   size="sm"
                                   variant="outline"
-                                  className="w-full border-orange-200 hover:bg-orange-100"
+                                  className="w-full border-emerald-200 hover:bg-emerald-100"
                                 >
                                   <Plus className="h-3 w-3 mr-1" />
                                   Agregar
@@ -1550,24 +1550,24 @@ export default function CalculadoraPage() {
           <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-6 pt-6 pb-4">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Lightbulb className="h-5 w-5 text-orange-600" />
+                <Lightbulb className="h-5 w-5 text-emerald-600" />
                 Dimensionamiento de Sistema Solar
               </DialogTitle>
             </DialogHeader>
           </div>
           <div className="flex-1 overflow-y-auto px-6 py-4">
             <div className="space-y-6">
-              <Card className="border-orange-200">
+              <Card className="border-emerald-200">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base flex items-center gap-2">
-                    <Cpu className="h-5 w-5 text-orange-600" />
+                    <Cpu className="h-5 w-5 text-emerald-600" />
                     Inversor Recomendado
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <div className="bg-orange-50 p-3 sm:p-4 rounded-lg">
+                  <div className="bg-emerald-50 p-3 sm:p-4 rounded-lg">
                     <p className="text-xs sm:text-sm text-gray-600 mb-1">Potencia del Inversor</p>
-                    <p className="text-xl sm:text-2xl font-bold text-orange-600">{inversorRecomendado.toFixed(2)} kW</p>
+                    <p className="text-xl sm:text-2xl font-bold text-emerald-600">{inversorRecomendado.toFixed(2)} kW</p>
                     <p className="text-xs text-gray-500 mt-2">
                       Potencia base: {potenciaTotalKw.toFixed(2)} kW + 25% de margen
                     </p>
@@ -1579,20 +1579,20 @@ export default function CalculadoraPage() {
                 </CardContent>
               </Card>
 
-              <Card className="border-orange-200">
+              <Card className="border-emerald-200">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base flex items-center gap-2">
-                    <Battery className="h-5 w-5 text-orange-600" />
+                    <Battery className="h-5 w-5 text-emerald-600" />
                     Banco de Baterías
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="bg-orange-50 p-3 sm:p-4 rounded-lg">
+                  <div className="bg-emerald-50 p-3 sm:p-4 rounded-lg">
                     <p className="text-xs sm:text-sm text-gray-600 mb-1">Capacidad Recomendada (5 horas)</p>
-                    <p className="text-xl sm:text-2xl font-bold text-orange-600">{bateriaRecomendada5h.toFixed(2)} kWh</p>
+                    <p className="text-xl sm:text-2xl font-bold text-emerald-600">{bateriaRecomendada5h.toFixed(2)} kWh</p>
                     <p className="text-xs text-gray-500 mt-2">{consumoRealKwh.toFixed(3)} kWh/h × 5 horas de autonomía</p>
                   </div>
-                  <div className="border-t border-orange-200 pt-4">
+                  <div className="border-t border-emerald-200 pt-4">
                     <Label htmlFor="bateria-kwh" className="text-xs sm:text-sm font-medium">
                       Ajustar Capacidad de Batería: {bateriaKwh[0].toFixed(2)} kWh
                     </Label>
@@ -1629,7 +1629,7 @@ export default function CalculadoraPage() {
               <Button 
                 onClick={generarPDF} 
                 disabled={exportingPDF}
-                className="bg-orange-600 hover:bg-orange-700 flex items-center gap-2"
+                className="bg-emerald-600 hover:bg-emerald-700 flex items-center gap-2"
               >
                 {exportingPDF ? (
                   <>

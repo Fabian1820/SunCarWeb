@@ -233,12 +233,12 @@ export default function ClientesVentasPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Clientes Ventas"
         subtitle="Gestiona clientes de venta para solicitudes web"
         badge={{ text: "Ventas", className: "bg-teal-100 text-teal-800" }}
-        className="bg-white shadow-sm border-b border-orange-100"
+        className="bg-white shadow-sm border-b border-emerald-100"
         actions={
           <Button
             size="icon"

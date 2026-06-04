@@ -1279,7 +1279,7 @@ export function PendientesVisitaTable({
 
   return (
     <>
-      <Card className="mb-6 border-l-4 border-l-orange-600">
+      <Card className="mb-6 border-l-4 border-l-emerald-600">
         <CardContent className="pt-6">
           <div className="flex items-center gap-3 flex-wrap">
             <Button
@@ -1287,7 +1287,7 @@ export function PendientesVisitaTable({
               onClick={() => setViewMode("pendientes")}
               className={
                 viewMode === "pendientes"
-                  ? "bg-orange-600 hover:bg-orange-700"
+                  ? "bg-emerald-600 hover:bg-emerald-700"
                   : ""
               }
             >
@@ -1299,7 +1299,7 @@ export function PendientesVisitaTable({
               onClick={() => setViewMode("realizadas")}
               className={
                 viewMode === "realizadas"
-                  ? "bg-orange-600 hover:bg-orange-700"
+                  ? "bg-emerald-600 hover:bg-emerald-700"
                   : ""
               }
             >
@@ -1310,7 +1310,7 @@ export function PendientesVisitaTable({
         </CardContent>
       </Card>
 
-      <Card className="mb-6 border-l-4 border-l-orange-600">
+      <Card className="mb-6 border-l-4 border-l-emerald-600">
         <CardHeader>
           <CardTitle className="text-xl">Filtros de Búsqueda</CardTitle>
         </CardHeader>
@@ -1413,7 +1413,7 @@ export function PendientesVisitaTable({
         </CardContent>
       </Card>
 
-      <Card className="border-l-4 border-l-orange-600">
+      <Card className="border-l-4 border-l-emerald-600">
         <CardHeader>
           <CardTitle className="flex items-center justify-between text-xl">
             <span>
@@ -1562,7 +1562,7 @@ export function PendientesVisitaTable({
                             <Button
                               onClick={() => handleCompletarVisita(registro)}
                               size="sm"
-                              className="bg-orange-600 hover:bg-orange-700 text-sm h-9"
+                              className="bg-emerald-600 hover:bg-emerald-700 text-sm h-9"
                             >
                               <CheckCircle2 className="h-3 w-3 mr-1" />
                               Completar
@@ -1771,7 +1771,7 @@ export function PendientesVisitaTable({
                                       handleCompletarVisita(registro)
                                     }
                                     size="sm"
-                                    className="bg-orange-600 hover:bg-orange-700 text-sm h-8 px-3"
+                                    className="bg-emerald-600 hover:bg-emerald-700 text-sm h-8 px-3"
                                   >
                                     <CheckCircle2 className="h-3 w-3 mr-1" />
                                     Completar
@@ -1926,7 +1926,7 @@ export function PendientesVisitaTable({
                   type="button"
                   onClick={handleGuardarEdicionVisita}
                   disabled={guardandoEdicion}
-                  className="bg-orange-600 hover:bg-orange-700"
+                  className="bg-emerald-600 hover:bg-emerald-700"
                 >
                   {guardandoEdicion ? "Guardando..." : "Guardar cambios"}
                 </Button>
@@ -1948,11 +1948,11 @@ export function PendientesVisitaTable({
           </DialogHeader>
           {detalleVisitaSeleccionada ? (
             <div className="space-y-4 text-sm">
-              <div className="rounded-md bg-orange-50 border border-orange-200 p-3">
-                <p className="text-xs uppercase tracking-wide text-orange-700 font-semibold">
+              <div className="rounded-md bg-emerald-50 border border-emerald-200 p-3">
+                <p className="text-xs uppercase tracking-wide text-emerald-700 font-semibold">
                   Visita
                 </p>
-                <p className="text-base font-semibold text-orange-900">
+                <p className="text-base font-semibold text-emerald-900">
                   {detalleVisitaSeleccionada.visitaId || "Sin ID de visita"}
                 </p>
               </div>

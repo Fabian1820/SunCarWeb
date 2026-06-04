@@ -139,7 +139,7 @@ export default function OfertasPersonalizadasPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       {/* Header */}
       <ModuleHeader
         title="Ofertas Personalizadas"

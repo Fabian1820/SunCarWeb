@@ -2957,7 +2957,7 @@ export function ConfeccionOfertasView({
         { header: "Total ($)", key: "total", width: 14 },
       ],
       data: rows,
-      logoUrl: "/logo Suncar.png",
+      logoUrl: "/brand/suncar-v1-iso.png",
       clienteData:
         !ofertaGenerica && selectedCliente
           ? {
@@ -3429,7 +3429,7 @@ export function ConfeccionOfertasView({
         { header: "Cant", key: "cantidad", width: 10 },
       ],
       data: rows,
-      logoUrl: "/logo Suncar.png",
+      logoUrl: "/brand/suncar-v1-iso.png",
       clienteData:
         !ofertaGenerica && selectedCliente
           ? {
@@ -3875,7 +3875,7 @@ export function ConfeccionOfertasView({
         { header: "Total ($)", key: "total", width: 15 },
       ],
       data: rows,
-      logoUrl: "/logo Suncar.png",
+      logoUrl: "/brand/suncar-v1-iso.png",
       clienteData:
         !ofertaGenerica && selectedCliente
           ? {
@@ -7678,18 +7678,18 @@ export function ConfeccionOfertasView({
                 </div>
 
                 {/* Compensación */}
-                <div className="rounded-md border border-orange-200 bg-orange-50 p-3 space-y-3">
+                <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 space-y-3">
                   <div className="flex items-center gap-2">
                     <input
                       type="checkbox"
                       id="tieneCompensacion"
                       checked={tieneCompensacion}
                       onChange={(e) => setTieneCompensacion(e.target.checked)}
-                      className="h-4 w-4 rounded border-orange-300"
+                      className="h-4 w-4 rounded border-emerald-300"
                     />
                     <label
                       htmlFor="tieneCompensacion"
-                      className="text-sm font-semibold text-orange-900 cursor-pointer"
+                      className="text-sm font-semibold text-emerald-900 cursor-pointer"
                     >
                       Tiene Compensación
                     </label>
@@ -7704,8 +7704,8 @@ export function ConfeccionOfertasView({
                           onClick={() => setModoCompensacion("monto")}
                           className={`px-3 py-1 text-xs rounded ${
                             modoCompensacion === "monto"
-                              ? "bg-orange-600 text-white"
-                              : "bg-white text-orange-700 border border-orange-300"
+                              ? "bg-emerald-600 text-white"
+                              : "bg-white text-emerald-700 border border-emerald-300"
                           }`}
                         >
                           Monto Fijo
@@ -7715,8 +7715,8 @@ export function ConfeccionOfertasView({
                           onClick={() => setModoCompensacion("porcentaje")}
                           className={`px-3 py-1 text-xs rounded ${
                             modoCompensacion === "porcentaje"
-                              ? "bg-orange-600 text-white"
-                              : "bg-white text-orange-700 border border-orange-300"
+                              ? "bg-emerald-600 text-white"
+                              : "bg-white text-emerald-700 border border-emerald-300"
                           }`}
                         >
                           % del Precio
@@ -7725,7 +7725,7 @@ export function ConfeccionOfertasView({
 
                       {modoCompensacion === "monto" ? (
                         <div className="flex items-center justify-between gap-3">
-                          <label className="text-sm text-orange-700">
+                          <label className="text-sm text-emerald-700">
                             Monto (USD)
                           </label>
                           <Input
@@ -7743,7 +7743,7 @@ export function ConfeccionOfertasView({
                       ) : (
                         <div className="space-y-2">
                           <div className="flex items-center justify-between gap-3">
-                            <label className="text-sm text-orange-700">
+                            <label className="text-sm text-emerald-700">
                               Porcentaje (%)
                             </label>
                             <Input
@@ -7761,7 +7761,7 @@ export function ConfeccionOfertasView({
                               placeholder="0"
                             />
                           </div>
-                          <div className="flex items-center justify-between text-xs text-orange-600">
+                          <div className="flex items-center justify-between text-xs text-emerald-600">
                             <span>Monto calculado:</span>
                             <span className="font-semibold">
                               ${formatCurrency(montoCompensacion)}
@@ -7771,7 +7771,7 @@ export function ConfeccionOfertasView({
                       )}
 
                       <div>
-                        <label className="text-sm text-orange-700 block mb-1">
+                        <label className="text-sm text-emerald-700 block mb-1">
                           Justificación
                         </label>
                         <textarea
@@ -7779,12 +7779,12 @@ export function ConfeccionOfertasView({
                           onChange={(e) =>
                             setJustificacionCompensacion(e.target.value)
                           }
-                          className="w-full h-20 px-3 py-2 text-sm border border-orange-200 rounded-md bg-white resize-none"
+                          className="w-full h-20 px-3 py-2 text-sm border border-emerald-200 rounded-md bg-white resize-none"
                           placeholder="Ej: Compensación por retraso de 2 semanas en la instalación"
                           minLength={10}
                           maxLength={500}
                         />
-                        <p className="text-xs text-orange-600 mt-1">
+                        <p className="text-xs text-emerald-600 mt-1">
                           {justificacionCompensacion.length}/500 caracteres
                           (mínimo 10)
                         </p>
@@ -8408,10 +8408,10 @@ export function ConfeccionOfertasView({
                         <div className="pt-2 mt-2 border-t border-slate-200 space-y-1">
                           {tieneCompensacion && montoCompensacion > 0 && (
                             <div className="flex items-center justify-between text-sm">
-                              <span className="text-orange-700">
+                              <span className="text-emerald-700">
                                 Compensación
                               </span>
-                              <span className="font-medium text-orange-700">
+                              <span className="font-medium text-emerald-700">
                                 - {formatCurrency(montoCompensacion)}
                               </span>
                             </div>
@@ -8427,11 +8427,11 @@ export function ConfeccionOfertasView({
                                 </span>
                               </div>
                             )}
-                          <div className="flex items-center justify-between pt-2 border-t border-orange-200 bg-orange-50 px-3 py-2 rounded-md">
-                            <span className="text-base font-bold text-orange-900">
+                          <div className="flex items-center justify-between pt-2 border-t border-emerald-200 bg-emerald-50 px-3 py-2 rounded-md">
+                            <span className="text-base font-bold text-emerald-900">
                               Monto Pendiente
                             </span>
-                            <span className="text-xl font-bold text-orange-900">
+                            <span className="text-xl font-bold text-emerald-900">
                               {formatCurrency(montoPendiente)}
                             </span>
                           </div>
@@ -9065,7 +9065,7 @@ export function ConfeccionOfertasView({
                   </label>
                   <Select value={almacenId} onValueChange={setAlmacenId}>
                     <SelectTrigger
-                      className={`w-full max-w-[300px] h-9 ${!almacenId ? "border-orange-300 bg-orange-50" : ""}`}
+                      className={`w-full max-w-[300px] h-9 ${!almacenId ? "border-emerald-300 bg-emerald-50" : ""}`}
                     >
                       <SelectValue placeholder="Seleccionar almacén" />
                     </SelectTrigger>
@@ -9124,7 +9124,7 @@ export function ConfeccionOfertasView({
                   </div>
                 )}
                 {!almacenId && (
-                  <p className="text-xs text-orange-600 font-medium">
+                  <p className="text-xs text-emerald-600 font-medium">
                     ⚠️ Selecciona un almacén para consultar stock (puedes usar
                     cualquier material).
                   </p>
@@ -9202,7 +9202,7 @@ export function ConfeccionOfertasView({
                                   <Package className="h-12 w-12 text-slate-300" />
                                 )}
                                 {selectedCount ? (
-                                  <span className="absolute top-2 right-2 rounded-full bg-orange-600 text-white text-xs font-bold px-2.5 py-1 shadow-lg border-2 border-white z-10">
+                                  <span className="absolute top-2 right-2 rounded-full bg-emerald-600 text-white text-xs font-bold px-2.5 py-1 shadow-lg border-2 border-white z-10">
                                     {selectedCount}
                                   </span>
                                 ) : null}
@@ -9242,7 +9242,7 @@ export function ConfeccionOfertasView({
 
                                 <div className="mt-auto space-y-2">
                                   <div className="flex items-center justify-between gap-2">
-                                    <p className="text-base font-semibold text-orange-600">
+                                    <p className="text-base font-semibold text-emerald-600">
                                       $
                                       {material.precio
                                         ? material.precio.toFixed(2)
@@ -9415,7 +9415,7 @@ export function ConfeccionOfertasView({
                     onClick={() => setTipoExtraSeccion("costo")}
                     className={`flex-1 p-3 rounded-lg border-2 transition-all ${
                       tipoExtraSeccion === "costo"
-                        ? "border-orange-500 bg-orange-50"
+                        ? "border-emerald-500 bg-emerald-50"
                         : "border-slate-200 hover:border-slate-300"
                     }`}
                   >

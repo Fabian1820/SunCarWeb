@@ -706,7 +706,7 @@ export function PosView({ tiendaId, sesionId }: PosViewProps) {
                 <Button 
                   variant="default" 
                   size="sm"
-                  className="bg-orange-600 hover:bg-orange-700 h-9 px-3"
+                  className="bg-emerald-600 hover:bg-emerald-700 h-9 px-3"
                   onClick={crearNuevaOrden}
                 >
                   <Plus className="h-4 w-4 mr-1" />
@@ -734,7 +734,7 @@ export function PosView({ tiendaId, sesionId }: PosViewProps) {
 
                 {/* Selector de almacén */}
                 <Select value={almacenId} onValueChange={setAlmacenId}>
-                  <SelectTrigger className={`w-[200px] h-9 ${!almacenId ? 'border-orange-300 bg-orange-50' : ''}`}>
+                  <SelectTrigger className={`w-[200px] h-9 ${!almacenId ? 'border-emerald-300 bg-emerald-50' : ''}`}>
                     <SelectValue placeholder="Seleccionar almacén" />
                   </SelectTrigger>
                   <SelectContent>
@@ -786,7 +786,7 @@ export function PosView({ tiendaId, sesionId }: PosViewProps) {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-9 px-3 text-orange-600 hover:text-orange-700 hover:bg-orange-50 flex-shrink-0"
+                  className="h-9 px-3 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 flex-shrink-0"
                   onClick={() => setIsCierreDialogOpen(true)}
                 >
                   Cerrar caja
@@ -835,7 +835,7 @@ export function PosView({ tiendaId, sesionId }: PosViewProps) {
                                 e.stopPropagation()
                                 eliminarItemDeOrden(item.materialCodigo)
                               }}
-                              className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-orange-600 text-lg leading-none transition-opacity"
+                              className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-emerald-600 text-lg leading-none transition-opacity"
                               aria-label="Quitar producto"
                             >
                               ×
@@ -931,7 +931,7 @@ export function PosView({ tiendaId, sesionId }: PosViewProps) {
                               "h-14 text-lg font-extrabold border border-slate-200 bg-slate-50 transition-colors",
                               isModo ? "bg-teal-100 border-teal-400 text-teal-900" : "",
                               key === "Desc." ? "bg-amber-200 hover:bg-amber-300" : "",
-                              key === "," ? "bg-orange-100 hover:bg-orange-200" : "",
+                              key === "," ? "bg-emerald-100 hover:bg-emerald-200" : "",
                               key === "C" ? "bg-rose-200 text-rose-800 hover:bg-rose-300" : "",
                               key === "AC" ? "bg-rose-300 text-rose-900 hover:bg-rose-400" : "",
                               key === "Cant." ? "bg-sky-100 hover:bg-sky-200" : "",
@@ -946,7 +946,7 @@ export function PosView({ tiendaId, sesionId }: PosViewProps) {
                     </div>
                     <div className="grid grid-cols-2 gap-3 mt-3 w-full">
                       <Button 
-                        className="h-10 bg-orange-600 hover:bg-orange-700 text-base"
+                        className="h-10 bg-emerald-600 hover:bg-emerald-700 text-base"
                         onClick={handleAbrirPago}
                       >
                         Pago
@@ -1017,7 +1017,7 @@ export function PosView({ tiendaId, sesionId }: PosViewProps) {
                               <Package className="h-12 w-12 text-slate-300" />
                             )}
                             {cantidadesPorMaterial.get(material.codigo?.toString() ?? "") ? (
-                              <span className="absolute top-2 right-2 rounded-full bg-orange-600 text-white text-xs font-bold px-2.5 py-1 shadow-lg border-2 border-white">
+                              <span className="absolute top-2 right-2 rounded-full bg-emerald-600 text-white text-xs font-bold px-2.5 py-1 shadow-lg border-2 border-white">
                                 {cantidadesPorMaterial.get(material.codigo.toString())}
                               </span>
                             ) : null}
@@ -1032,7 +1032,7 @@ export function PosView({ tiendaId, sesionId }: PosViewProps) {
                             </h3>
                           </div>
                           <div className="mt-auto flex items-center justify-between gap-2">
-                            <p className="text-base font-semibold text-orange-600">
+                            <p className="text-base font-semibold text-emerald-600">
                               ${material.precio ? material.precio.toFixed(2) : '0.00'}
                             </p>
                             <Badge
@@ -1246,7 +1246,7 @@ export function PosView({ tiendaId, sesionId }: PosViewProps) {
                         <Button
                           variant="default"
                           size="sm"
-                          className="bg-orange-600 hover:bg-orange-700"
+                          className="bg-emerald-600 hover:bg-emerald-700"
                           onClick={() => {
                             const tiendaActual = tiendas.find(t => t.id === tiendaId)
                             ReciboService.imprimirRecibo({

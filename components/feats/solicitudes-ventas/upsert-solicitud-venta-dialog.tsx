@@ -1264,14 +1264,14 @@ export function UpsertSolicitudVentaDialog({
               <Button
                 type="button"
                 variant="outline"
-                className="w-full justify-between border-orange-200 text-orange-700 hover:bg-orange-50 hover:border-orange-300"
+                className="w-full justify-between border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-300"
                 onClick={handleToggleOfertaPanel}
               >
                 <span className="flex items-center gap-2">
                   <ShoppingCart className="h-4 w-4" />
                   Cargar desde oferta de venta
                   {ofertaAplicada && (
-                    <Badge className="bg-orange-100 text-orange-700 border-orange-200 font-normal">
+                    <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 font-normal">
                       {ofertaAplicada.codigo || ofertaAplicada.id.slice(-8).toUpperCase()}
                     </Badge>
                   )}
@@ -1284,7 +1284,7 @@ export function UpsertSolicitudVentaDialog({
               </Button>
 
               {showOfertaPanel ? (
-                <div className="border border-orange-100 rounded-md bg-orange-50/40 overflow-hidden">
+                <div className="border border-emerald-100 rounded-md bg-emerald-50/40 overflow-hidden">
                   {loadingOfertas ? (
                     <div className="flex items-center gap-2 p-4 text-sm text-gray-500">
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -1295,7 +1295,7 @@ export function UpsertSolicitudVentaDialog({
                       No hay ofertas de venta disponibles.
                     </p>
                   ) : (
-                    <div className="divide-y divide-orange-100 max-h-64 overflow-y-auto">
+                    <div className="divide-y divide-emerald-100 max-h-64 overflow-y-auto">
                       {ofertasDisponibles.map((oferta) => {
                         const ESTADO_COLOR: Record<string, string> = {
                           enviada:   "bg-blue-50 text-blue-700 border-blue-200",
@@ -1310,11 +1310,11 @@ export function UpsertSolicitudVentaDialog({
                             key={oferta.id}
                             type="button"
                             onClick={() => applyOferta(oferta)}
-                            className="w-full text-left px-4 py-3 hover:bg-orange-100/60 transition-colors"
+                            className="w-full text-left px-4 py-3 hover:bg-emerald-100/60 transition-colors"
                           >
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
-                                <p className="text-sm font-semibold text-orange-800 font-mono">
+                                <p className="text-sm font-semibold text-emerald-800 font-mono">
                                   {oferta.codigo || oferta.id.slice(-8).toUpperCase()}
                                 </p>
                                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
@@ -1334,11 +1334,11 @@ export function UpsertSolicitudVentaDialog({
                                 </div>
                                 {oferta.descuento_free && (
                                   <div className="flex items-center gap-1.5 mt-1">
-                                    <span className="text-[10px] font-semibold text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded-full">
+                                    <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded-full">
                                       Descuento Free
                                     </span>
                                     {oferta.motivo_descuento_free && (
-                                      <span className="text-[10px] text-orange-700 truncate max-w-[180px]">
+                                      <span className="text-[10px] text-emerald-700 truncate max-w-[180px]">
                                         {oferta.motivo_descuento_free}
                                       </span>
                                     )}
@@ -1361,7 +1361,7 @@ export function UpsertSolicitudVentaDialog({
               ) : null}
 
               {ofertaAplicada ? (
-                <div className="flex items-center justify-between rounded-md bg-orange-50 border border-orange-200 px-3 py-2 text-xs text-orange-700">
+                <div className="flex items-center justify-between rounded-md bg-emerald-50 border border-emerald-200 px-3 py-2 text-xs text-emerald-700">
                   <span>
                     Materiales cargados desde oferta{" "}
                     <span className="font-mono font-semibold">
@@ -1374,7 +1374,7 @@ export function UpsertSolicitudVentaDialog({
                   <button
                     type="button"
                     onClick={() => setOfertaAplicada(null)}
-                    className="ml-3 hover:text-orange-900 shrink-0"
+                    className="ml-3 hover:text-emerald-900 shrink-0"
                     title="Quitar indicador"
                   >
                     <X className="h-3 w-3" />
@@ -1658,20 +1658,20 @@ export function UpsertSolicitudVentaDialog({
                 title={descuentoFree ? "Desactivar descuento libre" : "Activar descuento libre (sin límites por material)"}
                 className={`text-xs px-3 py-1 rounded-full font-semibold transition-colors ${
                   descuentoFree
-                    ? "bg-orange-500 text-white"
-                    : "bg-gray-200 text-gray-500 hover:bg-orange-100 hover:text-orange-600"
+                    ? "bg-emerald-500 text-white"
+                    : "bg-gray-200 text-gray-500 hover:bg-emerald-100 hover:text-emerald-600"
                 }`}
               >
                 Descuento Free
               </button>
               {descuentoFree && (
-                <span className="text-xs text-orange-600 font-medium">Límites de descuento desactivados</span>
+                <span className="text-xs text-emerald-600 font-medium">Límites de descuento desactivados</span>
               )}
             </div>
 
             {descuentoFree && (
-              <div className="rounded-lg border border-orange-300 bg-orange-50 p-3 space-y-1">
-                <label className="text-xs font-semibold text-orange-700 flex items-center gap-1">
+              <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 space-y-1">
+                <label className="text-xs font-semibold text-emerald-700 flex items-center gap-1">
                   Motivo del descuento libre <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -1679,10 +1679,10 @@ export function UpsertSolicitudVentaDialog({
                   value={motivoDescuentoFree}
                   onChange={(e) => setMotivoDescuentoFree(e.target.value)}
                   placeholder="Explica el motivo del descuento especial..."
-                  className="w-full rounded-md border border-orange-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                  className="w-full rounded-md border border-emerald-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
                 />
                 {!motivoDescuentoFree.trim() && (
-                  <p className="text-xs text-orange-600">Campo obligatorio para aplicar descuento libre.</p>
+                  <p className="text-xs text-emerald-600">Campo obligatorio para aplicar descuento libre.</p>
                 )}
               </div>
             )}
@@ -1832,7 +1832,7 @@ export function UpsertSolicitudVentaDialog({
                                 </p>
                               )}
                               {descPct > 0 && !descuentoExcedido && (
-                                <p className="text-xs mt-0.5 text-right leading-tight text-orange-500">
+                                <p className="text-xs mt-0.5 text-right leading-tight text-emerald-500">
                                   {material.descuento_tipo === "$"
                                     ? `= ${descPct.toFixed(1)}%`
                                     : `= $${(precioUnit * descPct / 100).toFixed(2)}`}

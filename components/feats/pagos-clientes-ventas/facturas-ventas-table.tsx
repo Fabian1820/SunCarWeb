@@ -350,7 +350,7 @@ export function FacturasVentasTable({
                 <>
                   <span className="text-gray-300">|</span>
                   <span className="text-gray-500">
-                    Descuentos: <strong className="text-orange-600">{formatCurrency(usd.descuento)}</strong>
+                    Descuentos: <strong className="text-emerald-600">{formatCurrency(usd.descuento)}</strong>
                   </span>
                 </>
               )}
@@ -432,7 +432,7 @@ export function FacturasVentasTable({
                   </TableCell>
                   <TableCell className="text-sm">{f.emitida_por_nombre || f.emitida_por}</TableCell>
                   <TableCell className="text-sm text-right text-gray-700">{formatCurrency(getTotalSinDescuento(f))}</TableCell>
-                  <TableCell className="text-sm text-right text-orange-600">{formatCurrency(f.descuento)}</TableCell>
+                  <TableCell className="text-sm text-right text-emerald-600">{formatCurrency(f.descuento)}</TableCell>
                   {hayAumentoEnAlguna && (
                     <TableCell className="text-sm text-right text-amber-700">
                       {getAumento(f) > 0 ? formatCurrency(getAumento(f)) : <span className="text-gray-300">—</span>}
@@ -548,7 +548,7 @@ export function FacturasVentasTable({
                   <TableCell className="text-right text-sm py-2.5 text-gray-700">
                     {formatCurrency(sumSinDesc)}
                   </TableCell>
-                  <TableCell className="text-right text-sm py-2.5 text-orange-600">
+                  <TableCell className="text-right text-sm py-2.5 text-emerald-600">
                     {formatCurrency(sumDesc)}
                   </TableCell>
                   {hayAumentoEnAlguna && (

@@ -214,18 +214,18 @@ export function AsignacionRecursosDialog({
             <div className="space-y-1.5" ref={medioComboRef}>
               <Label>Medio básico *</Label>
               {medioSeleccionado ? (
-                <div className="flex items-center justify-between gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-md">
+                <div className="flex items-center justify-between gap-2 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-md">
                   <div className="min-w-0 flex items-center gap-2">
                     {medioSeleccionado.foto ? (
                       <img
                         src={medioSeleccionado.foto}
                         alt={medioSeleccionado.nombre}
-                        className="h-9 w-9 rounded object-cover border border-orange-200 flex-shrink-0"
+                        className="h-9 w-9 rounded object-cover border border-emerald-200 flex-shrink-0"
                         onError={e => { (e.target as HTMLImageElement).style.display = "none" }}
                       />
                     ) : (
-                      <div className="bg-orange-100 p-1.5 rounded-lg flex-shrink-0">
-                        <Package className="h-3.5 w-3.5 text-orange-700" />
+                      <div className="bg-emerald-100 p-1.5 rounded-lg flex-shrink-0">
+                        <Package className="h-3.5 w-3.5 text-emerald-700" />
                       </div>
                     )}
                     <div className="min-w-0">
@@ -265,7 +265,7 @@ export function AsignacionRecursosDialog({
                         filteredMedios.map(m => (
                           <button
                             key={m.id}
-                            className="w-full text-left px-3 py-2 hover:bg-orange-50 text-sm flex items-center gap-2 border-b last:border-0"
+                            className="w-full text-left px-3 py-2 hover:bg-emerald-50 text-sm flex items-center gap-2 border-b last:border-0"
                             onMouseDown={e => {
                               e.preventDefault()
                               setMedioSeleccionado(m)
@@ -277,12 +277,12 @@ export function AsignacionRecursosDialog({
                               <img
                                 src={m.foto}
                                 alt={m.nombre}
-                                className="h-7 w-7 rounded object-cover border border-orange-200 flex-shrink-0"
+                                className="h-7 w-7 rounded object-cover border border-emerald-200 flex-shrink-0"
                                 onError={e => { (e.target as HTMLImageElement).style.display = "none" }}
                               />
                             ) : (
-                              <div className="bg-orange-100 p-1.5 rounded-lg flex-shrink-0">
-                                <Package className="h-3 w-3 text-orange-700" />
+                              <div className="bg-emerald-100 p-1.5 rounded-lg flex-shrink-0">
+                                <Package className="h-3 w-3 text-emerald-700" />
                               </div>
                             )}
                             <div className="flex-1 min-w-0">

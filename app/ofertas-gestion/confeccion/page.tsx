@@ -8,7 +8,7 @@ export default function ConfeccionOfertasPage() {
   const router = useRouter()
 
   return (
-    <div className="h-screen bg-gradient-to-br from-orange-50 to-yellow-50 flex flex-col overflow-hidden">
+    <div className="h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee] flex flex-col overflow-hidden">
       <ModuleHeader
         title="Confección de Ofertas"
         subtitle="Arma ofertas fotovoltaicas con materiales, margen y redondeo final."

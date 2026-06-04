@@ -299,7 +299,7 @@ export function TodosPagosVentasTable({
         <TableCell className="text-sm min-w-[220px]">
           <div className="font-medium text-gray-900">{getMetodoPago(p)}</div>
           {p.descuento_porcentaje && p.descuento_porcentaje > 0 && (
-            <div className="text-xs text-orange-600">
+            <div className="text-xs text-emerald-600">
               Descuento: {p.descuento_porcentaje}%
             </div>
           )}

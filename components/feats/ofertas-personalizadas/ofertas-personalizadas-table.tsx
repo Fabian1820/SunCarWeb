@@ -169,7 +169,7 @@ export function OfertasPersonalizadasTable({
                           Pagada
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className="text-orange-600">
+                        <Badge variant="outline" className="text-emerald-600">
                           <XCircle className="h-3 w-3 mr-1" />
                           Pendiente
                         </Badge>

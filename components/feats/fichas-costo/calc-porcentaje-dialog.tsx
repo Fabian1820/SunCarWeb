@@ -560,10 +560,10 @@ export function CalcPorcentajeDialog({ open, onOpenChange, materiales }: CalcPor
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Receipt className="h-4 w-4 text-orange-500" />
+                  <Receipt className="h-4 w-4 text-emerald-500" />
                   <h3 className="font-semibold text-gray-800 text-sm">Costos adicionales</h3>
                 </div>
-                <Badge className="bg-orange-50 text-orange-700 text-xs">{costos.filter(c => c.nombre || c.valor).length} ítem(s)</Badge>
+                <Badge className="bg-emerald-50 text-emerald-700 text-xs">{costos.filter(c => c.nombre || c.valor).length} ítem(s)</Badge>
               </div>
 
               <div className="border border-gray-200 rounded-lg overflow-hidden">
@@ -581,7 +581,7 @@ export function CalcPorcentajeDialog({ open, onOpenChange, materiales }: CalcPor
                         value={c.nombre}
                         onChange={(e) => updateCosto(c.id, "nombre", e.target.value)}
                         placeholder={`Costo ${i + 1} (ej: flete, seguro...)`}
-                        className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-orange-400 placeholder:text-gray-300"
+                        className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-400 placeholder:text-gray-300"
                       />
                       <div className="relative w-24">
                         <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
@@ -592,7 +592,7 @@ export function CalcPorcentajeDialog({ open, onOpenChange, materiales }: CalcPor
                           value={c.valor === 0 ? "" : c.valor}
                           onChange={(e) => updateCosto(c.id, "valor", parseFloat(e.target.value) || 0)}
                           placeholder="0.00"
-                          className="w-full pl-5 pr-2 py-1.5 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-orange-400"
+                          className="w-full pl-5 pr-2 py-1.5 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-emerald-400"
                         />
                       </div>
                       <button
@@ -609,7 +609,7 @@ export function CalcPorcentajeDialog({ open, onOpenChange, materiales }: CalcPor
                 <div className="px-3 py-2 border-t border-gray-100 bg-gray-50">
                   <button
                     onClick={addCosto}
-                    className="flex items-center gap-1.5 text-xs text-orange-600 hover:text-orange-700 font-medium transition-colors"
+                    className="flex items-center gap-1.5 text-xs text-emerald-600 hover:text-emerald-700 font-medium transition-colors"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     Agregar costo
@@ -622,11 +622,11 @@ export function CalcPorcentajeDialog({ open, onOpenChange, materiales }: CalcPor
                   {costos.filter(c => c.valor > 0).map((c) => {
                     const pct = (c.valor / totalMercancia) * 100
                     return (
-                      <div key={c.id} className="flex items-center justify-between px-3 py-1.5 rounded bg-orange-50 text-xs">
+                      <div key={c.id} className="flex items-center justify-between px-3 py-1.5 rounded bg-emerald-50 text-xs">
                         <span className="text-gray-700 truncate max-w-[55%]">{c.nombre || "Sin nombre"}</span>
                         <div className="flex items-center gap-3 text-right">
                           <span className="text-gray-600">${fmt(c.valor)}</span>
-                          <span className="text-orange-600 font-semibold w-12">{pct.toFixed(2)}%</span>
+                          <span className="text-emerald-600 font-semibold w-12">{pct.toFixed(2)}%</span>
                         </div>
                       </div>
                     )
@@ -634,9 +634,9 @@ export function CalcPorcentajeDialog({ open, onOpenChange, materiales }: CalcPor
                 </div>
               )}
 
-              <div className="flex items-center justify-between rounded-lg bg-orange-50 border border-orange-200 px-4 py-2.5">
-                <span className="text-sm text-orange-700 font-medium">Total costos</span>
-                <span className="text-lg font-bold text-orange-900">${fmt(totalCostos)}</span>
+              <div className="flex items-center justify-between rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-2.5">
+                <span className="text-sm text-emerald-700 font-medium">Total costos</span>
+                <span className="text-lg font-bold text-emerald-900">${fmt(totalCostos)}</span>
               </div>
             </div>
           </div>
@@ -652,7 +652,7 @@ export function CalcPorcentajeDialog({ open, onOpenChange, materiales }: CalcPor
                 <div className="sm:col-span-2 flex items-center gap-3 flex-wrap">
                   <div className="text-center px-3 py-2 bg-white rounded-lg border border-gray-200 min-w-[90px]">
                     <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-0.5">Total costos</p>
-                    <p className="text-sm font-bold text-orange-700">${fmt(totalCostos)}</p>
+                    <p className="text-sm font-bold text-emerald-700">${fmt(totalCostos)}</p>
                   </div>
                   <span className="text-lg text-gray-400 font-light">÷</span>
                   <div className="text-center px-3 py-2 bg-white rounded-lg border border-gray-200 min-w-[90px]">

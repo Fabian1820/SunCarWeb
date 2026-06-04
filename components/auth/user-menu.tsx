@@ -33,9 +33,9 @@ export function UserMenu() {
             variant="outline"
             size="sm"
             aria-label="Abrir menu de cuenta"
-            className="flex items-center justify-center gap-0 sm:gap-2 bg-white hover:bg-orange-50 border-orange-200 hover:border-orange-300 rounded-full sm:rounded-md h-9 w-9 sm:h-9 sm:w-auto px-0 sm:px-3"
+            className="flex items-center justify-center gap-0 sm:gap-2 bg-white hover:bg-emerald-50 border-emerald-200 hover:border-emerald-300 rounded-full sm:rounded-md h-9 w-9 sm:h-9 sm:w-auto px-0 sm:px-3"
           >
-            <User className="h-4 w-4 text-orange-600" />
+            <User className="h-4 w-4 text-emerald-600" />
             <span className="hidden sm:inline text-gray-700">
               {user.nombre}
             </span>

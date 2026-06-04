@@ -250,7 +250,7 @@ export default function SolicitudesMaterialesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Solicitudes de Materiales"
         subtitle="Gestiona las solicitudes de materiales para operaciones"
@@ -258,7 +258,7 @@ export default function SolicitudesMaterialesPage() {
           text: "Operaciones",
           className: "bg-purple-100 text-purple-800",
         }}
-        className="bg-white shadow-sm border-b border-orange-100"
+        className="bg-white shadow-sm border-b border-emerald-100"
         actions={
           <Button
             size="icon"

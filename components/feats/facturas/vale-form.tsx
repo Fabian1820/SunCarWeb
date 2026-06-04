@@ -71,13 +71,13 @@ export function ValeForm({
     const total = vale.items.reduce((sum, item) => sum + (item.precio * item.cantidad), 0)
 
     return (
-        <Card className="border-2 border-orange-200">
-            <CardHeader className="bg-orange-50">
+        <Card className="border-2 border-emerald-200">
+            <CardHeader className="bg-emerald-50">
                 <div className="flex items-center justify-between">
                     <CardTitle className="text-lg">Vale #{index + 1}</CardTitle>
                     <div className="flex items-center gap-4">
                         <div className="text-sm text-gray-600">
-                            Total: <span className="font-bold text-orange-600">${total.toFixed(2)}</span>
+                            Total: <span className="font-bold text-emerald-600">${total.toFixed(2)}</span>
                         </div>
                         {canRemove && (
                             <Button

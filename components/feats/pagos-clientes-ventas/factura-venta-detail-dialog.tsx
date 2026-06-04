@@ -111,7 +111,7 @@ export function FacturaVentaDetailDialog({
                             <td className="p-2">
                               {row.material_descripcion || row.descripcion || row.nombre || "Material"}
                               {descPct > 0 && (
-                                <span className="ml-1 text-xs text-orange-600">(-{descPct.toFixed(1)}%)</span>
+                                <span className="ml-1 text-xs text-emerald-600">(-{descPct.toFixed(1)}%)</span>
                               )}
                             </td>
                             <td className="p-2 text-right">{cantidad}</td>

@@ -49,7 +49,7 @@ export function EntregaCelebrationAnimation({
             <House className="h-10 w-10 drop-shadow" strokeWidth={2.2} />
           </div>
 
-          <div className="package-one absolute right-20 bottom-12 text-orange-600 opacity-0">
+          <div className="package-one absolute right-20 bottom-12 text-emerald-600 opacity-0">
             <Package className="h-5 w-5" strokeWidth={2.3} />
           </div>
           <div className="package-two absolute right-14 bottom-12 text-amber-700 opacity-0">

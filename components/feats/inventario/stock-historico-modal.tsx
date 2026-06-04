@@ -143,7 +143,7 @@ export function StockHistoricoModal({
       <DialogContent className="max-w-3xl w-full max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <History className="h-5 w-5 text-orange-600" />
+            <History className="h-5 w-5 text-emerald-600" />
             Stock histórico
             {almacenNombre && (
               <span className="text-sm font-normal text-gray-500">— {almacenNombre}</span>
@@ -261,7 +261,7 @@ export function StockHistoricoModal({
             <Button
               onClick={() => void handleConsultar()}
               disabled={loading || !fecha}
-              className="bg-orange-600 hover:bg-orange-700 text-white gap-2 whitespace-nowrap"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 whitespace-nowrap"
             >
               {loading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -327,7 +327,7 @@ export function StockHistoricoModal({
                       <tr
                         key={`${item.almacen_id}-${item.material_id}-${idx}`}
                         className={`border-b border-gray-50 ${
-                          item.cantidad === 0 ? "opacity-50" : "hover:bg-orange-50/30"
+                          item.cantidad === 0 ? "opacity-50" : "hover:bg-emerald-50/30"
                         }`}
                       >
                         <td className="py-2 px-3 font-mono text-xs text-gray-600">{item.material_codigo}</td>

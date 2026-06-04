@@ -941,7 +941,7 @@ export function CompletarVisitaDialog({
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <CheckCircle2 className="h-5 w-5 text-orange-600" />
+            <CheckCircle2 className="h-5 w-5 text-emerald-600" />
             Completar Visita
           </DialogTitle>
           {pendiente && (
@@ -958,23 +958,23 @@ export function CompletarVisitaDialog({
 
         <div className="space-y-6 py-4">
           {loading && (
-            <Card className="border-orange-200 bg-orange-50">
+            <Card className="border-emerald-200 bg-emerald-50">
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin text-orange-700" />
-                  <p className="text-sm font-medium text-orange-900">
+                  <Loader2 className="h-4 w-4 animate-spin text-emerald-700" />
+                  <p className="text-sm font-medium text-emerald-900">
                     {submitProgress.message || "Procesando visita..."}
                   </p>
                 </div>
 
-                <div className="h-2 w-full rounded-full bg-orange-100 overflow-hidden">
+                <div className="h-2 w-full rounded-full bg-emerald-100 overflow-hidden">
                   <div
-                    className="h-full bg-orange-600 transition-all duration-300"
+                    className="h-full bg-emerald-600 transition-all duration-300"
                     style={{ width: `${getProgressPercent()}%` }}
                   />
                 </div>
 
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-orange-800">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-emerald-800">
                   <span>
                     Archivos subidos: {submitProgress.uploadedFiles}/
                     {submitProgress.totalFiles}
@@ -1026,15 +1026,15 @@ export function CompletarVisitaDialog({
 
           {/* Alerta: Sin Oferta Asignada */}
           {!verificandoOferta && tieneOferta === false && (
-            <Card className="border-orange-200 bg-orange-50">
+            <Card className="border-emerald-200 bg-emerald-50">
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
-                  <AlertTriangle className="h-5 w-5 text-orange-600 mt-0.5" />
+                  <AlertTriangle className="h-5 w-5 text-emerald-600 mt-0.5" />
                   <div className="flex-1">
-                    <p className="font-semibold text-orange-900 mb-1">
+                    <p className="font-semibold text-emerald-900 mb-1">
                       Sin Oferta Asignada
                     </p>
-                    <p className="text-sm text-orange-800">
+                    <p className="text-sm text-emerald-800">
                       Este {pendiente?.tipo === "lead" ? "lead" : "cliente"} no
                       tiene una oferta asignada. El estado se actualizará
                       automáticamente a{" "}
@@ -1076,7 +1076,7 @@ export function CompletarVisitaDialog({
               Subir archivos Excel, PDF o Word con el estudio energético
             </p>
 
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-orange-400 transition-colors">
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-emerald-400 transition-colors">
               <input
                 type="file"
                 id="estudio-upload"
@@ -1134,7 +1134,7 @@ export function CompletarVisitaDialog({
               Fotos, videos, audios o descripción textual de la visita
             </p>
 
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-orange-400 transition-colors">
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-emerald-400 transition-colors">
               <input
                 type="file"
                 id="evidencia-upload"
@@ -1418,7 +1418,7 @@ export function CompletarVisitaDialog({
           <Button
             onClick={handleSubmit}
             disabled={loading || verificandoOferta}
-            className="bg-orange-600 hover:bg-orange-700"
+            className="bg-emerald-600 hover:bg-emerald-700"
           >
             {loading ? submitProgress.message || "Guardando..." : "Completar Visita"}
           </Button>

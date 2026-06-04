@@ -1042,7 +1042,7 @@ export function TrabajosDiariosTodosView() {
                             averia
                               ? "bg-red-400"
                               : row.tipo.toUpperCase().includes("NUEVA")
-                                ? "bg-orange-400"
+                                ? "bg-emerald-400"
                                 : row.tipo.toUpperCase().includes("PROCESO")
                                   ? "bg-blue-400"
                                   : row.tipo.toUpperCase().includes("TERMINAD")
@@ -1145,7 +1145,7 @@ export function TrabajosDiariosTodosView() {
                             averia
                               ? "bg-red-400"
                               : row.tipo.toUpperCase().includes("NUEVA")
-                                ? "bg-orange-400"
+                                ? "bg-emerald-400"
                                 : row.tipo.toUpperCase().includes("PROCESO")
                                   ? "bg-blue-400"
                                   : row.tipo.toUpperCase().includes("TERMINAD")

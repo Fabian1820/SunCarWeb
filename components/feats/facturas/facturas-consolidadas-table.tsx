@@ -210,7 +210,7 @@ export function FacturasConsolidadasTable({
                                 onClick={() =>
                                   handleClienteClick(factura.cliente_codigo)
                                 }
-                                className="text-orange-600 hover:text-orange-700 hover:underline font-medium text-left"
+                                className="text-emerald-600 hover:text-emerald-700 hover:underline font-medium text-left"
                                 disabled={loadingCliente}
                               >
                                 {factura.cliente_nombre}
@@ -290,7 +290,7 @@ export function FacturasConsolidadasTable({
                               variant="ghost"
                               size="sm"
                               onClick={() => onEdit(factura)}
-                              className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                              className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
                               disabled={factura.anulada === true}
                               title={
                                 factura.anulada
@@ -321,11 +321,11 @@ export function FacturasConsolidadasTable({
 
                       {/* Fila expandida con detalles de ofertas */}
                       {isExpanded && hasOfertas && (
-                        <TableRow className="bg-orange-50/30">
+                        <TableRow className="bg-emerald-50/30">
                           <TableCell colSpan={13} className="p-4">
-                            <div className="bg-white rounded-lg border border-orange-200 overflow-hidden">
-                              <div className="bg-orange-100 px-4 py-2 border-b border-orange-200">
-                                <span className="text-sm font-semibold text-orange-800">
+                            <div className="bg-white rounded-lg border border-emerald-200 overflow-hidden">
+                              <div className="bg-emerald-100 px-4 py-2 border-b border-emerald-200">
+                                <span className="text-sm font-semibold text-emerald-800">
                                   Ofertas Asociadas ({factura.ofertas.length})
                                 </span>
                               </div>
@@ -379,7 +379,7 @@ export function FacturasConsolidadasTable({
                                         className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                                           oferta.monto_pendiente === 0
                                             ? "bg-green-100 text-green-700"
-                                            : "bg-orange-100 text-orange-700"
+                                            : "bg-emerald-100 text-emerald-700"
                                         }`}
                                       >
                                         {oferta.monto_pendiente === 0

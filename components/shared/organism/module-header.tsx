@@ -98,11 +98,11 @@ export function ModuleHeader({
               </Button>
             </Link>
 
-            <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-9 w-9 sm:h-12 sm:w-12 shrink-0">
+            <div className="rounded-xl bg-suncar-primary shadow-sm flex items-center justify-center h-9 w-9 sm:h-12 sm:w-12 shrink-0 p-1.5 sm:p-2">
               <img
-                src="/logo.png"
-                alt="Logo SunCar"
-                className="h-7 w-7 sm:h-10 sm:w-10 object-contain rounded-full"
+                src="/brand/suncar-v1-iso.png"
+                alt="Logo Suncar"
+                className="h-full w-full object-contain"
               />
             </div>
 

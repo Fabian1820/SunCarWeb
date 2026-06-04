@@ -515,7 +515,7 @@ export default function InstalacionesNuevasPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Instalaciones Nuevas"
         subtitle="Leads y clientes pendientes de instalación"

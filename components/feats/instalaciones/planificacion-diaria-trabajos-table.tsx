@@ -1182,12 +1182,12 @@ export function PlanificacionDiariaTrabajosTable({
                 onClick={() => setTipoTrabajoActivo("visita")}
                 className={`rounded-md border p-2 text-left transition-all ${
                   tipoTrabajoActivo === "visita"
-                    ? "border-orange-500 bg-orange-100 ring-1 ring-orange-300"
-                    : "border-orange-200 bg-orange-50 hover:bg-orange-100"
+                    ? "border-emerald-500 bg-emerald-100 ring-1 ring-emerald-300"
+                    : "border-emerald-200 bg-emerald-50 hover:bg-emerald-100"
                 }`}
               >
-                <p className="text-sm font-medium text-orange-700">Visitas</p>
-                <p className="text-lg leading-tight font-bold text-orange-900">
+                <p className="text-sm font-medium text-emerald-700">Visitas</p>
+                <p className="text-lg leading-tight font-bold text-emerald-900">
                   {cantidadesPorTipo.visita}
                 </p>
               </button>

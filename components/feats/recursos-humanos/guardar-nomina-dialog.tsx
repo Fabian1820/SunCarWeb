@@ -249,7 +249,7 @@ export function GuardarNominaDialog({
       {/* Opciones */}
       <div className="space-y-3">
         {/* Opción de reseteo */}
-        <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
           <div className="flex items-start gap-3">
             <input
               type="checkbox"
@@ -259,14 +259,14 @@ export function GuardarNominaDialog({
               className="mt-1 h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
             />
             <div className="flex-1">
-              <label htmlFor="resetear" className="text-sm font-semibold text-orange-900 cursor-pointer">
+              <label htmlFor="resetear" className="text-sm font-semibold text-emerald-900 cursor-pointer">
                 Resetear datos para el siguiente mes
               </label>
-              <p className="text-xs text-orange-800 mt-1">
+              <p className="text-xs text-emerald-800 mt-1">
                 Todos los trabajadores tendrán sus <strong>días no trabajados</strong> y <strong>% estímulo variable</strong> restablecidos a 0 automáticamente.
               </p>
             </div>
-            {resetearTrabajadores && <CheckCircle2 className="h-5 w-5 text-orange-600 flex-shrink-0" />}
+            {resetearTrabajadores && <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0" />}
           </div>
         </div>
 

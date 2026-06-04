@@ -226,7 +226,7 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3 min-w-0">
                     <div className="bg-blue-100 p-2 rounded-lg shrink-0">
-                      <Crown className="h-4 w-4 text-orange-500" />
+                      <Crown className="h-4 w-4 text-emerald-500" />
                     </div>
                     <div className="min-w-0">
                       <p className="font-semibold text-gray-900 truncate">{brigade.leader.name}</p>
@@ -356,7 +356,7 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
                 <td className="py-4 px-4">
                   <div className="flex items-center space-x-3">
                     <div className="bg-blue-100 p-2 rounded-lg">
-                      <Crown className="h-4 w-4 text-orange-500" />
+                      <Crown className="h-4 w-4 text-emerald-500" />
                     </div>
                     <div>
                       <p className="font-semibold text-gray-900">{brigade.leader.name}</p>
@@ -419,7 +419,7 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
-                    <Crown className="h-5 w-5 text-orange-500" />
+                    <Crown className="h-5 w-5 text-emerald-500" />
                     <span>Jefe de Brigada</span>
                   </CardTitle>
                 </CardHeader>
@@ -585,7 +585,7 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
             <div className="mt-4 text-red-600 bg-red-50 border border-red-200 rounded p-3">{reportError}</div>
           )}
           {isLoadingReport && !reportError && (
-            <div className="mt-4 text-orange-600">Cargando reporte...</div>
+            <div className="mt-4 text-emerald-600">Cargando reporte...</div>
           )}
           {reportResults && (
             <div className="mt-8">

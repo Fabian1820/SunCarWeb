@@ -78,10 +78,10 @@ export default function InstalacionesPage() {
   const getColorClasses = (color: string) => {
     const colors = {
       orange: {
-        bg: "bg-orange-50",
-        border: "border-orange-200",
-        icon: "text-orange-600",
-        hover: "hover:bg-orange-100",
+        bg: "bg-emerald-50",
+        border: "border-emerald-200",
+        icon: "text-emerald-600",
+        hover: "hover:bg-emerald-100",
       },
       blue: {
         bg: "bg-blue-50",
@@ -118,7 +118,7 @@ export default function InstalacionesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Gestión de Instalaciones"
         subtitle="Administrar instalaciones, averías y mantenimiento"

@@ -598,7 +598,7 @@ export function CreateValeSalidaDialog({
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <FileOutput className="h-5 w-5 text-orange-600" />
+            <FileOutput className="h-5 w-5 text-emerald-600" />
             Nuevo Vale de Salida
           </DialogTitle>
         </DialogHeader>
@@ -958,7 +958,7 @@ export function CreateValeSalidaDialog({
                   {materialResults.map((material) => (
                     <button
                       key={material.id || material._id}
-                      className="w-full text-left px-3 py-2 hover:bg-orange-50 text-sm flex items-center gap-2"
+                      className="w-full text-left px-3 py-2 hover:bg-emerald-50 text-sm flex items-center gap-2"
                       onClick={() => handleAddMaterial(material)}
                     >
                       {material.foto ? (
@@ -1013,7 +1013,7 @@ export function CreateValeSalidaDialog({
             <Button
               onClick={handleSubmit}
               disabled={!canSubmit}
-              className="bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white"
+              className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white"
             >
               {submitting ? (
                 <>
@@ -1036,7 +1036,7 @@ export function CreateValeSalidaDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Hash className="h-5 w-5 text-orange-600" />
+            <Hash className="h-5 w-5 text-emerald-600" />
             Números de Serie
           </DialogTitle>
         </DialogHeader>
@@ -1076,7 +1076,7 @@ export function CreateValeSalidaDialog({
             </Button>
             <Button
               onClick={handleSaveSerialNumbers}
-              className="bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white"
+              className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white"
             >
               Guardar
             </Button>

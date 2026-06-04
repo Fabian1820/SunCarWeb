@@ -300,7 +300,7 @@ export function CierreCajaDialog({
               <Button
                 onClick={handleConfirm}
                 disabled={procesando || !efectivoCierre || parseFloat(efectivoCierre) < 0}
-                className="h-12 px-8 text-base bg-orange-600 hover:bg-orange-700"
+                className="h-12 px-8 text-base bg-emerald-600 hover:bg-emerald-700"
               >
                 {procesando ? "Cerrando..." : "Cerrar caja"}
               </Button>
@@ -371,7 +371,7 @@ export function CierreCajaDialog({
             <div className="flex items-center justify-between pt-4 border-t-2 border-slate-300">
               <Button
                 onClick={handleConfirmarCalculadora}
-                className="h-12 px-8 text-base bg-orange-600 hover:bg-orange-700"
+                className="h-12 px-8 text-base bg-emerald-600 hover:bg-emerald-700"
               >
                 Confirmar
               </Button>

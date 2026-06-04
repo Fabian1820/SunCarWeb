@@ -72,7 +72,7 @@ export function OfertaCell({ oferta_confeccion, ofertas }: Props) {
       <div className="space-y-0.5 text-[13px]">
         {inv && (
           <div className="flex items-center gap-1 text-gray-700" title={inv.descripcion}>
-            <Zap className="h-3.5 w-3.5 text-orange-500 shrink-0" />
+            <Zap className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
             <span className="font-medium">{inv.cantidad}x</span>
             <span className="truncate max-w-[180px]">{inv.descripcion}</span>
           </div>

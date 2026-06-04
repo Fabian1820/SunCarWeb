@@ -145,7 +145,7 @@ export function OfertasConfeccionadasView() {
       },
       reservada: {
         label: "Reservada",
-        className: "bg-orange-100 text-orange-800",
+        className: "bg-emerald-100 text-emerald-800",
       },
       rechazada: { label: "Rechazada", className: "bg-red-100 text-red-800" },
       cancelada: {
@@ -1196,7 +1196,7 @@ export function OfertasConfeccionadasView() {
         { header: "Total ($)", key: "total", width: 14 },
       ],
       data: rowsCompleto,
-      logoUrl: "/logo Suncar.png",
+      logoUrl: "/brand/suncar-v1-iso.png",
       clienteData:
         oferta.tipo === "personalizada" && cliente
           ? {
@@ -1489,7 +1489,7 @@ export function OfertasConfeccionadasView() {
         { header: "Cant", key: "cantidad", width: 10 },
       ],
       data: rowsSinPrecios,
-      logoUrl: "/logo Suncar.png",
+      logoUrl: "/brand/suncar-v1-iso.png",
       clienteData:
         oferta.tipo === "personalizada" && cliente
           ? {
@@ -1823,7 +1823,7 @@ export function OfertasConfeccionadasView() {
         { header: "Total ($)", key: "total", width: 15 },
       ],
       data: rowsClienteConPrecios,
-      logoUrl: "/logo Suncar.png",
+      logoUrl: "/brand/suncar-v1-iso.png",
       clienteData:
         oferta.tipo === "personalizada" && cliente
           ? {
@@ -1907,7 +1907,7 @@ export function OfertasConfeccionadasView() {
         { header: `Total (${codigoMonedaCambio})`, key: "total", width: 15 },
       ],
       data: rowsClienteConPreciosTasaCambio,
-      logoUrl: "/logo Suncar.png",
+      logoUrl: "/brand/suncar-v1-iso.png",
       clienteData:
         oferta.tipo === "personalizada" && cliente
           ? {
@@ -2049,7 +2049,7 @@ export function OfertasConfeccionadasView() {
 
   return (
     <div className="space-y-6">
-      <Card className="border-0 shadow-md border-l-4 border-l-orange-600 bg-white">
+      <Card className="border-0 shadow-md border-l-4 border-l-emerald-600 bg-white">
         <CardContent className="py-4">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
@@ -2233,7 +2233,7 @@ export function OfertasConfeccionadasView() {
       {loadingDetalle && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20">
           <div className="bg-white rounded-lg p-4 shadow-lg flex items-center gap-3">
-            <Loader className="h-5 w-5 animate-spin text-orange-500" />
+            <Loader className="h-5 w-5 animate-spin text-emerald-500" />
             <span className="text-sm text-slate-700">Cargando oferta...</span>
           </div>
         </div>
@@ -2440,7 +2440,7 @@ export function OfertasConfeccionadasView() {
                   <div className="space-y-4 pr-1 lg:pr-2 overflow-y-auto max-h-full">
                     <Card className="overflow-hidden border-slate-200">
                       <CardContent className="p-0">
-                        <div className="relative h-52 bg-gradient-to-br from-slate-50 via-orange-50 to-yellow-100 overflow-hidden">
+                        <div className="relative h-52 bg-gradient-to-br from-slate-50 via-emerald-50 to-yellow-100 overflow-hidden">
                           {ofertaSeleccionada.foto_portada ? (
                             <img
                               src={ofertaSeleccionada.foto_portada}
@@ -2449,8 +2449,8 @@ export function OfertasConfeccionadasView() {
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
-                              <div className="h-20 w-20 rounded-2xl bg-white/80 border border-orange-100 flex items-center justify-center shadow-sm">
-                                <Building2 className="h-10 w-10 text-orange-400" />
+                              <div className="h-20 w-20 rounded-2xl bg-white/80 border border-emerald-100 flex items-center justify-center shadow-sm">
+                                <Building2 className="h-10 w-10 text-emerald-400" />
                               </div>
                             </div>
                           )}
@@ -2881,7 +2881,7 @@ export function OfertasConfeccionadasView() {
                           </div>
                           <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-slate-800">
                             <span className="font-semibold">Precio final</span>
-                            <span className="text-lg font-bold text-orange-600">
+                            <span className="text-lg font-bold text-emerald-600">
                               {formatCurrency(
                                 ofertaSeleccionada.precio_final || 0,
                               )}
@@ -2892,7 +2892,7 @@ export function OfertasConfeccionadasView() {
                               <span className="font-semibold">
                                 Precio final en {conversionDetalle.moneda}
                               </span>
-                              <span className="text-lg font-bold text-orange-600">
+                              <span className="text-lg font-bold text-emerald-600">
                                 {formatCurrencyWithSymbol(
                                   conversionDetalle.convertido,
                                   conversionDetalle.moneda === "EUR"
@@ -2909,10 +2909,10 @@ export function OfertasConfeccionadasView() {
                               {(ofertaSeleccionada as any).compensacion && (
                                 <div className="space-y-1">
                                   <div className="flex items-center justify-between text-sm">
-                                    <span className="text-orange-700 font-medium">
+                                    <span className="text-emerald-700 font-medium">
                                       Compensación
                                     </span>
-                                    <span className="font-semibold text-orange-700">
+                                    <span className="font-semibold text-emerald-700">
                                       -{" "}
                                       {formatCurrency(
                                         (ofertaSeleccionada as any).compensacion

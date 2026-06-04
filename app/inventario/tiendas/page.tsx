@@ -88,12 +88,12 @@ export default function GestionTiendasPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Gestión de Tiendas"
         subtitle="Crear y administrar sucursales"
-        badge={{ text: "Ventas", className: "bg-orange-100 text-orange-800" }}
-        className="bg-white shadow-sm border-b border-orange-100"
+        badge={{ text: "Ventas", className: "bg-emerald-100 text-emerald-800" }}
+        className="bg-white shadow-sm border-b border-emerald-100"
         backButton={{ href: "/tiendas-suncarventas", label: "Volver a Tiendas" }}
       />
 

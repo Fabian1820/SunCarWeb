@@ -572,7 +572,7 @@ export function StockMinimoAnalisisModal({
         <div className="sticky top-0 z-10 bg-white border-b px-6 py-4">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg font-bold">
-              <BarChart3 className="h-5 w-5 text-orange-500" />
+              <BarChart3 className="h-5 w-5 text-emerald-500" />
               Análisis de Stock Mínimo
               {almacenNombre && (
                 <span className="text-gray-500 font-normal text-base">— {almacenNombre}</span>
@@ -615,7 +615,7 @@ export function StockMinimoAnalisisModal({
               size="sm"
               onClick={cargar}
               disabled={loading}
-              className="h-8 bg-orange-500 hover:bg-orange-600 text-white"
+              className="h-8 bg-emerald-500 hover:bg-emerald-600 text-white"
             >
               {loading ? (
                 <RefreshCw className="h-4 w-4 animate-spin mr-1" />
@@ -647,7 +647,7 @@ export function StockMinimoAnalisisModal({
           {/* Estado de carga */}
           {loading && (
             <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-500">
-              <RefreshCw className="h-8 w-8 animate-spin text-orange-400" />
+              <RefreshCw className="h-8 w-8 animate-spin text-emerald-400" />
               <p className="text-sm">Analizando movimientos históricos…</p>
             </div>
           )}

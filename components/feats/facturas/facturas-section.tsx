@@ -1674,9 +1674,9 @@ export function FacturasSection() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       {/* Header */}
-      <header className="fixed-header bg-white shadow-sm border-b border-orange-100">
+      <header className="fixed-header bg-white shadow-sm border-b border-emerald-100">
         <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-5 gap-4">
             <div className="flex items-center space-x-3">
@@ -1693,7 +1693,7 @@ export function FacturasSection() {
                   <span className="sr-only">Volver a Facturación</span>
                 </Button>
               </Link>
-              <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
+              <div className="p-0 rounded-full bg-white shadow border border-emerald-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
                 <img
                   src="/logo.png"
                   alt="Logo SunCar"
@@ -1703,7 +1703,7 @@ export function FacturasSection() {
               <div className="min-w-0">
                 <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate flex items-center gap-2">
                   Vales y Facturas de Instaladora
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
                     Finanzas
                   </span>
                 </h1>
@@ -1715,7 +1715,7 @@ export function FacturasSection() {
             <div className="flex flex-wrap items-center gap-3 justify-end">
               {activeTab === "facturas" ? (
                 <>
-                  <div className="rounded-lg bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-700">
+                  <div className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">
                     Total facturado: {formatCurrency(totalFacturado)}
                   </div>
                   <Button
@@ -1741,7 +1741,7 @@ export function FacturasSection() {
                   <Button
                     onClick={handleCreate}
                     size="sm"
-                    className="h-10 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-orange-600 hover:bg-orange-700 touch-manipulation"
+                    className="h-10 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-emerald-600 hover:bg-emerald-700 touch-manipulation"
                     aria-label="Nueva factura"
                     title="Nueva factura"
                   >
@@ -1997,7 +1997,7 @@ export function FacturasSection() {
                         disabled={
                           processingValesNoFacturados || !selectedClienteRaw
                         }
-                        className="bg-orange-600 hover:bg-orange-700"
+                        className="bg-emerald-600 hover:bg-emerald-700"
                       >
                         {processingValesNoFacturados ? (
                           <>
@@ -2067,7 +2067,7 @@ export function FacturasSection() {
 
             {loadingValesNoFacturados ? (
               <div className="flex items-center justify-center py-12 bg-white rounded-lg border border-gray-200">
-                <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
+                <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
               </div>
             ) : valesNoFacturadosError ? (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -2112,8 +2112,8 @@ export function FacturasSection() {
                       key={vale.id}
                       className={`border rounded-lg transition-all ${
                         isSelected
-                          ? "border-orange-500 bg-orange-50"
-                          : "border-gray-200 bg-white hover:border-orange-300"
+                          ? "border-emerald-500 bg-emerald-50"
+                          : "border-gray-200 bg-white hover:border-emerald-300"
                       }`}
                     >
                       <div
@@ -2141,7 +2141,7 @@ export function FacturasSection() {
                                     : ""}
                                 </p>
                               </div>
-                              <span className="font-bold text-orange-600">
+                              <span className="font-bold text-emerald-600">
                                 {formatCurrency(total)}
                               </span>
                             </div>
@@ -2418,7 +2418,7 @@ export function FacturasSection() {
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Total</p>
-                  <p className="font-bold text-xl text-orange-600">
+                  <p className="font-bold text-xl text-emerald-600">
                     {formatCurrency(facturaDetails.total || 0)}
                   </p>
                 </div>
@@ -2585,7 +2585,7 @@ export function FacturasSection() {
 
                   <div className="mt-3 pt-3 border-t border-gray-300 flex justify-between font-semibold">
                     <span>Total del Vale:</span>
-                    <span className="text-orange-600">
+                    <span className="text-emerald-600">
                       {formatCurrency(
                         vale.items.reduce(
                           (sum, item) => sum + item.precio * item.cantidad,
@@ -2686,7 +2686,7 @@ export function FacturasSection() {
               <div className="space-y-3">
                 {loadingValesSalida ? (
                   <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
+                    <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
                   </div>
                 ) : valesDisponibles.length === 0 ? (
                   <div className="text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-300">
@@ -2713,8 +2713,8 @@ export function FacturasSection() {
                         key={vale.id}
                         className={`border rounded-lg transition-all ${
                           isSelected
-                            ? "border-orange-500 bg-orange-50"
-                            : "border-gray-200 hover:border-orange-300"
+                            ? "border-emerald-500 bg-emerald-50"
+                            : "border-gray-200 hover:border-emerald-300"
                         }`}
                       >
                         <div
@@ -2735,7 +2735,7 @@ export function FacturasSection() {
                                     Vale {vale.codigo || vale.id.slice(0, 8)}
                                   </span>
                                 </div>
-                                <span className="font-bold text-orange-600">
+                                <span className="font-bold text-emerald-600">
                                   {formatCurrency(total)}
                                 </span>
                               </div>
@@ -2877,7 +2877,7 @@ export function FacturasSection() {
               {modoManual ? (
                 <Button
                   onClick={handleSaveVale}
-                  className="bg-orange-600 hover:bg-orange-700"
+                  className="bg-emerald-600 hover:bg-emerald-700"
                   disabled={
                     savingVale ||
                     loadingMaterials ||
@@ -2899,7 +2899,7 @@ export function FacturasSection() {
               ) : (
                 <Button
                   onClick={handleAgregarValesSeleccionados}
-                  className="bg-orange-600 hover:bg-orange-700"
+                  className="bg-emerald-600 hover:bg-emerald-700"
                   disabled={savingVale || valesSeleccionados.size === 0}
                 >
                   {savingVale ? (

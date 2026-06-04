@@ -73,7 +73,7 @@ const TYPE_LABEL: Record<string, string> = {
 };
 
 const TYPE_BADGE_CLASS: Record<string, string> = {
-  visita: "bg-orange-100 text-orange-800 border-orange-300",
+  visita: "bg-emerald-100 text-emerald-800 border-emerald-300",
   entrega_equipamiento: "bg-blue-100 text-blue-800 border-blue-300",
   instalacion_nueva: "bg-emerald-100 text-emerald-800 border-emerald-300",
   instalacion_en_proceso: "bg-purple-100 text-purple-800 border-purple-300",

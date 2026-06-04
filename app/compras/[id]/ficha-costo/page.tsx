@@ -1076,28 +1076,28 @@ function FichaCostoContent() {
             </CardHeader>
             <CardContent className="px-4 pt-3 pb-4">
               {/* Impuesto nacional */}
-              <div className="mb-4 p-3 rounded-lg bg-orange-50 border border-orange-200">
+              <div className="mb-4 p-3 rounded-lg bg-emerald-50 border border-emerald-200">
                 <div className="flex items-start gap-3">
                   <div className="flex-1 space-y-1.5">
-                    <Label className="text-xs font-semibold text-orange-700">% Impuestos (fijo)</Label>
+                    <Label className="text-xs font-semibold text-emerald-700">% Impuestos (fijo)</Label>
                     <div className="flex items-center gap-2">
                       <Input
                         type="number"
                         step="0.1"
-                        className="h-9 flex-1 border-orange-300 focus-visible:ring-orange-400"
+                        className="h-9 flex-1 border-emerald-300 focus-visible:ring-emerald-400"
                         value={porcientoImpuestos}
                         onChange={(e) => setPorcientoImpuestos(parseFloat(e.target.value) || 0)}
                       />
-                      <span className="text-sm font-medium text-orange-600 w-4">%</span>
+                      <span className="text-sm font-medium text-emerald-600 w-4">%</span>
                     </div>
-                    <p className="text-xs text-orange-600 leading-tight">
+                    <p className="text-xs text-emerald-600 leading-tight">
                       Se suma al % envío sugerido para formar el recargo total aplicado al CIF.
                     </p>
                   </div>
                   {porcientoImpuestos !== 0 && (
                     <button
                       onClick={() => setPorcientoImpuestos(0)}
-                      className="mt-5 text-orange-400 hover:text-orange-600 transition-colors text-xs underline shrink-0"
+                      className="mt-5 text-emerald-400 hover:text-emerald-600 transition-colors text-xs underline shrink-0"
                     >
                       Resetear
                     </button>
@@ -1150,10 +1150,10 @@ function FichaCostoContent() {
                   <p className="text-sm font-bold text-cyan-700">{fmt(porcientoEnvioSugerido, 1)}%</p>
                   <p className="text-xs text-cyan-500">auto</p>
                 </div>
-                <div className="text-center p-2 rounded-md bg-orange-50 border border-orange-100">
-                  <p className="text-xs text-orange-600 font-medium">% Impuestos</p>
-                  <p className="text-sm font-bold text-orange-700">{fmt(porcientoImpuestos, 1)}%</p>
-                  <p className="text-xs text-orange-500">manual</p>
+                <div className="text-center p-2 rounded-md bg-emerald-50 border border-emerald-100">
+                  <p className="text-xs text-emerald-600 font-medium">% Impuestos</p>
+                  <p className="text-sm font-bold text-emerald-700">{fmt(porcientoImpuestos, 1)}%</p>
+                  <p className="text-xs text-emerald-500">manual</p>
                 </div>
                 <div className="text-center p-2 rounded-md bg-gray-50 border border-gray-100">
                   <p className="text-xs text-gray-500 font-medium">% Ventas</p>
@@ -1334,7 +1334,7 @@ function FichaCostoContent() {
                                 )}
                               </div>
                               {porcientoImpuestos !== 0 && (
-                                <p className="text-xs text-orange-500 text-center mt-0.5 font-medium whitespace-nowrap">
+                                <p className="text-xs text-emerald-500 text-center mt-0.5 font-medium whitespace-nowrap">
                                   +{fmt(porcientoImpuestos, 1)}% imp.
                                 </p>
                               )}

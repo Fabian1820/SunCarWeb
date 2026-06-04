@@ -1508,7 +1508,7 @@ export function LeadsTable({
           { header: "Total ($)", key: "total", width: 14 },
         ],
         data: rowsCompleto,
-        logoUrl: "/logo Suncar.png",
+        logoUrl: "/brand/suncar-v1-iso.png",
         leadData:
           oferta.tipo === "personalizada" && lead
             ? {
@@ -1769,7 +1769,7 @@ export function LeadsTable({
           { header: "Cant", key: "cantidad", width: 10 },
         ],
         data: rowsSinPrecios,
-        logoUrl: "/logo Suncar.png",
+        logoUrl: "/brand/suncar-v1-iso.png",
         leadData:
           oferta.tipo === "personalizada" && lead
             ? {
@@ -2107,7 +2107,7 @@ export function LeadsTable({
           { header: "Total ($)", key: "total", width: 15 },
         ],
         data: rowsClienteConPrecios,
-        logoUrl: "/logo Suncar.png",
+        logoUrl: "/brand/suncar-v1-iso.png",
         leadData:
           oferta.tipo === "personalizada" && lead
             ? {
@@ -2159,7 +2159,7 @@ export function LeadsTable({
           { header: `Total (${codigoMonedaCambio})`, key: "total", width: 15 },
         ],
         data: rowsClienteConPreciosTasaCambio,
-        logoUrl: "/logo Suncar.png",
+        logoUrl: "/brand/suncar-v1-iso.png",
         leadData:
           oferta.tipo === "personalizada" && lead
             ? {
@@ -2633,7 +2633,7 @@ export function LeadsTable({
                             <div className="space-y-1 text-[14px]">
                               {inv && (
                                 <div className="flex items-center gap-1.5 text-gray-700">
-                                  <Zap className="h-4 w-4 text-orange-500 flex-shrink-0" />
+                                  <Zap className="h-4 w-4 text-emerald-500 flex-shrink-0" />
                                   <span className="font-medium">{inv.cantidad}x</span>
                                   <span className="truncate">{inv.descripcion}</span>
                                 </div>
@@ -2745,7 +2745,7 @@ export function LeadsTable({
                         variant="ghost"
                         size="sm"
                         onClick={() => onEdit(lead)}
-                        className="text-orange-600 hover:text-orange-800 h-7 w-7 p-0"
+                        className="text-emerald-600 hover:text-emerald-800 h-7 w-7 p-0"
                         title="Editar"
                         disabled={disableActions}
                       >
@@ -2890,7 +2890,7 @@ export function LeadsTable({
                                 ? "bg-red-500"
                                 : selectedLead.prioridad === "Baja"
                                   ? "bg-blue-500"
-                                  : "bg-orange-500"
+                                  : "bg-emerald-500"
                             }`}
                           />
                           <span className="text-sm text-gray-900 font-medium">
@@ -3839,7 +3839,7 @@ export function LeadsTable({
                   <Label>Selecciona la oferta genérica a duplicar</Label>
                   {loadingOfertasGenericasAprobadas ? (
                     <div className="flex items-center justify-center py-8">
-                      <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
+                      <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
                       <span className="ml-3 text-gray-600">
                         Cargando ofertas...
                       </span>
@@ -3921,8 +3921,8 @@ export function LeadsTable({
                               key={oferta.id}
                               className={`border cursor-pointer transition-all ${
                                 isSelected
-                                  ? "border-orange-500 bg-orange-50 shadow-md"
-                                  : "hover:shadow-md hover:border-orange-300"
+                                  ? "border-emerald-500 bg-emerald-50 shadow-md"
+                                  : "hover:shadow-md hover:border-emerald-300"
                               }`}
                               onClick={() =>
                                 setOfertaGenericaParaDuplicarId(oferta.id)
@@ -3954,7 +3954,7 @@ export function LeadsTable({
                                         {oferta.nombre}
                                       </h3>
                                       <div className="flex items-center gap-1.5 flex-shrink-0">
-                                        <span className="text-sm font-bold text-orange-600">
+                                        <span className="text-sm font-bold text-emerald-600">
                                           {new Intl.NumberFormat("es-ES", {
                                             style: "currency",
                                             currency:
@@ -4008,7 +4008,7 @@ export function LeadsTable({
                                     <div
                                       className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
                                         isSelected
-                                          ? "border-orange-600 bg-orange-600"
+                                          ? "border-emerald-600 bg-emerald-600"
                                           : "border-gray-300 bg-white"
                                       }`}
                                     >

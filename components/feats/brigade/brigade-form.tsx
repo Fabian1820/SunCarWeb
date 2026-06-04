@@ -70,8 +70,8 @@ export function BrigadeForm({ initialData, onSubmit, onCancel, isEditing = false
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="space-y-4">
         {/* Solo selección de jefe existente */}
-        <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
-          <h3 className="text-lg font-semibold text-orange-900 mb-4 flex items-center">
+        <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-200">
+          <h3 className="text-lg font-semibold text-emerald-900 mb-4 flex items-center">
             <Crown className="h-5 w-5 mr-2" />
             Jefe de Brigada
           </h3>

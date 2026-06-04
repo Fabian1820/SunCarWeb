@@ -125,18 +125,18 @@ function ToastNotif({ notif, count, onClose, onVerCliente }: ToastProps) {
   }, [])
 
   return (
-    <div className="fixed bottom-24 right-4 z-[70] w-80 rounded-xl bg-white shadow-2xl border border-orange-200 overflow-hidden animate-in slide-in-from-right-4 fade-in duration-300">
+    <div className="fixed bottom-24 right-4 z-[70] w-80 rounded-xl bg-white shadow-2xl border border-emerald-200 overflow-hidden animate-in slide-in-from-right-4 fade-in duration-300">
       <div
-        className="h-1 bg-orange-500"
+        className="h-1 bg-emerald-500"
         style={{ width: `${pct}%`, transition: "width 50ms linear" }}
       />
       <div className="p-4 flex items-start gap-3">
-        <div className="flex-shrink-0 w-9 h-9 rounded-full bg-orange-100 flex items-center justify-center">
-          <Bell className="h-4 w-4 text-orange-600" />
+        <div className="flex-shrink-0 w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center">
+          <Bell className="h-4 w-4 text-emerald-600" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-semibold text-orange-700 truncate">
+            <p className="text-xs font-semibold text-emerald-700 truncate">
               {count > 1 ? `${count} notificaciones nuevas` : notif.titulo}
             </p>
             <button onClick={onClose} className="flex-shrink-0 text-gray-300 hover:text-gray-500">
@@ -149,7 +149,7 @@ function ToastNotif({ notif, count, onClose, onVerCliente }: ToastProps) {
           {count === 1 && notif.link_cliente && notif.cliente_numero && onVerCliente && (
             <button
               onClick={onVerCliente}
-              className="mt-2 flex items-center gap-1 text-[11px] font-medium text-orange-600 hover:text-orange-700 hover:underline"
+              className="mt-2 flex items-center gap-1 text-[11px] font-medium text-emerald-600 hover:text-emerald-700 hover:underline"
             >
               <ExternalLink className="h-3 w-3" /> Ver cliente
             </button>
@@ -330,7 +330,7 @@ export function NotificationBell() {
             className={cn(
               "relative flex items-center justify-center w-14 h-14 rounded-full shadow-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2",
               tieneNoLeidas
-                ? "bg-orange-500 hover:bg-orange-600 focus:ring-orange-400 shadow-orange-300"
+                ? "bg-emerald-500 hover:bg-emerald-600 focus:ring-emerald-400 shadow-emerald-300"
                 : "bg-white hover:bg-gray-50 focus:ring-gray-300 border border-gray-200"
             )}
           >
@@ -340,7 +340,7 @@ export function NotificationBell() {
             )} />
 
             {tieneNoLeidas && (
-              <span className="absolute inset-0 rounded-full bg-orange-400 animate-ping opacity-40 pointer-events-none" />
+              <span className="absolute inset-0 rounded-full bg-emerald-400 animate-ping opacity-40 pointer-events-none" />
             )}
 
             {tieneNoLeidas && (
@@ -359,7 +359,7 @@ export function NotificationBell() {
               {/* Header */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50 flex-shrink-0">
                 <div className="flex items-center gap-2">
-                  <Bell className="h-4 w-4 text-orange-500" />
+                  <Bell className="h-4 w-4 text-emerald-500" />
                   <span className="font-semibold text-sm text-gray-800">Notificaciones</span>
                   {tieneNoLeidas && (
                     <span className="px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold">
@@ -387,7 +387,7 @@ export function NotificationBell() {
                       className={cn(
                         "flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors relative",
                         isActive
-                          ? "text-orange-600 border-b-2 border-orange-500 -mb-px"
+                          ? "text-emerald-600 border-b-2 border-emerald-500 -mb-px"
                           : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
                       )}
                     >
@@ -396,7 +396,7 @@ export function NotificationBell() {
                         <span className={cn(
                           "inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold",
                           isActive
-                            ? "bg-orange-500 text-white"
+                            ? "bg-emerald-500 text-white"
                             : "bg-gray-200 text-gray-600"
                         )}>
                           {count > 99 ? "99+" : count}
@@ -413,7 +413,7 @@ export function NotificationBell() {
                   {conteoPorTab[activeTab] > 0 ? (
                     <button
                       onClick={handleMarcarTodasLeidas}
-                      className="flex items-center gap-1.5 text-xs text-orange-600 hover:text-orange-700 font-medium"
+                      className="flex items-center gap-1.5 text-xs text-emerald-600 hover:text-emerald-700 font-medium"
                     >
                       <CheckCheck className="h-3.5 w-3.5" />
                       Marcar todas leídas
@@ -433,7 +433,7 @@ export function NotificationBell() {
               <div className="overflow-y-auto flex-1">
                 {loading ? (
                   <div className="flex items-center justify-center py-10">
-                    <div className="w-5 h-5 border-2 border-orange-400 border-t-transparent rounded-full animate-spin" />
+                    <div className="w-5 h-5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
                   </div>
                 ) : visibles.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-10 gap-2 text-gray-400">
@@ -457,14 +457,14 @@ export function NotificationBell() {
                             onClick={() => handleMarcarLeida(notif)}
                             className={cn(
                               "relative flex gap-3 px-4 py-3 cursor-pointer transition-colors group",
-                              notif.leida ? "bg-white hover:bg-gray-50" : "bg-orange-50 hover:bg-orange-100"
+                              notif.leida ? "bg-white hover:bg-gray-50" : "bg-emerald-50 hover:bg-emerald-100"
                             )}
                           >
                             {/* Punto */}
                             <div className="flex-shrink-0 mt-1">
                               <div className={cn(
                                 "w-2 h-2 rounded-full",
-                                notif.leida ? "bg-transparent" : "bg-orange-500"
+                                notif.leida ? "bg-transparent" : "bg-emerald-500"
                               )} />
                             </div>
 
@@ -483,7 +483,7 @@ export function NotificationBell() {
                                 {notif.mensaje}
                               </p>
                               {notif.cliente_nombre && (
-                                <p className="text-xs mt-0.5 text-orange-500 truncate">
+                                <p className="text-xs mt-0.5 text-emerald-500 truncate">
                                   {notif.cliente_nombre}
                                 </p>
                               )}
@@ -494,7 +494,7 @@ export function NotificationBell() {
                                 {notif.link_cliente && notif.cliente_numero && (
                                   <button
                                     onClick={(e) => handleVerCliente(e, notif)}
-                                    className="flex items-center gap-1 text-[11px] font-medium text-orange-600 hover:text-orange-700 hover:underline"
+                                    className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 hover:text-emerald-700 hover:underline"
                                   >
                                     <ExternalLink className="h-3 w-3" />
                                     Ver cliente

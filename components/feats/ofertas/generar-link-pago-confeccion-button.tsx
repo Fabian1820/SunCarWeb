@@ -544,7 +544,7 @@ export function GenerarLinkPagoConfeccionButton({
                   step="1"
                   value={Number.isFinite(parseFloat(porcentaje)) ? porcentaje : "1"}
                   onChange={(event) => setPorcentaje(event.target.value)}
-                  className="w-full accent-orange-600"
+                  className="w-full accent-emerald-600"
                 />
                 <div className="flex flex-wrap gap-2">
                   {[25, 50, 75, 100].map((valor) => (
@@ -604,7 +604,7 @@ export function GenerarLinkPagoConfeccionButton({
               </div>
             )}
 
-            <div className="rounded-lg border border-orange-200 bg-orange-50 p-4 space-y-2">
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-slate-600">Base sin recargo</span>
                 <span className="font-semibold text-slate-900">
@@ -617,9 +617,9 @@ export function GenerarLinkPagoConfeccionButton({
                   {formatCurrency(calculo.recargoStripe, moneda)}
                 </span>
               </div>
-              <div className="flex items-center justify-between border-t border-orange-200 pt-2">
+              <div className="flex items-center justify-between border-t border-emerald-200 pt-2">
                 <span className="font-semibold text-slate-800">Total a pagar</span>
-                <span className="text-lg font-bold text-orange-700">
+                <span className="text-lg font-bold text-emerald-700">
                   {formatCurrency(calculo.totalConRecargo, moneda)}
                 </span>
               </div>
@@ -781,7 +781,7 @@ export function GenerarLinkPagoConfeccionButton({
                   <span className="font-semibold text-slate-800">
                     Total a pagar
                   </span>
-                  <span className="text-lg font-bold text-orange-700">
+                  <span className="text-lg font-bold text-emerald-700">
                     {formatCurrency(
                       resumenGenerado.totalConRecargo,
                       resumenGenerado.moneda,

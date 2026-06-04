@@ -61,9 +61,9 @@ export default function ObrasTerminadasPage() {
   }, [serverFiltros, total])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       {/* Header */}
-      <header className="fixed-header bg-white shadow-sm border-b border-orange-100">
+      <header className="fixed-header bg-white shadow-sm border-b border-emerald-100">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-5 gap-4">
             <div className="flex items-center space-x-3">
@@ -79,7 +79,7 @@ export default function ObrasTerminadasPage() {
                   <span className="hidden sm:inline">Volver a Facturación</span>
                 </Button>
               </Link>
-              <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
+              <div className="p-0 rounded-full bg-white shadow border border-emerald-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
                 <img
                   src="/logo.png"
                   alt="Logo SunCar"
@@ -88,9 +88,9 @@ export default function ObrasTerminadasPage() {
               </div>
               <div className="min-w-0">
                 <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate flex items-center gap-2">
-                  <HardHat className="h-5 w-5 text-orange-500" />
+                  <HardHat className="h-5 w-5 text-emerald-500" />
                   Obras Terminadas
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
                     Resultados Contabilidad
                   </span>
                 </h1>
@@ -151,7 +151,7 @@ export default function ObrasTerminadasPage() {
         )}
 
         {/* Tabla principal */}
-        <div className="bg-white rounded-lg border border-orange-100 shadow-sm p-4 overflow-x-auto">
+        <div className="bg-white rounded-lg border border-emerald-100 shadow-sm p-4 overflow-x-auto">
           <ObrasTerminadasTable
             ofertasConPagos={ofertasConPagos}
             loading={loading}
@@ -168,7 +168,7 @@ export default function ObrasTerminadasPage() {
           />
 
           {totalPages > 0 && (
-            <div className="mt-4 flex flex-col gap-3 border-t border-orange-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="mt-4 flex flex-col gap-3 border-t border-emerald-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-gray-600">
                 Página <strong>{page + 1}</strong> de <strong>{totalPages}</strong> ·{" "}
                 <strong>{total}</strong> resultados

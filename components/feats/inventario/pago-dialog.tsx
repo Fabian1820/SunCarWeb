@@ -179,13 +179,13 @@ export function PagoDialog({
 
         <div className="space-y-6 pt-4">
           {/* Total a pagar */}
-          <div className="border-2 border-orange-200 rounded-lg p-6 bg-gradient-to-br from-orange-50 to-white shadow-sm">
-            <div className="pb-4 mb-4 border-b-2 border-orange-200">
+          <div className="border-2 border-emerald-200 rounded-lg p-6 bg-gradient-to-br from-emerald-50 to-white shadow-sm">
+            <div className="pb-4 mb-4 border-b-2 border-emerald-200">
               <h3 className="text-xl font-bold text-gray-900">Total a pagar</h3>
               <p className="text-sm text-gray-600 mt-1">Resumen del cobro actual</p>
             </div>
             <div className="text-center">
-              <p className="text-4xl font-bold text-orange-600">
+              <p className="text-4xl font-bold text-emerald-600">
                 ${total.toFixed(2)}
               </p>
             </div>
@@ -193,8 +193,8 @@ export function PagoDialog({
 
           
           {/* Métodos de pago */}
-          <div className="border-2 border-orange-200 rounded-lg p-6 bg-white shadow-sm">
-            <div className="pb-4 mb-4 border-b-2 border-orange-200">
+          <div className="border-2 border-emerald-200 rounded-lg p-6 bg-white shadow-sm">
+            <div className="pb-4 mb-4 border-b-2 border-emerald-200">
               <h3 className="text-xl font-bold text-gray-900">Método de pago</h3>
               <p className="text-sm text-gray-600 mt-1">Selecciona cómo cobrar</p>
             </div>
@@ -204,8 +204,8 @@ export function PagoDialog({
                 variant={metodoPago === "efectivo" ? "default" : "outline"}
                 className={`h-20 flex-col gap-2 ${
                   metodoPago === "efectivo"
-                    ? "bg-orange-600 hover:bg-orange-700"
-                    : "hover:bg-orange-50 border-orange-200"
+                    ? "bg-emerald-600 hover:bg-emerald-700"
+                    : "hover:bg-emerald-50 border-emerald-200"
                 }`}
                 onClick={() => setMetodoPago("efectivo")}
               >
@@ -217,8 +217,8 @@ export function PagoDialog({
                 variant={metodoPago === "tarjeta" ? "default" : "outline"}
                 className={`h-20 flex-col gap-2 ${
                   metodoPago === "tarjeta"
-                    ? "bg-orange-600 hover:bg-orange-700"
-                    : "hover:bg-orange-50 border-orange-200"
+                    ? "bg-emerald-600 hover:bg-emerald-700"
+                    : "hover:bg-emerald-50 border-emerald-200"
                 }`}
                 onClick={() => setMetodoPago("tarjeta")}
               >
@@ -230,8 +230,8 @@ export function PagoDialog({
                 variant={metodoPago === "transferencia" ? "default" : "outline"}
                 className={`h-20 flex-col gap-2 ${
                   metodoPago === "transferencia"
-                    ? "bg-orange-600 hover:bg-orange-700"
-                    : "hover:bg-orange-50 border-orange-200"
+                    ? "bg-emerald-600 hover:bg-emerald-700"
+                    : "hover:bg-emerald-50 border-emerald-200"
                 }`}
                 onClick={() => setMetodoPago("transferencia")}
               >
@@ -244,8 +244,8 @@ export function PagoDialog({
           
           {/* Campos según método */}
           {metodoPago === "efectivo" && (
-            <div className="border-2 border-orange-200 rounded-lg p-6 bg-white shadow-sm space-y-4">
-              <div className="pb-4 mb-4 border-b-2 border-orange-200">
+            <div className="border-2 border-emerald-200 rounded-lg p-6 bg-white shadow-sm space-y-4">
+              <div className="pb-4 mb-4 border-b-2 border-emerald-200">
                 <h3 className="text-xl font-bold text-gray-900">Efectivo</h3>
                 <p className="text-sm text-gray-600 mt-1">Monto recibido del cliente</p>
               </div>
@@ -254,7 +254,7 @@ export function PagoDialog({
                   Monto recibido
                 </Label>
                 <div className="relative">
-                  <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 h-6 w-6 text-orange-500" />
+                  <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 h-6 w-6 text-emerald-500" />
                   <Input
                     id="monto-recibido"
                     type="number"
@@ -263,16 +263,16 @@ export function PagoDialog({
                     placeholder={total.toFixed(2)}
                     value={montoRecibido}
                     onChange={(e) => setMontoRecibido(e.target.value)}
-                    className="text-3xl font-normal h-16 pl-14 pr-4 text-gray-900 placeholder:text-gray-400 border-orange-200 focus:border-orange-500 focus:ring-orange-500"
+                    className="text-3xl font-normal h-16 pl-14 pr-4 text-gray-900 placeholder:text-gray-400 border-emerald-200 focus:border-emerald-500 focus:ring-emerald-500"
                   />
                 </div>
               </div>
 
               {cambio > 0 && (
-                <div className="bg-orange-50 rounded-lg p-4 border-2 border-orange-200">
+                <div className="bg-emerald-50 rounded-lg p-4 border-2 border-emerald-200">
                   <div className="flex items-center justify-between">
-                    <span className="text-base text-orange-700 font-medium">Cambio</span>
-                    <span className="text-2xl font-bold text-orange-600">
+                    <span className="text-base text-emerald-700 font-medium">Cambio</span>
+                    <span className="text-2xl font-bold text-emerald-600">
                       ${cambio.toFixed(2)}
                     </span>
                   </div>
@@ -283,8 +283,8 @@ export function PagoDialog({
 
           
           {(metodoPago === "tarjeta" || metodoPago === "transferencia") && (
-            <div className="border-2 border-orange-200 rounded-lg p-6 bg-white shadow-sm">
-              <div className="pb-4 mb-4 border-b-2 border-orange-200">
+            <div className="border-2 border-emerald-200 rounded-lg p-6 bg-white shadow-sm">
+              <div className="pb-4 mb-4 border-b-2 border-emerald-200">
                 <h3 className="text-xl font-bold text-gray-900">
                   {metodoPago === "tarjeta" ? "Tarjeta" : "Transferencia"}
                 </h3>
@@ -299,7 +299,7 @@ export function PagoDialog({
                 placeholder={metodoPago === "tarjeta" ? "AUTH-123456" : "TRANS-789012"}
                 value={referencia}
                 onChange={(e) => setReferencia(e.target.value)}
-                className="text-lg h-12 text-gray-900 placeholder:text-gray-400 border-orange-200 focus:border-orange-500 focus:ring-orange-500"
+                className="text-lg h-12 text-gray-900 placeholder:text-gray-400 border-emerald-200 focus:border-emerald-500 focus:ring-emerald-500"
               />
             </div>
           )}
@@ -307,8 +307,8 @@ export function PagoDialog({
 
           
           {/* Datos de cliente (opcional) */}
-          <div className="border-2 border-orange-200 rounded-lg p-6 bg-white shadow-sm space-y-4">
-            <div className="pb-4 mb-4 border-b-2 border-orange-200">
+          <div className="border-2 border-emerald-200 rounded-lg p-6 bg-white shadow-sm space-y-4">
+            <div className="pb-4 mb-4 border-b-2 border-emerald-200">
               <h3 className="text-xl font-bold text-gray-900">Cliente</h3>
               <p className="text-sm text-gray-600 mt-1">
                 Selecciona el tipo de cliente para mostrar los campos correctos.
@@ -322,7 +322,7 @@ export function PagoDialog({
                   value="instaladora"
                   checked={tipoCliente === "instaladora"}
                   onChange={() => setTipoCliente("instaladora")}
-                  className="text-orange-600 focus:ring-orange-500"
+                  className="text-emerald-600 focus:ring-emerald-500"
                 />
                 Instaladora
               </label>
@@ -333,7 +333,7 @@ export function PagoDialog({
                   value="directo"
                   checked={tipoCliente === "directo"}
                   onChange={() => setTipoCliente("directo")}
-                  className="text-orange-600 focus:ring-orange-500"
+                  className="text-emerald-600 focus:ring-emerald-500"
                 />
                 Directo
               </label>
@@ -360,7 +360,7 @@ export function PagoDialog({
                     placeholder="Nombre completo"
                     value={clienteNombre}
                     onChange={(e) => setClienteNombre(e.target.value)}
-                    className="h-11 text-gray-900 placeholder:text-gray-400 border-orange-200 focus:border-orange-500 focus:ring-orange-500"
+                    className="h-11 text-gray-900 placeholder:text-gray-400 border-emerald-200 focus:border-emerald-500 focus:ring-emerald-500"
                   />
                 </div>
                 <div>
@@ -373,7 +373,7 @@ export function PagoDialog({
                     placeholder="Carnet de identidad"
                     value={clienteCi}
                     onChange={(e) => setClienteCi(e.target.value)}
-                    className="h-11 text-gray-900 placeholder:text-gray-400 border-orange-200 focus:border-orange-500 focus:ring-orange-500"
+                    className="h-11 text-gray-900 placeholder:text-gray-400 border-emerald-200 focus:border-emerald-500 focus:ring-emerald-500"
                   />
                 </div>
                 <div>
@@ -386,7 +386,7 @@ export function PagoDialog({
                     placeholder="555-1234"
                     value={clienteTelefono}
                     onChange={(e) => setClienteTelefono(e.target.value)}
-                    className="h-11 text-gray-900 placeholder:text-gray-400 border-orange-200 focus:border-orange-500 focus:ring-orange-500"
+                    className="h-11 text-gray-900 placeholder:text-gray-400 border-emerald-200 focus:border-emerald-500 focus:ring-emerald-500"
                   />
                 </div>
               </div>
@@ -402,7 +402,7 @@ export function PagoDialog({
                 (metodoPago === "efectivo" && (parseFloat(montoRecibido) < total || !montoRecibido)) ||
                 ((metodoPago === "tarjeta" || metodoPago === "transferencia") && !referencia.trim())
               }
-              className="h-12 px-8 text-base bg-orange-600 hover:bg-orange-700"
+              className="h-12 px-8 text-base bg-emerald-600 hover:bg-emerald-700"
             >
               {procesando ? "Procesando..." : "Confirmar pago"}
             </Button>
@@ -410,7 +410,7 @@ export function PagoDialog({
               variant="outline"
               onClick={handleCancel}
               disabled={procesando}
-              className="h-12 px-8 text-base border-orange-200 hover:bg-orange-50"
+              className="h-12 px-8 text-base border-emerald-200 hover:bg-emerald-50"
             >
               Cancelar
             </Button>

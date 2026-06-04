@@ -82,7 +82,7 @@ export default function ComprasEnviosCostosPage() {
   )
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Compras, Envíos y Costos"
         subtitle="Compras, contenedores, kardex de costos y recepciones de almacén"

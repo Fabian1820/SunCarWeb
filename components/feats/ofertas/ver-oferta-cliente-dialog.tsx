@@ -55,7 +55,7 @@ const getEstadoBadge = (estado: string) => {
     },
     reservada: {
       label: "Reservada",
-      className: "bg-orange-100 text-orange-800",
+      className: "bg-emerald-100 text-emerald-800",
     },
     rechazada: { label: "Rechazada", className: "bg-red-100 text-red-800" },
     cancelada: { label: "Cancelada", className: "bg-slate-200 text-slate-700" },
@@ -383,7 +383,7 @@ export function VerOfertaClienteDialog({
               {ofertasDisponibles.map((ofertaItem, index) => (
                 <Card
                   key={`${ofertaItem.id || ofertaItem.numero_oferta || index}`}
-                  className="border border-slate-200 hover:border-orange-300 transition-colors"
+                  className="border border-slate-200 hover:border-emerald-300 transition-colors"
                 >
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between gap-3">
@@ -455,7 +455,7 @@ export function VerOfertaClienteDialog({
                         <Button
                           type="button"
                           size="sm"
-                          className="bg-orange-600 hover:bg-orange-700 text-white"
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white"
                           onClick={() => {
                             setOfertaSeleccionadaIndex(index);
                             setModoVista("detalle");
@@ -523,7 +523,7 @@ export function VerOfertaClienteDialog({
                   {/* Foto de portada */}
                   <Card className="overflow-hidden border-slate-200">
                     <CardContent className="p-0">
-                      <div className="relative h-52 bg-gradient-to-br from-slate-50 via-orange-50 to-yellow-100 overflow-hidden">
+                      <div className="relative h-52 bg-gradient-to-br from-slate-50 via-emerald-50 to-yellow-100 overflow-hidden">
                         {oferta.foto_portada ? (
                           <img
                             src={oferta.foto_portada}
@@ -532,8 +532,8 @@ export function VerOfertaClienteDialog({
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
-                            <div className="h-20 w-20 rounded-2xl bg-white/80 border border-orange-100 flex items-center justify-center shadow-sm">
-                              <Building2 className="h-10 w-10 text-orange-400" />
+                            <div className="h-20 w-20 rounded-2xl bg-white/80 border border-emerald-100 flex items-center justify-center shadow-sm">
+                              <Building2 className="h-10 w-10 text-emerald-400" />
                             </div>
                           </div>
                         )}
@@ -813,7 +813,7 @@ export function VerOfertaClienteDialog({
                         {/* Precio final */}
                         <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-slate-800">
                           <span className="font-semibold">Precio final</span>
-                          <span className="text-lg font-bold text-orange-600">
+                          <span className="text-lg font-bold text-emerald-600">
                             {formatCurrency(oferta.precio_final || 0)}
                           </span>
                         </div>
@@ -825,10 +825,10 @@ export function VerOfertaClienteDialog({
                             {oferta.compensacion && (
                               <div className="space-y-1">
                                 <div className="flex items-center justify-between text-sm">
-                                  <span className="text-orange-700 font-medium">
+                                  <span className="text-emerald-700 font-medium">
                                     Compensación
                                   </span>
-                                  <span className="font-semibold text-orange-700">
+                                  <span className="font-semibold text-emerald-700">
                                     -{" "}
                                     {formatCurrency(
                                       oferta.compensacion.monto_usd || 0,
@@ -858,11 +858,11 @@ export function VerOfertaClienteDialog({
                                 </p>
                               </div>
                             )}
-                            <div className="flex items-center justify-between pt-2 border-t border-orange-200 bg-orange-50 px-3 py-2 rounded-md">
-                              <span className="font-semibold text-orange-900">
+                            <div className="flex items-center justify-between pt-2 border-t border-emerald-200 bg-emerald-50 px-3 py-2 rounded-md">
+                              <span className="font-semibold text-emerald-900">
                                 Monto Pendiente Real
                               </span>
-                              <span className="text-lg font-bold text-orange-900">
+                              <span className="text-lg font-bold text-emerald-900">
                                 {formatCurrency(
                                   (oferta.precio_final || 0) -
                                     (oferta.compensacion?.monto_usd || 0) -
@@ -879,7 +879,7 @@ export function VerOfertaClienteDialog({
                             <span className="font-semibold">
                               Precio final en {conversionDetalle.moneda}
                             </span>
-                            <span className="text-lg font-bold text-orange-600">
+                            <span className="text-lg font-bold text-emerald-600">
                               {formatCurrencyWithSymbol(
                                 conversionDetalle.convertido,
                                 conversionDetalle.moneda === "EUR"

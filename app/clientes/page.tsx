@@ -960,12 +960,12 @@ export default function ClientesPage() {
       : 1;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Gestión de Clientes"
         subtitle="Visualiza y administra clientes"
-        badge={{ text: "Servicio", className: "bg-orange-100 text-orange-800" }}
-        className="bg-white shadow-sm border-b border-orange-100"
+        badge={{ text: "Servicio", className: "bg-emerald-100 text-emerald-800" }}
+        className="bg-white shadow-sm border-b border-emerald-100"
         actions={
           <div className="flex items-center gap-2">
             <FuentesManager />

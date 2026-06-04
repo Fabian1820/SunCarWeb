@@ -1985,7 +1985,7 @@ export function InstalacionesEnProcesoTable({
                         <Button
                           size="icon"
                           variant="outline"
-                          className="border-orange-300 text-orange-700 hover:bg-orange-50"
+                          className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
                           onClick={() => handleEditFalta(client)}
                           title="Editar qué falta"
                         >
@@ -2123,7 +2123,7 @@ export function InstalacionesEnProcesoTable({
                             <Button
                               size="icon"
                               variant="outline"
-                              className="border-orange-300 text-orange-700 hover:bg-orange-50"
+                              className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
                               onClick={() => handleEditFalta(client)}
                               title="Editar qué falta"
                             >

@@ -296,7 +296,7 @@ function InstalacionCard({ inst, colores, loading, onAdd, onEdit, onDelete }: In
               <div className="flex items-center gap-2 min-w-0">
                 <span className={`shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
                   a.item_tipo === 'medio_basico'
-                    ? 'bg-orange-100 text-orange-700'
+                    ? 'bg-emerald-100 text-emerald-700'
                     : 'bg-blue-100 text-blue-700'
                 }`}>
                   {a.item_tipo === 'medio_basico' ? 'MB' : 'MAT'}

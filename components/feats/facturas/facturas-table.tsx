@@ -157,7 +157,7 @@ export function FacturasTable({
                                                     {factura.cliente_id ? (
                                                         <button
                                                             onClick={() => handleClienteClick(factura.cliente_id)}
-                                                            className="text-orange-600 hover:text-orange-700 hover:underline font-medium block"
+                                                            className="text-emerald-600 hover:text-emerald-700 hover:underline font-medium block"
                                                             disabled={loadingCliente}
                                                         >
                                                             {factura.nombre_cliente || 'Cliente'}
@@ -214,7 +214,7 @@ export function FacturasTable({
                                                         variant="ghost"
                                                         size="sm"
                                                         onClick={() => onEdit(factura)}
-                                                        className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                                                        className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
                                                     >
                                                         <Edit className="h-4 w-4" />
                                                     </Button>

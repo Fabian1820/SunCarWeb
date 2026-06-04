@@ -239,7 +239,7 @@ export default function Dashboard() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       {/* Header */}
       <header
         ref={headerRef}
@@ -248,11 +248,11 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-2 sm:py-6">
             <div className="flex items-center gap-3">
-              <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-9 w-9 sm:h-14 sm:w-14">
+              <div className="rounded-xl bg-suncar-primary shadow-sm flex items-center justify-center h-9 w-9 sm:h-14 sm:w-14 p-1.5 sm:p-2.5">
                 <img
-                  src="/logo.png"
-                  alt="Logo SunCar"
-                  className="h-8 w-8 sm:h-10 sm:w-10 object-contain rounded-full"
+                  src="/brand/suncar-v1-iso.png"
+                  alt="Logo Suncar"
+                  className="h-full w-full object-contain"
                 />
               </div>
               <div>
@@ -274,10 +274,10 @@ export default function Dashboard() {
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className="flex items-center space-x-2 bg-white hover:bg-orange-50 border-orange-200 hover:border-orange-300 transition-all duration-200 relative group"
+                                    className="flex items-center space-x-2 bg-white hover:bg-emerald-50 border-emerald-200 hover:border-emerald-300 transition-all duration-200 relative group"
                                 >
-                                    <MessageCircle className="h-4 w-4 text-orange-600"/>
-                                    <span className="text-gray-700 group-hover:text-orange-700">Atención al Cliente</span>
+                                    <MessageCircle className="h-4 w-4 text-emerald-600"/>
+                                    <span className="text-gray-700 group-hover:text-emerald-700">Atención al Cliente</span>
                                     <div className="absolute -top-1 -right-1">
                                         <div className="h-2 w-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full animate-pulse"></div>
                                     </div>
@@ -290,9 +290,9 @@ export default function Dashboard() {
                   size="sm"
                   onClick={() => setIsTicketDialogOpen(true)}
                   aria-label="Generar ticket o vale de venta"
-                  className="flex items-center justify-center bg-white hover:bg-orange-50 border-orange-200 hover:border-orange-300 rounded-full sm:rounded-md h-9 px-3 sm:h-10 sm:px-4 sm:w-auto touch-manipulation"
+                  className="flex items-center justify-center bg-white hover:bg-emerald-50 border-emerald-200 hover:border-emerald-300 rounded-full sm:rounded-md h-9 px-3 sm:h-10 sm:px-4 sm:w-auto touch-manipulation"
                 >
-                  <ClipboardList className="h-4 w-4 text-orange-600 sm:mr-2" />
+                  <ClipboardList className="h-4 w-4 text-emerald-600 sm:mr-2" />
                   <span className="hidden sm:inline">Ticket / Vale</span>
                   <span className="sr-only">Ticket / Vale</span>
                 </Button>
@@ -302,9 +302,9 @@ export default function Dashboard() {
                   variant="outline"
                   size="sm"
                   aria-label="Abrir calculadora"
-                  className="flex items-center justify-center bg-white hover:bg-orange-50 border-orange-200 hover:border-orange-300 rounded-full sm:rounded-md h-9 px-3 sm:h-10 sm:px-4 sm:w-auto touch-manipulation"
+                  className="flex items-center justify-center bg-white hover:bg-emerald-50 border-emerald-200 hover:border-emerald-300 rounded-full sm:rounded-md h-9 px-3 sm:h-10 sm:px-4 sm:w-auto touch-manipulation"
                 >
-                  <Calculator className="h-4 w-4 text-orange-600 sm:mr-2" />
+                  <Calculator className="h-4 w-4 text-emerald-600 sm:mr-2" />
                   <span className="hidden sm:inline">Calculadora</span>
                   <span className="sr-only">Calculadora</span>
                 </Button>
@@ -316,7 +316,7 @@ export default function Dashboard() {
                   handleOpenTasaCambioDialog().catch(() => null);
                 }}
                 aria-label="Ver tasa de cambio diaria"
-                className="flex items-center justify-center bg-white hover:bg-emerald-50 border-orange-200 hover:border-emerald-300 rounded-full sm:rounded-md h-9 px-3 sm:h-10 sm:px-4 sm:w-auto touch-manipulation"
+                className="flex items-center justify-center bg-white hover:bg-emerald-50 border-emerald-200 hover:border-emerald-300 rounded-full sm:rounded-md h-9 px-3 sm:h-10 sm:px-4 sm:w-auto touch-manipulation"
               >
                 <Coins className="h-4 w-4 text-emerald-600 sm:mr-2" />
                 <span className="hidden sm:inline">Tasa de cambio</span>
@@ -328,7 +328,7 @@ export default function Dashboard() {
                 size="sm"
                 onClick={() => setIsContactosDialogOpen(true)}
                 aria-label="Ver información de contacto"
-                className="flex items-center justify-center bg-white hover:bg-gray-50 border-orange-200 hover:border-orange-300 rounded-full sm:rounded-md h-9 px-3 sm:h-10 sm:px-4 sm:w-auto touch-manipulation"
+                className="flex items-center justify-center bg-white hover:bg-gray-50 border-emerald-200 hover:border-emerald-300 rounded-full sm:rounded-md h-9 px-3 sm:h-10 sm:px-4 sm:w-auto touch-manipulation"
               >
                 <Info className="h-4 w-4 text-blue-600 sm:mr-2" />
                 <span className="hidden sm:inline">Información</span>
@@ -375,7 +375,7 @@ export default function Dashboard() {
                       <h3 className="text-base sm:text-lg font-semibold text-gray-900">
                         {group.title}
                       </h3>
-                      <div className="mt-3 h-px bg-gradient-to-r from-orange-300 via-orange-200 to-transparent" />
+                      <div className="mt-3 h-px bg-gradient-to-r from-emerald-300 via-emerald-200 to-transparent" />
                     </div>
                   ) : null}
 

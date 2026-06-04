@@ -1765,7 +1765,7 @@ function FacturasSolarCarrosPageContent() {
   const getExistenciaClass = (existencia: number) => {
     const value = parseNumero(existencia);
     if (value <= 0) return "text-red-600 font-semibold";
-    if (value <= 10) return "text-orange-600 font-semibold";
+    if (value <= 10) return "text-emerald-600 font-semibold";
     return "text-gray-900";
   };
 
@@ -2015,12 +2015,12 @@ function FacturasSolarCarrosPageContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Facturas Solar Carros"
         subtitle="Instaladora, Ventas y Facturas creadas"
         badge={{ text: "Solar Carros", className: "bg-sky-100 text-sky-800" }}
-        className="bg-white shadow-sm border-b border-orange-100"
+        className="bg-white shadow-sm border-b border-emerald-100"
         actions={
           <Link href="/facturas">
             <Button variant="outline" className="gap-2">

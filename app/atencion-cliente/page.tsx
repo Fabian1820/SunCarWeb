@@ -83,11 +83,11 @@ export default function AtencionClientePage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+      <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
         <ModuleHeader
           title="Atención al Cliente"
           subtitle="Sistema de gestión de mensajes de clientes"
-          badge={{ text: "Soporte", className: "bg-orange-100 text-orange-800" }}
+          badge={{ text: "Soporte", className: "bg-emerald-100 text-emerald-800" }}
         />
 
         <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
@@ -108,12 +108,12 @@ export default function AtencionClientePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Atención al Cliente"
         subtitle="Sistema de gestión de mensajes de clientes"
-        badge={{ text: "Soporte", className: "bg-orange-100 text-orange-800" }}
-        className="bg-white shadow-sm border-b border-orange-100"
+        badge={{ text: "Soporte", className: "bg-emerald-100 text-emerald-800" }}
+        className="bg-white shadow-sm border-b border-emerald-100"
       />
 
       <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
