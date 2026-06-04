@@ -1,211 +1,198 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Cloud, CloudRain, CloudLightning, Sun, CloudDrizzle, Wind, Thermometer, Droplets } from "lucide-react"
 
-// Coordenadas de La Habana
 const LAT = 23.1136
 const LON = -82.3666
 const TZ = "America/Havana"
 
 type HourData = {
-  hour: number       // 0-23
-  label: string      // "06:00"
+  hour: number
   temp: number
-  precipProb: number // 0-100
-  precip: number     // mm
-  code: number       // WMO weather code
+  precipProb: number
+  code: number
+  radiation: number // shortwave_radiation W/m²
 }
 
-type WeatherState = {
-  hours: HourData[]
-  fetchedAt: Date
+function decodeWMO(code: number) {
+  if (code === 0)   return { label: "Despejado",            emoji: "☀️",  isThunder: false, isRain: false }
+  if (code <= 3)    return { label: "Parcialmente nublado",  emoji: "⛅",  isThunder: false, isRain: false }
+  if (code <= 48)   return { label: "Nublado / Neblina",     emoji: "🌫️", isThunder: false, isRain: false }
+  if (code <= 57)   return { label: "Llovizna",              emoji: "🌦️", isThunder: false, isRain: true  }
+  if (code <= 65)   return { label: "Lluvia",                emoji: "🌧️", isThunder: false, isRain: true  }
+  if (code <= 82)   return { label: "Chubascos",             emoji: "🌧️", isThunder: false, isRain: true  }
+  if (code === 95)  return { label: "Tormenta eléctrica",    emoji: "⛈️",  isThunder: true,  isRain: true  }
+  if (code >= 96)   return { label: "Tormenta con granizo",  emoji: "⛈️",  isThunder: true,  isRain: true  }
+  return             { label: "Nublado",                     emoji: "☁️",  isThunder: false, isRain: false }
 }
 
-// Descripción e icono por código WMO
-function decodeWMO(code: number): { label: string; emoji: string; isThunder: boolean; isRain: boolean } {
-  if (code === 0)                        return { label: "Despejado",           emoji: "☀️",  isThunder: false, isRain: false }
-  if (code <= 3)                         return { label: "Parcialmente nublado", emoji: "⛅",  isThunder: false, isRain: false }
-  if (code <= 48)                        return { label: "Neblina",              emoji: "🌫️", isThunder: false, isRain: false }
-  if (code <= 57)                        return { label: "Llovizna",             emoji: "🌦️", isThunder: false, isRain: true  }
-  if (code <= 65)                        return { label: "Lluvia",               emoji: "🌧️", isThunder: false, isRain: true  }
-  if (code <= 77)                        return { label: "Nieve",                emoji: "❄️",  isThunder: false, isRain: false }
-  if (code <= 82)                        return { label: "Chubascos",            emoji: "🌧️", isThunder: false, isRain: true  }
-  if (code === 95)                       return { label: "Tormenta eléctrica",   emoji: "⛈️",  isThunder: true,  isRain: true  }
-  if (code >= 96)                        return { label: "Tormenta con granizo", emoji: "⛈️",  isThunder: true,  isRain: true  }
-  return { label: "Nublado", emoji: "☁️", isThunder: false, isRain: false }
+// Hora 24h → "4 pm" / "6 am" / "12 pm"
+function fmtHour(h: number): string {
+  const period = h < 12 ? "am" : "pm"
+  const h12 = h % 12 === 0 ? 12 : h % 12
+  return `${h12} ${period}`
 }
 
-function precipBar(prob: number) {
-  const w = `${prob}%`
-  const color = prob >= 80 ? "bg-red-400" : prob >= 50 ? "bg-amber-400" : prob >= 20 ? "bg-blue-400" : "bg-emerald-300"
-  return (
-    <div className="h-1 w-full rounded-full bg-gray-100 mt-1">
-      <div className={`h-1 rounded-full ${color}`} style={{ width: w }} />
-    </div>
+type RainSummary = {
+  text: string
+  hasRain: boolean
+  hasThunder: boolean
+}
+
+// Mensaje personal y cercano sobre la lluvia, en bloques con AM/PM
+function buildRainSummary(hours: HourData[]): RainSummary {
+  const day = hours.filter(h => h.hour >= 6 && h.hour <= 21)
+  if (!day.length) return { text: "No hay datos del clima por ahora 🤔", hasRain: false, hasThunder: false }
+
+  type Bloque = { from: number; to: number; isThunder: boolean }
+  const bloques: Bloque[] = []
+  let cur: Bloque | null = null
+
+  for (const h of day) {
+    const dec = decodeWMO(h.code)
+    const hasEvent = dec.isRain || dec.isThunder || h.precipProb >= 40
+    if (hasEvent) {
+      if (!cur) cur = { from: h.hour, to: h.hour, isThunder: dec.isThunder }
+      else { cur.to = h.hour; if (dec.isThunder) cur.isThunder = true }
+    } else if (cur) {
+      bloques.push(cur); cur = null
+    }
+  }
+  if (cur) bloques.push(cur)
+
+  if (!bloques.length) {
+    return { text: "Día seco, puedes salir tranquilo 😎", hasRain: false, hasThunder: false }
+  }
+
+  const hasThunder = bloques.some(b => b.isThunder)
+
+  const franjas = bloques.map(b =>
+    b.from === b.to ? `a las ${fmtHour(b.from)}` : `de ${fmtHour(b.from)} a ${fmtHour(b.to)}`
   )
+  const cuando = franjas.join(" y ")
+
+  const text = hasThunder
+    ? `Ojo, se esperan tormentas eléctricas ${cuando}. Mejor resguárdate ⛈️😬`
+    : `Cuídate al salir y lleva paraguas, lloverá ${cuando} 🌂🙂`
+
+  return { text, hasRain: true, hasThunder }
+}
+
+type Condition = {
+  label: string
+  emoji: string
+  tone: "good" | "moderate" | "bad"
+}
+
+// Clasifica qué tan bien generarán los paneles en un período dado,
+// según despeje del cielo y lluvia.
+function classifyConditions(hours: HourData[]): Condition {
+  if (!hours.length) return { label: "Sin datos", emoji: "🤔", tone: "moderate" }
+
+  let score = 0
+  for (const h of hours) {
+    const dec = decodeWMO(h.code)
+    let s: number
+    if (dec.isThunder || dec.isRain) s = 0
+    else if (h.code === 0) s = 2
+    else if (h.code <= 3) s = 1
+    else s = 0
+    if (h.precipProb >= 50) s = Math.min(s, 0)
+    score += s
+  }
+  const avg = score / hours.length
+
+  if (avg >= 1.4) return { label: "Generando bien 😄",   emoji: "☀️", tone: "good" }
+  if (avg >= 0.7) return { label: "Generación regular 😐", emoji: "⛅", tone: "moderate" }
+  return                 { label: "Poco generando 😟",    emoji: "🌧️", tone: "bad" }
 }
 
 export function WeatherWidget() {
-  const [weather, setWeather] = useState<WeatherState | null>(null)
+  const [hours, setHours] = useState<HourData[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState(false)
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const url =
-          `https://api.open-meteo.com/v1/forecast` +
-          `?latitude=${LAT}&longitude=${LON}` +
-          `&hourly=temperature_2m,precipitation_probability,precipitation,weather_code` +
-          `&timezone=${encodeURIComponent(TZ)}` +
-          `&forecast_days=1`
-
-        const res = await fetch(url)
-        if (!res.ok) throw new Error("Error al cargar el clima")
-        const data = await res.json()
-
-        const hours: HourData[] = (data.hourly.time as string[]).map((t, i) => {
-          const h = new Date(t).getHours()
-          return {
-            hour: h,
-            label: `${String(h).padStart(2, "0")}:00`,
+    fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}` +
+      `&hourly=temperature_2m,precipitation_probability,weather_code,shortwave_radiation` +
+      `&timezone=${encodeURIComponent(TZ)}&forecast_days=1`
+    )
+      .then(r => r.json())
+      .then(data => {
+        setHours(
+          (data.hourly.time as string[]).map((t, i) => ({
+            hour: new Date(t).getHours(),
             temp: Math.round(data.hourly.temperature_2m[i]),
             precipProb: data.hourly.precipitation_probability[i] ?? 0,
-            precip: data.hourly.precipitation[i] ?? 0,
             code: data.hourly.weather_code[i] ?? 0,
-          }
-        })
-
-        setWeather({ hours, fetchedAt: new Date() })
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Error desconocido")
-      } finally {
-        setLoading(false)
-      }
-    }
-    load()
+            radiation: data.hourly.shortwave_radiation[i] ?? 0,
+          }))
+        )
+      })
+      .catch(() => setError(true))
+      .finally(() => setLoading(false))
   }, [])
 
   if (loading) {
-    return (
-      <div className="rounded-2xl border border-gray-200/70 bg-white/80 p-5 shadow-sm backdrop-blur-sm animate-pulse">
-        <div className="h-4 w-32 rounded bg-gray-100 mb-4" />
-        <div className="flex gap-3">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="h-20 w-14 rounded-xl bg-gray-100 flex-shrink-0" />
-          ))}
-        </div>
-      </div>
-    )
+    return <div className="rounded-2xl border border-gray-200/70 bg-white/80 p-5 shadow-sm animate-pulse h-32" />
   }
-
-  if (error || !weather) {
-    return (
-      <div className="rounded-2xl border border-red-100 bg-red-50/60 p-5 text-sm text-red-600">
-        No se pudo cargar el clima: {error}
-      </div>
-    )
-  }
+  if (error || !hours.length) return null
 
   const now = new Date()
-  const currentHour = now.getHours()
+  const currentHour = hours.find(h => h.hour === now.getHours()) ?? hours[0]
+  const dec = decodeWMO(currentHour.code)
+  const rainSummary = buildRainSummary(hours)
 
-  // Horas laborales: 6:00 → 20:00
-  const workHours = weather.hours.filter(h => h.hour >= 6 && h.hour <= 20)
+  const condiciones = [
+    { titulo: "Ahora",  cond: classifyConditions([currentHour]) },
+    { titulo: "Mañana", cond: classifyConditions(hours.filter(h => h.hour >= 6 && h.hour < 12)) },
+    { titulo: "Tarde",  cond: classifyConditions(hours.filter(h => h.hour >= 12 && h.hour < 18)) },
+  ]
 
-  // Alertas: horas con tormenta o lluvia probable ≥ 50%
-  const alerts = workHours.filter(h => {
-    const dec = decodeWMO(h.code)
-    return dec.isThunder || h.precipProb >= 50
-  })
+  const headerBg = rainSummary.hasThunder ? "bg-amber-50" : rainSummary.hasRain ? "bg-blue-50" : "bg-white/80"
+  const headerText = rainSummary.hasThunder ? "text-amber-800" : rainSummary.hasRain ? "text-blue-800" : "text-gray-700"
 
-  const hasThunder = alerts.some(h => decodeWMO(h.code).isThunder)
-  const hasRain = alerts.some(h => decodeWMO(h.code).isRain)
-
-  // Resumen de alerta
-  let alertBanner: React.ReactNode = null
-  if (hasThunder) {
-    alertBanner = (
-      <div className="flex items-center gap-2 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
-        <span className="text-base">⛈️</span>
-        <span>Se esperan <strong>tormentas eléctricas</strong> durante el día. Precaución al salir.</span>
-      </div>
-    )
-  } else if (hasRain) {
-    alertBanner = (
-      <div className="flex items-center gap-2 rounded-xl bg-blue-50 border border-blue-200 px-3 py-2 text-sm text-blue-800">
-        <span className="text-base">🌧️</span>
-        <span>Se esperan <strong>lluvias</strong> en algunas horas del día.</span>
-      </div>
-    )
+  const condTone = {
+    good:     "bg-emerald-50 text-emerald-700 border-emerald-200",
+    moderate: "bg-amber-50 text-amber-700 border-amber-200",
+    bad:      "bg-blue-50 text-blue-700 border-blue-200",
   }
 
   return (
-    <div className="rounded-2xl border border-gray-200/70 bg-white/80 shadow-sm backdrop-blur-sm overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 pt-5 pb-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Clima · La Habana</p>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {now.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}
+    <div className="overflow-hidden rounded-2xl border border-gray-200/70 bg-white/80 shadow-sm backdrop-blur-sm">
+      {/* Clima */}
+      <div className={`flex items-center gap-4 px-5 py-4 ${headerBg}`}>
+        <span className="select-none text-4xl leading-none">{dec.emoji}</span>
+        <div className="min-w-0 flex-1">
+          <p className="mb-0.5 text-xs font-semibold uppercase tracking-wider text-gray-400">
+            La Habana · {now.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "short" })}
           </p>
+          <p className={`text-sm font-medium leading-snug ${headerText}`}>{rainSummary.text}</p>
         </div>
-        <p className="text-[10px] text-gray-300">Open-Meteo</p>
-      </div>
-
-      {/* Alerta */}
-      {alertBanner && <div className="px-5 pb-3">{alertBanner}</div>}
-
-      {/* Timeline horaria */}
-      <div className="overflow-x-auto px-5 pb-5">
-        <div className="flex gap-2 w-max">
-          {workHours.map(h => {
-            const dec = decodeWMO(h.code)
-            const isPast = h.hour < currentHour
-            const isCurrent = h.hour === currentHour
-            return (
-              <div
-                key={h.hour}
-                className={`flex flex-col items-center gap-1 rounded-xl px-2.5 py-3 min-w-[52px] transition-colors ${
-                  isCurrent
-                    ? "bg-emerald-50 ring-1 ring-emerald-200"
-                    : isPast
-                    ? "opacity-40"
-                    : dec.isThunder
-                    ? "bg-amber-50"
-                    : dec.isRain
-                    ? "bg-blue-50"
-                    : ""
-                }`}
-              >
-                <p className={`text-[11px] font-semibold ${isCurrent ? "text-emerald-700" : "text-gray-500"}`}>
-                  {isCurrent ? "Ahora" : h.label}
-                </p>
-                <span className="text-xl leading-none">{dec.emoji}</span>
-                <p className="text-xs font-bold text-gray-800">{h.temp}°</p>
-                <p className={`text-[11px] font-semibold ${
-                  h.precipProb >= 80 ? "text-red-500" :
-                  h.precipProb >= 50 ? "text-amber-500" :
-                  h.precipProb >= 20 ? "text-blue-500" : "text-gray-300"
-                }`}>
-                  {h.precipProb}%
-                </p>
-                {precipBar(h.precipProb)}
-                {h.precip > 0 && (
-                  <p className="text-[10px] text-blue-400">{h.precip.toFixed(1)}mm</p>
-                )}
-              </div>
-            )
-          })}
+        <div className="flex-shrink-0 text-right">
+          <p className="text-2xl font-bold text-gray-800">{currentHour.temp}°C</p>
+          <p className="text-xs text-gray-400">{dec.label}</p>
         </div>
       </div>
 
-      {/* Leyenda */}
-      <div className="flex items-center gap-4 border-t border-gray-100 px-5 py-2.5 text-[11px] text-gray-400">
-        <span><span className="font-semibold text-gray-500">%</span> probabilidad lluvia</span>
-        <span><span className="font-semibold text-blue-400">mm</span> acumulado</span>
-        <span className="ml-auto">Hora local</span>
+      {/* Condiciones para los paneles por período */}
+      <div className="border-t border-gray-100 px-5 py-4">
+        <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+          ¿Cómo van a generar los paneles? 🔆
+        </p>
+        <div className="grid grid-cols-3 gap-3">
+          {condiciones.map(({ titulo, cond }) => (
+            <div
+              key={titulo}
+              className={`flex flex-col items-center gap-1 rounded-xl border px-3 py-3 ${condTone[cond.tone]}`}
+            >
+              <span className="text-2xl leading-none">{cond.emoji}</span>
+              <span className="text-[11px] font-medium uppercase tracking-wide opacity-70">{titulo}</span>
+              <span className="text-sm font-bold">{cond.label}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
