@@ -113,10 +113,14 @@ export function WeatherWidget() {
   const [error, setError] = useState(false)
 
   useEffect(() => {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 6000)
+
     fetch(
       `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}` +
       `&hourly=temperature_2m,precipitation_probability,weather_code,shortwave_radiation` +
-      `&timezone=${encodeURIComponent(TZ)}&forecast_days=1`
+      `&timezone=${encodeURIComponent(TZ)}&forecast_days=1`,
+      { signal: controller.signal }
     )
       .then(r => r.json())
       .then(data => {
@@ -131,7 +135,9 @@ export function WeatherWidget() {
         )
       })
       .catch(() => setError(true))
-      .finally(() => setLoading(false))
+      .finally(() => { clearTimeout(timeout); setLoading(false) })
+
+    return () => { controller.abort(); clearTimeout(timeout) }
   }, [])
 
   if (loading) {
