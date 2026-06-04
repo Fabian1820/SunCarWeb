@@ -144,11 +144,7 @@ export function WeatherWidget() {
   const dec = decodeWMO(currentHour.code)
   const rainSummary = buildRainSummary(hours)
 
-  const condiciones = [
-    { titulo: "Ahora",  cond: classifyConditions([currentHour]) },
-    { titulo: "Mañana", cond: classifyConditions(hours.filter(h => h.hour >= 6 && h.hour < 12)) },
-    { titulo: "Tarde",  cond: classifyConditions(hours.filter(h => h.hour >= 12 && h.hour < 18)) },
-  ]
+  const condActual = classifyConditions([currentHour])
 
   const headerBg = rainSummary.hasThunder ? "bg-amber-50" : rainSummary.hasRain ? "bg-blue-50" : "bg-white/80"
   const headerText = rainSummary.hasThunder ? "text-amber-800" : rainSummary.hasRain ? "text-blue-800" : "text-gray-700"
@@ -176,23 +172,14 @@ export function WeatherWidget() {
         </div>
       </div>
 
-      {/* Condiciones para los paneles por período */}
-      <div className="border-t border-gray-100 px-5 py-4">
-        <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-          ¿Cómo van a generar los paneles? 🔆
-        </p>
-        <div className="grid grid-cols-3 gap-3">
-          {condiciones.map(({ titulo, cond }) => (
-            <div
-              key={titulo}
-              className={`flex flex-col items-center gap-1 rounded-xl border px-3 py-3 ${condTone[cond.tone]}`}
-            >
-              <span className="text-2xl leading-none">{cond.emoji}</span>
-              <span className="text-[11px] font-medium uppercase tracking-wide opacity-70">{titulo}</span>
-              <span className="text-sm font-bold">{cond.label}</span>
-            </div>
-          ))}
+      {/* Estado actual de generación de paneles */}
+      <div className={`flex items-center gap-3 border-t border-gray-100 px-5 py-3 ${condTone[condActual.tone]}`}>
+        <span className="text-2xl leading-none">{condActual.emoji}</span>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wider opacity-60">Paneles ahora mismo</p>
+          <p className="text-sm font-bold">{condActual.label}</p>
         </div>
+        <div className="flex-1" />
       </div>
     </div>
   )
