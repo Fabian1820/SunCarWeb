@@ -1,85 +1,8 @@
-// Tipos para el módulo de Fichas de Costo (modelo simplificado)
+// Tipos para el módulo de Fichas de Costo (vista contable del material).
 
-// Item de mercancía en el desglose
-export interface DesgloseMercanciaItem {
-  nombre: string
-  cantidad: number
-  precio_unitario: number
-  subtotal: number
-}
-
-// Item de gasto adicional en el desglose
-export interface DesgloseGastoItem {
-  nombre: string
-  valor: number
-}
-
-// Desglose completo del cálculo
-export interface DesgloseCalculo {
-  mercancia: DesgloseMercanciaItem[]
-  gastos: DesgloseGastoItem[]
-  total_mercancia: number
-  total_gastos: number
-}
-
-// Payload para crear ficha: material + desglose completo
-export interface FichaCostoCreateData {
-  material_id: string
-  precio_base: number
-  porcentaje: number
-  desglose: DesgloseCalculo
-}
-
-// Auditoría
-export interface AuditoriaEntry {
-  tipo: string
-  nombre: string
-  fecha: string
-}
-
-// Ficha completa devuelta por backend
-export interface FichaCosto {
-  _id?: string
-  id?: string
-  material_id: string
-  material_codigo_snapshot?: string
-  material_descripcion_snapshot?: string
-  version: number
-  estado: string
-  vigente_desde: string
-  vigente_hasta?: string | null
-  // Precio del material en el momento de crear la ficha
-  precio_base: number
-  // Porcentaje sumado al precio base
-  porcentaje: number
-  // precio_base * (1 + porcentaje / 100)
-  precio_calculado: number
-  // precio_venta_calculado de la ficha anterior (null si era la primera)
-  precio_anterior_ficha?: number | null
-  // MAX(precio_calculado, precio_anterior_ficha) — precio final de venta
-  precio_venta_calculado: number
-  desglose: DesgloseCalculo
-  auditoria: AuditoriaEntry[]
-  fecha_creacion?: string
-  fecha_actualizacion?: string
-}
-
-// Respuesta de comparar precio
-export interface ComparacionPrecio {
-  precio_actual_material: number
-  precio_calculado_ficha: number
-  diferencia_absoluta: number
-  diferencia_porcentual: number
-  requiere_actualizacion: boolean
-}
-
-// Respuesta de aplicar precio
-export interface AplicarPrecioResponse {
-  precio_anterior: number
-  precio_nuevo: number
-}
-
-// Resumen de ficha en el listado global
+// Resumen de la ficha activa de un material. En el modelo simplificado actual
+// no se generan fichas versionadas, por lo que `ficha_activa` siempre es null,
+// pero se conserva el tipo por compatibilidad con consumidores existentes.
 export interface FichaResumen {
   id: string
   version: number
@@ -91,7 +14,7 @@ export interface FichaResumen {
   vigente_desde: string
 }
 
-// Fila del listado global: material + su ficha activa (o null)
+// Fila del listado: material del catálogo con sus campos contables.
 export interface MaterialFichaResumen {
   material_id: string
   producto_id?: string
@@ -112,7 +35,7 @@ export interface MaterialFichaResumen {
   ficha_activa: FichaResumen | null
 }
 
-// Payload para edición rápida de precios + costo desde la tabla
+// Payload para edición rápida de precios + costo desde la tabla.
 export interface EditarPreciosCostoPayload {
   precio?: number
   precio_instaladora?: number
@@ -120,26 +43,4 @@ export interface EditarPreciosCostoPayload {
   costo?: number
   numero_serie?: string | null
   stockaje_minimo?: number | null
-}
-
-// Material del catálogo web (para selector)
-export interface MaterialCatalogoWeb {
-  _id?: string
-  id?: string
-  material_id?: string
-  codigo?: number
-  nombre?: string
-  descripcion?: string
-  marca?: string
-  precio?: number
-  categoria?: string
-  potenciaKW?: number
-  foto?: string
-  imagen?: string
-  imagen_url?: string
-  foto_url?: string
-  fotos?: string[]
-  unidad?: string
-  numero_serie?: string | null
-  [key: string]: unknown
 }

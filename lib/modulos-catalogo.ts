@@ -412,12 +412,11 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
   {
     key: "fichas-costo",
     label: "Fichas de Costo",
-    descripcion: "Gestión de fichas de costo de materiales.",
+    descripcion: "Vista contable de materiales: costos, precios, márgenes, kardex y compras por material.",
     icon: FileSpreadsheet,
     iconClass: "text-amber-600",
     href: "/fichas-costo",
     grupo: "economia",
-    hideFromDashboard: true,
   },
 
   // ───────── Gestión de Almacenes ─────────
