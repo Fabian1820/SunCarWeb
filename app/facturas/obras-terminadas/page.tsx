@@ -32,11 +32,20 @@ export default function ObrasTerminadasPage() {
   const handleExportarTodasPDF = useCallback(async () => {
     setExportingAll(true)
     try {
-      // Traer TODOS los resultados filtrados (no solo la página actual)
-      const todosResp = await ObrasTerminadasService.getDatos(
-        { ...serverFiltros, limit: Math.max(total, 1000), skip: 0 },
-      )
-      const facturadas = todosResp.data.filter((o) => o.facturada && o.oferta_id)
+      // Traer TODOS los resultados filtrados paginando de a 500 (límite backend)
+      const PAGE_SIZE = 500
+      let allData: typeof ofertasConPagos = []
+      let skip = 0
+      let hasMore = true
+      while (hasMore) {
+        const resp = await ObrasTerminadasService.getDatos(
+          { ...serverFiltros, limit: PAGE_SIZE, skip },
+        )
+        allData = [...allData, ...resp.data]
+        skip += PAGE_SIZE
+        hasMore = resp.data.length === PAGE_SIZE
+      }
+      const facturadas = allData.filter((o) => o.facturada && o.oferta_id)
       if (!facturadas.length) return
 
       const results = (
@@ -79,11 +88,11 @@ export default function ObrasTerminadasPage() {
                   <span className="hidden sm:inline">Volver a Facturación</span>
                 </Button>
               </Link>
-              <div className="p-0 rounded-full bg-white shadow border border-emerald-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
+              <div className="rounded-xl bg-suncar-primary shadow-sm flex items-center justify-center h-9 w-9 sm:h-12 sm:w-12 shrink-0 p-1.5 sm:p-2">
                 <img
-                  src="/logo.png"
-                  alt="Logo SunCar"
-                  className="h-6 w-6 sm:h-10 sm:w-10 object-contain rounded-full"
+                  src="/brand/suncar-v1-iso.png"
+                  alt="Logo Suncar"
+                  className="h-full w-full object-contain"
                 />
               </div>
               <div className="min-w-0">
