@@ -190,6 +190,8 @@ function SolicitudesEntradaAlmacenContent() {
         title="Solicitudes de Entrada"
         subtitle="Recepción de materiales de compra al almacén con asignación por pool"
         badge={{ text: "Almacén", className: "bg-blue-100 text-blue-800" }}
+        backHref="/compras-envios-costos"
+        backLabel="Volver a Compras, Envíos y Costos"
         actions={
           <>
             <Button

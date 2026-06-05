@@ -48,6 +48,9 @@ interface MaterialFormProps {
   existingCategories: string[];
   existingUnits: string[];
   isEditing?: boolean;
+  /** Muestra e incluye los campos contables (costo, precios, % rebajable).
+   *  Usado en Fichas de Costo; el catálogo de Materiales lo deja en false. */
+  showContableFields?: boolean;
 }
 
 export function MaterialForm({
@@ -58,6 +61,7 @@ export function MaterialForm({
   existingCategories,
   existingUnits,
   isEditing = false,
+  showContableFields = false,
 }: MaterialFormProps) {
   const { toast } = useToast();
   const { marcasSimplificadas, loading: loadingMarcas } = useMarcas();
@@ -119,6 +123,18 @@ export function MaterialForm({
           valor,
         }))
       : [],
+  );
+
+  // Campos contables (solo visibles si showContableFields)
+  const toNumStr = (n?: number | null): string =>
+    typeof n === "number" && !Number.isNaN(n) ? String(n) : "";
+  const [costo, setCosto] = useState<string>(toNumStr(initialData?.costo));
+  const [precio, setPrecio] = useState<string>(toNumStr(initialData?.precio));
+  const [precioInstaladora, setPrecioInstaladora] = useState<string>(
+    toNumStr(initialData?.precio_instaladora),
+  );
+  const [porcRebajable, setPorcRebajable] = useState<string>(
+    toNumStr(initialData?.porciento_rebajable_venta),
   );
 
   useEffect(() => {
@@ -293,6 +309,13 @@ export function MaterialForm({
               )
             : null;
 
+        const parseContableNum = (v: string): number | undefined => {
+          const t = v.trim();
+          if (t === "") return undefined;
+          const n = Number(t);
+          return Number.isFinite(n) ? n : undefined;
+        };
+
         const materialData = {
           codigo: formData.codigo,
           categoria: formData.categoria,
@@ -314,6 +337,13 @@ export function MaterialForm({
             Object.keys(especificacionesObj || {}).length > 0
               ? especificacionesObj
               : null,
+          // Campos contables (solo si la sección está visible)
+          ...(showContableFields && {
+            costo: parseContableNum(costo),
+            precio: parseContableNum(precio),
+            precio_instaladora: parseContableNum(precioInstaladora),
+            porciento_rebajable_venta: parseContableNum(porcRebajable),
+          }),
           // Datos adicionales para nueva categoría
           ...(isNewCategory && {
             isNewCategory: true,
@@ -1025,6 +1055,79 @@ export function MaterialForm({
 
             </div>
           </div>
+
+          {/* Campos contables (Fichas de Costo) */}
+          {showContableFields && (
+            <div className="space-y-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
+              <div className="flex items-center space-x-2">
+                <Package className="h-5 w-5 text-amber-600" />
+                <h3 className="text-lg font-semibold text-amber-900">
+                  Datos contables
+                </h3>
+              </div>
+              <p className="text-sm text-amber-700">
+                Costo, precios y margen. Estos valores alimentan la ficha de costo.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="material-costo" className="text-sm font-medium text-gray-700 mb-2 block">
+                    Costo
+                  </Label>
+                  <Input
+                    id="material-costo"
+                    type="number"
+                    step="0.01"
+                    value={costo}
+                    onChange={(e) => setCosto(e.target.value)}
+                    placeholder="0.00"
+                    disabled={isSubmitting}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="material-precio" className="text-sm font-medium text-gray-700 mb-2 block">
+                    Precio de venta
+                  </Label>
+                  <Input
+                    id="material-precio"
+                    type="number"
+                    step="0.01"
+                    value={precio}
+                    onChange={(e) => setPrecio(e.target.value)}
+                    placeholder="0.00"
+                    disabled={isSubmitting}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="material-precio-instaladora" className="text-sm font-medium text-gray-700 mb-2 block">
+                    Precio instaladora
+                  </Label>
+                  <Input
+                    id="material-precio-instaladora"
+                    type="number"
+                    step="0.01"
+                    value={precioInstaladora}
+                    onChange={(e) => setPrecioInstaladora(e.target.value)}
+                    placeholder="0.00"
+                    disabled={isSubmitting}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="material-porc-rebajable" className="text-sm font-medium text-gray-700 mb-2 block">
+                    % Rebajable venta
+                  </Label>
+                  <Input
+                    id="material-porc-rebajable"
+                    type="number"
+                    step="0.01"
+                    value={porcRebajable}
+                    onChange={(e) => setPorcRebajable(e.target.value)}
+                    placeholder="0"
+                    disabled={isSubmitting}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Campos opcionales para web */}
           <div className="space-y-4 p-4 bg-sky-50 rounded-lg border border-sky-200">

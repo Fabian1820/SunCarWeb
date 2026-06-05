@@ -352,25 +352,29 @@ export function MaterialesStockTable({
 
                 return (
                   <Fragment key={rowKey}>
-                    <tr className="border-b border-gray-100 hover:bg-gray-50">
+                    <tr
+                      className={`border-b border-gray-100 hover:bg-gray-50 ${
+                        !isFiltroAlmacen && row.por_almacen.length > 0 ? "cursor-pointer" : ""
+                      }`}
+                      onClick={
+                        !isFiltroAlmacen && row.por_almacen.length > 0
+                          ? () => toggleExpand(rowKey)
+                          : undefined
+                      }
+                    >
                       {/* Expandir */}
                       {!isFiltroAlmacen && (
                         <td className="py-3 px-2">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => toggleExpand(rowKey)}
+                          <span
+                            className="inline-flex items-center justify-center h-7 w-7 text-gray-500"
                             aria-label={isExpanded ? "Colapsar" : "Expandir"}
-                            disabled={row.por_almacen.length === 0}
                           >
-                            {isExpanded ? (
+                            {row.por_almacen.length === 0 ? null : isExpanded ? (
                               <ChevronDown className="h-4 w-4" />
                             ) : (
                               <ChevronRight className="h-4 w-4" />
                             )}
-                          </Button>
+                          </span>
                         </td>
                       )}
 
@@ -443,7 +447,7 @@ export function MaterialesStockTable({
                       </td>
 
                       {/* Stockaje mínimo (editable) */}
-                      <td className="py-3 px-2 text-center">
+                      <td className="py-3 px-2 text-center" onClick={(e) => e.stopPropagation()}>
                         <StockMinimoCell
                           material_id={row.material_id}
                           value={row.stockaje_minimo}

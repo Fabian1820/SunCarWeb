@@ -110,6 +110,8 @@ function KardexCostoContent() {
         title="Kardex de Costos"
         subtitle="Costo promedio ponderado por material y almacén — histórico de entradas"
         badge={{ text: "Economía", className: "bg-violet-100 text-violet-800" }}
+        backHref="/compras-envios-costos"
+        backLabel="Volver a Compras, Envíos y Costos"
         actions={
           <Button
             variant="ghost"

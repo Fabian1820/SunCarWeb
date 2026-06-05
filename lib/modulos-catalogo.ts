@@ -417,6 +417,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-amber-600",
     href: "/fichas-costo",
     grupo: "economia",
+    hideFromDashboard: true,
   },
 
   // ───────── Gestión de Almacenes ─────────
@@ -427,6 +428,15 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     icon: Package,
     iconClass: "text-sky-700",
     href: "/materiales",
+    grupo: "gestion-almacenes",
+  },
+  {
+    key: "inventario",
+    label: "Inventarios",
+    descripcion: "Controlar almacenes, stock y movimientos.",
+    icon: Package,
+    iconClass: "text-sky-700",
+    href: "/inventario",
     grupo: "gestion-almacenes",
   },
   {
@@ -443,15 +453,6 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
         label: "Almacenes (admin) — ajustes manuales de inventario",
       },
     ],
-  },
-  {
-    key: "inventario",
-    label: "Inventario y Almacenes",
-    descripcion: "Controlar almacenes, stock y movimientos.",
-    icon: Package,
-    iconClass: "text-sky-700",
-    href: "/inventario",
-    grupo: "gestion-almacenes",
   },
   {
     // Vive como sub-card dentro de /compras-envios-costos. Pertenece al flujo

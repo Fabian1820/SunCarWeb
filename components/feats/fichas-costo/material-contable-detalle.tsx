@@ -26,12 +26,24 @@ import {
 import { KardexCostoService } from "@/lib/services/feats/kardex-costo/kardex-costo-service"
 import { InventarioService } from "@/lib/services/feats/inventario/inventario-service"
 import type { KardexCosto } from "@/lib/types/feats/kardex-costo/kardex-costo-types"
-import type { MaterialFichaResumen } from "@/lib/types/feats/fichas-costo/ficha-costo-types"
+
+export interface DetalleMaterial {
+  material_id?: string
+  codigo?: string | number
+  nombre?: string
+  descripcion?: string
+  marca?: string
+  um?: string
+  costo?: number
+  precio?: number
+  precio_instaladora?: number
+  porciento_rebajable_venta?: number
+}
 
 interface MaterialContableDetalleProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  material: MaterialFichaResumen | null
+  material: DetalleMaterial | null
 }
 
 const fmtMoney = (n?: number | null): string =>

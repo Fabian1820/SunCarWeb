@@ -7,6 +7,7 @@ export interface BackendMaterial {
   precio?: number;
   precio_instaladora?: number;
   porciento_rebajable_venta?: number;
+  costo?: number;
   comentario?: string | null;
   nombre?: string;
   marca_id?: string;
@@ -41,6 +42,7 @@ export interface MaterialItem {
   precio?: number;
   precio_instaladora?: number;
   porciento_rebajable_venta?: number;
+  costo?: number;
   comentario?: string | null;
   nombre?: string;
   marca_id?: string;
@@ -65,6 +67,8 @@ export interface MaterialCategory {
 
 export interface Material {
   id: string;
+  /** ObjectId real del material en MongoDB (para kardex, stock, etc.). */
+  material_id?: string;
   codigo: string;
   categoria: string;
   descripcion: string;
@@ -72,6 +76,7 @@ export interface Material {
   precio?: number;
   precio_instaladora?: number;
   porciento_rebajable_venta?: number;
+  costo?: number;
   comentario?: string | null;
   foto?: string;
   nombre?: string;
@@ -125,6 +130,7 @@ export interface CreateMaterialRequest {
   precio?: number;
   precio_instaladora?: number;
   porciento_rebajable_venta?: number;
+  costo?: number;
   comentario?: string | null;
   nombre?: string;
   marca_id?: string;
@@ -160,6 +166,8 @@ export function transformBackendToFrontend(
         descripcion: material.descripcion,
         um: material.um,
         precio: material.precio,
+        costo: (material as any).costo,
+        material_id: (material as any)._id || (material as any).material_id,
         precio_instaladora: material.precio_instaladora,
         porciento_rebajable_venta: material.porciento_rebajable_venta,
         comentario: material.comentario ?? null,
@@ -199,6 +207,8 @@ export function flattenMaterials(categories: MaterialCategory[]): Material[] {
         descripcion: material.descripcion,
         um: material.um,
         precio: material.precio,
+        costo: (material as any).costo,
+        material_id: (material as any)._id || (material as any).material_id,
         precio_instaladora: material.precio_instaladora,
         porciento_rebajable_venta: material.porciento_rebajable_venta,
         comentario: material.comentario ?? null,
