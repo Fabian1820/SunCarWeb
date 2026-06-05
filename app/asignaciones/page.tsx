@@ -112,8 +112,8 @@ function AsignacionesPageContent() {
                   Volver
                 </Button>
               </Link>
-              <div className="p-0 rounded-full bg-white shadow border border-emerald-200 h-12 w-12 flex items-center justify-center">
-                <img src="/logo.png" alt="Logo" className="h-10 w-10 object-contain rounded-full" />
+              <div className="rounded-xl bg-suncar-primary shadow-sm flex items-center justify-center h-9 w-9 sm:h-12 sm:w-12 shrink-0 p-1.5 sm:p-2">
+                <img src="/brand/suncar-v1-iso.png" alt="Logo Suncar" className="h-full w-full object-contain" />
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">Asignaciones de Recursos</h1>

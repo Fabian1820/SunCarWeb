@@ -354,6 +354,9 @@ export async function apiRequest<T>(
       if (dataRecord) {
         return {
           ...dataRecord,
+          // Normalizar a success:false para que extractApiError lo detecte correctamente
+          // cuando el backend devuelve solo {detail:"..."} sin success explícito (ej. FastAPI 400)
+          ...(!response.ok && dataSuccess !== true ? { success: false } : {}),
           _httpStatus: response.status,
           _requestUrl: url,
           _requestMethod: method,

@@ -580,7 +580,7 @@ export default function CalculadoraPage() {
 
       // Logo
       try {
-        const logoUrl = "/logo.png"
+        const logoUrl = "/brand/suncar-v1-iso.png"
         const response = await fetch(logoUrl)
         const blob = await response.blob()
         const logoBase64 = await new Promise<string>((resolve) => {
@@ -778,8 +778,8 @@ export default function CalculadoraPage() {
 	              </Button>
 	            </Link>
             <div className="flex items-center gap-2 sm:gap-3 min-w-0 justify-self-center">
-              <div className="hidden sm:flex p-0 rounded-full bg-white shadow border border-emerald-200 items-center justify-center h-12 w-12">
-                <img src="/logo.png" alt="Logo SunCar" className="h-10 w-10 object-contain rounded-full" />
+              <div className="hidden sm:flex rounded-xl bg-suncar-primary shadow-sm items-center justify-center h-12 w-12 shrink-0 p-2">
+                <img src="/brand/suncar-v1-iso.png" alt="Logo Suncar" className="h-full w-full object-contain" />
               </div>
               <div>
                 <h1 className="text-base sm:text-2xl font-bold text-gray-900 flex items-center justify-center gap-2">

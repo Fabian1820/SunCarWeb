@@ -38,12 +38,14 @@ import { Toaster } from "@/components/shared/molecule/toaster";
 import { PageLoader } from "@/components/shared/atom/page-loader";
 import {
   ArrowDownCircle,
+  ArrowLeft,
   ArrowRight,
   ArrowUpCircle,
   ChevronLeft,
   ChevronRight,
   Coins,
   Eye,
+  FileSpreadsheet,
   Info,
   Landmark,
   Plus,
@@ -61,6 +63,7 @@ import { useWallet } from "@/hooks/use-wallet";
 import { useMyWalletPermiso } from "@/hooks/use-wallet-permisos";
 import { BancoGlobalSheet } from "@/components/feats/wallet/banco-global-sheet";
 import { TrabajadorService, WalletService } from "@/lib/api-services";
+import { exportToExcel } from "@/lib/export-service";
 import type { Trabajador } from "@/lib/api-types";
 import type {
   WalletCurrency,
@@ -638,7 +641,15 @@ function WalletPageContent() {
   const [resolvingTransfer, setResolvingTransfer] = useState(false);
 
   const [walletSearch, setWalletSearch] = useState("");
-  const [expandedTeamWalletId, setExpandedTeamWalletId] = useState<string | null>(null);
+  const [memberView, setMemberView] = useState<{ walletId: string; nombre: string; ci: string } | null>(null);
+  const [memberFiltroTipo, setMemberFiltroTipo] = useState<"todos" | WalletTransactionType>("todos");
+  const [memberSearchQuery, setMemberSearchQuery] = useState("");
+  const [memberDebouncedSearch, setMemberDebouncedSearch] = useState("");
+  const [memberFechaDesde, setMemberFechaDesde] = useState("");
+  const [memberFechaHasta, setMemberFechaHasta] = useState("");
+  const [memberTxPage, setMemberTxPage] = useState(0);
+  const [memberCounterpartCi, setMemberCounterpartCi] = useState("");
+  const [exportingMember, setExportingMember] = useState(false);
   const [isCurrencyModalOpen, setIsCurrencyModalOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<WalletTransaction | null>(null);
   const [isTransactionDetailOpen, setIsTransactionDetailOpen] = useState(false);
@@ -673,10 +684,19 @@ function WalletPageContent() {
     return () => clearTimeout(t);
   }, [searchQuery]);
 
+  useEffect(() => {
+    const t = setTimeout(() => setMemberDebouncedSearch(memberSearchQuery), 400);
+    return () => clearTimeout(t);
+  }, [memberSearchQuery]);
+
   // Reset de página cuando cambian los filtros
   useEffect(() => {
     setTxPage(0);
   }, [filtroTipo, debouncedSearch, fechaDesde, fechaHasta, historyView, selectedCounterpartCi]);
+
+  useEffect(() => {
+    setMemberTxPage(0);
+  }, [memberFiltroTipo, memberDebouncedSearch, memberFechaDesde, memberFechaHasta, memberCounterpartCi]);
 
   const currentFilters = useMemo(
     () => ({
@@ -690,6 +710,19 @@ function WalletPageContent() {
       contraparte_ci: selectedCounterpartCi || undefined,
     }),
     [filtroTipo, txPage, fechaDesde, fechaHasta, debouncedSearch, historyView, canSeeAll, selectedCounterpartCi],
+  );
+
+  const memberCurrentFilters = useMemo(
+    () => ({
+      limit: TX_PAGE_SIZE,
+      skip: memberTxPage * TX_PAGE_SIZE,
+      tipo: memberFiltroTipo === "todos" ? undefined : memberFiltroTipo,
+      fecha_desde: memberFechaDesde || undefined,
+      fecha_hasta: memberFechaHasta || undefined,
+      q: memberDebouncedSearch.trim() || undefined,
+      contraparte_ci: memberCounterpartCi || undefined,
+    }),
+    [memberFiltroTipo, memberTxPage, memberFechaDesde, memberFechaHasta, memberDebouncedSearch, memberCounterpartCi],
   );
 
   const filteredWallets = useMemo(() => {
@@ -795,6 +828,11 @@ function WalletPageContent() {
   useEffect(() => {
     void loadTransactions(currentFilters);
   }, [loadTransactions, currentFilters]);
+
+  useEffect(() => {
+    if (!memberView) return;
+    void loadWalletDetail(memberView.walletId, memberCurrentFilters);
+  }, [loadWalletDetail, memberView, memberCurrentFilters]);
 
   useEffect(() => {
     if (transferToCi && wallet?.user_ci && transferToCi === wallet.user_ci) {
@@ -958,23 +996,89 @@ function WalletPageContent() {
     }
   };
 
-  const handleToggleTeamWallet = async (walletId: string) => {
-    if (expandedTeamWalletId === walletId) {
-      setExpandedTeamWalletId(null);
+  const handleSelectTeamWallet = (item: WalletType) => {
+    if (memberView?.walletId === item.id) {
+      setMemberView(null);
       return;
     }
-    setExpandedTeamWalletId(walletId);
+    setMemberView({ walletId: item.id, nombre: item.user_nombre, ci: item.user_ci });
+    setMemberTxPage(0);
+    setMemberFiltroTipo("todos");
+    setMemberSearchQuery("");
+    setMemberDebouncedSearch("");
+    setMemberFechaDesde("");
+    setMemberFechaHasta("");
+    setMemberCounterpartCi("");
+  };
+
+  const handleExportMemberWallet = async (mode: "filtered" | "complete") => {
+    if (!memberView) return;
+    setExportingMember(true);
     try {
-      await loadWalletDetail(walletId, { limit: 100 });
+      const PAGE_LIMIT = 500;
+      const baseFilters = mode === "complete"
+        ? {}
+        : {
+            tipo: memberCurrentFilters.tipo,
+            fecha_desde: memberCurrentFilters.fecha_desde,
+            fecha_hasta: memberCurrentFilters.fecha_hasta,
+            q: memberCurrentFilters.q,
+            contraparte_ci: memberCurrentFilters.contraparte_ci,
+          };
+
+      // Paginar para traer todos los registros respetando el límite del backend
+      const allItems: WalletTransaction[] = [];
+      let skip = 0;
+      let total = Infinity;
+      while (allItems.length < total) {
+        const page = await WalletService.getWalletTransactions(
+          memberView.walletId,
+          { ...baseFilters, limit: PAGE_LIMIT, skip },
+        );
+        allItems.push(...page.items);
+        total = page.total;
+        skip += page.items.length;
+        if (page.items.length === 0) break;
+      }
+
+      await exportToExcel({
+        title: `Billetera · ${memberView.nombre}`,
+        subtitle: `CI: ${memberView.ci} · ${mode === "complete" ? "Exportación completa" : "Exportación filtrada"}`,
+        filename: `billetera_${memberView.ci}_${new Date().toISOString().slice(0, 10)}`,
+        columns: [
+          { header: "Fecha", key: "fecha", width: 20 },
+          { header: "Tipo", key: "tipo", width: 14 },
+          { header: "Monto", key: "monto", width: 14 },
+          { header: "Moneda", key: "moneda", width: 10 },
+          { header: "Motivo", key: "motivo", width: 40 },
+          { header: "Saldo anterior", key: "saldo_anterior", width: 16 },
+          { header: "Saldo después", key: "saldo_posterior", width: 16 },
+          { header: "Registrado por", key: "registrado_por", width: 28 },
+        ],
+        data: allItems.map((tx) => ({
+          fecha: formatDateTime(tx.created_at),
+          tipo: tx.tipo,
+          monto: tx.monto,
+          moneda: tx.currency_code || "",
+          motivo: tx.motivo || "",
+          saldo_anterior: tx.saldo_anterior,
+          saldo_posterior: tx.saldo_posterior,
+          registrado_por: `${tx.created_by_nombre} (${tx.created_by_ci})`,
+        })),
+      });
+
+      toast({
+        title: "Exportado",
+        description: `${allItems.length} transacción${allItems.length !== 1 ? "es" : ""} exportada${allItems.length !== 1 ? "s" : ""}.`,
+      });
     } catch (err: unknown) {
       toast({
-        title: "Error",
-        description:
-          err instanceof Error
-            ? err.message
-            : "No se pudo cargar el detalle de la billetera",
+        title: "Error al exportar",
+        description: err instanceof Error ? err.message : "No se pudo exportar",
         variant: "destructive",
       });
+    } finally {
+      setExportingMember(false);
     }
   };
 
@@ -1103,8 +1207,8 @@ function WalletPageContent() {
       loadWallets({ limit: 500 }),
       loadPendingTransfers(),
     ];
-    if (selectedWallet?.id) {
-      refreshTasks.push(loadWalletDetail(selectedWallet.id, { limit: 200 }));
+    if (memberView) {
+      refreshTasks.push(loadWalletDetail(memberView.walletId, memberCurrentFilters));
     }
     await Promise.all(refreshTasks);
   };
@@ -1618,128 +1722,56 @@ function WalletPageContent() {
                 <>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {teamWallets.map((item) => {
-                      const isExpanded = expandedTeamWalletId === item.id;
+                      const isSelected = memberView?.walletId === item.id;
                       const balance = getWalletViewBalance(item);
                       return (
                         <button
                           key={item.id}
-                          onClick={() => void handleToggleTeamWallet(item.id)}
+                          onClick={() => handleSelectTeamWallet(item)}
                           className={`text-left rounded-xl border p-3 transition-all ${
-                            isExpanded
-                              ? "border-slate-800 bg-slate-50 shadow-sm"
+                            isSelected
+                              ? "border-slate-800 bg-slate-900 shadow-sm"
                               : "border-slate-100 bg-white hover:border-slate-300"
                           }`}
                         >
                           <div className="flex items-start gap-2">
                             <div
                               className={`rounded-full p-1.5 shrink-0 ${
-                                isExpanded ? "bg-slate-800" : "bg-slate-100"
+                                isSelected ? "bg-white/20" : "bg-slate-100"
                               }`}
                             >
                               <Wallet
                                 className={`h-3.5 w-3.5 ${
-                                  isExpanded ? "text-white" : "text-slate-500"
+                                  isSelected ? "text-white" : "text-slate-500"
                                 }`}
                               />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className="text-sm font-semibold text-slate-800 truncate">
+                              <p className={`text-sm font-semibold truncate ${isSelected ? "text-white" : "text-slate-800"}`}>
                                 {item.user_nombre}
                               </p>
-                              <p className="text-[11px] text-slate-400">
+                              <p className={`text-[11px] ${isSelected ? "text-slate-300" : "text-slate-400"}`}>
                                 CI: {item.user_ci}
                               </p>
-                              <p
-                                className={`text-base font-bold mt-1 ${
-                                  isExpanded ? "text-slate-900" : "text-slate-700"
-                                }`}
-                              >
+                              <p className={`text-base font-bold mt-1 ${isSelected ? "text-white" : "text-slate-700"}`}>
                                 {formatMoney(balance, selectedCurrencyCode)}
                               </p>
                             </div>
                             <Eye
                               className={`h-3.5 w-3.5 mt-1 shrink-0 ${
-                                isExpanded ? "text-slate-800" : "text-slate-300"
+                                isSelected ? "text-white" : "text-slate-300"
                               }`}
                             />
                           </div>
+                          {isSelected && (
+                            <p className="text-[10px] text-slate-300 mt-2 font-medium">
+                              ↓ Ver historial abajo
+                            </p>
+                          )}
                         </button>
                       );
                     })}
                   </div>
-
-                  {/* Detalle expandido inline */}
-                  {expandedTeamWalletId && (
-                    <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50/50 p-3 space-y-3">
-                      {loadingSelectedWalletDetail && !selectedWallet ? (
-                        <div className="py-6 text-center text-sm text-slate-400">
-                          <RefreshCcw className="h-4 w-4 animate-spin mx-auto mb-2" />
-                          Cargando detalle...
-                        </div>
-                      ) : selectedWallet ? (
-                        <>
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <p className="text-xs text-slate-400 uppercase tracking-wider">
-                                Detalle
-                              </p>
-                              <p className="text-sm font-semibold text-slate-800 truncate">
-                                {selectedWallet.user_nombre}
-                              </p>
-                              <p className="text-[11px] text-slate-400">
-                                CI: {selectedWallet.user_ci}
-                              </p>
-                            </div>
-                            <button
-                              onClick={() => setExpandedTeamWalletId(null)}
-                              className="text-slate-400 hover:text-slate-600"
-                              aria-label="Cerrar detalle"
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
-                          </div>
-
-                          {/* Balances por moneda */}
-                          {selectedWallet.balances && selectedWallet.balances.length > 0 ? (
-                            <div className="flex flex-wrap gap-1.5">
-                              {selectedWallet.balances.map((b) => (
-                                <span
-                                  key={b.currency_id}
-                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-white border border-slate-200 text-xs"
-                                >
-                                  <span className="font-semibold text-slate-700">
-                                    {b.currency_code}
-                                  </span>
-                                  <span className="text-slate-600">
-                                    {formatMoney(Number(b.amount || 0), b.currency_code)}
-                                  </span>
-                                </span>
-                              ))}
-                            </div>
-                          ) : null}
-
-                          <div>
-                            <div className="flex items-center justify-between mb-2">
-                              <p className="text-xs font-semibold text-slate-600">
-                                Últimas transacciones
-                              </p>
-                              <span className="text-[11px] text-slate-400">
-                                {totalSelectedWalletTransactions} en total
-                              </span>
-                            </div>
-                            <TransactionsResponsiveList
-                              transactions={selectedWalletTransactions}
-                              loading={loadingSelectedWalletDetail}
-                              emptyMessage="Esta billetera no tiene transacciones."
-                              fallbackCurrency={selectedCurrencyCode}
-                              showWalletOwner={false}
-                              onSelect={openTransactionDetail}
-                            />
-                          </div>
-                        </>
-                      ) : null}
-                    </div>
-                  )}
                 </>
               )}
             </CardContent>
@@ -1918,181 +1950,366 @@ function WalletPageContent() {
         {/* Transactions */}
         <Card className="border-slate-200 shadow-sm rounded-2xl overflow-hidden">
           <CardHeader className="px-4 pt-4 pb-3 flex flex-col gap-3">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div>
-                <CardTitle className="text-sm font-semibold text-slate-800">
-                  {canSeeAll ? "Historial de Transacciones" : "Mi Historial"}
-                </CardTitle>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  {loadingTransactions
-                    ? "Cargando..."
-                    : `${totalTransactions} registro${totalTransactions !== 1 ? "s" : ""}${
-                        txPage > 0 || totalTransactions > TX_PAGE_SIZE
-                          ? ` · página ${txPage + 1} de ${Math.max(1, Math.ceil(totalTransactions / TX_PAGE_SIZE))}`
-                          : ""
-                      }`}
-                </p>
-              </div>
-
-              {/* Toggle Propias / Todos (solo cuando puede ver todas) */}
-              {canSeeAll && (
-                <div className="flex gap-0 rounded-lg border border-slate-200 bg-slate-50 p-0.5">
-                  {(["propias", "todos"] as const).map((v) => (
+            {memberView ? (
+              /* ── MEMBER VIEW HEADER ── */
+              <>
+                <div className="flex items-start justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
                     <button
-                      key={v}
-                      onClick={() => setHistoryView(v)}
-                      className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
-                        historyView === v
-                          ? "bg-white text-slate-800 shadow-sm"
-                          : "text-slate-500 hover:text-slate-700"
+                      onClick={() => setMemberView(null)}
+                      className="text-slate-400 hover:text-slate-700 shrink-0 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+                      title="Volver al historial global"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                    </button>
+                    <div className="min-w-0">
+                      <CardTitle className="text-sm font-semibold text-slate-800 truncate">
+                        {memberView.nombre}
+                      </CardTitle>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        CI: {memberView.ci} ·{" "}
+                        {loadingSelectedWalletDetail
+                          ? "Cargando..."
+                          : `${totalSelectedWalletTransactions} registro${totalSelectedWalletTransactions !== 1 ? "s" : ""}${
+                              memberTxPage > 0 || totalSelectedWalletTransactions > TX_PAGE_SIZE
+                                ? ` · pág. ${memberTxPage + 1}/${Math.max(1, Math.ceil(totalSelectedWalletTransactions / TX_PAGE_SIZE))}`
+                                : ""
+                            }`}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Saldos del miembro */}
+                  {selectedWallet?.balances && selectedWallet.balances.length > 0 && (
+                    <div className="flex flex-wrap gap-1 justify-end">
+                      {selectedWallet.balances.map((b) => (
+                        <span
+                          key={b.currency_id}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 border border-slate-200 text-xs"
+                        >
+                          <span className="font-bold text-slate-600">{b.currency_code}</span>
+                          <span className="text-slate-700 font-semibold tabular-nums">
+                            {formatMoney(Number(b.amount || 0), b.currency_code)}
+                          </span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Botones de exportación */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 mr-1">
+                    Exportar Excel
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={exportingMember}
+                    onClick={() => void handleExportMemberWallet("filtered")}
+                    className="h-8 text-xs gap-1.5 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                  >
+                    <FileSpreadsheet className="h-3.5 w-3.5" />
+                    Filtrado
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={exportingMember}
+                    onClick={() => void handleExportMemberWallet("complete")}
+                    className="h-8 text-xs gap-1.5 border-slate-200 text-slate-600 hover:bg-slate-50"
+                  >
+                    <FileSpreadsheet className="h-3.5 w-3.5" />
+                    Completo
+                  </Button>
+                  {exportingMember && (
+                    <RefreshCcw className="h-3.5 w-3.5 animate-spin text-slate-400" />
+                  )}
+                </div>
+
+                {/* Buscador miembro */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input
+                    value={memberSearchQuery}
+                    onChange={(e) => setMemberSearchQuery(e.target.value)}
+                    placeholder="Buscar por motivo..."
+                    className="h-9 pl-9 text-sm"
+                  />
+                </div>
+
+                {/* Filtro de fechas miembro */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">Desde</label>
+                    <Input type="date" value={memberFechaDesde} onChange={(e) => setMemberFechaDesde(e.target.value)} className="h-8 text-xs" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">Hasta</label>
+                    <Input type="date" value={memberFechaHasta} onChange={(e) => setMemberFechaHasta(e.target.value)} className="h-8 text-xs" />
+                  </div>
+                </div>
+                {(memberFechaDesde || memberFechaHasta) && (
+                  <button
+                    onClick={() => { setMemberFechaDesde(""); setMemberFechaHasta(""); }}
+                    className="self-start text-[11px] text-slate-400 hover:text-slate-600 underline"
+                  >
+                    Limpiar fechas
+                  </button>
+                )}
+
+                {/* Filtros por tipo miembro */}
+                <div className="flex gap-1.5 flex-wrap">
+                  {(["todos", "ingreso", "gasto", "transferencia"] as const).map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => setMemberFiltroTipo(f)}
+                      className={`px-3 py-1 rounded-full text-xs font-medium transition-all border ${
+                        memberFiltroTipo === f
+                          ? f === "ingreso"
+                            ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                            : f === "gasto"
+                            ? "bg-rose-100 text-rose-700 border-rose-200"
+                            : f === "transferencia"
+                            ? "bg-violet-100 text-violet-700 border-violet-200"
+                            : "bg-slate-800 text-white border-slate-800"
+                          : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
                       }`}
                     >
-                      {v === "propias" ? "Propias" : "Todas"}
+                      {f === "todos" ? "Todos" : f === "ingreso" ? "Ingresos" : f === "gasto" ? "Gastos" : "Transferencias"}
                     </button>
                   ))}
                 </div>
-              )}
-            </div>
+              </>
+            ) : (
+              /* ── GLOBAL VIEW HEADER ── */
+              <>
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <CardTitle className="text-sm font-semibold text-slate-800">
+                      {canSeeAll ? "Historial de Transacciones" : "Mi Historial"}
+                    </CardTitle>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {loadingTransactions
+                        ? "Cargando..."
+                        : `${totalTransactions} registro${totalTransactions !== 1 ? "s" : ""}${
+                            txPage > 0 || totalTransactions > TX_PAGE_SIZE
+                              ? ` · página ${txPage + 1} de ${Math.max(1, Math.ceil(totalTransactions / TX_PAGE_SIZE))}`
+                              : ""
+                          }`}
+                    </p>
+                  </div>
 
-            {/* Buscador */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar por motivo o nombre..."
-                className="h-9 pl-9 text-sm"
-              />
-            </div>
+                  {/* Toggle Propias / Todos (solo cuando puede ver todas) */}
+                  {canSeeAll && (
+                    <div className="flex gap-0 rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+                      {(["propias", "todos"] as const).map((v) => (
+                        <button
+                          key={v}
+                          onClick={() => setHistoryView(v)}
+                          className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                            historyView === v
+                              ? "bg-white text-slate-800 shadow-sm"
+                              : "text-slate-500 hover:text-slate-700"
+                          }`}
+                        >
+                          {v === "propias" ? "Propias" : "Todas"}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
-            {/* Filtro de fechas */}
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <label className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
-                  Desde
-                </label>
-                <Input
-                  type="date"
-                  value={fechaDesde}
-                  onChange={(e) => setFechaDesde(e.target.value)}
-                  className="h-8 text-xs"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
-                  Hasta
-                </label>
-                <Input
-                  type="date"
-                  value={fechaHasta}
-                  onChange={(e) => setFechaHasta(e.target.value)}
-                  className="h-8 text-xs"
-                />
-              </div>
-            </div>
-            {(fechaDesde || fechaHasta) && (
-              <button
-                onClick={() => { setFechaDesde(""); setFechaHasta(""); }}
-                className="self-start text-[11px] text-slate-400 hover:text-slate-600 underline"
-              >
-                Limpiar fechas
-              </button>
-            )}
+                {/* Buscador */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Buscar por motivo o nombre..."
+                    className="h-9 pl-9 text-sm"
+                  />
+                </div>
 
-            {/* Filtros por tipo */}
-            <div className="flex gap-1.5 flex-wrap">
-              {(["todos", "ingreso", "gasto", "transferencia"] as const).map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setFiltroTipo(f)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-all border ${
-                    filtroTipo === f
-                      ? f === "ingreso"
-                        ? "bg-emerald-100 text-emerald-700 border-emerald-200"
-                        : f === "gasto"
-                        ? "bg-rose-100 text-rose-700 border-rose-200"
-                        : f === "transferencia"
-                        ? "bg-violet-100 text-violet-700 border-violet-200"
-                        : "bg-slate-800 text-white border-slate-800"
-                      : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
-                  }`}
-                >
-                  {f === "todos" ? "Todos" : f === "ingreso" ? "Ingresos" : f === "gasto" ? "Gastos" : "Transferencias"}
-                </button>
-              ))}
-            </div>
+                {/* Filtro de fechas */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
+                      Desde
+                    </label>
+                    <Input
+                      type="date"
+                      value={fechaDesde}
+                      onChange={(e) => setFechaDesde(e.target.value)}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
+                      Hasta
+                    </label>
+                    <Input
+                      type="date"
+                      value={fechaHasta}
+                      onChange={(e) => setFechaHasta(e.target.value)}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                </div>
+                {(fechaDesde || fechaHasta) && (
+                  <button
+                    onClick={() => { setFechaDesde(""); setFechaHasta(""); }}
+                    className="self-start text-[11px] text-slate-400 hover:text-slate-600 underline"
+                  >
+                    Limpiar fechas
+                  </button>
+                )}
 
-            {/* Filtro por contraparte */}
-            {counterparts.length > 0 && (
-              <div className="space-y-1">
-                <label className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
-                  Con persona
-                </label>
-                <Select
-                  value={selectedCounterpartCi || "__all__"}
-                  onValueChange={(v) => setSelectedCounterpartCi(v === "__all__" ? "" : v)}
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Todas las personas" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__all__">Todas las personas</SelectItem>
-                    {counterparts.map((cp) => (
-                      <SelectItem key={cp.ci} value={cp.ci}>
-                        {cp.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                {/* Filtros por tipo */}
+                <div className="flex gap-1.5 flex-wrap">
+                  {(["todos", "ingreso", "gasto", "transferencia"] as const).map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => setFiltroTipo(f)}
+                      className={`px-3 py-1 rounded-full text-xs font-medium transition-all border ${
+                        filtroTipo === f
+                          ? f === "ingreso"
+                            ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                            : f === "gasto"
+                            ? "bg-rose-100 text-rose-700 border-rose-200"
+                            : f === "transferencia"
+                            ? "bg-violet-100 text-violet-700 border-violet-200"
+                            : "bg-slate-800 text-white border-slate-800"
+                          : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
+                      }`}
+                    >
+                      {f === "todos" ? "Todos" : f === "ingreso" ? "Ingresos" : f === "gasto" ? "Gastos" : "Transferencias"}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Filtro por contraparte */}
+                {counterparts.length > 0 && (
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
+                      Con persona
+                    </label>
+                    <Select
+                      value={selectedCounterpartCi || "__all__"}
+                      onValueChange={(v) => setSelectedCounterpartCi(v === "__all__" ? "" : v)}
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="Todas las personas" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__all__">Todas las personas</SelectItem>
+                        {counterparts.map((cp) => (
+                          <SelectItem key={cp.ci} value={cp.ci}>
+                            {cp.nombre}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </>
             )}
           </CardHeader>
           <CardContent className="px-4 pb-4 space-y-3">
-            <TransactionsResponsiveList
-              transactions={filteredWalletTransactions}
-              loading={loadingTransactions}
-              emptyMessage={
-                debouncedSearch || fechaDesde || fechaHasta || filtroTipo !== "todos" || selectedCounterpartCi
-                  ? "No se encontraron transacciones con ese criterio."
-                  : "No hay transacciones registradas."
-              }
-              fallbackCurrency={selectedCurrencyCode}
-              showWalletOwner={canSeeAll && historyView === "todos"}
-              onSelect={openTransactionDetail}
-            />
-
-            {/* Paginación */}
-            {totalTransactions > TX_PAGE_SIZE && (
-              <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                <p className="text-xs text-slate-500">
-                  {txPage * TX_PAGE_SIZE + 1}–
-                  {Math.min((txPage + 1) * TX_PAGE_SIZE, totalTransactions)}{" "}
-                  de {totalTransactions}
-                </p>
-                <div className="flex items-center gap-1.5">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setTxPage((p) => p - 1)}
-                    disabled={txPage === 0 || loadingTransactions}
-                    className="h-8 w-8 p-0"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <span className="text-xs font-medium text-slate-600 min-w-[80px] text-center">
-                    {txPage + 1} / {Math.ceil(totalTransactions / TX_PAGE_SIZE)}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setTxPage((p) => p + 1)}
-                    disabled={(txPage + 1) * TX_PAGE_SIZE >= totalTransactions || loadingTransactions}
-                    className="h-8 w-8 p-0"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
+            {memberView ? (
+              <>
+                <TransactionsResponsiveList
+                  transactions={selectedWalletTransactions}
+                  loading={loadingSelectedWalletDetail}
+                  emptyMessage={
+                    memberDebouncedSearch || memberFechaDesde || memberFechaHasta || memberFiltroTipo !== "todos"
+                      ? "No se encontraron transacciones con ese criterio."
+                      : "Esta billetera no tiene transacciones."
+                  }
+                  fallbackCurrency={selectedCurrencyCode}
+                  showWalletOwner={false}
+                  onSelect={openTransactionDetail}
+                />
+                {totalSelectedWalletTransactions > TX_PAGE_SIZE && (
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                    <p className="text-xs text-slate-500">
+                      {memberTxPage * TX_PAGE_SIZE + 1}–
+                      {Math.min((memberTxPage + 1) * TX_PAGE_SIZE, totalSelectedWalletTransactions)}{" "}
+                      de {totalSelectedWalletTransactions}
+                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setMemberTxPage((p) => p - 1)}
+                        disabled={memberTxPage === 0 || loadingSelectedWalletDetail}
+                        className="h-8 w-8 p-0"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <span className="text-xs font-medium text-slate-600 min-w-[80px] text-center">
+                        {memberTxPage + 1} / {Math.ceil(totalSelectedWalletTransactions / TX_PAGE_SIZE)}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setMemberTxPage((p) => p + 1)}
+                        disabled={(memberTxPage + 1) * TX_PAGE_SIZE >= totalSelectedWalletTransactions || loadingSelectedWalletDetail}
+                        className="h-8 w-8 p-0"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <TransactionsResponsiveList
+                  transactions={filteredWalletTransactions}
+                  loading={loadingTransactions}
+                  emptyMessage={
+                    debouncedSearch || fechaDesde || fechaHasta || filtroTipo !== "todos" || selectedCounterpartCi
+                      ? "No se encontraron transacciones con ese criterio."
+                      : "No hay transacciones registradas."
+                  }
+                  fallbackCurrency={selectedCurrencyCode}
+                  showWalletOwner={canSeeAll && historyView === "todos"}
+                  onSelect={openTransactionDetail}
+                />
+                {totalTransactions > TX_PAGE_SIZE && (
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                    <p className="text-xs text-slate-500">
+                      {txPage * TX_PAGE_SIZE + 1}–
+                      {Math.min((txPage + 1) * TX_PAGE_SIZE, totalTransactions)}{" "}
+                      de {totalTransactions}
+                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setTxPage((p) => p - 1)}
+                        disabled={txPage === 0 || loadingTransactions}
+                        className="h-8 w-8 p-0"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <span className="text-xs font-medium text-slate-600 min-w-[80px] text-center">
+                        {txPage + 1} / {Math.ceil(totalTransactions / TX_PAGE_SIZE)}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setTxPage((p) => p + 1)}
+                        disabled={(txPage + 1) * TX_PAGE_SIZE >= totalTransactions || loadingTransactions}
+                        className="h-8 w-8 p-0"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>

@@ -73,8 +73,8 @@ export default function FacturacionPage() {
                                     <span className="sr-only">Volver al Dashboard</span>
                                 </Button>
                             </Link>
-                            <div className="p-0 rounded-full bg-white shadow border border-emerald-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
-                                <img src="/logo.png" alt="Logo SunCar" className="h-6 w-6 sm:h-10 sm:w-10 object-contain rounded-full" />
+                            <div className="rounded-xl bg-suncar-primary shadow-sm flex items-center justify-center h-9 w-9 sm:h-12 sm:w-12 shrink-0 p-1.5 sm:p-2">
+                                <img src="/brand/suncar-v1-iso.png" alt="Logo Suncar" className="h-full w-full object-contain" />
                             </div>
                             <div className="min-w-0">
                                 <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate flex items-center gap-2">

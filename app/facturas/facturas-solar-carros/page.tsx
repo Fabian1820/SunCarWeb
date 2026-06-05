@@ -2738,8 +2738,8 @@ function FacturasSolarCarrosPageContent() {
               <div className="rounded-lg border bg-white p-5 shadow-sm">
                 <div className="flex justify-center mb-3">
                   <Image
-                    src="/logo.png"
-                    alt="Logo empresa"
+                    src="/brand/suncar-v1-iso.png"
+                    alt="Logo Suncar"
                     width={64}
                     height={64}
                     className="h-16 w-16 object-contain"
@@ -2828,8 +2828,8 @@ function FacturasSolarCarrosPageContent() {
             <div className="rounded-lg border bg-white p-5 shadow-sm">
               <div className="flex justify-center mb-3">
                 <Image
-                  src="/logo.png"
-                  alt="Logo empresa"
+                  src="/brand/suncar-v1-iso.png"
+                  alt="Logo Suncar"
                   width={64}
                   height={64}
                   className="h-16 w-16 object-contain"
