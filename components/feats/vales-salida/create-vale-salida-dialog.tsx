@@ -536,7 +536,22 @@ export function CreateValeSalidaDialog({
     const validMaterials = materiales.filter(
       (material) => material.material_id && material.cantidad > 0,
     );
-    if (validMaterials.length === 0) return;
+    if (validMaterials.length === 0) {
+      toast({
+        title: "Sin materiales válidos",
+        description: "Todos los materiales deben tener cantidad mayor a 0. Verifica las cantidades antes de continuar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const skipped = materiales.length - validMaterials.length;
+    if (skipped > 0) {
+      toast({
+        title: "Materiales omitidos",
+        description: `${skipped} material(es) no se incluirán por tener cantidad 0 o ID inválido.`,
+      });
+    }
 
     const payload: ValeSalidaCreateData = {
       materiales: validMaterials.map((material) => ({
