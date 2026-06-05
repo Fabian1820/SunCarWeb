@@ -1015,11 +1015,31 @@ function WalletPageContent() {
     if (!memberView) return;
     setExportingMember(true);
     try {
-      const filtersToUse = mode === "complete"
-        ? { limit: 5000, skip: 0 }
-        : { ...memberCurrentFilters, limit: 5000, skip: 0 };
+      const PAGE_LIMIT = 500;
+      const baseFilters = mode === "complete"
+        ? {}
+        : {
+            tipo: memberCurrentFilters.tipo,
+            fecha_desde: memberCurrentFilters.fecha_desde,
+            fecha_hasta: memberCurrentFilters.fecha_hasta,
+            q: memberCurrentFilters.q,
+            contraparte_ci: memberCurrentFilters.contraparte_ci,
+          };
 
-      const result = await WalletService.getWalletTransactions(memberView.walletId, filtersToUse);
+      // Paginar para traer todos los registros respetando el límite del backend
+      const allItems: WalletTransaction[] = [];
+      let skip = 0;
+      let total = Infinity;
+      while (allItems.length < total) {
+        const page = await WalletService.getWalletTransactions(
+          memberView.walletId,
+          { ...baseFilters, limit: PAGE_LIMIT, skip },
+        );
+        allItems.push(...page.items);
+        total = page.total;
+        skip += page.items.length;
+        if (page.items.length === 0) break;
+      }
 
       await exportToExcel({
         title: `Billetera · ${memberView.nombre}`,
@@ -1035,7 +1055,7 @@ function WalletPageContent() {
           { header: "Saldo después", key: "saldo_posterior", width: 16 },
           { header: "Registrado por", key: "registrado_por", width: 28 },
         ],
-        data: result.items.map((tx) => ({
+        data: allItems.map((tx) => ({
           fecha: formatDateTime(tx.created_at),
           tipo: tx.tipo,
           monto: tx.monto,
@@ -1049,7 +1069,7 @@ function WalletPageContent() {
 
       toast({
         title: "Exportado",
-        description: `${result.items.length} transacción${result.items.length !== 1 ? "es" : ""} exportada${result.items.length !== 1 ? "s" : ""}.`,
+        description: `${allItems.length} transacción${allItems.length !== 1 ? "es" : ""} exportada${allItems.length !== 1 ? "s" : ""}.`,
       });
     } catch (err: unknown) {
       toast({
