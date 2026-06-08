@@ -44,6 +44,7 @@ import { MaterialStockDialog } from "@/components/feats/fichas-costo/material-st
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/shared/molecule/tooltip"
 import { useMaterials } from "@/hooks/use-materials"
 import { useMarcas } from "@/hooks/use-marcas"
+import { useAuth } from "@/contexts/auth-context"
 import { exportToExcel, generateFilename } from "@/lib/export-service"
 import type { Material } from "@/lib/material-types"
 
@@ -82,6 +83,17 @@ function FichasCostoPageContent() {
     registerNewCategory,
   } = useMaterials()
   const { marcasSimplificadas } = useMarcas()
+
+  // Permiso "solo precios": el usuario tiene ÚNICAMENTE el sub-permiso
+  // `fichas-costo/solo-precios` y NO el padre completo `fichas-costo`. En ese
+  // caso la tabla se reduce a Precio Venta · P. Instaladora · % Rebajable, y se
+  // ocultan costo, margen, acciones (crear/editar/ver/stock), filtros sensibles
+  // (rango precio, "Valores") y export. SuperAdmin siempre ve todo.
+  const { user, modulosPermitidos } = useAuth()
+  const soloPrecios =
+    !user?.is_superAdmin &&
+    !modulosPermitidos.includes("fichas-costo") &&
+    modulosPermitidos.includes("fichas-costo/solo-precios")
 
   // Filtros
   const [searchTerm, setSearchTerm] = useState("")
@@ -354,27 +366,29 @@ function FichasCostoPageContent() {
         backHref="/compras-envios-costos"
         backLabel="Volver a Compras, Envíos y Costos"
         actions={
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void handleExport()}
-              disabled={exporting || filtered.length === 0}
-              title="Exportar a Excel"
-            >
-              {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
-              <span className="hidden sm:inline ml-1">Exportar</span>
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => setIsAddOpen(true)}
-              className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800"
-              title="Crear material"
-            >
-              <Plus className="h-4 w-4 sm:mr-1" />
-              <span className="hidden sm:inline">Crear material</span>
-            </Button>
-          </div>
+          soloPrecios ? null : (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void handleExport()}
+                disabled={exporting || filtered.length === 0}
+                title="Exportar a Excel"
+              >
+                {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
+                <span className="hidden sm:inline ml-1">Exportar</span>
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setIsAddOpen(true)}
+                className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800"
+                title="Crear material"
+              >
+                <Plus className="h-4 w-4 sm:mr-1" />
+                <span className="hidden sm:inline">Crear material</span>
+              </Button>
+            </div>
+          )
         }
       />
 
@@ -427,38 +441,42 @@ function FichasCostoPageContent() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="lg:w-48">
-                  <Label className="text-sm font-medium text-gray-700 mb-2 block">Valores</Label>
-                  <Select value={precioFiltro} onValueChange={(v) => { setPrecioFiltro(v as PrecioFiltro); resetPage() }}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      <SelectItem value="sin-precio">Sin precio (0 o vacío)</SelectItem>
-                      <SelectItem value="sin-costo">Sin costo (0 o vacío)</SelectItem>
-                      <SelectItem value="margen-negativo">Margen negativo</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="lg:w-44">
-                  <Label className="text-sm font-medium text-gray-700 mb-2 block">Rango precio venta</Label>
-                  <div className="flex items-center gap-1">
-                    <Input
-                      type="number"
-                      placeholder="Min"
-                      value={precioMin}
-                      onChange={(e) => { setPrecioMin(e.target.value); resetPage() }}
-                      className="h-9"
-                    />
-                    <span className="text-gray-400">–</span>
-                    <Input
-                      type="number"
-                      placeholder="Max"
-                      value={precioMax}
-                      onChange={(e) => { setPrecioMax(e.target.value); resetPage() }}
-                      className="h-9"
-                    />
-                  </div>
-                </div>
+                {!soloPrecios && (
+                  <>
+                    <div className="lg:w-48">
+                      <Label className="text-sm font-medium text-gray-700 mb-2 block">Valores</Label>
+                      <Select value={precioFiltro} onValueChange={(v) => { setPrecioFiltro(v as PrecioFiltro); resetPage() }}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos</SelectItem>
+                          <SelectItem value="sin-precio">Sin precio (0 o vacío)</SelectItem>
+                          <SelectItem value="sin-costo">Sin costo (0 o vacío)</SelectItem>
+                          <SelectItem value="margen-negativo">Margen negativo</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="lg:w-44">
+                      <Label className="text-sm font-medium text-gray-700 mb-2 block">Rango precio venta</Label>
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          placeholder="Min"
+                          value={precioMin}
+                          onChange={(e) => { setPrecioMin(e.target.value); resetPage() }}
+                          className="h-9"
+                        />
+                        <span className="text-gray-400">–</span>
+                        <Input
+                          type="number"
+                          placeholder="Max"
+                          value={precioMax}
+                          onChange={(e) => { setPrecioMax(e.target.value); resetPage() }}
+                          className="h-9"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
               {hasFilters && (
                 <div className="flex items-end">
@@ -505,12 +523,18 @@ function FichasCostoPageContent() {
                         <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[150px]">Código</th>
                         <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[110px]">Categoría</th>
                         <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Nombre</th>
-                        <th className="text-right py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[90px]">Costo</th>
+                        {!soloPrecios && (
+                          <th className="text-right py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[90px]">Costo</th>
+                        )}
                         <th className="text-right py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[100px]">Precio Venta</th>
                         <th className="text-right py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[110px]">P. Instaladora</th>
                         <th className="text-right py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[90px]">% Rebajable</th>
-                        <th className="text-right py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[110px]" title="Margen sobre el costo, calculado con el precio de venta">Margen s/ venta</th>
-                        <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[130px]">Acciones</th>
+                        {!soloPrecios && (
+                          <>
+                            <th className="text-right py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[110px]" title="Margen sobre el costo, calculado con el precio de venta">Margen s/ venta</th>
+                            <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[130px]">Acciones</th>
+                          </>
+                        )}
                       </tr>
                     </thead>
                     <tbody>
@@ -552,31 +576,37 @@ function FichasCostoPageContent() {
                               </Tooltip>
                               {row.marca_id && marcaPorId.get(row.marca_id) && <p className="text-xs text-gray-400 truncate">{marcaPorId.get(row.marca_id)}</p>}
                             </td>
-                            <td className="py-2.5 px-3 text-right"><span className="font-medium text-gray-900 text-xs">{row.costo != null ? `$${row.costo.toFixed(2)}` : "N/A"}</span></td>
+                            {!soloPrecios && (
+                              <td className="py-2.5 px-3 text-right"><span className="font-medium text-gray-900 text-xs">{row.costo != null ? `$${row.costo.toFixed(2)}` : "N/A"}</span></td>
+                            )}
                             <td className="py-2.5 px-3 text-right"><span className="font-medium text-emerald-700 text-xs">{row.precio != null ? `$${row.precio.toFixed(2)}` : "N/A"}</span></td>
                             <td className="py-2.5 px-3 text-right"><span className="font-medium text-indigo-700 text-xs">{row.precio_instaladora != null ? `$${row.precio_instaladora.toFixed(2)}` : "N/A"}</span></td>
                             <td className="py-2.5 px-3 text-right"><span className="font-medium text-gray-900 text-xs">{row.porciento_rebajable_venta != null ? `${row.porciento_rebajable_venta}%` : "N/A"}</span></td>
-                            <td className="py-2.5 px-3 text-right">
-                              {margen != null ? (
-                                <div className="inline-flex items-center gap-0.5 justify-end">
-                                  <TrendingUp className={`h-3 w-3 flex-shrink-0 ${margen >= 0 ? "text-amber-500" : "text-red-500"}`} />
-                                  <span className={`font-semibold text-xs ${margen >= 0 ? "text-amber-700" : "text-red-600"}`}>{margen.toFixed(1)}%</span>
-                                </div>
-                              ) : (<span className="text-xs text-gray-300">N/A</span>)}
-                            </td>
-                            <td className="py-2.5 px-3">
-                              <div className="flex items-center gap-1">
-                                <button onClick={() => openEdit(row)} title="Editar material" className="inline-flex items-center justify-center rounded p-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-colors">
-                                  <Pencil className="h-3.5 w-3.5" />
-                                </button>
-                                <button onClick={() => openDetalle(row)} title="Ver ficha (kardex y compras)" className="inline-flex items-center justify-center rounded p-1 text-amber-600 hover:text-amber-700 hover:bg-amber-50 transition-colors">
-                                  <Eye className="h-3.5 w-3.5" />
-                                </button>
-                                <button onClick={() => openStock(row)} title="Ver stock en almacenes" className="inline-flex items-center justify-center rounded p-1 text-sky-600 hover:text-sky-700 hover:bg-sky-50 transition-colors">
-                                  <Boxes className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
-                            </td>
+                            {!soloPrecios && (
+                              <>
+                                <td className="py-2.5 px-3 text-right">
+                                  {margen != null ? (
+                                    <div className="inline-flex items-center gap-0.5 justify-end">
+                                      <TrendingUp className={`h-3 w-3 flex-shrink-0 ${margen >= 0 ? "text-amber-500" : "text-red-500"}`} />
+                                      <span className={`font-semibold text-xs ${margen >= 0 ? "text-amber-700" : "text-red-600"}`}>{margen.toFixed(1)}%</span>
+                                    </div>
+                                  ) : (<span className="text-xs text-gray-300">N/A</span>)}
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  <div className="flex items-center gap-1">
+                                    <button onClick={() => openEdit(row)} title="Editar material" className="inline-flex items-center justify-center rounded p-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-colors">
+                                      <Pencil className="h-3.5 w-3.5" />
+                                    </button>
+                                    <button onClick={() => openDetalle(row)} title="Ver ficha (kardex y compras)" className="inline-flex items-center justify-center rounded p-1 text-amber-600 hover:text-amber-700 hover:bg-amber-50 transition-colors">
+                                      <Eye className="h-3.5 w-3.5" />
+                                    </button>
+                                    <button onClick={() => openStock(row)} title="Ver stock en almacenes" className="inline-flex items-center justify-center rounded p-1 text-sky-600 hover:text-sky-700 hover:bg-sky-50 transition-colors">
+                                      <Boxes className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </>
+                            )}
                           </tr>
                         )
                       })}

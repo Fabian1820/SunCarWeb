@@ -418,6 +418,14 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     href: "/fichas-costo",
     grupo: "economia",
     hideFromDashboard: true,
+    subPermisos: [
+      {
+        key: "fichas-costo/solo-precios",
+        label: "Solo ver precios (precio venta, p. instaladora, % rebajable)",
+        descripcion:
+          "Si el usuario tiene SOLO este sub-permiso (sin el padre 'fichas-costo'), verá la tabla limitada a precio venta, p. instaladora y % rebajable, sin costo, margen, acciones ni filtros sensibles.",
+      },
+    ],
   },
 
   // ───────── Gestión de Almacenes ─────────
