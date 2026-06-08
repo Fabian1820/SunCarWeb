@@ -181,7 +181,7 @@ export function ConfeccionOfertasView({
     loadingCategories,
     loadCategoryMaterials,
     ensureCategoriesList,
-  } = useMaterials({ lite: true, lazy: true });
+  } = useMaterials({ lite: false, lazy: true });
   // El loader bloqueante solo espera a la PRIMERA categoría (la activa).
   const loading = !hasAnyCategoryLoaded;
 
@@ -1215,7 +1215,9 @@ export function ConfeccionOfertasView({
     stock.forEach((stockItem) => {
       if (stockItem.almacen_id !== almacenId) return;
       const key = String(stockItem.material_codigo || "");
-      stockMap.set(key, Number(stockItem.cantidad || 0));
+      const total = Number(stockItem.cantidad || 0);
+      const reservado = Number((stockItem as any).cantidad_reservada || 0);
+      stockMap.set(key, Math.max(0, total - reservado));
     });
 
     return materials.map((material) => ({
@@ -4111,39 +4113,7 @@ export function ConfeccionOfertasView({
 
     const itemId = `${activeStep.id}-${codigo}`;
 
-    const categoriaNormalizada = normalizeText(material.categoria || "");
-    const esCategoriaInversorOBateria =
-      categoriaNormalizada.includes("INVERSOR") ||
-      categoriaNormalizada.includes("BATERIA");
-
-    const esSeccionPersonalizadaDeMateriales =
-      !!activeStep.esPersonalizada &&
-      activeStep.seccionData?.tipo === "materiales";
-
-    const esSeccionConDescuentoEspecial =
-      activeStep.id === "INVERSORES" ||
-      activeStep.id === "BATERIAS" ||
-      activeStep.id === SECCION_AMPLIACION_ID ||
-      esSeccionPersonalizadaDeMateriales;
-
-    const codigoNormalizado = codigo.trim().toUpperCase();
-    const esMaterialConDescuento20 =
-      CODIGOS_BATERIA_DESCUENTO_20.has(codigoNormalizado);
-    const porcentajeDescuento = esMaterialConDescuento20
-      ? DESCUENTO_BATERIA_EXCEPCION
-      : DESCUENTO_INVERSOR_BATERIA;
-    const aplicaDescuentoCategoria =
-      esCategoriaInversorOBateria || esMaterialConDescuento20;
-
-    // Aplicar descuento solo cuando la categoría del material sea inversores o baterías
-    // en las secciones estándar, ampliación y secciones personalizadas de materiales.
-    // Regla especial: FLS48100SMG01 y FLS48100SCG01 usan 20% en lugar de 15%.
-    const precioBase =
-      esSeccionConDescuentoEspecial && aplicaDescuentoCategoria
-        ? Number(
-            ((material.precio || 0) * (1 - porcentajeDescuento)).toFixed(2),
-          )
-        : material.precio || 0;
+    const precioBase = material.precio_instaladora ?? material.precio ?? 0;
 
     setItems((prev) => {
       const existing = prev.find((item) => item.id === itemId);
@@ -4200,7 +4170,7 @@ export function ConfeccionOfertasView({
           id: itemId,
           materialCodigo: codigo,
           descripcion: material.descripcion,
-          precio: material.precio || 0,
+          precio: material.precio_instaladora ?? material.precio ?? 0,
           cantidad: 1,
           categoria: material.categoria || "Sin categoria",
         },
@@ -9244,8 +9214,8 @@ export function ConfeccionOfertasView({
                                   <div className="flex items-center justify-between gap-2">
                                     <p className="text-base font-semibold text-emerald-600">
                                       $
-                                      {material.precio
-                                        ? material.precio.toFixed(2)
+                                      {(material.precio_instaladora ?? material.precio)
+                                        ? (material.precio_instaladora ?? material.precio)!.toFixed(2)
                                         : "0.00"}
                                     </p>
                                     {selectedCount > 0 && (
