@@ -1,9 +1,41 @@
-import { ValeSalidaService } from "@/lib/api-services";
+import { ValeSalidaService, MaterialService } from "@/lib/api-services";
 import type {
   ValeSalidaSummary,
   ValeSalidaSummaryMaterial,
 } from "@/lib/api-types";
 import { exportToExcel, generateFilename } from "@/lib/export-service";
+
+interface MaterialPrecios {
+  precio?: number;
+  precio_instaladora?: number;
+  costo?: number;
+}
+
+const normCodigo = (value?: string | null): string =>
+  String(value || "").trim().toLowerCase();
+
+const fmtPrecio = (value?: number): string =>
+  typeof value === "number" && Number.isFinite(value) ? value.toFixed(2) : "-";
+
+/** Mapa código(normalizado) -> precios del material (catálogo actual). */
+const cargarPreciosPorCodigo = async (): Promise<Map<string, MaterialPrecios>> => {
+  const map = new Map<string, MaterialPrecios>();
+  try {
+    const materiales = await MaterialService.getAllMaterials();
+    for (const m of materiales) {
+      const codigo = normCodigo((m as any).codigo);
+      if (!codigo) continue;
+      map.set(codigo, {
+        precio: (m as any).precio,
+        precio_instaladora: (m as any).precio_instaladora,
+        costo: (m as any).costo,
+      });
+    }
+  } catch {
+    // Si falla el catálogo, se exporta sin precios enriquecidos.
+  }
+  return map;
+};
 
 const ESTADO_LABEL: Record<string, string> = {
   usado: "Usado",
@@ -88,6 +120,10 @@ export class ExportValesSalidaListExcelService {
     const response = await ValeSalidaService.getValesSummary(params);
     const vales: ValeSalidaSummary[] = response.data || [];
 
+    const preciosPorCodigo = await cargarPreciosPorCodigo();
+    const preciosDe = (m: ValeSalidaSummaryMaterial): MaterialPrecios =>
+      preciosPorCodigo.get(normCodigo(m.material_codigo)) || {};
+
     const rows: Array<Record<string, string | number | string[] | number[]>> =
       [];
     for (const vale of vales) {
@@ -109,6 +145,9 @@ export class ExportValesSalidaListExcelService {
           (materiales.length > 0 ? `${materiales.length} materiales` : ""),
         material: materiales.map((m) => formatMaterialNombre(m)),
         cantidad: materiales.map((m) => Number(m.cantidad) || 0),
+        precio_venta: materiales.map((m) => fmtPrecio(preciosDe(m).precio)),
+        precio_instaladora: materiales.map((m) => fmtPrecio(preciosDe(m).precio_instaladora)),
+        costo: materiales.map((m) => fmtPrecio(preciosDe(m).costo)),
         fecha_creacion: formatDateDDMMYYYY(vale.fecha_creacion),
         fecha_recogida: formatDateDDMMYYYY(vale.fecha_recogida),
       });
@@ -159,11 +198,14 @@ export class ExportValesSalidaListExcelService {
         { header: "Materiales", key: "materiales_resumen", width: 14 },
         { header: "Material", key: "material", width: 36 },
         { header: "Cantidad", key: "cantidad", width: 10 },
+        { header: "Precio venta", key: "precio_venta", width: 12 },
+        { header: "Precio instaladora", key: "precio_instaladora", width: 14 },
+        { header: "Costo", key: "costo", width: 12 },
         { header: "Fecha creación", key: "fecha_creacion", width: 14 },
         { header: "Fecha recogida", key: "fecha_recogida", width: 14 },
       ],
       data: rows,
-      stackedColumnKeys: ["material", "cantidad"],
+      stackedColumnKeys: ["material", "cantidad", "precio_venta", "precio_instaladora", "costo"],
     });
 
     return { count: vales.length, filename };

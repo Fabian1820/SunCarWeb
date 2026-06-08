@@ -2,10 +2,17 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import ExcelJS from "exceljs";
 import { InventarioService } from "../inventario/inventario-service";
+import { MaterialService } from "../../../api-services";
 import type {
   ValeSalida,
   ValeSalidaMaterialItemDetalle,
 } from "../../../api-types";
+
+type MaterialPreciosVale = {
+  precio?: number;
+  precio_instaladora?: number;
+  costo?: number;
+};
 
 type ValeClienteInfo = {
   nombre: string;
@@ -330,6 +337,28 @@ const loadStockByCode = async (
   return stockByCode;
 };
 
+/** Mapa código(normalizado MAYÚS) -> precios del material desde el catálogo. */
+const loadPreciosByCodigo = async (): Promise<
+  Map<string, MaterialPreciosVale>
+> => {
+  const map = new Map<string, MaterialPreciosVale>();
+  try {
+    const materiales = await MaterialService.getAllMaterials();
+    materiales.forEach((m: any) => {
+      const code = normalizeMaterialCode(String(m?.codigo || ""));
+      if (!code) return;
+      map.set(code, {
+        precio: m?.precio,
+        precio_instaladora: m?.precio_instaladora,
+        costo: m?.costo,
+      });
+    });
+  } catch {
+    // Sin catálogo, se exporta sin enriquecer precios.
+  }
+  return map;
+};
+
 const applySectionTitleStyle = (row: ExcelJS.Row): void => {
   row.font = { bold: true, color: { argb: "FF111827" } };
 };
@@ -624,6 +653,7 @@ export class ExportValeSalidaService {
     const materiales = vale.materiales || [];
     const logo = await loadLogoBase64();
     const stockByCode = await loadStockByCode(vale);
+    const preciosByCodigo = await loadPreciosByCodigo();
 
     worksheet.columns = [
       { key: "a", width: 20 },
@@ -632,11 +662,13 @@ export class ExportValeSalidaService {
       { key: "d", width: 30 },
       { key: "e", width: 12 },
       { key: "f", width: 12 },
-      { key: "g", width: 26 },
-      { key: "h", width: 18 },
+      { key: "g", width: 14 },
+      { key: "h", width: 16 },
+      { key: "i", width: 14 },
+      { key: "j", width: 26 },
     ];
 
-    worksheet.mergeCells("A1:H1");
+    worksheet.mergeCells("A1:J1");
     worksheet.getCell("A1").value = "SUNCAR SRL - VALE DE ENTREGA DE ALMACÉN";
     worksheet.getCell("A1").font = {
       bold: true,
@@ -660,7 +692,7 @@ export class ExportValeSalidaService {
       });
     }
 
-    worksheet.mergeCells("A2:H2");
+    worksheet.mergeCells("A2:J2");
     worksheet.getCell("A2").value =
       "Documento de control de salidas de almacén - generado automáticamente";
     worksheet.getCell("A2").font = { size: 10, color: { argb: "FF4B5563" } };
@@ -670,7 +702,7 @@ export class ExportValeSalidaService {
     };
     worksheet.getRow(2).height = 18;
 
-    worksheet.mergeCells("A4:H4");
+    worksheet.mergeCells("A4:J4");
     worksheet.getCell("A4").value = "Datos del Vale";
     applySectionTitleStyle(worksheet.getRow(4));
 
@@ -705,7 +737,7 @@ export class ExportValeSalidaService {
       (ref) => applyMetadataLabelStyle(worksheet.getCell(ref)),
     );
 
-    worksheet.mergeCells("A11:H11");
+    worksheet.mergeCells("A11:J11");
     worksheet.getCell("A11").value = "Datos del Cliente";
     applySectionTitleStyle(worksheet.getRow(11));
 
@@ -724,7 +756,7 @@ export class ExportValeSalidaService {
     );
 
     const tableStartRow = 15;
-    worksheet.mergeCells(`A${tableStartRow}:H${tableStartRow}`);
+    worksheet.mergeCells(`A${tableStartRow}:J${tableStartRow}`);
     worksheet.getCell(`A${tableStartRow}`).value = "Detalle de Materiales";
     applySectionTitleStyle(worksheet.getRow(tableStartRow));
 
@@ -734,8 +766,10 @@ export class ExportValeSalidaService {
       { cell: `B${headerRow}`, label: "Descripción" },
       { cell: `E${headerRow}`, label: "UM" },
       { cell: `F${headerRow}`, label: "Cantidad" },
-      { cell: `G${headerRow}`, label: "N° Series" },
-      { cell: `H${headerRow}`, label: "Precio" },
+      { cell: `G${headerRow}`, label: "Precio venta" },
+      { cell: `H${headerRow}`, label: "Precio instaladora" },
+      { cell: `I${headerRow}`, label: "Costo" },
+      { cell: `J${headerRow}`, label: "N° Series" },
     ];
 
     tableHeaders.forEach(({ cell, label }) => {
@@ -759,6 +793,14 @@ export class ExportValeSalidaService {
     materiales.forEach((material) => {
       mergeDescriptionCell(currentRow);
 
+      const precios =
+        preciosByCodigo.get(normalizeMaterialCode(getMaterialCode(material))) ||
+        {};
+      const precioVenta =
+        typeof precios.precio === "number"
+          ? precios.precio
+          : getMaterialPrice(material);
+
       worksheet.getCell(`A${currentRow}`).value = getMaterialCode(material);
       worksheet.getCell(`B${currentRow}`).value =
         getMaterialDescription(material);
@@ -766,22 +808,31 @@ export class ExportValeSalidaService {
       worksheet.getCell(`F${currentRow}`).value = Number(
         material.cantidad || 0,
       );
-      worksheet.getCell(`G${currentRow}`).value = material.numero_serie || "-";
-      worksheet.getCell(`H${currentRow}`).value = getMaterialPrice(material);
+      worksheet.getCell(`G${currentRow}`).value = precioVenta;
+      worksheet.getCell(`H${currentRow}`).value =
+        typeof precios.precio_instaladora === "number"
+          ? precios.precio_instaladora
+          : "-";
+      worksheet.getCell(`I${currentRow}`).value =
+        typeof precios.costo === "number" ? precios.costo : "-";
+      worksheet.getCell(`J${currentRow}`).value = material.numero_serie || "-";
 
-      ["A", "B", "E", "F", "G", "H"].forEach((col) => {
+      ["A", "B", "E", "F", "G", "H", "I", "J"].forEach((col) => {
         const cell = worksheet.getCell(`${col}${currentRow}`);
         cell.alignment = {
           vertical: "middle",
           horizontal:
-            col === "E" || col === "G"
+            col === "E" || col === "J"
               ? "center"
-              : col === "F" || col === "H"
+              : col === "F" || col === "G" || col === "H" || col === "I"
                 ? "right"
                 : "left",
           wrapText: col === "B",
         };
-        if (col === "H" && typeof cell.value === "number") {
+        if (
+          (col === "G" || col === "H" || col === "I") &&
+          typeof cell.value === "number"
+        ) {
           cell.numFmt = "#,##0.00";
         }
         cell.border = {
@@ -796,16 +847,16 @@ export class ExportValeSalidaService {
 
     const summaryRow = currentRow + 1;
 
-    worksheet.mergeCells(`A${summaryRow}:G${summaryRow}`);
+    worksheet.mergeCells(`A${summaryRow}:I${summaryRow}`);
     worksheet.getCell(`A${summaryRow}`).value = "Total de materiales";
     worksheet.getCell(`A${summaryRow}`).font = { bold: true };
-    worksheet.getCell(`H${summaryRow}`).value = header.cantidadMateriales;
-    worksheet.getCell(`H${summaryRow}`).font = { bold: true };
-    worksheet.getCell(`H${summaryRow}`).alignment = { horizontal: "right" };
+    worksheet.getCell(`J${summaryRow}`).value = header.cantidadMateriales;
+    worksheet.getCell(`J${summaryRow}`).font = { bold: true };
+    worksheet.getCell(`J${summaryRow}`).alignment = { horizontal: "right" };
 
     if (vale.estado === "anulado") {
       const anuladoRow = summaryRow + 2;
-      worksheet.mergeCells(`A${anuladoRow}:H${anuladoRow}`);
+      worksheet.mergeCells(`A${anuladoRow}:J${anuladoRow}`);
       worksheet.getCell(`A${anuladoRow}`).value =
         `VALE ANULADO - Motivo: ${vale.motivo_anulacion || "No especificado"}`;
       worksheet.getCell(`A${anuladoRow}`).font = {

@@ -500,8 +500,10 @@ export default function AlmacenDetallePage() {
           { header: "UM", key: "um", width: 10 },
           { header: "Potencia (kW)", key: "potenciaKW", width: 16 },
           { header: "Stock", key: "stock", width: 12 },
+          { header: "Precio Venta", key: "precio", width: 14 },
+          { header: "Precio Instaladora", key: "precio_instaladora", width: 16 },
+          { header: "Costo", key: "costo", width: 14 },
           { header: "Ubicación", key: "ubicacion_en_almacen", width: 30 },
-          { header: "Precio", key: "precio", width: 14 },
         ],
         data: allStock.map((item) => {
           const codigo = String(item.material_codigo || "").trim().toLowerCase();
@@ -517,8 +519,10 @@ export default function AlmacenDetallePage() {
             um: normalizeValue(material?.um || item.um),
             potenciaKW: material?.potenciaKW ?? "-",
             stock: item.cantidad,
-            ubicacion_en_almacen: normalizeValue(item.ubicacion_en_almacen),
             precio: material?.precio ?? "-",
+            precio_instaladora: material?.precio_instaladora ?? "-",
+            costo: material?.costo ?? "-",
+            ubicacion_en_almacen: normalizeValue(item.ubicacion_en_almacen),
           };
         }),
       });
