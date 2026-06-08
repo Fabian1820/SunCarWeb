@@ -181,7 +181,7 @@ export function ConfeccionOfertasView({
     loadingCategories,
     loadCategoryMaterials,
     ensureCategoriesList,
-  } = useMaterials({ lite: true, lazy: true });
+  } = useMaterials({ lite: false, lazy: true });
   // El loader bloqueante solo espera a la PRIMERA categoría (la activa).
   const loading = !hasAnyCategoryLoaded;
 
