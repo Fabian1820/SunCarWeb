@@ -1,6 +1,7 @@
 import { apiRequest } from "@/lib/api-config";
 
 export interface ResultadoActualizacionPrecios {
+  total_evaluadas: number;
   actualizadas: number;
   sin_cambios: number;
   errores: string[];
@@ -22,5 +23,11 @@ export async function actualizarPreciosOfertasGenericas(): Promise<ResultadoActu
     method: "POST",
   });
 
-  return response.data ?? { actualizadas: 0, sin_cambios: 0, errores: [] };
+  if (!response?.data || typeof response.data.total_evaluadas !== "number") {
+    throw new Error(
+      "Respuesta inesperada del backend. ¿Está desplegado el endpoint /ofertas/confeccion/jobs/actualizar-precios-genericas?",
+    );
+  }
+
+  return response.data;
 }

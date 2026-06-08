@@ -30,22 +30,31 @@ export default function OfertasGestionPage() {
     setActualizando(true);
     try {
       const resultado = await actualizarPreciosOfertasGenericas();
-      if (resultado.errores.length > 0) {
+      const { total_evaluadas, actualizadas, sin_cambios, errores } = resultado;
+
+      if (errores.length > 0) {
         toast({
           title: "Actualización con errores",
-          description: `${resultado.actualizadas} actualizadas, ${resultado.sin_cambios} sin cambios. Errores: ${resultado.errores.slice(0, 2).join("; ")}`,
+          description: `Evaluadas: ${total_evaluadas}. Actualizadas: ${actualizadas}, sin cambios: ${sin_cambios}. Errores: ${errores.slice(0, 2).join("; ")}`,
           variant: "destructive",
+        });
+      } else if (total_evaluadas === 0) {
+        toast({
+          title: "Sin ofertas para evaluar",
+          description: "No hay ofertas genéricas aprobadas en este momento.",
+        });
+      } else if (actualizadas === 0) {
+        toast({
+          title: "Precios ya vigentes",
+          description: `Evaluadas ${total_evaluadas} oferta${total_evaluadas !== 1 ? "s" : ""}. Todas tenían los precios actuales del catálogo.`,
         });
       } else {
         toast({
           title: "Precios actualizados",
-          description:
-            resultado.actualizadas === 0
-              ? "Todas las ofertas ya tienen precios vigentes."
-              : `${resultado.actualizadas} oferta${resultado.actualizadas !== 1 ? "s" : ""} actualizada${resultado.actualizadas !== 1 ? "s" : ""}, ${resultado.sin_cambios} sin cambios.`,
+          description: `Evaluadas ${total_evaluadas}. ${actualizadas} actualizada${actualizadas !== 1 ? "s" : ""}, ${sin_cambios} sin cambios.`,
         });
       }
-      if (resultado.actualizadas > 0) setRefreshKey((prev) => prev + 1);
+      if (actualizadas > 0) setRefreshKey((prev) => prev + 1);
     } catch (e: any) {
       toast({
         title: "Error",
