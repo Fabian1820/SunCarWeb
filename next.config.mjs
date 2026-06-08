@@ -9,7 +9,7 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  serverExternalPackages: [],
+  serverExternalPackages: ["node-cron"],
   // NO declarar NEXT_PUBLIC_BACKEND_URL en `env`: ese bloque inlinea el valor
   // estáticamente en build time, lo que impide leer la var en runtime desde
   // el server (layout.tsx la inyecta como window.__BACKEND_URL__ en cada request).
