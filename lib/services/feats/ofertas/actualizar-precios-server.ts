@@ -1,7 +1,7 @@
 /**
  * Versión server-side de la actualización de precios.
- * Usa fetch directo con CRON_BACKEND_TOKEN — no depende de localStorage.
- * Usada tanto por instrumentation.ts (cron interno) como por la API route.
+ * Se autentica contra el FastAPI usando CRON_CI + CRON_ADMIN_PASS,
+ * igual que hace el login normal de la app. No depende de localStorage.
  */
 
 function getBackendBase(): string {
@@ -9,12 +9,34 @@ function getBackendBase(): string {
   return raw.trim().replace(/\/+$/, "");
 }
 
-async function backendFetch(endpoint: string, options: RequestInit = {}): Promise<any> {
-  const token = process.env.CRON_BACKEND_TOKEN ?? "";
+async function loginCron(): Promise<string> {
+  const ci = process.env.CRON_CI;
+  const adminPass = process.env.CRON_ADMIN_PASS;
+
+  if (!ci || !adminPass) {
+    throw new Error("Faltan variables de entorno CRON_CI o CRON_ADMIN_PASS");
+  }
+
+  const url = `${getBackendBase()}/api/auth/login-admin`;
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ci, adminPass }),
+  });
+
+  if (!resp.ok) throw new Error(`Login cron fallido: HTTP ${resp.status}`);
+
+  const data = await resp.json();
+  const token = data?.token ?? data?.access_token ?? "";
+  if (!token) throw new Error("Login cron: respuesta sin token");
+  return token;
+}
+
+async function backendFetch(token: string, endpoint: string, options: RequestInit = {}): Promise<any> {
   const url = `${getBackendBase()}/api${endpoint}`;
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    Authorization: `Bearer ${token}`,
     ...(options.headers as Record<string, string> | undefined ?? {}),
   };
   const resp = await fetch(url, { ...options, headers });
@@ -31,10 +53,19 @@ export interface ResultadoActualizacionServer {
 export async function actualizarPreciosOfertasGenericasServer(): Promise<ResultadoActualizacionServer> {
   const resultado: ResultadoActualizacionServer = { actualizadas: 0, sin_cambios: 0, errores: [] };
 
+  // Obtener token fresco via login
+  let token: string;
+  try {
+    token = await loginCron();
+  } catch (e: any) {
+    resultado.errores.push(`Error de autenticación: ${e?.message ?? e}`);
+    return resultado;
+  }
+
   // 1. Ofertas genéricas aprobadas
   let ofertas: any[] = [];
   try {
-    const resp = await backendFetch("/ofertas/confeccion/genericas/aprobadas");
+    const resp = await backendFetch(token, "/ofertas/confeccion/genericas/aprobadas");
     ofertas = Array.isArray(resp) ? resp : (resp?.data ?? resp?.ofertas ?? resp?.results ?? []);
   } catch (e: any) {
     resultado.errores.push(`Error cargando ofertas: ${e?.message ?? e}`);
@@ -46,7 +77,7 @@ export async function actualizarPreciosOfertasGenericasServer(): Promise<Resulta
   // 2. Catálogo completo con precio_instaladora
   const precioMap = new Map<string, number>();
   try {
-    const resp = await backendFetch("/productos/");
+    const resp = await backendFetch(token, "/productos/");
     const catalogs: any[] = Array.isArray(resp) ? resp : (resp?.data ?? []);
     for (const cat of catalogs) {
       for (const m of cat.materiales ?? []) {
@@ -83,7 +114,7 @@ export async function actualizarPreciosOfertasGenericasServer(): Promise<Resulta
     if (!hayCambios) { resultado.sin_cambios++; continue; }
 
     try {
-      await backendFetch(`/ofertas/confeccion/${ofertaId}`, {
+      await backendFetch(token, `/ofertas/confeccion/${ofertaId}`, {
         method: "PATCH",
         body: JSON.stringify({ items: itemsActualizados }),
       });
