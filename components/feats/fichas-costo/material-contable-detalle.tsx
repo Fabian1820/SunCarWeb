@@ -14,6 +14,7 @@ import { Button } from "@/components/shared/atom/button"
 import {
   DollarSign,
   Percent,
+  Tag,
   TrendingUp,
   Calculator,
   Loader2,
@@ -96,15 +97,20 @@ export function MaterialContableDetalle({ open, onOpenChange, material }: Materi
     [kardex],
   )
 
+  // Margen sobre el precio instaladora (el más alto); cae al precio de venta
+  // si no hay instaladora.
   const margen = useMemo(() => {
     const costo = material?.costo
-    const precio = material?.precio
-    if (typeof costo !== "number" || typeof precio !== "number" || costo <= 0) return null
+    const base =
+      typeof material?.precio_instaladora === "number"
+        ? material.precio_instaladora
+        : material?.precio
+    if (typeof costo !== "number" || typeof base !== "number" || costo <= 0) return null
     return {
-      ganancia: precio - costo,
-      porcentaje: ((precio - costo) / costo) * 100,
+      ganancia: base - costo,
+      porcentaje: ((base - costo) / costo) * 100,
     }
-  }, [material?.costo, material?.precio])
+  }, [material?.costo, material?.precio, material?.precio_instaladora])
 
   const nombreAlmacen = (id: string) => almacenes[id] || `${id.slice(0, 6)}…`
 
@@ -143,25 +149,25 @@ export function MaterialContableDetalle({ open, onOpenChange, material }: Materi
               <DataCard icon={<DollarSign className="h-4 w-4 text-emerald-600" />} label="Precio venta" value={fmtMoney(material.precio)} accent="emerald" />
               <DataCard icon={<DollarSign className="h-4 w-4 text-indigo-600" />} label="Precio instaladora" value={fmtMoney(material.precio_instaladora)} accent="indigo" />
               <DataCard
-                icon={<Percent className="h-4 w-4 text-gray-500" />}
-                label="% Rebajable"
+                icon={<Tag className="h-4 w-4 text-gray-500" />}
+                label="Rebajable"
                 value={material.porciento_rebajable_venta != null ? `${material.porciento_rebajable_venta}%` : "N/A"}
               />
               <DataCard
                 icon={<TrendingUp className="h-4 w-4 text-amber-600" />}
-                label="Ganancia unitaria"
+                label="Ganancia (instaladora)"
                 value={margen ? fmtMoney(margen.ganancia) : "N/A"}
                 accent="amber"
               />
               <DataCard
                 icon={<Percent className="h-4 w-4 text-amber-600" />}
-                label="Margen sobre costo"
+                label="Margen s/ costo (instaladora)"
                 value={margen ? `${margen.porcentaje.toFixed(1)}%` : "N/A"}
                 accent="amber"
               />
             </div>
             <p className="text-xs text-gray-400 mt-3">
-              El margen se calcula sobre el costo del catálogo. Para modificar costo y precios usa el botón de edición en la tabla.
+              El margen se calcula sobre el costo, usando el precio instaladora (el más alto). Para modificar costo y precios usa el botón de edición en la tabla.
             </p>
           </TabsContent>
 

@@ -21,6 +21,8 @@ import {
 } from "@/components/shared/molecule/tooltip"
 import type { MaterialStockItem } from "@/lib/inventario-types"
 import { POOLS_STOCK, POOL_STOCK_LABELS } from "@/lib/types/feats/inventario/inventario-types"
+import type { StockPools } from "@/lib/types/feats/inventario/inventario-types"
+import { PoolsDistributionDialog } from "@/components/feats/inventario/pools-distribution-dialog"
 import type {
   MaterialesStockSort,
   MaterialesStockSortBy,
@@ -252,6 +254,14 @@ export function MaterialesStockTable({
   pagination,
 }: MaterialesStockTableProps) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [poolsDialog, setPoolsDialog] = useState<{
+    open: boolean
+    titulo: string
+    contexto?: string
+    pools?: StockPools
+    cantidadTotal?: number
+    um?: string
+  }>({ open: false, titulo: "" })
 
   const toggleExpand = (id: string) => {
     setExpanded((prev) => {
@@ -485,7 +495,20 @@ export function MaterialesStockTable({
                                 return (
                                   <div
                                     key={pa.almacen_id}
-                                    className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm ${
+                                    role="button"
+                                    tabIndex={0}
+                                    title="Ver distribución por pool"
+                                    onClick={() =>
+                                      setPoolsDialog({
+                                        open: true,
+                                        titulo: row.nombre || row.descripcion || String(row.codigo ?? ""),
+                                        contexto: pa.almacen_nombre,
+                                        pools: pa.pools,
+                                        cantidadTotal: pa.cantidad,
+                                        um: row.um,
+                                      })
+                                    }
+                                    className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm cursor-pointer transition-shadow hover:ring-2 hover:ring-amber-300 ${
                                       pa.cantidad > 0
                                         ? "bg-emerald-50 border-emerald-200 text-emerald-800"
                                         : "bg-gray-50 border-gray-200 text-gray-500"
@@ -563,6 +586,16 @@ export function MaterialesStockTable({
         )}
       </div>
 
+      <PoolsDistributionDialog
+        open={poolsDialog.open}
+        onOpenChange={(open) => setPoolsDialog((prev) => ({ ...prev, open }))}
+        titulo={poolsDialog.titulo}
+        contexto={poolsDialog.contexto}
+        pools={poolsDialog.pools}
+        cantidadTotal={poolsDialog.cantidadTotal}
+        um={poolsDialog.um}
+        mostrarReserva
+      />
     </TooltipProvider>
   )
 }

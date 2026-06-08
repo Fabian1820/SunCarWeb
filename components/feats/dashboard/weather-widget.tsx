@@ -39,10 +39,13 @@ type RainSummary = {
   hasThunder: boolean
 }
 
-// Mensaje personal y cercano sobre la lluvia, en bloques con AM/PM
-function buildRainSummary(hours: HourData[]): RainSummary {
-  const day = hours.filter(h => h.hour >= 6 && h.hour <= 21)
-  if (!day.length) return { text: "No hay datos del clima por ahora 🤔", hasRain: false, hasThunder: false }
+// Mensaje personal y cercano sobre la lluvia, en bloques con AM/PM.
+// `fromHour` hace que el resumen mire solo de la hora actual en adelante,
+// para que el mensaje cambie a lo largo del día (no repita lo de la mañana).
+function buildRainSummary(hours: HourData[], fromHour = 6): RainSummary {
+  const startHour = Math.max(6, Math.min(fromHour, 21))
+  const day = hours.filter(h => h.hour >= startHour && h.hour <= 21)
+  if (!day.length) return { text: "Por hoy ya no quedan horas de sol 🌙", hasRain: false, hasThunder: false }
 
   type Bloque = { from: number; to: number; isThunder: boolean }
   const bloques: Bloque[] = []
@@ -113,37 +116,51 @@ export function WeatherWidget() {
   const [error, setError] = useState(false)
 
   useEffect(() => {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 8000)
+    let active = true
+    let controller: AbortController | null = null
 
-    setError(false)
+    const load = () => {
+      controller?.abort()
+      controller = new AbortController()
+      const ctrl = controller
+      const timeout = setTimeout(() => ctrl.abort(), 8000)
 
-    fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}` +
-      `&hourly=temperature_2m,precipitation_probability,weather_code,shortwave_radiation` +
-      `&timezone=${encodeURIComponent(TZ)}&forecast_days=1`,
-      { signal: controller.signal }
-    )
-      .then(r => r.json())
-      .then(data => {
-        setHours(
-          (data.hourly.time as string[]).map((t, i) => ({
-            hour: new Date(t).getHours(),
-            temp: Math.round(data.hourly.temperature_2m[i]),
-            precipProb: data.hourly.precipitation_probability[i] ?? 0,
-            code: data.hourly.weather_code[i] ?? 0,
-            radiation: data.hourly.shortwave_radiation[i] ?? 0,
-          }))
-        )
-      })
-      .catch((e) => {
-        if (e.name === "AbortError") return
-        console.error("[WeatherWidget] Error al cargar clima:", e)
-        setError(true)
-      })
-      .finally(() => { clearTimeout(timeout); setLoading(false) })
+      setError(false)
 
-    return () => { controller.abort(); clearTimeout(timeout) }
+      fetch(
+        `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}` +
+        `&hourly=temperature_2m,precipitation_probability,weather_code,shortwave_radiation` +
+        `&timezone=${encodeURIComponent(TZ)}&forecast_days=1`,
+        // no-store: evita que el navegador sirva una respuesta cacheada vieja
+        // (era la causa de que "siempre dijera lo mismo").
+        { signal: ctrl.signal, cache: "no-store" }
+      )
+        .then(r => r.json())
+        .then(data => {
+          if (!active) return
+          setHours(
+            (data.hourly.time as string[]).map((t, i) => ({
+              hour: new Date(t).getHours(),
+              temp: Math.round(data.hourly.temperature_2m[i]),
+              precipProb: data.hourly.precipitation_probability[i] ?? 0,
+              code: data.hourly.weather_code[i] ?? 0,
+              radiation: data.hourly.shortwave_radiation[i] ?? 0,
+            }))
+          )
+        })
+        .catch((e) => {
+          if (e.name === "AbortError") return
+          console.error("[WeatherWidget] Error al cargar clima:", e)
+          if (active) setError(true)
+        })
+        .finally(() => { clearTimeout(timeout); if (active) setLoading(false) })
+    }
+
+    load()
+    // Refresca cada 30 min para no quedarse con datos viejos durante el día.
+    const interval = setInterval(load, 30 * 60 * 1000)
+
+    return () => { active = false; controller?.abort(); clearInterval(interval) }
   }, [])
 
   if (loading) {
@@ -154,7 +171,7 @@ export function WeatherWidget() {
   const now = new Date()
   const currentHour = hours.find(h => h.hour === now.getHours()) ?? hours[0]
   const dec = decodeWMO(currentHour.code)
-  const rainSummary = buildRainSummary(hours)
+  const rainSummary = buildRainSummary(hours, now.getHours())
 
   const condActual = classifyConditions([currentHour])
 
