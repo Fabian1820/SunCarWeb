@@ -51,14 +51,10 @@ const PAGE_SIZE = 20
 
 type PrecioFiltro = "all" | "sin-precio" | "sin-costo" | "margen-negativo"
 
-// Margen sobre el precio instaladora (el más alto). Si no hay precio
-// instaladora, cae al precio de venta.
-const margenBase = (m: Material): number | undefined =>
-  typeof m.precio_instaladora === "number" ? m.precio_instaladora : m.precio
+// Margen sobre el precio de venta (mostrado en la tabla).
 const calcMargen = (m: Material): number | null => {
-  const base = margenBase(m)
-  if (typeof m.costo !== "number" || typeof base !== "number" || m.costo <= 0) return null
-  return ((base - m.costo) / m.costo) * 100
+  if (typeof m.costo !== "number" || typeof m.precio !== "number" || m.costo <= 0) return null
+  return ((m.precio - m.costo) / m.costo) * 100
 }
 
 export default function FichasCostoPage() {
@@ -144,8 +140,7 @@ function FichasCostoPageContent() {
         if (precioFiltro === "sin-precio" && !(m.precio == null || m.precio === 0)) return false
         if (precioFiltro === "sin-costo" && !(m.costo == null || m.costo === 0)) return false
         if (precioFiltro === "margen-negativo") {
-          const base = margenBase(m)
-          const neg = typeof m.costo === "number" && typeof base === "number" && m.costo > 0 && base < m.costo
+          const neg = typeof m.costo === "number" && typeof m.precio === "number" && m.costo > 0 && m.precio < m.costo
           if (!neg) return false
         }
         // Rango de precio (sobre precio de venta)
@@ -307,7 +302,7 @@ function FichasCostoPageContent() {
           { header: "Precio Venta", key: "precio", width: 14 },
           { header: "Precio Instaladora", key: "precio_instaladora", width: 18 },
           { header: "% Rebajable", key: "porciento_rebajable_venta", width: 14 },
-          { header: "Margen % (s/ instaladora)", key: "margen", width: 18 },
+          { header: "Margen % (s/ venta)", key: "margen", width: 16 },
         ],
         data: filtered.map((m) => {
           const margen = calcMargen(m)
@@ -514,7 +509,7 @@ function FichasCostoPageContent() {
                         <th className="text-right py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[100px]">Precio Venta</th>
                         <th className="text-right py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[110px]">P. Instaladora</th>
                         <th className="text-right py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[90px]">% Rebajable</th>
-                        <th className="text-right py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[110px]" title="Margen sobre el costo, calculado con el precio instaladora">Margen s/ inst.</th>
+                        <th className="text-right py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[110px]" title="Margen sobre el costo, calculado con el precio de venta">Margen s/ venta</th>
                         <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[130px]">Acciones</th>
                       </tr>
                     </thead>
@@ -681,6 +676,7 @@ function FichasCostoPageContent() {
                 codigo: stockMaterial.codigo,
                 nombre: stockMaterial.nombre,
                 descripcion: stockMaterial.descripcion,
+                um: stockMaterial.um,
               }
             : null
         }

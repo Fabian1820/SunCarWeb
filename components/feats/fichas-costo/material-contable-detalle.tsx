@@ -97,20 +97,23 @@ export function MaterialContableDetalle({ open, onOpenChange, material }: Materi
     [kardex],
   )
 
-  // Margen sobre el precio instaladora (el más alto); cae al precio de venta
-  // si no hay instaladora.
-  const margen = useMemo(() => {
-    const costo = material?.costo
-    const base =
-      typeof material?.precio_instaladora === "number"
-        ? material.precio_instaladora
-        : material?.precio
+  // Calcula ganancia y % sobre el costo para un precio base dado.
+  const calcMargen = (
+    costo?: number,
+    base?: number,
+  ): { ganancia: number; porcentaje: number } | null => {
     if (typeof costo !== "number" || typeof base !== "number" || costo <= 0) return null
-    return {
-      ganancia: base - costo,
-      porcentaje: ((base - costo) / costo) * 100,
-    }
-  }, [material?.costo, material?.precio, material?.precio_instaladora])
+    return { ganancia: base - costo, porcentaje: ((base - costo) / costo) * 100 }
+  }
+
+  const margenVenta = useMemo(
+    () => calcMargen(material?.costo, material?.precio),
+    [material?.costo, material?.precio],
+  )
+  const margenInstaladora = useMemo(
+    () => calcMargen(material?.costo, material?.precio_instaladora),
+    [material?.costo, material?.precio_instaladora],
+  )
 
   const nombreAlmacen = (id: string) => almacenes[id] || `${id.slice(0, 6)}…`
 
@@ -154,20 +157,22 @@ export function MaterialContableDetalle({ open, onOpenChange, material }: Materi
                 value={material.porciento_rebajable_venta != null ? `${material.porciento_rebajable_venta}%` : "N/A"}
               />
               <DataCard
-                icon={<TrendingUp className="h-4 w-4 text-amber-600" />}
-                label="Ganancia (instaladora)"
-                value={margen ? fmtMoney(margen.ganancia) : "N/A"}
-                accent="amber"
+                icon={<TrendingUp className="h-4 w-4 text-emerald-600" />}
+                label="Margen s/ venta"
+                value={margenVenta ? `${margenVenta.porcentaje.toFixed(1)}%` : "N/A"}
+                hint={margenVenta ? `Ganancia: ${fmtMoney(margenVenta.ganancia)}` : undefined}
+                accent="emerald"
               />
               <DataCard
-                icon={<Percent className="h-4 w-4 text-amber-600" />}
-                label="Margen s/ costo (instaladora)"
-                value={margen ? `${margen.porcentaje.toFixed(1)}%` : "N/A"}
-                accent="amber"
+                icon={<TrendingUp className="h-4 w-4 text-indigo-600" />}
+                label="Margen s/ instaladora"
+                value={margenInstaladora ? `${margenInstaladora.porcentaje.toFixed(1)}%` : "N/A"}
+                hint={margenInstaladora ? `Ganancia: ${fmtMoney(margenInstaladora.ganancia)}` : undefined}
+                accent="indigo"
               />
             </div>
             <p className="text-xs text-gray-400 mt-3">
-              El margen se calcula sobre el costo, usando el precio instaladora (el más alto). Para modificar costo y precios usa el botón de edición en la tabla.
+              Los márgenes se calculan sobre el costo. Para modificar costo y precios usa el botón de edición en la tabla.
             </p>
           </TabsContent>
 
@@ -265,11 +270,13 @@ function DataCard({
   icon,
   label,
   value,
+  hint,
   accent,
 }: {
   icon: React.ReactNode
   label: string
   value: string
+  hint?: string
   accent?: "emerald" | "indigo" | "amber"
 }) {
   const accentClass =
@@ -287,6 +294,7 @@ function DataCard({
         {label}
       </div>
       <p className={`mt-1 text-lg font-semibold ${accentClass}`}>{value}</p>
+      {hint && <p className="text-[11px] text-gray-400 mt-0.5">{hint}</p>}
     </div>
   )
 }
