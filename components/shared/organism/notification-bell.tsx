@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Bell, X, CheckCheck, ExternalLink, Trash2 } from "lucide-react"
+import { Bell, X, CheckCheck, ExternalLink, Trash2, Handshake, Hourglass, CheckCircle2, Wallet } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/contexts/auth-context"
 import {
@@ -68,17 +68,86 @@ function getGrupoFecha(fechaStr: string): Grupo {
 const ORDEN_GRUPOS: Grupo[] = ["Hoy", "Ayer", "Esta semana", "Anteriores"]
 
 // ── Pestañas por tipo ────────────────────────────────────────────────────────
-type TabKey = "nuevos" | "atrasados" | "instaladas"
+type TabKey = "nuevos" | "atrasados" | "instaladas" | "reservas"
 
 const TABS: { key: TabKey; label: string; tipo: string }[] = [
   { key: "nuevos",     label: "Nuevos",     tipo: "lead_convertido"     },
   { key: "atrasados",  label: "Atrasados",  tipo: "demora_instalacion"  },
   { key: "instaladas", label: "Instaladas", tipo: "instalacion_exitosa" },
+  { key: "reservas",   label: "Reservas",   tipo: "reserva_pendiente"   },
 ]
 
 function tipoToTab(tipo: string): TabKey {
   const t = TABS.find((x) => x.tipo === tipo)
   return t?.key ?? "instaladas"
+}
+
+// ── Estilos visuales por tipo de notificación ────────────────────────────────
+type TipoVisual = {
+  Icon: typeof Bell
+  iconClass: string
+  bgClass: string
+  ringClass: string
+}
+
+function visualPorTipo(tipo: string): TipoVisual {
+  switch (tipo) {
+    case "lead_convertido":
+      return {
+        Icon: Handshake,
+        iconClass: "text-emerald-600",
+        bgClass: "bg-emerald-50",
+        ringClass: "ring-emerald-100",
+      }
+    case "demora_instalacion":
+      return {
+        Icon: Hourglass,
+        iconClass: "text-amber-600",
+        bgClass: "bg-amber-50",
+        ringClass: "ring-amber-100",
+      }
+    case "instalacion_exitosa":
+      return {
+        Icon: CheckCircle2,
+        iconClass: "text-sky-600",
+        bgClass: "bg-sky-50",
+        ringClass: "ring-sky-100",
+      }
+    case "reserva_pendiente":
+      return {
+        Icon: Wallet,
+        iconClass: "text-violet-600",
+        bgClass: "bg-violet-50",
+        ringClass: "ring-violet-100",
+      }
+    default:
+      return {
+        Icon: Bell,
+        iconClass: "text-gray-500",
+        bgClass: "bg-gray-50",
+        ringClass: "ring-gray-100",
+      }
+  }
+}
+
+/** Badge escalado por días de atraso. */
+function badgeDiasAtraso(dias: number): { className: string; label: string } {
+  if (dias >= 50) {
+    return {
+      className: "bg-red-100 text-red-700 ring-1 ring-red-200",
+      label: `${dias} días`,
+    }
+  }
+  if (dias >= 40) {
+    return {
+      className: "bg-orange-100 text-orange-700 ring-1 ring-orange-200",
+      label: `${dias} días`,
+    }
+  }
+  return {
+    className: "bg-amber-100 text-amber-700 ring-1 ring-amber-200",
+    label: `${dias} días`,
+  }
 }
 
 /** Ordena y agrupa las notificaciones para el panel. */
@@ -354,7 +423,7 @@ export function NotificationBell() {
           {open && (
             <div
               ref={panelRef}
-              className="absolute bottom-full right-0 mb-3 z-50 w-80 max-h-[calc(100vh-8rem)] flex flex-col rounded-xl shadow-2xl border border-gray-200 bg-white overflow-hidden"
+              className="absolute bottom-full right-0 mb-3 z-50 w-96 max-h-[calc(100vh-8rem)] flex flex-col rounded-xl shadow-2xl border border-gray-200 bg-white overflow-hidden"
             >
               {/* Header */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50 flex-shrink-0">
@@ -385,7 +454,7 @@ export function NotificationBell() {
                       key={tab.key}
                       onClick={() => setActiveTab(tab.key)}
                       className={cn(
-                        "flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors relative",
+                        "flex-1 flex items-center justify-center gap-1 px-1 py-2.5 text-[11px] font-medium transition-colors relative",
                         isActive
                           ? "text-emerald-600 border-b-2 border-emerald-500 -mb-px"
                           : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
@@ -451,68 +520,114 @@ export function NotificationBell() {
                       </div>
 
                       <ul className="divide-y divide-gray-100">
-                        {items.map((notif) => (
-                          <li
-                            key={notif.id}
-                            onClick={() => handleMarcarLeida(notif)}
-                            className={cn(
-                              "relative flex gap-3 px-4 py-3 cursor-pointer transition-colors group",
-                              notif.leida ? "bg-white hover:bg-gray-50" : "bg-emerald-50 hover:bg-emerald-100"
-                            )}
-                          >
-                            {/* Punto */}
-                            <div className="flex-shrink-0 mt-1">
-                              <div className={cn(
-                                "w-2 h-2 rounded-full",
-                                notif.leida ? "bg-transparent" : "bg-emerald-500"
-                              )} />
-                            </div>
+                        {items.map((notif) => {
+                          const visual = visualPorTipo(notif.tipo)
+                          const { Icon } = visual
+                          const esAtraso = notif.tipo === "demora_instalacion"
+                          const diasBadge = esAtraso && typeof notif.dias_alerta === "number"
+                            ? badgeDiasAtraso(notif.dias_alerta)
+                            : null
 
-                            {/* Contenido */}
-                            <div className="flex-1 min-w-0">
-                              <p className={cn(
-                                "text-sm font-medium leading-tight truncate",
-                                notif.leida ? "text-gray-500" : "text-gray-800"
-                              )}>
-                                {notif.titulo}
-                              </p>
-                              <p className={cn(
-                                "text-xs mt-0.5 line-clamp-2",
-                                notif.leida ? "text-gray-400" : "text-gray-600"
-                              )}>
-                                {notif.mensaje}
-                              </p>
-                              {notif.cliente_nombre && (
-                                <p className="text-xs mt-0.5 text-emerald-500 truncate">
-                                  {notif.cliente_nombre}
-                                </p>
+                          return (
+                            <li
+                              key={notif.id}
+                              onClick={() => handleMarcarLeida(notif)}
+                              className={cn(
+                                "relative flex gap-3 px-4 py-3 cursor-pointer transition-colors group",
+                                notif.leida
+                                  ? "bg-white hover:bg-gray-50"
+                                  : "bg-emerald-50/60 hover:bg-emerald-50"
                               )}
-                              <div className="flex items-center justify-between mt-1">
-                                <p className="text-[10px] text-gray-400">
-                                  {fechaRelativa(notif.fecha)}
-                                </p>
-                                {notif.link_cliente && notif.cliente_numero && (
-                                  <button
-                                    onClick={(e) => handleVerCliente(e, notif)}
-                                    className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 hover:text-emerald-700 hover:underline"
-                                  >
-                                    <ExternalLink className="h-3 w-3" />
-                                    Ver cliente
-                                  </button>
+                            >
+                              {/* Icono por tipo */}
+                              <div className="flex-shrink-0 relative">
+                                <div className={cn(
+                                  "w-9 h-9 rounded-full flex items-center justify-center ring-1",
+                                  visual.bgClass,
+                                  visual.ringClass
+                                )}>
+                                  <Icon className={cn("h-[18px] w-[18px]", visual.iconClass)} strokeWidth={2.2} />
+                                </div>
+                                {!notif.leida && (
+                                  <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
                                 )}
                               </div>
-                            </div>
 
-                            {/* Eliminar */}
-                            <button
-                              onClick={(e) => handleEliminar(e, notif.id)}
-                              className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-red-400 hover:bg-red-50 rounded p-0.5"
-                              aria-label="Eliminar"
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </button>
-                          </li>
-                        ))}
+                              {/* Contenido */}
+                              <div className="flex-1 min-w-0">
+                                {/* Línea 1: Cliente + badge días */}
+                                <div className="flex items-center gap-2 min-w-0">
+                                  {notif.cliente_nombre ? (
+                                    <p className={cn(
+                                      "text-sm font-semibold truncate flex-1 min-w-0",
+                                      notif.leida ? "text-gray-600" : "text-gray-900"
+                                    )}>
+                                      {notif.cliente_nombre}
+                                    </p>
+                                  ) : (
+                                    <p className={cn(
+                                      "text-sm font-semibold truncate flex-1 min-w-0",
+                                      notif.leida ? "text-gray-600" : "text-gray-900"
+                                    )}>
+                                      {notif.titulo}
+                                    </p>
+                                  )}
+                                  {diasBadge && (
+                                    <span className={cn(
+                                      "flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wide",
+                                      diasBadge.className
+                                    )}>
+                                      {diasBadge.label}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Línea 2: Título pequeño (cuando hay cliente) */}
+                                {notif.cliente_nombre && (
+                                  <p className={cn(
+                                    "text-[11px] font-medium mt-0.5 truncate",
+                                    notif.leida ? "text-gray-400" : visual.iconClass
+                                  )}>
+                                    {notif.titulo}
+                                  </p>
+                                )}
+
+                                {/* Línea 3: Mensaje */}
+                                <p className={cn(
+                                  "text-xs mt-1 line-clamp-2 leading-snug",
+                                  notif.leida ? "text-gray-400" : "text-gray-600"
+                                )}>
+                                  {notif.mensaje}
+                                </p>
+
+                                {/* Línea 4: Fecha + acción */}
+                                <div className="flex items-center justify-between mt-1.5">
+                                  <p className="text-[10px] text-gray-400">
+                                    {fechaRelativa(notif.fecha)}
+                                  </p>
+                                  {notif.link_cliente && notif.cliente_numero && (
+                                    <button
+                                      onClick={(e) => handleVerCliente(e, notif)}
+                                      className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 hover:text-emerald-700 hover:underline"
+                                    >
+                                      <ExternalLink className="h-3 w-3" />
+                                      Ver cliente
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Eliminar */}
+                              <button
+                                onClick={(e) => handleEliminar(e, notif.id)}
+                                className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-red-400 hover:bg-red-50 rounded p-0.5 self-start"
+                                aria-label="Eliminar"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </li>
+                          )
+                        })}
                       </ul>
                     </div>
                   ))
