@@ -9214,8 +9214,8 @@ export function ConfeccionOfertasView({
                                   <div className="flex items-center justify-between gap-2">
                                     <p className="text-base font-semibold text-emerald-600">
                                       $
-                                      {material.precio
-                                        ? material.precio.toFixed(2)
+                                      {(material.precio_instaladora ?? material.precio)
+                                        ? (material.precio_instaladora ?? material.precio)!.toFixed(2)
                                         : "0.00"}
                                     </p>
                                     {selectedCount > 0 && (
