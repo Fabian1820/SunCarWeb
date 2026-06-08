@@ -4113,7 +4113,7 @@ export function ConfeccionOfertasView({
 
     const itemId = `${activeStep.id}-${codigo}`;
 
-    const precioBase = material.precio_instaladora ?? material.precio ?? 0;
+    const precioBase = material.precio_instaladora || material.precio || 0;
 
     setItems((prev) => {
       const existing = prev.find((item) => item.id === itemId);
@@ -4170,7 +4170,7 @@ export function ConfeccionOfertasView({
           id: itemId,
           materialCodigo: codigo,
           descripcion: material.descripcion,
-          precio: material.precio_instaladora ?? material.precio ?? 0,
+          precio: material.precio_instaladora || material.precio || 0,
           cantidad: 1,
           categoria: material.categoria || "Sin categoria",
         },
@@ -9214,9 +9214,7 @@ export function ConfeccionOfertasView({
                                   <div className="flex items-center justify-between gap-2">
                                     <p className="text-base font-semibold text-emerald-600">
                                       $
-                                      {(material.precio_instaladora ?? material.precio)
-                                        ? (material.precio_instaladora ?? material.precio)!.toFixed(2)
-                                        : "0.00"}
+                                      {(material.precio_instaladora || material.precio || 0).toFixed(2)}
                                     </p>
                                     {selectedCount > 0 && (
                                       <Badge className="bg-slate-900 text-white text-xs whitespace-nowrap flex-shrink-0">
