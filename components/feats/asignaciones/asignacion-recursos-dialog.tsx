@@ -63,6 +63,7 @@ export function AsignacionRecursosDialog({
   // Shared state
   const [cantidad, setCantidad] = useState("1")
   const [numeroSerie, setNumeroSerie] = useState("")
+  const [descripcion, setDescripcion] = useState("")
   const [motivo, setMotivo] = useState<MotivoMovimiento | "">("")
   const [nota, setNota] = useState("")
 
@@ -77,6 +78,7 @@ export function AsignacionRecursosDialog({
     setMaterialComboOpen(false)
     setCantidad(modoEliminar ? "0" : String(asignacion?.cantidad ?? 1))
     setNumeroSerie(asignacion?.numero_serie ?? "")
+    setDescripcion(asignacion?.descripcion ?? "")
     setMotivo("")
     setNota("")
   }, [asignacion, modoEliminar])
@@ -136,17 +138,20 @@ export function AsignacionRecursosDialog({
   const cantidadCambio = isEdit && cantidadValida && cantidadNum !== cantidadOriginal
   const cantidadAumenta = isEdit && cantidadValida && cantidadNum > cantidadOriginal
   const serieCambio = isEdit && (numeroSerie ?? "") !== (asignacion?.numero_serie ?? "")
+  const descripcionCambio = isEdit && (descripcion ?? "") !== (asignacion?.descripcion ?? "")
   const motivoRequerido = cantidadCambio
   const motivoOk = !motivoRequerido || !!motivo
-  const hayAlgoQueGuardar = isEdit ? (cantidadCambio || serieCambio) : true
+  const hayAlgoQueGuardar = isEdit ? (cantidadCambio || serieCambio || descripcionCambio) : true
 
   const handleSave = async () => {
     const serie = numeroSerie.trim()
+    const desc = descripcion.trim()
 
     if (isEdit) {
       const data: AsignacionUpdateData = {}
       if (cantidadCambio) data.cantidad = cantidadNum
       if (serieCambio) data.numero_serie = serie || undefined
+      if (descripcionCambio) data.descripcion = desc
       if (motivoRequerido && motivo) {
         data.motivo = motivo as MotivoMovimiento
         if (nota.trim()) data.nota = nota.trim()
@@ -161,6 +166,7 @@ export function AsignacionRecursosDialog({
       item_id: itemTipo === 'medio_basico' ? medioSeleccionado!.id : materialSeleccionado!.id,
       cantidad: Math.max(1, cantidadNum || 1),
       numero_serie: serie || undefined,
+      descripcion: desc || undefined,
     }
     const ok = await onSave(data)
     if (ok) onClose()
@@ -235,7 +241,9 @@ export function AsignacionRecursosDialog({
                           <span className="text-gray-400 font-mono">{medioSeleccionado.codigo}</span>
                         )}
                         {medioSeleccionado.precio != null && (
-                          <span className="text-green-600 font-medium">${medioSeleccionado.precio.toFixed(2)}</span>
+                          <span className="text-green-600 font-medium" title="Costo unitario">
+                            ${medioSeleccionado.precio.toFixed(2)}
+                          </span>
                         )}
                       </div>
                     </div>
@@ -434,6 +442,20 @@ export function AsignacionRecursosDialog({
                 onChange={e => setNumeroSerie(e.target.value)}
               />
             </div>
+          </div>
+
+          {/* Descripción / comentario de la asignación */}
+          <div className="space-y-1.5">
+            <Label>Descripción (opcional)</Label>
+            <Input
+              placeholder="Estado, ubicación, observaciones..."
+              value={descripcion}
+              onChange={e => setDescripcion(e.target.value)}
+              maxLength={200}
+            />
+            <p className="text-[11px] text-gray-400">
+              Comentario propio de esta asignación. No se confunde con la descripción del material.
+            </p>
           </div>
 
           {/* Motivo + nota (solo cuando la cantidad cambia) */}

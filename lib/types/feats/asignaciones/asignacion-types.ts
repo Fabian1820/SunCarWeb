@@ -52,13 +52,23 @@ export interface Asignacion {
   item_tipo: 'medio_basico' | 'material'
   item_id: string
   nombre: string
-  precio?: number | null
+  descripcion?: string | null
+  /** Precio de costo unitario (antes se llamaba "precio"). */
+  costo?: number | null
   cantidad: number
   numero_serie?: string | null
+  fecha_asignacion?: string | null
   asignado_por?: string | null
   activo?: boolean
   fecha_actualizacion?: string | null
   historial?: MovimientoAsignacion[]
+  // ── Derivados contables (devueltos por el backend, no se editan) ───────────
+  /** costo / 60 — cuota mensual de depreciación por unidad. */
+  depreciacion_mensual?: number
+  /** cantidad × dep_mensual × meses_transcurridos (topado al costo total). */
+  valor_depreciado?: number
+  /** costo_total − valor_depreciado. */
+  valor_residual?: number
 }
 
 // Forma plana que devuelve el endpoint GET /asignaciones-trabajadores/
@@ -79,11 +89,13 @@ export interface AsignacionCreateData {
   item_id: string
   cantidad: number
   numero_serie?: string
+  descripcion?: string
 }
 
 export interface AsignacionUpdateData {
   cantidad?: number
   numero_serie?: string
+  descripcion?: string
   motivo?: MotivoMovimiento
   nota?: string
 }
@@ -103,13 +115,18 @@ export interface AsignacionInstalacion {
   item_tipo: 'medio_basico' | 'material'
   item_id: string
   nombre: string
-  precio?: number | null
+  descripcion?: string | null
+  costo?: number | null
   cantidad: number
   numero_serie?: string | null
+  fecha_asignacion?: string | null
   asignado_por?: string | null
   activo?: boolean
   fecha_actualizacion?: string | null
   historial?: MovimientoAsignacion[]
+  depreciacion_mensual?: number
+  valor_depreciado?: number
+  valor_residual?: number
 }
 
 export interface InstalacionConAsignaciones {
@@ -129,11 +146,13 @@ export interface AsignacionInstalacionCreateData {
   item_id: string
   cantidad: number
   numero_serie?: string
+  descripcion?: string
 }
 
 export interface AsignacionInstalacionUpdateData {
   cantidad?: number
   numero_serie?: string
+  descripcion?: string
   motivo?: MotivoMovimiento
   nota?: string
 }

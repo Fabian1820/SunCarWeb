@@ -290,35 +290,62 @@ function InstalacionCard({ inst, colores, loading, onAdd, onEdit, onDelete }: In
       </div>
 
       {expandida && total > 0 && (
-        <div className="border-t bg-gray-50/50 px-3 py-2 space-y-1.5">
-          {inst.asignaciones.map(a => (
-            <div key={a.id} className="flex items-center justify-between gap-2 text-xs">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className={`shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                  a.item_tipo === 'medio_basico'
-                    ? 'bg-emerald-100 text-emerald-700'
-                    : 'bg-blue-100 text-blue-700'
-                }`}>
-                  {a.item_tipo === 'medio_basico' ? 'MB' : 'MAT'}
-                </span>
-                <span className="font-medium truncate">{a.nombre}</span>
-                <span className="text-gray-500 shrink-0">×{a.cantidad}</span>
-                {a.numero_serie && (
-                  <span className="text-gray-400 font-mono shrink-0">{a.numero_serie}</span>
+        <div className="border-t bg-gray-50/50 px-3 py-2 space-y-2">
+          {inst.asignaciones.map(a => {
+            const costoTotal = (a.costo ?? 0) * a.cantidad
+            return (
+              <div key={a.id} className="rounded border bg-white p-2 text-xs">
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                    <span className={`shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                      a.item_tipo === 'medio_basico'
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : 'bg-blue-100 text-blue-700'
+                    }`}>
+                      {a.item_tipo === 'medio_basico' ? 'MB' : 'MAT'}
+                    </span>
+                    <span className="font-medium truncate">{a.nombre}</span>
+                    <span className="text-gray-500 shrink-0">×{a.cantidad}</span>
+                    {a.numero_serie && (
+                      <span className="text-gray-400 font-mono shrink-0">{a.numero_serie}</span>
+                    )}
+                  </div>
+                  <div className="flex gap-1 shrink-0">
+                    <Button variant="outline" size="sm" className="h-6 w-6 p-0" onClick={() => onEdit(a)} disabled={loading}>
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                    <Button variant="destructive" size="sm" className="h-6 w-6 p-0" onClick={() => onDelete(a)} disabled={loading}>
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+                {a.descripcion && (
+                  <p className="text-[11px] text-gray-500 italic mb-1 truncate">"{a.descripcion}"</p>
                 )}
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-x-2 gap-y-0.5 text-[11px] text-gray-500">
+                  <span>Asig.: <span className="text-gray-700">{fmtFecha(a.fecha_asignacion)}</span></span>
+                  <span>Costo u.: <span className="text-gray-700">{money(a.costo)}</span></span>
+                  <span>Total: <span className="text-gray-700">{money(costoTotal)}</span></span>
+                  <span>Dep./mes: <span className="text-amber-700">{money(a.depreciacion_mensual)}</span></span>
+                  <span>Deprec.: <span className="text-amber-700">{money(a.valor_depreciado)}</span></span>
+                  <span>Residual: <span className="text-emerald-700 font-semibold">{money(a.valor_residual)}</span></span>
+                </div>
               </div>
-              <div className="flex gap-1 shrink-0">
-                <Button variant="outline" size="sm" className="h-6 w-6 p-0" onClick={() => onEdit(a)} disabled={loading}>
-                  <Pencil className="h-3 w-3" />
-                </Button>
-                <Button variant="destructive" size="sm" className="h-6 w-6 p-0" onClick={() => onDelete(a)} disabled={loading}>
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
   )
+}
+
+// ── Helpers de formato ─────────────────────────────────────────────────────────
+const money = (n?: number | null) =>
+  n == null || isNaN(Number(n)) ? "—" : `$${Number(n).toFixed(2)}`
+
+const fmtFecha = (s?: string | null) => {
+  if (!s) return "—"
+  const d = new Date(s)
+  if (isNaN(d.getTime())) return "—"
+  return d.toLocaleDateString("es-CU", { day: "2-digit", month: "2-digit", year: "numeric" })
 }
