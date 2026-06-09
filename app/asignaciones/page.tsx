@@ -4,7 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card"
-import { ArrowLeft, Plus, Package, Users, Box, Layers } from "lucide-react"
+import { ArrowLeft, Plus, Package, Users, Box, Layers, FileBarChart2 } from "lucide-react"
 import { useAsignaciones } from "@/hooks/use-asignaciones"
 import { TrabajadorAsignacionesTable } from "@/components/feats/asignaciones/trabajador-asignaciones-table"
 import { MediosBasicosTable } from "@/components/feats/asignaciones/medios-basicos-table"
@@ -18,7 +18,9 @@ import { RouteGuard } from "@/components/auth/route-guard"
 import type {
   MedioBasico, MedioBasicoCreateData, MedioBasicoUpdateData,
   AsignacionCreateData, AsignacionUpdateData,
+  AjustarCostoData, TransferirData,
 } from "@/lib/types/feats/asignaciones/asignacion-types"
+import { PlanDepreciacionView } from "@/components/feats/asignaciones/plan-depreciacion-view"
 
 export default function AsignacionesPage() {
   return (
@@ -28,13 +30,13 @@ export default function AsignacionesPage() {
   )
 }
 
-type Tab = "trabajador" | "instalacion" | "medios-basicos" | "catalogo-materiales"
+type Tab = "trabajador" | "instalacion" | "medios-basicos" | "catalogo-materiales" | "plan-depreciacion"
 
 function AsignacionesPageContent() {
   const {
     trabajadores, mediosBasicos, loading, error, clearError,
     createMedioBasico, updateMedioBasico, deleteMedioBasico,
-    addAsignacion, updateAsignacion,
+    addAsignacion, updateAsignacion, ajustarCostoAsignacion, transferirAsignacion,
   } = useAsignaciones()
 
   const { toast } = useToast()
@@ -74,6 +76,20 @@ function AsignacionesPageContent() {
     return ok
   }
 
+  const handleAjustarCosto = async (ci: string, id: string, data: AjustarCostoData) => {
+    const ok = await ajustarCostoAsignacion(ci, id, data)
+    if (ok) toast({ title: "Éxito", description: "Costo ajustado" })
+    else toast({ title: "Error", description: "No se pudo ajustar el costo", variant: "destructive" })
+    return ok
+  }
+
+  const handleTransferir = async (ci: string, id: string, data: TransferirData) => {
+    const ok = await transferirAsignacion(ci, id, data)
+    if (ok) toast({ title: "Éxito", description: "Asignación transferida" })
+    else toast({ title: "Error", description: "No se pudo transferir", variant: "destructive" })
+    return ok
+  }
+
   const handleUpdateAsignacion = async (ci: string, id: string, data: AsignacionUpdateData) => {
     const ok = await updateAsignacion(ci, id, data)
     // El "eliminar" llega aquí también con cantidad=0+motivo → mostrar mensaje adecuado
@@ -98,6 +114,7 @@ function AsignacionesPageContent() {
     { id: "instalacion", label: "Asignación por instalación", icon: Box },
     { id: "medios-basicos", label: "Catálogo medios básicos", icon: Package },
     { id: "catalogo-materiales", label: "Catálogo de materiales", icon: Layers },
+    { id: "plan-depreciacion", label: "Plan de depreciación", icon: FileBarChart2 },
   ]
 
   return (
@@ -166,6 +183,8 @@ function AsignacionesPageContent() {
                 mediosBasicos={mediosBasicos}
                 onAddAsignacion={handleAddAsignacion}
                 onUpdateAsignacion={handleUpdateAsignacion}
+                onAjustarCosto={handleAjustarCosto}
+                onTransferir={handleTransferir}
                 loading={loading}
               />
             </CardContent>
@@ -201,6 +220,11 @@ function AsignacionesPageContent() {
         {/* Tab: Catálogo de materiales (read-only) */}
         {activeTab === "catalogo-materiales" && (
           <MaterialesCatalogoReadonly />
+        )}
+
+        {/* Tab: Plan de depreciación */}
+        {activeTab === "plan-depreciacion" && (
+          <PlanDepreciacionView />
         )}
       </main>
 

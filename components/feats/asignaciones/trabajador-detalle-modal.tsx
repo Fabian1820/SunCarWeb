@@ -1,12 +1,15 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/shared/molecule/dialog"
 import { Button } from "@/components/shared/atom/button"
-import { Pencil, Trash2, Plus, Package } from "lucide-react"
+import {
+  Pencil, Trash2, Plus, Package, DollarSign, ArrowRightLeft, History, ChevronDown, ChevronRight, User,
+} from "lucide-react"
 import type { TrabajadorConAsignaciones, Asignacion } from "@/lib/types/feats/asignaciones/asignacion-types"
+import { HistorialAsignacion } from "./historial-asignacion"
 
 interface TrabajadorDetalleModalProps {
   open: boolean
@@ -15,6 +18,8 @@ interface TrabajadorDetalleModalProps {
   onAdd: () => void
   onEdit: (a: Asignacion) => void
   onDelete: (a: Asignacion) => void
+  onAdjustCost: (a: Asignacion) => void
+  onTransfer: (a: Asignacion) => void
   loading?: boolean
 }
 
@@ -30,8 +35,10 @@ const fmtFecha = (s?: string | null) => {
 
 export function TrabajadorDetalleModal({
   open, onClose, trabajador,
-  onAdd, onEdit, onDelete, loading,
+  onAdd, onEdit, onDelete, onAdjustCost, onTransfer, loading,
 }: TrabajadorDetalleModalProps) {
+  const [historialOpenId, setHistorialOpenId] = useState<string | null>(null)
+
   if (!trabajador) return null
 
   const asignaciones = trabajador.asignaciones ?? []
@@ -73,6 +80,7 @@ export function TrabajadorDetalleModal({
             <div className="space-y-2 py-2">
               {asignaciones.map(a => {
                 const costoTotal = (a.costo ?? 0) * a.cantidad
+                const historialAbierto = historialOpenId === a.id
                 return (
                   <div
                     key={a.id}
@@ -119,18 +127,62 @@ export function TrabajadorDetalleModal({
                           </span>
                           <span className="col-span-2 md:col-span-3 text-gray-500">
                             Costo total: <span className="font-medium text-gray-800">{money(costoTotal)}</span>
+                            {typeof a.meses_transcurridos === "number" && (
+                              <span className="ml-2 text-[11px] text-gray-400">
+                                · {a.meses_transcurridos}/60 meses depreciados
+                              </span>
+                            )}
                           </span>
+                          {a.asignado_por && (
+                            <span className="col-span-2 md:col-span-3 text-[11px] text-gray-400 flex items-center gap-1">
+                              <User className="h-3 w-3" />
+                              Asignado por: {a.asignado_por_nombre || a.asignado_por}
+                              {a.asignado_por_nombre && <span className="font-mono">({a.asignado_por})</span>}
+                            </span>
+                          )}
                         </div>
                       </div>
-                      <div className="flex gap-1 shrink-0">
-                        <Button variant="outline" size="sm" onClick={() => onEdit(a)} disabled={loading}>
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button variant="destructive" size="sm" onClick={() => onDelete(a)} disabled={loading}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                      <div className="flex flex-col gap-1 shrink-0">
+                        <div className="flex gap-1">
+                          <Button variant="outline" size="sm" title="Editar" onClick={() => onEdit(a)} disabled={loading}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="outline" size="sm" title="Ajustar costo"
+                                  className="border-blue-200 text-blue-700 hover:bg-blue-50"
+                                  onClick={() => onAdjustCost(a)} disabled={loading}>
+                            <DollarSign className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                        <div className="flex gap-1">
+                          <Button variant="outline" size="sm" title="Transferir"
+                                  className="border-purple-200 text-purple-700 hover:bg-purple-50"
+                                  onClick={() => onTransfer(a)} disabled={loading}>
+                            <ArrowRightLeft className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="destructive" size="sm" title="Eliminar"
+                                  onClick={() => onDelete(a)} disabled={loading}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
+
+                    {/* Toggle historial */}
+                    <button
+                      onClick={() => setHistorialOpenId(historialAbierto ? null : a.id)}
+                      className="mt-2 flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-700"
+                    >
+                      {historialAbierto
+                        ? <ChevronDown className="h-3 w-3" />
+                        : <ChevronRight className="h-3 w-3" />}
+                      <History className="h-3 w-3" />
+                      Historial ({(a.historial ?? []).length})
+                    </button>
+                    {historialAbierto && (
+                      <div className="mt-2 bg-gray-50/60 rounded p-2 border border-gray-100">
+                        <HistorialAsignacion historial={a.historial ?? []} />
+                      </div>
+                    )}
                   </div>
                 )
               })}

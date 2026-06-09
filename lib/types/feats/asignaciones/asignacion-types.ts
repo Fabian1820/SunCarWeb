@@ -22,9 +22,17 @@ export interface MedioBasicoUpdateData {
 
 // ── Movimientos / historial ───────────────────────────────────────────────────
 
-export type TipoMovimiento = 'creacion' | 'reduccion' | 'eliminacion'
+export type TipoMovimiento =
+  | 'creacion'
+  | 'reduccion'
+  | 'eliminacion'
+  | 'ajuste_costo'
+  | 'transferencia_out'
+  | 'transferencia_in'
 
 export type MotivoMovimiento = 'devolucion' | 'perdida' | 'rotura' | 'transferencia' | 'ajuste' | 'otro'
+
+export type TipoEntidad = 'trabajador' | 'almacen' | 'tienda' | 'sede'
 
 export const MOTIVOS_MOVIMIENTO: { value: MotivoMovimiento; label: string }[] = [
   { value: 'devolucion', label: 'Devolución' },
@@ -39,8 +47,15 @@ export interface MovimientoAsignacion {
   fecha: string
   tipo: TipoMovimiento
   actor_ci?: string | null
-  cantidad_anterior: number
-  cantidad_nueva: number
+  actor_nombre?: string | null
+  cantidad_anterior?: number | null
+  cantidad_nueva?: number | null
+  costo_anterior?: number | null
+  costo_nuevo?: number | null
+  entidad_contraparte_tipo?: TipoEntidad | null
+  entidad_contraparte_id?: string | null
+  entidad_contraparte_nombre?: string | null
+  asignacion_contraparte_id?: string | null
   motivo?: MotivoMovimiento | null
   nota?: string | null
 }
@@ -53,22 +68,26 @@ export interface Asignacion {
   item_id: string
   nombre: string
   descripcion?: string | null
-  /** Precio de costo unitario (antes se llamaba "precio"). */
+  /** Precio de costo unitario. */
   costo?: number | null
   cantidad: number
   numero_serie?: string | null
+  /** Cuándo esta entidad concreta empezó a tener el recurso. */
   fecha_asignacion?: string | null
+  /** Desde cuándo cuenta la depreciación. Se preserva en transferencias. */
+  fecha_inicio_depreciacion?: string | null
+  /** Cuándo dejó de tenerlo (transferencia o eliminación). */
+  fecha_fin_asignacion?: string | null
   asignado_por?: string | null
+  asignado_por_nombre?: string | null
   activo?: boolean
   fecha_actualizacion?: string | null
   historial?: MovimientoAsignacion[]
   // ── Derivados contables (devueltos por el backend, no se editan) ───────────
-  /** costo / 60 — cuota mensual de depreciación por unidad. */
   depreciacion_mensual?: number
-  /** cantidad × dep_mensual × meses_transcurridos (topado al costo total). */
   valor_depreciado?: number
-  /** costo_total − valor_depreciado. */
   valor_residual?: number
+  meses_transcurridos?: number
 }
 
 // Forma plana que devuelve el endpoint GET /asignaciones-trabajadores/
@@ -90,6 +109,23 @@ export interface AsignacionCreateData {
   cantidad: number
   numero_serie?: string
   descripcion?: string
+  /** ISO. Si no se envía, el backend usa hoy. No puede ser futura. */
+  fecha_asignacion?: string
+  /** Permite asignar aunque el catálogo no tenga costo / costo=0. */
+  permitir_costo_cero?: boolean
+}
+
+export interface AjustarCostoData {
+  nuevo_costo: number
+  motivo: MotivoMovimiento
+  nota?: string
+}
+
+export interface TransferirData {
+  entidad_tipo_destino: TipoEntidad
+  entidad_id_destino: string
+  motivo?: MotivoMovimiento
+  nota?: string
 }
 
 export interface AsignacionUpdateData {
@@ -120,13 +156,17 @@ export interface AsignacionInstalacion {
   cantidad: number
   numero_serie?: string | null
   fecha_asignacion?: string | null
+  fecha_inicio_depreciacion?: string | null
+  fecha_fin_asignacion?: string | null
   asignado_por?: string | null
+  asignado_por_nombre?: string | null
   activo?: boolean
   fecha_actualizacion?: string | null
   historial?: MovimientoAsignacion[]
   depreciacion_mensual?: number
   valor_depreciado?: number
   valor_residual?: number
+  meses_transcurridos?: number
 }
 
 export interface InstalacionConAsignaciones {
@@ -147,6 +187,8 @@ export interface AsignacionInstalacionCreateData {
   cantidad: number
   numero_serie?: string
   descripcion?: string
+  fecha_asignacion?: string
+  permitir_costo_cero?: boolean
 }
 
 export interface AsignacionInstalacionUpdateData {
@@ -155,6 +197,50 @@ export interface AsignacionInstalacionUpdateData {
   descripcion?: string
   motivo?: MotivoMovimiento
   nota?: string
+}
+
+// ── Plan de depreciación (reporte contable) ───────────────────────────────────
+
+export interface PlanDepreciacionFila {
+  id: string
+  entidad_tipo: TipoEntidad
+  entidad_id: string
+  entidad_nombre?: string | null
+  item_tipo: 'medio_basico' | 'material'
+  item_id: string
+  nombre: string
+  descripcion?: string | null
+  cantidad: number
+  numero_serie?: string | null
+  costo?: number | null
+  costo_total: number
+  fecha_asignacion?: string | null
+  fecha_inicio_depreciacion?: string | null
+  fecha_fin_asignacion?: string | null
+  asignado_por?: string | null
+  asignado_por_nombre?: string | null
+  depreciacion_mensual: number
+  valor_depreciado: number
+  valor_residual: number
+  meses_transcurridos: number
+}
+
+export interface PlanDepreciacionTotales {
+  costo_total: number
+  depreciacion_mensual: number
+  valor_depreciado: number
+  valor_residual: number
+  cantidad_filas: number
+}
+
+export interface PlanDepreciacionFiltros {
+  entidad_tipo?: TipoEntidad
+  item_tipo?: 'medio_basico' | 'material'
+  desde?: string  // ISO
+  hasta?: string  // ISO
+  solo_depreciados?: boolean
+  solo_vigentes?: boolean
+  incluir_inactivas?: boolean
 }
 
 // ── Catálogo de materiales ────────────────────────────────────────────────────

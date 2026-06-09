@@ -14,6 +14,8 @@ import type {
   InstalacionConAsignaciones,
   AsignacionInstalacionCreateData,
   AsignacionInstalacionUpdateData,
+  AjustarCostoData,
+  TransferirData,
   MaterialCatalogo,
   MotivoMovimiento,
   HerramientaCatalogo,
@@ -157,6 +159,38 @@ export function useAsignaciones() {
     }
   }, [reloadTrabajadores])
 
+  const ajustarCostoAsignacion = useCallback(async (
+    ci: string, asignacionId: string, data: AjustarCostoData,
+  ): Promise<boolean> => {
+    setLoading(true)
+    try {
+      await AsignacionService.ajustarCostoAsignacionTrabajador(ci, asignacionId, data)
+      await reloadTrabajadores()
+      return true
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al ajustar costo')
+      return false
+    } finally {
+      setLoading(false)
+    }
+  }, [reloadTrabajadores])
+
+  const transferirAsignacion = useCallback(async (
+    ci: string, asignacionId: string, data: TransferirData,
+  ): Promise<boolean> => {
+    setLoading(true)
+    try {
+      await AsignacionService.transferirAsignacionTrabajador(ci, asignacionId, data)
+      await reloadTrabajadores()
+      return true
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al transferir')
+      return false
+    } finally {
+      setLoading(false)
+    }
+  }, [reloadTrabajadores])
+
   // ── Herramientas (legacy) ─────────────────────────────────────────────────
 
   const [catalogoHerramientas, setCatalogoHerramientas] = useState<HerramientaCatalogo[]>([])
@@ -274,6 +308,8 @@ export function useAsignaciones() {
     addAsignacion,
     updateAsignacion,
     removeAsignacion,
+    ajustarCostoAsignacion,
+    transferirAsignacion,
     addHerramienta,
     updateHerramienta,
     removeHerramienta,
@@ -464,6 +500,32 @@ export function useAllInstalacionesAsignaciones() {
     }
   }, [reload])
 
+  const ajustarCostoAsignacion = useCallback(async (
+    tipo: TipoInstalacion, id: string, asignacionId: string, data: AjustarCostoData,
+  ): Promise<boolean> => {
+    try {
+      await AsignacionService.ajustarCostoAsignacionInstalacion(tipo, id, asignacionId, data)
+      await reload()
+      return true
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al ajustar costo')
+      return false
+    }
+  }, [reload])
+
+  const transferirAsignacion = useCallback(async (
+    tipo: TipoInstalacion, id: string, asignacionId: string, data: TransferirData,
+  ): Promise<boolean> => {
+    try {
+      await AsignacionService.transferirAsignacionInstalacion(tipo, id, asignacionId, data)
+      await reload()
+      return true
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al transferir')
+      return false
+    }
+  }, [reload])
+
   return {
     data,
     loading,
@@ -473,6 +535,8 @@ export function useAllInstalacionesAsignaciones() {
     addAsignacion,
     updateAsignacion,
     removeAsignacion,
+    ajustarCostoAsignacion,
+    transferirAsignacion,
   }
 }
 

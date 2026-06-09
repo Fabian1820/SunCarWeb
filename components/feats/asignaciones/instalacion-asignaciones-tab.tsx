@@ -6,15 +6,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/mo
 import { Input } from "@/components/shared/atom/input"
 import {
   Plus, Pencil, Trash2, Package, Building2, ShoppingBag, ChevronDown, ChevronRight, Search,
+  DollarSign, ArrowRightLeft, History,
 } from "lucide-react"
 import { useAllInstalacionesAsignaciones } from "@/hooks/use-asignaciones"
 import { AsignacionRecursosDialog } from "./asignacion-recursos-dialog"
+import { AjustarCostoDialog } from "./ajustar-costo-dialog"
+import { TransferirAsignacionDialog } from "./transferir-asignacion-dialog"
+import { HistorialAsignacion } from "./historial-asignacion"
 import type {
   TipoInstalacion,
   InstalacionConAsignaciones,
   AsignacionInstalacion,
   AsignacionInstalacionCreateData,
   AsignacionInstalacionUpdateData,
+  AjustarCostoData,
+  TransferirData,
   MedioBasico,
 } from "@/lib/types/feats/asignaciones/asignacion-types"
 import { useToast } from "@/hooks/use-toast"
@@ -76,7 +82,7 @@ interface InstalacionAsignacionesTabProps {
 export function InstalacionAsignacionesTab({ mediosBasicos }: InstalacionAsignacionesTabProps) {
   const {
     data, loading, error, clearError,
-    addAsignacion, updateAsignacion,
+    addAsignacion, updateAsignacion, ajustarCostoAsignacion, transferirAsignacion,
   } = useAllInstalacionesAsignaciones()
   const { toast } = useToast()
 
@@ -92,6 +98,11 @@ export function InstalacionAsignacionesTab({ mediosBasicos }: InstalacionAsignac
   const [dialogInstalacionNombre, setDialogInstalacionNombre] = useState("")
   const [editingAsignacion, setEditingAsignacion] = useState<AsignacionInstalacion | null>(null)
   const [modoEliminar, setModoEliminar] = useState(false)
+  // Costo / transferencia
+  const [costoDialogOpen, setCostoDialogOpen] = useState(false)
+  const [costoAsignacion, setCostoAsignacion] = useState<AsignacionInstalacion | null>(null)
+  const [transferDialogOpen, setTransferDialogOpen] = useState(false)
+  const [transferAsignacion, setTransferAsignacion] = useState<AsignacionInstalacion | null>(null)
 
   const openAdd = (tipo: TipoInstalacion, inst: InstalacionConAsignaciones) => {
     setDialogTipo(tipo)
@@ -118,6 +129,38 @@ export function InstalacionAsignacionesTab({ mediosBasicos }: InstalacionAsignac
     setEditingAsignacion(a)
     setModoEliminar(true)
     setDialogOpen(true)
+  }
+
+  const openAdjustCost = (tipo: TipoInstalacion, inst: InstalacionConAsignaciones, a: AsignacionInstalacion) => {
+    setDialogTipo(tipo)
+    setDialogInstalacionId(inst.id)
+    setDialogInstalacionNombre(inst.nombre)
+    setCostoAsignacion(a)
+    setCostoDialogOpen(true)
+  }
+
+  const openTransfer = (tipo: TipoInstalacion, inst: InstalacionConAsignaciones, a: AsignacionInstalacion) => {
+    setDialogTipo(tipo)
+    setDialogInstalacionId(inst.id)
+    setDialogInstalacionNombre(inst.nombre)
+    setTransferAsignacion(a)
+    setTransferDialogOpen(true)
+  }
+
+  const handleAdjustCost = async (data: AjustarCostoData): Promise<boolean> => {
+    if (!costoAsignacion) return false
+    const ok = await ajustarCostoAsignacion(dialogTipo, dialogInstalacionId, costoAsignacion.id, data)
+    if (ok) toast({ title: "Éxito", description: "Costo ajustado" })
+    else toast({ title: "Error", description: "No se pudo ajustar", variant: "destructive" })
+    return ok
+  }
+
+  const handleTransfer = async (data: TransferirData): Promise<boolean> => {
+    if (!transferAsignacion) return false
+    const ok = await transferirAsignacion(dialogTipo, dialogInstalacionId, transferAsignacion.id, data)
+    if (ok) toast({ title: "Éxito", description: "Asignación transferida" })
+    else toast({ title: "Error", description: "No se pudo transferir", variant: "destructive" })
+    return ok
   }
 
   const handleSave = async (
@@ -212,6 +255,8 @@ export function InstalacionAsignacionesTab({ mediosBasicos }: InstalacionAsignac
                           onAdd={() => openAdd(tipo, inst)}
                           onEdit={a => openEdit(tipo, inst, a)}
                           onDelete={a => openDelete(tipo, inst, a)}
+                          onAdjustCost={a => openAdjustCost(tipo, inst, a)}
+                          onTransfer={a => openTransfer(tipo, inst, a)}
                         />
                       ))}
                     </div>
@@ -233,6 +278,25 @@ export function InstalacionAsignacionesTab({ mediosBasicos }: InstalacionAsignac
         onSave={handleSave as any}
         loading={loading}
       />
+
+      <AjustarCostoDialog
+        open={costoDialogOpen}
+        onClose={() => setCostoDialogOpen(false)}
+        asignacion={costoAsignacion}
+        onSave={handleAdjustCost}
+        loading={loading}
+      />
+
+      <TransferirAsignacionDialog
+        open={transferDialogOpen}
+        onClose={() => setTransferDialogOpen(false)}
+        asignacion={transferAsignacion}
+        origenLabel={dialogInstalacionNombre}
+        origenTipo={dialogTipo}
+        origenId={dialogInstalacionId}
+        onSave={handleTransfer}
+        loading={loading}
+      />
     </div>
   )
 }
@@ -246,10 +310,13 @@ interface InstalacionCardProps {
   onAdd: () => void
   onEdit: (a: AsignacionInstalacion) => void
   onDelete: (a: AsignacionInstalacion) => void
+  onAdjustCost: (a: AsignacionInstalacion) => void
+  onTransfer: (a: AsignacionInstalacion) => void
 }
 
-function InstalacionCard({ inst, colores, loading, onAdd, onEdit, onDelete }: InstalacionCardProps) {
+function InstalacionCard({ inst, colores, loading, onAdd, onEdit, onDelete, onAdjustCost, onTransfer }: InstalacionCardProps) {
   const [expandida, setExpandida] = useState(false)
+  const [historialOpenId, setHistorialOpenId] = useState<string | null>(null)
   const total = inst.asignaciones.length
 
   return (
@@ -293,6 +360,7 @@ function InstalacionCard({ inst, colores, loading, onAdd, onEdit, onDelete }: In
         <div className="border-t bg-gray-50/50 px-3 py-2 space-y-2">
           {inst.asignaciones.map(a => {
             const costoTotal = (a.costo ?? 0) * a.cantidad
+            const historialAbierto = historialOpenId === a.id
             return (
               <div key={a.id} className="rounded border bg-white p-2 text-xs">
                 <div className="flex items-start justify-between gap-2 mb-1">
@@ -311,10 +379,16 @@ function InstalacionCard({ inst, colores, loading, onAdd, onEdit, onDelete }: In
                     )}
                   </div>
                   <div className="flex gap-1 shrink-0">
-                    <Button variant="outline" size="sm" className="h-6 w-6 p-0" onClick={() => onEdit(a)} disabled={loading}>
+                    <Button variant="outline" size="sm" className="h-6 w-6 p-0" title="Editar" onClick={() => onEdit(a)} disabled={loading}>
                       <Pencil className="h-3 w-3" />
                     </Button>
-                    <Button variant="destructive" size="sm" className="h-6 w-6 p-0" onClick={() => onDelete(a)} disabled={loading}>
+                    <Button variant="outline" size="sm" className="h-6 w-6 p-0 text-blue-700 border-blue-200 hover:bg-blue-50" title="Ajustar costo" onClick={() => onAdjustCost(a)} disabled={loading}>
+                      <DollarSign className="h-3 w-3" />
+                    </Button>
+                    <Button variant="outline" size="sm" className="h-6 w-6 p-0 text-purple-700 border-purple-200 hover:bg-purple-50" title="Transferir" onClick={() => onTransfer(a)} disabled={loading}>
+                      <ArrowRightLeft className="h-3 w-3" />
+                    </Button>
+                    <Button variant="destructive" size="sm" className="h-6 w-6 p-0" title="Eliminar" onClick={() => onDelete(a)} disabled={loading}>
                       <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>
@@ -329,7 +403,25 @@ function InstalacionCard({ inst, colores, loading, onAdd, onEdit, onDelete }: In
                   <span>Dep./mes: <span className="text-amber-700">{money(a.depreciacion_mensual)}</span></span>
                   <span>Deprec.: <span className="text-amber-700">{money(a.valor_depreciado)}</span></span>
                   <span>Residual: <span className="text-emerald-700 font-semibold">{money(a.valor_residual)}</span></span>
+                  {a.asignado_por && (
+                    <span className="col-span-2 md:col-span-3 text-[10px] text-gray-400">
+                      Asignado por: {a.asignado_por_nombre || a.asignado_por}
+                    </span>
+                  )}
                 </div>
+                <button
+                  onClick={() => setHistorialOpenId(historialAbierto ? null : a.id)}
+                  className="mt-1 flex items-center gap-1 text-[10px] text-gray-500 hover:text-gray-700"
+                >
+                  {historialAbierto ? <ChevronDown className="h-2.5 w-2.5" /> : <ChevronRight className="h-2.5 w-2.5" />}
+                  <History className="h-2.5 w-2.5" />
+                  Historial ({(a.historial ?? []).length})
+                </button>
+                {historialAbierto && (
+                  <div className="mt-1.5 bg-gray-50/80 rounded p-2 border">
+                    <HistorialAsignacion historial={a.historial ?? []} />
+                  </div>
+                )}
               </div>
             )
           })}

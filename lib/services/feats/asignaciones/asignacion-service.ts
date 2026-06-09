@@ -18,6 +18,11 @@ import type {
   AsignacionInstalacionFlat,
   AsignacionInstalacionCreateData,
   AsignacionInstalacionUpdateData,
+  AjustarCostoData,
+  TransferirData,
+  PlanDepreciacionFila,
+  PlanDepreciacionTotales,
+  PlanDepreciacionFiltros,
   MaterialCatalogo,
   MotivoMovimiento,
   HerramientaCatalogo,
@@ -40,18 +45,21 @@ const normalizeAsignacionFlat = (raw: any): Asignacion & { ci?: string; instalac
   item_id: String(raw?.item_id ?? raw?.medio_basico_id ?? ''),
   nombre: String(raw?.nombre ?? ''),
   descripcion: raw?.descripcion ?? null,
-  // Compat: el backend antiguo entregaba "precio"; el nuevo entrega "costo".
-  costo: raw?.costo ?? raw?.precio ?? null,
+  costo: raw?.costo ?? null,
   cantidad: Number(raw?.cantidad ?? 1),
   numero_serie: raw?.numero_serie ?? null,
   fecha_asignacion: raw?.fecha_asignacion ?? null,
+  fecha_inicio_depreciacion: raw?.fecha_inicio_depreciacion ?? null,
+  fecha_fin_asignacion: raw?.fecha_fin_asignacion ?? null,
   asignado_por: raw?.asignado_por ?? null,
+  asignado_por_nombre: raw?.asignado_por_nombre ?? null,
   activo: raw?.activo !== undefined ? Boolean(raw.activo) : true,
   fecha_actualizacion: raw?.fecha_actualizacion ?? null,
   historial: Array.isArray(raw?.historial) ? raw.historial : [],
   depreciacion_mensual: typeof raw?.depreciacion_mensual === 'number' ? raw.depreciacion_mensual : 0,
   valor_depreciado: typeof raw?.valor_depreciado === 'number' ? raw.valor_depreciado : 0,
   valor_residual: typeof raw?.valor_residual === 'number' ? raw.valor_residual : 0,
+  meses_transcurridos: typeof raw?.meses_transcurridos === 'number' ? raw.meses_transcurridos : 0,
   ci: raw?.ci ? String(raw.ci) : undefined,
   instalacion_id: raw?.instalacion_id ? String(raw.instalacion_id) : undefined,
 })
@@ -379,5 +387,69 @@ export class AsignacionService {
   static async deleteHerramientaCatalogo(materialId: string): Promise<boolean> {
     await apiRequest(`/asignaciones/herramientas/catalogo/${materialId}`, { method: 'DELETE' })
     return true
+  }
+
+  // ── Ajuste de costo, transferencia y reportes ─────────────────────────────
+
+  /** Ajusta el costo unitario de una asignación de trabajador. */
+  static async ajustarCostoAsignacionTrabajador(
+    ci: string, asignacionId: string, data: AjustarCostoData,
+  ): Promise<boolean> {
+    await apiRequest(`/asignaciones-trabajadores/${ci}/${asignacionId}/costo`, {
+      method: 'PUT', body: JSON.stringify(data),
+    })
+    return true
+  }
+
+  /** Ajusta el costo unitario de una asignación de instalación. */
+  static async ajustarCostoAsignacionInstalacion(
+    tipo: TipoInstalacion, instalacionId: string, asignacionId: string, data: AjustarCostoData,
+  ): Promise<boolean> {
+    await apiRequest(`/asignaciones-instalaciones/${tipo}/${instalacionId}/${asignacionId}/costo`, {
+      method: 'PUT', body: JSON.stringify(data),
+    })
+    return true
+  }
+
+  /** Transfiere una asignación de trabajador a otra entidad. */
+  static async transferirAsignacionTrabajador(
+    ci: string, asignacionId: string, data: TransferirData,
+  ): Promise<boolean> {
+    await apiRequest(`/asignaciones-trabajadores/${ci}/${asignacionId}/transferir`, {
+      method: 'POST', body: JSON.stringify(data),
+    })
+    return true
+  }
+
+  /** Transfiere una asignación de instalación a otra entidad. */
+  static async transferirAsignacionInstalacion(
+    tipo: TipoInstalacion, instalacionId: string, asignacionId: string, data: TransferirData,
+  ): Promise<boolean> {
+    await apiRequest(`/asignaciones-instalaciones/${tipo}/${instalacionId}/${asignacionId}/transferir`, {
+      method: 'POST', body: JSON.stringify(data),
+    })
+    return true
+  }
+
+  /** Plan de depreciación global con filtros. */
+  static async getPlanDepreciacion(
+    filtros: PlanDepreciacionFiltros = {},
+  ): Promise<{ data: PlanDepreciacionFila[]; totales: PlanDepreciacionTotales }> {
+    const qs = new URLSearchParams()
+    if (filtros.entidad_tipo) qs.set('entidad_tipo', filtros.entidad_tipo)
+    if (filtros.item_tipo) qs.set('item_tipo', filtros.item_tipo)
+    if (filtros.desde) qs.set('desde', filtros.desde)
+    if (filtros.hasta) qs.set('hasta', filtros.hasta)
+    if (filtros.solo_depreciados) qs.set('solo_depreciados', 'true')
+    if (filtros.solo_vigentes) qs.set('solo_vigentes', 'true')
+    if (filtros.incluir_inactivas) qs.set('incluir_inactivas', 'true')
+    const res = await apiRequest<any>(`/asignaciones-reportes/plan-depreciacion?${qs.toString()}`)
+    return {
+      data: Array.isArray(res?.data) ? res.data : [],
+      totales: res?.totales ?? {
+        costo_total: 0, depreciacion_mensual: 0,
+        valor_depreciado: 0, valor_residual: 0, cantidad_filas: 0,
+      },
+    }
   }
 }

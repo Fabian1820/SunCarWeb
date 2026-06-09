@@ -61,11 +61,16 @@ export function AsignacionRecursosDialog({
   const materialComboRef = useRef<HTMLDivElement>(null)
 
   // Shared state
+  // En creación: "cantidad" representa la cantidad a asignar.
+  // En edición: representa "unidades a retirar" — más intuitivo que "cantidad final".
   const [cantidad, setCantidad] = useState("1")
   const [numeroSerie, setNumeroSerie] = useState("")
   const [descripcion, setDescripcion] = useState("")
   const [motivo, setMotivo] = useState<MotivoMovimiento | "">("")
   const [nota, setNota] = useState("")
+  // Solo creación
+  const [fechaAsignacion, setFechaAsignacion] = useState("")  // YYYY-MM-DD
+  const [permitirCostoCero, setPermitirCostoCero] = useState(false)
 
   const resetForm = useCallback(() => {
     setItemTipo(asignacion ? (asignacion.item_tipo ?? 'medio_basico') : 'medio_basico')
@@ -76,11 +81,22 @@ export function AsignacionRecursosDialog({
     setMaterialResults([])
     setMaterialSeleccionado(null)
     setMaterialComboOpen(false)
-    setCantidad(modoEliminar ? "0" : String(asignacion?.cantidad ?? 1))
+    // Creación: "cantidad a asignar" (default 1).
+    // Edición: "unidades a retirar". En modoEliminar arrancamos con TODAS; en
+    // modoEditar arrancamos con 0 (nada para retirar) y el usuario tipea.
+    if (asignacion) {
+      setCantidad(modoEliminar ? String(asignacion.cantidad) : "0")
+    } else {
+      setCantidad("1")
+    }
     setNumeroSerie(asignacion?.numero_serie ?? "")
     setDescripcion(asignacion?.descripcion ?? "")
     setMotivo("")
     setNota("")
+    // Default fecha = hoy en formato YYYY-MM-DD
+    const hoy = new Date().toISOString().slice(0, 10)
+    setFechaAsignacion(hoy)
+    setPermitirCostoCero(false)
   }, [asignacion, modoEliminar])
 
   useEffect(() => {
@@ -131,12 +147,17 @@ export function AsignacionRecursosDialog({
     return () => clearTimeout(handler)
   }, [materialBusqueda, itemTipo])
 
-  // ── Validación del modo edición ──
-  // El backend solo permite DISMINUIR la cantidad. Cualquier delta exige motivo.
+  // ── Validación ──
+  // En CREACIÓN: cantidadNum = cantidad a asignar (≥1).
+  // En EDICIÓN: cantidadNum = unidades a retirar (0..cantidadOriginal). El
+  // backend recibe la cantidad final = cantidadOriginal - unidadesARetirar.
   const cantidadNum = parseInt(cantidad)
   const cantidadValida = !isNaN(cantidadNum) && cantidadNum >= 0
-  const cantidadCambio = isEdit && cantidadValida && cantidadNum !== cantidadOriginal
-  const cantidadAumenta = isEdit && cantidadValida && cantidadNum > cantidadOriginal
+  const unidadesARetirar = isEdit ? cantidadNum : 0
+  const cantidadFinal = isEdit ? cantidadOriginal - unidadesARetirar : cantidadNum
+  const cantidadCambio = isEdit && cantidadValida && unidadesARetirar > 0
+  const retiroExcedeStock = isEdit && cantidadValida && unidadesARetirar > cantidadOriginal
+  const seEliminaTodo = isEdit && cantidadValida && unidadesARetirar === cantidadOriginal && cantidadOriginal > 0
   const serieCambio = isEdit && (numeroSerie ?? "") !== (asignacion?.numero_serie ?? "")
   const descripcionCambio = isEdit && (descripcion ?? "") !== (asignacion?.descripcion ?? "")
   const motivoRequerido = cantidadCambio
@@ -149,7 +170,8 @@ export function AsignacionRecursosDialog({
 
     if (isEdit) {
       const data: AsignacionUpdateData = {}
-      if (cantidadCambio) data.cantidad = cantidadNum
+      // Mando al backend la CANTIDAD FINAL (ya restada), no el delta.
+      if (cantidadCambio) data.cantidad = cantidadFinal
       if (serieCambio) data.numero_serie = serie || undefined
       if (descripcionCambio) data.descripcion = desc
       if (motivoRequerido && motivo) {
@@ -161,22 +183,42 @@ export function AsignacionRecursosDialog({
       return
     }
 
+    const fechaISO = fechaAsignacion
+      ? new Date(fechaAsignacion + "T00:00:00").toISOString()
+      : undefined
     const data: AsignacionCreateData = {
       item_tipo: itemTipo,
       item_id: itemTipo === 'medio_basico' ? medioSeleccionado!.id : materialSeleccionado!.id,
       cantidad: Math.max(1, cantidadNum || 1),
       numero_serie: serie || undefined,
       descripcion: desc || undefined,
+      fecha_asignacion: fechaISO,
+      permitir_costo_cero: permitirCostoCero || undefined,
     }
     const ok = await onSave(data)
     if (ok) onClose()
   }
 
+  // ── Detección de costo en el seleccionado (creación) ───────────────────────
+  const costoSeleccionado = !isEdit
+    ? (itemTipo === 'medio_basico'
+        ? medioSeleccionado?.precio
+        : (materialSeleccionado as any)?.precio)
+    : null
+  const sinCosto = !isEdit
+    && !!(itemTipo === 'medio_basico' ? medioSeleccionado : materialSeleccionado)
+    && (costoSeleccionado == null || costoSeleccionado === 0)
+  const fechaFutura = !isEdit && fechaAsignacion
+    ? new Date(fechaAsignacion + "T00:00:00") > new Date()
+    : false
+
   const canSave = isEdit
-    ? cantidadValida && !cantidadAumenta && motivoOk && hayAlgoQueGuardar
-    : itemTipo === 'medio_basico'
-      ? !!medioSeleccionado && cantidadValida && cantidadNum >= 1
-      : !!materialSeleccionado && cantidadValida && cantidadNum >= 1
+    ? cantidadValida && !retiroExcedeStock && motivoOk && hayAlgoQueGuardar
+    : (itemTipo === 'medio_basico'
+        ? !!medioSeleccionado && cantidadValida && cantidadNum >= 1
+        : !!materialSeleccionado && cantidadValida && cantidadNum >= 1)
+      && (!sinCosto || permitirCostoCero)
+      && !fechaFutura
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -414,10 +456,10 @@ export function AsignacionRecursosDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>
-                Cantidad
+                {isEdit ? "Unidades a retirar" : "Cantidad"}
                 {isEdit && (
                   <span className="ml-1 text-xs text-gray-400 font-normal">
-                    (actual: {cantidadOriginal})
+                    (asignadas: {cantidadOriginal})
                   </span>
                 )}
               </Label>
@@ -428,9 +470,16 @@ export function AsignacionRecursosDialog({
                 value={cantidad}
                 onChange={e => setCantidad(e.target.value)}
               />
-              {cantidadAumenta && (
+              {isEdit && cantidadValida && (
+                <p className={`text-xs ${seEliminaTodo ? "text-red-600 font-medium" : "text-gray-500"}`}>
+                  {seEliminaTodo
+                    ? `Se eliminará la asignación completa (${cantidadOriginal} → 0)`
+                    : `Quedarán ${cantidadFinal} de ${cantidadOriginal}`}
+                </p>
+              )}
+              {retiroExcedeStock && (
                 <p className="text-xs text-red-600">
-                  Solo se puede disminuir. Para aumentar, crea una nueva asignación.
+                  No podés retirar más de {cantidadOriginal} (es lo que está asignado).
                 </p>
               )}
             </div>
@@ -443,6 +492,48 @@ export function AsignacionRecursosDialog({
               />
             </div>
           </div>
+
+          {/* Fecha de asignación (solo creación) */}
+          {!isEdit && (
+            <div className="space-y-1.5">
+              <Label>Fecha de asignación</Label>
+              <Input
+                type="date"
+                value={fechaAsignacion}
+                max={new Date().toISOString().slice(0, 10)}
+                onChange={e => setFechaAsignacion(e.target.value)}
+              />
+              <p className="text-[11px] text-gray-400">
+                Por defecto hoy. Podés indicar una fecha anterior si el recurso ya estaba asignado.
+                La depreciación contará desde esta fecha. <strong>No se podrá editar después.</strong>
+              </p>
+              {fechaFutura && (
+                <p className="text-xs text-red-600">La fecha no puede ser futura.</p>
+              )}
+            </div>
+          )}
+
+          {/* Banner costo 0 (solo creación, cuando aplica) */}
+          {!isEdit && sinCosto && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 space-y-2">
+              <p className="text-sm font-medium text-amber-900">
+                El recurso seleccionado no tiene costo en el catálogo.
+              </p>
+              <label className="flex items-start gap-2 cursor-pointer text-xs text-amber-900">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={permitirCostoCero}
+                  onChange={e => setPermitirCostoCero(e.target.checked)}
+                />
+                <span>
+                  <strong>Permitir depreciación con costo 0</strong> — la asignación se crea pero
+                  los valores de depreciación, valor depreciado y residual serán 0. Podés ajustar
+                  el costo más adelante desde el detalle de la asignación.
+                </span>
+              </label>
+            </div>
+          )}
 
           {/* Descripción / comentario de la asignación */}
           <div className="space-y-1.5">
