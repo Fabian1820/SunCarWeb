@@ -517,6 +517,59 @@ export function RegistrarPagoVentaDialog({
             </div>
           )}
 
+          {/* Toggle de consignación — visible siempre, debajo del resumen */}
+          {onMarcarComoConsignacion && (
+            <div
+              className={`rounded-lg border p-3 transition-colors ${
+                esConsignacion
+                  ? "border-purple-300 bg-purple-50"
+                  : "border-gray-200 bg-gray-50"
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => setEsConsignacion((v) => !v)}
+                className="flex w-full items-center gap-3 text-left"
+              >
+                <div
+                  className={`relative h-5 w-10 rounded-full transition-colors ${
+                    esConsignacion ? "bg-purple-500" : "bg-gray-300"
+                  }`}
+                >
+                  <span
+                    className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                      esConsignacion ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <PackageSearch className="h-4 w-4 text-purple-600" />
+                  <span className="text-sm font-medium text-gray-800">
+                    Marcar como consignación
+                  </span>
+                </div>
+              </button>
+              {esConsignacion && (
+                <div className="mt-2 space-y-1 text-xs text-purple-700">
+                  <p>
+                    El cliente se lleva la mercancía y <b>no paga ahora</b>.
+                    Se creará una consignación con saldo{" "}
+                    <b>{formatCurrency(pendiente ?? precioTotal ?? 0)}</b> al
+                    precio congelado.
+                  </p>
+                  <p>
+                    Los cobros y devoluciones se gestionan desde el módulo{" "}
+                    <span className="font-medium">Consignaciones</span>. No se
+                    cobra, no se emite factura.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Resto del formulario solo visible si NO es consignación */}
+          {!esConsignacion && (<>
+
           {/* Monto */}
           <div className="space-y-1">
             <Label>
@@ -1094,55 +1147,7 @@ export function RegistrarPagoVentaDialog({
             )}
           </div>
 
-          {onMarcarComoConsignacion && (
-            <div
-              className={`rounded-lg border p-3 transition-colors ${
-                esConsignacion
-                  ? "border-purple-300 bg-purple-50"
-                  : "border-gray-200 bg-gray-50"
-              }`}
-            >
-              <button
-                type="button"
-                onClick={() => setEsConsignacion((v) => !v)}
-                className="flex w-full items-center gap-3 text-left"
-              >
-                <div
-                  className={`relative h-5 w-10 rounded-full transition-colors ${
-                    esConsignacion ? "bg-purple-500" : "bg-gray-300"
-                  }`}
-                >
-                  <span
-                    className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
-                      esConsignacion ? "translate-x-5" : "translate-x-0"
-                    }`}
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <PackageSearch className="h-4 w-4 text-purple-600" />
-                  <span className="text-sm font-medium text-gray-800">
-                    Marcar como consignación
-                  </span>
-                </div>
-              </button>
-              {esConsignacion && (
-                <div className="mt-2 space-y-1 text-xs text-purple-700">
-                  <p>
-                    El cliente se lleva la mercancía y <b>no paga ahora</b>.
-                    Se creará una consignación con el saldo total al precio
-                    congelado.
-                  </p>
-                  <p>
-                    Los cobros y devoluciones se gestionan desde el módulo
-                    <span className="font-medium"> Consignaciones</span>.{" "}
-                    No se cobra, no se emite factura, no se descuenta del
-                    pendiente de esta solicitud (porque ya no es un pendiente
-                    normal).
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
+          </>)}
 
           {error && (
             <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
