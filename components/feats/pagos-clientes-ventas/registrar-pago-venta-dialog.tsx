@@ -33,6 +33,7 @@ import {
   Loader2,
   FileText,
   ExternalLink,
+  PackageSearch,
 } from "lucide-react";
 import type { SolicitudVenta } from "@/lib/api-types";
 import { FacturaClienteVentaService } from "@/lib/services/feats/pagos-clientes-ventas/pago-cliente-venta-service";
@@ -64,6 +65,11 @@ interface RegistrarPagoVentaDialogProps {
     plan_pagos?: PagoProgramado[];
     fecha: string;
     factura?: { numero: string; numero_factura: string; fecha_emision: string };
+    /**
+     * Si true, después de crear el pago el caller debe crear una Consignación
+     * pasando este pago como pago_inicial_id. La mercancía ya fue entregada.
+     */
+    es_consignacion?: boolean;
   }) => Promise<void>;
 }
 
@@ -111,6 +117,7 @@ export function RegistrarPagoVentaDialog({
   const [stripeError, setStripeError] = useState<string | null>(null);
   const [copiado, setCopiado] = useState(false);
   const [generarFactura, setGenerarFactura] = useState(true);
+  const [esConsignacion, setEsConsignacion] = useState(false);
   const [numeroFactura, setNumeroFactura] = useState("");
   const [montoComision, setMontoComision] = useState("");
   const [cambioRealMonto, setCambioRealMonto] = useState("");
@@ -145,6 +152,13 @@ export function RegistrarPagoVentaDialog({
     if (moneda === "CUP") setTasaCambio("550");
     else setTasaCambio("");
   }, [moneda]);
+
+  // Si se marca como consignación, no generar factura automáticamente.
+  useEffect(() => {
+    if (esConsignacion && generarFactura) {
+      setGenerarFactura(false);
+    }
+  }, [esConsignacion, generarFactura]);
 
   // Sugerir número de factura cuando se activa el toggle
   useEffect(() => {
@@ -230,6 +244,7 @@ export function RegistrarPagoVentaDialog({
     setStripeError(null);
     setCopiado(false);
     setGenerarFactura(false);
+    setEsConsignacion(false);
     setNumeroFactura("");
     setMontoComision("");
     setCambioRealMonto("");
@@ -377,6 +392,7 @@ export function RegistrarPagoVentaDialog({
           generarFactura && numeroFactura.trim()
             ? { numero: numeroFactura.trim(), numero_factura: numeroFactura.trim(), fecha_emision: fecha }
             : undefined,
+        es_consignacion: esConsignacion || undefined,
       });
       handleClose();
     } catch (e) {
@@ -1045,6 +1061,47 @@ export function RegistrarPagoVentaDialog({
                   Se creará una factura asociada a esta solicitud con este número.
                 </p>
               </div>
+            )}
+          </div>
+
+          <div
+            className={`rounded-lg border p-3 transition-colors ${
+              esConsignacion
+                ? "border-purple-300 bg-purple-50"
+                : "border-gray-200 bg-gray-50"
+            }`}
+          >
+            <button
+              type="button"
+              onClick={() => setEsConsignacion((v) => !v)}
+              className="flex w-full items-center gap-3 text-left"
+            >
+              <div
+                className={`relative h-5 w-10 rounded-full transition-colors ${
+                  esConsignacion ? "bg-purple-500" : "bg-gray-300"
+                }`}
+              >
+                <span
+                  className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                    esConsignacion ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <PackageSearch className="h-4 w-4 text-purple-600" />
+                <span className="text-sm font-medium text-gray-800">
+                  Marcar como consignación
+                </span>
+              </div>
+            </button>
+            {esConsignacion && (
+              <p className="mt-2 text-xs text-purple-700">
+                El cliente se lleva la mercancía pero queda saldo pendiente.
+                Tras registrar este pago se creará una consignación con los
+                precios congelados; el resto se cobra o se devuelve más
+                adelante. <span className="font-medium">No se emite factura</span>{" "}
+                hasta el cierre.
+              </p>
             )}
           </div>
 

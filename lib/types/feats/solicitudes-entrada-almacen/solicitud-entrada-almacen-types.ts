@@ -60,8 +60,14 @@ export interface MaterialSolicitudEntradaCreate {
   motivo_parcial?: string;
 }
 
+export type OrigenSolicitudEntrada = "compra" | "consignacion";
+
 export interface SolicitudEntradaAlmacenCreateData {
-  compra_id: string;
+  origen?: OrigenSolicitudEntrada;
+  /** Obligatorio cuando origen='compra'. */
+  compra_id?: string;
+  /** Obligatorio cuando origen='consignacion'. */
+  consignacion_id?: string;
   almacen_id: string;
   materiales: MaterialSolicitudEntradaCreate[];
 }

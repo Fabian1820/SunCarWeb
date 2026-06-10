@@ -255,6 +255,16 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     grupo: "comercial-ventas",
   },
   {
+    key: "consignaciones",
+    label: "Consignaciones",
+    descripcion:
+      "Ventas con mercancía entregada y pago pendiente (pago parcial o devolución).",
+    icon: PackageSearch,
+    iconClass: "text-indigo-600",
+    href: "/consignaciones",
+    grupo: "comercial-ventas",
+  },
+  {
     key: "tiendas-suncarventas",
     label: "Tiendas Suncar",
     descripcion: "Gestión de tiendas y puntos de venta.",

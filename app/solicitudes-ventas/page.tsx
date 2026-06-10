@@ -540,10 +540,41 @@ const [exportingSolicitudes, setExportingSolicitudes] = useState(false);
   const handleRegistrarPago = async (
     data: Parameters<typeof registrarPago>[0] & {
       factura?: { numero: string; numero_factura: string; fecha_emision: string };
+      es_consignacion?: boolean;
     },
   ) => {
-    const { factura, ...pagoData } = data;
+    const { factura, es_consignacion, ...pagoData } = data;
     const pagoCreado = await registrarPago(pagoData);
+
+    if (es_consignacion && pagoCreado?.id) {
+      try {
+        const { ConsignacionService } = await import(
+          "@/lib/services/feats/consignaciones/consignacion-service"
+        );
+        await ConsignacionService.crear({
+          solicitud_venta_id: pagoData.solicitud_venta_id,
+          pago_inicial_id: pagoCreado.id,
+          moneda: (pagoData.moneda as "USD" | "CUP" | "EUR") || "USD",
+        });
+        refreshAll();
+        toast({
+          title: "Consignación creada",
+          description:
+            "El pago quedó vinculado y la mercancía marcada como consignada.",
+        });
+      } catch (e) {
+        toast({
+          title: "Pago registrado, pero falló la consignación",
+          description:
+            e instanceof Error
+              ? `${e.message}. Créala manualmente desde el módulo de Consignaciones.`
+              : "Crea la consignación manualmente.",
+          variant: "destructive",
+        });
+      }
+      return;
+    }
+
     let facturaCreada: FacturaClienteVenta | null = null;
     if (factura && !facturaAsociadaNumero) {
       try {
