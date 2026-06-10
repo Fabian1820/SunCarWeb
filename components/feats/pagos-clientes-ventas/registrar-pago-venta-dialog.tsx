@@ -65,11 +65,18 @@ interface RegistrarPagoVentaDialogProps {
     plan_pagos?: PagoProgramado[];
     fecha: string;
     factura?: { numero: string; numero_factura: string; fecha_emision: string };
-    /**
-     * Si true, después de crear el pago el caller debe crear una Consignación
-     * pasando este pago como pago_inicial_id. La mercancía ya fue entregada.
-     */
-    es_consignacion?: boolean;
+  }) => Promise<void>;
+  /**
+   * Callback alternativo cuando el operador marca el toggle "Consignación".
+   * En ese caso NO se crea PagoVenta — se crea solo una Consignación con el
+   * saldo total de la solicitud. Los pagos futuros se gestionan en el módulo
+   * de Consignaciones (la auto-vinculación los asocia automáticamente).
+   * Si no se pasa esta prop el toggle queda oculto.
+   */
+  onMarcarComoConsignacion?: (data: {
+    solicitud_venta_id: string;
+    moneda: "USD" | "CUP" | "EUR";
+    notas?: string;
   }) => Promise<void>;
 }
 
@@ -94,6 +101,7 @@ export function RegistrarPagoVentaDialog({
   bloquearConfiguracionPago = false,
   onVerStripe,
   onSubmit,
+  onMarcarComoConsignacion,
 }: RegistrarPagoVentaDialogProps) {
   const { user } = useAuth();
   const today = new Date().toISOString().split("T")[0];
@@ -285,6 +293,29 @@ export function RegistrarPagoVentaDialog({
   };
 
   const handleSubmit = async () => {
+    // Camino "consignación": no se cobra ahora, solo se crea la consignación.
+    if (esConsignacion) {
+      if (!onMarcarComoConsignacion) {
+        setError("Esta vista no soporta consignaciones todavía.");
+        return;
+      }
+      setError(null);
+      setLoading(true);
+      try {
+        await onMarcarComoConsignacion({
+          solicitud_venta_id: solicitud.id,
+          moneda,
+          notas: notas || undefined,
+        });
+        handleClose();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "No se pudo crear la consignación");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     const montoNum = Number(monto);
     if (!montoNum || montoNum <= 0) {
       setError("El monto debe ser mayor a 0");
@@ -392,7 +423,6 @@ export function RegistrarPagoVentaDialog({
           generarFactura && numeroFactura.trim()
             ? { numero: numeroFactura.trim(), numero_factura: numeroFactura.trim(), fecha_emision: fecha }
             : undefined,
-        es_consignacion: esConsignacion || undefined,
       });
       handleClose();
     } catch (e) {
@@ -1064,46 +1094,55 @@ export function RegistrarPagoVentaDialog({
             )}
           </div>
 
-          <div
-            className={`rounded-lg border p-3 transition-colors ${
-              esConsignacion
-                ? "border-purple-300 bg-purple-50"
-                : "border-gray-200 bg-gray-50"
-            }`}
-          >
-            <button
-              type="button"
-              onClick={() => setEsConsignacion((v) => !v)}
-              className="flex w-full items-center gap-3 text-left"
+          {onMarcarComoConsignacion && (
+            <div
+              className={`rounded-lg border p-3 transition-colors ${
+                esConsignacion
+                  ? "border-purple-300 bg-purple-50"
+                  : "border-gray-200 bg-gray-50"
+              }`}
             >
-              <div
-                className={`relative h-5 w-10 rounded-full transition-colors ${
-                  esConsignacion ? "bg-purple-500" : "bg-gray-300"
-                }`}
+              <button
+                type="button"
+                onClick={() => setEsConsignacion((v) => !v)}
+                className="flex w-full items-center gap-3 text-left"
               >
-                <span
-                  className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
-                    esConsignacion ? "translate-x-5" : "translate-x-0"
+                <div
+                  className={`relative h-5 w-10 rounded-full transition-colors ${
+                    esConsignacion ? "bg-purple-500" : "bg-gray-300"
                   }`}
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <PackageSearch className="h-4 w-4 text-purple-600" />
-                <span className="text-sm font-medium text-gray-800">
-                  Marcar como consignación
-                </span>
-              </div>
-            </button>
-            {esConsignacion && (
-              <p className="mt-2 text-xs text-purple-700">
-                El cliente se lleva la mercancía pero queda saldo pendiente.
-                Tras registrar este pago se creará una consignación con los
-                precios congelados; el resto se cobra o se devuelve más
-                adelante. <span className="font-medium">No se emite factura</span>{" "}
-                hasta el cierre.
-              </p>
-            )}
-          </div>
+                >
+                  <span
+                    className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                      esConsignacion ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <PackageSearch className="h-4 w-4 text-purple-600" />
+                  <span className="text-sm font-medium text-gray-800">
+                    Marcar como consignación
+                  </span>
+                </div>
+              </button>
+              {esConsignacion && (
+                <div className="mt-2 space-y-1 text-xs text-purple-700">
+                  <p>
+                    El cliente se lleva la mercancía y <b>no paga ahora</b>.
+                    Se creará una consignación con el saldo total al precio
+                    congelado.
+                  </p>
+                  <p>
+                    Los cobros y devoluciones se gestionan desde el módulo
+                    <span className="font-medium"> Consignaciones</span>.{" "}
+                    No se cobra, no se emite factura, no se descuenta del
+                    pendiente de esta solicitud (porque ya no es un pendiente
+                    normal).
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           {error && (
             <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
@@ -1121,11 +1160,21 @@ export function RegistrarPagoVentaDialog({
               Cancelar
             </Button>
             <Button
-              className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+              className={`flex-1 text-white ${
+                esConsignacion
+                  ? "bg-purple-600 hover:bg-purple-700"
+                  : "bg-green-600 hover:bg-green-700"
+              }`}
               onClick={handleSubmit}
               disabled={loading}
             >
-              {loading ? "Registrando..." : "Registrar Pago"}
+              {loading
+                ? esConsignacion
+                  ? "Creando..."
+                  : "Registrando..."
+                : esConsignacion
+                  ? "Crear Consignación"
+                  : "Registrar Pago"}
             </Button>
           </div>
         </div>

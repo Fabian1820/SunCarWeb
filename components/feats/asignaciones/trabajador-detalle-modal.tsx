@@ -37,11 +37,11 @@ export function TrabajadorDetalleModal({
   open, onClose, trabajador,
   onAdd, onEdit, onDelete, onAdjustCost, onTransfer, loading,
 }: TrabajadorDetalleModalProps) {
+  // ⚠️ Todos los hooks deben ejecutarse en CADA render (regla de React).
+  // Mantener este orden y no agregar hooks después del `if (!trabajador) return null`.
   const [historialOpenId, setHistorialOpenId] = useState<string | null>(null)
 
-  if (!trabajador) return null
-
-  const asignaciones = trabajador.asignaciones ?? []
+  const asignaciones = trabajador?.asignaciones ?? []
 
   const totales = useMemo(() => {
     return asignaciones.reduce(
@@ -56,6 +56,8 @@ export function TrabajadorDetalleModal({
       { costo: 0, depMensual: 0, depAcum: 0, residual: 0 }
     )
   }, [asignaciones])
+
+  if (!trabajador) return null
 
   return (
     <Dialog open={open} onOpenChange={onClose}>

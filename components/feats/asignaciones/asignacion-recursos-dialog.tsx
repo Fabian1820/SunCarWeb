@@ -200,10 +200,11 @@ export function AsignacionRecursosDialog({
   }
 
   // ── Detección de costo en el seleccionado (creación) ───────────────────────
+  // El backend desnormaliza: medio_basico.precio → asignacion.costo, material.costo → asignacion.costo
   const costoSeleccionado = !isEdit
     ? (itemTipo === 'medio_basico'
         ? medioSeleccionado?.precio
-        : (materialSeleccionado as any)?.precio)
+        : materialSeleccionado?.costo)
     : null
   const sinCosto = !isEdit
     && !!(itemTipo === 'medio_basico' ? medioSeleccionado : materialSeleccionado)

@@ -79,38 +79,39 @@ export default function PagosClientesVentasPage() {
     setFacturaDialogOpen(true);
   };
 
+  const handleMarcarComoConsignacion = async (data: {
+    solicitud_venta_id: string;
+    moneda: "USD" | "CUP" | "EUR";
+    notas?: string;
+  }) => {
+    const { ConsignacionService } = await import(
+      "@/lib/services/feats/consignaciones/consignacion-service"
+    );
+    try {
+      const creada = await ConsignacionService.crear({
+        solicitud_venta_id: data.solicitud_venta_id,
+        moneda: data.moneda,
+        notas: data.notas ?? null,
+      });
+      toast({
+        title: "Consignación creada",
+        description: `Saldo pendiente: ${creada.monto_total.toFixed(2)} ${creada.moneda}. Gestiona pagos y devoluciones desde el módulo Consignaciones.`,
+      });
+    } catch (e) {
+      toast({
+        title: "No se pudo crear la consignación",
+        description: e instanceof Error ? e.message : "Inténtalo de nuevo.",
+        variant: "destructive",
+      });
+      throw e;
+    }
+  };
+
   const handleRegistrarPago = async (data: Parameters<typeof registrarPago>[0] & {
     factura?: { numero_factura: string; fecha_emision: string };
-    es_consignacion?: boolean;
   }) => {
-    const { factura, es_consignacion, ...pagoData } = data;
+    const { factura, ...pagoData } = data;
     const pagoCreado = await registrarPago(pagoData);
-    if (es_consignacion && pagoCreado?.id) {
-      try {
-        const { ConsignacionService } = await import(
-          "@/lib/services/feats/consignaciones/consignacion-service"
-        );
-        await ConsignacionService.crear({
-          solicitud_venta_id: pagoData.solicitud_venta_id,
-          pago_inicial_id: pagoCreado.id,
-          moneda: (pagoData.moneda as "USD" | "CUP" | "EUR") || "USD",
-        });
-        toast({
-          title: "Consignación creada",
-          description: "El pago quedó vinculado y la mercancía marcada como consignada.",
-        });
-      } catch (e) {
-        toast({
-          title: "Pago registrado, pero falló la consignación",
-          description:
-            e instanceof Error
-              ? `${e.message}. Créala manualmente desde el módulo de Consignaciones.`
-              : "Crea la consignación manualmente.",
-          variant: "destructive",
-        });
-      }
-      return;
-    }
     if (factura) {
       try {
         await crearFactura({
@@ -301,6 +302,7 @@ export default function PagosClientesVentasPage() {
         onOpenChange={setPagoDialogOpen}
         solicitud={selectedSolicitud}
         onSubmit={handleRegistrarPago}
+        onMarcarComoConsignacion={handleMarcarComoConsignacion}
       />
 
       <CrearFacturaVentaDialog
