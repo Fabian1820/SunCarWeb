@@ -566,7 +566,7 @@ export function CompraFormDialog({
 
                   <div className="space-y-1.5">
                     <Label htmlFor="fc-ref-buque" className="text-sm font-medium text-gray-700">
-                      Referencia del buque
+                      Referencia del contenedor
                     </Label>
                     <Input
                       id="fc-ref-buque"
