@@ -489,8 +489,8 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
   // ───────── Recursos Humanos ─────────
   {
     key: "recursos-humanos",
-    label: "Recursos Humanos",
-    descripcion: "Gestión de nómina y estímulos mensuales.",
+    label: "Empleados",
+    descripcion: "Gestión de empleados, nómina y estímulos mensuales.",
     icon: Briefcase,
     iconClass: "text-violet-600",
     href: "/recursos-humanos",
