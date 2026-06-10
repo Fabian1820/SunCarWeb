@@ -38,6 +38,7 @@ import type { Compra } from "@/lib/types/feats/compras/compra-types";
 import type { Almacen } from "@/lib/types/feats/inventario/inventario-types";
 import type {
   EstadoSolicitudEntrada,
+  OrigenSolicitudEntrada,
   SolicitudEntradaAlmacen,
 } from "@/lib/types/feats/solicitudes-entrada-almacen/solicitud-entrada-almacen-types";
 import { CrearSolicitudEntradaDialog } from "@/components/feats/solicitudes-entrada-almacen/crear-solicitud-entrada-dialog";
@@ -94,6 +95,8 @@ function SolicitudesEntradaAlmacenContent() {
     setAlmacenFilter,
     compraFilter,
     setCompraFilter,
+    origenFilter,
+    setOrigenFilter,
     loadSolicitudes,
     createSolicitud,
     updateSolicitud,
@@ -130,6 +133,7 @@ function SolicitudesEntradaAlmacenContent() {
     estadoFilter !== "todos",
     almacenFilter !== "todos",
     compraFilter !== "todos",
+    origenFilter !== "todos",
     searchTerm.trim() !== "",
   ].filter(Boolean).length;
 
@@ -138,6 +142,7 @@ function SolicitudesEntradaAlmacenContent() {
     setEstadoFilter("todos");
     setAlmacenFilter("todos");
     setCompraFilter("todos");
+    setOrigenFilter("todos");
   };
 
   const handleAbrirSelector = () => {
@@ -254,6 +259,20 @@ function SolicitudesEntradaAlmacenContent() {
                   <SelectItem value="pendiente">Pendiente</SelectItem>
                   <SelectItem value="aprobada">Aprobada</SelectItem>
                   <SelectItem value="denegada">Denegada</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={origenFilter}
+                onValueChange={(v) => setOrigenFilter(v as "todos" | OrigenSolicitudEntrada)}
+              >
+                <SelectTrigger className="h-8 w-40 text-sm bg-gray-50 border-gray-200">
+                  <SelectValue placeholder="Origen" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos los orígenes</SelectItem>
+                  <SelectItem value="compra">Compra</SelectItem>
+                  <SelectItem value="consignacion">Consignación</SelectItem>
                 </SelectContent>
               </Select>
 

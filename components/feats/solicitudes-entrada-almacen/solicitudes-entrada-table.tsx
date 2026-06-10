@@ -11,7 +11,9 @@ import {
 } from "lucide-react";
 import {
   SOLICITUD_ENTRADA_ESTADO_LABELS,
+  SOLICITUD_ENTRADA_ORIGEN_LABELS,
   type EstadoSolicitudEntrada,
+  type OrigenSolicitudEntrada,
   type SolicitudEntradaAlmacen,
 } from "@/lib/types/feats/solicitudes-entrada-almacen/solicitud-entrada-almacen-types";
 
@@ -36,6 +38,18 @@ function EstadoBadge({ estado }: { estado: EstadoSolicitudEntrada }) {
   return (
     <Badge variant="outline" className={`text-xs font-medium ${styles[estado]}`}>
       {SOLICITUD_ENTRADA_ESTADO_LABELS[estado]}
+    </Badge>
+  );
+}
+
+function OrigenBadge({ origen }: { origen: OrigenSolicitudEntrada }) {
+  const styles: Record<OrigenSolicitudEntrada, string> = {
+    compra: "bg-blue-50 text-blue-700 border-blue-200",
+    consignacion: "bg-purple-50 text-purple-700 border-purple-200",
+  };
+  return (
+    <Badge variant="outline" className={`text-xs font-medium ${styles[origen]}`}>
+      {SOLICITUD_ENTRADA_ORIGEN_LABELS[origen]}
     </Badge>
   );
 }
@@ -72,7 +86,7 @@ export function SolicitudesEntradaTable({
               Solicitud
             </th>
             <th className="text-left py-3 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">
-              Compra
+              Origen
             </th>
             <th className="text-left py-3 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">
               Almacén
@@ -107,11 +121,24 @@ export function SolicitudesEntradaTable({
                   #{shortId(sol.id)}
                 </td>
                 <td className="py-3 px-3">
-                  {compraName ? (
-                    <p className="font-medium text-gray-800 truncate max-w-xs">{compraName}</p>
-                  ) : (
-                    <p className="text-xs text-gray-400 font-mono">{shortId(sol.compra_id)}</p>
-                  )}
+                  <div className="flex flex-col gap-1">
+                    <OrigenBadge origen={sol.origen} />
+                    {sol.origen === "compra" ? (
+                      compraName ? (
+                        <p className="font-medium text-gray-700 text-xs truncate max-w-xs">
+                          {compraName}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-gray-400 font-mono">
+                          #{shortId(sol.compra_id)}
+                        </p>
+                      )
+                    ) : (
+                      <p className="text-xs text-gray-500 font-mono">
+                        Cons. #{shortId(sol.consignacion_id ?? "")}
+                      </p>
+                    )}
+                  </div>
                 </td>
                 <td className="py-3 px-3">
                   <div className="flex items-center gap-1.5 text-gray-700">

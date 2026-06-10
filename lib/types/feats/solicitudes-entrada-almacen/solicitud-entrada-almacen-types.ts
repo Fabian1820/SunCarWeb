@@ -4,6 +4,14 @@ export type EstadoSolicitudEntrada = (typeof ESTADOS_SOLICITUD_ENTRADA)[number];
 export const POOLS = ["indistinto", "instaladora", "ventas"] as const;
 export type PoolKey = (typeof POOLS)[number];
 
+export const ORIGENES_SOLICITUD_ENTRADA = ["compra", "consignacion"] as const;
+export type OrigenSolicitudEntrada = (typeof ORIGENES_SOLICITUD_ENTRADA)[number];
+
+export const SOLICITUD_ENTRADA_ORIGEN_LABELS: Record<OrigenSolicitudEntrada, string> = {
+  compra: "Compra",
+  consignacion: "Consignación",
+};
+
 export interface SplitPool {
   indistinto: number;
   instaladora: number;
@@ -27,7 +35,12 @@ export interface MaterialSolicitudEntrada {
 
 export interface SolicitudEntradaAlmacen {
   id: string;
+  /** Origen de la entrada: "compra" (default) o "consignacion" (devolución de cliente). */
+  origen: OrigenSolicitudEntrada;
+  /** Vacío cuando origen='consignacion'. */
   compra_id: string;
+  /** Vacío cuando origen='compra'. */
+  consignacion_id?: string;
   almacen_id: string;
   materiales: MaterialSolicitudEntrada[];
   estado: EstadoSolicitudEntrada;
@@ -59,8 +72,6 @@ export interface MaterialSolicitudEntradaCreate {
    */
   motivo_parcial?: string;
 }
-
-export type OrigenSolicitudEntrada = "compra" | "consignacion";
 
 export interface SolicitudEntradaAlmacenCreateData {
   origen?: OrigenSolicitudEntrada;

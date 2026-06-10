@@ -4,6 +4,7 @@ import type {
   AprobarSolicitudRequest,
   DenegarSolicitudRequest,
   EstadoSolicitudEntrada,
+  OrigenSolicitudEntrada,
   SolicitudEntradaAlmacen,
   SolicitudEntradaAlmacenCreateData,
 } from "@/lib/types/feats/solicitudes-entrada-almacen/solicitud-entrada-almacen-types";
@@ -24,6 +25,8 @@ interface UseSolicitudesEntradaAlmacenReturn {
   setAlmacenFilter: (value: string) => void;
   compraFilter: string;
   setCompraFilter: (value: string) => void;
+  origenFilter: "todos" | OrigenSolicitudEntrada;
+  setOrigenFilter: (value: "todos" | OrigenSolicitudEntrada) => void;
   loadSolicitudes: () => Promise<void>;
   createSolicitud: (data: SolicitudEntradaAlmacenCreateData) => Promise<SolicitudEntradaAlmacen>;
   updateSolicitud: (id: string, data: Partial<SolicitudEntradaAlmacenCreateData>) => Promise<SolicitudEntradaAlmacen>;
@@ -43,6 +46,7 @@ export function useSolicitudesEntradaAlmacen(): UseSolicitudesEntradaAlmacenRetu
   const [estadoFilter, setEstadoFilter] = useState<"todos" | EstadoSolicitudEntrada>("todos");
   const [almacenFilter, setAlmacenFilter] = useState<string>("todos");
   const [compraFilter, setCompraFilter] = useState<string>("todos");
+  const [origenFilter, setOrigenFilter] = useState<"todos" | OrigenSolicitudEntrada>("todos");
 
   const loadSolicitudes = useCallback(async () => {
     setLoading(true);
@@ -138,6 +142,7 @@ export function useSolicitudesEntradaAlmacen(): UseSolicitudesEntradaAlmacenRetu
       if (estadoFilter !== "todos" && sol.estado !== estadoFilter) return false;
       if (almacenFilter !== "todos" && sol.almacen_id !== almacenFilter) return false;
       if (compraFilter !== "todos" && sol.compra_id !== compraFilter) return false;
+      if (origenFilter !== "todos" && sol.origen !== origenFilter) return false;
       if (!term) return true;
       const index = [
         sol.id,
@@ -155,7 +160,7 @@ export function useSolicitudesEntradaAlmacen(): UseSolicitudesEntradaAlmacenRetu
         .toLowerCase();
       return index.includes(term);
     });
-  }, [solicitudes, searchTerm, estadoFilter, almacenFilter, compraFilter]);
+  }, [solicitudes, searchTerm, estadoFilter, almacenFilter, compraFilter, origenFilter]);
 
   const clearError = useCallback(() => setError(null), []);
 
@@ -175,6 +180,8 @@ export function useSolicitudesEntradaAlmacen(): UseSolicitudesEntradaAlmacenRetu
     setAlmacenFilter,
     compraFilter,
     setCompraFilter,
+    origenFilter,
+    setOrigenFilter,
     loadSolicitudes,
     createSolicitud,
     updateSolicitud,

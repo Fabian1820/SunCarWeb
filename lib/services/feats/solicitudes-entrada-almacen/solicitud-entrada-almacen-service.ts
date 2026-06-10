@@ -6,6 +6,7 @@ import type {
   DenegarSolicitudRequest,
   EstadoSolicitudEntrada,
   MaterialSolicitudEntrada,
+  OrigenSolicitudEntrada,
   SolicitudEntradaAlmacen,
   SolicitudEntradaAlmacenCreateData,
   SplitPool,
@@ -40,6 +41,12 @@ const normalizeEstado = (raw: any): EstadoSolicitudEntrada => {
   return "pendiente";
 };
 
+const normalizeOrigen = (raw: any): OrigenSolicitudEntrada => {
+  const value = String(raw || "").toLowerCase();
+  if (value === "consignacion") return "consignacion";
+  return "compra";
+};
+
 const mapSplit = (raw: any): SplitPool => ({
   indistinto: Number(raw?.indistinto ?? 0),
   instaladora: Number(raw?.instaladora ?? 0),
@@ -57,7 +64,12 @@ const mapMaterial = (raw: any): MaterialSolicitudEntrada => ({
 
 const mapSolicitud = (raw: any): SolicitudEntradaAlmacen => ({
   id: String(raw?.id ?? raw?._id ?? ""),
+  origen: normalizeOrigen(raw?.origen),
   compra_id: String(raw?.compra_id ?? ""),
+  consignacion_id:
+    typeof raw?.consignacion_id === "string" && raw.consignacion_id
+      ? raw.consignacion_id
+      : undefined,
   almacen_id: String(raw?.almacen_id ?? ""),
   materiales: Array.isArray(raw?.materiales) ? raw.materiales.map(mapMaterial) : [],
   estado: normalizeEstado(raw?.estado),
