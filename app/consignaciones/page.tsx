@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, BookmarkCheck } from "lucide-react";
-import { Button } from "@/components/shared/atom/button";
+import { BookmarkCheck } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -16,7 +15,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useConsignaciones } from "@/hooks/use-consignaciones";
 import { ConsignacionesTable } from "@/components/feats/consignaciones/consignaciones-table";
 import { ConsignacionDetailDialog } from "@/components/feats/consignaciones/consignacion-detail-dialog";
-import { CrearConsignacionDialog } from "@/components/feats/consignaciones/crear-consignacion-dialog";
 import { RegistrarDevolucionDialog } from "@/components/feats/consignaciones/registrar-devolucion-dialog";
 import { VincularPagoDialog } from "@/components/feats/consignaciones/vincular-pago-dialog";
 import type {
@@ -32,7 +30,6 @@ export default function ConsignacionesPage() {
     loading,
     error,
     fetchConsignaciones,
-    crearConsignacion,
     vincularPago,
     anular,
     refrescar,
@@ -44,7 +41,6 @@ export default function ConsignacionesPage() {
 
   const [detalle, setDetalle] = useState<Consignacion | null>(null);
   const [openDetalle, setOpenDetalle] = useState(false);
-  const [openCrear, setOpenCrear] = useState(false);
   const [openDevolucion, setOpenDevolucion] = useState(false);
   const [openVincularPago, setOpenVincularPago] = useState(false);
   const [consignacionActiva, setConsignacionActiva] =
@@ -69,16 +65,6 @@ export default function ConsignacionesPage() {
   const handleAbrirVincularPago = (c: Consignacion) => {
     setConsignacionActiva(c);
     setOpenVincularPago(true);
-  };
-
-  const handleCrear = async (data: {
-    solicitud_venta_id: string;
-    moneda?: "USD" | "CUP" | "EUR";
-    pago_inicial_id?: string | null;
-    notas?: string | null;
-  }) => {
-    await crearConsignacion(data);
-    toast({ title: "Consignación creada", description: "Saldo inicializado." });
   };
 
   const handleDevolucionCreada = async (consignacionId: string) => {
@@ -125,21 +111,9 @@ export default function ConsignacionesPage() {
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50">
       <ModuleHeader
         title="Consignaciones"
-        subtitle="Ventas entregadas al cliente sin pago completo"
+        subtitle="Ventas entregadas al cliente sin pago completo. Se crean desde el módulo de pagos marcando el toggle “Consignación”."
         badge={{ text: "Ventas", className: "bg-indigo-100 text-indigo-800" }}
         className="border-b border-indigo-100 bg-white shadow-sm"
-        actions={
-          <Button
-            size="icon"
-            className="h-9 w-9 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-md hover:from-indigo-700 hover:to-indigo-800 sm:h-auto sm:w-auto sm:px-4 sm:py-2"
-            onClick={() => setOpenCrear(true)}
-            aria-label="Nueva consignación"
-            title="Nueva consignación"
-          >
-            <Plus className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Nueva Consignación</span>
-          </Button>
-        }
       />
 
       <main className="content-with-fixed-header mx-auto max-w-[96rem] px-4 py-4 pb-8 sm:px-6 sm:py-8 lg:px-8">
@@ -190,12 +164,6 @@ export default function ConsignacionesPage() {
           handleAbrirDevolucion(c);
         }}
         onAnular={handleAnular}
-      />
-
-      <CrearConsignacionDialog
-        open={openCrear}
-        onOpenChange={setOpenCrear}
-        onSubmit={handleCrear}
       />
 
       <RegistrarDevolucionDialog
