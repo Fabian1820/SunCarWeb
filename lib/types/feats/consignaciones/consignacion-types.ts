@@ -48,11 +48,25 @@ export interface DevolucionConsignacion {
   registrado_por_ci?: string | null;
 }
 
+export interface PagoResumenConsignacion {
+  id: string;
+  monto: number;
+  moneda: string;
+  monto_usd?: number | null;
+  metodo_pago?: string | null;
+  fecha?: string | null;
+  recibido_por?: string | null;
+}
+
 export interface Consignacion {
   id: string;
   solicitud_venta_id: string;
   cliente_venta_id?: string | null;
   almacen_id?: string | null;
+  /** Denormalizado por el backend para evitar mostrar ObjectIds en la UI. */
+  solicitud_codigo?: string | null;
+  cliente_nombre?: string | null;
+  almacen_nombre?: string | null;
   moneda: "USD" | "CUP" | "EUR" | string;
   monto_total: number;
   monto_pagado_efectivo: number;
@@ -62,6 +76,8 @@ export interface Consignacion {
   materiales_entregados: MaterialConsignado[];
   devoluciones: DevolucionConsignacion[];
   pagos_ids: string[];
+  /** Resumen ligero de los pagos vinculados (denormalizado). */
+  pagos?: PagoResumenConsignacion[];
   estado: ConsignacionEstado | string;
   fecha_creacion: string;
   fecha_ultimo_movimiento: string;

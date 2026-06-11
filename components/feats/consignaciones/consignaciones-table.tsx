@@ -187,11 +187,17 @@ export function ConsignacionesTable({
             ) : (
               filtradas.map((c) => (
                 <TableRow key={c.id}>
-                  <TableCell className="font-mono text-xs">
-                    {c.solicitud_venta_id?.slice(-8) ?? "—"}
+                  <TableCell className="text-sm">
+                    {c.solicitud_codigo ?? (
+                      <span className="font-mono text-xs text-gray-400">
+                        #{c.solicitud_venta_id?.slice(-6)}
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="text-sm">
-                    {c.cliente_venta_id?.slice(-8) ?? "—"}
+                    {c.cliente_nombre ?? (
+                      <span className="text-xs text-gray-400">—</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Badge

@@ -80,6 +80,18 @@ export function ConsignacionDetailDialog({
   const c = consignacion;
   const moneda = c.moneda || "USD";
 
+  const materialInfoById: Record<
+    string,
+    { codigo?: string | null; descripcion?: string | null; um?: string | null }
+  > = {};
+  c.materiales_entregados.forEach((m) => {
+    materialInfoById[m.material_id] = {
+      codigo: m.material_codigo,
+      descripcion: m.material_descripcion,
+      um: m.um,
+    };
+  });
+
   const pendientesPorMaterial = c.materiales_entregados.map((m) => {
     const devueltoAcum = c.devoluciones
       .flatMap((d) => d.materiales)
@@ -109,11 +121,29 @@ export function ConsignacionDetailDialog({
             </Badge>
           </DialogTitle>
           <DialogDescription>
-            Solicitud{" "}
-            <span className="font-mono text-xs">
-              {c.solicitud_venta_id}
-            </span>{" "}
-            · Creada {formatDateTime(c.fecha_creacion)}
+            <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
+              <span>
+                <span className="text-gray-500">Solicitud:</span>{" "}
+                <span className="font-medium">
+                  {c.solicitud_codigo ?? `#${c.solicitud_venta_id.slice(-6)}`}
+                </span>
+              </span>
+              {c.cliente_nombre && (
+                <span>
+                  <span className="text-gray-500">Cliente:</span>{" "}
+                  <span className="font-medium">{c.cliente_nombre}</span>
+                </span>
+              )}
+              {c.almacen_nombre && (
+                <span>
+                  <span className="text-gray-500">Almacén:</span>{" "}
+                  <span className="font-medium">{c.almacen_nombre}</span>
+                </span>
+              )}
+              <span className="text-gray-500">
+                Creada {formatDateTime(c.fecha_creacion)}
+              </span>
+            </div>
           </DialogDescription>
         </DialogHeader>
 
@@ -241,7 +271,7 @@ export function ConsignacionDetailDialog({
           </TabsContent>
 
           <TabsContent value="pagos">
-            {c.pagos_ids.length === 0 ? (
+            {(c.pagos ?? []).length === 0 ? (
               <div className="rounded-lg border bg-gray-50 p-6 text-center text-sm text-gray-500">
                 Aún no se ha vinculado ningún pago a esta consignación.
               </div>
@@ -250,20 +280,37 @@ export function ConsignacionDetailDialog({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Pago ID</TableHead>
+                      <TableHead>Fecha</TableHead>
+                      <TableHead>Método</TableHead>
+                      <TableHead>Recibido por</TableHead>
+                      <TableHead className="text-right">Monto</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {c.pagos_ids.map((id) => (
-                      <TableRow key={id}>
-                        <TableCell className="font-mono text-xs">{id}</TableCell>
+                    {(c.pagos ?? []).map((p) => (
+                      <TableRow key={p.id}>
+                        <TableCell className="text-sm">
+                          {p.fecha
+                            ? new Date(p.fecha).toLocaleDateString("es-CU", {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              })
+                            : "—"}
+                        </TableCell>
+                        <TableCell className="text-sm capitalize">
+                          {(p.metodo_pago ?? "—").replace(/_/g, " ")}
+                        </TableCell>
+                        <TableCell className="text-sm text-gray-600">
+                          {p.recibido_por ?? "—"}
+                        </TableCell>
+                        <TableCell className="text-right text-sm font-semibold">
+                          {formatMoney(p.monto, p.moneda)}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
-                <p className="px-3 py-2 text-xs text-gray-500">
-                  El detalle de cada pago se ve en el módulo de Pagos de Ventas.
-                </p>
               </div>
             )}
           </TabsContent>
@@ -315,13 +362,21 @@ export function ConsignacionDetailDialog({
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {d.materiales.map((md, idx) => (
+                        {d.materiales.map((md, idx) => {
+                          const info = materialInfoById[md.material_id];
+                          return (
                           <TableRow key={`${d.id}-${md.material_id}-${idx}`}>
-                            <TableCell className="font-mono text-xs">
-                              {md.material_id.slice(-8)}
+                            <TableCell>
+                              <div className="text-sm font-medium">
+                                {info?.descripcion ?? "—"}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {info?.codigo ?? `#${md.material_id.slice(-6)}`}
+                              </div>
                             </TableCell>
                             <TableCell className="text-right text-sm">
                               {md.cantidad}
+                              {info?.um ? ` ${info.um}` : ""}
                             </TableCell>
                             <TableCell className="text-right text-sm">
                               {formatMoney(
@@ -333,7 +388,8 @@ export function ConsignacionDetailDialog({
                               {formatMoney(md.valor, moneda)}
                             </TableCell>
                           </TableRow>
-                        ))}
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </div>

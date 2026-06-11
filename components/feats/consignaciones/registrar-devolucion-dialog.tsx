@@ -162,10 +162,11 @@ export function RegistrarDevolucionDialog({
         <DialogHeader>
           <DialogTitle>Registrar devolución</DialogTitle>
           <DialogDescription>
-            Se creará una <b>solicitud de entrada al almacén</b> con los
-            materiales que devuelve el cliente. Cuando se apruebe desde el
-            módulo de almacén se actualiza el stock y la devolución se aplica
-            a la consignación (al precio congelado).
+            Indica cuántas unidades devuelve el cliente. Se creará una{" "}
+            <b>solicitud de entrada al almacén</b> con esos materiales. Cuando
+            se apruebe desde el módulo de almacén, el stock vuelve y el saldo
+            de esta consignación baja según el precio que tenía el material
+            cuando se entregó.
           </DialogDescription>
         </DialogHeader>
 
@@ -176,7 +177,7 @@ export function RegistrarDevolucionDialog({
                 <TableHead>Material</TableHead>
                 <TableHead className="text-right">Entregado</TableHead>
                 <TableHead className="text-right">Pendiente</TableHead>
-                <TableHead className="text-right">Precio cong.</TableHead>
+                <TableHead className="text-right">Precio unit.</TableHead>
                 <TableHead className="w-32 text-right">A devolver</TableHead>
               </TableRow>
             </TableHeader>
@@ -189,6 +190,7 @@ export function RegistrarDevolucionDialog({
                     </div>
                     <div className="text-xs text-gray-500">
                       {p.material_codigo}
+                      {p.um && ` · ${p.um}`}
                     </div>
                   </TableCell>
                   <TableCell className="text-right text-sm">
@@ -205,7 +207,7 @@ export function RegistrarDevolucionDialog({
                       type="number"
                       min={0}
                       max={p.pendiente}
-                      step="0.01"
+                      step={1}
                       value={cantidades[p.material_id] ?? ""}
                       onChange={(e) =>
                         setCantidades((prev) => ({
@@ -259,7 +261,7 @@ export function RegistrarDevolucionDialog({
 
         <div className="flex items-center justify-between rounded-lg border bg-purple-50 p-3">
           <span className="text-sm text-purple-700">
-            Valor estimado de la devolución
+            Monto que bajará del saldo pendiente
           </span>
           <span className="text-lg font-semibold text-purple-800">
             {formatMoney(valorTotalPreview, moneda)}

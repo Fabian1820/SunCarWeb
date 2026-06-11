@@ -10,8 +10,7 @@ import {
   DialogTitle,
 } from "@/components/shared/molecule/dialog";
 import { Button } from "@/components/shared/atom/button";
-import { Loader2, AlertCircle, Search } from "lucide-react";
-import { Input } from "@/components/shared/molecule/input";
+import { Loader2, AlertCircle, Info } from "lucide-react";
 import { PagoVentaService } from "@/lib/services/feats/pagos-clientes-ventas/pago-cliente-venta-service";
 import type { Consignacion } from "@/lib/types/feats/consignaciones/consignacion-types";
 import type { PagoVenta } from "@/lib/types/feats/pagos-clientes-ventas/pago-cliente-venta-types";
@@ -22,6 +21,14 @@ interface VincularPagoDialogProps {
   consignacion: Consignacion | null;
   onSubmit: (pagoVentaId: string) => Promise<void>;
 }
+
+const METODO_LABELS: Record<string, string> = {
+  efectivo: "Efectivo",
+  transferencia_bancaria: "Transferencia",
+  stripe: "Stripe",
+  zelle: "Zelle",
+  financiacion: "Financiación",
+};
 
 const formatMoney = (n: number, moneda: string) =>
   new Intl.NumberFormat("es-CU", {
@@ -35,7 +42,7 @@ const formatDate = (iso?: string | null) => {
   try {
     return new Date(iso).toLocaleDateString("es-CU", {
       day: "2-digit",
-      month: "2-digit",
+      month: "short",
       year: "numeric",
     });
   } catch {
@@ -52,7 +59,6 @@ export function VincularPagoDialog({
   const [pagos, setPagos] = useState<PagoVenta[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [manualId, setManualId] = useState("");
   const [submittingId, setSubmittingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -88,7 +94,6 @@ export function VincularPagoDialog({
     try {
       await onSubmit(pagoId);
       onOpenChange(false);
-      setManualId("");
     } catch (e: any) {
       setError(e?.message || "No se pudo vincular el pago");
     } finally {
@@ -96,22 +101,21 @@ export function VincularPagoDialog({
     }
   };
 
-  const pagosVinculables = pagos.filter((p) => !yaVinculados.has(p.id ?? ""));
-
   if (!consignacion) return null;
+
+  const pagosVinculables = pagos.filter((p) => !yaVinculados.has(p.id ?? ""));
+  const todosVinculados =
+    pagos.length > 0 && pagosVinculables.length === 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Vincular pago a consignación</DialogTitle>
+          <DialogTitle>Vincular un pago a esta consignación</DialogTitle>
           <DialogDescription>
-            Selecciona uno de los pagos ya registrados para la solicitud{" "}
-            <span className="font-mono text-xs">
-              {consignacion.solicitud_venta_id}
-            </span>
-            . Si aún no existe, regístralo desde el módulo de Pagos y vuelve
-            aquí.
+            Selecciona el pago que el cliente entregó. Se descontará del saldo
+            pendiente automáticamente. Si todavía no registraste el pago,
+            hazlo primero en el módulo <b>Pagos de Ventas</b> y vuelve aquí.
           </DialogDescription>
         </DialogHeader>
 
@@ -119,14 +123,32 @@ export function VincularPagoDialog({
           <div className="flex justify-center py-6">
             <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
           </div>
-        ) : pagosVinculables.length === 0 && yaVinculados.size === pagos.length ? (
-          <div className="rounded-md border bg-amber-50 p-3 text-sm text-amber-800">
-            Todos los pagos existentes ya están vinculados a esta consignación.
-            Registra un nuevo pago en el módulo de Pagos de Ventas y vuelve.
+        ) : pagos.length === 0 ? (
+          <div className="flex items-start gap-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+            <Info className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <p className="font-medium">
+                Aún no hay pagos registrados para esta solicitud.
+              </p>
+              <p className="mt-1 text-xs">
+                Ve al módulo <b>Pagos de Ventas</b>, registra el pago que
+                entregó el cliente y vuelve aquí — aparecerá en esta lista para
+                vincular en un clic.
+              </p>
+            </div>
           </div>
-        ) : pagosVinculables.length === 0 ? (
-          <div className="rounded-md border bg-gray-50 p-3 text-sm text-gray-600">
-            No hay pagos registrados para esta solicitud.
+        ) : todosVinculados ? (
+          <div className="flex items-start gap-3 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+            <Info className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <p className="font-medium">
+                Todos los pagos de esta solicitud ya están vinculados.
+              </p>
+              <p className="mt-1 text-xs">
+                Si necesitas vincular un pago nuevo, regístralo primero en{" "}
+                <b>Pagos de Ventas</b>.
+              </p>
+            </div>
           </div>
         ) : (
           <div className="space-y-2">
@@ -139,15 +161,15 @@ export function VincularPagoDialog({
                 className="flex w-full items-center justify-between rounded-lg border bg-white p-3 text-left transition hover:border-indigo-300 hover:bg-indigo-50 disabled:opacity-50"
               >
                 <div>
-                  <div className="text-sm font-medium">
-                    {formatMoney(Number(p.monto), p.moneda || "USD")}{" "}
-                    <span className="text-xs text-gray-500">
-                      · {p.metodo_pago}
-                    </span>
+                  <div className="text-sm font-semibold text-gray-800">
+                    {formatMoney(Number(p.monto), p.moneda || "USD")}
                   </div>
-                  <div className="text-xs text-gray-500">
-                    {formatDate(p.fecha)} · ID:{" "}
-                    <span className="font-mono">{p.id}</span>
+                  <div className="mt-0.5 text-xs text-gray-500">
+                    {formatDate(p.fecha)} ·{" "}
+                    {p.metodo_pago
+                      ? METODO_LABELS[p.metodo_pago] ?? p.metodo_pago
+                      : "—"}
+                    {p.recibido_por && ` · recibido por ${p.recibido_por}`}
                   </div>
                 </div>
                 {submittingId === p.id ? (
@@ -161,33 +183,6 @@ export function VincularPagoDialog({
             ))}
           </div>
         )}
-
-        <div className="mt-2 rounded-md border border-dashed border-gray-300 p-3">
-          <div className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">
-            ¿Otro pago? Pegar id manualmente
-          </div>
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <Input
-                value={manualId}
-                onChange={(e) => setManualId(e.target.value)}
-                placeholder="ObjectId del pago"
-                className="pl-8"
-                disabled={!!submittingId}
-              />
-            </div>
-            <Button
-              onClick={() => manualId.trim() && handleVincular(manualId.trim())}
-              disabled={!manualId.trim() || !!submittingId}
-            >
-              {submittingId === manualId.trim() && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              Vincular
-            </Button>
-          </div>
-        </div>
 
         {error && (
           <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 p-2 text-sm text-red-700">
