@@ -66,6 +66,7 @@ export function CrearTrabajadorForm({
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [internalSubmitting, setInternalSubmitting] = useState(false)
   const [asignarContrasena, setAsignarContrasena] = useState(false)
   const { toast } = useToast()
   const [loadingCatalogos, setLoadingCatalogos] = useState(false)
@@ -175,6 +176,8 @@ export function CrearTrabajadorForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    if (internalSubmitting || isSubmitting) return
+
     if (!validateForm()) {
       return
     }
@@ -186,8 +189,15 @@ export function CrearTrabajadorForm({
       departamento_id: formData.departamento_id || null,
     }
 
-    await onSubmit(dataToSubmit)
+    setInternalSubmitting(true)
+    try {
+      await onSubmit(dataToSubmit)
+    } finally {
+      setInternalSubmitting(false)
+    }
   }
+
+  const submitting = internalSubmitting || isSubmitting
 
   const handleCrearSedeRapida = async (payload: SedeUpsertRequest) => {
     setSubmittingCatalogo(true)
@@ -246,7 +256,7 @@ export function CrearTrabajadorForm({
               onChange={(e) => setFormData({ ...formData, ci: e.target.value })}
               placeholder="02091968281"
               maxLength={11}
-              disabled={isSubmitting}
+              disabled={submitting}
               className={errors.ci ? "border-red-500" : ""}
             />
             {errors.ci && <p className="text-red-600 text-sm mt-1">{errors.ci}</p>}
@@ -260,7 +270,7 @@ export function CrearTrabajadorForm({
               value={formData.nombre}
               onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
               placeholder="Juan Pérez García"
-              disabled={isSubmitting}
+              disabled={submitting}
               className={errors.nombre ? "border-red-500" : ""}
             />
             {errors.nombre && <p className="text-red-600 text-sm mt-1">{errors.nombre}</p>}
@@ -274,7 +284,7 @@ export function CrearTrabajadorForm({
               value={formData.cargo}
               onChange={(e) => setFormData({ ...formData, cargo: e.target.value })}
               placeholder="Técnico"
-              disabled={isSubmitting}
+              disabled={submitting}
             />
           </div>
 
@@ -286,7 +296,7 @@ export function CrearTrabajadorForm({
               value={formData.telefono || ""}
               onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
               placeholder="Ej: 53412345"
-              disabled={isSubmitting}
+              disabled={submitting}
             />
           </div>
 
@@ -299,7 +309,7 @@ export function CrearTrabajadorForm({
                   size="icon"
                   variant="outline"
                   onClick={() => setIsSedeRapidaOpen(true)}
-                  disabled={isSubmitting || submittingCatalogo}
+                  disabled={submitting || submittingCatalogo}
                   aria-label="Crear sede rápida"
                   title="Crear sede rápida"
                   className="h-7 w-7"
@@ -315,7 +325,7 @@ export function CrearTrabajadorForm({
                     sede_id: value === NONE_OPTION ? null : value,
                   }))
                 }
-                disabled={isSubmitting || loadingCatalogos}
+                disabled={submitting || loadingCatalogos}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Sin sede" />
@@ -345,7 +355,7 @@ export function CrearTrabajadorForm({
                   size="icon"
                   variant="outline"
                   onClick={() => setIsDepartamentoRapidoOpen(true)}
-                  disabled={isSubmitting || submittingCatalogo}
+                  disabled={submitting || submittingCatalogo}
                   aria-label="Crear departamento rápido"
                   title="Crear departamento rápido"
                   className="h-7 w-7"
@@ -361,7 +371,7 @@ export function CrearTrabajadorForm({
                     departamento_id: value === NONE_OPTION ? null : value,
                   }))
                 }
-                disabled={isSubmitting || loadingCatalogos}
+                disabled={submitting || loadingCatalogos}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Sin departamento" />
@@ -393,7 +403,7 @@ export function CrearTrabajadorForm({
               onCheckedChange={(checked) =>
                 setFormData({ ...formData, is_brigadista: checked as boolean })
               }
-              disabled={isSubmitting}
+              disabled={submitting}
             />
             <Label htmlFor="is_brigadista" className="font-normal cursor-pointer">
               Es brigadista (puede asignarse a brigadas)
@@ -410,7 +420,7 @@ export function CrearTrabajadorForm({
                   setFormData({ ...formData, contrasena: undefined })
                 }
               }}
-              disabled={isSubmitting}
+              disabled={submitting}
             />
             <Label htmlFor="asignar_contrasena" className="font-normal cursor-pointer">
               Asignar contraseña (para jefe de brigada)
@@ -426,7 +436,7 @@ export function CrearTrabajadorForm({
                 value={formData.contrasena || ""}
                 onChange={(e) => setFormData({ ...formData, contrasena: e.target.value })}
                 placeholder="Mínimo 4 caracteres"
-                disabled={isSubmitting}
+                disabled={submitting}
                 className={errors.contrasena ? "border-red-500" : ""}
               />
               {errors.contrasena && <p className="text-red-600 text-sm mt-1">{errors.contrasena}</p>}
@@ -447,7 +457,7 @@ export function CrearTrabajadorForm({
                 onChange={(e) => setFormData({ ...formData, salario_fijo: parseFloat(e.target.value) || 0 })}
                 min={0}
                 step={1000}
-                disabled={isSubmitting}
+                disabled={submitting}
               />
             </div>
 
@@ -460,7 +470,7 @@ export function CrearTrabajadorForm({
                 onChange={(e) => setFormData({ ...formData, alimentacion: parseFloat(e.target.value) || 0 })}
                 min={0}
                 step={100}
-                disabled={isSubmitting}
+                disabled={submitting}
               />
             </div>
 
@@ -474,7 +484,7 @@ export function CrearTrabajadorForm({
                 min={0}
                 max={100}
                 step={1}
-                disabled={isSubmitting}
+                disabled={submitting}
                 className={errors.porcentaje_fijo_estimulo ? "border-red-500" : ""}
               />
               {errors.porcentaje_fijo_estimulo && <p className="text-red-600 text-sm mt-1">{errors.porcentaje_fijo_estimulo}</p>}
@@ -490,7 +500,7 @@ export function CrearTrabajadorForm({
                 min={0}
                 max={100}
                 step={1}
-                disabled={isSubmitting}
+                disabled={submitting}
                 className={errors.porcentaje_variable_estimulo ? "border-red-500" : ""}
               />
               {errors.porcentaje_variable_estimulo && <p className="text-red-600 text-sm mt-1">{errors.porcentaje_variable_estimulo}</p>}
@@ -506,7 +516,7 @@ export function CrearTrabajadorForm({
                 min={1}
                 max={31}
                 step={1}
-                disabled={isSubmitting}
+                disabled={submitting}
                 className={errors.dias_trabajables ? "border-red-500" : ""}
               />
               {errors.dias_trabajables && <p className="text-red-600 text-sm mt-1">{errors.dias_trabajables}</p>}
@@ -519,16 +529,16 @@ export function CrearTrabajadorForm({
             type="button"
             variant="outline"
             onClick={onCancel}
-            disabled={isSubmitting}
+            disabled={submitting}
           >
             Cancelar
           </Button>
           <Button
             type="submit"
-            disabled={isSubmitting}
+            disabled={submitting}
             className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800"
           >
-            {isSubmitting ? "Creando..." : "Crear Trabajador"}
+            {submitting ? "Creando..." : "Crear Trabajador"}
           </Button>
         </div>
       </form>
