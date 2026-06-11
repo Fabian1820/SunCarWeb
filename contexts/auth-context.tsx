@@ -187,9 +187,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const hasPermission = (module: string): boolean => {
     if (!user) return false
     if (user.is_superAdmin && module !== 'permisos') return true
-    // Acceso exacto O acceso a cualquier sub-módulo (ej: "facturas/vales-facturas-ventas" → permite ver "facturas")
-    return modulosPermitidos.includes(module) ||
-      modulosPermitidos.some(p => p.startsWith(module + "/"))
+    if (modulosPermitidos.includes(module)) return true
+    // Sub-permiso (ej: "almacenes-suncar/admin"): si el padre tiene acceso completo, el sub también
+    const slashIdx = module.indexOf('/')
+    if (slashIdx !== -1 && modulosPermitidos.includes(module.slice(0, slashIdx))) return true
+    // Acceso inverso: sub-módulo asignado implica acceso al módulo padre (ej: "facturas/vales" → "facturas")
+    return modulosPermitidos.some(p => p.startsWith(module + "/"))
   }
 
   // Verifica si el usuario puede acceder a un sub-módulo específico.
