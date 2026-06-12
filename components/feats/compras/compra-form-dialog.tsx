@@ -367,16 +367,7 @@ export function CompraFormDialog({
         pagado,
         datos_maritimo: buildDatosMaritimo(),
         materiales: materialesBloqueados
-          ? (initialData?.materiales.map((m) => ({
-              material_id: m.material_id,
-              material_codigo: m.material_codigo,
-              material_nombre: m.material_nombre,
-              cantidad: m.cantidad,
-              precio_unitario_cif: m.precio_unitario_cif,
-              porciento_recargo: m.porciento_recargo,
-              costo: m.costo,
-              porciento_rebajable_venta: m.porciento_rebajable_venta,
-            })) ?? [])
+          ? undefined
           : matList.map((m) => ({
               material_id: m.material_id,
               material_codigo: m.material_codigo,
