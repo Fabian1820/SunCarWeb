@@ -206,6 +206,22 @@ export interface AjustarCostoResponse {
   costos_catalogo_propagados: Record<string, number | null>;
 }
 
+export interface SincronizarCostosRequest {
+  material_ids?: string[];
+}
+
+export interface SincronizarCostosResponse {
+  /** Entradas kardex pendientes que se regularizaron (primera ponderación) */
+  ponderados: number;
+  /** Materiales ya regularizados cuyo costo cambió y se creó un ajuste */
+  ajustados: number;
+  /** Materiales ya regularizados con el mismo costo — sin cambio */
+  sin_cambio: number;
+  sin_costo_ficha: string[];
+  sin_kardex: string[];
+  costos_catalogo_propagados: Record<string, number | null>;
+}
+
 export interface StockMaterialCompra {
   material_id: string;
   material_codigo: string;

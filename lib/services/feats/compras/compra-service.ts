@@ -5,6 +5,8 @@ import type {
   AjustarCostoRequest,
   AjustarCostoResponse,
   AplicarPreciosMaterialPayload,
+  SincronizarCostosRequest,
+  SincronizarCostosResponse,
   ArchivoCompra,
   CancelarCompraRequest,
   Compra,
@@ -334,6 +336,33 @@ export class CompraService {
       sin_kardex: Array.isArray(data?.sin_kardex)
         ? data.sin_kardex.map(String)
         : [],
+      costos_catalogo_propagados: costosCatalogo,
+    };
+  }
+
+  static async sincronizarCostos(
+    compraId: string,
+    payload: SincronizarCostosRequest = {},
+  ): Promise<SincronizarCostosResponse> {
+    const raw = await apiRequest<any>(
+      `${BASE_ENDPOINT}/${encodeURIComponent(compraId)}/sincronizar-costos`,
+      { method: "POST", body: JSON.stringify(payload) },
+    );
+    const error = extractApiError(raw);
+    if (error) throw new Error(error);
+    const data = unwrapPayload(raw) ?? {};
+    const costosCatalogo: Record<string, number | null> = {};
+    if (data?.costos_catalogo_propagados && typeof data.costos_catalogo_propagados === "object") {
+      for (const [matId, val] of Object.entries(data.costos_catalogo_propagados as Record<string, unknown>)) {
+        costosCatalogo[matId] = val == null ? null : Number(val);
+      }
+    }
+    return {
+      ponderados: Number(data?.ponderados ?? 0),
+      ajustados: Number(data?.ajustados ?? 0),
+      sin_cambio: Number(data?.sin_cambio ?? 0),
+      sin_costo_ficha: Array.isArray(data?.sin_costo_ficha) ? data.sin_costo_ficha.map(String) : [],
+      sin_kardex: Array.isArray(data?.sin_kardex) ? data.sin_kardex.map(String) : [],
       costos_catalogo_propagados: costosCatalogo,
     };
   }

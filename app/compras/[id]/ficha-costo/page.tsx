@@ -121,6 +121,7 @@ function FichaCostoContent() {
   const [savingBorrador, setSavingBorrador] = useState(false);
   const [ponderando, setPonderando] = useState(false);
   const [ajustando, setAjustando] = useState(false);
+  const [sincronizando, setSincronizando] = useState(false);
   const [costosCollapsed, setCostosCollapsed] = useState(false);
 
   // ── costos de importación ──
@@ -803,6 +804,68 @@ function FichaCostoContent() {
     }
   };
 
+  /**
+   * Sincronizar costos: acción inteligente única que por dentro hace:
+   *  - Ponderar para materiales con entradas kardex pendientes (primera vez o parciales)
+   *  - Ajustar para materiales ya ponderados cuyo costo cambió
+   *  - Nada para materiales ya ponderados con el mismo costo
+   */
+  const handleSincronizarCostos = async () => {
+    if (filas.length === 0) {
+      toast({ title: "Sin materiales", description: "No hay materiales en esta compra.", variant: "destructive" });
+      return;
+    }
+    if (!confirm(
+      "Se guardará la ficha y se actualizará el kardex: los materiales con entradas pendientes serán ponderados, y los ya ponderados con costos distintos recibirán un ajuste. ¿Continuar?",
+    )) return;
+    setSincronizando(true);
+    try {
+      try {
+        await guardarFichaInterno();
+      } catch (err) {
+        toast({
+          title: "No se pudo guardar la ficha",
+          description: err instanceof Error ? err.message : "Error desconocido. Se aborta la sincronización.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const r = await CompraService.sincronizarCostos(envioId);
+
+      const propagados = r.costos_catalogo_propagados;
+      if (Object.keys(propagados).length > 0) {
+        setFilas((prev) =>
+          prev.map((f) => {
+            const nuevo = propagados[f.material_id];
+            if (nuevo == null) return f;
+            return { ...f, costo_actual: nuevo };
+          }),
+        );
+      }
+
+      const partes: string[] = [];
+      if (r.ponderados > 0) partes.push(`${r.ponderados} ponderado${r.ponderados !== 1 ? "s" : ""}`);
+      if (r.ajustados > 0) partes.push(`${r.ajustados} ajustado${r.ajustados !== 1 ? "s" : ""}`);
+      if (r.sin_cambio > 0) partes.push(`${r.sin_cambio} sin cambio`);
+      if (r.sin_costo_ficha.length > 0) partes.push(`${r.sin_costo_ficha.length} sin CIF`);
+
+      const totalActualizados = r.ponderados + r.ajustados;
+      toast({
+        title: totalActualizados > 0 ? "Costos actualizados" : "Sin cambios",
+        description: partes.length > 0 ? partes.join(" · ") + "." : "Todos los materiales ya tienen el costo correcto.",
+      });
+    } catch (err) {
+      toast({
+        title: "Error al sincronizar costos",
+        description: err instanceof Error ? err.message : "Error desconocido",
+        variant: "destructive",
+      });
+    } finally {
+      setSincronizando(false);
+    }
+  };
+
   // ─── render ───────────────────────────────────────────────────────────────
 
   if (loadingEnvio) return <PageLoader moduleName="Ficha de Costo" text="Cargando ficha de costo..." />;
@@ -855,29 +918,40 @@ function FichaCostoContent() {
             </div>
 
             <div className="flex items-center gap-2 shrink-0 flex-wrap">
+              {/* Botón principal: inteligente — ponderar + ajustar según estado de cada material */}
+              <Button
+                size="sm"
+                onClick={handleSincronizarCostos}
+                disabled={sincronizando || ponderando || ajustando || savingBorrador || saving}
+                className="gap-1.5 bg-violet-600 hover:bg-violet-700 text-white"
+                title="Actualiza el kardex de forma inteligente: pondera los materiales con entradas pendientes y ajusta los que ya fueron ponderados si su costo cambió."
+              >
+                {sincronizando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Calculator className="h-3.5 w-3.5" />}
+                <span className="hidden lg:inline">Actualizar costos</span>
+                <span className="lg:hidden">Actualizar</span>
+              </Button>
+              {/* Acciones individuales (avanzado) */}
               <Button
                 size="sm"
                 variant="outline"
                 onClick={handlePonderarCosto}
-                disabled={ponderando || ajustando || savingBorrador || saving}
-                className="gap-1.5 border-violet-300 text-violet-700 hover:bg-violet-50"
-                title="Aplica el costo de la ficha a las entradas PENDIENTES del kardex (primera vez que se pondera esta compra). Guarda la ficha primero."
+                disabled={ponderando || sincronizando || ajustando || savingBorrador || saving}
+                className="gap-1.5 border-violet-200 text-violet-600 hover:bg-violet-50"
+                title="Solo pondera entradas kardex pendientes (materiales sin CIF previo). Usa 'Actualizar costos' para el caso habitual."
               >
                 {ponderando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Calculator className="h-3.5 w-3.5" />}
-                <span className="hidden lg:inline">Ponderar costo</span>
-                <span className="lg:hidden">Ponderar</span>
+                <span className="hidden xl:inline">Ponderar</span>
               </Button>
               <Button
                 size="sm"
                 variant="outline"
                 onClick={handleAjustarCosto}
-                disabled={ajustando || ponderando || savingBorrador || saving}
-                className="gap-1.5 border-amber-300 text-amber-700 hover:bg-amber-50"
-                title="Ajusta el costo en el kardex para materiales ya ponderados. Úsalo cuando agregas costos adicionales (flete, aduana, etc.) después de la primera ponderación."
+                disabled={ajustando || sincronizando || ponderando || savingBorrador || saving}
+                className="gap-1.5 border-amber-200 text-amber-600 hover:bg-amber-50"
+                title="Solo ajusta materiales ya ponderados cuyo costo cambió. Usa 'Actualizar costos' para el caso habitual."
               >
                 {ajustando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                <span className="hidden lg:inline">Ajustar costo</span>
-                <span className="lg:hidden">Ajustar</span>
+                <span className="hidden xl:inline">Ajustar</span>
               </Button>
               <Button
                 size="sm"
