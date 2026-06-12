@@ -106,12 +106,11 @@ function CampoEditable({ label, value, onSave, type = "text", placeholder = "—
           </button>
         </div>
       ) : (
-        <div className="flex items-center gap-1.5">
-          <p className="text-sm text-gray-800 flex-1">{value || <span className="text-gray-400">{placeholder}</span>}</p>
-          <button onClick={() => { setDraft(value); setEditing(true) }}
-            className="opacity-0 group-hover:opacity-100 h-6 w-6 rounded-md hover:bg-gray-100 flex items-center justify-center text-gray-400 transition-all shrink-0">
+        <div className="flex items-center gap-1.5 cursor-pointer" onClick={() => { setDraft(value); setEditing(true) }}>
+          <p className="text-sm text-gray-800 flex-1 hover:text-[#012928]">{value || <span className="text-gray-400">{placeholder}</span>}</p>
+          <span className="opacity-0 group-hover:opacity-100 h-6 w-6 rounded-md hover:bg-gray-100 flex items-center justify-center text-gray-400 transition-all shrink-0">
             <Pencil className="h-3 w-3" />
-          </button>
+          </span>
         </div>
       )}
     </div>
