@@ -112,6 +112,11 @@ export function useSolicitudesEntradaAlmacen(): UseSolicitudesEntradaAlmacenRetu
       setSolicitudes((prev) => prev.map((s) => (s.id === id ? updated : s)));
       return updated;
     } catch (err) {
+      // Errores estructurados (ej. pendiente_costeo): re-lanzar sin envolver
+      // para que el componente receptor pueda detectar sus propiedades extra.
+      if (err && typeof err === "object" && (err as any).isPendienteCosteo) {
+        throw err;
+      }
       const message = err instanceof Error ? err.message : "No se pudo aprobar la solicitud";
       setError(message);
       throw new Error(message);
