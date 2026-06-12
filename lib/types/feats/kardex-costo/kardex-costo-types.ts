@@ -12,6 +12,10 @@ export interface KardexCosto {
   costo_entrada: number;
   cantidad_nueva: number;
   costo_nuevo: number;
+  /** "entrada" | "regularizacion" | "ajuste_costo" */
+  tipo?: string;
+  pendiente_costeo?: boolean;
+  regularizada_por?: string;
   registrado_por_ci?: string;
   nota?: string;
 }
