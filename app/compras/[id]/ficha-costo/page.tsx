@@ -120,6 +120,7 @@ function FichaCostoContent() {
   const [saving, setSaving] = useState(false);
   const [savingBorrador, setSavingBorrador] = useState(false);
   const [ponderando, setPonderando] = useState(false);
+  const [ajustando, setAjustando] = useState(false);
   const [costosCollapsed, setCostosCollapsed] = useState(false);
 
   // ── costos de importación ──
@@ -741,6 +742,67 @@ function FichaCostoContent() {
     }
   };
 
+  const handleAjustarCosto = async () => {
+    if (filas.length === 0) {
+      toast({ title: "Sin materiales", description: "No hay materiales en esta compra.", variant: "destructive" });
+      return;
+    }
+    if (!confirm(
+      "Se guardará la ficha actual y luego se creará un ajuste de costo en el kardex para reflejar los costos adicionales agregados. Las cantidades en almacén no se modifican. ¿Continuar?",
+    )) return;
+    setAjustando(true);
+    try {
+      try {
+        await guardarFichaInterno();
+      } catch (err) {
+        toast({
+          title: "No se pudo guardar la ficha antes de ajustar",
+          description: err instanceof Error ? err.message : "Error desconocido. Se aborta el ajuste.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const r = await CompraService.ajustarCosto(envioId);
+
+      const propagados = r.costos_catalogo_propagados;
+      if (Object.keys(propagados).length > 0) {
+        setFilas((prev) =>
+          prev.map((f) => {
+            const nuevo = propagados[f.material_id];
+            if (nuevo == null) return f;
+            return { ...f, costo_actual: nuevo };
+          }),
+        );
+      }
+
+      const partes: string[] = ["Ficha guardada"];
+      if (r.actualizados > 0) {
+        partes.push(`${r.actualizados} material${r.actualizados !== 1 ? "es" : ""} ajustado${r.actualizados !== 1 ? "s" : ""} en kardex`);
+      } else {
+        partes.push("sin materiales para ajustar");
+      }
+      if (r.sin_costo_ficha.length > 0) {
+        partes.push(`${r.sin_costo_ficha.length} material${r.sin_costo_ficha.length !== 1 ? "es" : ""} sin costo en ficha`);
+      }
+      if (r.sin_kardex.length > 0) {
+        partes.push(`${r.sin_kardex.length} sin kardex previo`);
+      }
+      toast({
+        title: "Costos ajustados",
+        description: partes.join(" · ") + ".",
+      });
+    } catch (err) {
+      toast({
+        title: "Error al ajustar costo",
+        description: err instanceof Error ? err.message : "Error desconocido",
+        variant: "destructive",
+      });
+    } finally {
+      setAjustando(false);
+    }
+  };
+
   // ─── render ───────────────────────────────────────────────────────────────
 
   if (loadingEnvio) return <PageLoader moduleName="Ficha de Costo" text="Cargando ficha de costo..." />;
@@ -797,13 +859,25 @@ function FichaCostoContent() {
                 size="sm"
                 variant="outline"
                 onClick={handlePonderarCosto}
-                disabled={ponderando || savingBorrador || saving}
+                disabled={ponderando || ajustando || savingBorrador || saving}
                 className="gap-1.5 border-violet-300 text-violet-700 hover:bg-violet-50"
-                title="Aplica el costo de la ficha a las entradas pendientes del kardex y actualiza el costo del catálogo con el promedio global de todos los almacenes. Guarda la ficha primero."
+                title="Aplica el costo de la ficha a las entradas PENDIENTES del kardex (primera vez que se pondera esta compra). Guarda la ficha primero."
               >
                 {ponderando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Calculator className="h-3.5 w-3.5" />}
                 <span className="hidden lg:inline">Ponderar costo</span>
                 <span className="lg:hidden">Ponderar</span>
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleAjustarCosto}
+                disabled={ajustando || ponderando || savingBorrador || saving}
+                className="gap-1.5 border-amber-300 text-amber-700 hover:bg-amber-50"
+                title="Ajusta el costo en el kardex para materiales ya ponderados. Úsalo cuando agregas costos adicionales (flete, aduana, etc.) después de la primera ponderación."
+              >
+                {ajustando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                <span className="hidden lg:inline">Ajustar costo</span>
+                <span className="lg:hidden">Ajustar</span>
               </Button>
               <Button
                 size="sm"

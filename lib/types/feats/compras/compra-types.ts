@@ -194,6 +194,18 @@ export interface PonderarCostoResponse {
   costos_catalogo_propagados: Record<string, number | null>;
 }
 
+export interface AjustarCostoRequest {
+  material_ids?: string[];
+}
+
+export interface AjustarCostoResponse {
+  actualizados: number;
+  kardex_ajustados: string[];
+  sin_costo_ficha: string[];
+  sin_kardex: string[];
+  costos_catalogo_propagados: Record<string, number | null>;
+}
+
 export interface StockMaterialCompra {
   material_id: string;
   material_codigo: string;

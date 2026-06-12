@@ -2,6 +2,8 @@
 
 import { apiRequest } from "../../../api-config";
 import type {
+  AjustarCostoRequest,
+  AjustarCostoResponse,
   AplicarPreciosMaterialPayload,
   ArchivoCompra,
   CancelarCompraRequest,
@@ -296,6 +298,41 @@ export class CompraService {
         : [],
       no_aplicables: Array.isArray(data?.no_aplicables)
         ? data.no_aplicables.map(String)
+        : [],
+      costos_catalogo_propagados: costosCatalogo,
+    };
+  }
+
+  static async ajustarCosto(
+    compraId: string,
+    payload: AjustarCostoRequest = {},
+  ): Promise<AjustarCostoResponse> {
+    const raw = await apiRequest<any>(
+      `${BASE_ENDPOINT}/${encodeURIComponent(compraId)}/ajustar-costo`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    );
+    const error = extractApiError(raw);
+    if (error) throw new Error(error);
+    const data = unwrapPayload(raw) ?? {};
+    const costosCatalogo: Record<string, number | null> = {};
+    if (data?.costos_catalogo_propagados && typeof data.costos_catalogo_propagados === "object") {
+      for (const [matId, val] of Object.entries(data.costos_catalogo_propagados as Record<string, unknown>)) {
+        costosCatalogo[matId] = val == null ? null : Number(val);
+      }
+    }
+    return {
+      actualizados: Number(data?.actualizados ?? 0),
+      kardex_ajustados: Array.isArray(data?.kardex_ajustados)
+        ? data.kardex_ajustados.map(String)
+        : [],
+      sin_costo_ficha: Array.isArray(data?.sin_costo_ficha)
+        ? data.sin_costo_ficha.map(String)
+        : [],
+      sin_kardex: Array.isArray(data?.sin_kardex)
+        ? data.sin_kardex.map(String)
         : [],
       costos_catalogo_propagados: costosCatalogo,
     };
