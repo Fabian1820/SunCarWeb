@@ -51,8 +51,8 @@ export function useCompras(): UseComprasReturn {
       const data = await CompraService.getCompras();
       setCompras(
         [...data].sort((a, b) => {
-          const dateA = new Date(a.fecha_envio || 0).getTime();
-          const dateB = new Date(b.fecha_envio || 0).getTime();
+          const dateA = new Date(a.fecha_llegada_aproximada || a.fecha_envio || 0).getTime();
+          const dateB = new Date(b.fecha_llegada_aproximada || b.fecha_envio || 0).getTime();
           return dateB - dateA;
         }),
       );
