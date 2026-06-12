@@ -918,40 +918,16 @@ function FichaCostoContent() {
             </div>
 
             <div className="flex items-center gap-2 shrink-0 flex-wrap">
-              {/* Botón principal: inteligente — ponderar + ajustar según estado de cada material */}
               <Button
                 size="sm"
                 onClick={handleSincronizarCostos}
-                disabled={sincronizando || ponderando || ajustando || savingBorrador || saving}
+                disabled={sincronizando || savingBorrador || saving}
                 className="gap-1.5 bg-violet-600 hover:bg-violet-700 text-white"
-                title="Actualiza el kardex de forma inteligente: pondera los materiales con entradas pendientes y ajusta los que ya fueron ponderados si su costo cambió."
+                title="Guarda la ficha y actualiza el kardex: pondera materiales pendientes y ajusta los ya ponderados si el costo cambió."
               >
                 {sincronizando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Calculator className="h-3.5 w-3.5" />}
                 <span className="hidden lg:inline">Actualizar costos</span>
                 <span className="lg:hidden">Actualizar</span>
-              </Button>
-              {/* Acciones individuales (avanzado) */}
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handlePonderarCosto}
-                disabled={ponderando || sincronizando || ajustando || savingBorrador || saving}
-                className="gap-1.5 border-violet-200 text-violet-600 hover:bg-violet-50"
-                title="Solo pondera entradas kardex pendientes (materiales sin CIF previo). Usa 'Actualizar costos' para el caso habitual."
-              >
-                {ponderando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Calculator className="h-3.5 w-3.5" />}
-                <span className="hidden xl:inline">Ponderar</span>
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleAjustarCosto}
-                disabled={ajustando || sincronizando || ponderando || savingBorrador || saving}
-                className="gap-1.5 border-amber-200 text-amber-600 hover:bg-amber-50"
-                title="Solo ajusta materiales ya ponderados cuyo costo cambió. Usa 'Actualizar costos' para el caso habitual."
-              >
-                {ajustando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                <span className="hidden xl:inline">Ajustar</span>
               </Button>
               <Button
                 size="sm"
