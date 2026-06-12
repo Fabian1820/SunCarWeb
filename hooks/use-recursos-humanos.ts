@@ -99,9 +99,9 @@ export function useRecursosHumanos() {
           typeof valor,
         );
 
-        if (campo === "nombre" || campo === "cargo") {
-          const ok = await TrabajadorService.actualizarTrabajador(ci, { [campo]: valor });
-          if (!ok) throw new Error(`El backend no confirmó la actualización de ${campo}.`);
+        if (campo === "nombre") {
+          const ok = await TrabajadorService.actualizarTrabajador(ci, { nombre: valor });
+          if (!ok) throw new Error(`El backend no confirmó la actualización de nombre.`);
         } else if (campo === "activo") {
           const ok = await TrabajadorService.actualizarEstadoTrabajador(ci, valor);
           if (!ok) throw new Error("El backend no confirmó el cambio de estado.");
