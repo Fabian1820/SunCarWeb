@@ -369,13 +369,19 @@ export async function apiRequest<T>(
     if (!response.ok) {
 
       // Para errores 400 (Bad Request), devolver la respuesta como error estructurado
-      // en lugar de lanzar excepciÃ³n para evitar el overlay de Next.js
+      // en lugar de lanzar excepción para evitar el overlay de Next.js.
+      // Si el backend devuelve detail como objeto (ej. errores estructurados como
+      // pendiente_costeo), se preserva para que los servicios puedan inspeccionarlo.
       if (response.status === 400) {
+        const originalDetail = dataRecord?.detail;
         return {
           success: false,
+          ...(originalDetail && typeof originalDetail === "object"
+            ? { detail: originalDetail }
+            : {}),
           error: {
             code: "BAD_REQUEST",
-            title: "Error de ValidaciÃ³n",
+            title: "Error de Validación",
             message: dataDetail || dataMessage || "Error en la solicitud",
           },
         } as T;
