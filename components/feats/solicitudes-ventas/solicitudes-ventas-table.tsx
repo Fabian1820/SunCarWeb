@@ -127,12 +127,22 @@ export function SolicitudesVentasTable({
                 className="border-b border-gray-100 hover:bg-gray-50"
               >
                 <td className="py-4 px-4">
-                  <Badge
-                    variant="outline"
-                    className="bg-indigo-50 text-indigo-700 border-indigo-200 font-mono"
-                  >
-                    {solicitud.codigo || solicitud.id.slice(-6).toUpperCase()}
-                  </Badge>
+                  <div className="flex flex-col gap-1">
+                    <Badge
+                      variant="outline"
+                      className="bg-indigo-50 text-indigo-700 border-indigo-200 font-mono w-fit"
+                    >
+                      {solicitud.codigo || solicitud.id.slice(-6).toUpperCase()}
+                    </Badge>
+                    {(solicitud as { es_consignacion?: boolean }).es_consignacion && (
+                      <Badge
+                        variant="outline"
+                        className="bg-purple-50 text-purple-700 border-purple-200 text-xs w-fit"
+                      >
+                        Consignación
+                      </Badge>
+                    )}
+                  </div>
                 </td>
                 <td className="py-4 px-4">
                   <Badge

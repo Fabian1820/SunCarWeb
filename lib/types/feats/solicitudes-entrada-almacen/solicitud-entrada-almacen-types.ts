@@ -91,6 +91,15 @@ export interface DenegarSolicitudRequest {
   motivo: string;
 }
 
+/** Material que bloquea la aprobación por tener una entrada kardex pendiente de costeo */
+export interface PendienteCosteoMaterial {
+  material_id: string;
+  material_codigo: string;
+  material_nombre: string;
+  compra_id: string | null;
+  compra_nombre: string;
+}
+
 export const SOLICITUD_ENTRADA_ESTADO_LABELS: Record<EstadoSolicitudEntrada, string> = {
   pendiente: "Pendiente",
   aprobada: "Aprobada",

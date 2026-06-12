@@ -87,6 +87,8 @@ export interface SolicitudVenta {
   pagos_ids?: string[];
   es_a_plazos?: boolean;
   plan_pagos?: PagoProgramado[];
+  /** Si true, la deuda la gestiona el módulo Consignaciones. */
+  es_consignacion?: boolean;
   fecha_creacion?: string;
   fecha_actualizacion?: string;
 }
@@ -214,6 +216,8 @@ export interface SolicitudVentaSummary {
   monto_pendiente?: number | null;
   pagada_totalmente?: boolean;
   descuento_porcentaje?: number | null;
+  /** Si true, la deuda la gestiona el módulo Consignaciones. */
+  es_consignacion?: boolean;
   fecha_creacion?: string;
 }
 

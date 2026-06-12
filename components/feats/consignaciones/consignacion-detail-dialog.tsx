@@ -23,8 +23,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/shared/molecule/table";
-import { CreditCard, PackageOpen, Ban } from "lucide-react";
-import type { Consignacion } from "@/lib/types/feats/consignaciones/consignacion-types";
+import { CreditCard, PackageOpen, Ban, FileText, Receipt } from "lucide-react";
+import type {
+  Consignacion,
+  PagoResumenConsignacion,
+} from "@/lib/types/feats/consignaciones/consignacion-types";
 import {
   CONSIGNACION_ESTADO_BADGE_CLASSES,
   CONSIGNACION_ESTADO_LABELS,
@@ -37,6 +40,7 @@ interface ConsignacionDetailDialogProps {
   onRegistrarPago?: (c: Consignacion) => void;
   onRegistrarDevolucion?: (c: Consignacion) => void;
   onAnular?: (c: Consignacion) => void;
+  onEmitirFactura?: (c: Consignacion, pago: PagoResumenConsignacion) => void;
 }
 
 const formatMoney = (n: number, moneda: string) =>
@@ -74,6 +78,7 @@ export function ConsignacionDetailDialog({
   onRegistrarPago,
   onRegistrarDevolucion,
   onAnular,
+  onEmitirFactura,
 }: ConsignacionDetailDialogProps) {
   if (!consignacion) return null;
 
@@ -179,37 +184,31 @@ export function ConsignacionDetailDialog({
           </div>
         </div>
 
-        {isAbierta(c.estado) && (
-          <div className="flex flex-wrap gap-2">
-            {onRegistrarPago && (
-              <Button size="sm" onClick={() => onRegistrarPago(c)}>
-                <CreditCard className="mr-2 h-4 w-4" />
-                Vincular pago
-              </Button>
-            )}
-            {onRegistrarDevolucion && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onRegistrarDevolucion(c)}
-              >
-                <PackageOpen className="mr-2 h-4 w-4" />
-                Registrar devolución
-              </Button>
-            )}
-            {onAnular && (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="text-red-600 hover:bg-red-50 hover:text-red-700"
-                onClick={() => onAnular(c)}
-              >
-                <Ban className="mr-2 h-4 w-4" />
-                Anular
-              </Button>
-            )}
-          </div>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {isAbierta(c.estado) && onRegistrarPago && (
+            <Button size="sm" onClick={() => onRegistrarPago(c)}>
+              <CreditCard className="mr-2 h-4 w-4" />
+              Registrar pago
+            </Button>
+          )}
+          {isAbierta(c.estado) && onRegistrarDevolucion && (
+            <Button size="sm" variant="outline" onClick={() => onRegistrarDevolucion(c)}>
+              <PackageOpen className="mr-2 h-4 w-4" />
+              Registrar devolución
+            </Button>
+          )}
+          {isAbierta(c.estado) && onAnular && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-red-600 hover:bg-red-50 hover:text-red-700"
+              onClick={() => onAnular(c)}
+            >
+              <Ban className="mr-2 h-4 w-4" />
+              Anular
+            </Button>
+          )}
+        </div>
 
         <Tabs defaultValue="materiales" className="mt-2">
           <TabsList>
@@ -273,45 +272,81 @@ export function ConsignacionDetailDialog({
           <TabsContent value="pagos">
             {(c.pagos ?? []).length === 0 ? (
               <div className="rounded-lg border bg-gray-50 p-6 text-center text-sm text-gray-500">
-                Aún no se ha vinculado ningún pago a esta consignación.
+                Aún no hay pagos. Usa el botón <b>Registrar pago</b> de arriba.
               </div>
             ) : (
-              <div className="overflow-x-auto rounded-lg border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Fecha</TableHead>
-                      <TableHead>Método</TableHead>
-                      <TableHead>Recibido por</TableHead>
-                      <TableHead className="text-right">Monto</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(c.pagos ?? []).map((p) => (
-                      <TableRow key={p.id}>
-                        <TableCell className="text-sm">
-                          {p.fecha
-                            ? new Date(p.fecha).toLocaleDateString("es-CU", {
-                                day: "2-digit",
-                                month: "short",
-                                year: "numeric",
-                              })
-                            : "—"}
-                        </TableCell>
-                        <TableCell className="text-sm capitalize">
-                          {(p.metodo_pago ?? "—").replace(/_/g, " ")}
-                        </TableCell>
-                        <TableCell className="text-sm text-gray-600">
-                          {p.recibido_por ?? "—"}
-                        </TableCell>
-                        <TableCell className="text-right text-sm font-semibold">
-                          {formatMoney(p.monto, p.moneda)}
-                        </TableCell>
+              <>
+                <div className="overflow-x-auto rounded-lg border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Fecha</TableHead>
+                        <TableHead>Método</TableHead>
+                        <TableHead>Recibido por</TableHead>
+                        <TableHead className="text-right">Monto</TableHead>
+                        {onEmitirFactura && (
+                          <TableHead className="text-center">Factura</TableHead>
+                        )}
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {(c.pagos ?? []).map((p) => {
+                        const yaFacturado =
+                          (c.facturas_ids ?? []).length > 0 &&
+                          (c.monto_facturado ?? 0) >= c.monto_total;
+                        return (
+                          <TableRow key={p.id}>
+                            <TableCell className="text-sm">
+                              {p.fecha
+                                ? new Date(p.fecha).toLocaleDateString("es-CU", {
+                                    day: "2-digit",
+                                    month: "short",
+                                    year: "numeric",
+                                  })
+                                : "—"}
+                            </TableCell>
+                            <TableCell className="text-sm capitalize">
+                              {(p.metodo_pago ?? "—").replace(/_/g, " ")}
+                            </TableCell>
+                            <TableCell className="text-sm text-gray-600">
+                              {p.recibido_por ?? "—"}
+                            </TableCell>
+                            <TableCell className="text-right text-sm font-semibold">
+                              {formatMoney(p.monto, p.moneda)}
+                            </TableCell>
+                            {onEmitirFactura && (
+                              <TableCell className="text-center">
+                                {yaFacturado ? (
+                                  <span className="flex items-center justify-center gap-1 text-xs text-emerald-600">
+                                    <Receipt className="h-3.5 w-3.5" />
+                                    Facturado
+                                  </span>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 gap-1 text-xs"
+                                    onClick={() => onEmitirFactura(c, p)}
+                                  >
+                                    <FileText className="h-3.5 w-3.5" />
+                                    Emitir
+                                  </Button>
+                                )}
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+                {(c.monto_facturado ?? 0) > 0 && (
+                  <div className="mt-2 flex justify-between rounded-md border bg-gray-50 px-3 py-2 text-xs text-gray-600">
+                    <span>Facturado: <b>{formatMoney(c.monto_facturado ?? 0, moneda)}</b></span>
+                    <span>Pendiente de facturar: <b>{formatMoney(Math.max(c.monto_total - (c.monto_facturado ?? 0), 0), moneda)}</b></span>
+                  </div>
+                )}
+              </>
             )}
           </TabsContent>
 

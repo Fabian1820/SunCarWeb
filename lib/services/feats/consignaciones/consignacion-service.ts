@@ -5,6 +5,7 @@ import type {
   ConsignacionCreateData,
   ConsignacionListParams,
   ConsignacionListResponse,
+  EmitirFacturaConsignacionData,
   RegistrarDevolucionData,
 } from "@/lib/types/feats/consignaciones/consignacion-types";
 
@@ -107,6 +108,36 @@ export class ConsignacionService {
       },
     );
     return unwrap(res) as Consignacion;
+  }
+
+  static async registrarPago(
+    solicitudVentaId: string,
+    data: Record<string, unknown>,
+  ): Promise<unknown> {
+    const { apiRequest } = await import("@/lib/api-config");
+    const res: any = await apiRequest("/pagos-ventas/", {
+      method: "POST",
+      body: JSON.stringify({ ...data, solicitud_venta_id: solicitudVentaId }),
+    });
+    if (res?.error?.message) throw new Error(res.error.message);
+    if (res?.detail) throw new Error(res.detail);
+    return res?.data ?? res;
+  }
+
+  static async emitirFactura(
+    consignacionId: string,
+    data: EmitirFacturaConsignacionData,
+  ): Promise<unknown> {
+    const res: any = await apiRequest(
+      `${BASE}/${encodeURIComponent(consignacionId)}/facturas`,
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      },
+    );
+    if (res?.error?.message) throw new Error(res.error.message);
+    if (res?.detail) throw new Error(res.detail);
+    return res?.data ?? res;
   }
 
   static async eliminar(consignacionId: string): Promise<void> {

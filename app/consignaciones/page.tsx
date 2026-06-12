@@ -17,10 +17,16 @@ import { ConsignacionesTable } from "@/components/feats/consignaciones/consignac
 import { ConsignacionDetailDialog } from "@/components/feats/consignaciones/consignacion-detail-dialog";
 import { RegistrarDevolucionDialog } from "@/components/feats/consignaciones/registrar-devolucion-dialog";
 import { VincularPagoDialog } from "@/components/feats/consignaciones/vincular-pago-dialog";
+import { EmitirFacturaConsignacionDialog } from "@/components/feats/consignaciones/emitir-factura-consignacion-dialog";
+import { RegistrarPagoVentaDialog } from "@/components/feats/pagos-clientes-ventas/registrar-pago-venta-dialog";
 import type {
   Consignacion,
   ConsignacionEstado,
+  PagoResumenConsignacion,
 } from "@/lib/types/feats/consignaciones/consignacion-types";
+import type { SolicitudVentaSummary } from "@/lib/api-types";
+import { ConsignacionService } from "@/lib/services/feats/consignaciones/consignacion-service";
+import { PagoVentaService } from "@/lib/services/feats/pagos-clientes-ventas/pago-cliente-venta-service";
 
 export default function ConsignacionesPage() {
   const { toast } = useToast();
@@ -43,6 +49,9 @@ export default function ConsignacionesPage() {
   const [openDetalle, setOpenDetalle] = useState(false);
   const [openDevolucion, setOpenDevolucion] = useState(false);
   const [openVincularPago, setOpenVincularPago] = useState(false);
+  const [openPago, setOpenPago] = useState(false);
+  const [openFactura, setOpenFactura] = useState(false);
+  const [pagoParaFacturar, setPagoParaFacturar] = useState<PagoResumenConsignacion | null>(null);
   const [consignacionActiva, setConsignacionActiva] =
     useState<Consignacion | null>(null);
 
@@ -65,6 +74,46 @@ export default function ConsignacionesPage() {
   const handleAbrirVincularPago = (c: Consignacion) => {
     setConsignacionActiva(c);
     setOpenVincularPago(true);
+  };
+
+  // Abre el dialog de registrar pago normal para la solicitud de la consignación
+  const handleAbrirPago = (c: Consignacion) => {
+    setConsignacionActiva(c);
+    setOpenPago(true);
+  };
+
+  const handleAbrirFactura = (c: Consignacion, pago: PagoResumenConsignacion) => {
+    setConsignacionActiva(c);
+    setPagoParaFacturar(pago);
+    setOpenFactura(true);
+  };
+
+  const handlePagoRegistrado = async (data: Parameters<typeof PagoVentaService.registrarPago>[0]) => {
+    await PagoVentaService.registrarPago(data);
+    toast({
+      title: "Pago registrado",
+      description: "El saldo de la consignación se actualizará automáticamente.",
+    });
+    if (consignacionActiva) {
+      try {
+        const fresca = await refrescar(consignacionActiva.id);
+        setDetalle(fresca);
+      } catch {/* no-op */}
+    }
+  };
+
+  const handleFacturaEmitida = async (data: {
+    pago_venta_id: string;
+    numero_factura: string;
+    fecha_emision: string;
+  }) => {
+    if (!consignacionActiva) return;
+    await ConsignacionService.emitirFactura(consignacionActiva.id, data);
+    toast({ title: "Factura emitida", description: "Disponible en Solicitudes de Ventas → Facturas emitidas." });
+    try {
+      const fresca = await refrescar(consignacionActiva.id);
+      setDetalle(fresca);
+    } catch {/* no-op */}
   };
 
   const handleDevolucionCreada = async (consignacionId: string) => {
@@ -156,14 +205,15 @@ export default function ConsignacionesPage() {
         onOpenChange={setOpenDetalle}
         consignacion={detalle}
         onRegistrarPago={(c) => {
-          setOpenDetalle(false);
-          handleAbrirVincularPago(c);
+          setConsignacionActiva(c);
+          setOpenPago(true);
         }}
         onRegistrarDevolucion={(c) => {
           setOpenDetalle(false);
           handleAbrirDevolucion(c);
         }}
         onAnular={handleAnular}
+        onEmitirFactura={handleAbrirFactura}
       />
 
       <RegistrarDevolucionDialog
@@ -183,6 +233,32 @@ export default function ConsignacionesPage() {
         }}
         consignacion={consignacionActiva}
         onSubmit={handleVincularPago}
+      />
+
+      {/* Dialog de registrar pago — usa el flujo normal de PagoVenta */}
+      <RegistrarPagoVentaDialog
+        open={openPago}
+        onOpenChange={setOpenPago}
+        solicitud={
+          consignacionActiva
+            ? ({
+                id: consignacionActiva.solicitud_venta_id,
+                codigo: consignacionActiva.solicitud_codigo ?? undefined,
+                cliente_venta_nombre: consignacionActiva.cliente_nombre ?? undefined,
+                monto_pendiente: consignacionActiva.monto_pendiente,
+              } as SolicitudVentaSummary)
+            : null
+        }
+        onSubmit={handlePagoRegistrado}
+      />
+
+      {/* Dialog de emitir factura */}
+      <EmitirFacturaConsignacionDialog
+        open={openFactura}
+        onOpenChange={setOpenFactura}
+        consignacion={consignacionActiva}
+        pago={pagoParaFacturar}
+        onSubmit={handleFacturaEmitida}
       />
 
       <Toaster />

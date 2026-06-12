@@ -78,6 +78,10 @@ export interface Consignacion {
   pagos_ids: string[];
   /** Resumen ligero de los pagos vinculados (denormalizado). */
   pagos?: PagoResumenConsignacion[];
+  /** Monto total ya facturado. */
+  monto_facturado?: number;
+  /** IDs de facturas emitidas contra esta consignación. */
+  facturas_ids?: string[];
   estado: ConsignacionEstado | string;
   fecha_creacion: string;
   fecha_ultimo_movimiento: string;
@@ -116,6 +120,12 @@ export interface RegistrarDevolucionData {
   materiales: DevolucionMaterialPayload[];
   notas?: string | null;
   solicitud_entrada_almacen_id?: string | null;
+}
+
+export interface EmitirFacturaConsignacionData {
+  pago_venta_id: string;
+  numero_factura: string;
+  fecha_emision: string;
 }
 
 export const CONSIGNACION_ESTADO_LABELS: Record<string, string> = {

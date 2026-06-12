@@ -155,6 +155,19 @@ export class SolicitudEntradaAlmacenService {
         body: JSON.stringify(payload),
       },
     );
+    // Detectar error estructurado de materiales pendientes de costeo
+    const detail = (raw as any)?.detail;
+    if (detail && typeof detail === "object" && detail.tipo === "pendiente_costeo") {
+      const err = new Error(detail.message ?? "Materiales pendientes de costeo") as Error & {
+        isPendienteCosteo: true;
+        materialesBloqueados: PendienteCosteoMaterial[];
+      };
+      err.isPendienteCosteo = true;
+      err.materialesBloqueados = Array.isArray(detail.materiales_bloqueados)
+        ? detail.materiales_bloqueados
+        : [];
+      throw err;
+    }
     const error = extractApiError(raw);
     if (error) throw new Error(error);
     return mapSolicitud(unwrapPayload(raw));
