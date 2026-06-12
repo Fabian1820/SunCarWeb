@@ -7,6 +7,7 @@ import type {
   EstadoSolicitudEntrada,
   MaterialSolicitudEntrada,
   OrigenSolicitudEntrada,
+  PendienteCosteoMaterial,
   SolicitudEntradaAlmacen,
   SolicitudEntradaAlmacenCreateData,
   SplitPool,

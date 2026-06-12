@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import {
+  AlertTriangle,
+  ArrowRight,
   CheckCircle2,
   ClipboardList,
   Loader2,
@@ -27,8 +29,10 @@ import {
   type AprobarSolicitudRequest,
   type DenegarSolicitudRequest,
   type EstadoSolicitudEntrada,
+  type PendienteCosteoMaterial,
   type SolicitudEntradaAlmacen,
 } from "@/lib/types/feats/solicitudes-entrada-almacen/solicitud-entrada-almacen-types";
+import { useMaterials } from "@/hooks/use-materials";
 
 const formatDate = (value?: string) => {
   if (!value) return "—";
@@ -83,6 +87,9 @@ export function SolicitudEntradaDetailDialog({
   const [motivoDenegar, setMotivoDenegar] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendientesError, setPendientesError] = useState<PendienteCosteoMaterial[] | null>(null);
+
+  const { materials } = useMaterials();
 
   if (!solicitud) return null;
 
@@ -93,6 +100,7 @@ export function SolicitudEntradaDetailDialog({
     setObservaciones("");
     setMotivoDenegar("");
     setError(null);
+    setPendientesError(null);
   };
 
   const handleClose = (open: boolean) => {
@@ -106,13 +114,18 @@ export function SolicitudEntradaDetailDialog({
 
   const handleAprobar = async () => {
     setError(null);
+    setPendientesError(null);
     setSubmitting(true);
     try {
       await onAprobar(solicitud.id, { observaciones_recepcion: observaciones.trim() || undefined });
       reset();
       onOpenChange(false);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo aprobar la solicitud.");
+    } catch (e: any) {
+      if (e?.isPendienteCosteo && Array.isArray(e?.materialesBloqueados)) {
+        setPendientesError(e.materialesBloqueados);
+      } else {
+        setError(e instanceof Error ? e.message : "No se pudo aprobar la solicitud.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -352,9 +365,75 @@ export function SolicitudEntradaDetailDialog({
             </div>
           )}
 
-          {error && (
-            <div className="p-3 rounded-md bg-red-50 border border-red-200 text-sm text-red-700">
+          {/* Error simple */}
+          {error && !pendientesError && (
+            <div className="p-3 rounded-md bg-red-50 border border-red-200 text-sm text-red-700 flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
               {error}
+            </div>
+          )}
+
+          {/* Error estructurado: materiales pendientes de costeo */}
+          {pendientesError && pendientesError.length > 0 && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 overflow-hidden">
+              {/* Cabecera */}
+              <div className="flex items-center gap-2 px-4 py-3 bg-amber-100 border-b border-amber-200">
+                <AlertTriangle className="h-4 w-4 text-amber-700 shrink-0" />
+                <p className="text-sm font-semibold text-amber-900">
+                  {pendientesError.length === 1
+                    ? "1 material no puede entrar — pendiente de costeo"
+                    : `${pendientesError.length} materiales no pueden entrar — pendientes de costeo`}
+                </p>
+              </div>
+              {/* Lista de materiales bloqueados */}
+              <div className="divide-y divide-amber-100">
+                {pendientesError.map((mat) => {
+                  const catalogMat = materials.find(
+                    (m) => m.id === mat.material_id || m.codigo?.toString() === mat.material_codigo,
+                  );
+                  const foto = catalogMat?.foto;
+                  return (
+                    <div key={mat.material_id} className="flex items-center gap-3 px-4 py-3">
+                      {/* Foto o placeholder */}
+                      <div className="shrink-0 h-12 w-12 rounded-md bg-white border border-amber-200 overflow-hidden flex items-center justify-center">
+                        {foto ? (
+                          <img src={foto} alt={mat.material_nombre} className="h-full w-full object-contain" />
+                        ) : (
+                          <Package className="h-5 w-5 text-gray-300" />
+                        )}
+                      </div>
+                      {/* Info material */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-mono text-amber-700 font-semibold">{mat.material_codigo}</p>
+                        <p className="text-sm font-medium text-gray-900 truncate">{mat.material_nombre}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Sin costear en{" "}
+                          <span className="font-medium text-gray-700">{mat.compra_nombre}</span>
+                        </p>
+                      </div>
+                      {/* Enlace a ficha */}
+                      {mat.compra_id && (
+                        <a
+                          href={`/compras/${mat.compra_id}/ficha-costo`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="shrink-0 flex items-center gap-1 text-xs font-medium text-violet-700 hover:text-violet-900 hover:underline bg-white border border-violet-200 rounded-md px-2.5 py-1.5 hover:bg-violet-50 transition-colors"
+                        >
+                          Ir a ficha
+                          <ArrowRight className="h-3 w-3" />
+                        </a>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Pie con instrucción */}
+              <div className="px-4 py-2.5 bg-amber-100/60 border-t border-amber-200">
+                <p className="text-xs text-amber-800">
+                  Abre la ficha de costo de cada compra, completa los precios CIF y usa{" "}
+                  <span className="font-semibold">Actualizar costos</span>. Luego vuelve a aprobar esta entrada.
+                </p>
+              </div>
             </div>
           )}
         </div>
