@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import jsPDF from "jspdf";
-import { ArrowLeft, Eye, FileText, Loader2, Receipt } from "lucide-react";
+import { ArrowLeft, Eye, FileText, Loader2, Pencil, Receipt } from "lucide-react";
 import { Button } from "@/components/shared/atom/button";
 import {
   Card,
@@ -677,13 +677,21 @@ function FacturasSolarCarrosPageContent() {
   const { toast } = useToast();
 
   const [tab, setTab] = useState("instaladora");
-  const [loading, setLoading] = useState(true);
+  const [loadingInstaladora, setLoadingInstaladora] = useState(false);
+  const [loadingVentas, setLoadingVentas] = useState(false);
+  const [loadingFacturas, setLoadingFacturas] = useState(false);
+  const [loadedInstaladora, setLoadedInstaladora] = useState(false);
+  const [loadedVentas, setLoadedVentas] = useState(false);
+  const [loadedFacturas, setLoadedFacturas] = useState(false);
   const [creatingClienteKey, setCreatingClienteKey] = useState<string | null>(null);
   const [creatingVentaKey, setCreatingVentaKey] = useState<string | null>(null);
   const [instaladoraRows, setInstaladoraRows] = useState<InstaladoraRow[]>([]);
   const [ventasRows, setVentasRows] = useState<VentasRow[]>([]);
   const [facturasSolar, setFacturasSolar] = useState<FacturaSolarCarroView[]>([]);
   const [facturaVista, setFacturaVista] = useState<FacturaSolarCarroView | null>(null);
+  const [facturaEditando, setFacturaEditando] = useState<FacturaSolarCarroView | null>(null);
+  const [editDraft, setEditDraft] = useState<FacturaSolarCarroView | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
   const [searchInstaladora, setSearchInstaladora] = useState("");
   const [searchVentas, setSearchVentas] = useState("");
   const [fechaValeDesde, setFechaValeDesde] = useState("");
@@ -705,7 +713,7 @@ function FacturasSolarCarrosPageContent() {
   const loadFacturasSolar = useCallback(async () => {
     const allFacturas: FacturaSolarCarroView[] = [];
     const seen = new Set<string>();
-    const pageSize = 200;
+    const pageSize = 500;
     let skip = 0;
 
     while (true) {
@@ -922,11 +930,8 @@ function FacturasSolarCarrosPageContent() {
     setVentasRows(rows);
   }, []);
 
-  const loadAll = useCallback(async () => {
-    setLoading(true);
-    try {
-      await Promise.all([loadInstaladoraRows(), loadVentasRows(), loadFacturasSolar()]);
-    } catch (error) {
+  const handleLoadError = useCallback(
+    (error: unknown) => {
       toast({
         title: "Error",
         description:
@@ -935,14 +940,57 @@ function FacturasSolarCarrosPageContent() {
             : "No se pudieron cargar los datos.",
         variant: "destructive",
       });
+    },
+    [toast],
+  );
+
+  const ensureInstaladoraLoaded = useCallback(async () => {
+    if (loadedInstaladora || loadingInstaladora) return;
+    setLoadingInstaladora(true);
+    try {
+      await loadInstaladoraRows();
+      setLoadedInstaladora(true);
+    } catch (error) {
+      handleLoadError(error);
     } finally {
-      setLoading(false);
+      setLoadingInstaladora(false);
     }
-  }, [loadFacturasSolar, loadInstaladoraRows, loadVentasRows, toast]);
+  }, [handleLoadError, loadInstaladoraRows, loadedInstaladora, loadingInstaladora]);
+
+  const ensureVentasLoaded = useCallback(async () => {
+    if (loadedVentas || loadingVentas) return;
+    setLoadingVentas(true);
+    try {
+      await loadVentasRows();
+      setLoadedVentas(true);
+    } catch (error) {
+      handleLoadError(error);
+    } finally {
+      setLoadingVentas(false);
+    }
+  }, [handleLoadError, loadVentasRows, loadedVentas, loadingVentas]);
+
+  const ensureFacturasLoaded = useCallback(
+    async (force = false) => {
+      if (!force && (loadedFacturas || loadingFacturas)) return;
+      setLoadingFacturas(true);
+      try {
+        await loadFacturasSolar();
+        setLoadedFacturas(true);
+      } catch (error) {
+        handleLoadError(error);
+      } finally {
+        setLoadingFacturas(false);
+      }
+    },
+    [handleLoadError, loadFacturasSolar, loadedFacturas, loadingFacturas],
+  );
 
   useEffect(() => {
-    void loadAll();
-  }, [loadAll]);
+    if (tab === "instaladora") void ensureInstaladoraLoaded();
+    else if (tab === "ventas") void ensureVentasLoaded();
+    else if (tab === "facturas") void ensureFacturasLoaded();
+  }, [tab, ensureInstaladoraLoaded, ensureVentasLoaded, ensureFacturasLoaded]);
 
   const openPreview = (source: FacturaPreviewSource, draft: SolarFacturaDraft) => {
     setPreviewSource(source);
@@ -1682,7 +1730,7 @@ function FacturasSolarCarrosPageContent() {
       setPreviewOpen(false);
       setPreviewSource(null);
       setPreviewDraft(null);
-      await loadFacturasSolar();
+      await ensureFacturasLoaded(true);
       setTab("facturas");
     } catch (error) {
       toast({
@@ -1899,6 +1947,64 @@ function FacturasSolarCarrosPageContent() {
     setNuevoMaterialContabilidadId("");
   };
 
+  const handleAbrirEditarFactura = (factura: FacturaSolarCarroView) => {
+    setFacturaEditando(factura);
+    setEditDraft({ ...factura, cliente: { ...factura.cliente } });
+  };
+
+  const handleGuardarEdicionFactura = async () => {
+    if (!editDraft || !facturaEditando) return;
+    setEditSaving(true);
+    try {
+      const conceptoTexto = String(editDraft.concepto || "").trim();
+      const payload: Record<string, unknown> = {
+        no_factura: editDraft.noFactura,
+        fecha: editDraft.fecha,
+        cliente: {
+          nombre: editDraft.cliente.nombre,
+          telefono: editDraft.cliente.telefono,
+          direccion: editDraft.cliente.direccion,
+          documento_label: editDraft.cliente.documentoLabel,
+          documento_valor: editDraft.cliente.documentoValor,
+        },
+        concepto: {
+          texto_final: conceptoTexto,
+          lineas_generadas: conceptoTexto.split("\n"),
+        },
+        totales: {
+          total_cup:
+            editDraft.monedaTotal === "CUP" ? parseNumero(editDraft.totalRegistrado) : 0,
+          total_usd:
+            editDraft.monedaTotal === "USD" ? parseNumero(editDraft.totalRegistrado) : 0,
+          moneda_final: editDraft.monedaTotal,
+        },
+      };
+
+      await apiRequest(`/facturas-solar-carros/${encodeURIComponent(facturaEditando.id)}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      });
+
+      toast({
+        title: "Factura actualizada",
+        description: `Factura ${editDraft.noFactura} guardada correctamente.`,
+      });
+
+      setFacturaEditando(null);
+      setEditDraft(null);
+      await ensureFacturasLoaded(true);
+    } catch (error) {
+      toast({
+        title: "Error guardando cambios",
+        description:
+          error instanceof Error ? error.message : "No se pudo actualizar la factura.",
+        variant: "destructive",
+      });
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
   const handleDownloadFacturaCreadaPDF = async (
     factura: FacturaSolarCarroView,
   ) => {
@@ -2048,7 +2154,7 @@ function FacturasSolarCarrosPageContent() {
               </TabsList>
 
               <TabsContent value="instaladora">
-                {loading ? (
+                {loadingInstaladora && !loadedInstaladora ? (
                   <div className="py-10 text-center text-gray-600">
                     Cargando clientes de instaladora...
                   </div>
@@ -2153,7 +2259,7 @@ function FacturasSolarCarrosPageContent() {
               </TabsContent>
 
               <TabsContent value="ventas">
-                {loading ? (
+                {loadingVentas && !loadedVentas ? (
                   <div className="py-10 text-center text-gray-600">
                     Cargando clientes de ventas...
                   </div>
@@ -2236,7 +2342,7 @@ function FacturasSolarCarrosPageContent() {
               </TabsContent>
 
               <TabsContent value="facturas">
-                {loading ? (
+                {loadingFacturas && !loadedFacturas ? (
                   <div className="py-10 text-center text-gray-600">Cargando facturas...</div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -2287,6 +2393,14 @@ function FacturasSolarCarrosPageContent() {
                                   >
                                     <Eye className="h-4 w-4 mr-1" />
                                     Ver factura
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleAbrirEditarFactura(factura)}
+                                  >
+                                    <Pencil className="h-4 w-4 mr-1" />
+                                    Editar
                                   </Button>
                                   <Button
                                     size="sm"
@@ -2943,6 +3057,211 @@ function FacturasSolarCarrosPageContent() {
                 >
                   <FileText className="h-4 w-4 mr-1" />
                   Descargar PDF
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!facturaEditando}
+        onOpenChange={(open) => {
+          if (!open) {
+            setFacturaEditando(null);
+            setEditDraft(null);
+          }
+        }}
+      >
+        <DialogContent className="w-[96vw] max-w-[800px] max-h-[95vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar factura</DialogTitle>
+          </DialogHeader>
+
+          {editDraft && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <Label>No. factura</Label>
+                  <Input
+                    value={editDraft.noFactura}
+                    onChange={(e) =>
+                      setEditDraft((prev) =>
+                        prev ? { ...prev, noFactura: e.target.value } : prev,
+                      )
+                    }
+                  />
+                </div>
+                <div>
+                  <Label>Fecha</Label>
+                  <Input
+                    type="date"
+                    value={editDraft.fecha ? editDraft.fecha.slice(0, 10) : ""}
+                    onChange={(e) =>
+                      setEditDraft((prev) =>
+                        prev ? { ...prev, fecha: e.target.value } : prev,
+                      )
+                    }
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label>Nombre cliente</Label>
+                <Input
+                  value={editDraft.cliente.nombre}
+                  onChange={(e) =>
+                    setEditDraft((prev) =>
+                      prev
+                        ? { ...prev, cliente: { ...prev.cliente, nombre: e.target.value } }
+                        : prev,
+                    )
+                  }
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <Label>Teléfono</Label>
+                  <Input
+                    value={editDraft.cliente.telefono}
+                    onChange={(e) =>
+                      setEditDraft((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              cliente: { ...prev.cliente, telefono: e.target.value },
+                            }
+                          : prev,
+                      )
+                    }
+                  />
+                </div>
+                <div>
+                  <Label>Dirección</Label>
+                  <Input
+                    value={editDraft.cliente.direccion}
+                    onChange={(e) =>
+                      setEditDraft((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              cliente: { ...prev.cliente, direccion: e.target.value },
+                            }
+                          : prev,
+                      )
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <Label>Tipo de documento</Label>
+                  <select
+                    className="w-full border rounded-md px-3 py-2 text-sm"
+                    value={editDraft.cliente.documentoLabel || "Carnet"}
+                    onChange={(e) =>
+                      setEditDraft((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              cliente: { ...prev.cliente, documentoLabel: e.target.value },
+                            }
+                          : prev,
+                      )
+                    }
+                  >
+                    <option value="Carnet">Carnet</option>
+                    <option value="NIT">NIT</option>
+                    <option value="Documento">Documento</option>
+                  </select>
+                </div>
+                <div>
+                  <Label>{editDraft.cliente.documentoLabel || "Documento"}</Label>
+                  <Input
+                    value={editDraft.cliente.documentoValor}
+                    onChange={(e) =>
+                      setEditDraft((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              cliente: { ...prev.cliente, documentoValor: e.target.value },
+                            }
+                          : prev,
+                      )
+                    }
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label>Concepto</Label>
+                <Textarea
+                  rows={6}
+                  value={editDraft.concepto}
+                  onChange={(e) =>
+                    setEditDraft((prev) =>
+                      prev ? { ...prev, concepto: e.target.value } : prev,
+                    )
+                  }
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <Label>Moneda</Label>
+                  <select
+                    className="w-full border rounded-md px-3 py-2 text-sm"
+                    value={editDraft.monedaTotal}
+                    onChange={(e) =>
+                      setEditDraft((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              monedaTotal: (e.target.value === "USD" ? "USD" : "CUP") as
+                                | "USD"
+                                | "CUP",
+                            }
+                          : prev,
+                      )
+                    }
+                  >
+                    <option value="CUP">CUP</option>
+                    <option value="USD">USD</option>
+                  </select>
+                </div>
+                <div>
+                  <Label>Monto total</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={editDraft.totalRegistrado}
+                    onChange={(e) =>
+                      setEditDraft((prev) =>
+                        prev
+                          ? { ...prev, totalRegistrado: Math.max(0, parseNumero(e.target.value)) }
+                          : prev,
+                      )
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setFacturaEditando(null);
+                    setEditDraft(null);
+                  }}
+                  disabled={editSaving}
+                >
+                  Cancelar
+                </Button>
+                <Button onClick={() => void handleGuardarEdicionFactura()} disabled={editSaving}>
+                  {editSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Guardar cambios"}
                 </Button>
               </div>
             </div>
