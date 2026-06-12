@@ -588,19 +588,19 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     descripcionSistema,
     pageWidth - 40,
   ); // Aumentado de 50 a 40 para más ancho de texto
-  const headerHeight = 18 + descripcionLines.length * 4.5; // Reducido de 22
+  const logoSize = 28;
+  const headerHeight = Math.max(logoSize + 2, 18 + descripcionLines.length * 4.5);
 
   // Fondo Emerald Circuit (marca Suncar 2026) para el encabezado
   doc.setFillColor(1, 41, 40);
   doc.rect(0, 0, pageWidth, headerHeight, "F");
 
-  // Logo en la esquina superior derecha (dentro del espacio verde)
+  // Logo en la esquina superior derecha (dentro del espacio verde), centrado verticalmente
   if (logoUrl) {
     try {
       const logoBase64 = await imageToBase64(logoUrl);
       if (logoBase64) {
-        const logoSize = 28; // Tamaño del logo
-        const logoY = 0.5; // Más arriba, reducido de 1 a 0.5
+        const logoY = (headerHeight - logoSize) / 2;
         doc.addImage(
           logoBase64,
           "PNG",
