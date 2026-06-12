@@ -99,12 +99,14 @@ export function useRecursosHumanos() {
           typeof valor,
         );
 
-        if (campo === "nombre") {
-          const ok = await TrabajadorService.actualizarTrabajador(ci, { nombre: valor });
-          if (!ok) throw new Error("El backend no confirmó la actualización del nombre.");
+        if (campo === "nombre" || campo === "cargo") {
+          const ok = await TrabajadorService.actualizarTrabajador(ci, { [campo]: valor });
+          if (!ok) throw new Error(`El backend no confirmó la actualización de ${campo}.`);
+        } else if (campo === "activo") {
+          const ok = await TrabajadorService.actualizarEstadoTrabajador(ci, valor);
+          if (!ok) throw new Error("El backend no confirmó el cambio de estado.");
         } else {
-          // sede_id y departamento_id van al endpoint /rrhh que maneja el sentinel "__not_sent__"
-          // y distingue correctamente entre null (des-asignar) y no-enviado
+          // Campos financieros/RRHH: sede_id, departamento_id, salario_fijo, etc.
           const data: ActualizarTrabajadorRRHHRequest = { [campo]: valor };
           const response = await RecursosHumanosService.actualizarTrabajadorRRHH(ci, data);
           if (response.success === false) {
@@ -279,9 +281,13 @@ export function useRecursosHumanos() {
 
         console.log("Trabajador creado con ID:", trabajador_id);
 
+        // cargo va por el endpoint general de trabajadores, no por /rrhh
+        if (data.cargo) {
+          await TrabajadorService.actualizarTrabajador(data.ci, { cargo: data.cargo });
+        }
+
         // Si se proporcionaron datos adicionales de RRHH, actualizarlos
         const rrhhData: ActualizarTrabajadorRRHHRequest = {};
-        if (data.cargo) rrhhData.cargo = data.cargo;
         if (data.salario_fijo !== undefined)
           rrhhData.salario_fijo = data.salario_fijo;
         if (data.porcentaje_fijo_estimulo !== undefined)

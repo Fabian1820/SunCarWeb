@@ -14,6 +14,7 @@ export interface ActualizarTrabajadorPayload extends TrabajadorRelacionesPayload
   nombre?: string
   nuevo_ci?: string
   activo?: boolean
+  cargo?: string
 }
 
 export class TrabajadorService {
@@ -229,6 +230,9 @@ export class TrabajadorService {
     }
     if (payload.activo !== undefined) {
       body.activo = payload.activo
+    }
+    if (payload.cargo !== undefined) {
+      body.cargo = payload.cargo
     }
     if (sedeId !== undefined) {
       body.sede_id = sedeId
