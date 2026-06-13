@@ -2,6 +2,58 @@
 
 ---
 
+## 📅 13 de Junio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+Sin commits de desarrollo nuevos desde el análisis del 12/06.
+
+---
+
+### Consideraciones del día
+
+Sin actividad de desarrollo nueva hoy. Los seguimientos del 12/06 siguen vigentes sin cambios.
+
+---
+
+#### Seguimientos vigentes
+
+- **`POST /consignaciones/{id}/facturas` — endpoint sin confirmar**: Si no existe, la operación fallará con 404.
+- **Badge "Facturado" con flotantes**: `monto_facturado >= monto_total` calculado en frontend puede mostrar "Pendiente" por redondeo.
+- **`cargo` en RRHH — confirmar en `PUT /{ci}/rrhh`**: Después de 3 iteraciones, verificar que el backend acepta `cargo` en ese endpoint.
+- **`fix(api-config): preservar detail objeto`**: Componentes que hacían `error.message` directamente pueden romperse si el error viene como objeto.
+- **Panel de error `pendiente_costeo` — `useMaterials` en contexto**: Si el hook no está inicializado en el scope del dialog, las fotos no cargarán.
+- **Campos `tipo`, `pendiente_costeo`, `regularizada_por` en KardexCosto**: Si el backend no los devuelve, no se mostrarán badges ni resaltados.
+- **Botón "Actualizar costos" — lógica de decisión interna opaca**: Puede aplicar operación incorrecta sin aviso al usuario.
+- **`POST /ajustar-costo` — endpoint sin confirmar**.
+- **`apiRequest success:false` — monitorear regresiones post-deploy**.
+- **`showContableFields` en MaterialForm**.
+- **`costo` y `material_id` en tipo `Material`**.
+- **Wallet historial por miembro — filtros params**.
+- **Excel Fichas de Costo sin cota de registros**.
+- **CI `87120119233` hardcodeado para control de permisos**.
+- **Campos `cambio_real_*` requieren backend actualizado**.
+- **Endpoint lazy load `GET /obras-terminadas/oferta/{id}/facturas-cliente`**.
+- **PDF unificado con `limit=total` sin cota máxima**.
+- **Badge de estado calculado en frontend con flotantes**.
+- **Módulo Vales/Facturas Instaladora comentado sin aviso explícito**.
+- **AdminPass 123456 hardcodeado**.
+- **Auto-sync catálogo → BD al abrir /permisos**.
+- **Logs de debug en producción**.
+- **Módulo "Empleados" — permisos en BD no migrados**.
+- **Sub-permiso implícito — usuarios con padre sin hijo en BD**.
+- **Consignaciones denormalizadas — campos del backend**.
+- **Auto-vinculación de pagos a consignación**.
+- **`precio → costo` rename en Asignacion — fallback solo en service**.
+- **Variables de entorno cron en producción — `CRON_CI` y `CRON_ADMIN_PASS`**.
+- **`almacenes-suncar/admin` — gating solo en frontend**.
+- **Estados de transferencia no mapeados en `ESTADO_CONFIG`**.
+- **`window.history.pushState` + Next.js App Router desync**.
+- **Rebrand paleta — componentes con clases hardcoded**.
+- **`POST /solicitudes-transferencia/{id}/resolver` — endpoint pendiente de confirmación**.
+
+---
+
 ## 📅 12 de Junio, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -506,109 +558,5 @@ Sin actividad de desarrollo nueva hoy. Los seguimientos del 5/06 siguen vigentes
 - **Rebrand paleta — componentes con clases hardcoded**.
 - **`POST /solicitudes-transferencia/{id}/resolver` — endpoint pendiente de confirmación**.
 
----
 
-## 📅 5 de Junio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**8 commits** de Fabian1820, Ruben0304 y yany1509 — corrección crítica del manejo global de errores HTTP, Fichas de Costo reconstruidas dos veces en la misma tarde, nueva vista de billetera por miembro con exportación, y fixes de logos, vales de salida y límites de PDF.
-
----
-
-### Área 1: Fix crítico de `apiRequest` (1 commit — yany1509, 13:39)
-
-- **`fix(api): normalizar success:false en errores HTTP`** — Cuando el backend devolvía 400 con `{detail:"..."}`, `apiRequest` retornaba el objeto sin `success:false`. `extractApiError` no lo detectaba y `mapSolicitud` procesaba datos corruptos. Resultado: aprobar una solicitud mostraba toast de éxito aunque el backend la rechazara.
-
----
-
-### Área 2: Vales de Salida — toast para materiales inválidos (1 commit — yany1509, 13:46)
-
-- Cuando todos los materiales tienen cantidad 0 o `material_id` vacío, ahora muestra toast de error descriptivo.
-
----
-
-### Área 3: Wallet — vista por miembro y exportación paginada (2 commits — Ruben0304)
-
-- Vista de historial por miembro con filtros independientes (tipo, fechas, búsqueda), paginación completa y exportación Excel.
-- Fix: paginación en lotes de 500 para respetar límite del backend.
-
----
-
-### Área 4: Logos y corrección de límite PDF (1 commit — yany1509, 16:47)
-
-- Reemplaza `/logo.png` por `/brand/suncar-v1-iso.png`. Corrige error "Limit should be <= 500" en PDF unificado.
-
----
-
-### Área 5: Fichas de Costo (3 commits — Fabian1820, 18:31→20:46)
-
-- Rehabilitación (18:31): corrige la carga rota, vista contable con pestañas.
-- Refinamiento (20:46): reconstruye sobre `useMaterials`, filtros completos, exportación Excel, CRUD con `MaterialForm`, sección contable gateada. Elimina `use-fichas-costo` y `editar-precios-dialog`.
-
----
-
-### Puede dar bateo
-
-1. **`editar-precios-dialog` eliminado — imports residuales**: Si algún componente fuera de Fichas de Costo lo importa, compilará con error.
-2. **`showContableFields` en MaterialForm — valor por defecto desconocido**: Default `false` haría perder la sección contable en otros módulos silenciosamente.
-3. **`success:false` global — posibles regresiones**: Flujos que antes "funcionaban" con 400s del backend pueden empezar a mostrar toasts de error inesperados.
-4. **Wallet — filtros por miembro sin contrato de API confirmado**.
-5. **Excel en lotes de 500 — ¿loop completo o solo primer lote?**
-6. **PDF unificado paginado — múltiples peticiones HTTP sin cota máxima**.
-7. **2 refactors de Fichas de Costo en <3h**: Confirmar que producción usa el último commit (20:46).
-
----
-
-#### Seguimientos vigentes
-
-- **`apiRequest success:false` — monitorear regresiones post-deploy (nuevo)**.
-- **`showContableFields` en MaterialForm (nuevo)**.
-- **`costo` y `material_id` en tipo `Material` (nuevo)**.
-- **Wallet historial por miembro — filtros params (nuevo)**.
-- **Excel Fichas de Costo sin cota de registros (nuevo)**.
-- **CI `87120119233` hardcodeado para control de permisos**.
-- **Campos `cambio_real_*` requieren backend actualizado**.
-- **Endpoint lazy load `GET /obras-terminadas/oferta/{id}/facturas-cliente`**.
-- **PDF unificado con `limit=total` sin cota máxima**.
-- **Badge de estado calculado en frontend con flotantes**.
-- **Módulo Vales/Facturas Instaladora comentado sin aviso explícito**.
-- **Sistema de notificaciones — endpoints bulk por tipo**.
-- **`GET /inventario/stock-historico`**.
-- **AdminPass 123456 hardcodeado**.
-- **Auto-sync catálogo → BD al abrir /permisos**.
-- **Logs de debug en producción**.
-- **Eliminación lógica `cantidad = 0` en asignaciones**.
-- **Creación inline sin persistencia inmediata**.
-- **Subida de archivos sin rollback**.
-- **Backend debe aceptar nuevos campos**.
-- **`childKeys` en catálogo de módulos**.
-- **`useEffect` con dependencias `[open, initialData?.id]`**.
-- **Agregados solicitudes-ventas**.
-- **`updateSolicitudTransferencia` — validación de estado en backend**.
-- **Búsqueda por `numero_serie`**.
-- **`stock_disponible_actual` — consistencia entre endpoints**.
-- **Excel export de facturas sin cota de registros**.
-- **`'zelle'` como método de pago — soporte en backend**.
-- **Sort client-side de solicitudes pendientes en ValesSalida**.
-- **Parsing UTC→local en otras tablas con filtros de fecha**.
-- **Tasas MLC/CUP sin persistencia entre sesiones**.
-- **`PonderarCostoResponse` campos nuevos**.
-- **`GET /api/kardex-costo/costo-actual`**.
-- **`materiales` en respuesta de facturas de solicitudes-ventas**.
-- **Filtros de vales de salida — `fecha_desde`, `fecha_hasta`, creador**.
-- **`almacenes-suncar/admin` — gating solo en frontend**.
-- **Estados de transferencia no mapeados en `ESTADO_CONFIG`**.
-- **Campos de dimensionamiento en calculadora sin persistencia confirmada**.
-- **Badges de disponibilidad por pool — snapshot estático**.
-- **Endpoint cumpleaños de la semana**.
-- **Endpoint contador de instalaciones solares**.
-- **Widget de paneles — estado único vs respuesta del backend**.
-- **`window.history.pushState` + Next.js App Router desync**.
-- **Export Excel merge vertical — heterogeneidad de materiales**.
-- **Rebrand paleta — componentes con clases hardcoded**.
-- **`POST /solicitudes-transferencia/{id}/resolver` — endpoint pendiente de confirmación**.
-
----
-
-> ⚠️ **Nota de mantenimiento**: Las entradas del **26, 27, 28, 29, 30 de Mayo, 31 de Mayo, 1, 2 y 4 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal).
+> ⚠️ **Nota de mantenimiento**: Las entradas del **26, 27, 28, 29, 30 de Mayo, 31 de Mayo, 1, 2, 4 y 5 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal).
