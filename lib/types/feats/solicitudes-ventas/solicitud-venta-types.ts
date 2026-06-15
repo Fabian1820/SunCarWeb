@@ -228,3 +228,28 @@ export interface SolicitudVentaSummaryResponse {
   total: number;
   solicitudes?: SolicitudVentaSummary[];
 }
+
+export interface VentasFacturaCompra {
+  material_id: string;
+  codigo: string;
+  descripcion: string;
+  cantidad: number;
+  precio: number;
+}
+
+export interface VentasFacturaRow {
+  id: string;
+  nombre: string;
+  ci?: string;
+  telefono?: string;
+  direccion?: string;
+  numero?: string;
+  compras: VentasFacturaCompra[];
+}
+
+export interface VentasFacturaResponse {
+  data: VentasFacturaRow[];
+  total: number;
+  skip: number;
+  limit: number;
+}

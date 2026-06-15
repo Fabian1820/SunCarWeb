@@ -32,15 +32,13 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import {
   MaterialService,
-  ClienteVentaService,
-  SolicitudVentaService,
   TasaCambioService,
   ContabilidadService,
 } from "@/lib/api-services";
 import { apiRequest } from "@/lib/api-config";
+import { usePaginatedVentasFactura } from "@/hooks/use-paginated-ventas-factura";
 import type { Cliente } from "@/lib/types/feats/customer/cliente-types";
-import type { ClienteVenta } from "@/lib/types/feats/clientes-ventas/cliente-venta-types";
-import type { SolicitudVenta } from "@/lib/types/feats/solicitudes-ventas/solicitud-venta-types";
+import type { VentasFacturaRow } from "@/lib/types/feats/solicitudes-ventas/solicitud-venta-types";
 import type { TasaCambio } from "@/lib/types/feats/tasa-cambio/tasa-cambio-types";
 import type { Material } from "@/lib/types/feats/materials/material-types";
 import { FacturasSubmoduleGuard } from "@/components/auth/facturas-submodule-guard";
@@ -60,19 +58,6 @@ interface InstaladoraRow {
   ofertaItems: FacturaValeItem[];
 }
 
-interface VentaCompraResumenItem {
-  key: string;
-  material_id: string;
-  codigo: string;
-  descripcion: string;
-  cantidad: number;
-  precio: number;
-}
-
-interface VentasRow {
-  cliente: ClienteVenta;
-  compras: VentaCompraResumenItem[];
-}
 
 interface OfertaFacturaData {
   items: FacturaValeItem[];
@@ -206,7 +191,7 @@ type FacturaPreviewSource =
     }
   | {
       kind: "ventas";
-      row: VentasRow;
+      row: VentasFacturaRow;
       items: FacturaValeItem[];
       baseJuridicaUsd: number;
     };
@@ -678,22 +663,18 @@ function FacturasSolarCarrosPageContent() {
 
   const [tab, setTab] = useState("instaladora");
   const [loadingInstaladora, setLoadingInstaladora] = useState(false);
-  const [loadingVentas, setLoadingVentas] = useState(false);
   const [loadingFacturas, setLoadingFacturas] = useState(false);
   const [loadedInstaladora, setLoadedInstaladora] = useState(false);
-  const [loadedVentas, setLoadedVentas] = useState(false);
   const [loadedFacturas, setLoadedFacturas] = useState(false);
   const [creatingClienteKey, setCreatingClienteKey] = useState<string | null>(null);
   const [creatingVentaKey, setCreatingVentaKey] = useState<string | null>(null);
   const [instaladoraRows, setInstaladoraRows] = useState<InstaladoraRow[]>([]);
-  const [ventasRows, setVentasRows] = useState<VentasRow[]>([]);
   const [facturasSolar, setFacturasSolar] = useState<FacturaSolarCarroView[]>([]);
   const [facturaVista, setFacturaVista] = useState<FacturaSolarCarroView | null>(null);
   const [facturaEditando, setFacturaEditando] = useState<FacturaSolarCarroView | null>(null);
   const [editDraft, setEditDraft] = useState<FacturaSolarCarroView | null>(null);
   const [editSaving, setEditSaving] = useState(false);
   const [searchInstaladora, setSearchInstaladora] = useState("");
-  const [searchVentas, setSearchVentas] = useState("");
   const [fechaValeDesde, setFechaValeDesde] = useState("");
   const [fechaValeHasta, setFechaValeHasta] = useState("");
 
@@ -862,74 +843,6 @@ function FacturasSolarCarrosPageContent() {
     setInstaladoraRows(sortedRows);
   }, []);
 
-  const loadVentasRows = useCallback(async () => {
-    const [clientesVentas, solicitudes] = await Promise.all([
-      ClienteVentaService.getClientes({ skip: 0, limit: 2000 }),
-      SolicitudVentaService.getSolicitudes({ skip: 0, limit: 2000 }),
-    ]);
-
-    const solicitudesList = Array.isArray(solicitudes) ? solicitudes : [];
-    const comprasPorCliente = new Map<string, Map<string, VentaCompraResumenItem>>();
-
-    solicitudesList.forEach((solicitud: SolicitudVenta) => {
-      const estado = normalizeKey(solicitud.estado || "");
-      if (estado === "anulada" || estado === "anulado") return;
-
-      const cliente = solicitud.cliente_venta;
-      const clienteId = (solicitud.cliente_venta_id || cliente?.id || "").trim();
-      if (!clienteId) return;
-
-      const mapCliente =
-        comprasPorCliente.get(clienteId) ||
-        new Map<string, VentaCompraResumenItem>();
-
-      (solicitud.materiales || []).forEach((material) => {
-        const codigo = String(
-          material.material_codigo || material.codigo || material.material?.codigo || "",
-        );
-        const descripcion = String(
-          material.material_descripcion ||
-            material.descripcion ||
-            material.material?.descripcion ||
-            material.material?.nombre ||
-            "Material",
-        );
-
-        const materialId = String(material.material_id || codigo || descripcion);
-        const key = `${codigo}__${descripcion}`;
-        const cantidadActual = parseNumero(material.cantidad);
-
-        const existing = mapCliente.get(key);
-        if (existing) {
-          existing.cantidad += cantidadActual;
-        } else {
-          mapCliente.set(key, {
-            key,
-            material_id: materialId,
-            codigo: codigo || "SIN-CODIGO",
-            descripcion,
-            cantidad: cantidadActual,
-            precio: parseNumero(material.material?.precio),
-          });
-        }
-      });
-
-      comprasPorCliente.set(clienteId, mapCliente);
-    });
-
-    const rows: VentasRow[] = (clientesVentas || []).map((cliente) => {
-      const comprasMap =
-        comprasPorCliente.get(cliente.id) ||
-        new Map<string, VentaCompraResumenItem>();
-      const compras = Array.from(comprasMap.values()).filter(
-        (item) => item.cantidad > 0,
-      );
-      return { cliente, compras };
-    });
-
-    setVentasRows(rows);
-  }, []);
-
   const handleLoadError = useCallback(
     (error: unknown) => {
       toast({
@@ -957,19 +870,6 @@ function FacturasSolarCarrosPageContent() {
     }
   }, [handleLoadError, loadInstaladoraRows, loadedInstaladora, loadingInstaladora]);
 
-  const ensureVentasLoaded = useCallback(async () => {
-    if (loadedVentas || loadingVentas) return;
-    setLoadingVentas(true);
-    try {
-      await loadVentasRows();
-      setLoadedVentas(true);
-    } catch (error) {
-      handleLoadError(error);
-    } finally {
-      setLoadingVentas(false);
-    }
-  }, [handleLoadError, loadVentasRows, loadedVentas, loadingVentas]);
-
   const ensureFacturasLoaded = useCallback(
     async (force = false) => {
       if (!force && (loadedFacturas || loadingFacturas)) return;
@@ -986,11 +886,12 @@ function FacturasSolarCarrosPageContent() {
     [handleLoadError, loadFacturasSolar, loadedFacturas, loadingFacturas],
   );
 
+  const ventas = usePaginatedVentasFactura();
+
   useEffect(() => {
     if (tab === "instaladora") void ensureInstaladoraLoaded();
-    else if (tab === "ventas") void ensureVentasLoaded();
     else if (tab === "facturas") void ensureFacturasLoaded();
-  }, [tab, ensureInstaladoraLoaded, ensureVentasLoaded, ensureFacturasLoaded]);
+  }, [tab, ensureInstaladoraLoaded, ensureFacturasLoaded]);
 
   const openPreview = (source: FacturaPreviewSource, draft: SolarFacturaDraft) => {
     setPreviewSource(source);
@@ -1068,8 +969,8 @@ function FacturasSolarCarrosPageContent() {
     }
   };
 
-  const handleGenerarFacturaVentas = async (row: VentasRow) => {
-    const key = row.cliente.id || row.cliente.numero || row.cliente.nombre;
+  const handleGenerarFacturaVentas = async (row: VentasFacturaRow) => {
+    const key = row.id || row.numero || row.nombre;
     setCreatingVentaKey(key);
 
     try {
@@ -1091,10 +992,10 @@ function FacturasSolarCarrosPageContent() {
         {
           numero_factura: buildNumeroFacturaSolar(facturasSolar),
           fecha: toDateInput(new Date()),
-          cliente_nombre: row.cliente.nombre || "",
-          cliente_telefono: row.cliente.telefono || "",
-          cliente_direccion: row.cliente.direccion || "",
-          cliente_documento: row.cliente.ci || "",
+          cliente_nombre: row.nombre || "",
+          cliente_telefono: row.telefono || "",
+          cliente_direccion: row.direccion || "",
+          cliente_documento: row.ci || "",
           persona_tipo: "natural",
           detalle_modo: "cantidades",
           concepto_manual: "",
@@ -1660,11 +1561,11 @@ function FacturasSolarCarrosPageContent() {
           cliente_id:
             previewSource.kind === "instaladora"
               ? previewSource.row.cliente.id || null
-              : previewSource.row.cliente.id || null,
+              : previewSource.row.id || null,
           numero_cliente:
             previewSource.kind === "instaladora"
               ? previewSource.row.cliente.numero || null
-              : previewSource.row.cliente.numero || null,
+              : previewSource.row.numero || null,
           nombre: previewDraft.cliente_nombre,
           telefono: previewDraft.cliente_telefono || null,
           direccion: previewDraft.cliente_direccion || null,
@@ -1746,11 +1647,6 @@ function FacturasSolarCarrosPageContent() {
     }
   };
 
-  const rowsVentasConCompras = useMemo(
-    () => ventasRows.filter((row) => row.compras.length > 0),
-    [ventasRows],
-  );
-
   const instaladoraRowsFiltradas = useMemo(() => {
     const term = normalizeKey(searchInstaladora);
     const fromTime = fechaValeDesde
@@ -1786,29 +1682,6 @@ function FacturasSolarCarrosPageContent() {
       return haystack.includes(term);
     });
   }, [instaladoraRows, searchInstaladora, fechaValeDesde, fechaValeHasta]);
-
-  const rowsVentasConComprasFiltradas = useMemo(() => {
-    const term = normalizeKey(searchVentas);
-    if (!term) return rowsVentasConCompras;
-
-    return rowsVentasConCompras.filter((row) => {
-      const comprasTexto = row.compras
-        .map((compra) => `${compra.codigo} ${compra.descripcion} ${compra.cantidad}`)
-        .join(" ");
-
-      const haystack = [
-        row.cliente.nombre,
-        row.cliente.direccion,
-        row.cliente.telefono,
-        row.cliente.ci,
-        comprasTexto,
-      ]
-        .map((value) => normalizeKey(value))
-        .join(" ");
-
-      return haystack.includes(term);
-    });
-  }, [rowsVentasConCompras, searchVentas]);
 
   const getExistenciaClass = (existencia: number) => {
     const value = parseNumero(existencia);
@@ -2259,7 +2132,7 @@ function FacturasSolarCarrosPageContent() {
               </TabsContent>
 
               <TabsContent value="ventas">
-                {loadingVentas && !loadedVentas ? (
+                {ventas.loading && ventas.rows.length === 0 ? (
                   <div className="py-10 text-center text-gray-600">
                     Cargando clientes de ventas...
                   </div>
@@ -2270,10 +2143,13 @@ function FacturasSolarCarrosPageContent() {
                       <Input
                         id="search-ventas"
                         placeholder="Nombre, CI/NIT, teléfono, material..."
-                        value={searchVentas}
-                        onChange={(e) => setSearchVentas(e.target.value)}
+                        value={ventas.filters.q}
+                        onChange={(e) => ventas.setFilters({ q: e.target.value })}
                       />
                     </div>
+                    {ventas.error && (
+                      <p className="text-sm text-red-600">{ventas.error}</p>
+                    )}
                     <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
@@ -2287,19 +2163,19 @@ function FacturasSolarCarrosPageContent() {
                         </tr>
                       </thead>
                       <tbody>
-                        {rowsVentasConComprasFiltradas.map((row) => {
-                          const rowKey = row.cliente.id || row.cliente.numero || row.cliente.nombre;
+                        {ventas.rows.map((row) => {
+                          const rowKey = row.id || row.numero || row.nombre;
                           const creating = creatingVentaKey === rowKey;
                           return (
                             <tr key={rowKey} className="border-b hover:bg-slate-50/60">
-                              <td className="px-3 py-2 font-medium">{row.cliente.nombre}</td>
-                              <td className="px-3 py-2">{row.cliente.direccion || "-"}</td>
-                              <td className="px-3 py-2">{row.cliente.telefono || "-"}</td>
-                              <td className="px-3 py-2">{row.cliente.ci || "-"}</td>
+                              <td className="px-3 py-2 font-medium">{row.nombre}</td>
+                              <td className="px-3 py-2">{row.direccion || "-"}</td>
+                              <td className="px-3 py-2">{row.telefono || "-"}</td>
+                              <td className="px-3 py-2">{row.ci || "-"}</td>
                               <td className="px-3 py-2">
                                 <ul className="space-y-1">
                                   {row.compras.map((compra) => (
-                                    <li key={compra.key}>
+                                    <li key={compra.material_id}>
                                       {compra.cantidad}x {compra.descripcion || compra.codigo || "Material"}
                                     </li>
                                   ))}
@@ -2325,10 +2201,10 @@ function FacturasSolarCarrosPageContent() {
                             </tr>
                           );
                         })}
-                        {rowsVentasConComprasFiltradas.length === 0 && (
+                        {ventas.rows.length === 0 && !ventas.loading && (
                           <tr>
                             <td colSpan={6} className="text-center py-6 text-gray-500">
-                              {searchVentas.trim()
+                              {ventas.filters.q.trim()
                                 ? "No hay resultados para la búsqueda en Ventas."
                                 : "No hay clientes de ventas con compras registradas."}
                             </td>
@@ -2337,6 +2213,31 @@ function FacturasSolarCarrosPageContent() {
                       </tbody>
                     </table>
                     </div>
+                    {ventas.meta.totalPages > 1 && (
+                      <div className="flex items-center justify-between pt-2">
+                        <span className="text-sm text-gray-500">
+                          Página {ventas.meta.page} de {ventas.meta.totalPages} &nbsp;·&nbsp; {ventas.meta.total} clientes
+                        </span>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => ventas.setPage(ventas.meta.page - 1)}
+                            disabled={ventas.meta.page <= 1 || ventas.loading}
+                          >
+                            Anterior
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => ventas.setPage(ventas.meta.page + 1)}
+                            disabled={ventas.meta.page >= ventas.meta.totalPages || ventas.loading}
+                          >
+                            Siguiente
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </TabsContent>

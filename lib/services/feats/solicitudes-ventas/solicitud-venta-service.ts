@@ -1,6 +1,7 @@
 ﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { apiRequest } from "../../../api-config";
+import type { VentasFacturaRow } from "../../../types/feats/solicitudes-ventas/solicitud-venta-types";
 import type {
   MaterialVentaWeb,
   SolicitudVentaAnularData,
@@ -496,5 +497,28 @@ export class SolicitudVentaService {
     const error = extractApiError(raw);
     if (error) throw new Error(error);
     return (raw?.data ?? raw) as SolicitudVenta;
+  }
+
+  static async getResumenFactura(params: {
+    skip?: number;
+    limit?: number;
+    q?: string;
+    cliente_venta_id?: string;
+  } = {}): Promise<{ data: VentasFacturaRow[]; total: number }> {
+    const search = new URLSearchParams();
+    if (params.skip != null) search.append("skip", String(params.skip));
+    if (params.limit != null) search.append("limit", String(params.limit));
+    if (params.q?.trim()) search.append("q", params.q.trim());
+    if (params.cliente_venta_id) search.append("cliente_venta_id", params.cliente_venta_id);
+
+    const endpoint = `${BASE_ENDPOINT}/resumen-factura${search.toString() ? `?${search.toString()}` : ""}`;
+    const raw = await apiRequest<any>(endpoint);
+    const error = extractApiError(raw);
+    if (error) throw new Error(error);
+
+    const payload = raw?.data ?? raw;
+    const data: VentasFacturaRow[] = Array.isArray(payload) ? payload : [];
+    const total = typeof raw?.total === "number" ? raw.total : data.length;
+    return { data, total };
   }
 }
