@@ -2,6 +2,20 @@
 
 ---
 
+## 📅 16 de Junio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+Sin commits nuevos en las últimas 24h. Los seguimientos del 15/06 siguen vigentes.
+
+---
+
+### Puede dar bateo
+
+Sin cambios nuevos — sin riesgos nuevos.
+
+---
+
 ## 📅 15 de Junio, 2026
 
 ### Resumen de cambios (últimas 24h)
