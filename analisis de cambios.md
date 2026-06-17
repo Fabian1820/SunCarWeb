@@ -2,6 +2,20 @@
 
 ---
 
+## 📅 17 de Junio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+Sin commits nuevos en las últimas 24h. Los seguimientos del 16/06 siguen vigentes.
+
+---
+
+### Puede dar bateo
+
+Sin cambios nuevos — sin riesgos nuevos.
+
+---
+
 ## 📅 16 de Junio, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -103,9 +117,9 @@ Sin cambios nuevos — sin riesgos nuevos.
 - **Campos `tipo`, `pendiente_costeo`, `regularizada_por` en KardexCosto**: Si el backend no devuelve estos campos, las filas del kardex no mostrarán badges ni resaltados.
 - **Badge "Facturado" con flotantes**: `monto_facturado >= monto_total` puede mostrar "Pendiente" en factura ya cobrada por redondeo flotante.
 - **Botón "Actualizar costos" — lógica de decisión interna**: Decide internamente si pondera o ajusta. Un error puede aplicar la operación incorrecta sin aviso al usuario.
-- **`GET /resumen-factura` — endpoint y estructura `$facet` sin confirmar (nuevo)**: El hook `usePaginatedVentasFactura` asume que este endpoint existe y devuelve la estructura esperada.
-- **`$facet` aggregation — límite de 100MB de memoria (nuevo)**: Con grandes volúmenes de facturas puede exceder el límite de memoria de MongoDB antes de paginar. Confirmar índices o `allowDiskUse`.
-- **Debounce en búsqueda de facturas-ventas — estado al limpiar (nuevo)**: Confirmar que limpiar el campo cancela peticiones pendientes y resetea a la primera página sin duplicados.
+- **`GET /resumen-factura` — endpoint y estructura `$facet` sin confirmar**: El hook `usePaginatedVentasFactura` asume que este endpoint existe y devuelve la estructura esperada.
+- **`$facet` aggregation — límite de 100MB de memoria**: Con grandes volúmenes de facturas puede exceder el límite de memoria de MongoDB antes de paginar. Confirmar índices o `allowDiskUse`.
+- **Debounce en búsqueda de facturas-ventas — estado al limpiar**: Confirmar que limpiar el campo cancela peticiones pendientes y resetea a la primera página sin duplicados.
 
 ---
 
@@ -228,17 +242,17 @@ Sin cambios nuevos — sin riesgos nuevos.
 - **Export Excel merge vertical — heterogeneidad de materiales**.
 - **Rebrand paleta — componentes con clases hardcoded**.
 - **`POST /solicitudes-transferencia/{id}/resolver` — endpoint pendiente de confirmación**.
-- **Módulo "Empleados" — permisos en BD no migrados (nuevo)**.
-- **Sub-permiso implícito — usuarios con padre sin hijo en BD (nuevo)**.
-- **`PATCH /facturas-solar-carros/{id}` — confirmar endpoint (nuevo)**.
-- **`VincularPagoDialog` — endpoint de PagoVenta por solicitud (nuevo)**.
-- **Consignaciones denormalizadas — campos del backend (nuevo)**.
-- **Auto-vinculación de pagos a consignación (nuevo)**.
-- **`POST /consignaciones/{id}/facturas` — endpoint sin confirmar (nuevo)**.
-- **`cargo` en RRHH — confirmar aceptación en `PUT /{ci}/rrhh` (nuevo)**.
-- **Campos `tipo`, `pendiente_costeo`, `regularizada_por` en KardexCosto (nuevo)**.
-- **Badge "Facturado" con flotantes (nuevo)**.
-- **Botón "Actualizar costos" — lógica de decisión interna (nuevo)**.
+- **Módulo "Empleados" — permisos en BD no migrados**.
+- **Sub-permiso implícito — usuarios con padre sin hijo en BD**.
+- **`PATCH /facturas-solar-carros/{id}` — confirmar endpoint**.
+- **`VincularPagoDialog` — endpoint de PagoVenta por solicitud**.
+- **Consignaciones denormalizadas — campos del backend**.
+- **Auto-vinculación de pagos a consignación**.
+- **`POST /consignaciones/{id}/facturas` — endpoint sin confirmar**.
+- **`cargo` en RRHH — confirmar aceptación en `PUT /{ci}/rrhh`**.
+- **Campos `tipo`, `pendiente_costeo`, `regularizada_por` en KardexCosto**.
+- **Badge "Facturado" con flotantes**.
+- **Botón "Actualizar costos" — lógica de decisión interna**.
 
 ---
 
@@ -342,130 +356,14 @@ Sin cambios nuevos — sin riesgos nuevos.
 - **Export Excel merge vertical — heterogeneidad de materiales**.
 - **Rebrand paleta — componentes con clases hardcoded**.
 - **`POST /solicitudes-transferencia/{id}/resolver` — endpoint pendiente de confirmación**.
-- **Módulo "Empleados" — permisos en BD no migrados (nuevo)**.
-- **Sub-permiso implícito — usuarios con padre sin hijo en BD (nuevo)**.
-- **`PATCH /facturas-solar-carros/{id}` — confirmar endpoint (nuevo)**.
-- **`VincularPagoDialog` — endpoint de PagoVenta por solicitud (nuevo)**.
-- **Consignaciones denormalizadas — campos del backend (nuevo)**.
-- **Auto-vinculación de pagos a consignación (nuevo)**.
-- **Módulo "Consignaciones" en catálogo — sync a BD (nuevo)**.
+- **Módulo "Empleados" — permisos en BD no migrados**.
+- **Sub-permiso implícito — usuarios con padre sin hijo en BD**.
+- **`PATCH /facturas-solar-carros/{id}` — confirmar endpoint**.
+- **`VincularPagoDialog` — endpoint de PagoVenta por solicitud**.
+- **Consignaciones denormalizadas — campos del backend**.
+- **Auto-vinculación de pagos a consignación**.
+- **Módulo "Consignaciones" en catálogo — sync a BD**.
 
 ---
 
-## 📅 9 de Junio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**~20 commits** de Fabian1820 y yany1509 — día de alta actividad: sistema completo de asignaciones con depreciación, ajuste de costo y transferencia; sub-permiso en Fichas de Costo; nueva pestaña de Reservas en notificaciones; cron de actualización de precios; y múltiples fixes en el módulo de ofertas y exports.
-
----
-
-### Área 1: Asignaciones — depreciación, costo, ajuste, transferencia y plan (2 commits — Fabian1820)
-
-- **`feat(asignaciones): mostrar depreciación, costo, fecha y descripción`** (15:52) — `precio` renombrado a `costo`; agrega `descripcion`, `fecha_asignacion` y campos derivados (`depreciacion_mensual`, `valor_depreciado`, `valor_residual`).
-- **`feat(asignaciones): ajuste de costo, transferencia, historial y plan de depreciación`** (23:07) — `AjustarCostoDialog`, `TransferirAsignacionDialog`, `PlanDepreciacionView` con 5 KPIs, filtros, tabla con totales y export a Excel.
-
----
-
-### Área 2: Fichas de Costo — márgenes y sub-permiso (2 commits — Fabian1820)
-
-- **`Fichas de Costo: margen s/ venta en tabla, dos márgenes en detalle, pools`** (16:13).
-- **`Fichas de Costo: sub-permiso "solo ver precios"`** (19:11) — Agrega `fichas-costo/solo-precios` al catálogo.
-
----
-
-### Área 3: Notificaciones — nueva pestaña Reservas (1 commit — yany1509, 17:31)
-
-- **`feat(notificaciones): nueva pestaña Reservas + mejor jerarquía visual`** — 4ta pestaña "Reservas" para tipo `reserva_pendiente`.
-
----
-
-### Área 4: Cron de precios — iteración rápida (varios commits — yany1509)
-
-Cron automático lun-sáb 8am vía `instrumentation.ts` con `CRON_CI + CRON_ADMIN_PASS`. Revert del primer intento y re-implementación limpia del botón manual.
-
----
-
-### Área 5: Ofertas — precio instaladora y stock real (3 commits — yany1509)
-
-- Eliminados descuentos automáticos del 15%/20%. Usa `precio_instaladora` si existe y > 0. `stock_disponible` descuenta `cantidad_reservada`.
-
----
-
-### Área 6: Export Excel — precios por material (1 commit — Fabian1820, 14:58)
-
-- Stock de almacén y vales de salida: agrega columnas precio de venta, precio instaladora y costo.
-
----
-
-### Puede dar bateo
-
-1. **`precio → costo` rename — fallback solo en el service**: Si algún componente accede a `asignacion.precio` directamente, recibirá `undefined` silenciosamente.
-2. **`AjustarCostoDialog` — endpoint sin contrato confirmado**: Confirmar que el backend tiene endpoint específico para ajuste de costo de asignación.
-3. **`TransferirAsignacionDialog` — preserva el reloj de depreciación**: Confirmar que el backend no resetea `fecha_asignacion`.
-4. **`PlanDepreciacionView` — campos calculados sin contrato de API**: Confirmar que el backend devuelve `valor_depreciado` y `valor_residual`.
-5. **Variables de entorno del cron en producción**: `CRON_CI` y `CRON_ADMIN_PASS` deben estar en Railway/Vercel.
-6. **Sub-permiso `fichas-costo/solo-precios` — sincronización a BD**: Si el sync automático no está activo, el sub-permiso no existirá en BD.
-7. **Pestaña "Reservas" — tipo `reserva_pendiente` sin confirmar**: Si el backend no genera notificaciones con ese tipo exacto, la pestaña siempre aparecerá vacía.
-8. **`stock_disponible = stock - reservas` calculado client-side**: Si el backend no devuelve `cantidad_reservada`, el cálculo dará `NaN`.
-
----
-
-#### Seguimientos vigentes
-
-- **`apiRequest success:false` — monitorear regresiones post-deploy**.
-- **`showContableFields` en MaterialForm**.
-- **`costo` y `material_id` en tipo `Material`**.
-- **Wallet historial por miembro — filtros params**.
-- **Excel Fichas de Costo sin cota de registros**.
-- **CI `87120119233` hardcodeado para control de permisos**.
-- **Campos `cambio_real_*` requieren backend actualizado**.
-- **Endpoint lazy load `GET /obras-terminadas/oferta/{id}/facturas-cliente`**.
-- **PDF unificado con `limit=total` sin cota máxima**.
-- **Badge de estado calculado en frontend con flotantes**.
-- **Módulo Vales/Facturas Instaladora comentado sin aviso explícito**.
-- **Sistema de notificaciones — endpoints bulk por tipo**.
-- **`GET /inventario/stock-historico`**.
-- **AdminPass 123456 hardcodeado**.
-- **Auto-sync catálogo → BD al abrir /permisos**.
-- **Logs de debug en producción**.
-- **Eliminación lógica `cantidad = 0` en asignaciones**.
-- **Creación inline sin persistencia inmediata**.
-- **Subida de archivos sin rollback**.
-- **Backend debe aceptar nuevos campos**.
-- **`childKeys` en catálogo de módulos**.
-- **`useEffect` con dependencias `[open, initialData?.id]`**.
-- **Agregados solicitudes-ventas**.
-- **`updateSolicitudTransferencia` — validación de estado en backend**.
-- **Búsqueda por `numero_serie`**.
-- **`stock_disponible_actual` — consistencia entre endpoints**.
-- **Excel export de facturas sin cota de registros**.
-- **`'zelle'` como método de pago — soporte en backend**.
-- **Sort client-side de solicitudes pendientes en ValesSalida**.
-- **Parsing UTC→local en otras tablas con filtros de fecha**.
-- **Tasas MLC/CUP sin persistencia entre sesiones**.
-- **`PonderarCostoResponse` campos nuevos**.
-- **`GET /api/kardex-costo/costo-actual`**.
-- **`materiales` en respuesta de facturas de solicitudes-ventas**.
-- **Filtros de vales de salida — `fecha_desde`, `fecha_hasta`, creador**.
-- **`almacenes-suncar/admin` — gating solo en frontend**.
-- **Estados de transferencia no mapeados en `ESTADO_CONFIG`**.
-- **Campos de dimensionamiento en calculadora sin persistencia confirmada**.
-- **Badges de disponibilidad por pool — snapshot estático**.
-- **Endpoint cumpleaños de la semana**.
-- **Endpoint contador de instalaciones solares**.
-- **Widget de paneles — estado único vs respuesta del backend**.
-- **`window.history.pushState` + Next.js App Router desync**.
-- **Export Excel merge vertical — heterogeneidad de materiales**.
-- **Rebrand paleta — componentes con clases hardcoded**.
-- **`POST /solicitudes-transferencia/{id}/resolver` — endpoint pendiente de confirmación**.
-- **`precio → costo` rename en Asignacion — fallback solo en service (nuevo)**.
-- **Endpoints de ajuste de costo y transferencia de asignaciones (nuevo)**.
-- **`PlanDepreciacionView` — campos calculados en endpoint (nuevo)**.
-- **Variables de entorno cron en producción — `CRON_CI` y `CRON_ADMIN_PASS` (nuevo)**.
-- **Sub-permiso `fichas-costo/solo-precios` — sync a BD (nuevo)**.
-- **Tipo `reserva_pendiente` en notificaciones (nuevo)**.
-
----
-
-> ⚠️ **Nota de mantenimiento**: Las entradas del **5, 6 y 7 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). Anteriores eliminadas: 26, 27, 28, 29, 30 de Mayo, 31 de Mayo, 1, 2 y 4 de Junio.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **5, 6, 7 y 9 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). Anteriores eliminadas: 26, 27, 28, 29, 30 de Mayo, 31 de Mayo, 1, 2 y 4 de Junio.
