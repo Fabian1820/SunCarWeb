@@ -753,7 +753,9 @@ export function UpsertSolicitudVentaDialog({
             const neta = Math.max(0, mat.cantidad_reservada - (mat.cantidad_consumida ?? 0));
             if (neta > 0) {
               tMap.set(mat.material_id, (tMap.get(mat.material_id) ?? 0) + neta);
-              const pool = (mat.pool ?? "indistinto") as keyof PoolReservaBrkV;
+              const rawPool = mat.pool ?? "indistinto";
+              const pool: keyof PoolReservaBrkV =
+                rawPool === "ventas" || rawPool === "instaladora" ? rawPool : "indistinto";
               const curr = pMap.get(mat.material_id) ?? { ventas: 0, instaladora: 0, indistinto: 0 };
               curr[pool] = (curr[pool] ?? 0) + neta;
               pMap.set(mat.material_id, curr);
@@ -768,6 +770,9 @@ export function UpsertSolicitudVentaDialog({
         const cMap = new Map<string, number>();
         if (currentCliente?.id) {
           const reservasCliente = todasReservas.filter((r) => r.cliente_id === currentCliente.id);
+          // Refrescar el banner de "reservas del cliente" — quedaba stale al
+          // cambiar de almacén tras seleccionar cliente.
+          setReservasDelCliente(reservasCliente);
           for (const reserva of reservasCliente) {
             for (const mat of reserva.materiales ?? []) {
               const neta = Math.max(0, mat.cantidad_reservada - (mat.cantidad_consumida ?? 0));

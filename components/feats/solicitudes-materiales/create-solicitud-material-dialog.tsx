@@ -894,7 +894,9 @@ export function CreateSolicitudMaterialDialog({
           for (const mat of reserva.materiales ?? []) {
             const neta = Math.max(0, mat.cantidad_reservada - (mat.cantidad_consumida ?? 0));
             if (neta > 0) {
-              const pool = (mat.pool ?? "indistinto") as keyof PoolReservaBreakdown;
+              const rawPool = mat.pool ?? "indistinto";
+              const pool: keyof PoolReservaBreakdown =
+                rawPool === "ventas" || rawPool === "instaladora" ? rawPool : "indistinto";
               const curr = pMap.get(mat.material_id) ?? { ventas: 0, instaladora: 0, indistinto: 0 };
               curr[pool] = (curr[pool] ?? 0) + neta;
               pMap.set(mat.material_id, curr);

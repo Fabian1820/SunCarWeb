@@ -1245,7 +1245,9 @@ export function ConfeccionOfertasView({
   // verdad sale de la colección reservas.
   const reservadoOtrasPorCodigo = useMemo(() => {
     const map = new Map<string, number>();
-    // Necesitamos resolver material_id → codigo. El stock del almacén lo da.
+    // Resolver material_id → codigo: el stock cubre lo que está físicamente en
+    // el almacén; el catálogo cubre todo (incluso materiales reservados pero
+    // sin stock actual en ese almacén — su reserva sigue siendo válida).
     const idToCodigo = new Map<string, string>();
     stock
       .filter((s) => s.almacen_id === almacenId)
@@ -1254,16 +1256,25 @@ export function ConfeccionOfertasView({
         const codigo = String((s as any).material_codigo ?? "");
         if (id && codigo) idToCodigo.set(String(id), codigo);
       });
+    materials.forEach((m) => {
+      const id = (m as any).id ?? (m as any)._id;
+      const codigo = String((m as any).codigo ?? "");
+      if (id && codigo && !idToCodigo.has(String(id))) {
+        idToCodigo.set(String(id), codigo);
+      }
+    });
     for (const reserva of reservasOtrasActivas) {
       for (const mat of reserva.materiales ?? []) {
-        const codigo = idToCodigo.get(String(mat.material_id));
+        const codigo =
+          idToCodigo.get(String(mat.material_id)) ||
+          (mat.codigo ? String(mat.codigo) : "");
         if (!codigo) continue;
         const neta = Math.max(0, mat.cantidad_reservada - (mat.cantidad_consumida ?? 0));
         if (neta > 0) map.set(codigo, (map.get(codigo) ?? 0) + neta);
       }
     }
     return map;
-  }, [reservasOtrasActivas, stock, almacenId]);
+  }, [reservasOtrasActivas, stock, almacenId, materials]);
 
   // Obtener materiales para la oferta; si hay almacén, anexar stock (incluye 0)
   const materialesConStock = useMemo(() => {

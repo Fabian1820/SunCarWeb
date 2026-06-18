@@ -311,7 +311,9 @@ export function CreateReservaDialog({
               mat.cantidad_reservada - (mat.cantidad_consumida ?? 0),
             );
             if (neta > 0) {
-              const sectorReserva = (mat.pool ?? "indistinto") as keyof PoolBreakdown;
+              const rawPool = mat.pool ?? "indistinto";
+              const sectorReserva: keyof PoolBreakdown =
+                rawPool === "ventas" || rawPool === "instaladora" ? rawPool : "indistinto";
               const curr = pMap.get(mat.material_id) ?? { ...ZERO_POOL };
               curr[sectorReserva] = (curr[sectorReserva] ?? 0) + neta;
               pMap.set(mat.material_id, curr);
