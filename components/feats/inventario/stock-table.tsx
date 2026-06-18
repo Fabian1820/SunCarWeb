@@ -323,7 +323,7 @@ export function StockTable({
                           </button>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>Ver distribución por pool y transferir</p>
+                          <p>Ver distribución por sector y transferir</p>
                         </TooltipContent>
                       </Tooltip>
                     ) : (
@@ -349,7 +349,7 @@ export function StockTable({
                         <TooltipContent>
                           {item.pools && POOLS_STOCK.some((p) => (item.pools![p]?.cantidad_reservada ?? 0) > 0) ? (
                             <div className="text-xs space-y-0.5">
-                              <p className="font-semibold mb-1">Reservas por pool:</p>
+                              <p className="font-semibold mb-1">Reservas por sector:</p>
                               {POOLS_STOCK.map((p) => (
                                 <div key={p} className="flex justify-between gap-3">
                                   <span className="text-gray-300">{POOL_STOCK_LABELS[p]}:</span>

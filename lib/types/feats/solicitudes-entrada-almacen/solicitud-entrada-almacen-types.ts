@@ -107,13 +107,13 @@ export const SOLICITUD_ENTRADA_ESTADO_LABELS: Record<EstadoSolicitudEntrada, str
 };
 
 export const POOL_LABELS: Record<PoolKey, string> = {
-  indistinto: "Indistinto",
+  indistinto: "Común",
   instaladora: "Instaladora",
   ventas: "Ventas",
 };
 
 export const POOL_DESCRIPCIONES: Record<PoolKey, string> = {
-  indistinto: "Disponible para cualquier sector",
+  indistinto: "Disponible para ambos sectores",
   instaladora: "Reservado para vales de instalación",
   ventas: "Reservado para ventas en tienda",
 };

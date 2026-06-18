@@ -228,23 +228,30 @@ export function RegistrarDevolucionDialog({
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <Label>Pool de destino (almacén)</Label>
+            <Label>Sector de destino (almacén)</Label>
             <div className="mt-1 flex gap-2">
-              {(["ventas", "instaladora", "indistinto"] as const).map((k) => (
-                <button
-                  type="button"
-                  key={k}
-                  onClick={() => setPool(k)}
-                  disabled={submitting}
-                  className={`flex-1 rounded-md border px-3 py-1.5 text-xs font-medium capitalize transition ${
-                    pool === k
-                      ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                      : "border-gray-200 text-gray-600 hover:border-gray-300"
-                  }`}
-                >
-                  {k}
-                </button>
-              ))}
+              {(["ventas", "instaladora", "indistinto"] as const).map((k) => {
+                const POOL_LABEL: Record<string, string> = {
+                  ventas: "Ventas",
+                  instaladora: "Instaladora",
+                  indistinto: "Común",
+                };
+                return (
+                  <button
+                    type="button"
+                    key={k}
+                    onClick={() => setPool(k)}
+                    disabled={submitting}
+                    className={`flex-1 rounded-md border px-3 py-1.5 text-xs font-medium transition ${
+                      pool === k
+                        ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                        : "border-gray-200 text-gray-600 hover:border-gray-300"
+                    }`}
+                  >
+                    {POOL_LABEL[k]}
+                  </button>
+                );
+              })}
             </div>
           </div>
           <div>

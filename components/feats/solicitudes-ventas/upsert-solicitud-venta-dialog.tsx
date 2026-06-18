@@ -136,22 +136,24 @@ const lookupFromMapV = (
   return 0;
 };
 
+type PoolReservaBrkV = { ventas: number; instaladora: number; indistinto: number };
+
 /**
  * Mapa material_id (y c:codigo) → disponible por pool {sector, indistinto}.
- * disponible = cantidad − cantidad_reservada (el backend ya rellena
- * cantidad_reservada por pool con las reservas activas reales).
+ * Usa el mapa de reservas activas por pool (de la colección reservas)
+ * porque cantidad_reservada en el doc de stock no se actualiza en tiempo real.
  */
 const buildPoolsDispMapV = (
   items: StockItem[],
   sectorKey: "instaladora" | "ventas",
+  reservadoMap: Map<string, PoolReservaBrkV>,
 ): Map<string, { sector: number; indistinto: number }> => {
   const map = new Map<string, { sector: number; indistinto: number }>();
-  const disp = (p?: { cantidad?: number; cantidad_reservada?: number }) =>
-    Math.max(0, (p?.cantidad ?? 0) - (p?.cantidad_reservada ?? 0));
   for (const item of items) {
+    const res = (item.material_id ? reservadoMap.get(item.material_id) : undefined) ?? { ventas: 0, instaladora: 0, indistinto: 0 };
     const entry = {
-      sector: disp(item.pools?.[sectorKey]),
-      indistinto: disp(item.pools?.indistinto),
+      sector: Math.max(0, (item.pools?.[sectorKey]?.cantidad ?? 0) - res[sectorKey]),
+      indistinto: Math.max(0, (item.pools?.indistinto?.cantidad ?? 0) - res.indistinto),
     };
     if (item.material_id) map.set(item.material_id, entry);
     if (item.material_codigo) {
@@ -225,6 +227,9 @@ export function UpsertSolicitudVentaDialog({
   const [reservasActivas, setReservasActivas] = useState<Reserva[]>([]);
   const [loadingReservas, setLoadingReservas] = useState(false);
   const [reservaAplicada, setReservaAplicada] = useState<Reserva | null>(null);
+  // Aviso no bloqueante: reservas activas del cliente seleccionado en el almacén actual
+  const [reservasDelCliente, setReservasDelCliente] = useState<Reserva[]>([]);
+  const [showClienteReservas, setShowClienteReservas] = useState(false);
   /**
    * Id de la reserva con la que queda vinculada la solicitud al guardar.
    * - En crear: se setea cuando el usuario aplica una reserva desde el panel.
@@ -357,6 +362,8 @@ export function UpsertSolicitudVentaDialog({
     setShowReservaPanel(false);
     setReservasActivas([]);
     setReservaAplicada(null);
+    setReservasDelCliente([]);
+    setShowClienteReservas(false);
     setLinkedReservaId(solicitud?.reserva_id ?? null);
 
     setOfertasDelCliente([]);
@@ -515,6 +522,10 @@ export function UpsertSolicitudVentaDialog({
     setShowClienteDropdown(false);
     setShowQuickCreateCliente(false);
     setQuickCreateError(null);
+    // Aviso de reservas activas del cliente en este almacén
+    const reservasClientes = todasReservasVRef.current.filter((r) => r.cliente_id === cliente.id);
+    setReservasDelCliente(reservasClientes);
+    setShowClienteReservas(false);
     // Recalcular reservas del cliente filtrando del total ya en memoria
     if (selectedAlmacenId) {
       const reservasCliente = todasReservasVRef.current.filter((r) => r.cliente_id === cliente.id);
@@ -543,6 +554,8 @@ export function UpsertSolicitudVentaDialog({
     setClienteSearch("");
     setClienteSearchResults([]);
     setShowClienteDropdown(false);
+    setReservasDelCliente([]);
+    setShowClienteReservas(false);
     // Sin cliente: stock = bruto - total_reservado
     clientReservaMapRef.current = new Map();
     const tMap = totalReservaVMapRef.current;
@@ -728,17 +741,27 @@ export function UpsertSolicitudVentaDialog({
 
         const map = buildStockMapV(items);
         stockMapRef.current = map;
-        setPoolsDispMap(buildPoolsDispMapV(items, "ventas"));
 
         todasReservasVRef.current = todasReservas;
+
+        // Mapa total (todos los sectores sumados) para el stock visible principal
         const tMap = new Map<string, number>();
+        // Mapa por sector para los badges de disponibilidad sector/Común
+        const pMap = new Map<string, PoolReservaBrkV>();
         for (const reserva of todasReservas) {
           for (const mat of reserva.materiales ?? []) {
             const neta = Math.max(0, mat.cantidad_reservada - (mat.cantidad_consumida ?? 0));
-            if (neta > 0) tMap.set(mat.material_id, (tMap.get(mat.material_id) ?? 0) + neta);
+            if (neta > 0) {
+              tMap.set(mat.material_id, (tMap.get(mat.material_id) ?? 0) + neta);
+              const pool = (mat.pool ?? "indistinto") as keyof PoolReservaBrkV;
+              const curr = pMap.get(mat.material_id) ?? { ventas: 0, instaladora: 0, indistinto: 0 };
+              curr[pool] = (curr[pool] ?? 0) + neta;
+              pMap.set(mat.material_id, curr);
+            }
           }
         }
         totalReservaVMapRef.current = tMap;
+        setPoolsDispMap(buildPoolsDispMapV(items, "ventas", pMap));
 
         // Mapa de reservas del cliente seleccionado (filtrado del total)
         const currentCliente = selectedClienteVentaRef.current;
@@ -1459,6 +1482,73 @@ export function UpsertSolicitudVentaDialog({
               </Badge>
             ) : null}
 
+            {/* Aviso no bloqueante: reservas activas del cliente */}
+            {selectedClienteVenta && !reservaAplicada && reservasDelCliente.length > 0 ? (
+              <div className="rounded-md border border-indigo-200 bg-indigo-50 overflow-hidden">
+                <div className="flex items-center justify-between px-3 py-2">
+                  <div className="flex items-center gap-2 text-xs text-indigo-700">
+                    <BookmarkCheck className="h-3.5 w-3.5 shrink-0" />
+                    <span className="font-medium">
+                      {reservasDelCliente.length === 1
+                        ? "Este cliente tiene 1 reserva activa"
+                        : `Este cliente tiene ${reservasDelCliente.length} reservas activas`}
+                    </span>
+                    <span className="text-indigo-500 font-normal">
+                      — puedes vincularla a esta solicitud
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowClienteReservas((v) => !v)}
+                    className="text-xs text-indigo-600 hover:text-indigo-800 font-medium shrink-0 ml-2"
+                  >
+                    {showClienteReservas ? "Ocultar" : "Ver reservas"}
+                  </button>
+                </div>
+
+                {showClienteReservas && (
+                  <div className="border-t border-indigo-100 divide-y divide-indigo-100 max-h-52 overflow-y-auto">
+                    {reservasDelCliente.map((r) => {
+                      const totalUd = (r.materiales ?? []).reduce(
+                        (s, m) => s + Math.max(0, m.cantidad_reservada - (m.cantidad_consumida ?? 0)),
+                        0,
+                      );
+                      return (
+                        <div
+                          key={r.id}
+                          className="flex items-center justify-between px-3 py-2.5 gap-3"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-xs font-mono font-semibold text-indigo-800">
+                              {r.reserva_id || r.id.slice(-8).toUpperCase()}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              {r.materiales?.length ?? 0} tipo{(r.materiales?.length ?? 0) !== 1 ? "s" : ""} · {totalUd} ud.
+                              {r.fecha_expiracion
+                                ? ` · Vence ${new Date(r.fecha_expiracion).toLocaleDateString("es-ES")}`
+                                : ""}
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="shrink-0 text-xs border-indigo-300 text-indigo-700 hover:bg-indigo-100"
+                            onClick={() => {
+                              applyReserva(r);
+                              setShowClienteReservas(false);
+                            }}
+                          >
+                            Vincular
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : null}
+
             {selectedClienteVenta && !ofertaAplicada ? (
               <div className="space-y-1.5">
                 <Label className="text-xs text-gray-600">
@@ -1774,7 +1864,7 @@ export function UpsertSolicitudVentaDialog({
                                     <Badge
                                       variant="outline"
                                       className="text-[10px] bg-violet-50 text-violet-700 border-violet-200"
-                                      title="Disponible en el pool indistinto (sirve a ambos sectores)"
+                                      title="Disponible en el sector Común (sirve a ambos sectores)"
                                     >
                                       Ambos: {pd.indistinto}
                                     </Badge>

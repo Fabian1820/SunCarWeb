@@ -120,7 +120,7 @@ export function ReservasPorMaterialDialog({
               <div className="flex items-center gap-2">
                 <Layers className="h-3.5 w-3.5 text-indigo-600" />
                 <span className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">
-                  Distribución por pool en este almacén
+                  Distribución por sector en este almacén
                 </span>
               </div>
               <div className="flex h-2 rounded-full overflow-hidden bg-white">

@@ -154,7 +154,7 @@ export function MaterialStockDialog({ open, onOpenChange, material }: MaterialSt
                         key={pa.almacen_id}
                         type="button"
                         onClick={() => handleAbrirPools(pa)}
-                        title="Ver distribución por pool y transferir"
+                        title="Ver distribución por sector y transferir"
                         className="w-full flex items-center justify-between gap-3 rounded-md border border-gray-100 p-3 hover:bg-sky-50 hover:border-sky-200 cursor-pointer transition-colors text-left"
                       >
                         <div className="flex items-center gap-2 text-sm text-gray-800">

@@ -325,7 +325,7 @@ export function SolicitudEntradaDetailDialog({
                 />
               </div>
               <p className="text-xs text-emerald-700">
-                Al aprobar se generarán movimientos de entrada por pool y se registrará el costo en el kardex.
+                Al aprobar se generarán movimientos de entrada por sector y se registrará el costo en el kardex.
               </p>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => { setMode("view"); setError(null); }} disabled={busy}>

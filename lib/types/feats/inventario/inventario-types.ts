@@ -22,7 +22,7 @@ export interface StockPools {
 }
 
 export const POOL_STOCK_LABELS: Record<PoolStockKey, string> = {
-  indistinto: "Indistinto",
+  indistinto: "Común",
   instaladora: "Instaladora",
   ventas: "Ventas",
 };

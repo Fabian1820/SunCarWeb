@@ -49,6 +49,7 @@ export interface ReservaCreateData {
   cliente_tipo: ReservaClienteTipo;
   fecha_expiracion: string;
   oferta_id?: string;
+  origen?: ReservaOrigen;
 }
 
 export interface ReservaUpdateData {

@@ -190,6 +190,15 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
 
   // ───────── Comercial Instaladora ─────────
   {
+    key: "reservas-instaladora",
+    label: "Reservas Instaladora",
+    descripcion: "Gestionar reservas de materiales para proyectos de instalación.",
+    icon: BookmarkCheck,
+    iconClass: "text-orange-600",
+    href: "/reservas-ventas",
+    grupo: "comercial-instaladora",
+  },
+  {
     key: "leads",
     label: "Gestionar Leads Instaladora",
     descripcion: "Administrar leads y oportunidades de venta.",

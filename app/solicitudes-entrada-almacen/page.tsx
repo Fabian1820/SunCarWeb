@@ -193,7 +193,7 @@ function SolicitudesEntradaAlmacenContent() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       <ModuleHeader
         title="Solicitudes de Entrada"
-        subtitle="Recepción de materiales de compra al almacén con asignación por pool"
+        subtitle="Recepción de materiales de compra al almacén con asignación por sector"
         badge={{ text: "Almacén", className: "bg-blue-100 text-blue-800" }}
         backHref="/compras-envios-costos"
         backLabel="Volver a Compras, Envíos y Costos"

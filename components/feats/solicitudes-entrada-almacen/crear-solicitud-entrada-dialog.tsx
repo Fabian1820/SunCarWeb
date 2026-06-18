@@ -457,7 +457,7 @@ export function CrearSolicitudEntradaDialog({
                         {modoPorLinea && (
                           <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-44">Almacén destino</th>
                         )}
-                        <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Split por pool</th>
+                        <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Split por sector</th>
                         <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-56">Motivo si parcial</th>
                       </tr>
                     </thead>
@@ -546,7 +546,7 @@ export function CrearSolicitudEntradaDialog({
                                   disabled={!f.incluir}
                                   onClick={() => balancearAIndistinto(f.material_id)}
                                   className="h-8 px-2 text-[10px] font-medium text-blue-600 border border-blue-200 rounded hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed"
-                                  title="Mover todo al pool Indistinto"
+                                  title="Mover todo al sector Común"
                                 >
                                   Reset
                                 </button>
@@ -583,7 +583,7 @@ export function CrearSolicitudEntradaDialog({
 
                 <div className="mt-2 text-[11px] text-gray-400 flex items-start gap-1.5">
                   <span className="leading-relaxed">
-                    <strong className="text-gray-500">Indistinto</strong> queda disponible para cualquier sector.
+                    <strong className="text-gray-500">Común</strong> queda disponible para ambos sectores.
                     <strong className="text-gray-500"> Instaladora</strong> reservado para vales de instalación.
                     <strong className="text-gray-500"> Ventas</strong> para tiendas. El costo se toma de la
                     ficha de la compra (o queda en 0 hasta que se pondere).

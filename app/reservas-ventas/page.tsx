@@ -22,15 +22,34 @@ import {
 import { Toaster } from "@/components/shared/molecule/toaster";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { PageLoader } from "@/components/shared/atom/page-loader";
+import { Badge } from "@/components/shared/atom/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useReservasVentas } from "@/hooks/use-reservas-ventas";
 import { ReservasVentasTable } from "@/components/feats/reservas-ventas/reservas-ventas-table";
-import { CreateReservaVentaDialog } from "@/components/feats/reservas-ventas/create-reserva-venta-dialog";
+import { CreateReservaDialog } from "@/components/feats/reservas-ventas/create-reserva-dialog";
 import { EditReservaVentaDialog } from "@/components/feats/reservas-ventas/edit-reserva-venta-dialog";
 import { ReservaVentaDetailDialog } from "@/components/feats/reservas-ventas/reserva-venta-detail-dialog";
-import type { Reserva, ReservaCreateData, ReservaEstado, ReservaUpdateData } from "@/lib/api-types";
+import type {
+  Reserva,
+  ReservaCreateData,
+  ReservaEstado,
+  ReservaOrigen,
+  ReservaUpdateData,
+} from "@/lib/api-types";
 
-export default function ReservasVentasPage() {
+type OrigenTab = "todas" | ReservaOrigen;
+
+const ORIGEN_TABS: { value: OrigenTab; label: string; color: string }[] = [
+  { value: "todas", label: "Todas", color: "bg-gray-100 text-gray-700" },
+  {
+    value: "instaladora",
+    label: "Instaladora",
+    color: "bg-orange-100 text-orange-700",
+  },
+  { value: "ventas", label: "Ventas", color: "bg-indigo-100 text-indigo-700" },
+];
+
+export default function ReservasPage() {
   const { toast } = useToast();
   const {
     filteredReservas,
@@ -40,12 +59,12 @@ export default function ReservasVentasPage() {
     filters,
     setFilters,
     total,
-    loadReservas,
     createReserva,
     updateReserva,
     cancelarReserva,
   } = useReservasVentas();
 
+  const [origenTab, setOrigenTab] = useState<OrigenTab>("todas");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
@@ -57,31 +76,26 @@ export default function ReservasVentasPage() {
   const [editLoading, setEditLoading] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
 
+  const handleOrigenTab = (tab: OrigenTab) => {
+    setOrigenTab(tab);
+    setFilters({ origen: tab === "todas" ? undefined : tab });
+  };
+
   if (loading && filteredReservas.length === 0) {
-    return (
-      <PageLoader
-        moduleName="Reservas Ventas"
-        text="Cargando reservas..."
-      />
-    );
+    return <PageLoader moduleName="Reservas" text="Cargando reservas..." />;
   }
 
   const handleCreate = async (data: ReservaCreateData) => {
     setCreateLoading(true);
     try {
       await createReserva(data);
-      toast({
-        title: "Éxito",
-        description: "Reserva creada correctamente",
-      });
+      toast({ title: "Éxito", description: "Reserva creada correctamente" });
       setIsCreateDialogOpen(false);
     } catch (error) {
       toast({
         title: "Error",
         description:
-          error instanceof Error
-            ? error.message
-            : "No se pudo crear la reserva",
+          error instanceof Error ? error.message : "No se pudo crear la reserva",
         variant: "destructive",
       });
       throw error;
@@ -104,10 +118,7 @@ export default function ReservasVentasPage() {
     setEditLoading(true);
     try {
       await updateReserva(id, data);
-      toast({
-        title: "Éxito",
-        description: "Reserva actualizada correctamente",
-      });
+      toast({ title: "Éxito", description: "Reserva actualizada correctamente" });
       setIsEditDialogOpen(false);
       setReservaToEdit(null);
     } catch (error) {
@@ -135,10 +146,7 @@ export default function ReservasVentasPage() {
     setCancelLoading(true);
     try {
       await cancelarReserva(reservaToCancel.id);
-      toast({
-        title: "Éxito",
-        description: "Reserva cancelada correctamente",
-      });
+      toast({ title: "Éxito", description: "Reserva cancelada correctamente" });
       setIsCancelConfirmOpen(false);
       setReservaToCancel(null);
     } catch (error) {
@@ -163,12 +171,14 @@ export default function ReservasVentasPage() {
     { value: "consumida", label: "Consumida" },
   ];
 
+  const activeTab = ORIGEN_TABS.find((t) => t.value === origenTab)!;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50">
       <ModuleHeader
-        title="Reservas de Ventas"
-        subtitle="Gestiona las reservas de materiales para ventas"
-        badge={{ text: "Ventas", className: "bg-indigo-100 text-indigo-800" }}
+        title="Reservas"
+        subtitle="Gestiona reservas de materiales para instaladora y ventas"
+        badge={{ text: "Almacén", className: "bg-indigo-100 text-indigo-800" }}
         className="bg-white shadow-sm border-b border-indigo-100"
         actions={
           <Button
@@ -176,11 +186,9 @@ export default function ReservasVentasPage() {
             className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-semibold shadow-md touch-manipulation"
             onClick={() => setIsCreateDialogOpen(true)}
             aria-label="Nueva reserva"
-            title="Nueva reserva"
           >
             <Plus className="h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">Nueva Reserva</span>
-            <span className="sr-only">Nueva reserva</span>
           </Button>
         }
       />
@@ -193,7 +201,7 @@ export default function ReservasVentasPage() {
                 <div>
                   <CardTitle className="flex items-center gap-2 text-indigo-900">
                     <BookmarkCheck className="h-5 w-5 text-indigo-600" />
-                    Reservas de Ventas
+                    Reservas de materiales
                   </CardTitle>
                   <CardDescription className="text-indigo-600">
                     {total > 0
@@ -201,6 +209,29 @@ export default function ReservasVentasPage() {
                       : "Sin reservas registradas"}
                   </CardDescription>
                 </div>
+              </div>
+
+              {/* Origen tabs */}
+              <div className="flex gap-2 pt-2 flex-wrap">
+                {ORIGEN_TABS.map((tab) => (
+                  <button
+                    key={tab.value}
+                    type="button"
+                    onClick={() => handleOrigenTab(tab.value)}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all border ${
+                      origenTab === tab.value
+                        ? `${tab.color} border-transparent shadow-sm`
+                        : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+                {origenTab !== "todas" && (
+                  <Badge className={`ml-1 self-center ${activeTab.color}`}>
+                    {activeTab.label}
+                  </Badge>
+                )}
               </div>
             </CardHeader>
 
@@ -225,8 +256,7 @@ export default function ReservasVentasPage() {
                     value={filters.estado ?? "todos"}
                     onValueChange={(v) =>
                       setFilters({
-                        estado:
-                          v === "todos" ? undefined : (v as ReservaEstado),
+                        estado: v === "todos" ? undefined : (v as ReservaEstado),
                       })
                     }
                   >
@@ -244,7 +274,6 @@ export default function ReservasVentasPage() {
                 </div>
               </div>
 
-              {/* Table */}
               <ReservasVentasTable
                 reservas={filteredReservas}
                 onView={handleView}
@@ -252,7 +281,6 @@ export default function ReservasVentasPage() {
                 onCancelar={handleCancelarClick}
               />
 
-              {/* Loading state while refreshing */}
               {loading && filteredReservas.length > 0 && (
                 <div className="text-center py-4 text-sm text-gray-500">
                   Actualizando...
@@ -263,15 +291,14 @@ export default function ReservasVentasPage() {
         </div>
       </main>
 
-      {/* Create Dialog */}
-      <CreateReservaVentaDialog
+      <CreateReservaDialog
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
         onSubmit={handleCreate}
         isLoading={createLoading}
+        defaultOrigen={origenTab === "todas" ? "ventas" : origenTab}
       />
 
-      {/* Edit Dialog */}
       <EditReservaVentaDialog
         open={isEditDialogOpen}
         onOpenChange={setIsEditDialogOpen}
@@ -280,14 +307,12 @@ export default function ReservasVentasPage() {
         isLoading={editLoading}
       />
 
-      {/* Detail Dialog */}
       <ReservaVentaDetailDialog
         open={isDetailDialogOpen}
         onOpenChange={setIsDetailDialogOpen}
         reserva={selectedReserva}
       />
 
-      {/* Cancel Confirm Dialog */}
       {isCancelConfirmOpen && reservaToCancel && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full mx-4">

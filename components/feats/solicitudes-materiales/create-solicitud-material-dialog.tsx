@@ -25,6 +25,7 @@ import {
   Package,
   AlertTriangle,
   X,
+  BookmarkCheck,
 } from "lucide-react";
 import { Badge } from "@/components/shared/atom/badge";
 import {
@@ -133,23 +134,24 @@ const buildStockMap = (items: StockItem[]): Map<string, number> => {
   return map;
 };
 
+type PoolReservaBreakdown = { ventas: number; instaladora: number; indistinto: number };
+
 /**
  * Mapa material_id (y c:codigo) → disponible por pool {sector, indistinto}.
- * disponible = cantidad − cantidad_reservada. El backend ya rellena
- * cantidad_reservada por pool con las reservas activas reales, así que esto
- * refleja lo que de verdad le queda a cada pool.
+ * Usa el mapa de reservas activas por pool (calculado de la colección reservas)
+ * porque cantidad_reservada en el doc de stock no se actualiza en tiempo real.
  */
 const buildPoolsDispMap = (
   items: StockItem[],
   sectorKey: "instaladora" | "ventas",
+  reservadoMap: Map<string, PoolReservaBreakdown>,
 ): Map<string, { sector: number; indistinto: number }> => {
   const map = new Map<string, { sector: number; indistinto: number }>();
-  const disp = (p?: { cantidad?: number; cantidad_reservada?: number }) =>
-    Math.max(0, (p?.cantidad ?? 0) - (p?.cantidad_reservada ?? 0));
   for (const item of items) {
+    const res = (item.material_id ? reservadoMap.get(item.material_id) : undefined) ?? { ventas: 0, instaladora: 0, indistinto: 0 };
     const entry = {
-      sector: disp(item.pools?.[sectorKey]),
-      indistinto: disp(item.pools?.indistinto),
+      sector: Math.max(0, (item.pools?.[sectorKey]?.cantidad ?? 0) - res[sectorKey]),
+      indistinto: Math.max(0, (item.pools?.indistinto?.cantidad ?? 0) - res.indistinto),
     };
     if (item.material_id) map.set(item.material_id, entry);
     if (item.material_codigo) {
@@ -254,6 +256,8 @@ export function CreateSolicitudMaterialDialog({
     [],
   );
   const [loadingSugeridos, setLoadingSugeridos] = useState(false);
+  // ID de la oferta de confección cuya reserva activa se debe auto-vincular al crear
+  const [linkedOfertaId, setLinkedOfertaId] = useState<string | null>(null);
 
   const [materialSearch, setMaterialSearch] = useState("");
   const [materialResults, setMaterialResults] = useState<CatalogMaterial[]>([]);
@@ -333,6 +337,7 @@ export function CreateSolicitudMaterialDialog({
       setShowClienteDropdown(false);
       setShowMaterialDropdown(false);
       setShowResponsableDropdown(false);
+      setLinkedOfertaId(null);
       return;
     }
 
@@ -496,6 +501,14 @@ export function CreateSolicitudMaterialDialog({
                     return tActual > tMejor ? actual : mejor;
                   });
             const ofertasAUsar = ofertaSeleccionada ? [ofertaSeleccionada] : [];
+
+            // Auto-vincular reserva si la oferta tiene materiales reservados
+            if (ofertaSeleccionada?.materiales_reservados) {
+              const ofId = ofertaSeleccionada?._id || ofertaSeleccionada?.id || null;
+              setLinkedOfertaId(ofId ? String(ofId) : null);
+            } else {
+              setLinkedOfertaId(null);
+            }
 
             // Acumular por material_codigo: pendiente total y si tiene alguna entrega
             const acumulado = new Map<string, { pendiente: number; tieneEntregas: boolean }>();
@@ -669,6 +682,7 @@ export function CreateSolicitudMaterialDialog({
     setSelectedCliente(null);
     setClienteSearch("");
     setShowClienteDropdown(false);
+    setLinkedOfertaId(null);
     // Sin cliente: stock visible = bruto - total_reservado (sin bonus)
     clientReservaMapRef.current = new Map();
     const tMap = totalReservaMapRef.current;
@@ -867,13 +881,27 @@ export function CreateSolicitudMaterialDialog({
 
         const map = buildStockMap(items);
         setStockMap(map);
-        setPoolsDispMap(buildPoolsDispMap(items, "instaladora"));
         stockMapRef.current = map;
         codigoToIdRef.current = buildCodigoToIdMap(items);
 
         // Guardar lista raw y construir mapa total
         todasReservasRef.current = todasReservas;
         const tMap = buildReservaMap(todasReservas);
+
+        // Mapa por pool para los badges de disponibilidad sector/Común
+        const pMap = new Map<string, PoolReservaBreakdown>();
+        for (const reserva of todasReservas) {
+          for (const mat of reserva.materiales ?? []) {
+            const neta = Math.max(0, mat.cantidad_reservada - (mat.cantidad_consumida ?? 0));
+            if (neta > 0) {
+              const pool = (mat.pool ?? "indistinto") as keyof PoolReservaBreakdown;
+              const curr = pMap.get(mat.material_id) ?? { ventas: 0, instaladora: 0, indistinto: 0 };
+              curr[pool] = (curr[pool] ?? 0) + neta;
+              pMap.set(mat.material_id, curr);
+            }
+          }
+        }
+        setPoolsDispMap(buildPoolsDispMap(items, "instaladora", pMap));
         totalReservaMapRef.current = tMap;
 
         // Mapa de reservas solo del cliente seleccionado (filtrado del total ya cargado)
@@ -954,6 +982,9 @@ export function CreateSolicitudMaterialDialog({
         }
         if (normalizedFechaRecogida) {
           payload.fecha_recogida = normalizedFechaRecogida;
+        }
+        if (linkedOfertaId) {
+          payload.oferta_id = linkedOfertaId;
         }
         await SolicitudMaterialService.createSolicitud(payload);
       }
@@ -1088,6 +1119,16 @@ export function CreateSolicitudMaterialDialog({
               )}
             </div>
           </div>
+
+          {/* Aviso de reserva auto-vinculada desde oferta confección */}
+          {linkedOfertaId && (
+            <div className="flex items-center gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-700">
+              <BookmarkCheck className="h-3.5 w-3.5 shrink-0 text-indigo-500" />
+              <span>
+                Esta oferta tiene materiales reservados. La reserva activa se vinculará automáticamente al crear la solicitud.
+              </span>
+            </div>
+          )}
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -1235,7 +1276,7 @@ export function CreateSolicitudMaterialDialog({
                                       <Badge
                                         variant="outline"
                                         className="text-[10px] bg-violet-50 text-violet-700 border-violet-200"
-                                        title="Disponible en el pool indistinto (sirve a ambos sectores)"
+                                        title="Disponible en el sector Común (sirve a ambos sectores)"
                                       >
                                         Ambos: {pd.indistinto}
                                       </Badge>

@@ -377,6 +377,10 @@ export function ConfeccionOfertasView({
   >({});
   const [reservandoEnGuardado, setReservandoEnGuardado] = useState(false);
   const [reservasActivasExistentes, setReservasActivasExistentes] = useState<Reserva[]>([]);
+  // Reservas activas de OTRAS ofertas/clientes en el mismo almacén — necesario para
+  // calcular stock disponible real (stockItem.cantidad_reservada del doc de stock
+  // siempre está en 0, no es fuente de verdad).
+  const [reservasOtrasActivas, setReservasOtrasActivas] = useState<Reserva[]>([]);
   const [editandoReservaExistente, setEditandoReservaExistente] = useState(false);
   const [actualizandoReserva, setActualizandoReserva] = useState(false);
   const [refreshReservasKey, setRefreshReservasKey] = useState(0);
@@ -686,6 +690,35 @@ export function ConfeccionOfertasView({
     if (!almacenId) return;
     refetchStock(almacenId);
   }, [almacenId, refetchStock]);
+
+  // Cargar reservas activas de OTRAS ofertas en este almacén — para descontarlas
+  // del stock visible. Excluye las de la oferta actual (esas se gestionan aparte
+  // en reservasActivasExistentes y no deben doble-contarse).
+  useEffect(() => {
+    if (!almacenId) {
+      setReservasOtrasActivas([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { data } = await ReservaVentaService.getReservas({
+          almacen_id: almacenId,
+          estado: "activa",
+          limit: 500,
+        });
+        if (cancelled) return;
+        setReservasOtrasActivas(
+          ofertaId ? data.filter((r) => r.oferta_id !== ofertaId) : data,
+        );
+      } catch {
+        if (!cancelled) setReservasOtrasActivas([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [almacenId, ofertaId, refreshReservasKey]);
 
   // Cargar datos de la oferta en modo edición
   // Cargar datos de la oferta en modo edición o duplicación
@@ -1207,6 +1240,31 @@ export function ConfeccionOfertasView({
     }
   }, [ofertaCreada, localStorageKey]);
 
+  // Mapa codigo → cantidad reservada neta por OTRAS reservas activas del almacén.
+  // El doc de stock tiene cantidad_reservada=0 (no se actualiza), así que la
+  // verdad sale de la colección reservas.
+  const reservadoOtrasPorCodigo = useMemo(() => {
+    const map = new Map<string, number>();
+    // Necesitamos resolver material_id → codigo. El stock del almacén lo da.
+    const idToCodigo = new Map<string, string>();
+    stock
+      .filter((s) => s.almacen_id === almacenId)
+      .forEach((s) => {
+        const id = (s as any).material_id;
+        const codigo = String((s as any).material_codigo ?? "");
+        if (id && codigo) idToCodigo.set(String(id), codigo);
+      });
+    for (const reserva of reservasOtrasActivas) {
+      for (const mat of reserva.materiales ?? []) {
+        const codigo = idToCodigo.get(String(mat.material_id));
+        if (!codigo) continue;
+        const neta = Math.max(0, mat.cantidad_reservada - (mat.cantidad_consumida ?? 0));
+        if (neta > 0) map.set(codigo, (map.get(codigo) ?? 0) + neta);
+      }
+    }
+    return map;
+  }, [reservasOtrasActivas, stock, almacenId]);
+
   // Obtener materiales para la oferta; si hay almacén, anexar stock (incluye 0)
   const materialesConStock = useMemo(() => {
     if (!almacenId) return materials;
@@ -1216,15 +1274,15 @@ export function ConfeccionOfertasView({
       if (stockItem.almacen_id !== almacenId) return;
       const key = String(stockItem.material_codigo || "");
       const total = Number(stockItem.cantidad || 0);
-      const reservado = Number((stockItem as any).cantidad_reservada || 0);
-      stockMap.set(key, Math.max(0, total - reservado));
+      const reservadoOtras = reservadoOtrasPorCodigo.get(key) ?? 0;
+      stockMap.set(key, Math.max(0, total - reservadoOtras));
     });
 
     return materials.map((material) => ({
       ...material,
       stock_disponible: stockMap.get(String(material.codigo ?? "")) ?? 0,
     }));
-  }, [almacenId, stock, materials]);
+  }, [almacenId, stock, materials, reservadoOtrasPorCodigo]);
 
   const materialesFiltrados = useMemo(() => {
     if (!activeStep) return materialesConStock;
@@ -1430,7 +1488,10 @@ export function ConfeccionOfertasView({
     user?.is_superAdmin || (user?.ci && AUTORIZADOS_REDUCIR_RESERVA.has(user.ci)),
   );
 
-  // Stock libre por código de material = total en almacén − ya reservado por cualquier oferta/reserva activa
+  // Stock libre por código de material = total en almacén − reservado por OTRAS
+  // ofertas/reservas activas. Las reservas de ESTA oferta no se restan acá porque
+  // se gestionan aparte (el operador puede editar su propia reserva).
+  // Fuente de verdad: colección reservas, NO stockItem.cantidad_reservada (siempre 0).
   const stockDisponiblePorCodigo = useMemo(() => {
     const map = new Map<string, number>();
     stock
@@ -1438,11 +1499,11 @@ export function ConfeccionOfertasView({
       .forEach((s) => {
         const codigo = String((s as any).material_codigo ?? "");
         const total = Number((s as any).cantidad || 0);
-        const reservado = Number((s as any).cantidad_reservada || 0);
-        map.set(codigo, Math.max(0, total - reservado));
+        const reservadoOtras = reservadoOtrasPorCodigo.get(codigo) ?? 0;
+        map.set(codigo, Math.max(0, total - reservadoOtras));
       });
     return map;
-  }, [stock, almacenId]);
+  }, [stock, almacenId, reservadoOtrasPorCodigo]);
 
   useEffect(() => {
     setReservaCantidadesPorMaterial((prev) => {
