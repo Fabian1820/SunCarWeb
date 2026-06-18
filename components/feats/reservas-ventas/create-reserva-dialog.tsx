@@ -66,10 +66,18 @@ interface MaterialRow {
   stock_actual: number | null;
   alerta_stock: boolean;
   faltante: number;
+  /** true si el almacén tiene el material sin desglose por sector — backend rechazará. */
+  sinDesgloseSector: boolean;
 }
 
 // Stock disponible desglosado por sector
-type PoolBreakdown = { ventas: number; instaladora: number; indistinto: number };
+type PoolBreakdown = {
+  ventas: number;
+  instaladora: number;
+  indistinto: number;
+  /** true si el doc de stock no traía .pools — el backend rechazará el reserve. */
+  sinDesglose?: boolean;
+};
 const ZERO_POOL: PoolBreakdown = { ventas: 0, instaladora: 0, indistinto: 0 };
 
 const buildPoolStockMap = (items: StockItem[]): Map<string, PoolBreakdown> => {
@@ -87,8 +95,10 @@ const buildPoolStockMap = (items: StockItem[]): Map<string, PoolBreakdown> => {
         pools.indistinto = item.cantidad;
       }
     } else {
-      // Sin desglose: todo se considera Común (accesible para ambos sectores)
-      pools = { ventas: 0, instaladora: 0, indistinto: item.cantidad };
+      // Sin desglose: el operador no puede reservar — el backend exige .pools
+      // para validar disp_sector vs disp_indistinto. Marcamos el flag para
+      // mostrar warning y bloquear el submit.
+      pools = { ventas: 0, instaladora: 0, indistinto: item.cantidad, sinDesglose: true };
     }
     if (item.material_id) map.set(item.material_id, pools);
     if (item.material_codigo) {
@@ -252,10 +262,10 @@ export function CreateReservaDialog({
     codigo: string,
     cantidad: number,
     origenParam: ReservaOrigen,
-  ): Pick<MaterialRow, "stock_actual" | "alerta_stock" | "faltante"> => {
+  ): Pick<MaterialRow, "stock_actual" | "alerta_stock" | "faltante" | "sinDesgloseSector"> => {
     const poolStock = lookupPoolStock(poolStockMapRef.current, materialId, codigo);
     if (poolStock === null)
-      return { stock_actual: null, alerta_stock: false, faltante: 0 };
+      return { stock_actual: null, alerta_stock: false, faltante: 0, sinDesgloseSector: false };
 
     const poolReserva = poolReservaMapRef.current.get(materialId) ?? { ...ZERO_POOL };
     const sectorKey = origenParam === "instaladora" ? "instaladora" : "ventas";
@@ -263,11 +273,15 @@ export function CreateReservaDialog({
     const libre_sector = Math.max(0, poolStock[sectorKey] - poolReserva[sectorKey]);
     const libre_comun = Math.max(0, poolStock.indistinto - poolReserva.indistinto);
     const disponible = libre_sector + libre_comun;
+    const sinDesgloseSector = poolStock.sinDesglose === true;
 
     return {
       stock_actual: disponible,
-      alerta_stock: cantidad > disponible,
+      // Bloquear submit cuando el almacén no tiene desglose por sector: el
+      // backend rechazará la reserva en _distribuir_split_pools.
+      alerta_stock: cantidad > disponible || sinDesgloseSector,
       faltante: Math.max(cantidad - disponible, 0),
+      sinDesgloseSector,
     };
   };
 
@@ -435,11 +449,13 @@ export function CreateReservaDialog({
     if (materialRows.length === 0) {
       newErrors.materiales = "Agrega al menos un material";
     } else {
-      // Bloquear si algún material excede lo disponible en sector propio + Común
+      const sinDesglose = materialRows.filter((r) => r.sinDesgloseSector);
       const sinStock = materialRows.filter(
-        (r) => r.stock_actual !== null && r.alerta_stock,
+        (r) => r.stock_actual !== null && r.alerta_stock && !r.sinDesgloseSector,
       );
-      if (sinStock.length > 0) {
+      if (sinDesglose.length > 0) {
+        newErrors.materiales = `Sin desglose por sector en almacén: ${sinDesglose.map((r) => r.nombre).join(", ")}. Genera un movimiento de entrada con split por sector antes de reservar.`;
+      } else if (sinStock.length > 0) {
         const sector = origen === "instaladora" ? "Instaladora" : "Ventas";
         newErrors.materiales = `Stock insuficiente en sector ${sector} + Común: ${sinStock.map((r) => r.nombre).join(", ")}`;
       }
@@ -471,7 +487,16 @@ export function CreateReservaDialog({
       })),
       fecha_expiracion: new Date(fechaExpiracion).toISOString(),
     };
-    await onSubmit(data);
+    try {
+      await onSubmit(data);
+    } catch (err) {
+      // Backend rechazó (típicamente stock insuficiente por race condition con
+      // otra reserva creada entre la carga del dialog y el submit). Mostramos
+      // el mensaje real inline en lugar de dejar solo el toast genérico.
+      const msg = err instanceof Error ? err.message : "No se pudo crear la reserva";
+      setErrors((prev) => ({ ...prev, materiales: msg }));
+      throw err;
+    }
   };
 
   const minDate = (() => {
@@ -782,7 +807,11 @@ export function CreateReservaDialog({
                   <div
                     key={row.material_id}
                     className={`flex items-center gap-3 px-3 py-2 ${
-                      row.alerta_stock ? "bg-red-50/60" : ""
+                      row.sinDesgloseSector
+                        ? "bg-amber-50/60"
+                        : row.alerta_stock
+                          ? "bg-red-50/60"
+                          : ""
                     }`}
                   >
                     <Package className="h-4 w-4 text-gray-400 shrink-0" />
@@ -792,8 +821,12 @@ export function CreateReservaDialog({
                         {row.codigo}
                         {row.um && ` · ${row.um}`}
                       </p>
-                      {row.stock_actual !== null &&
-                        (row.alerta_stock ? (
+                      {row.sinDesgloseSector ? (
+                        <p className="text-xs font-medium text-amber-700 mt-0.5">
+                          Sin desglose por sector en este almacén · no se puede reservar
+                        </p>
+                      ) : row.stock_actual !== null ? (
+                        row.alerta_stock ? (
                           <p className="text-xs font-medium text-red-600 mt-0.5">
                             Disponible (sector + Común): {row.stock_actual} {row.um || "U"} · Faltan {row.faltante}
                           </p>
@@ -801,7 +834,8 @@ export function CreateReservaDialog({
                           <p className="text-xs text-emerald-600 mt-0.5">
                             Disponible (sector + Común): {row.stock_actual} {row.um || "U"}
                           </p>
-                        ))}
+                        )
+                      ) : null}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <Label className="text-xs text-gray-500 whitespace-nowrap">
