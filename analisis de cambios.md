@@ -2,6 +2,51 @@
 
 ---
 
+## 📅 18 de Junio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**3 commits reales** de Fabian1820 — día enfocado íntegramente en el módulo de **Reservas** de materiales: nuevo dialog unificado `create-reserva-dialog` (+876 líneas), fixes de coherencia en mapas de stock y banners stale, y manejo visible de materiales sin desglose por sector. Dos commits vacíos de verificación de Railway. Total: ~1300 líneas añadidas en 4 archivos principales.
+
+---
+
+### Área 1: Módulo Reservas — dialog unificado Ventas+Instaladora (1 commit — Fabian1820, 14:44)
+
+- **`feat(reservas): módulo unificado ventas+instaladora y stock por sector`** (+1226/-116, 23 archivos) — Nuevo componente `create-reserva-dialog` (876 líneas) con tabs por sector (Todas/Ventas/Instaladora). Cálculo de disponible: `max(0, pool_sector - reservado_sector) + max(0, indistinto - reservado_indistinto)`. Siempre envía `pool=indistinto` para activar split automático en el backend. `/reservas-ventas` ahora tiene tabs y se registra en el catálogo bajo "Comercial-Instaladora" y "Comercial-Ventas". BMS añadida como categoría reservable para instaladora. Badges sector/Común en solicitudes-materiales y solicitudes-ventas leen el mapa de reservas activas desde la colección `reservas` (el doc de stock tiene `cantidad_reservada=0`). `confeccion-ofertas-view`: `stock_disponible` y "Libre" descuentan reservas activas de otras ofertas en el almacén. `upsert-solicitud-venta-dialog`: aviso no bloqueante de reservas activas del cliente con botón "Vincular". `create-solicitud-material-dialog`: auto-vincula reserva cuando viene de oferta con materiales reservados. Renombrado global en UI: "indistinto" → "Común", "pool" → "sector".
+
+---
+
+### Área 2: Fixes de coherencia y UX (2 commits — Fabian1820, 14:54 y 15:02)
+
+- **`fix(reservas): bugs de coherencia tras code review`** (+26/-6, 4 archivos) — Tres correcciones: (1) mapa `material_id→codigo` en `confeccion-ofertas-view` ahora también se llena desde el catálogo como fuente adicional, cubriendo materiales con reserva activa pero sin stock actual en el almacén; (2) banner "reservas del cliente" en `upsert-solicitud-venta-dialog` ya no queda stale al cambiar almacén — se refresca cuando se recarga el mapa de reservas activas; (3) cast `(mat.pool ?? "indistinto") as keyof Pool` reemplazado por validación explícita contra `"ventas"|"instaladora"` con fallback a `"indistinto"` en `create-reserva-dialog`, `create-solicitud-material-dialog` y `upsert-solicitud-venta-dialog`.
+- **`fix(reservas): warning visible cuando falta desglose por sector`** (+48/-14, 1 archivo) — Material sin `.pools` en almacén ya no bloquea silenciosamente el submit: se marca como `sinDesgloseSector`, la fila se pinta en ámbar con mensaje "Sin desglose por sector · no se puede reservar" y el submit queda bloqueado con instrucción clara. `handleSubmit` captura el error del backend por race condition (otra reserva creada entre la carga del dialog y el submit) y lo muestra inline en `errors.materiales`.
+
+---
+
+### Puede dar bateo
+
+1. **`pool=indistinto` para split automático — backend debe implementarlo**: El frontend siempre envía `pool=indistinto` y delega al backend el reparto entre sectores. Si el backend no tiene implementado el split automático, todas las reservas caen en "indistinto" sin descontar de "ventas" ni "instaladora", rompiendo la visibilidad de disponibilidad por sector.
+
+2. **Race condition en el cálculo de disponible**: `max(0, pool_sector - reservado_sector) + max(0, indistinto - reservado_indistinto)` se calcula en frontend con datos que pueden tener segundos de latencia. Dos usuarios reservando en paralelo pueden superar el stock real sin que el frontend lo detecte; el backend debe validar en la escritura.
+
+3. **`sinDesgloseSector` solo detectado en frontend**: Un doc de stock sin `.pools` bloquea el submit. Pero si el doc tiene `.pools` con claves parciales o inesperadas, el frontend lo considera válido y la reserva puede llegar al backend con datos incompletos.
+
+4. **Mapa `material_id→codigo` — race en carga del catálogo**: Si el catálogo no está completamente cargado cuando se construye el mapa (race en la inicialización del dialog de oferta), el fallback desde catálogo puede fallar silenciosamente y no descontar reservas activas de materiales sin stock actual.
+
+5. **Auto-vincular reserva en `create-solicitud-material`**: Si la oferta tiene múltiples reservas activas del mismo material en el mismo almacén, la auto-vinculación puede elegir la reserva incorrecta (primera encontrada, no necesariamente la del cliente objetivo).
+
+6. **BMS como categoría reservable instaladora — docs sin `.pools`**: Si los docs de stock de BMS no tienen el campo `.pools`, todos los materiales BMS aparecerán como `sinDesgloseSector`, bloqueando el 100% de reservas BMS hasta que el backend actualice los datos de stock.
+
+7. **Módulo `/reservas-ventas` bajo dos entradas en catálogo**: Un trabajador con solo "Comercial-Instaladora" accede al módulo unificado con tabs de ambos sectores. Confirmar que la visibilidad de tabs individuales está también protegida por sub-permiso.
+
+8. **Renombrado UI "indistinto" → "Común" sin confirmar en todos los puntos de display**: Si algún campo que el backend devuelve como string `"indistinto"` se renderiza directamente, aparecerá la etiqueta técnica. Confirmar que todos los puntos tienen la traducción mapeada.
+
+9. **Error inline de race condition — visibilidad en scroll**: `errors.materiales` se muestra inline dentro del formulario. Si el usuario scrolleó arriba, puede no ver el mensaje de error tras un submit rechazado.
+
+10. **Redeploy de Railway no se activaba automáticamente**: Los dos commits `chore` de verificación sugieren que el auto-deploy en Railway no estaba funcionando. Confirmar que el servicio está correctamente conectado al repo y que el deploy de esta feature llegó a producción.
+
+---
+
 ## 📅 17 de Junio, 2026
 
 ### Resumen de cambios (últimas 24h)
