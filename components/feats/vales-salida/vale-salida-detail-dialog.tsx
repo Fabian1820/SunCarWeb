@@ -101,7 +101,7 @@ export function ValeSalidaDetailDialog({
   const recogidaResponsable =
     vale.recogido_por || solicitud?.responsable_recogida || null;
   const valeBloqueadoDevolucion =
-    vale.estado === "anulado" || vale.facturado === true;
+    vale.estado === "anulado";
   // Solicitudes de venta no traen fecha_recogida; caemos a fecha_creacion
   // (recogida el mismo día) para no mostrar "Hoy" como dato real.
   const recogidaFecha =
@@ -164,9 +164,7 @@ export function ValeSalidaDetailDialog({
                 className="bg-blue-600 hover:bg-blue-700 text-white"
                 title={
                   valeBloqueadoDevolucion
-                    ? vale.estado === "anulado"
-                      ? "No se puede devolver en un vale anulado"
-                      : "No se puede devolver en un vale facturado"
+                    ? "No se puede devolver en un vale anulado"
                     : "Registrar devolucion"
                 }
               >
