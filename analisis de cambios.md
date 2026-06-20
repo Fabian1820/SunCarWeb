@@ -2,6 +2,20 @@
 
 ---
 
+## 📅 20 de Junio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+Sin commits nuevos de código. El único commit en el rango de las últimas 24h es "Analisis diario Claude" del 19/06 (generado automáticamente). No hay cambios en producción.
+
+---
+
+### Puede dar bateo
+
+Sin cambios nuevos — sin riesgos nuevos.
+
+---
+
 ## 📅 19 de Junio, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -193,58 +207,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 12 de Junio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**15 commits** de Fabian1820 y yany1509 — flujo completo de Consignaciones (registrar pago, emitir factura, badge en tabla), mejoras mayores de UX en Kardex de Costos, botón "Actualizar costos" unificado en Ficha de Costo, panel de error elegante para materiales sin costear, y 4 fixes en el módulo RRHH (ruta de `cargo` iterada 3 veces).
-
----
-
-### Área 1: Consignaciones — flujo completo de pago y factura (1 commit — Fabian1820, 16:26)
-
-- **`feat(consignaciones): flujo completo — registrar pago, emitir factura, badge en tabla`** — Botón "Registrar pago" abre `RegistrarPagoVentaDialog`. Botón "Emitir factura" abre `EmitirFacturaConsignacionDialog` y llama a `POST /consignaciones/{id}/facturas`. El botón se convierte en badge "Facturado" cuando `monto_facturado >= monto_total`. Badge morado "Consignación" en tabla de solicitudes. Campos nuevos: `monto_facturado`, `facturas_ids`.
-
----
-
-### Área 2: Solicitudes — panel de error elegante para pendiente_costeo (3 commits — Fabian1820)
-
-- **`feat(solicitudes): panel de error elegante para materiales pendientes de costeo`** — Panel ámbar con foto del material, código, nombre y enlace "Ir a ficha".
-- **`fix(api-config): preservar detail objeto en respuestas 400`** — `detail` ahora se incluye cuando es un objeto.
-- **`fix(solicitudes): propagar error estructurado pendiente_costeo sin re-envolver`** — El hook ya no pierde `isPendienteCosteo` y `materialesBloqueados`.
-
----
-
-### Área 3: Ficha de Costo — botón unificado (2 commits — Fabian1820)
-
-- **`feat(ficha-costo): botón "Actualizar costos" unificado`** — Un solo botón inteligente que pondera o ajusta según el estado real. Llama a `sincronizar-costos`.
-- **`fix(ficha-costo): eliminar botones individuales Ponderar y Ajustar`**.
-
----
-
-### Área 4: Kardex + Compras + RRHH + PDF (6 commits)
-
-- **`feat(kardex): mejoras de UX`** — Badge de tipo en cada fila, filas `pendiente_costeo` en ámbar, doble cabecera con grupos, indicador de tendencia.
-- **`feat(ficha-costo): botón "Ajustar costo"`** — Handler `handleAjustarCosto`, endpoint `POST /ajustar-costo`.
-- **`fix(compras): no enviar materiales en PATCH cuando la compra está recibida`**.
-- **`fix(compras): ordenar por fecha_llegada_aproximada, fallback a fecha_envio`**.
-- **`fix(rrhh): enrutar cargo al endpoint correcto`** — 3 commits iterados; `cargo` va a `PUT /{ci}/rrhh`.
-- **`fix(export): centrar logo verticalmente en encabezado PDF`**.
-
----
-
-### Puede dar bateo
-
-1. **`POST /consignaciones/{id}/facturas` — endpoint sin confirmar**.
-2. **Badge "Facturado" con flotantes — redondeo puede mostrar "Pendiente" erróneo**.
-3. **`cargo` en RRHH — 3 commits en 40 min confirmar estado final**.
-4. **`fix(api-config): preservar detail objeto` — componentes que hacían `error.message` directamente pueden romperse**.
-5. **Panel de error `pendiente_costeo` — `useMaterials` en contexto del dialog**.
-6. **Campos `tipo`, `pendiente_costeo`, `regularizada_por` en KardexCosto — si backend no los devuelve, badges no aparecen**.
-7. **Botón "Actualizar costos" — lógica de decisión interna opaca**.
-8. **`fix(compras): no enviar materiales` — si `materialesBloqueados` tiene bug, el PATCH enviará materiales y recibirá 422**.
-9. **`POST /ajustar-costo` — endpoint sin confirmar**.
-
----
-
-> ⚠️ **Nota de mantenimiento**: Las entradas del **5, 6, 7, 9 y 11 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). Anteriores eliminadas: 26, 27, 28, 29, 30 de Mayo, 31 de Mayo, 1, 2 y 4 de Junio.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **5, 6, 7, 9, 11 y 12 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). Anteriores eliminadas: 26, 27, 28, 29, 30 de Mayo, 31 de Mayo, 1, 2 y 4 de Junio.
