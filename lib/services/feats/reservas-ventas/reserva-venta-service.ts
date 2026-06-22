@@ -37,6 +37,11 @@ export class ReservaVentaService {
     if (params.almacen_id) search.append("almacen_id", params.almacen_id);
     if (params.cliente_id) search.append("cliente_id", params.cliente_id);
     if (params.oferta_id) search.append("oferta_id", params.oferta_id);
+    if (params.tipo_equipo) search.append("tipo_equipo", params.tipo_equipo);
+    if (params.potencia_min_kw != null)
+      search.append("potencia_min_kw", String(params.potencia_min_kw));
+    if (params.potencia_max_kw != null)
+      search.append("potencia_max_kw", String(params.potencia_max_kw));
     if (params.skip != null) search.append("skip", String(params.skip));
     if (params.limit != null) search.append("limit", String(params.limit));
 

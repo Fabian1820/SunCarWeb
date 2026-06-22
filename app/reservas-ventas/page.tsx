@@ -34,6 +34,7 @@ import type {
   ReservaCreateData,
   ReservaEstado,
   ReservaOrigen,
+  ReservaTipoEquipo,
   ReservaUpdateData,
 } from "@/lib/api-types";
 
@@ -237,40 +238,133 @@ export default function ReservasPage() {
 
             <CardContent className="pt-6">
               {/* Filters */}
-              <div className="flex flex-col sm:flex-row gap-3 mb-6">
-                <div className="flex-1 space-y-1">
-                  <Label className="text-xs text-gray-500">Buscar</Label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                      placeholder="Buscar por ID, cliente, almacén..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-9"
-                    />
+              <div className="flex flex-col gap-3 mb-6">
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="flex-1 space-y-1">
+                    <Label className="text-xs text-gray-500">Buscar</Label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input
+                        placeholder="Buscar por ID, cliente, almacén..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-9"
+                      />
+                    </div>
+                  </div>
+                  <div className="sm:w-48 space-y-1">
+                    <Label className="text-xs text-gray-500">Estado</Label>
+                    <Select
+                      value={filters.estado ?? "todos"}
+                      onValueChange={(v) =>
+                        setFilters({
+                          estado: v === "todos" ? undefined : (v as ReservaEstado),
+                        })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Estado" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {estadoOptions.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
-                <div className="sm:w-48 space-y-1">
-                  <Label className="text-xs text-gray-500">Estado</Label>
-                  <Select
-                    value={filters.estado ?? "todos"}
-                    onValueChange={(v) =>
-                      setFilters({
-                        estado: v === "todos" ? undefined : (v as ReservaEstado),
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Estado" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {estadoOptions.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="sm:w-56 space-y-1">
+                    <Label className="text-xs text-gray-500">Tipo de equipo</Label>
+                    <Select
+                      value={filters.tipo_equipo ?? "todos"}
+                      onValueChange={(v) =>
+                        setFilters({
+                          tipo_equipo:
+                            v === "todos" ? undefined : (v as ReservaTipoEquipo),
+                          // Limpiar potencia si pasa a "todos" (no aplica sin tipo)
+                          ...(v === "todos"
+                            ? { potencia_min_kw: undefined, potencia_max_kw: undefined }
+                            : {}),
+                        })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Tipo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="todos">Todos</SelectItem>
+                        <SelectItem value="bateria">Baterías</SelectItem>
+                        <SelectItem value="inversor">Inversores</SelectItem>
+                        <SelectItem value="panel">Paneles</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="sm:w-40 space-y-1">
+                    <Label className="text-xs text-gray-500">
+                      Potencia mín. (kW)
+                    </Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.1}
+                      placeholder="0"
+                      value={filters.potencia_min_kw ?? ""}
+                      disabled={
+                        !filters.tipo_equipo || filters.tipo_equipo === "panel"
+                      }
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setFilters({
+                          potencia_min_kw:
+                            v === "" ? undefined : Number(v),
+                        });
+                      }}
+                    />
+                  </div>
+                  <div className="sm:w-40 space-y-1">
+                    <Label className="text-xs text-gray-500">
+                      Potencia máx. (kW)
+                    </Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.1}
+                      placeholder="∞"
+                      value={filters.potencia_max_kw ?? ""}
+                      disabled={
+                        !filters.tipo_equipo || filters.tipo_equipo === "panel"
+                      }
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setFilters({
+                          potencia_max_kw:
+                            v === "" ? undefined : Number(v),
+                        });
+                      }}
+                    />
+                  </div>
+                  {(filters.tipo_equipo ||
+                    filters.potencia_min_kw != null ||
+                    filters.potencia_max_kw != null) && (
+                    <div className="self-end">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          setFilters({
+                            tipo_equipo: undefined,
+                            potencia_min_kw: undefined,
+                            potencia_max_kw: undefined,
+                          })
+                        }
+                      >
+                        Limpiar
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
 

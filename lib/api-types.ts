@@ -172,5 +172,6 @@ export type {
   ReservaListResponse,
   ReservaEstado,
   ReservaOrigen,
+  ReservaTipoEquipo,
   ReservaClienteTipo,
 } from "./types/feats/reservas-ventas/reserva-venta-types";

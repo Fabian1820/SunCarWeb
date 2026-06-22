@@ -1,5 +1,6 @@
 export type ReservaEstado = "activa" | "cancelada" | "expirada" | "consumida";
 export type ReservaOrigen = "instaladora" | "ventas";
+export type ReservaTipoEquipo = "bateria" | "inversor" | "panel";
 export type ReservaClienteTipo = "cliente" | "cliente_venta";
 export type ReservaPool = "indistinto" | "instaladora" | "ventas";
 
@@ -67,6 +68,9 @@ export interface ReservaListParams {
   almacen_id?: string;
   cliente_id?: string;
   oferta_id?: string;
+  tipo_equipo?: ReservaTipoEquipo;
+  potencia_min_kw?: number;
+  potencia_max_kw?: number;
   skip?: number;
   limit?: number;
 }

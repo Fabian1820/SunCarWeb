@@ -99,6 +99,7 @@ export function ReservasVentasTable({
             const { className: badgeClass, label: badgeLabel } =
               estadoBadgeProps(reserva.estado);
             const isActiva = reserva.estado === "activa";
+            const isExpirada = reserva.estado === "expirada";
             const expiringSoon = isActiva && isExpiringSoon(reserva.fecha_expiracion);
             const totalMateriales = reserva.materiales?.length ?? 0;
             const totalConsumido = reserva.materiales?.reduce(
@@ -206,12 +207,16 @@ export function ReservasVentasTable({
                         <Eye className="h-4 w-4" />
                       </Button>
                     )}
-                    {onEdit && isActiva && (
+                    {onEdit && (isActiva || isExpirada) && (
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => onEdit(reserva)}
-                        title="Editar reserva"
+                        title={
+                          isExpirada
+                            ? "Editar reserva expirada (postergar fecha la reactiva)"
+                            : "Editar reserva"
+                        }
                         className="text-indigo-600 hover:text-indigo-700"
                       >
                         <Pencil className="h-4 w-4" />
