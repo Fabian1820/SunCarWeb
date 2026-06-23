@@ -2,62 +2,40 @@
 
 ---
 
-## 📅 21 de Junio, 2026
+## 📅 23 de Junio, 2026
 
 ### Resumen de cambios (últimas 24h)
 
-Sin commits nuevos de código. El único commit en el rango de las últimas 24h es "Analisis diario Claude" del 20/06 (generado automáticamente). No hay cambios en producción.
+**1 commit** de Fabian1820 — mejoras al módulo de **Reservas**: filtros por tipo de equipo (baterías / inversores / paneles) y por rango de potencia en kW, más habilitación del botón de editar en reservas con estado "expirada" para permitir su reactivación mediante cambio de fecha.
+
+---
+
+### Área 1: Reservas — filtros de equipo y edición de expiradas (1 commit — Fabian1820, 16:18)
+
+- **`feat(reservas): filtros por tipo de equipo y potencia + editar expiradas`** — UI del listado de reservas expone: select de tipo de equipo (baterías / inversores / paneles); inputs de potencia mín./máx. en kW (deshabilitados sin tipo seleccionado o con tipo=panel); botón "Limpiar" cuando hay algún filtro de equipo activo. El botón de editar aparece también para reservas en estado "expirada", ya que postergar la fecha las reactiva en el backend.
 
 ---
 
 ### Puede dar bateo
 
-Sin cambios nuevos — sin riesgos nuevos.
+1. **Reactivación de reservas expiradas — conflicto con materiales reasignados**: Entre la expiración original y la nueva fecha propuesta, el material pudo haber sido asignado a otra reserva activa. El backend debe verificar disponibilidad real al momento de reactivar; si no lo hace, dos reservas activas competirán por el mismo stock.
 
----
+2. **Filtro de potencia deshabilitado para paneles — unidad ambigua**: Los paneles se miden en W, no kW. La UI muestra el input como "kW" pero lo deshabilita para paneles sin explicar el motivo. Un usuario puede entender que los paneles no son filtrables por potencia.
 
-## 📅 20 de Junio, 2026
+3. **Inputs de potencia mín/máx sin validación `min > max`**: Si el usuario ingresa un mínimo mayor que el máximo, el backend puede recibir un rango inválido y devolver resultados vacíos sin mensaje de error explicativo.
 
-### Resumen de cambios (últimas 24h)
+4. **Filtros combinados tipo+potencia — soporte en backend sin confirmar**: Si el backend procesa los filtros por separado en vez de en una query combinada, la intersección de resultados puede ser incorrecta.
 
-Sin commits nuevos de código. El único commit en el rango de las últimas 24h es "Analisis diario Claude" del 19/06 (generado automáticamente). No hay cambios en producción.
-
----
-
-### Puede dar bateo
-
-Sin cambios nuevos — sin riesgos nuevos.
-
----
-
-## 📅 19 de Junio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**1 commit** de Fabian1820 — fix puntual en el módulo de devoluciones: se permite ahora iniciar una devolución sobre vales que ya están en estado "facturado". Hasta hoy, ese estado bloqueaba el flujo de devolución aunque la operación comercial fuera legítima.
-
----
-
-### Área 1: Devoluciones — permitir devolución en vales facturados (1 commit — Fabian1820, 19:57)
-
-- **`fix(devoluciones): permitir devolución en vales ya facturados`** — Elimina o relaja la validación en frontend que impedía iniciar el flujo de devolución cuando el vale tenía estado `facturado`. El flujo de devolución ahora es accesible desde vales en ese estado.
-
----
-
-### Puede dar bateo
-
-1. **Backend debe aceptar la transición `facturado → con_devolucion`**: Si el backend tiene una guarda de estado que rechaza modificaciones sobre vales facturados, el fix en frontend no es suficiente — el POST/PATCH de devolución recibirá un 400/422. Confirmar que el endpoint de devoluciones acepta vales en estado `facturado`.
-
-2. **Impacto contable de la devolución sobre factura emitida**: Cuando el vale ya tiene una factura emitida, la devolución debería generar una nota de crédito o ajustar el total de la factura. Confirmar que el backend maneja este ajuste automáticamente y que la UI refleja el estado actualizado de la factura tras la devolución.
-
-3. **Devolución parcial en vales mixtos (algunos ítems facturados, otros no)**: Si el vale tiene líneas facturadas y líneas sin facturar, confirmar que la devolución parcial aplica correctamente solo a las líneas del alcance y no invalida la factura completa.
-
-4. **Badge de estado en la tabla tras devolución**: Confirmar que el estado del vale se actualiza en la tabla sin necesidad de recarga manual, y que el badge refleja el nuevo estado (ej. `con_devolucion` o `facturado_con_devolucion`) correctamente.
+5. **Botón "Limpiar" solo limpia filtros de equipo**: Si hay otros filtros activos (fecha, almacén), el botón solo restablece los de equipo, lo que puede confundir al usuario.
 
 ---
 
 #### Seguimientos vigentes
 
+- **Reservas expiradas reactivadas — conflicto con materiales reasignados entre expiración y nueva fecha (Jun 23)**.
+- **Filtro potencia mín/máx sin validación `min > max` — resultados vacíos sin mensaje (Jun 23)**.
+- **Filtros potencia en paneles — unidad ambigua kW vs W en la UI (Jun 23)**.
+- **Filtros combinados tipo+potencia — confirmar soporte simultáneo en backend (Jun 23)**.
 - **Devolución en vales facturados — transición de estado en backend (Jun 19)**.
 - **Ajuste contable/nota de crédito por devolución en vale facturado (Jun 19)**.
 - **Devolución parcial en vales con líneas mixtas (Jun 19)**.
@@ -133,31 +111,82 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 18 de Junio, 2026
+## 📅 21 de Junio, 2026
 
 ### Resumen de cambios (últimas 24h)
 
-**3 commits reales** de Fabian1820 — día enfocado íntegramente en el módulo de **Reservas** de materiales: nuevo dialog unificado `create-reserva-dialog` (+876 líneas), fixes de coherencia en mapas de stock y banners stale, y manejo visible de materiales sin desglose por sector. Dos commits vacíos de verificación de Railway. Total: ~1300 líneas añadidas en 4 archivos principales.
-
----
-
-### Área 1: Módulo Reservas — dialog unificado Ventas+Instaladora (1 commit — Fabian1820, 14:44)
-
-- **`feat(reservas): módulo unificado ventas+instaladora y stock por sector`** (+1226/-116, 23 archivos) — Nuevo componente `create-reserva-dialog` (876 líneas) con tabs por sector (Todas/Ventas/Instaladora). Cálculo de disponible: `max(0, pool_sector - reservado_sector) + max(0, indistinto - reservado_indistinto)`. Siempre envía `pool=indistinto` para activar split automático en el backend. `/reservas-ventas` ahora tiene tabs y se registra en el catálogo bajo "Comercial-Instaladora" y "Comercial-Ventas". BMS añadida como categoría reservable para instaladora. Badges sector/Común en solicitudes-materiales y solicitudes-ventas leen el mapa de reservas activas desde la colección `reservas`. `confeccion-ofertas-view`: `stock_disponible` y "Libre" descuentan reservas activas de otras ofertas en el almacén. `upsert-solicitud-venta-dialog`: aviso no bloqueante de reservas activas del cliente con botón "Vincular". `create-solicitud-material-dialog`: auto-vincula reserva cuando viene de oferta con materiales reservados. Renombrado global en UI: "indistinto" → "Común", "pool" → "sector".
-
----
-
-### Área 2: Fixes de coherencia y UX (2 commits — Fabian1820, 14:54 y 15:02)
-
-- **`fix(reservas): bugs de coherencia tras code review`** — Mapa `material_id→codigo` también se llena desde catálogo; banner "reservas del cliente" ya no queda stale al cambiar almacén; cast de pool reemplazado por validación explícita contra `"ventas"|"instaladora"` con fallback a `"indistinto"`.
-- **`fix(reservas): warning visible cuando falta desglose por sector`** — Material sin `.pools` en almacén se marca como `sinDesgloseSector`, fila en ámbar, submit bloqueado. `handleSubmit` captura error de race condition y lo muestra inline en `errors.materiales`.
+Sin commits nuevos de código. El único commit en el rango de las últimas 24h es "Analisis diario Claude" del 20/06 (generado automáticamente). No hay cambios en producción.
 
 ---
 
 ### Puede dar bateo
 
-1. **`pool=indistinto` para split automático — backend debe implementarlo**: Si el backend no tiene el split automático, todas las reservas caen en "indistinto" sin descontar de "ventas" ni "instaladora".
-2. **Race condition en el cálculo de disponible**: Dos usuarios reservando en paralelo pueden superar el stock real; el backend debe validar en la escritura.
+Sin cambios nuevos — sin riesgos nuevos.
+
+---
+
+## 📅 20 de Junio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+Sin commits nuevos de código. El único commit en el rango de las últimas 24h es "Analisis diario Claude" del 19/06 (generado automáticamente). No hay cambios en producción.
+
+---
+
+### Puede dar bateo
+
+Sin cambios nuevos — sin riesgos nuevos.
+
+---
+
+## 📅 19 de Junio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**1 commit** de Fabian1820 — fix puntual en el módulo de devoluciones: se permite ahora iniciar una devolución sobre vales que ya están en estado "facturado". Hasta hoy, ese estado bloqueaba el flujo de devolución aunque la operación comercial fuera legítima.
+
+---
+
+### Área 1: Devoluciones — permitir devolución en vales facturados (1 commit — Fabian1820, 19:57)
+
+- **`fix(devoluciones): permitir devolución en vales ya facturados`** — Elimina o relaja la validación en frontend que impedía iniciar el flujo de devolución cuando el vale tenía estado `facturado`.
+
+---
+
+### Puede dar bateo
+
+1. **Backend debe aceptar la transición `facturado → con_devolucion`**: Si el backend tiene una guarda de estado que rechaza modificaciones sobre vales facturados, el fix en frontend no es suficiente — el POST/PATCH recibirá un 400/422.
+2. **Impacto contable de la devolución sobre factura emitida**: La devolución debería generar una nota de crédito o ajustar el total. Confirmar que el backend lo maneja automáticamente.
+3. **Devolución parcial en vales mixtos (algunos ítems facturados, otros no)**.
+4. **Badge de estado en la tabla tras devolución — confirmar actualización sin recarga manual**.
+
+---
+
+## 📅 18 de Junio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**3 commits reales** de Fabian1820 — día enfocado íntegramente en el módulo de **Reservas** de materiales: nuevo dialog unificado `create-reserva-dialog` (+876 líneas), fixes de coherencia en mapas de stock y banners stale, y manejo visible de materiales sin desglose por sector.
+
+---
+
+### Área 1: Módulo Reservas — dialog unificado Ventas+Instaladora (1 commit — Fabian1820, 14:44)
+
+- **`feat(reservas): módulo unificado ventas+instaladora y stock por sector`** (+1226/-116, 23 archivos) — Nuevo componente `create-reserva-dialog` (876 líneas) con tabs por sector. Cálculo de disponible: `max(0, pool_sector - reservado_sector) + max(0, indistinto - reservado_indistinto)`. Siempre envía `pool=indistinto` para activar split automático en el backend. BMS añadida como categoría reservable. Renombrado global: "indistinto" → "Común", "pool" → "sector".
+
+---
+
+### Área 2: Fixes de coherencia y UX (2 commits — Fabian1820, 14:54 y 15:02)
+
+- **`fix(reservas): bugs de coherencia tras code review`** — Mapa `material_id→codigo` también se llena desde catálogo; banner "reservas del cliente" ya no queda stale al cambiar almacén.
+- **`fix(reservas): warning visible cuando falta desglose por sector`** — Material sin `.pools` se marca como `sinDesgloseSector`, fila en ámbar, submit bloqueado.
+
+---
+
+### Puede dar bateo
+
+1. **`pool=indistinto` para split automático — backend debe implementarlo**.
+2. **Race condition en el cálculo de disponible**.
 3. **`sinDesgloseSector` solo detectado en frontend**.
 4. **Mapa `material_id→codigo` — race en carga del catálogo**.
 5. **Auto-vincular reserva — puede elegir reserva incorrecta si hay múltiples del mismo material**.
@@ -197,28 +226,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 15 de Junio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**1 commit** de Ruben0304 — reemplazo crítico de la carga masiva en la pestaña "Clientes Ventas" de Facturas: sustituye 2000 solicitudes + clientes con N+1 queries por un nuevo hook `usePaginatedVentasFactura` que consume `GET /resumen-factura` (agregación MongoDB con `$facet` en una sola query). La pestaña ahora carga instantáneamente con paginación y búsqueda debounced.
-
----
-
-### Área 1: Facturas-Ventas — paginación con endpoint agregado (1 commit — Ruben0304, Jun 15 14:21)
-
-- **`feat(facturas-ventas): reemplazar carga masiva por endpoint paginado con búsqueda`** — Sustituye la carga de 2000 solicitudes+clientes con N+1 queries por el nuevo hook `usePaginatedVentasFactura` que consume `GET /resumen-factura` (agregación MongoDB en una sola query con `$facet`). La pestaña Clientes Ventas ahora carga instantáneamente con paginación y búsqueda debounced.
-
----
-
-### Puede dar bateo
-
-1. **`GET /resumen-factura` — endpoint y estructura `$facet` sin confirmar**.
-2. **`$facet` aggregation — límite de 100MB de memoria de MongoDB**.
-3. **Debounce — estado al limpiar búsqueda**.
-4. **Preservación de filtros al paginar**.
-5. **Estado de error vacío vs. error real**.
-
----
-
-> ⚠️ **Nota de mantenimiento**: Las entradas del **5, 6, 7, 9, 11 y 12 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). Anteriores eliminadas: 26, 27, 28, 29, 30 de Mayo, 31 de Mayo, 1, 2 y 4 de Junio.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **5, 6, 7, 9, 11, 12 y 15 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). Anteriores eliminadas: 26, 27, 28, 29, 30 de Mayo, 31 de Mayo, 1, 2 y 4 de Junio.
