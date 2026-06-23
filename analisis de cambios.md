@@ -6,13 +6,19 @@
 
 ### Resumen de cambios (últimas 24h)
 
-**1 commit** de Fabian1820 — mejoras al módulo de **Reservas**: filtros por tipo de equipo (baterías / inversores / paneles) y por rango de potencia en kW, más habilitación del botón de editar en reservas con estado "expirada" para permitir su reactivación mediante cambio de fecha.
+**2 commits** de Fabian1820 y yany1509 — módulo de **Reservas** (Fabian1820): filtros por tipo de equipo y potencia + edición de reservas expiradas; y módulo de **Pagos** (yany1509): restauración del botón de editar cobros con lista blanca por CI y trazabilidad de edición.
 
 ---
 
-### Área 1: Reservas — filtros de equipo y edición de expiradas (1 commit — Fabian1820, 16:18)
+### Área 1: Reservas — filtros de equipo y edición de expiradas (1 commit — Fabian1820, Jun 22 16:18)
 
 - **`feat(reservas): filtros por tipo de equipo y potencia + editar expiradas`** — UI del listado de reservas expone: select de tipo de equipo (baterías / inversores / paneles); inputs de potencia mín./máx. en kW (deshabilitados sin tipo seleccionado o con tipo=panel); botón "Limpiar" cuando hay algún filtro de equipo activo. El botón de editar aparece también para reservas en estado "expirada", ya que postergar la fecha las reactiva en el backend.
+
+---
+
+### Área 2: Pagos — botón editar con lista blanca y trazabilidad (1 commit — yany1509, Jun 23 15:59)
+
+- **`feat(pagos): restaurar botón editar cobro con trazabilidad`** — Restaura el botón de editar en Facturación › Pagos de clientes, visible solo para usuarios autorizados (Yanaisi y Mauricio). Lista blanca de CIs en `lib/constants/pagos-permisos.ts`. Nuevo componente `PagoTrazabilidad` que muestra quién editó y cuándo. Botón gateado por CI en tabla plana y tabla por ofertas. Tipo `Pago` ampliado con `editado_por`, `editado_por_nombre` e `historial_cambios`.
 
 ---
 
@@ -28,6 +34,14 @@
 
 5. **Botón "Limpiar" solo limpia filtros de equipo**: Si hay otros filtros activos (fecha, almacén), el botón solo restablece los de equipo, lo que puede confundir al usuario.
 
+6. **Lista blanca de CIs hardcodeada en frontend**: Los CIs de Yanaisi y Mauricio están en `lib/constants/pagos-permisos.ts`. Agregar o revocar acceso requiere un deploy; no hay gestión dinámica de permisos.
+
+7. **Gating por CI solo en frontend — sin validación en backend**: Cualquier llamada directa al endpoint de edición de cobros omite la lista blanca. Si el backend no valida el permiso, cualquier usuario autenticado puede editar.
+
+8. **`historial_cambios` en tipo `Pago` sin confirmar soporte en backend**: Si el backend no devuelve este campo, `PagoTrazabilidad` mostrará datos vacíos o fallará con un error de tipo en runtime.
+
+9. **Botón editar en tabla plana y tabla por ofertas — riesgo de tercer contexto sin gatear**: Si existe alguna otra vista de cobros no cubierta, usuarios no autorizados verían el botón.
+
 ---
 
 #### Seguimientos vigentes
@@ -36,6 +50,9 @@
 - **Filtro potencia mín/máx sin validación `min > max` — resultados vacíos sin mensaje (Jun 23)**.
 - **Filtros potencia en paneles — unidad ambigua kW vs W en la UI (Jun 23)**.
 - **Filtros combinados tipo+potencia — confirmar soporte simultáneo en backend (Jun 23)**.
+- **Lista blanca de CIs de pagos hardcodeada en frontend — deploy requerido para cambios (Jun 23)**.
+- **Gating editar cobros solo en frontend — endpoint sin validación de autorización en backend (Jun 23)**.
+- **`historial_cambios` en tipo Pago — confirmar campo en respuesta del backend (Jun 23)**.
 - **Devolución en vales facturados — transición de estado en backend (Jun 19)**.
 - **Ajuste contable/nota de crédito por devolución en vale facturado (Jun 19)**.
 - **Devolución parcial en vales con líneas mixtas (Jun 19)**.
