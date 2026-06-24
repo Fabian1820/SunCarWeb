@@ -2,51 +2,44 @@
 
 ---
 
-## 📅 23 de Junio, 2026
+## 📅 24 de Junio, 2026
 
 ### Resumen de cambios (últimas 24h)
 
-**2 commits** de Fabian1820 y yany1509 — módulo de **Reservas** (Fabian1820): filtros por tipo de equipo y potencia + edición de reservas expiradas; y módulo de **Pagos** (yany1509): restauración del botón de editar cobros con lista blanca por CI y trazabilidad de edición.
+**2 commits** de yany1509 — dos fixes consecutivos en 5 minutos sobre la integración **Stripe payment links**: primero se intentó eliminar la lista fija de métodos de pago para dejar que Stripe eligiera automáticamente según la cuenta; al fallar también ese enfoque, se forzó `['card']` como único método, disponible para USD y EUR. Aplica a todos los generadores de link: solicitudes de venta, ofertas confeccionadas, ofertas personalizadas y pagos de clientes.
 
 ---
 
-### Área 1: Reservas — filtros de equipo y edición de expiradas (1 commit — Fabian1820, Jun 22 16:18)
+### Área 1: Stripe — fix iterativo en payment_method_types (2 commits — yany1509, 15:16–15:21)
 
-- **`feat(reservas): filtros por tipo de equipo y potencia + editar expiradas`** — UI del listado de reservas expone: select de tipo de equipo (baterías / inversores / paneles); inputs de potencia mín./máx. en kW (deshabilitados sin tipo seleccionado o con tipo=panel); botón "Limpiar" cuando hay algún filtro de equipo activo. El botón de editar aparece también para reservas en estado "expirada", ya que postergar la fecha las reactiva en el backend.
-
----
-
-### Área 2: Pagos — botón editar con lista blanca y trazabilidad (1 commit — yany1509, Jun 23 15:59)
-
-- **`feat(pagos): restaurar botón editar cobro con trazabilidad`** — Restaura el botón de editar en Facturación › Pagos de clientes, visible solo para usuarios autorizados (Yanaisi y Mauricio). Lista blanca de CIs en `lib/constants/pagos-permisos.ts`. Nuevo componente `PagoTrazabilidad` que muestra quién editó y cuándo. Botón gateado por CI en tabla plana y tabla por ofertas. Tipo `Pago` ampliado con `editado_por`, `editado_por_nombre` e `historial_cambios`.
+- **`fix(stripe): no forzar payment_method_types al crear payment link`** (15:16) — Elimina la lista hardcodeada de métodos (`link`, `klarna`, `billie`) para que Stripe seleccione automáticamente los activados según moneda y país. Aplica a todos los generadores de link.
+- **`fix(stripe): forzar payment_method_types a ['card'] en payment link`** (15:21) — El enfoque automático también falló con "No valid payment method types for this payment link". Se fuerza `['card']`, activado en la cuenta para USD y EUR, descartando además el error anterior con `'link'`.
 
 ---
 
 ### Puede dar bateo
 
-1. **Reactivación de reservas expiradas — conflicto con materiales reasignados**: Entre la expiración original y la nueva fecha propuesta, el material pudo haber sido asignado a otra reserva activa. El backend debe verificar disponibilidad real al momento de reactivar; si no lo hace, dos reservas activas competirán por el mismo stock.
+1. **Dos commits consecutivos en producción en 5 minutos — debug en vivo**: El ciclo commit→fail→commit indica que la configuración de Stripe se probó directamente contra la cuenta real. Cualquier payment link generado entre los dos commits puede haber entregado error al cliente.
 
-2. **Filtro de potencia deshabilitado para paneles — unidad ambigua**: Los paneles se miden en W, no kW. La UI muestra el input como "kW" pero lo deshabilita para paneles sin explicar el motivo. Un usuario puede entender que los paneles no son filtrables por potencia.
+2. **Solo `'card'` — excluye métodos alternativos activos en la cuenta**: Si la cuenta Stripe tiene habilitados SEPA, transferencia bancaria, Bizum, etc., quedan excluidos aunque sean el método preferido de algunos clientes.
 
-3. **Inputs de potencia mín/máx sin validación `min > max`**: Si el usuario ingresa un mínimo mayor que el máximo, el backend puede recibir un rango inválido y devolver resultados vacíos sin mensaje de error explicativo.
+3. **Monedas distintas de USD y EUR**: El commit asume que `'card'` es válido para USD y EUR. Si el sistema genera links en otras monedas (CUP, MLC, etc.), el error puede reaparecer.
 
-4. **Filtros combinados tipo+potencia — soporte en backend sin confirmar**: Si el backend procesa los filtros por separado en vez de en una query combinada, la intersección de resultados puede ser incorrecta.
+4. **Payment links previos generados con configuración rota no se regeneran automáticamente**: Los clientes que recibieron links durante el periodo de fallo deben solicitar uno nuevo.
 
-5. **Botón "Limpiar" solo limpia filtros de equipo**: Si hay otros filtros activos (fecha, almacén), el botón solo restablece los de equipo, lo que puede confundir al usuario.
+5. **Stripe Link (pago con un clic) excluido permanentemente**: Al no incluir `'link'`, usuarios con cuenta Stripe pierden la opción de pago con un clic para compras recurrentes.
 
-6. **Lista blanca de CIs hardcodeada en frontend**: Los CIs de Yanaisi y Mauricio están en `lib/constants/pagos-permisos.ts`. Agregar o revocar acceso requiere un deploy; no hay gestión dinámica de permisos.
-
-7. **Gating por CI solo en frontend — sin validación en backend**: Cualquier llamada directa al endpoint de edición de cobros omite la lista blanca. Si el backend no valida el permiso, cualquier usuario autenticado puede editar.
-
-8. **`historial_cambios` en tipo `Pago` sin confirmar soporte en backend**: Si el backend no devuelve este campo, `PagoTrazabilidad` mostrará datos vacíos o fallará con un error de tipo en runtime.
-
-9. **Botón editar en tabla plana y tabla por ofertas — riesgo de tercer contexto sin gatear**: Si existe alguna otra vista de cobros no cubierta, usuarios no autorizados verían el botón.
+6. **Métodos hardcodeados — activar nuevos métodos en el dashboard de Stripe no tiene efecto sin redeploy**.
 
 ---
 
 #### Seguimientos vigentes
 
-- **Reservas expiradas reactivadas — conflicto con materiales reasignados entre expiración y nueva fecha (Jun 23)**.
+- **Solo `'card'` en payment links — métodos alternativos excluidos aunque estén activos en la cuenta Stripe (Jun 24)**.
+- **Payment links generados durante el periodo de configuración rota pueden necesitar regenerarse (Jun 24)**.
+- **Monedas distintas de USD/EUR en payment links — `'card'` puede no ser válido (Jun 24)**.
+- **Métodos de pago Stripe hardcodeados en código — activar nuevos métodos requiere redeploy (Jun 24)**.
+- **Reactivación de reservas expiradas — conflicto con materiales reasignados entre expiración y nueva fecha (Jun 23)**.
 - **Filtro potencia mín/máx sin validación `min > max` — resultados vacíos sin mensaje (Jun 23)**.
 - **Filtros potencia en paneles — unidad ambigua kW vs W en la UI (Jun 23)**.
 - **Filtros combinados tipo+potencia — confirmar soporte simultáneo en backend (Jun 23)**.
@@ -125,6 +118,48 @@
 - **Campos `tipo`, `pendiente_costeo`, `regularizada_por` en KardexCosto**.
 - **Badge "Facturado" con flotantes**.
 - **Botón "Actualizar costos" — lógica de decisión interna**.
+
+---
+
+## 📅 23 de Junio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**2 commits** de Fabian1820 y yany1509 — módulo de **Reservas** (Fabian1820): filtros por tipo de equipo y potencia + edición de reservas expiradas; y módulo de **Pagos** (yany1509): restauración del botón de editar cobros con lista blanca por CI y trazabilidad de edición.
+
+---
+
+### Área 1: Reservas — filtros de equipo y edición de expiradas (1 commit — Fabian1820, Jun 22 16:18)
+
+- **`feat(reservas): filtros por tipo de equipo y potencia + editar expiradas`** — UI del listado de reservas expone: select de tipo de equipo (baterías / inversores / paneles); inputs de potencia mín./máx. en kW (deshabilitados sin tipo seleccionado o con tipo=panel); botón "Limpiar" cuando hay algún filtro de equipo activo. El botón de editar aparece también para reservas en estado "expirada", ya que postergar la fecha las reactiva en el backend.
+
+---
+
+### Área 2: Pagos — botón editar con lista blanca y trazabilidad (1 commit — yany1509, Jun 23 15:59)
+
+- **`feat(pagos): restaurar botón editar cobro con trazabilidad`** — Restaura el botón de editar en Facturación › Pagos de clientes, visible solo para usuarios autorizados (Yanaisi y Mauricio). Lista blanca de CIs en `lib/constants/pagos-permisos.ts`. Nuevo componente `PagoTrazabilidad` que muestra quién editó y cuándo. Botón gateado por CI en tabla plana y tabla por ofertas. Tipo `Pago` ampliado con `editado_por`, `editado_por_nombre` e `historial_cambios`.
+
+---
+
+### Puede dar bateo
+
+1. **Reactivación de reservas expiradas — conflicto con materiales reasignados**: Entre la expiración original y la nueva fecha propuesta, el material pudo haber sido asignado a otra reserva activa. El backend debe verificar disponibilidad real al momento de reactivar; si no lo hace, dos reservas activas competirán por el mismo stock.
+
+2. **Filtro de potencia deshabilitado para paneles — unidad ambigua**: Los paneles se miden en W, no kW. La UI muestra el input como "kW" pero lo deshabilita para paneles sin explicar el motivo. Un usuario puede entender que los paneles no son filtrables por potencia.
+
+3. **Inputs de potencia mín/máx sin validación `min > max`**: Si el usuario ingresa un mínimo mayor que el máximo, el backend puede recibir un rango inválido y devolver resultados vacíos sin mensaje de error explicativo.
+
+4. **Filtros combinados tipo+potencia — soporte en backend sin confirmar**: Si el backend procesa los filtros por separado en vez de en una query combinada, la intersección de resultados puede ser incorrecta.
+
+5. **Botón "Limpiar" solo limpia filtros de equipo**: Si hay otros filtros activos (fecha, almacén), el botón solo restablece los de equipo, lo que puede confundir al usuario.
+
+6. **Lista blanca de CIs hardcodeada en frontend**: Los CIs de Yanaisi y Mauricio están en `lib/constants/pagos-permisos.ts`. Agregar o revocar acceso requiere un deploy; no hay gestión dinámica de permisos.
+
+7. **Gating por CI solo en frontend — sin validación en backend**: Cualquier llamada directa al endpoint de edición de cobros omite la lista blanca. Si el backend no valida el permiso, cualquier usuario autenticado puede editar.
+
+8. **`historial_cambios` en tipo `Pago` sin confirmar soporte en backend**: Si el backend no devuelve este campo, `PagoTrazabilidad` mostrará datos vacíos o fallará con un error de tipo en runtime.
+
+9. **Botón editar en tabla plana y tabla por ofertas — riesgo de tercer contexto sin gatear**: Si existe alguna otra vista de cobros no cubierta, usuarios no autorizados verían el botón.
 
 ---
 
@@ -229,18 +264,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 16 de Junio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-Sin commits nuevos en las últimas 24h. Los seguimientos del 15/06 siguen vigentes.
-
----
-
-### Puede dar bateo
-
-Sin cambios nuevos — sin riesgos nuevos.
-
----
-
-> ⚠️ **Nota de mantenimiento**: Las entradas del **5, 6, 7, 9, 11, 12 y 15 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). Anteriores eliminadas: 26, 27, 28, 29, 30 de Mayo, 31 de Mayo, 1, 2 y 4 de Junio.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **5, 6, 7, 9, 11, 12, 15 y 16 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). Anteriores eliminadas: 26, 27, 28, 29, 30 de Mayo, 31 de Mayo, 1, 2 y 4 de Junio.
