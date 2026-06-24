@@ -71,10 +71,11 @@ export async function POST(request: NextRequest) {
       : Math.round(((precio + STRIPE_FIXED) / (1 - STRIPE_RATE)) * 100) / 100
 
     // Crear Payment Link en Stripe.
-    // No se especifica payment_method_types: Stripe usa automáticamente los
-    // métodos de pago activados en el dashboard según moneda/país. Esto evita
-    // errores del tipo "The payment method type provided: link is invalid"
-    // cuando un método (link, klarna, billie, etc.) no está activado.
+    // Se fuerza únicamente 'card', disponible y activado para USD y EUR. No se
+    // incluyen link/klarna/billie porque, si no están activados en el dashboard,
+    // Stripe rechaza la petición ("payment method type ... is invalid"); y dejar
+    // que Stripe elija automáticamente falla con "No valid payment method types
+    // for this payment link" cuando la cuenta no tiene métodos compatibles.
     const paymentLink = await stripe.paymentLinks.create({
       line_items: [
         {
@@ -89,6 +90,7 @@ export async function POST(request: NextRequest) {
           quantity: 1,
         },
       ],
+      payment_method_types: ['card'],
       invoice_creation: {
         enabled: true,
       },
