@@ -79,7 +79,7 @@ interface FacturaSolarCarroMaterialApi {
   descripcion?: string;
   cantidad?: number;
   codigo_contabilidad?: string;
-  precio_contabilidad?: number;
+  precio_contabilidad_cup?: number;
 }
 
 interface FacturaSolarCarroApi {
@@ -746,7 +746,7 @@ function FacturasSolarCarrosPageContent() {
             descripcion: String(m.nombre_descripcion || m.descripcion || "Material"),
             cantidad: parseNumero(m.cantidad),
             codigo_contabilidad: m.codigo_contabilidad ? String(m.codigo_contabilidad) : undefined,
-            precio_contabilidad: m.precio_contabilidad != null ? parseNumero(m.precio_contabilidad) : undefined,
+            precio_contabilidad: m.precio_contabilidad_cup != null ? parseNumero(m.precio_contabilidad_cup) : undefined,
           }),
         );
         return {
