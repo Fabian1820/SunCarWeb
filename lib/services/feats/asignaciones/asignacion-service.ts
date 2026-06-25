@@ -64,6 +64,33 @@ const normalizeAsignacionFlat = (raw: any): Asignacion & { ci?: string; instalac
   instalacion_id: raw?.instalacion_id ? String(raw.instalacion_id) : undefined,
 })
 
+/**
+ * Lanza un Error si la respuesta de `apiRequest` representa un fallo.
+ *
+ * `apiRequest` NO lanza para varios errores HTTP (400/401/404/500): cuando el
+ * cuerpo trae `detail`/`error`/`success:false` devuelve el objeto en vez de
+ * lanzar. Si los métodos hacen `return true`/`return res.data` sin revisarlo,
+ * se muestran "éxitos" falsos aunque nada se haya persistido. Este helper
+ * detecta esa forma de error y lanza con el mensaje real del backend.
+ */
+function assertOk(res: any, fallbackMsg: string): void {
+  if (res && typeof res === 'object') {
+    const httpStatus = (res as any)._httpStatus
+    const isHttpError = typeof httpStatus === 'number' && httpStatus >= 400
+    const isErrorShape =
+      (res as any).success === false || Boolean((res as any).error) || isHttpError
+    if (isErrorShape) {
+      const errObj = (res as any).error
+      const msg =
+        (typeof (res as any).detail === 'string' && (res as any).detail) ||
+        (errObj && typeof errObj === 'object' && typeof errObj.message === 'string' && errObj.message) ||
+        (typeof (res as any).message === 'string' && (res as any).message) ||
+        fallbackMsg
+      throw new Error(msg)
+    }
+  }
+}
+
 export class AsignacionService {
   // ── Medios Básicos ────────────────────────────────────────────────────────
 
@@ -110,19 +137,22 @@ export class AsignacionService {
       method: 'POST',
       body: JSON.stringify(data),
     })
+    assertOk(res, 'No se pudo crear el medio básico')
     return res?.data ?? res
   }
 
   static async updateMedioBasico(id: string, data: MedioBasicoUpdateData): Promise<boolean> {
-    await apiRequest(`/medios-basicos/${id}`, {
+    const res = await apiRequest<any>(`/medios-basicos/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     })
+    assertOk(res, 'No se pudo actualizar el medio básico')
     return true
   }
 
   static async deleteMedioBasico(id: string): Promise<boolean> {
-    await apiRequest(`/medios-basicos/${id}`, { method: 'DELETE' })
+    const res = await apiRequest<any>(`/medios-basicos/${id}`, { method: 'DELETE' })
+    assertOk(res, 'No se pudo eliminar el medio básico')
     return true
   }
 
@@ -175,14 +205,16 @@ export class AsignacionService {
       method: 'POST',
       body: JSON.stringify(data),
     })
+    assertOk(res, 'No se pudo agregar la asignación')
     return res?.data ?? res
   }
 
   static async updateAsignacion(ci: string, asignacionId: string, data: AsignacionUpdateData): Promise<boolean> {
-    await apiRequest(`/asignaciones-trabajadores/${ci}/${asignacionId}`, {
+    const res = await apiRequest<any>(`/asignaciones-trabajadores/${ci}/${asignacionId}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     })
+    assertOk(res, 'No se pudo actualizar la asignación')
     return true
   }
 
@@ -195,10 +227,11 @@ export class AsignacionService {
     ci: string, asignacionId: string,
     motivo: MotivoMovimiento, nota?: string,
   ): Promise<boolean> {
-    await apiRequest(`/asignaciones-trabajadores/${ci}/${asignacionId}`, {
+    const res = await apiRequest<any>(`/asignaciones-trabajadores/${ci}/${asignacionId}`, {
       method: 'PUT',
       body: JSON.stringify({ cantidad: 0, motivo, ...(nota ? { nota } : {}) }),
     })
+    assertOk(res, 'No se pudo eliminar la asignación')
     return true
   }
 
@@ -282,6 +315,7 @@ export class AsignacionService {
       method: 'POST',
       body: JSON.stringify(data),
     })
+    assertOk(res, 'No se pudo agregar la asignación')
     return res?.data ?? res
   }
 
@@ -291,10 +325,11 @@ export class AsignacionService {
     asignacionId: string,
     data: AsignacionInstalacionUpdateData
   ): Promise<boolean> {
-    await apiRequest(`/asignaciones-instalaciones/${tipo}/${id}/${asignacionId}`, {
+    const res = await apiRequest<any>(`/asignaciones-instalaciones/${tipo}/${id}/${asignacionId}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     })
+    assertOk(res, 'No se pudo actualizar la asignación')
     return true
   }
 
@@ -305,10 +340,11 @@ export class AsignacionService {
     motivo: MotivoMovimiento,
     nota?: string,
   ): Promise<boolean> {
-    await apiRequest(`/asignaciones-instalaciones/${tipo}/${id}/${asignacionId}`, {
+    const res = await apiRequest<any>(`/asignaciones-instalaciones/${tipo}/${id}/${asignacionId}`, {
       method: 'PUT',
       body: JSON.stringify({ cantidad: 0, motivo, ...(nota ? { nota } : {}) }),
     })
+    assertOk(res, 'No se pudo eliminar la asignación')
     return true
   }
 
@@ -346,14 +382,16 @@ export class AsignacionService {
       method: 'POST',
       body: JSON.stringify(data),
     })
+    assertOk(res, 'No se pudo agregar la herramienta')
     return res?.data ?? res
   }
 
   static async updateHerramienta(ci: string, herramientaId: string, data: HerramientaUpdateData): Promise<boolean> {
-    await apiRequest(`/asignaciones/${ci}/herramientas/${herramientaId}`, {
+    const res = await apiRequest<any>(`/asignaciones/${ci}/herramientas/${herramientaId}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     })
+    assertOk(res, 'No se pudo actualizar la herramienta')
     return true
   }
 
@@ -361,10 +399,11 @@ export class AsignacionService {
     ci: string, herramientaId: string,
     motivo: MotivoMovimiento, nota?: string,
   ): Promise<boolean> {
-    await apiRequest(`/asignaciones-trabajadores/${ci}/herramientas/${herramientaId}`, {
+    const res = await apiRequest<any>(`/asignaciones-trabajadores/${ci}/herramientas/${herramientaId}`, {
       method: 'PUT',
       body: JSON.stringify({ cantidad: 0, motivo, ...(nota ? { nota } : {}) }),
     })
+    assertOk(res, 'No se pudo eliminar la herramienta')
     return true
   }
 
@@ -373,19 +412,22 @@ export class AsignacionService {
       method: 'POST',
       body: JSON.stringify(data),
     })
+    assertOk(res, 'No se pudo crear la herramienta del catálogo')
     return res?.data ?? res
   }
 
   static async updateHerramientaCatalogo(materialId: string, data: HerramientaCatalogoUpdateData): Promise<boolean> {
-    await apiRequest(`/asignaciones/herramientas/catalogo/${materialId}`, {
+    const res = await apiRequest<any>(`/asignaciones/herramientas/catalogo/${materialId}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     })
+    assertOk(res, 'No se pudo actualizar la herramienta del catálogo')
     return true
   }
 
   static async deleteHerramientaCatalogo(materialId: string): Promise<boolean> {
-    await apiRequest(`/asignaciones/herramientas/catalogo/${materialId}`, { method: 'DELETE' })
+    const res = await apiRequest<any>(`/asignaciones/herramientas/catalogo/${materialId}`, { method: 'DELETE' })
+    assertOk(res, 'No se pudo eliminar la herramienta del catálogo')
     return true
   }
 
@@ -395,9 +437,10 @@ export class AsignacionService {
   static async ajustarCostoAsignacionTrabajador(
     ci: string, asignacionId: string, data: AjustarCostoData,
   ): Promise<boolean> {
-    await apiRequest(`/asignaciones-trabajadores/${ci}/${asignacionId}/costo`, {
+    const res = await apiRequest<any>(`/asignaciones-trabajadores/${ci}/${asignacionId}/costo`, {
       method: 'PUT', body: JSON.stringify(data),
     })
+    assertOk(res, 'No se pudo ajustar el costo')
     return true
   }
 
@@ -405,9 +448,10 @@ export class AsignacionService {
   static async ajustarCostoAsignacionInstalacion(
     tipo: TipoInstalacion, instalacionId: string, asignacionId: string, data: AjustarCostoData,
   ): Promise<boolean> {
-    await apiRequest(`/asignaciones-instalaciones/${tipo}/${instalacionId}/${asignacionId}/costo`, {
+    const res = await apiRequest<any>(`/asignaciones-instalaciones/${tipo}/${instalacionId}/${asignacionId}/costo`, {
       method: 'PUT', body: JSON.stringify(data),
     })
+    assertOk(res, 'No se pudo ajustar el costo')
     return true
   }
 
@@ -415,9 +459,10 @@ export class AsignacionService {
   static async transferirAsignacionTrabajador(
     ci: string, asignacionId: string, data: TransferirData,
   ): Promise<boolean> {
-    await apiRequest(`/asignaciones-trabajadores/${ci}/${asignacionId}/transferir`, {
+    const res = await apiRequest<any>(`/asignaciones-trabajadores/${ci}/${asignacionId}/transferir`, {
       method: 'POST', body: JSON.stringify(data),
     })
+    assertOk(res, 'No se pudo transferir la asignación')
     return true
   }
 
@@ -425,9 +470,10 @@ export class AsignacionService {
   static async transferirAsignacionInstalacion(
     tipo: TipoInstalacion, instalacionId: string, asignacionId: string, data: TransferirData,
   ): Promise<boolean> {
-    await apiRequest(`/asignaciones-instalaciones/${tipo}/${instalacionId}/${asignacionId}/transferir`, {
+    const res = await apiRequest<any>(`/asignaciones-instalaciones/${tipo}/${instalacionId}/${asignacionId}/transferir`, {
       method: 'POST', body: JSON.stringify(data),
     })
+    assertOk(res, 'No se pudo transferir la asignación')
     return true
   }
 

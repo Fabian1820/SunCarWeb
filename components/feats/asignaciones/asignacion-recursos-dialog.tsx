@@ -136,7 +136,9 @@ export function AsignacionRecursosDialog({
     const handler = setTimeout(async () => {
       setLoadingMateriales(true)
       try {
-        const results = await MaterialService.searchMaterialsByCode(term, 15)
+        // Endpoint admin: incluye `costo` (el web no), necesario para detectar
+        // materiales sin costo antes de intentar asignarlos.
+        const results = await MaterialService.searchMaterialesConCosto(term, 15)
         setMaterialResults(results)
       } catch {
         setMaterialResults([])
@@ -516,9 +518,14 @@ export function AsignacionRecursosDialog({
 
           {/* Banner costo 0 (solo creación, cuando aplica) */}
           {!isEdit && sinCosto && (
-            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 space-y-2">
-              <p className="text-sm font-medium text-amber-900">
-                El recurso seleccionado no tiene costo en el catálogo.
+            <div className="rounded-md border border-amber-400 bg-amber-50 p-3 space-y-2">
+              <p className="text-sm font-semibold text-amber-900">
+                Este {itemTipo === 'medio_basico' ? 'medio básico' : 'material'} no tiene costo.
+              </p>
+              <p className="text-xs text-amber-900">
+                Para asignarlo, activá el toggle <strong>“Permitir costo cero”</strong> y luego
+                editá el costo en la asignación; o bien agregá el costo al
+                {itemTipo === 'medio_basico' ? ' medio básico' : ' material'} desde su ficha de costos.
               </p>
               <label className="flex items-start gap-2 cursor-pointer text-xs text-amber-900">
                 <input
@@ -528,9 +535,8 @@ export function AsignacionRecursosDialog({
                   onChange={e => setPermitirCostoCero(e.target.checked)}
                 />
                 <span>
-                  <strong>Permitir depreciación con costo 0</strong> — la asignación se crea pero
-                  los valores de depreciación, valor depreciado y residual serán 0. Podés ajustar
-                  el costo más adelante desde el detalle de la asignación.
+                  <strong>Permitir costo cero</strong> — la asignación se crea pero los valores de
+                  depreciación, valor depreciado y residual serán 0 hasta que cargues el costo.
                 </span>
               </label>
             </div>

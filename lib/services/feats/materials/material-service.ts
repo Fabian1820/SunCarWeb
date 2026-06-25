@@ -66,6 +66,12 @@ export class MaterialService {
             : undefined,
       precio_instaladora:
         typeof raw?.precio_instaladora === "number" ? raw.precio_instaladora : undefined,
+      costo:
+        typeof raw?.costo === "number"
+          ? raw.costo
+          : typeof raw?.material?.costo === "number"
+            ? raw.material.costo
+            : undefined,
       porciento_rebajable_venta:
         typeof raw?.porciento_rebajable_venta === "number" ? raw.porciento_rebajable_venta : undefined,
       nombre:
@@ -160,6 +166,37 @@ export class MaterialService {
 
     const response = await apiRequest<any>(
       `/productos/materiales?q=${encodeURIComponent(term)}&limit=${limit}`,
+    );
+
+    const payload = response?.data ?? response;
+    const rows = Array.isArray(payload)
+      ? payload
+      : Array.isArray(payload?.items)
+        ? payload.items
+        : Array.isArray(payload?.materiales)
+          ? payload.materiales
+          : [];
+
+    return rows
+      .map((item: any) => this.normalizeSearchMaterial(item))
+      .filter((item: Material | null): item is Material => item !== null);
+  }
+
+  /**
+   * Búsqueda de materiales para flujos internos (p. ej. asignaciones) usando el
+   * endpoint admin, que SÍ incluye el campo `costo`. El endpoint web
+   * /productos/materiales NO expone `costo`, por lo que no permite detectar
+   * correctamente materiales sin costo. Úsalo cuando necesites el costo real.
+   */
+  static async searchMaterialesConCosto(
+    query: string,
+    limit = 10,
+  ): Promise<Material[]> {
+    const term = query.trim();
+    if (!term) return [];
+
+    const response = await apiRequest<any>(
+      `/productos/admin/materiales?q=${encodeURIComponent(term)}&limit=${limit}`,
     );
 
     const payload = response?.data ?? response;
