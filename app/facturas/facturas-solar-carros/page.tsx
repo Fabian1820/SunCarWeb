@@ -931,10 +931,6 @@ function FacturasSolarCarrosPageContent() {
         items = buildFallbackItemsFromClienteOferta(row.cliente);
       }
 
-      if (items.length === 0) {
-        throw new Error("El cliente no tiene materiales/componentes para facturar.");
-      }
-
       const baseFromItems = sumItemsTotalUsd(items);
       const juridicaUsd = ofertaData.precioFinalUsd > 0 ? ofertaData.precioFinalUsd : baseFromItems;
       const persona_tipo: PersonaTipo =
