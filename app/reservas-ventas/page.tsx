@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { BookmarkCheck, Plus, Search } from "lucide-react";
 import { Button } from "@/components/shared/atom/button";
 import {
@@ -26,7 +27,7 @@ import { Badge } from "@/components/shared/atom/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useReservasVentas } from "@/hooks/use-reservas-ventas";
 import { ReservasVentasTable } from "@/components/feats/reservas-ventas/reservas-ventas-table";
-import { CreateReservaDialog } from "@/components/feats/reservas-ventas/create-reserva-dialog";
+import { CreateReservaVentaDialog } from "@/components/feats/reservas-ventas/create-reserva-venta-dialog";
 import { EditReservaVentaDialog } from "@/components/feats/reservas-ventas/edit-reserva-venta-dialog";
 import { ReservaVentaDetailDialog } from "@/components/feats/reservas-ventas/reserva-venta-detail-dialog";
 import type {
@@ -52,6 +53,11 @@ const ORIGEN_TABS: { value: OrigenTab; label: string; color: string }[] = [
 
 export default function ReservasPage() {
   const { toast } = useToast();
+  const searchParams = useSearchParams();
+  // El módulo se registra dos veces en el catálogo: Ventas (crea reservas) e
+  // Instaladora (solo visual — instaladora reserva desde la oferta de confección).
+  // La entrada de instaladora apunta a /reservas-ventas?vista=instaladora.
+  const soloLectura = searchParams.get("vista") === "instaladora";
   const {
     filteredReservas,
     loading,
@@ -182,15 +188,17 @@ export default function ReservasPage() {
         badge={{ text: "Almacén", className: "bg-indigo-100 text-indigo-800" }}
         className="bg-white shadow-sm border-b border-indigo-100"
         actions={
-          <Button
-            size="icon"
-            className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-semibold shadow-md touch-manipulation"
-            onClick={() => setIsCreateDialogOpen(true)}
-            aria-label="Nueva reserva"
-          >
-            <Plus className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Nueva Reserva</span>
-          </Button>
+          soloLectura ? undefined : (
+            <Button
+              size="icon"
+              className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-semibold shadow-md touch-manipulation"
+              onClick={() => setIsCreateDialogOpen(true)}
+              aria-label="Nueva reserva de ventas"
+            >
+              <Plus className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Nueva Reserva de Ventas</span>
+            </Button>
+          )
         }
       />
 
@@ -385,12 +393,11 @@ export default function ReservasPage() {
         </div>
       </main>
 
-      <CreateReservaDialog
+      <CreateReservaVentaDialog
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
         onSubmit={handleCreate}
         isLoading={createLoading}
-        defaultOrigen={origenTab === "todas" ? "ventas" : origenTab}
       />
 
       <EditReservaVentaDialog
