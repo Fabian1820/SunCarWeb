@@ -131,8 +131,11 @@ export default function AlmacenDetallePage() {
   // (entrada/salida manual y ajuste de inventario con selección de pool). El
   // almacenero base (almacenes-suncar) NO los ve; el admin (almacenes-suncar/admin)
   // y el superAdmin sí. Solo gatea la UI (el resto del sistema es frontend-gated).
-  const { hasPermission } = useAuth();
-  const canAdminAlmacen = hasPermission("almacenes-suncar/admin");
+  // hasExactPermission (no hasPermission) para que el permiso sea aditivo: tener
+  // el padre "almacenes-suncar" NO concede los botones; hay que asignar el
+  // sub-permiso "almacenes-suncar/admin" explícitamente (o ser superAdmin).
+  const { hasExactPermission } = useAuth();
+  const canAdminAlmacen = hasExactPermission("almacenes-suncar/admin");
   const [isMaterialDialogOpen, setIsMaterialDialogOpen] = useState(false);
   const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
   const [transferTableKey, setTransferTableKey] = useState(0);
