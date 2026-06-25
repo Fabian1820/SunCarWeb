@@ -188,6 +188,17 @@ export interface SolicitudTransferenciaItem {
   stock_disponible_actual?: number | null;
 }
 
+// Material con faltante de stock en el almacén origen al intentar aprobar una
+// transferencia. El backend devuelve la lista COMPLETA (no solo el primero).
+export interface MaterialFaltante {
+  material_id: string;
+  codigo: string;
+  nombre?: string | null;
+  foto?: string | null;
+  cantidad_solicitada: number;
+  cantidad_disponible: number;
+}
+
 export interface SolicitudTransferencia {
   id: string;
   almacen_origen_id: string;

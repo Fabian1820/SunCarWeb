@@ -19,6 +19,7 @@ export type {
   SolicitudTransferenciaEstado,
   SolicitudTransferenciaItem,
   SolicitudTransferencia,
+  MaterialFaltante,
   SolicitudTransferenciaCreateData,
   SolicitudTransferenciaUpdateData,
   MaterialStockPorAlmacenItem,

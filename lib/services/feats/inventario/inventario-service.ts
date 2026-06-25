@@ -19,6 +19,7 @@ import type {
   MovimientoLoteResumenPorMaterial,
   VentaCreateData,
   SolicitudTransferencia,
+  MaterialFaltante,
   SolicitudTransferenciaCreateData,
   SolicitudTransferenciaUpdateData,
   MaterialesStockParams,
@@ -881,13 +882,32 @@ export class InventarioService {
   ): Promise<void> {
     const body: Record<string, unknown> = {};
     if (comentario) body.comentario = comentario;
-    await apiRequest<any>(
+    const response = await apiRequest<any>(
       `/solicitudes-transferencia/${solicitudId}/aprobar`,
       {
         method: "POST",
         body: JSON.stringify(body),
       },
     );
+    if (response?.success === false) {
+      // El backend 400 por stock insuficiente devuelve detail = { message, faltantes }.
+      const detail = response?.detail;
+      const structured =
+        detail && typeof detail === "object" ? (detail as any) : null;
+      const message =
+        structured?.message ||
+        response?.error?.message ||
+        response?.message ||
+        (typeof detail === "string" ? detail : "") ||
+        "No se pudo aprobar la solicitud de transferencia.";
+      const err = new Error(message) as Error & {
+        faltantes?: MaterialFaltante[];
+      };
+      if (Array.isArray(structured?.faltantes)) {
+        err.faltantes = structured.faltantes as MaterialFaltante[];
+      }
+      throw err;
+    }
   }
 
   /**
@@ -898,13 +918,22 @@ export class InventarioService {
   static async resolverSolicitudTransferencia(
     solicitudId: string,
   ): Promise<any> {
-    return await apiRequest<any>(
+    const response = await apiRequest<any>(
       `/solicitudes-transferencia/${solicitudId}/resolver`,
       {
         method: "POST",
         body: JSON.stringify({}),
       },
     );
+    if (response?.success === false) {
+      throw new Error(
+        response?.error?.message ||
+          response?.message ||
+          (typeof response?.detail === "string" ? response.detail : "") ||
+          "No se pudo resolver la solicitud de transferencia.",
+      );
+    }
+    return response;
   }
 
   static async denegarSolicitudTransferencia(
@@ -913,13 +942,21 @@ export class InventarioService {
   ): Promise<void> {
     const body: Record<string, unknown> = {};
     if (comentario) body.comentario = comentario;
-    await apiRequest<any>(
+    const response = await apiRequest<any>(
       `/solicitudes-transferencia/${solicitudId}/denegar`,
       {
         method: "POST",
         body: JSON.stringify(body),
       },
     );
+    if (response?.success === false) {
+      throw new Error(
+        response?.error?.message ||
+          response?.message ||
+          (typeof response?.detail === "string" ? response.detail : "") ||
+          "No se pudo denegar la solicitud de transferencia.",
+      );
+    }
   }
 
   // ── Materiales con stock agregado (matriz materiales × almacenes) ──
