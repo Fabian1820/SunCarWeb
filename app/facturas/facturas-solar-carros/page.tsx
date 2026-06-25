@@ -680,6 +680,10 @@ function FacturasSolarCarrosPageContent() {
   const [fechaValeDesde, setFechaValeDesde] = useState("");
   const [fechaValeHasta, setFechaValeHasta] = useState("");
 
+  const [searchFacturas, setSearchFacturas] = useState("");
+  const [fechaFacturaDesde, setFechaFacturaDesde] = useState("");
+  const [fechaFacturaHasta, setFechaFacturaHasta] = useState("");
+
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewSaving, setPreviewSaving] = useState(false);
   const [previewSource, setPreviewSource] = useState<FacturaPreviewSource | null>(null);
@@ -1687,6 +1691,27 @@ function FacturasSolarCarrosPageContent() {
     });
   }, [instaladoraRows, searchInstaladora, fechaValeDesde, fechaValeHasta]);
 
+  const facturasSolarFiltradas = useMemo(() => {
+    const term = normalizeKey(searchFacturas);
+    const fromTime = fechaFacturaDesde
+      ? new Date(`${fechaFacturaDesde}T00:00:00`).getTime()
+      : null;
+    const toTime = fechaFacturaHasta
+      ? new Date(`${fechaFacturaHasta}T23:59:59.999`).getTime()
+      : null;
+
+    return facturasSolar.filter((f) => {
+      if (fromTime !== null || toTime !== null) {
+        const ft = f.fecha ? new Date(f.fecha).getTime() : NaN;
+        if (Number.isNaN(ft)) return false;
+        if (fromTime !== null && ft < fromTime) return false;
+        if (toTime !== null && ft > toTime) return false;
+      }
+      if (!term) return true;
+      return normalizeKey(f.cliente.nombre).includes(term);
+    });
+  }, [facturasSolar, searchFacturas, fechaFacturaDesde, fechaFacturaHasta]);
+
   const getExistenciaClass = (existencia: number) => {
     const value = parseNumero(existencia);
     if (value <= 0) return "text-red-600 font-semibold";
@@ -2453,6 +2478,36 @@ function FacturasSolarCarrosPageContent() {
                 {loadingFacturas && !loadedFacturas ? (
                   <div className="py-10 text-center text-gray-600">Cargando facturas...</div>
                 ) : (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div>
+                        <Label htmlFor="search-facturas">Buscar por cliente</Label>
+                        <Input
+                          id="search-facturas"
+                          placeholder="Nombre del cliente..."
+                          value={searchFacturas}
+                          onChange={(e) => setSearchFacturas(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="fecha-factura-desde">Fecha desde</Label>
+                        <Input
+                          id="fecha-factura-desde"
+                          type="date"
+                          value={fechaFacturaDesde}
+                          onChange={(e) => setFechaFacturaDesde(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="fecha-factura-hasta">Fecha hasta</Label>
+                        <Input
+                          id="fecha-factura-hasta"
+                          type="date"
+                          value={fechaFacturaHasta}
+                          onChange={(e) => setFechaFacturaHasta(e.target.value)}
+                        />
+                      </div>
+                    </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
@@ -2464,7 +2519,7 @@ function FacturasSolarCarrosPageContent() {
                         </tr>
                       </thead>
                       <tbody>
-                        {facturasSolar.map((factura) => {
+                        {facturasSolarFiltradas.map((factura) => {
                           const rowKey = factura.id || factura.noFactura;
                           return (
                             <tr key={rowKey} className="border-b hover:bg-slate-50/60 align-top">
@@ -2531,15 +2586,18 @@ function FacturasSolarCarrosPageContent() {
                             </tr>
                           );
                         })}
-                        {facturasSolar.length === 0 && (
+                        {facturasSolarFiltradas.length === 0 && (
                           <tr>
                             <td colSpan={4} className="text-center py-6 text-gray-500">
-                              No hay facturas Solar Carros creadas todavía.
+                              {facturasSolar.length === 0
+                                ? "No hay facturas Solar Carros creadas todavía."
+                                : "No se encontraron facturas con los filtros aplicados."}
                             </td>
                           </tr>
                         )}
                       </tbody>
                     </table>
+                  </div>
                   </div>
                 )}
               </TabsContent>
