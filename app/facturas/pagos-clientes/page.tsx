@@ -1468,6 +1468,12 @@ export default function PagosClientesPage() {
                         loadFacturasEmitidas({ silent: true }),
                       ]);
                     }}
+                    onPagoUpdated={async () => {
+                      await Promise.all([
+                        refetchOfertasConPagos(cobrosFilters()),
+                        loadFacturasEmitidas({ silent: true }),
+                      ]);
+                    }}
                   />
                   {totalCobros > PAGOS_LIMIT && (
                     <div className="flex items-center justify-between mt-4 pt-4 border-t">

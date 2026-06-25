@@ -12,13 +12,17 @@ import {
 import { Badge } from "@/components/shared/atom/badge";
 import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/molecule/input";
-import { Loader2, FileText, RotateCcw, Search } from "lucide-react";
+import { Loader2, FileText, RotateCcw, Search, Pencil } from "lucide-react";
 import type {
   OfertaConPagos,
   Pago,
 } from "@/lib/services/feats/pagos/pago-service";
 import { ExportComprobanteService } from "@/lib/services/feats/pagos/export-comprobante-service";
 import { RegistrarDevolucionPagoDialog } from "./registrar-devolucion-pago-dialog";
+import { EditarPagoDialog } from "./editar-pago-dialog";
+import { useAuth } from "@/contexts/auth-context";
+import { puedeEditarCobro } from "@/lib/constants/pagos-permisos";
+import { PagoTrazabilidad } from "./pago-trazabilidad";
 
 interface TodosPagosPlanosTableProps {
   ofertasConPagos: OfertaConPagos[];
@@ -80,9 +84,16 @@ export function TodosPagosPlanosTable({
   onPagoUpdated,
   showSearch = true,
 }: TodosPagosPlanosTableProps) {
+  const { user } = useAuth();
+  const puedeEditar = puedeEditarCobro(user?.ci);
+
   const [devolucionDialogOpen, setDevolucionDialogOpen] = useState(false);
   const [pagoParaDevolucion, setPagoParaDevolucion] =
     useState<PagoConOferta | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [pagoParaEditar, setPagoParaEditar] = useState<PagoConOferta | null>(
+    null,
+  );
   const [searchTerm, setSearchTerm] = useState("");
 
   console.log(
@@ -301,6 +312,19 @@ export function TodosPagosPlanosTable({
   const handleDevolucionSuccess = async () => {
     setDevolucionDialogOpen(false);
     setPagoParaDevolucion(null);
+    if (onPagoUpdated) {
+      await onPagoUpdated();
+    }
+  };
+
+  const handleOpenEditDialog = (pago: PagoConOferta) => {
+    setPagoParaEditar(pago);
+    setEditDialogOpen(true);
+  };
+
+  const handleEditSuccess = async () => {
+    setEditDialogOpen(false);
+    setPagoParaEditar(null);
     if (onPagoUpdated) {
       await onPagoUpdated();
     }
@@ -533,6 +557,17 @@ export function TodosPagosPlanosTable({
               </TableCell>
               <TableCell className="text-center py-3">
                 <div className="flex items-center justify-center gap-2">
+                  {puedeEditar && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleOpenEditDialog(pago)}
+                      className="h-8 w-8 p-0 text-blue-700 border-blue-300 hover:bg-blue-50"
+                      title="Editar cobro"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
@@ -552,6 +587,7 @@ export function TodosPagosPlanosTable({
                     <FileText className="h-4 w-4" />
                   </Button>
                 </div>
+                <PagoTrazabilidad pago={pago} className="justify-center mt-1.5" />
               </TableCell>
             </TableRow>
           ))}
@@ -565,6 +601,16 @@ export function TodosPagosPlanosTable({
           pago={pagoParaDevolucion}
           codigoCliente={pagoParaDevolucion.contacto?.codigo || null}
           onSuccess={handleDevolucionSuccess}
+        />
+      )}
+
+      {puedeEditar && pagoParaEditar && (
+        <EditarPagoDialog
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          pago={pagoParaEditar}
+          oferta={pagoParaEditar.oferta}
+          onSuccess={handleEditSuccess}
         />
       )}
     </div>

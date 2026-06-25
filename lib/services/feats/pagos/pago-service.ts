@@ -22,6 +22,17 @@ export interface PagoCreateData {
   };
 }
 
+export interface HistorialCambioPago {
+  fecha: string;
+  modificado_por?: string | null;
+  modificado_por_nombre?: string | null;
+  campos_modificados?: Array<{
+    campo: string;
+    valor_anterior: unknown;
+    valor_nuevo: unknown;
+  }>;
+}
+
 export interface Pago {
   id: string;
   oferta_id: string;
@@ -42,6 +53,10 @@ export interface Pago {
   creado_por?: string;
   fecha_creacion: string;
   fecha_actualizacion: string;
+  // Trazabilidad de edición
+  editado_por?: string | null;
+  editado_por_nombre?: string | null;
+  historial_cambios?: HistorialCambioPago[] | null;
   diferencia?: {
     monto: number;
     justificacion: string;
