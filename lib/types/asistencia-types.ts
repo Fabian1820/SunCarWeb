@@ -47,3 +47,44 @@ export interface Asistencia {
   registrado_por: string
   comentarios?: string | null
 }
+
+export interface TrabajadorReporte {
+  trabajador_ci: string
+  nombre: string
+  esta_presente: boolean
+  hora_entrada: string | null
+  hora_salida: string | null
+  horas_trabajadas: number | null
+  estado_actual: "dentro" | "fuera"
+}
+
+export interface ResumenReporte {
+  total_trabajadores: number
+  presentes_hoy: number
+  ausentes: number
+  actualmente_en_oficina: number
+}
+
+export interface ReporteDiarioData {
+  fecha: string
+  trabajadores: TrabajadorReporte[]
+  resumen: ResumenReporte
+}
+
+export interface ReporteDiarioResponse {
+  success: boolean
+  message: string
+  data: ReporteDiarioData
+}
+
+export interface MarcarAsistenciaResponse {
+  success: boolean
+  message: string
+  data: Asistencia
+  tipo_marcaje: "entrada" | "salida"
+}
+
+export interface EliminarMarcajeResponse {
+  success: boolean
+  message: string
+}

@@ -27,6 +27,7 @@ import {
   Building,
   BookOpen,
   Image,
+  Clock,
 } from "lucide-react"
 
 /**
@@ -469,6 +470,15 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
   },
 
   // ───────── Recursos Humanos ─────────
+  {
+    key: "asistencia",
+    label: "Control de Asistencia",
+    descripcion: "Seguimiento en tiempo real de la presencia del personal.",
+    icon: Clock,
+    iconClass: "text-violet-600",
+    href: "/asistencia",
+    grupo: "recursos-humanos",
+  },
   {
     key: "recursos-humanos",
     label: "Recursos Humanos",

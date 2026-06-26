@@ -1,5 +1,6 @@
 // Central service exports by feature. Keeps legacy import path compatibility while colocating
 // implementations under lib/services/feats.
+export { AsistenciaService } from "./services/feats/asistencia/asistencia-service";
 export { MaterialService } from "./services/feats/materials/material-service";
 export { BrigadaService } from "./services/feats/brigade/brigada-service";
 export { TrabajadorService } from "./services/feats/worker/trabajador-service";
