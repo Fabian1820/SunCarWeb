@@ -412,6 +412,8 @@ export function SolicitudesTransferenciaTable({
                   className="bg-green-600 hover:bg-green-700"
                   onClick={(e) => {
                     e.stopPropagation()
+                    setFaltantes([])
+                    setComentario("")
                     setResolveDialog({ solicitud, action: "aprobar" })
                   }}
                 >
@@ -423,6 +425,8 @@ export function SolicitudesTransferenciaTable({
                   variant="destructive"
                   onClick={(e) => {
                     e.stopPropagation()
+                    setFaltantes([])
+                    setComentario("")
                     setResolveDialog({ solicitud, action: "denegar" })
                   }}
                 >
@@ -689,30 +693,35 @@ export function SolicitudesTransferenciaTable({
                 onClick={() => {
                   setResolveDialog(null)
                   setComentario("")
+                  setFaltantes([])
                 }}
                 disabled={resolving}
               >
-                Cancelar
+                {faltantes.length > 0 ? "Cerrar" : "Cancelar"}
               </Button>
-              <Button
-                onClick={handleResolve}
-                disabled={resolving}
-                className={
-                  resolveDialog?.action === "aprobar"
-                    ? "bg-green-600 hover:bg-green-700"
-                    : ""
-                }
-                variant={
-                  resolveDialog?.action === "denegar"
-                    ? "destructive"
-                    : "default"
-                }
-              >
-                {resolving && (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                )}
-                {resolveDialog?.action === "aprobar" ? "Aprobar" : "Denegar"}
-              </Button>
+              {/* Tras un fallo por faltantes no tiene sentido reintentar con los
+                  mismos datos: solo se deja el botón de cerrar. */}
+              {faltantes.length === 0 && (
+                <Button
+                  onClick={handleResolve}
+                  disabled={resolving}
+                  className={
+                    resolveDialog?.action === "aprobar"
+                      ? "bg-green-600 hover:bg-green-700"
+                      : ""
+                  }
+                  variant={
+                    resolveDialog?.action === "denegar"
+                      ? "destructive"
+                      : "default"
+                  }
+                >
+                  {resolving && (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  )}
+                  {resolveDialog?.action === "aprobar" ? "Aprobar" : "Denegar"}
+                </Button>
+              )}
             </div>
           </div>
         </DialogContent>
