@@ -2,50 +2,106 @@
 
 ---
 
-## 📅 23 de Junio, 2026
+## 📅 26 de Junio, 2026
 
 ### Resumen de cambios (últimas 24h)
 
-**2 commits** de Fabian1820 y yany1509 — módulo de **Reservas** (Fabian1820): filtros por tipo de equipo y potencia + edición de reservas expiradas; y módulo de **Pagos** (yany1509): restauración del botón de editar cobros con lista blanca por CI y trazabilidad de edición.
+**12 commits reales** de Fabian1820, yany1509 y Ruben0304 — día de alta actividad en tres frentes paralelos: (1) módulo completo de **Asistencia** de personal; (2) mejoras al módulo de **Inventario** (referencias legibles + export Excel de movimientos); (3) fixes en **Transferencias** (UI de faltantes al aprobar); (4) rollback de diseño en **Reservas** (restaurar flujo Ventas, eliminar dialog unificado); (5) subpermiso aditivo en **Almacenes**; (6) cuatro commits en **Facturas Solar-Carros** (contabilidad + DOCX + buscador + fix sin oferta); (7) grafo de conocimiento Graphify del código fuente.
 
 ---
 
-### Área 1: Reservas — filtros de equipo y edición de expiradas (1 commit — Fabian1820, Jun 22 16:18)
+### Área 1: Módulo Asistencia — control de llegada del personal (1 commit — Ruben0304, 14:08)
 
-- **`feat(reservas): filtros por tipo de equipo y potencia + editar expiradas`** — UI del listado de reservas expone: select de tipo de equipo (baterías / inversores / paneles); inputs de potencia mín./máx. en kW (deshabilitados sin tipo seleccionado o con tipo=panel); botón "Limpiar" cuando hay algún filtro de equipo activo. El botón de editar aparece también para reservas en estado "expirada", ya que postergar la fecha las reactiva en el backend.
+- **`feat(asistencia): módulo completo de control de llegada del personal`** — Página `/asistencia` con tabs "Ahora mismo" y "Reporte del día". Panel en tiempo real con grid de trabajadores presentes. Tabla de reporte diario con entrada, salida, horas y estado. Diálogo para marcar entrada/salida manualmente desde el admin. Hook `use-asistencia` con carga automática. Módulo registrado en catálogo (grupo recursos-humanos).
 
 ---
 
-### Área 2: Pagos — botón editar con lista blanca y trazabilidad (1 commit — yany1509, Jun 23 15:59)
+### Área 2: Graphify — grafo del código fuente (1 commit — Ruben0304, 14:29)
 
-- **`feat(pagos): restaurar botón editar cobro con trazabilidad`** — Restaura el botón de editar en Facturación › Pagos de clientes, visible solo para usuarios autorizados (Yanaisi y Mauricio). Lista blanca de CIs en `lib/constants/pagos-permisos.ts`. Nuevo componente `PagoTrazabilidad` que muestra quién editó y cuándo. Botón gateado por CI en tabla plana y tabla por ofertas. Tipo `Pago` ampliado con `editado_por`, `editado_por_nombre` e `historial_cambios`.
+- **`feat(graphify): knowledge graph del código fuente de SunCarAdmin`** — 4,548 nodos · 14,486 edges · 223 comunidades. God nodes: Button (268), useToast (224), apiRequest (222). Artefactos subidos: `graph.html`, `graph.json`, `GRAPH_REPORT.md`.
+
+---
+
+### Área 3: Transferencias — feedback de error con lista de faltantes (2 commits — Fabian1820)
+
+- **`feat(transferencias): mostrar feedback de error al aprobar con lista de faltantes`** (Jun 25, 19:02) — Service lanza si `success===false`; aprobar adjunta `detail.faltantes`. La tabla muestra toast destructivo y lista cada material en falta con foto, código, nombre y cantidades.
+- **`fix(transferencias): limpiar estado de faltantes entre diálogos y ocultar botón aprobar tras fallo`** (Jun 26, 16:34) — Tras fallo de aprobación, el diálogo deja solo el botón Cerrar. Limpieza de faltantes/comentario al abrir cualquier diálogo y al cancelar.
+
+---
+
+### Área 4: Permisos — subpermiso almacenes-suncar/admin aditivo (1 commit — Fabian1820, Jun 25 18:21)
+
+- **`feat(permisos): subpermiso almacenes-suncar/admin aditivo (no heredado del padre)`** — Nuevo flag `SubPermiso.aditivo`. Tener el módulo padre `almacenes-suncar` ya no concede los botones de entrada/salida manual. Nuevo `hasExactPermission` en auth-context (membresía exacta, sin herencia padre→hijo).
+
+---
+
+### Área 5: Asignaciones — alerta costo cero + errores sin falsos positivos (1 commit — Fabian1820, Jun 25 18:19)
+
+- **`fix(asignaciones): alerta precisa de costo cero + manejo de errores sin falsos positivos`** — `searchMaterialesConCosto` (endpoint admin) para detectar materiales sin costo. Helper `assertOk` en todos los mutadores de `asignacion-service` para que errores 400/401/404/500 dejen de mostrarse como éxitos.
+
+---
+
+### Área 6: Reservas — restaurar flujo de Ventas (1 commit — Fabian1820, Jun 25 21:00)
+
+- **`fix(reservas): restaurar flujo de Ventas (carga de oferta, sin filtro de categorías)`** — El diálogo unificado creado hace ~8 días rompía Ventas: filtraba por categorías reservables (pero `categoria=null` en endpoint `materiales-web`), y eliminó el panel "Cargar desde oferta de venta". Decisión: Reservas crea SOLO reservas de Ventas. Vista Instaladora (`?vista=instaladora`) es solo lectura. Diálogo unificado eliminado.
+
+---
+
+### Área 7: Facturas Solar-Carros (4 commits — yany1509, Jun 25)
+
+- **`feat(facturas-solar-carros): agregar código/precio contabilidad en vista y botón Orden de Trabajo DOCX`** (15:38) — Campos `codigo_contabilidad` y `precio_contabilidad` en tipo API y vista. Genera y descarga Orden de Trabajo en DOCX fiel al template oficial (12 columnas, cabecera, firma, fecha).
+- **`fix(facturas-solar-carros): corregir nombre de campo precio_contabilidad_cup`** (15:58) — El backend devuelve `precio_contabilidad_cup`, no `precio_contabilidad`. El campo incorrecto causaba que el precio siempre mostrara "-".
+- **`feat(facturas-solar-carros): buscador por cliente y filtros de fecha en Facturas Creadas`** (16:03).
+- **`fix(facturas-solar-carros): permitir crear factura de instaladora sin oferta previa`** (16:07) — Elimina el bloqueo que impedía abrir el preview cuando el cliente no tiene materiales/componentes.
+
+---
+
+### Área 8: Inventario — referencia legible + export Excel de movimientos (1 commit — Fabian1820, Jun 26 18:05)
+
+- **`feat(inventario): referencia legible, detalle y export Excel de movimientos`** — Historial de movimientos: columna Referencia y detalle usan `referencia_label` en vez del ObjectId. Modal muestra datos del documento origen. Botón "Exportar Excel" exporta todos los movimientos filtrados omitiendo paginación (lotes de 200). Export de vales de salida: código del material en columna propia.
 
 ---
 
 ### Puede dar bateo
 
-1. **Reactivación de reservas expiradas — conflicto con materiales reasignados**: Entre la expiración original y la nueva fecha propuesta, el material pudo haber sido asignado a otra reserva activa. El backend debe verificar disponibilidad real al momento de reactivar; si no lo hace, dos reservas activas competirán por el mismo stock.
+1. **Módulo Asistencia — endpoints de backend sin confirmar**: El hook `use-asistencia` llama a endpoints del backend. Si aún no están implementados o los nombres de rutas difieren, el módulo fallará con 404/500 al cargar. Especialmente el marcado manual entrada/salida desde admin.
 
-2. **Filtro de potencia deshabilitado para paneles — unidad ambigua**: Los paneles se miden en W, no kW. La UI muestra el input como "kW" pero lo deshabilita para paneles sin explicar el motivo. Un usuario puede entender que los paneles no son filtrables por potencia.
+2. **`graph.html` y `graph.json` en main — artefactos pesados**: Con 4,548 nodos y 14,486 edges, estos archivos probablemente ocupen varios MB. Engordan el repo sin aportar a producción. Considerar moverlos a una rama separada o `.gitignore`.
 
-3. **Inputs de potencia mín/máx sin validación `min > max`**: Si el usuario ingresa un mínimo mayor que el máximo, el backend puede recibir un rango inválido y devolver resultados vacíos sin mensaje de error explicativo.
+3. **Export Excel de movimientos sin cota máxima**: "Lotes de 200" describe cómo se paginan las peticiones al backend, no un límite total. Un almacén con miles de movimientos puede generar una descarga que bloquee el navegador o agote la memoria del cliente.
 
-4. **Filtros combinados tipo+potencia — soporte en backend sin confirmar**: Si el backend procesa los filtros por separado en vez de en una query combinada, la intersección de resultados puede ser incorrecta.
+4. **`referencia_label` en movimientos históricos**: Movimientos creados antes de que el backend añadiera este campo mostrarán `undefined` o vacío en la columna Referencia. Confirmar que el backend migró o rellena el campo para docs históricos.
 
-5. **Botón "Limpiar" solo limpia filtros de equipo**: Si hay otros filtros activos (fecha, almacén), el botón solo restablece los de equipo, lo que puede confundir al usuario.
+5. **Detalle de movimiento — llamada adicional por tipo de documento**: El modal de detalle llama al documento origen (vale, solicitud, transferencia). Si no existen endpoints para todos los tipos de referencia, algunos modales lanzarán errores sin mensaje explicativo al usuario.
 
-6. **Lista blanca de CIs hardcodeada en frontend**: Los CIs de Yanaisi y Mauricio están en `lib/constants/pagos-permisos.ts`. Agregar o revocar acceso requiere un deploy; no hay gestión dinámica de permisos.
+6. **`hasExactPermission` — usuarios con almacenes-suncar sin subpermiso admin explícito en BD**: Usuarios que actualmente tienen `almacenes-suncar` en BD sin el subpermiso `admin` explícito perderán acceso a los botones de entrada/salida manual tras este deploy. Requiere migración o re-asignación de permisos.
 
-7. **Gating por CI solo en frontend — sin validación en backend**: Cualquier llamada directa al endpoint de edición de cobros omite la lista blanca. Si el backend no valida el permiso, cualquier usuario autenticado puede editar.
+7. **`assertOk` en asignaciones — errores antes silenciosos ahora lanzan**: Componentes que usaban el service de asignaciones sin bloque try/catch (porque `apiRequest` no relanzaba) pueden ahora mostrar crashes o pantallas en blanco. Confirmar que todos los consumidores del service manejan errores.
 
-8. **`historial_cambios` en tipo `Pago` sin confirmar soporte en backend**: Si el backend no devuelve este campo, `PagoTrazabilidad` mostrará datos vacíos o fallará con un error de tipo en runtime.
+8. **`searchMaterialesConCosto` — endpoint admin, 403 para no-admins**: El dialog de asignación usa este endpoint. Si un usuario sin permiso admin accede, recibirá 403 y el picker de materiales quedará vacío sin mensaje explicativo de por qué no hay resultados.
 
-9. **Botón editar en tabla plana y tabla por ofertas — riesgo de tercer contexto sin gatear**: Si existe alguna otra vista de cobros no cubierta, usuarios no autorizados verían el botón.
+9. **Decisión Reservas — Instaladora solo lectura sin alternativa**: Si el flujo de negocio requiere en el futuro que la instaladora cree reservas directamente (no desde una oferta de Ventas), no hay diálogo disponible; habría que reconstruirlo desde cero.
+
+10. **DOCX Orden de Trabajo — generación en cliente**: La generación de DOCX ocurre en el navegador. En facturas con muchos materiales o navegadores con memoria limitada, la generación puede fallar silenciosamente (sin mensaje de error al usuario).
+
+11. **`precio_contabilidad_cup` — facturas históricas**: El fix corrige el campo para nuevas cargas. Facturas creadas antes que tengan el campo con nombre incorrecto en BD seguirán mostrando "-" a menos que el backend haga una migración.
+
+12. **Factura instaladora sin materiales — validación en backend**: El fix elimina el bloqueo en frontend para abrir el preview sin materiales. Si el backend valida que la factura no puede estar vacía al momento del submit, el error se aplaza pero no se elimina.
 
 ---
 
 #### Seguimientos vigentes
 
+- **Módulo Asistencia — endpoints de backend sin confirmar (Jun 26)**.
+- **`graph.html`/`graph.json` en main — artefactos pesados sin uso en producción (Jun 26)**.
+- **Export Excel movimientos sin cota máxima — puede bloquear navegador (Jun 26)**.
+- **`referencia_label` en movimientos históricos — campo puede no existir en docs antiguos (Jun 26)**.
+- **Detalle de movimiento — endpoints no confirmados para todos los tipos de referencia (Jun 26)**.
+- **`hasExactPermission` — usuarios con almacenes-suncar sin subpermiso admin explícito perderán acceso (Jun 26)**.
+- **`assertOk` en asignaciones — errores antes silenciosos ahora pueden causar crashes (Jun 26)**.
+- **`searchMaterialesConCosto` — 403 para usuarios sin permiso admin en dialog de asignación (Jun 26)**.
+- **DOCX Orden de Trabajo — generación en cliente puede fallar silenciosamente (Jun 26)**.
+- **Factura instaladora sin materiales — backend puede rechazar submit vacío (Jun 26)**.
 - **Reservas expiradas reactivadas — conflicto con materiales reasignados entre expiración y nueva fecha (Jun 23)**.
 - **Filtro potencia mín/máx sin validación `min > max` — resultados vacíos sin mensaje (Jun 23)**.
 - **Filtros potencia en paneles — unidad ambigua kW vs W en la UI (Jun 23)**.
@@ -128,6 +184,40 @@
 
 ---
 
+## 📅 23 de Junio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**2 commits** de Fabian1820 y yany1509 — módulo de **Reservas** (Fabian1820): filtros por tipo de equipo y potencia + edición de reservas expiradas; y módulo de **Pagos** (yany1509): restauración del botón de editar cobros con lista blanca por CI y trazabilidad de edición.
+
+---
+
+### Área 1: Reservas — filtros de equipo y edición de expiradas (1 commit — Fabian1820)
+
+- **`feat(reservas): filtros por tipo de equipo y potencia + editar expiradas`** — Select de tipo de equipo; inputs de potencia mín/máx en kW; botón "Limpiar". Botón de editar visible también para reservas en estado "expirada".
+
+---
+
+### Área 2: Pagos — botón editar con lista blanca y trazabilidad (1 commit — yany1509)
+
+- **`feat(pagos): restaurar botón editar cobro con trazabilidad`** — Lista blanca de CIs en `lib/constants/pagos-permisos.ts`. Nuevo componente `PagoTrazabilidad`. Tipo `Pago` ampliado con `editado_por`, `editado_por_nombre` e `historial_cambios`.
+
+---
+
+### Puede dar bateo
+
+1. **Reactivación de reservas expiradas — conflicto con materiales reasignados**.
+2. **Inputs de potencia mín/máx sin validación `min > max`**.
+3. **Filtro de potencia para paneles — unidad ambigua (kW vs W)**.
+4. **Filtros combinados tipo+potencia — soporte en backend sin confirmar**.
+5. **Botón "Limpiar" solo limpia filtros de equipo**.
+6. **Lista blanca de CIs hardcodeada en frontend — deploy para cambios**.
+7. **Gating por CI solo en frontend — sin validación en backend**.
+8. **`historial_cambios` en tipo `Pago` sin confirmar soporte en backend**.
+9. **Botón editar en contextos adicionales no cubiertos por el gateo**.
+
+---
+
 ## 📅 21 de Junio, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -160,7 +250,7 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ### Resumen de cambios (últimas 24h)
 
-**1 commit** de Fabian1820 — fix puntual en el módulo de devoluciones: se permite ahora iniciar una devolución sobre vales que ya están en estado "facturado". Hasta hoy, ese estado bloqueaba el flujo de devolución aunque la operación comercial fuera legítima.
+**1 commit** de Fabian1820 — fix puntual en el módulo de devoluciones: se permite ahora iniciar una devolución sobre vales que ya están en estado "facturado".
 
 ---
 
@@ -172,75 +262,11 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ### Puede dar bateo
 
-1. **Backend debe aceptar la transición `facturado → con_devolucion`**: Si el backend tiene una guarda de estado que rechaza modificaciones sobre vales facturados, el fix en frontend no es suficiente — el POST/PATCH recibirá un 400/422.
-2. **Impacto contable de la devolución sobre factura emitida**: La devolución debería generar una nota de crédito o ajustar el total. Confirmar que el backend lo maneja automáticamente.
+1. **Backend debe aceptar la transición `facturado → con_devolucion`**.
+2. **Impacto contable de la devolución sobre factura emitida — nota de crédito**.
 3. **Devolución parcial en vales mixtos (algunos ítems facturados, otros no)**.
 4. **Badge de estado en la tabla tras devolución — confirmar actualización sin recarga manual**.
 
 ---
 
-## 📅 18 de Junio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**3 commits reales** de Fabian1820 — día enfocado íntegramente en el módulo de **Reservas** de materiales: nuevo dialog unificado `create-reserva-dialog` (+876 líneas), fixes de coherencia en mapas de stock y banners stale, y manejo visible de materiales sin desglose por sector.
-
----
-
-### Área 1: Módulo Reservas — dialog unificado Ventas+Instaladora (1 commit — Fabian1820, 14:44)
-
-- **`feat(reservas): módulo unificado ventas+instaladora y stock por sector`** (+1226/-116, 23 archivos) — Nuevo componente `create-reserva-dialog` (876 líneas) con tabs por sector. Cálculo de disponible: `max(0, pool_sector - reservado_sector) + max(0, indistinto - reservado_indistinto)`. Siempre envía `pool=indistinto` para activar split automático en el backend. BMS añadida como categoría reservable. Renombrado global: "indistinto" → "Común", "pool" → "sector".
-
----
-
-### Área 2: Fixes de coherencia y UX (2 commits — Fabian1820, 14:54 y 15:02)
-
-- **`fix(reservas): bugs de coherencia tras code review`** — Mapa `material_id→codigo` también se llena desde catálogo; banner "reservas del cliente" ya no queda stale al cambiar almacén.
-- **`fix(reservas): warning visible cuando falta desglose por sector`** — Material sin `.pools` se marca como `sinDesgloseSector`, fila en ámbar, submit bloqueado.
-
----
-
-### Puede dar bateo
-
-1. **`pool=indistinto` para split automático — backend debe implementarlo**.
-2. **Race condition en el cálculo de disponible**.
-3. **`sinDesgloseSector` solo detectado en frontend**.
-4. **Mapa `material_id→codigo` — race en carga del catálogo**.
-5. **Auto-vincular reserva — puede elegir reserva incorrecta si hay múltiples del mismo material**.
-6. **BMS como categoría reservable — docs sin `.pools` bloquean el 100% de reservas BMS**.
-7. **Módulo `/reservas-ventas` bajo dos entradas — sub-permiso por tab no protegido**.
-8. **Renombrado UI "indistinto" → "Común" — confirmar en todos los puntos de display**.
-9. **Error inline de race condition — visibilidad en scroll**.
-10. **Redeploy de Railway — confirmar auto-deploy activo**.
-
----
-
-## 📅 17 de Junio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-Sin commits nuevos en las últimas 24h. Los seguimientos del 16/06 siguen vigentes.
-
----
-
-### Puede dar bateo
-
-Sin cambios nuevos — sin riesgos nuevos.
-
----
-
-## 📅 16 de Junio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-Sin commits nuevos en las últimas 24h. Los seguimientos del 15/06 siguen vigentes.
-
----
-
-### Puede dar bateo
-
-Sin cambios nuevos — sin riesgos nuevos.
-
----
-
-> ⚠️ **Nota de mantenimiento**: Las entradas del **5, 6, 7, 9, 11, 12 y 15 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). Anteriores eliminadas: 26, 27, 28, 29, 30 de Mayo, 31 de Mayo, 1, 2 y 4 de Junio.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **16, 17 y 18 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). Anteriores eliminadas: 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
