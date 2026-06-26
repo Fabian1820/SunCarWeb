@@ -1,0 +1,3137 @@
+{
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/.eslintrc.json": {
+    "mtime": 1758399743.0,
+    "ast_hash": "455f0772c2fae84d4c71bf929cb6f7a1",
+    "semantic_hash": "455f0772c2fae84d4c71bf929cb6f7a1"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/.vscode/launch.json": {
+    "mtime": 1760904296.0,
+    "ast_hash": "2a7f00ab47c7ebd5dbb81f54fd9aaf22",
+    "semantic_hash": "2a7f00ab47c7ebd5dbb81f54fd9aaf22"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/.vscode/settings.json": {
+    "mtime": 1771530035.2799382,
+    "ast_hash": "4af7cff59b63b87ec522b027cac62c2f",
+    "semantic_hash": "4af7cff59b63b87ec522b027cac62c2f"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/almacenes-suncar/[almacenId]/page.tsx": {
+    "mtime": 1780582622.889128,
+    "ast_hash": "ed144a79472eee990f63309cfb98e1f6",
+    "semantic_hash": "ed144a79472eee990f63309cfb98e1f6"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/almacenes-suncar/[almacenId]/solicitudes-entrada/page.tsx": {
+    "mtime": 1780519665.9602475,
+    "ast_hash": "601cbefc3d1803ff80d06599d30706b1",
+    "semantic_hash": "601cbefc3d1803ff80d06599d30706b1"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/almacenes-suncar/[almacenId]/vales-salida/page.tsx": {
+    "mtime": 1780582622.889454,
+    "ast_hash": "4c9f3ab1d3f2e5d60c3fa34062d3ca24",
+    "semantic_hash": "4c9f3ab1d3f2e5d60c3fa34062d3ca24"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/almacenes-suncar/page.tsx": {
+    "mtime": 1782481969.4295523,
+    "ast_hash": "603218953c476f519bfef36370dbb076",
+    "semantic_hash": "603218953c476f519bfef36370dbb076"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/almacenes/[almacenId]/page.tsx": {
+    "mtime": 1782481969.4299226,
+    "ast_hash": "7552d0b70a2894b2e37bc5acfe72613e",
+    "semantic_hash": "7552d0b70a2894b2e37bc5acfe72613e"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/api/bank/aspsps/route.ts": {
+    "mtime": 1773766294.1207056,
+    "ast_hash": "37d31f152be8186fb0ab8d52b0d21bbd",
+    "semantic_hash": "37d31f152be8186fb0ab8d52b0d21bbd"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/api/bank/authorize/route.ts": {
+    "mtime": 1773766073.419098,
+    "ast_hash": "01694b0e1dc0bd0b54fe88d7e7e9c970",
+    "semantic_hash": "01694b0e1dc0bd0b54fe88d7e7e9c970"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/api/bank/connect/route.ts": {
+    "mtime": 1773766049.1786835,
+    "ast_hash": "db04968fd7767057015a60f29bd14ae4",
+    "semantic_hash": "db04968fd7767057015a60f29bd14ae4"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/api/bank/data/route.ts": {
+    "mtime": 1773763658.0805821,
+    "ast_hash": "af8fa820a4158da0dd46de1b013a55cc",
+    "semantic_hash": "af8fa820a4158da0dd46de1b013a55cc"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/api/dev-tools/merge/route.ts": {
+    "mtime": 1780519665.9613032,
+    "ast_hash": "1a6082e3cb52bd1cc628c86bbebed3e4",
+    "semantic_hash": "1a6082e3cb52bd1cc628c86bbebed3e4"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/api/stripe/generar-link/route.ts": {
+    "mtime": 1778254927.7173145,
+    "ast_hash": "4dc567cdd35a2ed064558f2bd7ff2808",
+    "semantic_hash": "4dc567cdd35a2ed064558f2bd7ff2808"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/api/stripe/listar-pagos/route.ts": {
+    "mtime": 1771950478.3247688,
+    "ast_hash": "5bfbf26834ca99d6dd3a8a3ce70da819",
+    "semantic_hash": "5bfbf26834ca99d6dd3a8a3ce70da819"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/api/stripe/solicitar-factura/route.ts": {
+    "mtime": 1771948418.8007379,
+    "ast_hash": "87367f9fbf01ef3e854c07349c7db7f1",
+    "semantic_hash": "87367f9fbf01ef3e854c07349c7db7f1"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/api/stripe/verificar-link/route.ts": {
+    "mtime": 1771948408.457094,
+    "ast_hash": "ebed6f1468acc4b3648b02c0c6a47bc5",
+    "semantic_hash": "ebed6f1468acc4b3648b02c0c6a47bc5"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/apple-icon.tsx": {
+    "mtime": 1773863442.517534,
+    "ast_hash": "0e6e10f5a72418aac8bb47974828c4ea",
+    "semantic_hash": "0e6e10f5a72418aac8bb47974828c4ea"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/asignaciones/page.tsx": {
+    "mtime": 1782481969.4302328,
+    "ast_hash": "bf31bb9b758395620b7f6d612faa4034",
+    "semantic_hash": "bf31bb9b758395620b7f6d612faa4034"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/asistencia/page.tsx": {
+    "mtime": 1782482775.208967,
+    "ast_hash": "d2728497099cabf40a590b1561a568ef",
+    "semantic_hash": "d2728497099cabf40a590b1561a568ef"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/atencion-cliente/page.tsx": {
+    "mtime": 1780582622.891092,
+    "ast_hash": "b668c38217acfdfa3ae882ce2daa610e",
+    "semantic_hash": "b668c38217acfdfa3ae882ce2daa610e"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/bank-callback/page.tsx": {
+    "mtime": 1780582622.8914013,
+    "ast_hash": "50d37b7dd6a5d93205e0d9c78aad512a",
+    "semantic_hash": "50d37b7dd6a5d93205e0d9c78aad512a"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/blog/page.tsx": {
+    "mtime": 1780582622.8915539,
+    "ast_hash": "c744ac1e3d7b9b8841a8178da9923f98",
+    "semantic_hash": "c744ac1e3d7b9b8841a8178da9923f98"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/brigadas/loading.tsx": {
+    "mtime": 1758399743.0,
+    "ast_hash": "97ead856438c8f56e8518180bce09ede",
+    "semantic_hash": "97ead856438c8f56e8518180bce09ede"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/brigadas/page.tsx": {
+    "mtime": 1780582622.8916793,
+    "ast_hash": "f98543e5917287845cfa611fa5f9ebd5",
+    "semantic_hash": "f98543e5917287845cfa611fa5f9ebd5"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/calculadora/page.tsx": {
+    "mtime": 1782481969.4307492,
+    "ast_hash": "f2df4973dc636fb53301ce8cf2a99718",
+    "semantic_hash": "f2df4973dc636fb53301ce8cf2a99718"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/centro-control/page.tsx": {
+    "mtime": 1777489490.450336,
+    "ast_hash": "cf1161871309dfbce7b378e69e24796f",
+    "semantic_hash": "cf1161871309dfbce7b378e69e24796f"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/clientes-ventas/page.tsx": {
+    "mtime": 1780582622.8923795,
+    "ast_hash": "ed669752db5a15efa5a6381ef0753011",
+    "semantic_hash": "ed669752db5a15efa5a6381ef0753011"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/clientes/page.tsx": {
+    "mtime": 1780582622.8925464,
+    "ast_hash": "8d5927286069548807aebcaa647a4bc5",
+    "semantic_hash": "8d5927286069548807aebcaa647a4bc5"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/compras-envios-costos/page.tsx": {
+    "mtime": 1782481969.4311006,
+    "ast_hash": "40995ee81c5112fc66e8dc3e084a9996",
+    "semantic_hash": "40995ee81c5112fc66e8dc3e084a9996"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/compras/[id]/ficha-costo/page.tsx": {
+    "mtime": 1782481969.4318213,
+    "ast_hash": "51497dd8dc7967ff7325eded186793c7",
+    "semantic_hash": "51497dd8dc7967ff7325eded186793c7"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/compras/page.tsx": {
+    "mtime": 1780582622.893209,
+    "ast_hash": "80f17ec8d5fdc6fc5b928c0367b36e47",
+    "semantic_hash": "80f17ec8d5fdc6fc5b928c0367b36e47"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/confeccion-ofertas/page.tsx": {
+    "mtime": 1780582622.893509,
+    "ast_hash": "7ffbcc1dd563cd72f29f7dddb26628a8",
+    "semantic_hash": "7ffbcc1dd563cd72f29f7dddb26628a8"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/departamentos/page.tsx": {
+    "mtime": 1780582622.8938704,
+    "ast_hash": "3cf4afe992bf1da28b992e51146f2a7b",
+    "semantic_hash": "3cf4afe992bf1da28b992e51146f2a7b"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/existencias-contabilidad/page.tsx": {
+    "mtime": 1782481969.4321475,
+    "ast_hash": "66c4c49c69d0ebf42634024f449cbf24",
+    "semantic_hash": "66c4c49c69d0ebf42634024f449cbf24"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/facturas/facturas-solar-carros/page.tsx": {
+    "mtime": 1782481969.4326417,
+    "ast_hash": "2e864ac641f057c4a1a2f28d8cb0029e",
+    "semantic_hash": "2e864ac641f057c4a1a2f28d8cb0029e"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/facturas/layout.tsx": {
+    "mtime": 1764175052.0,
+    "ast_hash": "d3cd3fea970ffcb33eea4beaa6c1524a",
+    "semantic_hash": "d3cd3fea970ffcb33eea4beaa6c1524a"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/facturas/obras-terminadas/page.tsx": {
+    "mtime": 1782481969.4330783,
+    "ast_hash": "e80fe34d2b8b75807438537affd808f1",
+    "semantic_hash": "e80fe34d2b8b75807438537affd808f1"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/facturas/page.tsx": {
+    "mtime": 1782481969.4335628,
+    "ast_hash": "2b8ba8329a2a1395d990b8d9d0e9351f",
+    "semantic_hash": "2b8ba8329a2a1395d990b8d9d0e9351f"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/facturas/pagos-clientes-ventas/page.tsx": {
+    "mtime": 1782481969.4338725,
+    "ast_hash": "2108e43d275c0a3e537d16aad2060e30",
+    "semantic_hash": "2108e43d275c0a3e537d16aad2060e30"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/facturas/pagos-clientes/page.tsx": {
+    "mtime": 1782481969.4343412,
+    "ast_hash": "34810518786f152ec68b6e923ab78613",
+    "semantic_hash": "34810518786f152ec68b6e923ab78613"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/facturas/vales-facturas-instaladora/page.tsx": {
+    "mtime": 1777489490.452124,
+    "ast_hash": "2333d387e0619868dd7ec56f63181296",
+    "semantic_hash": "2333d387e0619868dd7ec56f63181296"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/fichas-costo/page.tsx": {
+    "mtime": 1782481969.435051,
+    "ast_hash": "f2f0817cd80668b4ada35ccaac057222",
+    "semantic_hash": "f2f0817cd80668b4ada35ccaac057222"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/galeriaweb/page.tsx": {
+    "mtime": 1780582622.8972902,
+    "ast_hash": "11460e7067e8c70f37d9e6436b20280a",
+    "semantic_hash": "11460e7067e8c70f37d9e6436b20280a"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/icon.tsx": {
+    "mtime": 1773863442.517673,
+    "ast_hash": "7766b8d5bf9a0a624b53d3979d62eddb",
+    "semantic_hash": "7766b8d5bf9a0a624b53d3979d62eddb"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/instalaciones/averias/page.tsx": {
+    "mtime": 1780582622.8979323,
+    "ast_hash": "ddc935778aa9ed5e3df9b317ee1fa529",
+    "semantic_hash": "ddc935778aa9ed5e3df9b317ee1fa529"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/instalaciones/en-proceso/page.tsx": {
+    "mtime": 1780582622.898165,
+    "ast_hash": "43f44b844c9b772efadaf9761d6f3633",
+    "semantic_hash": "43f44b844c9b772efadaf9761d6f3633"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/instalaciones/nuevas/page.tsx": {
+    "mtime": 1780582622.8983116,
+    "ast_hash": "466c4975c5f51473222b15d22472f62a",
+    "semantic_hash": "466c4975c5f51473222b15d22472f62a"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/instalaciones/ordenes-trabajo/page.tsx": {
+    "mtime": 1773671304.0686345,
+    "ast_hash": "aa8f35c530c53d3e4c8f790c523e4597",
+    "semantic_hash": "aa8f35c530c53d3e4c8f790c523e4597"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/instalaciones/page.tsx": {
+    "mtime": 1780582622.898529,
+    "ast_hash": "adc7f28b93015f3318303232b138c255",
+    "semantic_hash": "adc7f28b93015f3318303232b138c255"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/instalaciones/pendientes-visita/page.tsx": {
+    "mtime": 1780582622.8988395,
+    "ast_hash": "6c82690ad1f241d5a8c3e6bfffc2056e",
+    "semantic_hash": "6c82690ad1f241d5a8c3e6bfffc2056e"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/instalaciones/planificacion-diaria-trabajos/page.tsx": {
+    "mtime": 1777489490.4525914,
+    "ast_hash": "1e1aae087da639cbc2bd7921c34636d8",
+    "semantic_hash": "1e1aae087da639cbc2bd7921c34636d8"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/instalaciones/solicitudes-materiales/page.tsx": {
+    "mtime": 1780582622.8991778,
+    "ast_hash": "00fe7e2abf0838be9b124454d0b4c688",
+    "semantic_hash": "00fe7e2abf0838be9b124454d0b4c688"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/instalaciones/trabajos-diarios/page.tsx": {
+    "mtime": 1774450687.7631571,
+    "ast_hash": "44cd11865825228c87bbc385e248ab6b",
+    "semantic_hash": "44cd11865825228c87bbc385e248ab6b"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/inventario/almacenes/page.tsx": {
+    "mtime": 1777489490.4528115,
+    "ast_hash": "6335ad5d9f9a19dd00f8284718dbd841",
+    "semantic_hash": "6335ad5d9f9a19dd00f8284718dbd841"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/inventario/page.tsx": {
+    "mtime": 1780582622.89944,
+    "ast_hash": "d594951164d57a9788689b04ae9ba0a8",
+    "semantic_hash": "d594951164d57a9788689b04ae9ba0a8"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/inventario/tiendas/page.tsx": {
+    "mtime": 1780582622.8997502,
+    "ast_hash": "ba398f1e78940f26d56241f577170cae",
+    "semantic_hash": "ba398f1e78940f26d56241f577170cae"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/kardex-costo/page.tsx": {
+    "mtime": 1782481969.4352005,
+    "ast_hash": "943008613103782a6c397e83ef037566",
+    "semantic_hash": "943008613103782a6c397e83ef037566"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/layout.tsx": {
+    "mtime": 1782481969.435473,
+    "ast_hash": "cb7d76ac9e49936ee46b1522b5fb49b9",
+    "semantic_hash": "cb7d76ac9e49936ee46b1522b5fb49b9"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/leads/page.tsx": {
+    "mtime": 1780582622.9000235,
+    "ast_hash": "734762c6c4325c480f8d03c23285421f",
+    "semantic_hash": "734762c6c4325c480f8d03c23285421f"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/materiales/loading.tsx": {
+    "mtime": 1758399743.0,
+    "ast_hash": "97ead856438c8f56e8518180bce09ede",
+    "semantic_hash": "97ead856438c8f56e8518180bce09ede"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/materiales/page.tsx": {
+    "mtime": 1780582622.900263,
+    "ast_hash": "11935a0a8d1187ff78bc1697e552873a",
+    "semantic_hash": "11935a0a8d1187ff78bc1697e552873a"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/ofertas-gestion/confeccion/page.tsx": {
+    "mtime": 1780582622.9003842,
+    "ast_hash": "11b34d99145e406cb6fc6aadd48e761e",
+    "semantic_hash": "11b34d99145e406cb6fc6aadd48e761e"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/ofertas-gestion/duplicar/page.tsx": {
+    "mtime": 1780582622.9005034,
+    "ast_hash": "fcd46a80000e078e813e0a89b72c81f7",
+    "semantic_hash": "fcd46a80000e078e813e0a89b72c81f7"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/ofertas-gestion/page.tsx": {
+    "mtime": 1782481969.4357204,
+    "ast_hash": "0dc2d5eb010120a7d4eb1bdd297eeacc",
+    "semantic_hash": "0dc2d5eb010120a7d4eb1bdd297eeacc"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/ofertas-gestion/ver-ofertas-confeccionadas/page.tsx": {
+    "mtime": 1780582622.9008243,
+    "ast_hash": "fcb82841a55ccaf577c29a364e440c87",
+    "semantic_hash": "fcb82841a55ccaf577c29a364e440c87"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/ofertas-personalizadas/page.tsx": {
+    "mtime": 1780582622.9011354,
+    "ast_hash": "c2931bef91a486eb29c4f05a187c387d",
+    "semantic_hash": "c2931bef91a486eb29c4f05a187c387d"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/operaciones/todos-trabajos/page.tsx": {
+    "mtime": 1777489490.4570262,
+    "ast_hash": "1382bdccc35c4a26dce0e1719825b275",
+    "semantic_hash": "1382bdccc35c4a26dce0e1719825b275"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/page.tsx": {
+    "mtime": 1782481969.4362848,
+    "ast_hash": "3066fb784f2e2614dca6683f723993f1",
+    "semantic_hash": "3066fb784f2e2614dca6683f723993f1"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/permisos/page.tsx": {
+    "mtime": 1780582622.901489,
+    "ast_hash": "8cc3c4b5d025102d362048530c57bab0",
+    "semantic_hash": "8cc3c4b5d025102d362048530c57bab0"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/recursos-humanos/page.tsx": {
+    "mtime": 1782481969.4365537,
+    "ast_hash": "9eef9ce97ac9e3b7a2be5b9d3a3ca4ab",
+    "semantic_hash": "9eef9ce97ac9e3b7a2be5b9d3a3ca4ab"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/reportes-comercial/estado-equipos/page.tsx": {
+    "mtime": 1780582622.902003,
+    "ast_hash": "777008d94688970cbfb5af1f1dea040b",
+    "semantic_hash": "777008d94688970cbfb5af1f1dea040b"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/reportes-comercial/page.tsx": {
+    "mtime": 1780582622.9022892,
+    "ast_hash": "e28af8a10dc5f3702a114622571cc34c",
+    "semantic_hash": "e28af8a10dc5f3702a114622571cc34c"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/reportes-comercial/pendientes-instalacion/page.tsx": {
+    "mtime": 1771530035.2997186,
+    "ast_hash": "eeffdc2b9997535697e67806a6039061",
+    "semantic_hash": "eeffdc2b9997535697e67806a6039061"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/reportes-comercial/resultados-comercial/page.tsx": {
+    "mtime": 1771623454.6592872,
+    "ast_hash": "401b6f8d08d7c26abdb1bdc53eb07bce",
+    "semantic_hash": "401b6f8d08d7c26abdb1bdc53eb07bce"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/reportes-ventas/page.tsx": {
+    "mtime": 1780582622.9025276,
+    "ast_hash": "fa8ddb628342714b3bc4f7695d8d0493",
+    "semantic_hash": "fa8ddb628342714b3bc4f7695d8d0493"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/reportes-ventas/resultados-comercial/page.tsx": {
+    "mtime": 1778856013.0707102,
+    "ast_hash": "fd0ea2d4de1167cf0392e3fd9c68277d",
+    "semantic_hash": "fd0ea2d4de1167cf0392e3fd9c68277d"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/reservas-ventas/page.tsx": {
+    "mtime": 1776090086.7511353,
+    "ast_hash": "e400bee91abf5a7b901576f71afe9a1a",
+    "semantic_hash": "e400bee91abf5a7b901576f71afe9a1a"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/sedes/page.tsx": {
+    "mtime": 1780582622.9026685,
+    "ast_hash": "61ef0f4433379b7cb677eeb98d281cc5",
+    "semantic_hash": "61ef0f4433379b7cb677eeb98d281cc5"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/solicitudes-entrada-almacen/page.tsx": {
+    "mtime": 1782481969.4367404,
+    "ast_hash": "809dacfb5095783599461c623418f302",
+    "semantic_hash": "809dacfb5095783599461c623418f302"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/solicitudes-ventas/page.tsx": {
+    "mtime": 1782481969.4369864,
+    "ast_hash": "3d7783045be69b4866ba14be6e327db3",
+    "semantic_hash": "3d7783045be69b4866ba14be6e327db3"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/tasa-cambio-diaria/page.tsx": {
+    "mtime": 1780582622.9032788,
+    "ast_hash": "087f06277df187fa1432f532bfd7f1a4",
+    "semantic_hash": "087f06277df187fa1432f532bfd7f1a4"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/tiendas-suncarventas/page.tsx": {
+    "mtime": 1782481969.4373097,
+    "ast_hash": "b9a2a6abf3c4fd0318ddd7982acad1a9",
+    "semantic_hash": "b9a2a6abf3c4fd0318ddd7982acad1a9"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/tiendas/[tiendaId]/caja/page.tsx": {
+    "mtime": 1780582622.9035578,
+    "ast_hash": "42c2da3565c5c92084013bca691b507f",
+    "semantic_hash": "42c2da3565c5c92084013bca691b507f"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/tiendas/[tiendaId]/page.tsx": {
+    "mtime": 1780582622.9036813,
+    "ast_hash": "789e118b0a61032af0c2f6bb610d60ac",
+    "semantic_hash": "789e118b0a61032af0c2f6bb610d60ac"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/tiendas/[tiendaId]/ventas/page.tsx": {
+    "mtime": 1771530035.300884,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/trabajadores/loading.tsx": {
+    "mtime": 1780582622.9040182,
+    "ast_hash": "bdfbcc4b54647ebb4d7b6828f54ce518",
+    "semantic_hash": "bdfbcc4b54647ebb4d7b6828f54ce518"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/trabajadores/page.tsx": {
+    "mtime": 1780582622.904151,
+    "ast_hash": "9df80d6f07dec95ab6223ef8f97e6ebd",
+    "semantic_hash": "9df80d6f07dec95ab6223ef8f97e6ebd"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/wallet-manager/page.tsx": {
+    "mtime": 1778514620.345563,
+    "ast_hash": "4cb49facc5770efab90b06292d678600",
+    "semantic_hash": "4cb49facc5770efab90b06292d678600"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/wallet/page.tsx": {
+    "mtime": 1782481969.4379458,
+    "ast_hash": "936bb337d7351a0d14b511c886468e29",
+    "semantic_hash": "936bb337d7351a0d14b511c886468e29"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components.json": {
+    "mtime": 1758399743.0,
+    "ast_hash": "fd623f1589262a68f4fed4b1a6ef1f75",
+    "semantic_hash": "fd623f1589262a68f4fed4b1a6ef1f75"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/auth/auth-guard.tsx": {
+    "mtime": 1780519665.9650195,
+    "ast_hash": "952c122675f9a8c101454a59e1142422",
+    "semantic_hash": "952c122675f9a8c101454a59e1142422"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/auth/change-password-dialog.tsx": {
+    "mtime": 1773671304.0708637,
+    "ast_hash": "907ccc7b8507a4d802b2b70ccc98c80b",
+    "semantic_hash": "907ccc7b8507a4d802b2b70ccc98c80b"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/auth/facturas-submodule-guard.tsx": {
+    "mtime": 1777489490.4576237,
+    "ast_hash": "515109ad67175194f10970eb349968c0",
+    "semantic_hash": "515109ad67175194f10970eb349968c0"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/auth/login-form.tsx": {
+    "mtime": 1780582622.9044354,
+    "ast_hash": "12c987a6c535e3a1af44bab778b7faea",
+    "semantic_hash": "12c987a6c535e3a1af44bab778b7faea"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/auth/route-guard.tsx": {
+    "mtime": 1780582622.9046216,
+    "ast_hash": "4888cc7365bcffae2765e5ab94579f2d",
+    "semantic_hash": "4888cc7365bcffae2765e5ab94579f2d"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/auth/user-menu.tsx": {
+    "mtime": 1780586604.311016,
+    "ast_hash": "bd90abda5809a34575d137bd4e1fad44",
+    "semantic_hash": "bd90abda5809a34575d137bd4e1fad44"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/asignaciones/asignacion-dialog.tsx": {
+    "mtime": 1782481969.4382353,
+    "ast_hash": "9aeceb2c7784cde2002e82b881ab2821",
+    "semantic_hash": "9aeceb2c7784cde2002e82b881ab2821"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/asignaciones/asignacion-recursos-dialog.tsx": {
+    "mtime": 1782481969.4385455,
+    "ast_hash": "06f662ced0c2c7b2ed3aec9c70eec186",
+    "semantic_hash": "06f662ced0c2c7b2ed3aec9c70eec186"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/asignaciones/herramienta-catalogo-dialog.tsx": {
+    "mtime": 1777906260.9672482,
+    "ast_hash": "b61a94e881708b43d13fff39a6dd4e5f",
+    "semantic_hash": "b61a94e881708b43d13fff39a6dd4e5f"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/asignaciones/herramienta-dialog.tsx": {
+    "mtime": 1777906260.967486,
+    "ast_hash": "2657091a8e481696e539c0cbc3ee738b",
+    "semantic_hash": "2657091a8e481696e539c0cbc3ee738b"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/asignaciones/instalacion-asignaciones-tab.tsx": {
+    "mtime": 1782481969.438688,
+    "ast_hash": "cd0e9a7a62ae681a9a3930d7a033e62c",
+    "semantic_hash": "cd0e9a7a62ae681a9a3930d7a033e62c"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/asignaciones/materiales-catalogo-readonly.tsx": {
+    "mtime": 1780519665.9654331,
+    "ast_hash": "a7ea355dbc0a2b526dab7c437e23fb02",
+    "semantic_hash": "a7ea355dbc0a2b526dab7c437e23fb02"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/asignaciones/medio-basico-dialog.tsx": {
+    "mtime": 1780582622.90559,
+    "ast_hash": "26111f3fac60b3031ad16748bf47520e",
+    "semantic_hash": "26111f3fac60b3031ad16748bf47520e"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/asignaciones/medios-basicos-table.tsx": {
+    "mtime": 1780582622.9057772,
+    "ast_hash": "b7783c6132ec7234addc88d32ac130c0",
+    "semantic_hash": "b7783c6132ec7234addc88d32ac130c0"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/asignaciones/trabajador-asignaciones-table.tsx": {
+    "mtime": 1782481969.4388635,
+    "ast_hash": "0c531f82c7338713616c3fb6f4cfb2b2",
+    "semantic_hash": "0c531f82c7338713616c3fb6f4cfb2b2"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/asignaciones/trabajador-detalle-modal.tsx": {
+    "mtime": 1782481969.4391677,
+    "ast_hash": "a1b0773843626b3aa0da510b30823d53",
+    "semantic_hash": "a1b0773843626b3aa0da510b30823d53"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/asistencia/marcar-dialog.tsx": {
+    "mtime": 1782482805.618924,
+    "ast_hash": "93240f0d5ca70c2a1da0f0e8f382f841",
+    "semantic_hash": "93240f0d5ca70c2a1da0f0e8f382f841"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/asistencia/quien-esta-panel.tsx": {
+    "mtime": 1782482677.572474,
+    "ast_hash": "f43e2918597e51aecda125c5120a7bb8",
+    "semantic_hash": "f43e2918597e51aecda125c5120a7bb8"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/asistencia/reporte-diario-table.tsx": {
+    "mtime": 1782482694.8227122,
+    "ast_hash": "342242de3e9bb53a0f9e24a814c861eb",
+    "semantic_hash": "342242de3e9bb53a0f9e24a814c861eb"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/averias/gestionar-averias-dialog.tsx": {
+    "mtime": 1771530035.3014114,
+    "ast_hash": "7eff9e1b6b632b36d812e0617ccee1e7",
+    "semantic_hash": "7eff9e1b6b632b36d812e0617ccee1e7"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/blog/blog-form.tsx": {
+    "mtime": 1761059660.0,
+    "ast_hash": "f6602b59a8e3ee8bb8ed06a5aa621974",
+    "semantic_hash": "f6602b59a8e3ee8bb8ed06a5aa621974"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/blog/blog-table.tsx": {
+    "mtime": 1760903670.0,
+    "ast_hash": "49a661261c0e69ec55335fd9ee29b5ca",
+    "semantic_hash": "49a661261c0e69ec55335fd9ee29b5ca"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/brigade/AsignarBrigadaForm.tsx": {
+    "mtime": 1766586291.0,
+    "ast_hash": "0b0ce5d9c2ac2ad8da9338ac1188e83d",
+    "semantic_hash": "0b0ce5d9c2ac2ad8da9338ac1188e83d"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/brigade/ConvertirJefeForm.tsx": {
+    "mtime": 1766586291.0,
+    "ast_hash": "eb0e32bcdeb94858a9cc276e083ac2d4",
+    "semantic_hash": "eb0e32bcdeb94858a9cc276e083ac2d4"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/brigade/JefeBrigadaForm.tsx": {
+    "mtime": 1760971503.0,
+    "ast_hash": "1e9c50c7043bf08d82f5bae0b3609091",
+    "semantic_hash": "1e9c50c7043bf08d82f5bae0b3609091"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/brigade/brigade-form.tsx": {
+    "mtime": 1780582622.9062884,
+    "ast_hash": "7e119946ce7dae486cf0dc5b3239de92",
+    "semantic_hash": "7e119946ce7dae486cf0dc5b3239de92"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/brigade/brigades-table.tsx": {
+    "mtime": 1780582622.9065337,
+    "ast_hash": "50f8c9a039c3b3c173ed667ec26b030c",
+    "semantic_hash": "50f8c9a039c3b3c173ed667ec26b030c"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/caja/apertura-caja-dialog.tsx": {
+    "mtime": 1771530035.3017886,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/centro-control/centro-control-view.tsx": {
+    "mtime": 1780582622.907424,
+    "ast_hash": "3977a7c848a54f38b1bde65ea6c35391",
+    "semantic_hash": "3977a7c848a54f38b1bde65ea6c35391"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/cliente/cliente-search-selector.tsx": {
+    "mtime": 1771530035.3019764,
+    "ast_hash": "4d04220438748bfa39ff9247ac917646",
+    "semantic_hash": "4d04220438748bfa39ff9247ac917646"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/cliente/create-client-dialog.tsx": {
+    "mtime": 1777736113.02885,
+    "ast_hash": "1c1d30b49cb9306b45df590ed7a104f3",
+    "semantic_hash": "1c1d30b49cb9306b45df590ed7a104f3"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/cliente/edit-client-dialog.tsx": {
+    "mtime": 1777736113.0292323,
+    "ast_hash": "b265a78046c84a58a6e3876e4a73e59d",
+    "semantic_hash": "b265a78046c84a58a6e3876e4a73e59d"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/clientes-ventas/agregar-oferta-dialog.tsx": {
+    "mtime": 1780582622.907745,
+    "ast_hash": "7ca252f9be10d01a4079247ff9a72f9d",
+    "semantic_hash": "7ca252f9be10d01a4079247ff9a72f9d"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/clientes-ventas/cliente-vales-row.tsx": {
+    "mtime": 1780582622.9080627,
+    "ast_hash": "c4f2440b7d254823fcd3bd417735bdc2",
+    "semantic_hash": "c4f2440b7d254823fcd3bd417735bdc2"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/clientes-ventas/clientes-ventas-table.tsx": {
+    "mtime": 1778856013.072116,
+    "ast_hash": "fa7d0e8308c07e094279fcdb8ac1166d",
+    "semantic_hash": "fa7d0e8308c07e094279fcdb8ac1166d"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/clientes-ventas/gestionar-ofertas-venta-dialog.tsx": {
+    "mtime": 1780582622.9081936,
+    "ast_hash": "0311c140a75205757bf2a974a2e0abc8",
+    "semantic_hash": "0311c140a75205757bf2a974a2e0abc8"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/clientes-ventas/upsert-cliente-venta-dialog.tsx": {
+    "mtime": 1778856013.0724952,
+    "ast_hash": "9d63ed82450548efdaa170177b6c1dbc",
+    "semantic_hash": "9d63ed82450548efdaa170177b6c1dbc"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/compras/aplicar-precios-confirm-dialog.tsx": {
+    "mtime": 1780519665.9665701,
+    "ast_hash": "a2a168db00fcdc98a130381d299cd79b",
+    "semantic_hash": "a2a168db00fcdc98a130381d299cd79b"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/compras/cancelar-compra-dialog.tsx": {
+    "mtime": 1780519665.9668558,
+    "ast_hash": "e00f669f1b3a571a7cc53620b201404e",
+    "semantic_hash": "e00f669f1b3a571a7cc53620b201404e"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/compras/compra-documentos-panel.tsx": {
+    "mtime": 1780582622.9083216,
+    "ast_hash": "6c52553c5d5ea91553847955fbea219f",
+    "semantic_hash": "6c52553c5d5ea91553847955fbea219f"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/compras/compra-form-dialog.tsx": {
+    "mtime": 1782481969.4394348,
+    "ast_hash": "62499bb47cec45fdd6e57d0ec6f8c2d2",
+    "semantic_hash": "62499bb47cec45fdd6e57d0ec6f8c2d2"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/compras/compras-table.tsx": {
+    "mtime": 1780582622.9084501,
+    "ast_hash": "63c004d9900885ab1c81284d00461229",
+    "semantic_hash": "63c004d9900885ab1c81284d00461229"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/compras/quick-material-create-dialog.tsx": {
+    "mtime": 1780519665.9673843,
+    "ast_hash": "9cc72da94f398493afcf914d8811242b",
+    "semantic_hash": "9cc72da94f398493afcf914d8811242b"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/contabilidad/contabilidad-table.tsx": {
+    "mtime": 1774452456.492304,
+    "ast_hash": "b6975b04db275e554dee4575713a54d0",
+    "semantic_hash": "b6975b04db275e554dee4575713a54d0"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/contabilidad/crear-ticket-dialog.tsx": {
+    "mtime": 1776090086.7525787,
+    "ast_hash": "bb2494fa83aa2832f196077016d83c54",
+    "semantic_hash": "bb2494fa83aa2832f196077016d83c54"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/contabilidad/editar-datos-contabilidad-dialog.tsx": {
+    "mtime": 1774455123.682746,
+    "ast_hash": "249dd8f1af6c26bc5a80fbee07c021e2",
+    "semantic_hash": "249dd8f1af6c26bc5a80fbee07c021e2"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/contabilidad/entrada-manual-dialog.tsx": {
+    "mtime": 1774452483.3919752,
+    "ast_hash": "40172c2057cb9268eb8a412ad4c96cc7",
+    "semantic_hash": "40172c2057cb9268eb8a412ad4c96cc7"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/contabilidad/seleccionar-material-dialog.tsx": {
+    "mtime": 1774455098.19801,
+    "ast_hash": "cb298981c0275ffdd500d1a3384ebffe",
+    "semantic_hash": "cb298981c0275ffdd500d1a3384ebffe"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/contactos/contactos-dashboard.tsx": {
+    "mtime": 1758399743.0,
+    "ast_hash": "78be3adab5e7a01d62af14b6b2fbd760",
+    "semantic_hash": "78be3adab5e7a01d62af14b6b2fbd760"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/customer-service/clients-table.tsx": {
+    "mtime": 1780586677.7522569,
+    "ast_hash": "b6d0fb10339c365a489ac9d1d4f6fccf",
+    "semantic_hash": "b6d0fb10339c365a489ac9d1d4f6fccf"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/customer-service/message-detail.tsx": {
+    "mtime": 1780582622.9091742,
+    "ast_hash": "dd3d7f11375bd0b6a65b0af5d66a4b3c",
+    "semantic_hash": "dd3d7f11375bd0b6a65b0af5d66a4b3c"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/customer-service/messages-list.tsx": {
+    "mtime": 1780582622.9100525,
+    "ast_hash": "e70395f6fc4098014f87a4b994e22b28",
+    "semantic_hash": "e70395f6fc4098014f87a4b994e22b28"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/customer/cliente-detalles-dialog.tsx": {
+    "mtime": 1780582622.9102314,
+    "ast_hash": "96ceb469c8f5d140d4edb88f17728e16",
+    "semantic_hash": "96ceb469c8f5d140d4edb88f17728e16"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/dashboard/ticket-manual-dialog.tsx": {
+    "mtime": 1780582622.91075,
+    "ast_hash": "d64e5c696edca9f2bcd0b996411180f9",
+    "semantic_hash": "d64e5c696edca9f2bcd0b996411180f9"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/departamentos/departamento-form.tsx": {
+    "mtime": 1773866769.4738178,
+    "ast_hash": "613ccb1cb88ee64457f58bd5a205a495",
+    "semantic_hash": "613ccb1cb88ee64457f58bd5a205a495"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/facturas/anular-factura-dialog.tsx": {
+    "mtime": 1774450687.7656481,
+    "ast_hash": "6cfa1eede5f0e89aaad1fb8c5f85f866",
+    "semantic_hash": "6cfa1eede5f0e89aaad1fb8c5f85f866"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/facturas/estado-badge.tsx": {
+    "mtime": 1764175160.0,
+    "ast_hash": "c072d41d0e22a266d88717b0bd6c02f0",
+    "semantic_hash": "c072d41d0e22a266d88717b0bd6c02f0"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/facturas/factura-form-dialog.tsx": {
+    "mtime": 1780582622.9127517,
+    "ast_hash": "2739cebca4f7bbf1ad85a49527b57075",
+    "semantic_hash": "2739cebca4f7bbf1ad85a49527b57075"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/facturas/factura-stats-cards.tsx": {
+    "mtime": 1764175162.0,
+    "ast_hash": "437aa3553d998ab1040f4c91453da8ce",
+    "semantic_hash": "437aa3553d998ab1040f4c91453da8ce"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/facturas/facturas-consolidadas-table.tsx": {
+    "mtime": 1780582622.914935,
+    "ast_hash": "cd60a8823d176b8155bf890170d13028",
+    "semantic_hash": "cd60a8823d176b8155bf890170d13028"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/facturas/facturas-contabilidad-table.tsx": {
+    "mtime": 1776090086.7539525,
+    "ast_hash": "ba7ef526cccebdf9242e3350da89e75d",
+    "semantic_hash": "ba7ef526cccebdf9242e3350da89e75d"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/facturas/facturas-filters.tsx": {
+    "mtime": 1777489490.4617689,
+    "ast_hash": "bf93cf54805a9caf5c516ab1a8e8d44a",
+    "semantic_hash": "bf93cf54805a9caf5c516ab1a8e8d44a"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/facturas/facturas-section.tsx": {
+    "mtime": 1782481969.4397995,
+    "ast_hash": "aa6af577f41ba83d3eabb492a6f1a8d2",
+    "semantic_hash": "aa6af577f41ba83d3eabb492a6f1a8d2"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/facturas/facturas-table.tsx": {
+    "mtime": 1780582622.9162092,
+    "ast_hash": "14506f358042d652ededc83fe9b5cd56",
+    "semantic_hash": "14506f358042d652ededc83fe9b5cd56"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/facturas/item-vale-row.tsx": {
+    "mtime": 1777489490.462921,
+    "ast_hash": "d56424404e6c4622413b2db02f1065a5",
+    "semantic_hash": "d56424404e6c4622413b2db02f1065a5"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/facturas/seleccionar-vales-salida-dialog.tsx": {
+    "mtime": 1780582622.9164174,
+    "ast_hash": "1518f72f00b483ca582460eb9938fb21",
+    "semantic_hash": "1518f72f00b483ca582460eb9938fb21"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/facturas/vale-form.tsx": {
+    "mtime": 1780582622.9167178,
+    "ast_hash": "b97df1211f59a02e60489dda9655d118",
+    "semantic_hash": "b97df1211f59a02e60489dda9655d118"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/fichas-costo/calc-porcentaje-dialog.tsx": {
+    "mtime": 1780582622.917059,
+    "ast_hash": "9c29aa9124d229a229acc285e6c45030",
+    "semantic_hash": "9c29aa9124d229a229acc285e6c45030"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/fichas-costo/comparacion-dialog.tsx": {
+    "mtime": 1782481969.4398885,
+    "ast_hash": "8db6f5f93fe455f1f667f46fc4b93728",
+    "semantic_hash": "8db6f5f93fe455f1f667f46fc4b93728"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/fichas-costo/crear-ficha-form.tsx": {
+    "mtime": 1782481969.4400694,
+    "ast_hash": "7d80500d6d5f07e0215b6d6d39de6c20",
+    "semantic_hash": "7d80500d6d5f07e0215b6d6d39de6c20"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/fichas-costo/editar-precios-dialog.tsx": {
+    "mtime": 1782481969.440162,
+    "ast_hash": "29d61ff4ab2dca9b79ead2c362ec5bda",
+    "semantic_hash": "29d61ff4ab2dca9b79ead2c362ec5bda"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/fichas-costo/ficha-detalle-card.tsx": {
+    "mtime": 1782481969.4402506,
+    "ast_hash": "f63b927970236ba8f0d95b72b0ccb6ba",
+    "semantic_hash": "f63b927970236ba8f0d95b72b0ccb6ba"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/fichas-costo/historial-dialog.tsx": {
+    "mtime": 1782481969.44034,
+    "ast_hash": "475556fce0af16655e6019518aa28ab5",
+    "semantic_hash": "475556fce0af16655e6019518aa28ab5"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/fichas-costo/material-search-dialog.tsx": {
+    "mtime": 1782481969.4404335,
+    "ast_hash": "7232741c3fb9a41a0ef0fc21d3edbce3",
+    "semantic_hash": "7232741c3fb9a41a0ef0fc21d3edbce3"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/galeriaweb/eliminar-foto-dialog.tsx": {
+    "mtime": 1761748751.0,
+    "ast_hash": "763a9d8ed8d5e68c7a88f0f4e016fc56",
+    "semantic_hash": "763a9d8ed8d5e68c7a88f0f4e016fc56"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/galeriaweb/foto-card.tsx": {
+    "mtime": 1761748751.0,
+    "ast_hash": "7c059bfca9b578b4cab6cbd34859661e",
+    "semantic_hash": "7c059bfca9b578b4cab6cbd34859661e"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/galeriaweb/fotos-grid.tsx": {
+    "mtime": 1761586815.0,
+    "ast_hash": "e628a0aff1cb1523bba9740771baa6d0",
+    "semantic_hash": "e628a0aff1cb1523bba9740771baa6d0"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/galeriaweb/subir-foto-dialog.tsx": {
+    "mtime": 1771530035.3044643,
+    "ast_hash": "4aa3e05ce31774b76b0f648308428a51",
+    "semantic_hash": "4aa3e05ce31774b76b0f648308428a51"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/instalaciones/averias-table.tsx": {
+    "mtime": 1780582622.9182837,
+    "ast_hash": "5b970b841791ea1ff8ed09ed805d221a",
+    "semantic_hash": "5b970b841791ea1ff8ed09ed805d221a"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/instalaciones/cliente-fotos-dialog.tsx": {
+    "mtime": 1777489490.463661,
+    "ast_hash": "acea888d859951376d36136a934c1f41",
+    "semantic_hash": "acea888d859951376d36136a934c1f41"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/instalaciones/completar-visita-dialog.tsx": {
+    "mtime": 1780582622.9186304,
+    "ast_hash": "302be460e9450c41fe02230b9fc4a123",
+    "semantic_hash": "302be460e9450c41fe02230b9fc4a123"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/instalaciones/crear-averia-dialog.tsx": {
+    "mtime": 1780519665.9682608,
+    "ast_hash": "0d9af72a46f2aed3f58d830592fdc427",
+    "semantic_hash": "0d9af72a46f2aed3f58d830592fdc427"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/instalaciones/editar-trabajo-dialog.tsx": {
+    "mtime": 1773671304.075156,
+    "ast_hash": "fca310b8ad344068f56e8709140904f8",
+    "semantic_hash": "fca310b8ad344068f56e8709140904f8"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/instalaciones/entrega-celebration-animation.tsx": {
+    "mtime": 1780582622.918932,
+    "ast_hash": "e60d6bd3e3b706eeba07b3da1348de1d",
+    "semantic_hash": "e60d6bd3e3b706eeba07b3da1348de1d"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/instalaciones/instalaciones-en-proceso-table.tsx": {
+    "mtime": 1780582622.9192321,
+    "ast_hash": "bfcf52c7ae7cf1e7646b5460a16b3b8e",
+    "semantic_hash": "bfcf52c7ae7cf1e7646b5460a16b3b8e"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/instalaciones/instalaciones-nuevas-table.tsx": {
+    "mtime": 1778254927.6948435,
+    "ast_hash": "293536199fb6950c1ec356d417ecf084",
+    "semantic_hash": "293536199fb6950c1ec356d417ecf084"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/instalaciones/lista-planificaciones-table.tsx": {
+    "mtime": 1780582622.9194913,
+    "ast_hash": "a6a433dc20f6813caeb1a64ea535dd56",
+    "semantic_hash": "a6a433dc20f6813caeb1a64ea535dd56"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/instalaciones/oferta-cell.tsx": {
+    "mtime": 1780582622.919608,
+    "ast_hash": "510eda48291a9eb836de2ccaebd0f44b",
+    "semantic_hash": "510eda48291a9eb836de2ccaebd0f44b"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/instalaciones/ordenes-trabajo-operaciones-module.tsx": {
+    "mtime": 1780582622.9199212,
+    "ast_hash": "42632c66927f0ee977fc07b16b7eb635",
+    "semantic_hash": "42632c66927f0ee977fc07b16b7eb635"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/instalaciones/pendientes-visita-table.tsx": {
+    "mtime": 1780582622.9201355,
+    "ast_hash": "e8682fd44e1fb4ebd744400552360a85",
+    "semantic_hash": "e8682fd44e1fb4ebd744400552360a85"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/instalaciones/planificacion-diaria-trabajos-table.tsx": {
+    "mtime": 1780582622.920367,
+    "ast_hash": "38d1e788e52e6edd4311f557bf280288",
+    "semantic_hash": "38d1e788e52e6edd4311f557bf280288"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/instalaciones/planificacion/constants.ts": {
+    "mtime": 1773671304.0762398,
+    "ast_hash": "0904d842da451584d2e84c3a298ea279",
+    "semantic_hash": "0904d842da451584d2e84c3a298ea279"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/instalaciones/planificacion/oferta-utils.ts": {
+    "mtime": 1773671304.0763216,
+    "ast_hash": "d9d3affbc572f68c8a0a97552de6a0b4",
+    "semantic_hash": "d9d3affbc572f68c8a0a97552de6a0b4"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/instalaciones/planificacion/storage-utils.ts": {
+    "mtime": 1773671304.0763917,
+    "ast_hash": "9a7b3184bde3455ee7f0437b916b0524",
+    "semantic_hash": "9a7b3184bde3455ee7f0437b916b0524"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/instalaciones/planificacion/trabajo-utils.ts": {
+    "mtime": 1773671304.0764916,
+    "ast_hash": "e760e5ff12a896b5146ed52c60abf092",
+    "semantic_hash": "e760e5ff12a896b5146ed52c60abf092"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/instalaciones/planificacion/types.ts": {
+    "mtime": 1773671304.0765696,
+    "ast_hash": "8bd6c41ae7d125ec986e47586d717bf7",
+    "semantic_hash": "8bd6c41ae7d125ec986e47586d717bf7"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/instalaciones/planificacion/use-planificacion-data.ts": {
+    "mtime": 1773671304.0766506,
+    "ast_hash": "fd1d60c6457a0bf5300409e7d8283a8a",
+    "semantic_hash": "fd1d60c6457a0bf5300409e7d8283a8a"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/instalaciones/trabajo-diario-form.tsx": {
+    "mtime": 1780519665.9684212,
+    "ast_hash": "e4e7c139ab964312a108efdf11c4ec23",
+    "semantic_hash": "e4e7c139ab964312a108efdf11c4ec23"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/instalaciones/trabajos-diarios-actualizaciones-view.tsx": {
+    "mtime": 1777489490.4655342,
+    "ast_hash": "2443dccec01ea25b301bc188d102b3bb",
+    "semantic_hash": "2443dccec01ea25b301bc188d102b3bb"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/instalaciones/trabajos-diarios-averias-view.tsx": {
+    "mtime": 1780582622.9205666,
+    "ast_hash": "aed04149f5b7f8d5daf16f7236f1c99b",
+    "semantic_hash": "aed04149f5b7f8d5daf16f7236f1c99b"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/instalaciones/trabajos-diarios-crear-view.tsx": {
+    "mtime": 1774450687.773045,
+    "ast_hash": "dff3a0fc928734da023cc4c45e506bc1",
+    "semantic_hash": "dff3a0fc928734da023cc4c45e506bc1"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/instalaciones/trabajos-diarios-module.tsx": {
+    "mtime": 1778254927.696603,
+    "ast_hash": "7cc6908ae4df2c06b4aa4d548a396883",
+    "semantic_hash": "7cc6908ae4df2c06b4aa4d548a396883"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/instalaciones/trabajos-diarios-registro-view.tsx": {
+    "mtime": 1777489490.4661772,
+    "ast_hash": "3bfe4d13c7a177723cea24a8237b36c5",
+    "semantic_hash": "3bfe4d13c7a177723cea24a8237b36c5"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/instalaciones/trabajos-diarios-todos-view.tsx": {
+    "mtime": 1780582622.9207835,
+    "ast_hash": "36417cffe65e9d86fe831eaade549bb4",
+    "semantic_hash": "36417cffe65e9d86fe831eaade549bb4"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/instalaciones/trabajos-diarios-view.tsx": {
+    "mtime": 1777489490.4665298,
+    "ast_hash": "e9bc6d1b360f4886b36269088e4af8cb",
+    "semantic_hash": "e9bc6d1b360f4886b36269088e4af8cb"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/instalaciones/ver-materiales-oferta-dialog.tsx": {
+    "mtime": 1773671304.0769036,
+    "ast_hash": "8c56fc7f616a0c9e3198680b5ba63f53",
+    "semantic_hash": "8c56fc7f616a0c9e3198680b5ba63f53"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/instalaciones/ver-planificacion-dialog.tsx": {
+    "mtime": 1780582622.9211483,
+    "ast_hash": "9d0102a0b2ba686d7f41dae167172112",
+    "semantic_hash": "9d0102a0b2ba686d7f41dae167172112"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/inventario/almacen-form.tsx": {
+    "mtime": 1768235890.0,
+    "ast_hash": "afde8c76874ebc4cf929682cc8ad85ca",
+    "semantic_hash": "afde8c76874ebc4cf929682cc8ad85ca"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/inventario/almacenes-table.tsx": {
+    "mtime": 1777489490.4670374,
+    "ast_hash": "7bee643755216573f04d607f56b5da38",
+    "semantic_hash": "7bee643755216573f04d607f56b5da38"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/inventario/cierre-caja-dialog.tsx": {
+    "mtime": 1780582622.921587,
+    "ast_hash": "bab22f139780aa0f2b3afb91384637d8",
+    "semantic_hash": "bab22f139780aa0f2b3afb91384637d8"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/inventario/editar-stock-form.tsx": {
+    "mtime": 1780580080.5944152,
+    "ast_hash": "2c09a1c6b0cc4f258a0b31326c381828",
+    "semantic_hash": "2c09a1c6b0cc4f258a0b31326c381828"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/inventario/entrada-salida-efectivo-dialog.tsx": {
+    "mtime": 1771530035.3058045,
+    "ast_hash": "7294736dca12159bcafef59c6383ad8b",
+    "semantic_hash": "7294736dca12159bcafef59c6383ad8b"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/inventario/material-combobox.tsx": {
+    "mtime": 1768241810.0,
+    "ast_hash": "792fb3ceea6ac6c78c6a32ca8d00c137",
+    "semantic_hash": "792fb3ceea6ac6c78c6a32ca8d00c137"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/inventario/materiales-stock-table.tsx": {
+    "mtime": 1782481969.440867,
+    "ast_hash": "c7467f955f7ae214557b2ba9b0e3c960",
+    "semantic_hash": "c7467f955f7ae214557b2ba9b0e3c960"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/inventario/movimiento-almacen-form.tsx": {
+    "mtime": 1771530035.3059654,
+    "ast_hash": "1b5699c14ccc10beab23a4f402cdabb4",
+    "semantic_hash": "1b5699c14ccc10beab23a4f402cdabb4"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/inventario/movimiento-form.tsx": {
+    "mtime": 1780519665.9688778,
+    "ast_hash": "77061f82a87d83b693a7b69d2dbf7e4d",
+    "semantic_hash": "77061f82a87d83b693a7b69d2dbf7e4d"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/inventario/movimientos-table.tsx": {
+    "mtime": 1778862876.2217362,
+    "ast_hash": "adbab23b9efd45419de2594c6b890e97",
+    "semantic_hash": "adbab23b9efd45419de2594c6b890e97"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/inventario/pago-dialog.tsx": {
+    "mtime": 1780582622.9218445,
+    "ast_hash": "72623f807e04d05dfd0e1cd6186f0bb9",
+    "semantic_hash": "72623f807e04d05dfd0e1cd6186f0bb9"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/inventario/pools-distribution-dialog.tsx": {
+    "mtime": 1780519665.9689791,
+    "ast_hash": "a4a0b4f3df17b9988403ea8d78de6479",
+    "semantic_hash": "a4a0b4f3df17b9988403ea8d78de6479"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/inventario/pos-view.tsx": {
+    "mtime": 1780582622.922034,
+    "ast_hash": "fb2a261a28f72965e7ffddcaf078dbad",
+    "semantic_hash": "fb2a261a28f72965e7ffddcaf078dbad"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/inventario/reservas-por-material-dialog.tsx": {
+    "mtime": 1780519665.9691596,
+    "ast_hash": "470fbbb4deef1d831df171c1f02a1300",
+    "semantic_hash": "470fbbb4deef1d831df171c1f02a1300"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/inventario/salida-lote-form.tsx": {
+    "mtime": 1780519665.9692893,
+    "ast_hash": "6930e9e2bdf7d9c8ca542f1b8e27f976",
+    "semantic_hash": "6930e9e2bdf7d9c8ca542f1b8e27f976"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/inventario/seleccionar-carpeta-recibos-dialog.tsx": {
+    "mtime": 1780582622.9222076,
+    "ast_hash": "b064aeebaf9fc158e4fd5f8ac3b2f349",
+    "semantic_hash": "b064aeebaf9fc158e4fd5f8ac3b2f349"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/inventario/solicitud-transferencia-dialog.tsx": {
+    "mtime": 1780519665.9694483,
+    "ast_hash": "04b30ad3e7039718f05538c6a2ee0499",
+    "semantic_hash": "04b30ad3e7039718f05538c6a2ee0499"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/inventario/solicitudes-transferencia-table.tsx": {
+    "mtime": 1780586677.7526107,
+    "ast_hash": "c0da485fcebe07b516ff8ac4f78ab518",
+    "semantic_hash": "c0da485fcebe07b516ff8ac4f78ab518"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/inventario/stock-historico-modal.tsx": {
+    "mtime": 1780582622.922468,
+    "ast_hash": "b0dda8fa74b78b616cd551e29e7200f1",
+    "semantic_hash": "b0dda8fa74b78b616cd551e29e7200f1"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/inventario/stock-minimo-analisis-modal.tsx": {
+    "mtime": 1780582622.9230108,
+    "ast_hash": "59260b986fc55034c22648c9f62b21c8",
+    "semantic_hash": "59260b986fc55034c22648c9f62b21c8"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/inventario/stock-table.tsx": {
+    "mtime": 1780519665.969848,
+    "ast_hash": "e81a35a5b72a159a00df0d242b4ad977",
+    "semantic_hash": "e81a35a5b72a159a00df0d242b4ad977"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/inventario/stockajes-minimos-section.tsx": {
+    "mtime": 1779113188.491472,
+    "ast_hash": "622474e8ee86f4edb5fa7e99c2cc8113",
+    "semantic_hash": "622474e8ee86f4edb5fa7e99c2cc8113"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/inventario/tienda-form.tsx": {
+    "mtime": 1771530035.3065815,
+    "ast_hash": "1da5abc072d3e0f49c28e735082da849",
+    "semantic_hash": "1da5abc072d3e0f49c28e735082da849"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/inventario/tiendas-table.tsx": {
+    "mtime": 1771530035.3067787,
+    "ast_hash": "adf83dc297d1d13dd5c2a24448e2bb16",
+    "semantic_hash": "adf83dc297d1d13dd5c2a24448e2bb16"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/inventario/venta-form.tsx": {
+    "mtime": 1768241530.0,
+    "ast_hash": "3b72052fc9650878f04f8c878619bef6",
+    "semantic_hash": "3b72052fc9650878f04f8c878619bef6"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/leads/create-lead-dialog.tsx": {
+    "mtime": 1777489490.4688036,
+    "ast_hash": "474c958e08722e7597d0867d03f4cec3",
+    "semantic_hash": "474c958e08722e7597d0867d03f4cec3"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/leads/edit-lead-dialog.tsx": {
+    "mtime": 1777489490.4691908,
+    "ast_hash": "af33dcec166b4f6e661789606f844722",
+    "semantic_hash": "af33dcec166b4f6e661789606f844722"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/leads/elementos-personalizados-fields.tsx": {
+    "mtime": 1761152566.0,
+    "ast_hash": "414daaff35d71b3ed66ba97a021e3862",
+    "semantic_hash": "414daaff35d71b3ed66ba97a021e3862"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/leads/lead-search-selector.tsx": {
+    "mtime": 1771530035.3077726,
+    "ast_hash": "59410edd49841ff8b48ced0fd459d443",
+    "semantic_hash": "59410edd49841ff8b48ced0fd459d443"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/leads/leads-table.tsx": {
+    "mtime": 1780586677.753079,
+    "ast_hash": "d09ea7cb4590f3f5f6bddb1320bade9e",
+    "semantic_hash": "d09ea7cb4590f3f5f6bddb1320bade9e"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/leads/ofertas-asignacion-fields.tsx": {
+    "mtime": 1761318108.0,
+    "ast_hash": "1a96932e34b44af4bd6790602a1c165f",
+    "semantic_hash": "1a96932e34b44af4bd6790602a1c165f"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/leads/ofertas-embebidas-fields.tsx": {
+    "mtime": 1761163029.0,
+    "ast_hash": "8661dd2056f63aaf8d0e65c298f92f10",
+    "semantic_hash": "8661dd2056f63aaf8d0e65c298f92f10"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/materials/categories-table.tsx": {
+    "mtime": 1771530035.3094425,
+    "ast_hash": "a2058e148b5c32dfb6d758f6b1f4671c",
+    "semantic_hash": "a2058e148b5c32dfb6d758f6b1f4671c"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/materials/category-form.tsx": {
+    "mtime": 1761404303.0,
+    "ast_hash": "0b35036b8f28d0e63a911d1646348e6a",
+    "semantic_hash": "0b35036b8f28d0e63a911d1646348e6a"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/materials/category-management.tsx": {
+    "mtime": 1761404303.0,
+    "ast_hash": "d33312825d00ab24a220ce80eec5a40b",
+    "semantic_hash": "d33312825d00ab24a220ce80eec5a40b"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/materials/duplicates-dashboard.tsx": {
+    "mtime": 1766586291.0,
+    "ast_hash": "a145852c76b17f248c17551a4e85561e",
+    "semantic_hash": "a145852c76b17f248c17551a4e85561e"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/materials/edit-category-form.tsx": {
+    "mtime": 1771530035.3105083,
+    "ast_hash": "7d1f232e94d44b879b143dfb42e4b40b",
+    "semantic_hash": "7d1f232e94d44b879b143dfb42e4b40b"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/materials/marca-form.tsx": {
+    "mtime": 1771530035.3106155,
+    "ast_hash": "cafaf98881b180814dc48181e54b7d78",
+    "semantic_hash": "cafaf98881b180814dc48181e54b7d78"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/materials/marcas-management.tsx": {
+    "mtime": 1771530035.3107178,
+    "ast_hash": "1b66cca8e7a157891363da0010f5e5ba",
+    "semantic_hash": "1b66cca8e7a157891363da0010f5e5ba"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/materials/marcas-table.tsx": {
+    "mtime": 1771530035.3108075,
+    "ast_hash": "bceb0ec6713fc74b098afaba594333b9",
+    "semantic_hash": "bceb0ec6713fc74b098afaba594333b9"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/materials/material-form.tsx": {
+    "mtime": 1782481969.4413793,
+    "ast_hash": "9f59a775c835311c6dcc285bb19ada0e",
+    "semantic_hash": "9f59a775c835311c6dcc285bb19ada0e"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/materials/material-search-selector.tsx": {
+    "mtime": 1771530035.3123124,
+    "ast_hash": "43e06eb1cc4a7fc7d2c4cb9309f942d8",
+    "semantic_hash": "43e06eb1cc4a7fc7d2c4cb9309f942d8"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/materials/materials-table.tsx": {
+    "mtime": 1779113188.4920356,
+    "ast_hash": "f475771f3094e70eaf55e4965118381b",
+    "semantic_hash": "f475771f3094e70eaf55e4965118381b"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/materials/stock-minimo-view.tsx": {
+    "mtime": 1773781303.1196175,
+    "ast_hash": "ab7d3c4edebeadd0d0da16fcef82e405",
+    "semantic_hash": "ab7d3c4edebeadd0d0da16fcef82e405"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/materials/vista-web.tsx": {
+    "mtime": 1773671304.0790975,
+    "ast_hash": "0c0d06a48a0e22b23a1fd5f6917af986",
+    "semantic_hash": "0c0d06a48a0e22b23a1fd5f6917af986"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/obras-terminadas/obras-terminadas-table.tsx": {
+    "mtime": 1780582622.9238849,
+    "ast_hash": "2d057caea1b2a98aa97818f597fd9016",
+    "semantic_hash": "2d057caea1b2a98aa97818f597fd9016"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/ofertas-personalizadas/cliente-selector-field.tsx": {
+    "mtime": 1773671304.0792441,
+    "ast_hash": "6bdd1218a3f3b821c1afb90078e1ebc6",
+    "semantic_hash": "6bdd1218a3f3b821c1afb90078e1ebc6"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/ofertas-personalizadas/create-oferta-dialog.tsx": {
+    "mtime": 1764365908.0,
+    "ast_hash": "5695683ce823d55edf67b365fc0b7157",
+    "semantic_hash": "5695683ce823d55edf67b365fc0b7157"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/ofertas-personalizadas/edit-oferta-dialog.tsx": {
+    "mtime": 1765573094.0,
+    "ast_hash": "b61f59123dd5e80a6ca259777258d65e",
+    "semantic_hash": "b61f59123dd5e80a6ca259777258d65e"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/ofertas-personalizadas/equipos-field.tsx": {
+    "mtime": 1764359564.0,
+    "ast_hash": "c5dd0ad365f58cb377c89566f0f8a99b",
+    "semantic_hash": "c5dd0ad365f58cb377c89566f0f8a99b"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/ofertas-personalizadas/generar-link-pago-button.tsx": {
+    "mtime": 1778012567.328635,
+    "ast_hash": "7f8a4aca12b174d6fc35488fb1fa5427",
+    "semantic_hash": "7f8a4aca12b174d6fc35488fb1fa5427"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/ofertas-personalizadas/marca-selector-field.tsx": {
+    "mtime": 1762740992.0,
+    "ast_hash": "76c6481a2dd18bc28eea4c8d62968eef",
+    "semantic_hash": "76c6481a2dd18bc28eea4c8d62968eef"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/ofertas-personalizadas/ofertas-personalizadas-table.tsx": {
+    "mtime": 1780582622.924045,
+    "ast_hash": "68fac8c74b302528fac397f6dea757bd",
+    "semantic_hash": "68fac8c74b302528fac397f6dea757bd"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/ofertas-personalizadas/servicio-selector-field.tsx": {
+    "mtime": 1764360022.0,
+    "ast_hash": "8594ed0b59573df3d8f1ecfdc9fa5a27",
+    "semantic_hash": "8594ed0b59573df3d8f1ecfdc9fa5a27"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/ofertas-personalizadas/utiles-field.tsx": {
+    "mtime": 1764359574.0,
+    "ast_hash": "807a2439ad4ed4b098b4a817663256d8",
+    "semantic_hash": "807a2439ad4ed4b098b4a817663256d8"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/ofertas/asignar-oferta-generica-dialog.tsx": {
+    "mtime": 1780582622.9243653,
+    "ast_hash": "2b43823e3bac85363fa67c038beb534e",
+    "semantic_hash": "2b43823e3bac85363fa67c038beb534e"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/ofertas/confeccion-ofertas-view.tsx": {
+    "mtime": 1782481969.442888,
+    "ast_hash": "18cde90d91026e319e9013150e54a0a3",
+    "semantic_hash": "18cde90d91026e319e9013150e54a0a3"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/ofertas/duplicar-oferta-dialog.tsx": {
+    "mtime": 1771530035.313629,
+    "ast_hash": "bd0ee4d44e8455ac460a8b3b80e55606",
+    "semantic_hash": "bd0ee4d44e8455ac460a8b3b80e55606"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/ofertas/editar-oferta-dialog.tsx": {
+    "mtime": 1777740287.2274714,
+    "ast_hash": "f3a1ddc03fb456c7bf8b576d2e359ea8",
+    "semantic_hash": "f3a1ddc03fb456c7bf8b576d2e359ea8"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/ofertas/export-selection-dialog.tsx": {
+    "mtime": 1780586677.7544541,
+    "ast_hash": "905765d33171adc8a1b11d9035115bde",
+    "semantic_hash": "905765d33171adc8a1b11d9035115bde"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/ofertas/generar-link-pago-button.tsx": {
+    "mtime": 1778012561.0044396,
+    "ast_hash": "ff9ffdf108dedefe8b9dc61addef6eb7",
+    "semantic_hash": "ff9ffdf108dedefe8b9dc61addef6eb7"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/ofertas/generar-link-pago-confeccion-button.tsx": {
+    "mtime": 1780582622.926565,
+    "ast_hash": "0a4c3c2a15116255d44d0d4cce133da2",
+    "semantic_hash": "0a4c3c2a15116255d44d0d4cce133da2"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/ofertas/ofertas-confeccionadas-view.tsx": {
+    "mtime": 1780586677.7548752,
+    "ast_hash": "5b8effc954590f47dd80ff582d147894",
+    "semantic_hash": "5b8effc954590f47dd80ff582d147894"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/ofertas/ver-oferta-cliente-dialog.tsx": {
+    "mtime": 1780582622.9277472,
+    "ast_hash": "83b09046afe98d3ee8291ac2eb6142f7",
+    "semantic_hash": "83b09046afe98d3ee8291ac2eb6142f7"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/pagos-clientes-ventas/crear-factura-venta-dialog.tsx": {
+    "mtime": 1778180203.4883227,
+    "ast_hash": "7ea68aa770fc89fb9732b61a54d05d00",
+    "semantic_hash": "7ea68aa770fc89fb9732b61a54d05d00"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/pagos-clientes-ventas/factura-venta-detail-dialog.tsx": {
+    "mtime": 1780582622.9282036,
+    "ast_hash": "1244c44ff9ab5738467d3edffd9ba767",
+    "semantic_hash": "1244c44ff9ab5738467d3edffd9ba767"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/pagos-clientes-ventas/facturas-ventas-table.tsx": {
+    "mtime": 1780582622.9284122,
+    "ast_hash": "c56a8e9b29d50a2b5e9ab823bc717890",
+    "semantic_hash": "c56a8e9b29d50a2b5e9ab823bc717890"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/pagos-clientes-ventas/registrar-pago-venta-dialog.tsx": {
+    "mtime": 1782481969.4433815,
+    "ast_hash": "439a7070e146c515bc641aa95566fb9f",
+    "semantic_hash": "439a7070e146c515bc641aa95566fb9f"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/pagos-clientes-ventas/solicitudes-pendientes-pago-table.tsx": {
+    "mtime": 1780519665.9715652,
+    "ast_hash": "9111ce2a1d1fb0d5ccb0f3b2197b2920",
+    "semantic_hash": "9111ce2a1d1fb0d5ccb0f3b2197b2920"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/pagos-clientes-ventas/todos-pagos-ventas-table.tsx": {
+    "mtime": 1780582622.928637,
+    "ast_hash": "a7cc575490dfe92d9ceae181de6a50cd",
+    "semantic_hash": "a7cc575490dfe92d9ceae181de6a50cd"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/pagos/anticipos-pendientes-table.tsx": {
+    "mtime": 1773671304.0812178,
+    "ast_hash": "9b68043b9e83e6e3614e16440fdf8967",
+    "semantic_hash": "9b68043b9e83e6e3614e16440fdf8967"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/pagos/editar-pago-dialog.tsx": {
+    "mtime": 1780582622.9288638,
+    "ast_hash": "a1fe7a1d15ec77a392e28813b6651ba3",
+    "semantic_hash": "a1fe7a1d15ec77a392e28813b6651ba3"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/pagos/en-proceso-pago-table.tsx": {
+    "mtime": 1780582622.9292188,
+    "ast_hash": "47f987da239bbbfc543df5f3a696c611",
+    "semantic_hash": "47f987da239bbbfc543df5f3a696c611"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/pagos/pago-card-mejorado.tsx": {
+    "mtime": 1771623454.6605685,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/pagos/registrar-devolucion-pago-dialog.tsx": {
+    "mtime": 1776090086.756539,
+    "ast_hash": "54a84484ad734bbf4eda84a10d24b508",
+    "semantic_hash": "54a84484ad734bbf4eda84a10d24b508"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/pagos/registrar-pago-dialog.tsx": {
+    "mtime": 1780582622.9293897,
+    "ast_hash": "f0661910e3e0a81f8ed3245540015779",
+    "semantic_hash": "f0661910e3e0a81f8ed3245540015779"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/pagos/stripe-pagos-modal.tsx": {
+    "mtime": 1771954917.5980644,
+    "ast_hash": "1bc70aa0a123dbb95593c6f588d3e380",
+    "semantic_hash": "1bc70aa0a123dbb95593c6f588d3e380"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/pagos/todos-pagos-planos-table.tsx": {
+    "mtime": 1780582622.9300334,
+    "ast_hash": "403aa199d2f7eef8fb3aabd184741277",
+    "semantic_hash": "403aa199d2f7eef8fb3aabd184741277"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/pagos/todos-pagos-table.tsx": {
+    "mtime": 1780582622.9306974,
+    "ast_hash": "016cb492575f814b9c5b48edae0e439f",
+    "semantic_hash": "016cb492575f814b9c5b48edae0e439f"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/permisos/modulos-sync-dialog.tsx": {
+    "mtime": 1780582622.9309022,
+    "ast_hash": "1b56f61686a9279805e3ce22015150cb",
+    "semantic_hash": "1b56f61686a9279805e3ce22015150cb"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/permisos/set-password-dialog.tsx": {
+    "mtime": 1762810288.0,
+    "ast_hash": "b4e913a53e1bb241ffd085fae44808a6",
+    "semantic_hash": "b4e913a53e1bb241ffd085fae44808a6"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/permisos/trabajador-permisos-dialog.tsx": {
+    "mtime": 1780582622.9310837,
+    "ast_hash": "384bdec28e3eefc1b1af1d78176ca6bc",
+    "semantic_hash": "384bdec28e3eefc1b1af1d78176ca6bc"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/permisos/trabajadores-permisos-table.tsx": {
+    "mtime": 1766586291.0,
+    "ast_hash": "0b7e8bca611a0a4fe0dca14f50efff30",
+    "semantic_hash": "0b7e8bca611a0a4fe0dca14f50efff30"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/recursos-humanos/archivo-nomina-detail.tsx": {
+    "mtime": 1780582622.9314623,
+    "ast_hash": "c12502cf4d1536f61afb1c4efb209437",
+    "semantic_hash": "c12502cf4d1536f61afb1c4efb209437"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/recursos-humanos/archivo-nominas-list.tsx": {
+    "mtime": 1764174864.0,
+    "ast_hash": "7cf4f3359b051c4b2b418e10a34b28b9",
+    "semantic_hash": "7cf4f3359b051c4b2b418e10a34b28b9"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/recursos-humanos/asistencia-badge.tsx": {
+    "mtime": 1761749290.0,
+    "ast_hash": "507ef48df1215d9f3d8b6ec2910c8bc9",
+    "semantic_hash": "507ef48df1215d9f3d8b6ec2910c8bc9"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/recursos-humanos/calendar-dias-selector.tsx": {
+    "mtime": 1760971503.0,
+    "ast_hash": "4d97e2d160e7286a9b7f7f402b608fa5",
+    "semantic_hash": "4d97e2d160e7286a9b7f7f402b608fa5"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/recursos-humanos/cargos-resumen-table.tsx": {
+    "mtime": 1764174864.0,
+    "ast_hash": "ecfd943009adad9b485ed06bfdade5ce",
+    "semantic_hash": "ecfd943009adad9b485ed06bfdade5ce"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/recursos-humanos/crear-trabajador-form.tsx": {
+    "mtime": 1782481969.4436648,
+    "ast_hash": "78ae1e127f6c3d3ea7460ab3143aac20",
+    "semantic_hash": "78ae1e127f6c3d3ea7460ab3143aac20"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/recursos-humanos/editar-trabajador-form.tsx": {
+    "mtime": 1778856013.079344,
+    "ast_hash": "76286e915213e3163ef95d599dd9ae8f",
+    "semantic_hash": "76286e915213e3163ef95d599dd9ae8f"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/recursos-humanos/estimulos-dialog.tsx": {
+    "mtime": 1771530035.3422081,
+    "ast_hash": "abb8bc7f4e829d247dd52bac0db3c2df",
+    "semantic_hash": "abb8bc7f4e829d247dd52bac0db3c2df"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/recursos-humanos/guardar-nomina-dialog.tsx": {
+    "mtime": 1780582622.9316356,
+    "ast_hash": "04a4ff8ac10a406132f7c84168787345",
+    "semantic_hash": "04a4ff8ac10a406132f7c84168787345"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/recursos-humanos/historial-ingresos-dialog.tsx": {
+    "mtime": 1764174864.0,
+    "ast_hash": "6c2255685130b9aeab38d305045a1aa3",
+    "semantic_hash": "6c2255685130b9aeab38d305045a1aa3"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/recursos-humanos/nomina-navigation.tsx": {
+    "mtime": 1764174864.0,
+    "ast_hash": "41c02e27f1753785a5508d51dbe25859",
+    "semantic_hash": "41c02e27f1753785a5508d51dbe25859"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/recursos-humanos/recursos-humanos-filters.tsx": {
+    "mtime": 1778856013.0795884,
+    "ast_hash": "aae40221693fa153d6d6e9dd1ac231d9",
+    "semantic_hash": "aae40221693fa153d6d6e9dd1ac231d9"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/recursos-humanos/recursos-humanos-table-final.tsx": {
+    "mtime": 1780586604.311542,
+    "ast_hash": "5a2ad0ee486e1a4213dad97738c8d605",
+    "semantic_hash": "5a2ad0ee486e1a4213dad97738c8d605"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/recursos-humanos/recursos-humanos-table-nueva.tsx": {
+    "mtime": 1760971503.0,
+    "ast_hash": "a21ced9e4ef6e669964467f1d9f196c4",
+    "semantic_hash": "a21ced9e4ef6e669964467f1d9f196c4"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/recursos-humanos/recursos-humanos-table.tsx": {
+    "mtime": 1760971503.0,
+    "ast_hash": "20e7ccd3223af5f6e327ccea754dd135",
+    "semantic_hash": "20e7ccd3223af5f6e327ccea754dd135"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/recursos-humanos/worker-details-dashboard.tsx": {
+    "mtime": 1780582622.9322755,
+    "ast_hash": "0e371246cf02287db3d4acca772e06f7",
+    "semantic_hash": "0e371246cf02287db3d4acca772e06f7"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/reportes-comercial/estado-equipos-stats.tsx": {
+    "mtime": 1780582622.9326036,
+    "ast_hash": "0b9f0edb2d48737e6d52774c929d4638",
+    "semantic_hash": "0b9f0edb2d48737e6d52774c929d4638"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/reportes-comercial/pendientes-instalacion-table.tsx": {
+    "mtime": 1780582622.9327972,
+    "ast_hash": "a45dc2eab3d57f79de63dca3e3844148",
+    "semantic_hash": "a45dc2eab3d57f79de63dca3e3844148"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/reportes-comercial/resultados-comercial-table.tsx": {
+    "mtime": 1774450687.783736,
+    "ast_hash": "fa2e2c78960d5b3b1f79b842f9536e6d",
+    "semantic_hash": "fa2e2c78960d5b3b1f79b842f9536e6d"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/reportes-ventas/clientes-por-comercial-table.tsx": {
+    "mtime": 1778856013.0801015,
+    "ast_hash": "ba92066ac43381b999255e65ff868d64",
+    "semantic_hash": "ba92066ac43381b999255e65ff868d64"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/reportes-ventas/resultados-comercial-table.tsx": {
+    "mtime": 1780519665.9728975,
+    "ast_hash": "fe10b44abe8b7eaf1bfa4f92d4d037d1",
+    "semantic_hash": "fe10b44abe8b7eaf1bfa4f92d4d037d1"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/reservas-ventas/create-reserva-venta-dialog.tsx": {
+    "mtime": 1780582622.933065,
+    "ast_hash": "27835ca22cb782dc793059f2ccfab0f4",
+    "semantic_hash": "27835ca22cb782dc793059f2ccfab0f4"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/reservas-ventas/edit-reserva-venta-dialog.tsx": {
+    "mtime": 1776090086.7576022,
+    "ast_hash": "65dde07550a500898703f54ac97553c3",
+    "semantic_hash": "65dde07550a500898703f54ac97553c3"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/reservas-ventas/reserva-venta-detail-dialog.tsx": {
+    "mtime": 1776090086.7577035,
+    "ast_hash": "9a54603675b1ba0f26b541048dccca20",
+    "semantic_hash": "9a54603675b1ba0f26b541048dccca20"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/reservas-ventas/reservas-ventas-table.tsx": {
+    "mtime": 1776090086.757766,
+    "ast_hash": "aa7f563b937a9f8bff3f31738dad8a5f",
+    "semantic_hash": "aa7f563b937a9f8bff3f31738dad8a5f"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/sedes/sede-form.tsx": {
+    "mtime": 1773866769.475481,
+    "ast_hash": "705424663565837a262e80818b23eecb",
+    "semantic_hash": "705424663565837a262e80818b23eecb"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/solicitudes-entrada-almacen/crear-solicitud-entrada-dialog.tsx": {
+    "mtime": 1780519665.9732816,
+    "ast_hash": "3814db5f837b4333a95caf2c8caf4caa",
+    "semantic_hash": "3814db5f837b4333a95caf2c8caf4caa"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/solicitudes-entrada-almacen/solicitud-entrada-detail-dialog.tsx": {
+    "mtime": 1782481969.4443283,
+    "ast_hash": "1be1eb40596412921a7122ad3ba74d2f",
+    "semantic_hash": "1be1eb40596412921a7122ad3ba74d2f"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/solicitudes-entrada-almacen/solicitudes-entrada-table.tsx": {
+    "mtime": 1782481969.4445617,
+    "ast_hash": "148dcd8737c85c089aef0e6ac88d263b",
+    "semantic_hash": "148dcd8737c85c089aef0e6ac88d263b"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/solicitudes-materiales/create-solicitud-material-dialog.tsx": {
+    "mtime": 1780582622.9334471,
+    "ast_hash": "8ece1d7df5fe39f218fd95bc2a29cc9e",
+    "semantic_hash": "8ece1d7df5fe39f218fd95bc2a29cc9e"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/solicitudes-materiales/solicitud-material-detail-dialog.tsx": {
+    "mtime": 1780582622.9336424,
+    "ast_hash": "2e93f696f29da15b1820526f32f73f34",
+    "semantic_hash": "2e93f696f29da15b1820526f32f73f34"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/solicitudes-materiales/solicitudes-materiales-table.tsx": {
+    "mtime": 1780582622.9340153,
+    "ast_hash": "f3170e65ebc0c9bdd75e6b250ba88ede",
+    "semantic_hash": "f3170e65ebc0c9bdd75e6b250ba88ede"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/solicitudes-ventas/actualizar-precios-dialog.tsx": {
+    "mtime": 1778527705.4208732,
+    "ast_hash": "b6856672d9d835656364545438401282",
+    "semantic_hash": "b6856672d9d835656364545438401282"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/solicitudes-ventas/generar-link-pago-solicitud-button.tsx": {
+    "mtime": 1778254927.7177336,
+    "ast_hash": "92acd1aba2a32b941fcfe652605968ca",
+    "semantic_hash": "92acd1aba2a32b941fcfe652605968ca"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/solicitudes-ventas/solicitud-venta-detail-dialog.tsx": {
+    "mtime": 1780582622.9345322,
+    "ast_hash": "eb413f4c9cf203704c0a744c6ffff6ad",
+    "semantic_hash": "eb413f4c9cf203704c0a744c6ffff6ad"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/solicitudes-ventas/solicitudes-ventas-table.tsx": {
+    "mtime": 1782481969.4448502,
+    "ast_hash": "d9b4479312a70f5ddc3ce4dd0b4cfd9c",
+    "semantic_hash": "d9b4479312a70f5ddc3ce4dd0b4cfd9c"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/solicitudes-ventas/stripe-pagos-solicitudes-modal.tsx": {
+    "mtime": 1778077983.0939815,
+    "ast_hash": "6238448bb1f34463f1f1d4f1ba331857",
+    "semantic_hash": "6238448bb1f34463f1f1d4f1ba331857"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/solicitudes-ventas/upsert-solicitud-venta-dialog.tsx": {
+    "mtime": 1780582622.9350045,
+    "ast_hash": "633b8f87030d4166dcae79ecae6a1dc4",
+    "semantic_hash": "633b8f87030d4166dcae79ecae6a1dc4"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/vales-salida/anular-vale-dialog.tsx": {
+    "mtime": 1774450687.7854226,
+    "ast_hash": "a3f230e61fe0dd8d4967ed6c95027552",
+    "semantic_hash": "a3f230e61fe0dd8d4967ed6c95027552"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/vales-salida/create-vale-salida-dialog.tsx": {
+    "mtime": 1782481969.4454422,
+    "ast_hash": "d12af6636db53f4b0955cc6a989b2531",
+    "semantic_hash": "d12af6636db53f4b0955cc6a989b2531"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/vales-salida/devolucion-vale-dialog.tsx": {
+    "mtime": 1778088585.061738,
+    "ast_hash": "890626f174e84ee844c4ac5a7075659d",
+    "semantic_hash": "890626f174e84ee844c4ac5a7075659d"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/vales-salida/vale-salida-detail-dialog.tsx": {
+    "mtime": 1780582622.9355612,
+    "ast_hash": "71f8a1aecfe37736e95a822f4e058c6a",
+    "semantic_hash": "71f8a1aecfe37736e95a822f4e058c6a"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/vales-salida/vales-salida-table.tsx": {
+    "mtime": 1774450687.7865014,
+    "ast_hash": "8eda8f7366e25618bcc2d7e890f7cc3c",
+    "semantic_hash": "8eda8f7366e25618bcc2d7e890f7cc3c"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/wallet-manager/wallet-permisos-table.tsx": {
+    "mtime": 1779113188.5126631,
+    "ast_hash": "bf0b006fd33cbb3ee12ccae93b90a5d7",
+    "semantic_hash": "bf0b006fd33cbb3ee12ccae93b90a5d7"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/wallet/banco-global-sheet.tsx": {
+    "mtime": 1780519665.975991,
+    "ast_hash": "d2208dc644758630b078e90137436c78",
+    "semantic_hash": "d2208dc644758630b078e90137436c78"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/worker/TrabajadorForm.tsx": {
+    "mtime": 1758399743.0,
+    "ast_hash": "c3483c18bc59bd43c9ab4f9d8e56fae7",
+    "semantic_hash": "c3483c18bc59bd43c9ab4f9d8e56fae7"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/worker/trabajador-search-selector.tsx": {
+    "mtime": 1774450687.7865937,
+    "ast_hash": "f3f6edf1d6e73beb4f1c42aae848bab2",
+    "semantic_hash": "f3f6edf1d6e73beb4f1c42aae848bab2"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/worker/trabajadores-table.tsx": {
+    "mtime": 1780586604.3119988,
+    "ast_hash": "e6e1bfeaaba7ff537dbee78b6f8904e5",
+    "semantic_hash": "e6e1bfeaaba7ff537dbee78b6f8904e5"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/worker/worker-avatar.tsx": {
+    "mtime": 1780586604.3127956,
+    "ast_hash": "6f925e02f1887bae6dad6e743fdfb09e",
+    "semantic_hash": "6f925e02f1887bae6dad6e743fdfb09e"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/feats/worker/worker-form.tsx": {
+    "mtime": 1773866769.4761727,
+    "ast_hash": "193eab9216d59972d6abffa451ba1603",
+    "semantic_hash": "193eab9216d59972d6abffa451ba1603"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/atom/accordion.tsx": {
+    "mtime": 1758399743.0,
+    "ast_hash": "561bb8af4899db592c7623851235979a",
+    "semantic_hash": "561bb8af4899db592c7623851235979a"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/atom/alert-dialog.tsx": {
+    "mtime": 1758399743.0,
+    "ast_hash": "f5e9f5e79f62e7b17396e00c572f3127",
+    "semantic_hash": "f5e9f5e79f62e7b17396e00c572f3127"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/atom/alert.tsx": {
+    "mtime": 1758399743.0,
+    "ast_hash": "48dac79c18e0c3ff687c320c6fcf1590",
+    "semantic_hash": "48dac79c18e0c3ff687c320c6fcf1590"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/atom/aspect-ratio.tsx": {
+    "mtime": 1758399743.0,
+    "ast_hash": "585563381a0d7558b71c533935db93f8",
+    "semantic_hash": "585563381a0d7558b71c533935db93f8"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/atom/avatar.tsx": {
+    "mtime": 1758399743.0,
+    "ast_hash": "0008445bf0b90f231d702bcd9141726c",
+    "semantic_hash": "0008445bf0b90f231d702bcd9141726c"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/atom/badge.tsx": {
+    "mtime": 1758399743.0,
+    "ast_hash": "f9c097d427c421f83eb92772a4b8ec06",
+    "semantic_hash": "f9c097d427c421f83eb92772a4b8ec06"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/atom/breadcrumb.tsx": {
+    "mtime": 1758399743.0,
+    "ast_hash": "60485fccd28b1bb7690978d2f0ea91a7",
+    "semantic_hash": "60485fccd28b1bb7690978d2f0ea91a7"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/atom/button.tsx": {
+    "mtime": 1758399743.0,
+    "ast_hash": "33f8ef5c351115f8904b2a2f3decef54",
+    "semantic_hash": "33f8ef5c351115f8904b2a2f3decef54"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/atom/fixed-header-watcher.tsx": {
+    "mtime": 1766586291.0,
+    "ast_hash": "cc86454639da163ef1adf9385b929eaf",
+    "semantic_hash": "cc86454639da163ef1adf9385b929eaf"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/atom/input.tsx": {
+    "mtime": 1764176777.0,
+    "ast_hash": "dbf91a5b642e61148e022a23ac138d42",
+    "semantic_hash": "dbf91a5b642e61148e022a23ac138d42"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/atom/label.tsx": {
+    "mtime": 1758399743.0,
+    "ast_hash": "14579f07e6e3133b6ee65d3ec778b013",
+    "semantic_hash": "14579f07e6e3133b6ee65d3ec778b013"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/atom/lazy-image.tsx": {
+    "mtime": 1777578542.2860005,
+    "ast_hash": "90f098f6e3bcb7795b127c8bee9ee0c1",
+    "semantic_hash": "90f098f6e3bcb7795b127c8bee9ee0c1"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/atom/loader.tsx": {
+    "mtime": 1777493768.3891532,
+    "ast_hash": "a3b6e87ce8975156016a84beb6dd4eb3",
+    "semantic_hash": "a3b6e87ce8975156016a84beb6dd4eb3"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/atom/page-loader.tsx": {
+    "mtime": 1777493768.3894067,
+    "ast_hash": "9516c413c94cac6c180bf612648c1980",
+    "semantic_hash": "9516c413c94cac6c180bf612648c1980"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/atom/priority-badge.tsx": {
+    "mtime": 1780582622.9362857,
+    "ast_hash": "3a5907ee9aa76b352817410bcf5a17f5",
+    "semantic_hash": "3a5907ee9aa76b352817410bcf5a17f5"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/atom/priority-dot.tsx": {
+    "mtime": 1780582622.9373236,
+    "ast_hash": "ef551bbbd6f7927b988b58ec4c82e1ff",
+    "semantic_hash": "ef551bbbd6f7927b988b58ec4c82e1ff"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/atom/progress.tsx": {
+    "mtime": 1758399743.0,
+    "ast_hash": "f99d4c689a0cac272cb0b1e7ea222ba8",
+    "semantic_hash": "f99d4c689a0cac272cb0b1e7ea222ba8"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/atom/select.tsx": {
+    "mtime": 1758399743.0,
+    "ast_hash": "f47f32743a682cb9d83987b2982e4031",
+    "semantic_hash": "f47f32743a682cb9d83987b2982e4031"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/anular-solicitud-dialog.tsx": {
+    "mtime": 1774450687.7866786,
+    "ast_hash": "2d35acbdc19781e6e71215061e3de065",
+    "semantic_hash": "2d35acbdc19781e6e71215061e3de065"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/backend-status-banner.tsx": {
+    "mtime": 1776090678.7325745,
+    "ast_hash": "45e9d4820cb33b9c21b10d2df3a41c0d",
+    "semantic_hash": "45e9d4820cb33b9c21b10d2df3a41c0d"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/birthday-checker.tsx": {
+    "mtime": 1771873917.8918393,
+    "ast_hash": "fd5f20e127b609e0e6251018a525e1ab",
+    "semantic_hash": "fd5f20e127b609e0e6251018a525e1ab"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/birthday-notification.tsx": {
+    "mtime": 1780582622.9377673,
+    "ast_hash": "8d48eb760cdb5bf3c77d8bbaa2c18308",
+    "semantic_hash": "8d48eb760cdb5bf3c77d8bbaa2c18308"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/calendar.tsx": {
+    "mtime": 1758399743.0,
+    "ast_hash": "259c49b44776b89698d0a561765aadfe",
+    "semantic_hash": "259c49b44776b89698d0a561765aadfe"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/card.tsx": {
+    "mtime": 1758399743.0,
+    "ast_hash": "4be937e00a434ffa44e7f0e82ae79d17",
+    "semantic_hash": "4be937e00a434ffa44e7f0e82ae79d17"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/carousel.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "1933ac45845565b1d56d0469ec9c9625",
+    "semantic_hash": "1933ac45845565b1d56d0469ec9c9625"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/chart.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "4414d0660c43f1743927fad1d66d110f",
+    "semantic_hash": "4414d0660c43f1743927fad1d66d110f"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/checkbox.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "83336efee701dce6b2b2f6490e6d61dd",
+    "semantic_hash": "83336efee701dce6b2b2f6490e6d61dd"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/collapsible.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "87cce2923d03d5560ae6838e54e87f60",
+    "semantic_hash": "87cce2923d03d5560ae6838e54e87f60"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/command.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "30d25f536c3d77c010ea15ab18efd281",
+    "semantic_hash": "30d25f536c3d77c010ea15ab18efd281"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/consumo-electrico-calculator.tsx": {
+    "mtime": 1780582622.93791,
+    "ast_hash": "68825dcdc1374cefcea6f33c24b283eb",
+    "semantic_hash": "68825dcdc1374cefcea6f33c24b283eb"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/context-menu.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "c09a1fefbacbdacc9cab95d35ce181d5",
+    "semantic_hash": "c09a1fefbacbdacc9cab95d35ce181d5"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/dialog.tsx": {
+    "mtime": 1778857328.8938293,
+    "ast_hash": "a9c63248efff1dbe63ce4a0d6436db55",
+    "semantic_hash": "a9c63248efff1dbe63ce4a0d6436db55"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/drawer.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "5d1fc2e6dcd8496d69a68a23a9e251e7",
+    "semantic_hash": "5d1fc2e6dcd8496d69a68a23a9e251e7"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/dropdown-menu.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "f5ec5c19d1c912a1f62695ec8556a284",
+    "semantic_hash": "f5ec5c19d1c912a1f62695ec8556a284"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/export-buttons.tsx": {
+    "mtime": 1780586677.7551057,
+    "ast_hash": "6c7d112daef5b0f824601cf9fc62c1a5",
+    "semantic_hash": "6c7d112daef5b0f824601cf9fc62c1a5"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/file-upload.tsx": {
+    "mtime": 1771530035.345023,
+    "ast_hash": "db54f8b9659c8f4ff934d1cd4980b053",
+    "semantic_hash": "db54f8b9659c8f4ff934d1cd4980b053"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/form.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "7e576407a5e658ad26a9861a08d80603",
+    "semantic_hash": "7e576407a5e658ad26a9861a08d80603"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/fuentes-manager.tsx": {
+    "mtime": 1771530035.345147,
+    "ast_hash": "4ee7f544230435319755ac01a3976338",
+    "semantic_hash": "4ee7f544230435319755ac01a3976338"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/hover-card.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "56167ab45b993cb73e7606b90b8d71f9",
+    "semantic_hash": "56167ab45b993cb73e7606b90b8d71f9"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/input-otp.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "6d8cd7ab771b7e2de5f0205d46363a2c",
+    "semantic_hash": "6d8cd7ab771b7e2de5f0205d46363a2c"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/input.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "c7cbc8cd45d01649277bd7107581cb36",
+    "semantic_hash": "c7cbc8cd45d01649277bd7107581cb36"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/menubar.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "9d7df5da29f6ce3af2e3f920ae45df7c",
+    "semantic_hash": "9d7df5da29f6ce3af2e3f920ae45df7c"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/navigation-menu.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "630417e56e3f5f9a5f323565ed86d430",
+    "semantic_hash": "630417e56e3f5f9a5f323565ed86d430"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/offline-indicator.tsx": {
+    "mtime": 1780582622.9387803,
+    "ast_hash": "6098670c54aa8ed9e5b88b9a17f14a3d",
+    "semantic_hash": "6098670c54aa8ed9e5b88b9a17f14a3d"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/pagination.tsx": {
+    "mtime": 1772036761.9544592,
+    "ast_hash": "d3c27aaff731fa774bf90725c72ec0fb",
+    "semantic_hash": "d3c27aaff731fa774bf90725c72ec0fb"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/personal-message-overlay.tsx": {
+    "mtime": 1777729158.8469062,
+    "ast_hash": "cbc55df8a6822737fee2cf401bdb5f3f",
+    "semantic_hash": "cbc55df8a6822737fee2cf401bdb5f3f"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/popover.tsx": {
+    "mtime": 1771955139.295596,
+    "ast_hash": "bd06d1adca91d97b389537740289240d",
+    "semantic_hash": "bd06d1adca91d97b389537740289240d"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/priority-select.tsx": {
+    "mtime": 1771530035.3452375,
+    "ast_hash": "a02e314bbd09fc24ed8cc600a316e72a",
+    "semantic_hash": "a02e314bbd09fc24ed8cc600a316e72a"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/pwa-install-prompt.tsx": {
+    "mtime": 1771530035.3455634,
+    "ast_hash": "4e8f8950fabf957f52d8dfd8b472dda3",
+    "semantic_hash": "4e8f8950fabf957f52d8dfd8b472dda3"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/radio-group.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "58ddcb1875be36f21402c1ddcc328867",
+    "semantic_hash": "58ddcb1875be36f21402c1ddcc328867"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/resizable.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "53861a766e45ed3c530825a22be2a1af",
+    "semantic_hash": "53861a766e45ed3c530825a22be2a1af"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/scroll-area.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "3205f3686c10fa46810af9db517d72dd",
+    "semantic_hash": "3205f3686c10fa46810af9db517d72dd"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/searchable-select.tsx": {
+    "mtime": 1771955139.2959464,
+    "ast_hash": "31638210ef8987aaea035591e521b39f",
+    "semantic_hash": "31638210ef8987aaea035591e521b39f"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/separator.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "85fd1a835601a122f1f226ccb31a0d67",
+    "semantic_hash": "85fd1a835601a122f1f226ccb31a0d67"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/sheet.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "9ef21bceff143bfe214ff398ec382dc5",
+    "semantic_hash": "9ef21bceff143bfe214ff398ec382dc5"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/sidebar.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "dce3805c30722d102ef9db5d230ca7a0",
+    "semantic_hash": "dce3805c30722d102ef9db5d230ca7a0"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/skeleton.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "a5a4d6d5551d4c7feb8176a23e7eb07c",
+    "semantic_hash": "a5a4d6d5551d4c7feb8176a23e7eb07c"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/slider.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "6920b37928705eb8de5ca91ba528225d",
+    "semantic_hash": "6920b37928705eb8de5ca91ba528225d"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/smart-pagination.tsx": {
+    "mtime": 1772036663.9705987,
+    "ast_hash": "bce8967460dae310925e47f0ef55464a",
+    "semantic_hash": "bce8967460dae310925e47f0ef55464a"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/sonner.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "6946201307c83984b9a462e856506891",
+    "semantic_hash": "6946201307c83984b9a462e856506891"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/switch.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "368340dd3f28bce468a5ffdebb321520",
+    "semantic_hash": "368340dd3f28bce468a5ffdebb321520"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/table.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "efdbaeb9710b2f60de7c0e18bd4e3528",
+    "semantic_hash": "efdbaeb9710b2f60de7c0e18bd4e3528"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/tabs.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "2dbb55bc73557d9794b1f166bb7e903b",
+    "semantic_hash": "2dbb55bc73557d9794b1f166bb7e903b"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/textarea.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "6eb8633e9e461056b9bf88dfaf25fc6d",
+    "semantic_hash": "6eb8633e9e461056b9bf88dfaf25fc6d"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/toast.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "76897a3e705e7de71984e7a6d6caff4c",
+    "semantic_hash": "76897a3e705e7de71984e7a6d6caff4c"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/toaster.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "7300f8ae7674489eda1d494693ba0e5c",
+    "semantic_hash": "7300f8ae7674489eda1d494693ba0e5c"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/toggle-group.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "5b5ff506cdcafcf0d718336bacca3f2f",
+    "semantic_hash": "5b5ff506cdcafcf0d718336bacca3f2f"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/toggle.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "22cfbae9f7efb01947fc3a2eac32ccf0",
+    "semantic_hash": "22cfbae9f7efb01947fc3a2eac32ccf0"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/tooltip.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "0b8fb484cf602fe973d2e0f2f39973fb",
+    "semantic_hash": "0b8fb484cf602fe973d2e0f2f39973fb"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/upload-comprobante-dialog.tsx": {
+    "mtime": 1761157578.0,
+    "ast_hash": "83dbd360e99e9b10f61b1ae681d977a9",
+    "semantic_hash": "83dbd360e99e9b10f61b1ae681d977a9"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/use-mobile.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "30b0d44014b262f09fbd7478db0ce44d",
+    "semantic_hash": "30b0d44014b262f09fbd7478db0ce44d"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/validation-error-overlay.tsx": {
+    "mtime": 1777580005.9981346,
+    "ast_hash": "acca66116318a32943273c9061fc273d",
+    "semantic_hash": "acca66116318a32943273c9061fc273d"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/organism/MapPicker.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "4e4a1c4d1e6dfcd342d07f20d374c7a4",
+    "semantic_hash": "4e4a1c4d1e6dfcd342d07f20d374c7a4"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/organism/MapPickerNoSSR.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "0839d312a9f94104b0191e682dc52731",
+    "semantic_hash": "0839d312a9f94104b0191e682dc52731"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/organism/error-boundary.tsx": {
+    "mtime": 1771530035.3461757,
+    "ast_hash": "9976beb87a3646cabeba7d3a09d13d4a",
+    "semantic_hash": "9976beb87a3646cabeba7d3a09d13d4a"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/organism/module-header.tsx": {
+    "mtime": 1780582622.9391184,
+    "ast_hash": "eea73e8ace93002dc5145d96d54dee5f",
+    "semantic_hash": "eea73e8ace93002dc5145d96d54dee5f"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/organism/notification-bell.tsx": {
+    "mtime": 1782481969.4456868,
+    "ast_hash": "34549d0f363c7140ea8be56208709d84",
+    "semantic_hash": "34549d0f363c7140ea8be56208709d84"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/theme-provider.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "3cd89febe6ca9cb784ba567481e50b5d",
+    "semantic_hash": "3cd89febe6ca9cb784ba567481e50b5d"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/util/use-toast.ts": {
+    "mtime": 1758399744.0,
+    "ast_hash": "e7dd05d01709eab20e0c41dd0bd6052c",
+    "semantic_hash": "e7dd05d01709eab20e0c41dd0bd6052c"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/contexts/auth-context.tsx": {
+    "mtime": 1782481969.4459178,
+    "ast_hash": "b5769d2116a0dc858cead85b41582e12",
+    "semantic_hash": "b5769d2116a0dc858cead85b41582e12"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-archivo-rh.ts": {
+    "mtime": 1764174864.0,
+    "ast_hash": "51266a75e423eeeb392da83ce65b2ac3",
+    "semantic_hash": "51266a75e423eeeb392da83ce65b2ac3"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-asignaciones.ts": {
+    "mtime": 1782481969.4462159,
+    "ast_hash": "3e47fa140314c51969ad8dcb4a2f7b4a",
+    "semantic_hash": "3e47fa140314c51969ad8dcb4a2f7b4a"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-asistencia.ts": {
+    "mtime": 1782482661.4149816,
+    "ast_hash": "57fc1fb48731c317c841670d34ac5c5e",
+    "semantic_hash": "57fc1fb48731c317c841670d34ac5c5e"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-atencion-cliente.ts": {
+    "mtime": 1758399744.0,
+    "ast_hash": "d52b3f2c5f0a9d6f66bb19f78096fb2e",
+    "semantic_hash": "d52b3f2c5f0a9d6f66bb19f78096fb2e"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-birthday-check.ts": {
+    "mtime": 1771873885.7262862,
+    "ast_hash": "6906d4bebe5877e8c6864f6c4a4d9cf3",
+    "semantic_hash": "6906d4bebe5877e8c6864f6c4a4d9cf3"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-blog.ts": {
+    "mtime": 1760903641.0,
+    "ast_hash": "d3f12fe59306c4c1a98511e33396c036",
+    "semantic_hash": "d3f12fe59306c4c1a98511e33396c036"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-brigadas-trabajadores.ts": {
+    "mtime": 1758399744.0,
+    "ast_hash": "5e0cb635abdd552bc69850f26662b725",
+    "semantic_hash": "5e0cb635abdd552bc69850f26662b725"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-brigadas.ts": {
+    "mtime": 1758399744.0,
+    "ast_hash": "9f9e716305cedd6589aef148aae9aeb2",
+    "semantic_hash": "9f9e716305cedd6589aef148aae9aeb2"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-caja.ts": {
+    "mtime": 1771530035.3894036,
+    "ast_hash": "7974cf50c7db8c767a4e7e5d7ae6c664",
+    "semantic_hash": "7974cf50c7db8c767a4e7e5d7ae6c664"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-clientes-ventas.ts": {
+    "mtime": 1778514620.320873,
+    "ast_hash": "777028e3658215c5701614a19253dc1f",
+    "semantic_hash": "777028e3658215c5701614a19253dc1f"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-compras.ts": {
+    "mtime": 1782481969.4464407,
+    "ast_hash": "c59852919367e7b4545fb0a07d718d07",
+    "semantic_hash": "c59852919367e7b4545fb0a07d718d07"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-contabilidad.ts": {
+    "mtime": 1774455154.408602,
+    "ast_hash": "04b08efb2fa91b8fd8414cabdcaa70e3",
+    "semantic_hash": "04b08efb2fa91b8fd8414cabdcaa70e3"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-contactos.ts": {
+    "mtime": 1758399744.0,
+    "ast_hash": "a89c5ccd0fd1d810951f6024e047ffa6",
+    "semantic_hash": "a89c5ccd0fd1d810951f6024e047ffa6"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-facturas.ts": {
+    "mtime": 1777489490.4733288,
+    "ast_hash": "43436173381c39cfe3e82bec68215571",
+    "semantic_hash": "43436173381c39cfe3e82bec68215571"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-fichas-costo.ts": {
+    "mtime": 1782481969.4466248,
+    "ast_hash": "0fd5472bfc2fc17806fab08f5ad537e2",
+    "semantic_hash": "0fd5472bfc2fc17806fab08f5ad537e2"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-fuentes-sync.ts": {
+    "mtime": 1771530035.390158,
+    "ast_hash": "7eb1bf543084da34824cbc33cd7ad691",
+    "semantic_hash": "7eb1bf543084da34824cbc33cd7ad691"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-galeriaweb.ts": {
+    "mtime": 1771530035.3905342,
+    "ast_hash": "5adcf284007bcacaf41ec5ae02bb5779",
+    "semantic_hash": "5adcf284007bcacaf41ec5ae02bb5779"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-inventario.ts": {
+    "mtime": 1777578494.0089166,
+    "ast_hash": "850c853011649d02e18745d8981a7d45",
+    "semantic_hash": "850c853011649d02e18745d8981a7d45"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-kardex-costo.ts": {
+    "mtime": 1780519665.976959,
+    "ast_hash": "1c8f38ed2e549ad520f9bacf1e98900b",
+    "semantic_hash": "1c8f38ed2e549ad520f9bacf1e98900b"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-leads.ts": {
+    "mtime": 1778856013.0811565,
+    "ast_hash": "a27c069b624edac69c7d74419e69e5bd",
+    "semantic_hash": "a27c069b624edac69c7d74419e69e5bd"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-marcas.ts": {
+    "mtime": 1771530035.3911948,
+    "ast_hash": "4f1043e586a4a21e2d7e3f18de5409dd",
+    "semantic_hash": "4f1043e586a4a21e2d7e3f18de5409dd"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-materiales-stock.ts": {
+    "mtime": 1779113188.4939113,
+    "ast_hash": "f33868559e9073854c753ed1e14a2a04",
+    "semantic_hash": "f33868559e9073854c753ed1e14a2a04"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-materials.ts": {
+    "mtime": 1778081087.8200169,
+    "ast_hash": "23c1dad4c54a6137d6ea585ed5b49bf4",
+    "semantic_hash": "23c1dad4c54a6137d6ea585ed5b49bf4"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-mobile.tsx": {
+    "mtime": 1758399744.0,
+    "ast_hash": "30b0d44014b262f09fbd7478db0ce44d",
+    "semantic_hash": "30b0d44014b262f09fbd7478db0ce44d"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-modulos-sync.ts": {
+    "mtime": 1780519665.9770272,
+    "ast_hash": "fa75497d6ceb1c3d0717623d55a046c7",
+    "semantic_hash": "fa75497d6ceb1c3d0717623d55a046c7"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-obras-terminadas.ts": {
+    "mtime": 1780519665.9771612,
+    "ast_hash": "8e677b9464f1cef70426827443f85c71",
+    "semantic_hash": "8e677b9464f1cef70426827443f85c71"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-ofertas-confeccion.ts": {
+    "mtime": 1777489490.4740138,
+    "ast_hash": "4a9ccd8bae70bd9fc07c9bd64019312b",
+    "semantic_hash": "4a9ccd8bae70bd9fc07c9bd64019312b"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-ofertas-listado.ts": {
+    "mtime": 1777492285.0982606,
+    "ast_hash": "79438136ffd48cb9d9b6cad4eca19a18",
+    "semantic_hash": "79438136ffd48cb9d9b6cad4eca19a18"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-ofertas-personalizadas.ts": {
+    "mtime": 1777489490.4742572,
+    "ast_hash": "21531b02b49132c0cffd7e39bebc1d28",
+    "semantic_hash": "21531b02b49132c0cffd7e39bebc1d28"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-ofertas.ts": {
+    "mtime": 1761591152.0,
+    "ast_hash": "6c456aee3254c85a9f49495c63bdc517",
+    "semantic_hash": "6c456aee3254c85a9f49495c63bdc517"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-paginated-materials.ts": {
+    "mtime": 1779113188.4941418,
+    "ast_hash": "3613397c9809c5ee04cda302efc6579d",
+    "semantic_hash": "3613397c9809c5ee04cda302efc6579d"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-pagos-clientes-ventas.ts": {
+    "mtime": 1780519665.9772787,
+    "ast_hash": "c6a84efb7f5c78c992e289ca248dd26e",
+    "semantic_hash": "c6a84efb7f5c78c992e289ca248dd26e"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-pagos.ts": {
+    "mtime": 1778857328.9067314,
+    "ast_hash": "abe04139648060b7fe5a4adabf5435b9",
+    "semantic_hash": "abe04139648060b7fe5a4adabf5435b9"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-recursos-humanos.ts": {
+    "mtime": 1782481969.4469268,
+    "ast_hash": "c63cfb6dfffb0b5734525978768a44c7",
+    "semantic_hash": "c63cfb6dfffb0b5734525978768a44c7"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-reservas-ventas.ts": {
+    "mtime": 1776090086.7581134,
+    "ast_hash": "40d86d83fc27e7f2fd091a1df9ea9e15",
+    "semantic_hash": "40d86d83fc27e7f2fd091a1df9ea9e15"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-servicios.ts": {
+    "mtime": 1762648320.0,
+    "ast_hash": "9654f206ee2b700ee05ba6ad4a46f8d6",
+    "semantic_hash": "9654f206ee2b700ee05ba6ad4a46f8d6"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-solicitudes-entrada-almacen.ts": {
+    "mtime": 1782481969.447062,
+    "ast_hash": "dace64d413fdbfa2cbacef5ad2f29123",
+    "semantic_hash": "dace64d413fdbfa2cbacef5ad2f29123"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-solicitudes-materiales.ts": {
+    "mtime": 1774450687.7882717,
+    "ast_hash": "7f1f3c7614ebc0bd0a6f74222e245eda",
+    "semantic_hash": "7f1f3c7614ebc0bd0a6f74222e245eda"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-solicitudes-ventas.ts": {
+    "mtime": 1778010911.406925,
+    "ast_hash": "225531f4fd5638cc536b823b10d6518d",
+    "semantic_hash": "225531f4fd5638cc536b823b10d6518d"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-toast.ts": {
+    "mtime": 1758399744.0,
+    "ast_hash": "e7dd05d01709eab20e0c41dd0bd6052c",
+    "semantic_hash": "e7dd05d01709eab20e0c41dd0bd6052c"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-upload-foto.ts": {
+    "mtime": 1771530035.3918438,
+    "ast_hash": "cc60642bb09865f02c7fae8a27ff1b57",
+    "semantic_hash": "cc60642bb09865f02c7fae8a27ff1b57"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-vales-salida.ts": {
+    "mtime": 1780519665.9780645,
+    "ast_hash": "bc3bc02fa12de403e278b580106cafe3",
+    "semantic_hash": "bc3bc02fa12de403e278b580106cafe3"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-wallet-permisos.ts": {
+    "mtime": 1778514620.3461683,
+    "ast_hash": "61f928f1bff398604aa2e81116502f12",
+    "semantic_hash": "61f928f1bff398604aa2e81116502f12"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/hooks/use-wallet.ts": {
+    "mtime": 1778609821.6928496,
+    "ast_hash": "5e982328951cb3e7ea86b2af37ed4531",
+    "semantic_hash": "5e982328951cb3e7ea86b2af37ed4531"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/api-config.ts": {
+    "mtime": 1782481969.4472406,
+    "ast_hash": "0add2b811f71376819c18f2d2e3835dd",
+    "semantic_hash": "0add2b811f71376819c18f2d2e3835dd"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/api-endpoints.ts": {
+    "mtime": 1780519665.978566,
+    "ast_hash": "2216fa4aa6b216b7843b365e827ba88a",
+    "semantic_hash": "2216fa4aa6b216b7843b365e827ba88a"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/api-services.ts": {
+    "mtime": 1782482649.2413366,
+    "ast_hash": "4e291335c23393c9d699f4f861cf8f07",
+    "semantic_hash": "4e291335c23393c9d699f4f861cf8f07"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/api-types.ts": {
+    "mtime": 1780519665.9789588,
+    "ast_hash": "ff46285b229fe5383765c7cfb9d97ba0",
+    "semantic_hash": "ff46285b229fe5383765c7cfb9d97ba0"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/auth/default-admin-pass.ts": {
+    "mtime": 1780519665.9790735,
+    "ast_hash": "3eb0e3eb8e3f776b77b6a7431e921310",
+    "semantic_hash": "3eb0e3eb8e3f776b77b6a7431e921310"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/blog-types.ts": {
+    "mtime": 1761059571.0,
+    "ast_hash": "402edc9f63eba55d22d2a1f84f4eed76",
+    "semantic_hash": "402edc9f63eba55d22d2a1f84f4eed76"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/brigade-types.ts": {
+    "mtime": 1760973860.0,
+    "ast_hash": "d6a478986d961703d8a067ff86a4dfaf",
+    "semantic_hash": "d6a478986d961703d8a067ff86a4dfaf"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/constants/averia-codigos.ts": {
+    "mtime": 1778254927.6996965,
+    "ast_hash": "4cc411cf1ffc2f038de590394cc188a8",
+    "semantic_hash": "4cc411cf1ffc2f038de590394cc188a8"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/contacto-types.ts": {
+    "mtime": 1760973869.0,
+    "ast_hash": "c1f6965886921b5e5c43d9aeb36cda07",
+    "semantic_hash": "c1f6965886921b5e5c43d9aeb36cda07"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/export-service.ts": {
+    "mtime": 1782481969.4474983,
+    "ast_hash": "567d6deb7f1339fe90d93d304dc2ef50",
+    "semantic_hash": "567d6deb7f1339fe90d93d304dc2ef50"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/facturacion-access.ts": {
+    "mtime": 1777489490.4743168,
+    "ast_hash": "9996906fadb8c4744e8c40e4f315f0f6",
+    "semantic_hash": "9996906fadb8c4744e8c40e4f315f0f6"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/inventario-types.ts": {
+    "mtime": 1780519665.9791818,
+    "ast_hash": "4273ad2d0965f523edd220e8f478c4a3",
+    "semantic_hash": "4273ad2d0965f523edd220e8f478c4a3"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/local-storage-clientes.ts": {
+    "mtime": 1760971503.0,
+    "ast_hash": "060247c366310246f7a0fe0a4de04ffb",
+    "semantic_hash": "060247c366310246f7a0fe0a4de04ffb"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/local-storage-ordenes.ts": {
+    "mtime": 1760971503.0,
+    "ast_hash": "ce50ead1e01473aad756320ff81f7f7c",
+    "semantic_hash": "ce50ead1e01473aad756320ff81f7f7c"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/material-types.ts": {
+    "mtime": 1760973850.0,
+    "ast_hash": "337bfccf340e556bf70325bd88a9955a",
+    "semantic_hash": "337bfccf340e556bf70325bd88a9955a"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/mock-data/customer-service.ts": {
+    "mtime": 1758399744.0,
+    "ast_hash": "1ad3649139d69ca38ae7b4d57562c6ba",
+    "semantic_hash": "1ad3649139d69ca38ae7b4d57562c6ba"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/mock-services/atencion-cliente-mock.ts": {
+    "mtime": 1758399744.0,
+    "ast_hash": "24f826f50f20e824c9565fc4f8aec4f2",
+    "semantic_hash": "24f826f50f20e824c9565fc4f8aec4f2"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/modulos-catalogo.ts": {
+    "mtime": 1782482791.080682,
+    "ast_hash": "248b288eb35d6e834da5212625d661cc",
+    "semantic_hash": "248b288eb35d6e834da5212625d661cc"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/recursos-humanos-types.ts": {
+    "mtime": 1760973879.0,
+    "ast_hash": "fbac579d1e5b7d0c35d4ad9eb1a1de35",
+    "semantic_hash": "fbac579d1e5b7d0c35d4ad9eb1a1de35"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/server/enable-banking.ts": {
+    "mtime": 1773766289.2114878,
+    "ast_hash": "1f5b3fad7b2be2e430df2899845937de",
+    "semantic_hash": "1f5b3fad7b2be2e430df2899845937de"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/server/stripe-payment-links.ts": {
+    "mtime": 1771952526.5401857,
+    "ast_hash": "b117e46df1be76081375338a25c6b42f",
+    "semantic_hash": "b117e46df1be76081375338a25c6b42f"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/asistencia-service.ts": {
+    "mtime": 1761749643.0,
+    "ast_hash": "d829155c4914367573046a6df222b7dc",
+    "semantic_hash": "d829155c4914367573046a6df222b7dc"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/asignaciones/asignacion-service.ts": {
+    "mtime": 1782481969.4478772,
+    "ast_hash": "9898911ebcaf895a383f4f90ce839bc4",
+    "semantic_hash": "9898911ebcaf895a383f4f90ce839bc4"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/asistencia/asistencia-service.ts": {
+    "mtime": 1782482635.3557436,
+    "ast_hash": "d00612dcbca7330676b51d7a40025176",
+    "semantic_hash": "d00612dcbca7330676b51d7a40025176"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/averias/averia-service.ts": {
+    "mtime": 1771530035.393857,
+    "ast_hash": "ed595e86e8054cdd2b547633b865b7ce",
+    "semantic_hash": "ed595e86e8054cdd2b547633b865b7ce"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/blog/blog-service.ts": {
+    "mtime": 1760972340.0,
+    "ast_hash": "36aa6c5731f23fe9c7c09076ec81b30c",
+    "semantic_hash": "36aa6c5731f23fe9c7c09076ec81b30c"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/brigade/brigada-service.ts": {
+    "mtime": 1773671304.0886095,
+    "ast_hash": "becac0719d771d9510b8139bbdbe7db9",
+    "semantic_hash": "becac0719d771d9510b8139bbdbe7db9"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/caja/caja-service.ts": {
+    "mtime": 1771530035.3941643,
+    "ast_hash": "3084bd609ac0133f2f6159a55e74c125",
+    "semantic_hash": "3084bd609ac0133f2f6159a55e74c125"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/caja/recibo-service.ts": {
+    "mtime": 1778863832.0864627,
+    "ast_hash": "da1bc8757d6ae1015a812761f9c60d8d",
+    "semantic_hash": "da1bc8757d6ae1015a812761f9c60d8d"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/calculo-energetico/calculo-energetico-service.ts": {
+    "mtime": 1763482494.0,
+    "ast_hash": "6b6c42bf2af5c27651563450f742faf5",
+    "semantic_hash": "6b6c42bf2af5c27651563450f742faf5"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/centro-control/centro-control-service.ts": {
+    "mtime": 1777910958.5534992,
+    "ast_hash": "54e130af1c5792cac878200b2fdd8165",
+    "semantic_hash": "54e130af1c5792cac878200b2fdd8165"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/clientes-ventas/cliente-venta-service.ts": {
+    "mtime": 1778514620.3216596,
+    "ast_hash": "1d21e644f5dc1ac49259a2f75a56b192",
+    "semantic_hash": "1d21e644f5dc1ac49259a2f75a56b192"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/compras/compra-service.ts": {
+    "mtime": 1782481969.4480498,
+    "ast_hash": "0f6265a917648fc8d49d74b417b84b87",
+    "semantic_hash": "0f6265a917648fc8d49d74b417b84b87"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/contabilidad/contabilidad-service.ts": {
+    "mtime": 1774452400.5057726,
+    "ast_hash": "b9cb52f0c28e4e4a089bd7fd731fd5b2",
+    "semantic_hash": "b9cb52f0c28e4e4a089bd7fd731fd5b2"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/contactos/contacto-service.ts": {
+    "mtime": 1760972096.0,
+    "ast_hash": "3bd65dd6694708fe59c6a84baa9bdfc6",
+    "semantic_hash": "3bd65dd6694708fe59c6a84baa9bdfc6"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/customer-service/atencion-cliente-service.ts": {
+    "mtime": 1760972089.0,
+    "ast_hash": "764041bedb8ee2b87017d92d1abe635a",
+    "semantic_hash": "764041bedb8ee2b87017d92d1abe635a"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/customer/cliente-service.ts": {
+    "mtime": 1780586604.3133717,
+    "ast_hash": "e7cc8f8959c90e4105bc26678f8351bf",
+    "semantic_hash": "e7cc8f8959c90e4105bc26678f8351bf"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/departamentos/departamento-service.ts": {
+    "mtime": 1774450687.7898955,
+    "ast_hash": "8c00e1fb3944870136f978e1baa76141",
+    "semantic_hash": "8c00e1fb3944870136f978e1baa76141"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/facturas/export-factura-contabilidad-service.ts": {
+    "mtime": 1776090086.759467,
+    "ast_hash": "3edbd2e6fb3b2f2ec98fba2e14a55869",
+    "semantic_hash": "3edbd2e6fb3b2f2ec98fba2e14a55869"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/facturas/export-factura-service.ts": {
+    "mtime": 1774450687.789987,
+    "ast_hash": "5da46a3f9c27b592a4e9ad130c8773e0",
+    "semantic_hash": "5da46a3f9c27b592a4e9ad130c8773e0"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/facturas/factura-contabilidad-service.ts": {
+    "mtime": 1773671304.089341,
+    "ast_hash": "cc5a3ecda2447a2b83af556e85c66c3b",
+    "semantic_hash": "cc5a3ecda2447a2b83af556e85c66c3b"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/facturas/factura-service.ts": {
+    "mtime": 1777489490.4752119,
+    "ast_hash": "8f2f1680782a4196cf2639a92f809f1b",
+    "semantic_hash": "8f2f1680782a4196cf2639a92f809f1b"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/fichas-costo/ficha-costo-service.ts": {
+    "mtime": 1782481969.4482203,
+    "ast_hash": "f695c02d9aae08e21086e3d399eba867",
+    "semantic_hash": "f695c02d9aae08e21086e3d399eba867"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/galeriaweb/galeriaweb-service.ts": {
+    "mtime": 1761586815.0,
+    "ast_hash": "055c5d280fae2ade4f0cdcf34f9a92ab",
+    "semantic_hash": "055c5d280fae2ade4f0cdcf34f9a92ab"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/instalaciones/instalaciones-service.ts": {
+    "mtime": 1774533959.3578448,
+    "ast_hash": "a3a8852afe6213f14973f3138ce7d238",
+    "semantic_hash": "a3a8852afe6213f14973f3138ce7d238"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/instalaciones/planificacion-diaria-service.ts": {
+    "mtime": 1777489490.4753385,
+    "ast_hash": "8b1b9edbc1f72f44b08416efe202e9ed",
+    "semantic_hash": "8b1b9edbc1f72f44b08416efe202e9ed"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/instalaciones/trabajos-diarios-service.ts": {
+    "mtime": 1780519665.9797997,
+    "ast_hash": "19ee5c3b6b2629227c26c9cdbcb81cf8",
+    "semantic_hash": "19ee5c3b6b2629227c26c9cdbcb81cf8"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/inventario/inventario-service.ts": {
+    "mtime": 1780586677.7555935,
+    "ast_hash": "318c0ace8e54ae8f7412d0bc11141f89",
+    "semantic_hash": "318c0ace8e54ae8f7412d0bc11141f89"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/kardex-costo/kardex-costo-service.ts": {
+    "mtime": 1780519665.9801078,
+    "ast_hash": "6ed7956c24f5e005c7d69683a6cccbf6",
+    "semantic_hash": "6ed7956c24f5e005c7d69683a6cccbf6"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/leads/lead-service.ts": {
+    "mtime": 1774450687.790989,
+    "ast_hash": "024d0632307e3afb3381184fd2c8a9e6",
+    "semantic_hash": "024d0632307e3afb3381184fd2c8a9e6"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/marcas/marca-service.ts": {
+    "mtime": 1771530035.3979301,
+    "ast_hash": "e4143ffc6f5e8a16d559f9c8f9952053",
+    "semantic_hash": "e4143ffc6f5e8a16d559f9c8f9952053"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/materials/material-service.ts": {
+    "mtime": 1779113188.4948087,
+    "ast_hash": "f7d820c90c15c7f6cae7d346a7864ba1",
+    "semantic_hash": "f7d820c90c15c7f6cae7d346a7864ba1"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/materials/upload-foto-service.ts": {
+    "mtime": 1771530035.3982866,
+    "ast_hash": "cbcd23d34520fb589625f9094e5b4322",
+    "semantic_hash": "cbcd23d34520fb589625f9094e5b4322"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/notificaciones/notificacion-service.ts": {
+    "mtime": 1780519665.980223,
+    "ast_hash": "c84f2f2f2cd794514c3518aade39d87b",
+    "semantic_hash": "c84f2f2f2cd794514c3518aade39d87b"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/obras-terminadas/export-factura-cliente-service.ts": {
+    "mtime": 1780519665.9803555,
+    "ast_hash": "e282e1c918709cd36b34ce6bccbea49e",
+    "semantic_hash": "e282e1c918709cd36b34ce6bccbea49e"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/obras-terminadas/obras-terminadas-service.ts": {
+    "mtime": 1780519665.9804919,
+    "ast_hash": "fb8e9fee81ddff3a7bc77aeda7f9b14f",
+    "semantic_hash": "fb8e9fee81ddff3a7bc77aeda7f9b14f"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/ofertas-personalizadas/oferta-personalizada-service.ts": {
+    "mtime": 1762648277.0,
+    "ast_hash": "b0efcc6097f09872895174913a84af00",
+    "semantic_hash": "b0efcc6097f09872895174913a84af00"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/ofertas-venta/export-oferta-venta-service.ts": {
+    "mtime": 1780586677.7558155,
+    "ast_hash": "824ccab204dd1aa207b8947ff691300b",
+    "semantic_hash": "824ccab204dd1aa207b8947ff691300b"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/ofertas-venta/oferta-venta-service.ts": {
+    "mtime": 1778514620.322475,
+    "ast_hash": "2832c6d9f166a8050e151669e05ec300",
+    "semantic_hash": "2832c6d9f166a8050e151669e05ec300"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/ofertas/oferta-service.ts": {
+    "mtime": 1761591376.0,
+    "ast_hash": "6c1d1a5b6077264b8ce4463790561cd3",
+    "semantic_hash": "6c1d1a5b6077264b8ce4463790561cd3"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/pagos-clientes-ventas/export-factura-venta-consolidada-service.ts": {
+    "mtime": 1780519665.9806366,
+    "ast_hash": "8f243206769137595eec726e84211131",
+    "semantic_hash": "8f243206769137595eec726e84211131"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/pagos-clientes-ventas/export-facturas-excel-service.ts": {
+    "mtime": 1782481969.448396,
+    "ast_hash": "c271fe0f5f1e6c8bf3970e5285256496",
+    "semantic_hash": "c271fe0f5f1e6c8bf3970e5285256496"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/pagos-clientes-ventas/pago-cliente-venta-service.ts": {
+    "mtime": 1780519665.9814548,
+    "ast_hash": "0cfb9e4f1affa2dfe2d84441d2f6b34e",
+    "semantic_hash": "0cfb9e4f1affa2dfe2d84441d2f6b34e"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/pagos-clientes-ventas/ticket-factura-venta-service.ts": {
+    "mtime": 1778598806.7335973,
+    "ast_hash": "1d218198a5a00dcef45213b45bb35f9c",
+    "semantic_hash": "1d218198a5a00dcef45213b45bb35f9c"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/pagos/export-comprobante-devolucion-service.ts": {
+    "mtime": 1776090086.7598224,
+    "ast_hash": "ed0a76f5f719665b0f8c9ef5cc56e2b9",
+    "semantic_hash": "ed0a76f5f719665b0f8c9ef5cc56e2b9"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/pagos/export-comprobante-service.ts": {
+    "mtime": 1773671304.0928438,
+    "ast_hash": "340a59ae8490446a7bd7cb2a5c9fa289",
+    "semantic_hash": "340a59ae8490446a7bd7cb2a5c9fa289"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/pagos/pago-service.ts": {
+    "mtime": 1780519665.9815965,
+    "ast_hash": "169193a56dcd2e2c41394865a42a04ce",
+    "semantic_hash": "169193a56dcd2e2c41394865a42a04ce"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/pagos/pagos-service.ts": {
+    "mtime": 1778856013.1061223,
+    "ast_hash": "a1585d437f5b4f322b0ce8f21efcf1cf",
+    "semantic_hash": "a1585d437f5b4f322b0ce8f21efcf1cf"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/permisos/permisos-service.ts": {
+    "mtime": 1773671304.0932856,
+    "ast_hash": "6ad30d1692ee58c2d21b9c6ccd31d6fd",
+    "semantic_hash": "6ad30d1692ee58c2d21b9c6ccd31d6fd"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/recursos-humanos/archivo-rh-service.ts": {
+    "mtime": 1764174864.0,
+    "ast_hash": "97b40c19698b6e92054fa8a955082f51",
+    "semantic_hash": "97b40c19698b6e92054fa8a955082f51"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/recursos-humanos/ingreso-mensual-service.ts": {
+    "mtime": 1761141738.0,
+    "ast_hash": "b070be70f2df6285d55a0206b3465c74",
+    "semantic_hash": "b070be70f2df6285d55a0206b3465c74"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/recursos-humanos/recursos-humanos-service.ts": {
+    "mtime": 1760972148.0,
+    "ast_hash": "517474ba91bbcdc4e0acebf0dd69a986",
+    "semantic_hash": "517474ba91bbcdc4e0acebf0dd69a986"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/reportes-ventas/export-facturas-comercial-excel-service.ts": {
+    "mtime": 1780519665.9821126,
+    "ast_hash": "0133de2333ec9ffddbd5b848d36a9371",
+    "semantic_hash": "0133de2333ec9ffddbd5b848d36a9371"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/reportes-ventas/resultados-comercial-service.ts": {
+    "mtime": 1778856013.0880735,
+    "ast_hash": "d238ddd111bb4a6743e37a2212db1a6b",
+    "semantic_hash": "d238ddd111bb4a6743e37a2212db1a6b"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/reservas-ventas/reserva-venta-service.ts": {
+    "mtime": 1776090086.7601066,
+    "ast_hash": "8414de35bd506ec71fb935202717d68e",
+    "semantic_hash": "8414de35bd506ec71fb935202717d68e"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/sedes/sede-service.ts": {
+    "mtime": 1774450687.7915678,
+    "ast_hash": "a3f5c31b09c132b3e75e5d087ac101f9",
+    "semantic_hash": "a3f5c31b09c132b3e75e5d087ac101f9"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/servicios/servicio-service.ts": {
+    "mtime": 1762648260.0,
+    "ast_hash": "3339a141b12ae51304d723a22379ffa8",
+    "semantic_hash": "3339a141b12ae51304d723a22379ffa8"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/solicitudes-entrada-almacen/solicitud-entrada-almacen-service.ts": {
+    "mtime": 1782481969.4485226,
+    "ast_hash": "980d6dde037128452a132e83fdf2682a",
+    "semantic_hash": "980d6dde037128452a132e83fdf2682a"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/solicitudes-materiales/solicitud-material-service.ts": {
+    "mtime": 1774450687.7917457,
+    "ast_hash": "cfc2a356dd496ca0c18f5faccb0d49bd",
+    "semantic_hash": "cfc2a356dd496ca0c18f5faccb0d49bd"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/solicitudes-ventas/export-solicitud-venta-word-service.ts": {
+    "mtime": 1777489490.477871,
+    "ast_hash": "a4ba7213f010ef6b20dde2497bce6047",
+    "semantic_hash": "a4ba7213f010ef6b20dde2497bce6047"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/solicitudes-ventas/export-solicitudes-ventas-excel-service.ts": {
+    "mtime": 1782481969.4486573,
+    "ast_hash": "720df7488d2791b783b3e8b741dfd1fb",
+    "semantic_hash": "720df7488d2791b783b3e8b741dfd1fb"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/solicitudes-ventas/solicitud-venta-service.ts": {
+    "mtime": 1782481969.4489768,
+    "ast_hash": "86dc50c6bfdbbbe73d5d80c5a425d792",
+    "semantic_hash": "86dc50c6bfdbbbe73d5d80c5a425d792"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/tasa-cambio/tasa-cambio-service.ts": {
+    "mtime": 1780519665.9830663,
+    "ast_hash": "2fd83bd4f5966f408ae47fad1ac8e6f3",
+    "semantic_hash": "2fd83bd4f5966f408ae47fad1ac8e6f3"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/terminos-service.ts": {
+    "mtime": 1774450687.7921112,
+    "ast_hash": "16362e4f0147c0b459ba17c06f57ff3d",
+    "semantic_hash": "16362e4f0147c0b459ba17c06f57ff3d"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/vales-salida/creadores-solicitud-service.ts": {
+    "mtime": 1780519665.983221,
+    "ast_hash": "a273f17b4bc1778995e108e1d3126502",
+    "semantic_hash": "a273f17b4bc1778995e108e1d3126502"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/vales-salida/devolucion-vale-service.ts": {
+    "mtime": 1774450687.7921944,
+    "ast_hash": "fd2d82d9a91e1fe3f2e4fa3101c31b8b",
+    "semantic_hash": "fd2d82d9a91e1fe3f2e4fa3101c31b8b"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/vales-salida/export-vale-salida-service.ts": {
+    "mtime": 1782481969.449161,
+    "ast_hash": "c8e11819bbcbfa04544f86e47d2be0e9",
+    "semantic_hash": "c8e11819bbcbfa04544f86e47d2be0e9"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/vales-salida/export-vales-salida-list-excel-service.ts": {
+    "mtime": 1782481969.4493113,
+    "ast_hash": "8d1b0b2e9305edf2d6b7204f7cdf73f2",
+    "semantic_hash": "8d1b0b2e9305edf2d6b7204f7cdf73f2"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/vales-salida/vale-salida-service.ts": {
+    "mtime": 1780519665.984165,
+    "ast_hash": "1ab4826cb9fab9d14d02cd83f5f6ef99",
+    "semantic_hash": "1ab4826cb9fab9d14d02cd83f5f6ef99"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/wallet-manager/wallet-permiso-service.ts": {
+    "mtime": 1778514620.3465338,
+    "ast_hash": "dbccf0aa03427374ba08da1ddc99f682",
+    "semantic_hash": "dbccf0aa03427374ba08da1ddc99f682"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/wallet/wallet-service.ts": {
+    "mtime": 1779113188.5132554,
+    "ast_hash": "2438f1bb9e1ae8eebc1f31f4101bd55b",
+    "semantic_hash": "2438f1bb9e1ae8eebc1f31f4101bd55b"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/services/feats/worker/trabajador-service.ts": {
+    "mtime": 1782481969.4494462,
+    "ast_hash": "1f88828d930226534a95a51592c88754",
+    "semantic_hash": "1f88828d930226534a95a51592c88754"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/asistencia-types.ts": {
+    "mtime": 1782482619.2947438,
+    "ast_hash": "a6182ec4e6ef8a6fa1d9b1f90b5401fd",
+    "semantic_hash": "a6182ec4e6ef8a6fa1d9b1f90b5401fd"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/calculo-energetico-types.ts": {
+    "mtime": 1780519733.699565,
+    "ast_hash": "d358c3f5c8862e5143495f2658d666a5",
+    "semantic_hash": "d358c3f5c8862e5143495f2658d666a5"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/asignaciones/asignacion-types.ts": {
+    "mtime": 1782481969.449593,
+    "ast_hash": "f65170d1b593d471ad1909177dd5ed2c",
+    "semantic_hash": "f65170d1b593d471ad1909177dd5ed2c"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/averias/averia-types.ts": {
+    "mtime": 1780519665.9844177,
+    "ast_hash": "9da9b99c8dc111f2764f1899545f7842",
+    "semantic_hash": "9da9b99c8dc111f2764f1899545f7842"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/blog/blog-types.ts": {
+    "mtime": 1761059562.0,
+    "ast_hash": "2a734a218ba8d61dfb3508e37f1b9ee1",
+    "semantic_hash": "2a734a218ba8d61dfb3508e37f1b9ee1"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/brigade/brigade-types.ts": {
+    "mtime": 1780586604.3148203,
+    "ast_hash": "c0edfc423d1a6f8a91fe3d5b6d02eb36",
+    "semantic_hash": "c0edfc423d1a6f8a91fe3d5b6d02eb36"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/caja-types.ts": {
+    "mtime": 1771530035.3996747,
+    "ast_hash": "1c73bb70a4fab2bcf0b890968101ca41",
+    "semantic_hash": "1c73bb70a4fab2bcf0b890968101ca41"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/centro-control/centro-control-types.ts": {
+    "mtime": 1780519665.9845185,
+    "ast_hash": "9f8972dd4fc8e1519ff04416f5657ebd",
+    "semantic_hash": "9f8972dd4fc8e1519ff04416f5657ebd"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/clientes-ventas/cliente-venta-types.ts": {
+    "mtime": 1778514620.3237243,
+    "ast_hash": "021958cb8a2c8bc7fe1cce5dcecffa63",
+    "semantic_hash": "021958cb8a2c8bc7fe1cce5dcecffa63"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/compras/compra-types.ts": {
+    "mtime": 1782481969.4498525,
+    "ast_hash": "eb0f7a7ed07377a855bdfecbd07918a6",
+    "semantic_hash": "eb0f7a7ed07377a855bdfecbd07918a6"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/contabilidad/contabilidad-types.ts": {
+    "mtime": 1774452381.142543,
+    "ast_hash": "8b56386ba371a3b77592a7be0eaa8738",
+    "semantic_hash": "8b56386ba371a3b77592a7be0eaa8738"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/contactos/contacto-types.ts": {
+    "mtime": 1760973788.0,
+    "ast_hash": "5a74e166878264381d415e2012c5857f",
+    "semantic_hash": "5a74e166878264381d415e2012c5857f"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/customer-service/customer-service-types.ts": {
+    "mtime": 1760973742.0,
+    "ast_hash": "15e8fe92ce2491a5a4c8a949faaec0e2",
+    "semantic_hash": "15e8fe92ce2491a5a4c8a949faaec0e2"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/customer/cliente-types.ts": {
+    "mtime": 1777910958.5256119,
+    "ast_hash": "e6a1d4fdc4f99455e7dce8259a8f41de",
+    "semantic_hash": "e6a1d4fdc4f99455e7dce8259a8f41de"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/departamentos/departamento-types.ts": {
+    "mtime": 1773866769.479339,
+    "ast_hash": "ee44e65b85b1b10752d43868b9eea949",
+    "semantic_hash": "ee44e65b85b1b10752d43868b9eea949"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/facturas/factura-types.ts": {
+    "mtime": 1777493768.379491,
+    "ast_hash": "085bd96bd7c87458b580ab0c900d313f",
+    "semantic_hash": "085bd96bd7c87458b580ab0c900d313f"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/fichas-costo/ficha-costo-types.ts": {
+    "mtime": 1782481969.4500027,
+    "ast_hash": "0b70ab159b65751d673e147d54f292c2",
+    "semantic_hash": "0b70ab159b65751d673e147d54f292c2"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/galeriaweb/galeriaweb-types.ts": {
+    "mtime": 1761586815.0,
+    "ast_hash": "17e646f9acaca53dd9099ba500d10adf",
+    "semantic_hash": "17e646f9acaca53dd9099ba500d10adf"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/instalaciones/instalaciones-types.ts": {
+    "mtime": 1774533959.3582413,
+    "ast_hash": "5be9ccd2bafd3908433b3ef31b89d5eb",
+    "semantic_hash": "5be9ccd2bafd3908433b3ef31b89d5eb"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/instalaciones/planificacion-trabajos-types.ts": {
+    "mtime": 1777489490.4786282,
+    "ast_hash": "95735a61e850392686e1691f62b68ed1",
+    "semantic_hash": "95735a61e850392686e1691f62b68ed1"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/instalaciones/trabajos-diarios-types.ts": {
+    "mtime": 1780519665.9847424,
+    "ast_hash": "617d946a04975d69b74daa6baa277369",
+    "semantic_hash": "617d946a04975d69b74daa6baa277369"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/inventario/inventario-types.ts": {
+    "mtime": 1780519665.9848735,
+    "ast_hash": "c75c73086533481c3c83a2a57c62c4af",
+    "semantic_hash": "c75c73086533481c3c83a2a57c62c4af"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/inventario/stock-minimo-types.ts": {
+    "mtime": 1773781303.1207488,
+    "ast_hash": "f030e2ff016eebcd9015b1a18ed99462",
+    "semantic_hash": "f030e2ff016eebcd9015b1a18ed99462"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/kardex-costo/kardex-costo-types.ts": {
+    "mtime": 1782481969.4502058,
+    "ast_hash": "64c9070ee9d116232ccf66a5aa8aa585",
+    "semantic_hash": "64c9070ee9d116232ccf66a5aa8aa585"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/leads/lead-types.ts": {
+    "mtime": 1778856013.0894654,
+    "ast_hash": "b0c30b6086f6a598ea6d3e886955c778",
+    "semantic_hash": "b0c30b6086f6a598ea6d3e886955c778"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/marcas/marca-types.ts": {
+    "mtime": 1771530035.4004478,
+    "ast_hash": "d91c236b4ed638ffb9d3d59c1ef3fd74",
+    "semantic_hash": "d91c236b4ed638ffb9d3d59c1ef3fd74"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/materials/material-types.ts": {
+    "mtime": 1782481969.4503312,
+    "ast_hash": "bf9413e7bae2c28de8145b299eb665fc",
+    "semantic_hash": "bf9413e7bae2c28de8145b299eb665fc"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/ofertas-personalizadas/oferta-personalizada-types.ts": {
+    "mtime": 1764362571.0,
+    "ast_hash": "f499641a3b67a375f1cb3ac846b56dd8",
+    "semantic_hash": "f499641a3b67a375f1cb3ac846b56dd8"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/ofertas-venta/oferta-venta-types.ts": {
+    "mtime": 1779113188.4959357,
+    "ast_hash": "0686eee8daa0e80453421c99316ce1d3",
+    "semantic_hash": "0686eee8daa0e80453421c99316ce1d3"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/ofertas/oferta-types.ts": {
+    "mtime": 1761591129.0,
+    "ast_hash": "0954d8d46ebbbde98c39e07dfa2de032",
+    "semantic_hash": "0954d8d46ebbbde98c39e07dfa2de032"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/pagos-clientes-ventas/pago-cliente-venta-types.ts": {
+    "mtime": 1780519665.985094,
+    "ast_hash": "5bb8c5d66bc4396877348156e7fb5c46",
+    "semantic_hash": "5bb8c5d66bc4396877348156e7fb5c46"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/pagos/pago-types.ts": {
+    "mtime": 1771530035.4013338,
+    "ast_hash": "8262f18c8536acbc9cc1be7faebd8009",
+    "semantic_hash": "8262f18c8536acbc9cc1be7faebd8009"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/permisos/permisos-types.ts": {
+    "mtime": 1762806635.0,
+    "ast_hash": "ae085d8fdebe55a943b6a183a40ad2d0",
+    "semantic_hash": "ae085d8fdebe55a943b6a183a40ad2d0"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/recursos-humanos/archivo-rh-types.ts": {
+    "mtime": 1764174864.0,
+    "ast_hash": "e453d4f92062debba3f27c273ae43fda",
+    "semantic_hash": "e453d4f92062debba3f27c273ae43fda"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/recursos-humanos/recursos-humanos-types.ts": {
+    "mtime": 1780586604.3151367,
+    "ast_hash": "57899f48aca1b211454444757d51fb1d",
+    "semantic_hash": "57899f48aca1b211454444757d51fb1d"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/reportes-comercial/reportes-comercial-types.ts": {
+    "mtime": 1773671304.095571,
+    "ast_hash": "144ddb43936bc697d7ae4571542dcdff",
+    "semantic_hash": "144ddb43936bc697d7ae4571542dcdff"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/reportes-ventas/reportes-ventas-types.ts": {
+    "mtime": 1778856013.0905046,
+    "ast_hash": "85deffa342aba8fe69ab975d22b89804",
+    "semantic_hash": "85deffa342aba8fe69ab975d22b89804"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/reservas-ventas/reserva-venta-types.ts": {
+    "mtime": 1780519665.9852118,
+    "ast_hash": "1e715f369b57fd783e1a5c3919f78080",
+    "semantic_hash": "1e715f369b57fd783e1a5c3919f78080"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/sedes/sede-types.ts": {
+    "mtime": 1773866769.4799714,
+    "ast_hash": "93cd2b2c7f366f61b10174e9eed5392f",
+    "semantic_hash": "93cd2b2c7f366f61b10174e9eed5392f"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/servicios/servicio-types.ts": {
+    "mtime": 1762648221.0,
+    "ast_hash": "95904dd28540e8ce0fe3c3f171c775fc",
+    "semantic_hash": "95904dd28540e8ce0fe3c3f171c775fc"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/solicitudes-entrada-almacen/solicitud-entrada-almacen-types.ts": {
+    "mtime": 1782481969.4506233,
+    "ast_hash": "0228b3d6797ce9d626ac4a2383f3fdc5",
+    "semantic_hash": "0228b3d6797ce9d626ac4a2383f3fdc5"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/solicitudes-materiales/solicitud-material-types.ts": {
+    "mtime": 1777489490.479522,
+    "ast_hash": "b7a09e54d96076d97ced5b17b0db4e1f",
+    "semantic_hash": "b7a09e54d96076d97ced5b17b0db4e1f"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/solicitudes-ventas/solicitud-venta-types.ts": {
+    "mtime": 1782481969.4508626,
+    "ast_hash": "bf2e528382602d59f37ea4f92781e713",
+    "semantic_hash": "bf2e528382602d59f37ea4f92781e713"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/tasa-cambio/tasa-cambio-types.ts": {
+    "mtime": 1776090086.7621129,
+    "ast_hash": "78faaad2d0fdfec624bb426e2d004d6b",
+    "semantic_hash": "78faaad2d0fdfec624bb426e2d004d6b"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/trabajador/birthday-types.ts": {
+    "mtime": 1780586604.3153348,
+    "ast_hash": "52724f1f6df91d8765a60ba7f53824e8",
+    "semantic_hash": "52724f1f6df91d8765a60ba7f53824e8"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/vales-salida/vale-salida-types.ts": {
+    "mtime": 1780519665.9863892,
+    "ast_hash": "a05826b67526d4eb33d590be5964d075",
+    "semantic_hash": "a05826b67526d4eb33d590be5964d075"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/wallet-manager/wallet-permiso-types.ts": {
+    "mtime": 1779113188.5137875,
+    "ast_hash": "350eb3bd1e3c9e4a3b7a85c80b941ab5",
+    "semantic_hash": "350eb3bd1e3c9e4a3b7a85c80b941ab5"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/feats/wallet/wallet-types.ts": {
+    "mtime": 1778598806.7517245,
+    "ast_hash": "1bbe66b584479e104e8e3149c35b1a93",
+    "semantic_hash": "1bbe66b584479e104e8e3149c35b1a93"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/types/jspdf-autotable.d.ts": {
+    "mtime": 1761141738.0,
+    "ast_hash": "fe01f00ccf7c0530364fe0309d3d5b33",
+    "semantic_hash": "fe01f00ccf7c0530364fe0309d3d5b33"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/utils.ts": {
+    "mtime": 1758399744.0,
+    "ast_hash": "5a6fd53fdcf2be529e9cc0b718fde352",
+    "semantic_hash": "5a6fd53fdcf2be529e9cc0b718fde352"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/utils/brigada-converters.ts": {
+    "mtime": 1758399744.0,
+    "ast_hash": "759ed8310361ba9bfe734bea51f01b87",
+    "semantic_hash": "759ed8310361ba9bfe734bea51f01b87"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/utils/download-file.ts": {
+    "mtime": 1761157586.0,
+    "ast_hash": "111916f86f14b826962470d4f7875c78",
+    "semantic_hash": "111916f86f14b826962470d4f7875c78"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/utils/fecha-recogida.ts": {
+    "mtime": 1773693060.1707456,
+    "ast_hash": "8f7035c10694e96f723d8eb4aeb1df2e",
+    "semantic_hash": "8f7035c10694e96f723d8eb4aeb1df2e"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/utils/fuentes-sync.ts": {
+    "mtime": 1771530035.4024847,
+    "ast_hash": "fbd2e66a9b67e9b4abdd286c3475e51c",
+    "semantic_hash": "fbd2e66a9b67e9b4abdd286c3475e51c"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/utils/generar-opciones-exportacion-oferta.ts": {
+    "mtime": 1771530035.4025636,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/utils/image-optimizer.ts": {
+    "mtime": 1773671304.0963864,
+    "ast_hash": "181d74ea42aa02784c8b12fe8819a40c",
+    "semantic_hash": "181d74ea42aa02784c8b12fe8819a40c"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/utils/migrate-fuentes.ts": {
+    "mtime": 1773671304.096629,
+    "ast_hash": "3be4fce2496a59a19a2afb52929576d1",
+    "semantic_hash": "3be4fce2496a59a19a2afb52929576d1"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/utils/object-id.ts": {
+    "mtime": 1773866769.4801102,
+    "ast_hash": "d0fc5d66dd314240d0a534b30d7c3a33",
+    "semantic_hash": "d0fc5d66dd314240d0a534b30d7c3a33"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/utils/oferta-confeccion-items.ts": {
+    "mtime": 1778856013.0910077,
+    "ast_hash": "4df98635a7e5941c0dd763e55a3588d2",
+    "semantic_hash": "4df98635a7e5941c0dd763e55a3588d2"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/utils/oferta-id.ts": {
+    "mtime": 1771955139.297227,
+    "ast_hash": "0b72104635c762bd0c04d3bd2a569cde",
+    "semantic_hash": "0b72104635c762bd0c04d3bd2a569cde"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/utils/string-utils.test.ts": {
+    "mtime": 1761141943.0,
+    "ast_hash": "7ac0a98048e2c66e58bf47c10afc1ce0",
+    "semantic_hash": "7ac0a98048e2c66e58bf47c10afc1ce0"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/utils/string-utils.ts": {
+    "mtime": 1761141943.0,
+    "ast_hash": "03af25536dfdafc9d4694935a33782ef",
+    "semantic_hash": "03af25536dfdafc9d4694935a33782ef"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/utils/terminos-condiciones-export.ts": {
+    "mtime": 1773680820.4525495,
+    "ast_hash": "708cd8ade2bcf79d8c2d817396959f9e",
+    "semantic_hash": "708cd8ade2bcf79d8c2d817396959f9e"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/next.config.mjs": {
+    "mtime": 1780519665.986647,
+    "ast_hash": "a9978e170bfc34eb9a08d66436de9421",
+    "semantic_hash": "a9978e170bfc34eb9a08d66436de9421"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/package.json": {
+    "mtime": 1777490421.527682,
+    "ast_hash": "3747615b4792b6699c689dd1bc70667f",
+    "semantic_hash": "3747615b4792b6699c689dd1bc70667f"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/postcss.config.mjs": {
+    "mtime": 1758399744.0,
+    "ast_hash": "b7941c02b947e17ae32f67ae7e664ec8",
+    "semantic_hash": "b7941c02b947e17ae32f67ae7e664ec8"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/tailwind.config.ts": {
+    "mtime": 1780582622.9463673,
+    "ast_hash": "d9f417af3ed3da2b2568ee0931c12013",
+    "semantic_hash": "d9f417af3ed3da2b2568ee0931c12013"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/tsconfig.json": {
+    "mtime": 1758399744.0,
+    "ast_hash": "38ecd4531c7b67c69f668ab912eb0052",
+    "semantic_hash": "38ecd4531c7b67c69f668ab912eb0052"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/.kiro/specs/lead-details-dialog-redesign/design.md": {
+    "mtime": 1771530035.2729442,
+    "ast_hash": "69f157c5ef084074fddac5a5e780d6d0",
+    "semantic_hash": "69f157c5ef084074fddac5a5e780d6d0"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/.kiro/specs/lead-details-dialog-redesign/requirements.md": {
+    "mtime": 1771530035.2733135,
+    "ast_hash": "946befca3f72dbbf817a22bd143546cc",
+    "semantic_hash": "946befca3f72dbbf817a22bd143546cc"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/AGENTS.md": {
+    "mtime": 1773854892.260842,
+    "ast_hash": "59c3709291b511c8fb415fc9b031c9c0",
+    "semantic_hash": "59c3709291b511c8fb415fc9b031c9c0"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/CLAUDE.md": {
+    "mtime": 1771530035.286515,
+    "ast_hash": "666ceacb532e55ab379270ce79aae135",
+    "semantic_hash": "666ceacb532e55ab379270ce79aae135"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/EJEMPLO_PROBLEMA_COMERCIALES.md": {
+    "mtime": 1780586604.309775,
+    "ast_hash": "01d62c8d9a0f5494c26589a49a0ae197",
+    "semantic_hash": "01d62c8d9a0f5494c26589a49a0ae197"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/OPTIMIZACIONES_PENDIENTES.md": {
+    "mtime": 1780586604.310223,
+    "ast_hash": "19a1d518f9668ad81033825e482c4be8",
+    "semantic_hash": "19a1d518f9668ad81033825e482c4be8"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/analisis de cambios.md": {
+    "mtime": 1782481969.4286857,
+    "ast_hash": "de2e0b02c40d368f346a478e3e67665f",
+    "semantic_hash": "de2e0b02c40d368f346a478e3e67665f"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/components/shared/molecule/SMART_PAGINATION.md": {
+    "mtime": 1772036728.0058372,
+    "ast_hash": "db43817b40bc4e825832e4a0af9b0c9c",
+    "semantic_hash": "db43817b40bc4e825832e4a0af9b0c9c"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/lib/mock-data/README.md": {
+    "mtime": 1758399744.0,
+    "ast_hash": "ff701b2e4836b1057c97e5872a10e438",
+    "semantic_hash": "ff701b2e4836b1057c97e5872a10e438"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/apple-icon.png": {
+    "mtime": 1758399743.0,
+    "ast_hash": "316bdfe8f9b97ba6654e5eae765eb9a1",
+    "semantic_hash": "316bdfe8f9b97ba6654e5eae765eb9a1"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/icon0.svg": {
+    "mtime": 1758399743.0,
+    "ast_hash": "36e74eafb9e1f23e232d958183c80058",
+    "semantic_hash": "36e74eafb9e1f23e232d958183c80058"
+  },
+  "/Users/ruben/projects/Suncar Org/SunCarAdmin/app/icon1.png": {
+    "mtime": 1758399743.0,
+    "ast_hash": "fe71dd13928d65f22aeab98e7431abee",
+    "semantic_hash": "fe71dd13928d65f22aeab98e7431abee"
+  }
+}
