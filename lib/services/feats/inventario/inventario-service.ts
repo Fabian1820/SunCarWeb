@@ -359,6 +359,12 @@ export class InventarioService {
       pool_destino: isPoolKey(raw?.pool_destino) ? raw.pool_destino : undefined,
       motivo: asString(raw?.motivo),
       referencia: asString(raw?.referencia),
+      referencia_tipo: asString(raw?.referencia_tipo),
+      referencia_label: asString(raw?.referencia_label),
+      referencia_detalle:
+        raw?.referencia_detalle && typeof raw.referencia_detalle === "object"
+          ? (raw.referencia_detalle as Record<string, unknown>)
+          : undefined,
       fecha:
         asString(raw?.fecha) ||
         asString(raw?.created_at) ||

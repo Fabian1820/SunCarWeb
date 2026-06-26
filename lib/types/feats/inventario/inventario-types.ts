@@ -93,6 +93,9 @@ export interface MovimientoInventario {
   pool_destino?: PoolStockKey;
   motivo?: string;
   referencia?: string;
+  referencia_tipo?: string;
+  referencia_label?: string;
+  referencia_detalle?: Record<string, unknown>;
   fecha?: string;
   usuario?: string;
 }

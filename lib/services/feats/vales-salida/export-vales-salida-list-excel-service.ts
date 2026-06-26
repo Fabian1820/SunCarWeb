@@ -66,15 +66,11 @@ const formatDateDDMMYYYY = (value?: string | null): string => {
   }
 };
 
-const formatMaterialNombre = (m: ValeSalidaSummaryMaterial): string => {
-  const nombre =
-    m.material_descripcion || m.material_codigo || m.material_id || "";
-  const codigo =
-    m.material_codigo && m.material_codigo !== nombre
-      ? ` [${m.material_codigo}]`
-      : "";
-  return `${nombre}${codigo}`.trim();
-};
+const formatMaterialCodigo = (m: ValeSalidaSummaryMaterial): string =>
+  m.material_codigo || m.material_id || "";
+
+const formatMaterialNombre = (m: ValeSalidaSummaryMaterial): string =>
+  (m.material_descripcion || m.material_codigo || m.material_id || "").trim();
 
 interface ExportValesOptions {
   almacenId?: string;
@@ -143,6 +139,7 @@ export class ExportValesSalidaListExcelService {
         materiales_resumen:
           vale.materiales_resumen ||
           (materiales.length > 0 ? `${materiales.length} materiales` : ""),
+        material_codigo: materiales.map((m) => formatMaterialCodigo(m)),
         material: materiales.map((m) => formatMaterialNombre(m)),
         cantidad: materiales.map((m) => Number(m.cantidad) || 0),
         precio_venta: materiales.map((m) => fmtPrecio(preciosDe(m).precio)),
@@ -196,6 +193,7 @@ export class ExportValesSalidaListExcelService {
         { header: "Creador de la solicitud", key: "creador_solicitud", width: 24 },
         { header: "Recibido por", key: "recibido_por", width: 22 },
         { header: "Materiales", key: "materiales_resumen", width: 14 },
+        { header: "Código", key: "material_codigo", width: 16 },
         { header: "Material", key: "material", width: 36 },
         { header: "Cantidad", key: "cantidad", width: 10 },
         { header: "Precio venta", key: "precio_venta", width: 12 },
@@ -205,7 +203,7 @@ export class ExportValesSalidaListExcelService {
         { header: "Fecha recogida", key: "fecha_recogida", width: 14 },
       ],
       data: rows,
-      stackedColumnKeys: ["material", "cantidad", "precio_venta", "precio_instaladora", "costo"],
+      stackedColumnKeys: ["material_codigo", "material", "cantidad", "precio_venta", "precio_instaladora", "costo"],
     });
 
     return { count: vales.length, filename };

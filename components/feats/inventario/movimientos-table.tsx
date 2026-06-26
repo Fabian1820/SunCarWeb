@@ -28,6 +28,26 @@ const tipoClassNames: Record<string, string> = {
   venta: "bg-purple-50 text-purple-700 border-purple-200",
 }
 
+const referenciaTipoTitulo: Record<string, string> = {
+  vale_salida: "Vale de salida",
+  devolucion_vale: "Devolución de vale",
+  solicitud_entrada: "Solicitud de entrada",
+  solicitud_transferencia: "Solicitud de transferencia",
+}
+
+function formatFecha(value: unknown): string | undefined {
+  if (value === null || value === undefined || value === "") return undefined
+  const d = new Date(String(value))
+  if (Number.isNaN(d.getTime())) return String(value)
+  return d.toLocaleString("es-ES", { dateStyle: "medium", timeStyle: "short" })
+}
+
+function formatBool(value: unknown): string | undefined {
+  if (value === true) return "Sí"
+  if (value === false) return "No"
+  return undefined
+}
+
 function DetalleRow({ label, value, children }: { label: string; value?: string | number | null; children?: React.ReactNode }) {
   if (!children && (value === undefined || value === null || value === "" || value === "-")) return null
   return (
@@ -75,6 +95,47 @@ export function MovimientosTable({ movimientos, materials = [], almacenes = [] }
   const selectedNombre = selectedMaterial?.nombre || (selectedEmbedded?.nombre as string | undefined)
   const selectedDescripcion = selectedMaterial?.descripcion || (selectedEmbedded?.descripcion as string | undefined) || selected?.material_descripcion
   const selectedUm = selectedMaterial?.um || (selectedEmbedded?.um as string | undefined)
+
+  const refDetalleRows = useMemo(() => {
+    const d = (selected?.referencia_detalle as Record<string, any> | undefined) || undefined
+    const tipo = selected?.referencia_tipo
+    if (!d || !tipo) return [] as { label: string; value?: string | number | null }[]
+    const rows: { label: string; value?: string | number | null }[] = []
+    if (tipo === "vale_salida" || tipo === "devolucion_vale") {
+      rows.push({ label: "Código", value: d.codigo })
+      rows.push({ label: "Estado", value: d.estado })
+      rows.push({ label: "Tipo de solicitud", value: d.solicitud_tipo })
+      rows.push({ label: "Recogido por", value: d.recogido_por })
+      rows.push({ label: "Creado por (CI)", value: d.creado_por_ci })
+      rows.push({ label: "Facturado", value: formatBool(d.facturado) })
+      rows.push({ label: "Materiales", value: d.total_materiales })
+      rows.push({ label: "Fecha de creación", value: formatFecha(d.fecha_creacion) })
+    } else if (tipo === "solicitud_entrada") {
+      rows.push({ label: "Origen", value: d.origen })
+      rows.push({ label: "Estado", value: d.estado })
+      rows.push({ label: "Almacén", value: d.almacen_id ? resolveAlmacenNombre(undefined, d.almacen_id) : undefined })
+      rows.push({ label: "Compra", value: d.compra_id })
+      rows.push({ label: "Consignación", value: d.consignacion_id })
+      rows.push({ label: "Materiales", value: d.total_materiales })
+      rows.push({ label: "Creado por (CI)", value: d.creado_por_ci })
+      rows.push({ label: "Aprobado por (CI)", value: d.aprobado_por_ci })
+      rows.push({ label: "Fecha de creación", value: formatFecha(d.fecha_creacion) })
+      rows.push({ label: "Fecha de resolución", value: formatFecha(d.fecha_resolucion) })
+    } else if (tipo === "solicitud_transferencia") {
+      rows.push({ label: "Referencia", value: d.referencia })
+      rows.push({ label: "Motivo", value: d.motivo })
+      rows.push({ label: "Estado", value: d.estado })
+      rows.push({ label: "Almacén origen", value: d.almacen_origen_id ? resolveAlmacenNombre(undefined, d.almacen_origen_id) : undefined })
+      rows.push({ label: "Almacén destino", value: d.almacen_destino_id ? resolveAlmacenNombre(undefined, d.almacen_destino_id) : undefined })
+      rows.push({ label: "Solicitante", value: d.solicitante })
+      rows.push({ label: "Aprobador", value: d.aprobador })
+      rows.push({ label: "Materiales", value: d.total_materiales })
+      rows.push({ label: "Fecha de solicitud", value: formatFecha(d.fecha_solicitud) })
+      rows.push({ label: "Fecha de resolución", value: formatFecha(d.fecha_resolucion) })
+    }
+    return rows
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, almacenPorId])
 
   if (movimientos.length === 0) {
     return (
@@ -169,7 +230,7 @@ export function MovimientosTable({ movimientos, materials = [], almacenes = [] }
                     )}
                   </td>
                   <td className="py-3 px-4">
-                    <div className="text-sm text-gray-700">{mov.referencia || mov.motivo || "-"}</div>
+                    <div className="text-sm text-gray-700">{mov.referencia_label || mov.referencia || mov.motivo || "-"}</div>
                   </td>
                   <td className="py-3 px-4">
                     <Button
@@ -209,7 +270,7 @@ export function MovimientosTable({ movimientos, materials = [], almacenes = [] }
                   <DetalleRow label="Fecha" value={selected.fecha} />
                   <DetalleRow label="Cantidad" value={selected.cantidad != null ? `${selected.cantidad}${selected.um ? ` ${selected.um}` : ""}` : undefined} />
                   <DetalleRow label="Motivo" value={selected.motivo} />
-                  <DetalleRow label="Referencia" value={selected.referencia} />
+                  <DetalleRow label="Referencia" value={selected.referencia_label || selected.referencia} />
                   <DetalleRow label="Usuario" value={selected.usuario} />
                   {selected.tipo === "transferencia" ? (
                     <>
@@ -223,6 +284,20 @@ export function MovimientosTable({ movimientos, materials = [], almacenes = [] }
                   )}
                 </div>
               </div>
+
+              {/* Documento de referencia */}
+              {refDetalleRows.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+                    {(selected.referencia_tipo && referenciaTipoTitulo[selected.referencia_tipo]) || "Documento de referencia"}
+                  </h3>
+                  <div className="bg-gray-50 rounded-lg px-4 py-1">
+                    {refDetalleRows.map((row) => (
+                      <DetalleRow key={row.label} label={row.label} value={row.value} />
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Material */}
               <div>

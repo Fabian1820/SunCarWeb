@@ -120,6 +120,7 @@ export default function AlmacenDetallePage() {
   const [historialTipo, setHistorialTipo] = useState("");
   const [historialFechaDesde, setHistorialFechaDesde] = useState("");
   const [historialFechaHasta, setHistorialFechaHasta] = useState("");
+  const [exportingMovimientos, setExportingMovimientos] = useState(false);
 
   // ── Dialogs ──────────────────────────────────────────────────
   const [isEntradaDialogOpen, setIsEntradaDialogOpen] = useState(false);
@@ -537,6 +538,103 @@ export default function AlmacenDetallePage() {
     }
   };
 
+  const handleExportMovimientosExcel = async () => {
+    if (!almacen) return;
+    setExportingMovimientos(true);
+    try {
+      const normalizeValue = (value: unknown): string | number => {
+        if (typeof value === "number") return value;
+        if (typeof value === "boolean") return value ? "Sí" : "No";
+        if (value === null || value === undefined || value === "") return "-";
+        return String(value);
+      };
+      const fmtFecha = (value: unknown): string => {
+        if (!value) return "-";
+        const d = new Date(String(value));
+        if (Number.isNaN(d.getTime())) return String(value);
+        return d.toLocaleString("es-ES", { dateStyle: "short", timeStyle: "short" });
+      };
+      const almacenNombrePorId = new Map<string, string>();
+      for (const a of almacenesList) if (a.id) almacenNombrePorId.set(a.id, a.nombre);
+      const resolveAlmacen = (nombre?: string, id?: string) =>
+        nombre || (id ? almacenNombrePorId.get(id) || id : "");
+
+      // Fetch all filtered records in batches of 200 (backend max limit), omitiendo la paginación de la vista.
+      const EXPORT_BATCH = 200;
+      const filters = {
+        almacen_id: almacenId,
+        busqueda: historialSearch || undefined,
+        tipo: historialTipo || undefined,
+        fecha_desde: historialFechaDesde ? `${historialFechaDesde}T00:00:00` : undefined,
+        fecha_hasta: historialFechaHasta ? `${historialFechaHasta}T23:59:59` : undefined,
+      };
+      const firstBatch = await InventarioService.getMovimientos({ ...filters, skip: 0, limit: EXPORT_BATCH });
+      const total = firstBatch.total;
+      const allMovimientos = [...firstBatch.data];
+      if (total > EXPORT_BATCH) {
+        const remaining = Math.ceil((total - EXPORT_BATCH) / EXPORT_BATCH);
+        for (let i = 1; i <= remaining; i++) {
+          const batch = await InventarioService.getMovimientos({ ...filters, skip: i * EXPORT_BATCH, limit: EXPORT_BATCH });
+          allMovimientos.push(...batch.data);
+        }
+      }
+
+      await exportToExcel({
+        title: "Suncar SRL - Movimientos de Almacén",
+        subtitle: `${almacen.nombre} | Registros: ${total}`,
+        filename: generateFilename(`movimientos_${String(almacen.nombre || almacen.id || "almacen").trim().replace(/\s+/g, "_").toLowerCase()}`),
+        columns: [
+          { header: "Fecha", key: "fecha", width: 20 },
+          { header: "Tipo", key: "tipo", width: 16 },
+          { header: "Código", key: "material_codigo", width: 18 },
+          { header: "Material", key: "material_nombre", width: 32 },
+          { header: "Cantidad", key: "cantidad", width: 12 },
+          { header: "UM", key: "um", width: 10 },
+          { header: "Origen", key: "origen", width: 24 },
+          { header: "Destino", key: "destino", width: 24 },
+          { header: "Referencia", key: "referencia", width: 30 },
+          { header: "Motivo", key: "motivo", width: 30 },
+          { header: "Usuario", key: "usuario", width: 18 },
+        ],
+        data: allMovimientos.map((mov) => {
+          const codigo = String(mov.material_codigo || "").trim().toLowerCase();
+          const material = materialPorCodigo.get(codigo);
+          const embedded = (mov.material as Record<string, any> | undefined) || undefined;
+          const nombreMaterial =
+            material?.nombre || material?.descripcion ||
+            (embedded?.nombre as string | undefined) || (embedded?.descripcion as string | undefined) ||
+            mov.material_descripcion || mov.material_codigo;
+          const origen = mov.tipo === "venta"
+            ? "-"
+            : resolveAlmacen(mov.almacen_origen_nombre, mov.almacen_origen_id);
+          const destino = mov.tipo === "transferencia"
+            ? resolveAlmacen(mov.almacen_destino_nombre, mov.almacen_destino_id)
+            : mov.tipo === "venta"
+              ? (mov.tienda_nombre || mov.tienda_id || "-")
+              : "-";
+          return {
+            fecha: fmtFecha(mov.fecha),
+            tipo: normalizeValue(mov.tipo),
+            material_codigo: normalizeValue(material?.codigo || (embedded?.codigo as string | undefined) || mov.material_codigo),
+            material_nombre: normalizeValue(nombreMaterial),
+            cantidad: typeof mov.cantidad === "number" ? mov.cantidad : normalizeValue(mov.cantidad),
+            um: normalizeValue(mov.um || material?.um),
+            origen: normalizeValue(origen),
+            destino: normalizeValue(destino),
+            referencia: normalizeValue(mov.referencia_label || mov.referencia || mov.motivo),
+            motivo: normalizeValue(mov.motivo),
+            usuario: normalizeValue(mov.usuario),
+          };
+        }),
+      });
+      toast({ title: "Exportación exitosa", description: `Se exportaron ${allMovimientos.length} movimientos a Excel.` });
+    } catch (err: any) {
+      toast({ title: "Error al exportar", description: err?.message || "No se pudo exportar el historial a Excel.", variant: "destructive" });
+    } finally {
+      setExportingMovimientos(false);
+    }
+  };
+
   // ── Render ────────────────────────────────────────────────────
   if (loading) return <PageLoader moduleName="Almacén" text="Cargando detalles..." />;
 
@@ -884,6 +982,17 @@ export default function AlmacenDetallePage() {
                     )}
                   </div>
                   <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleExportMovimientosExcel}
+                      disabled={exportingMovimientos || movimientosTotal === 0}
+                      className="gap-2 border-green-200 text-green-700 hover:bg-green-50"
+                      title="Exportar todos los movimientos filtrados a Excel"
+                    >
+                      {exportingMovimientos ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
+                      Exportar Excel
+                    </Button>
                     <Button
                       variant="outline"
                       size="sm"
