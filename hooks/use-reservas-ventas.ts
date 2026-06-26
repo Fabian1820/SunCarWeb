@@ -40,7 +40,6 @@ export function useReservasVentas(): UseReservasVentasReturn {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFiltersState] = useState<ReservaListParams>({
-    origen: "ventas",
     skip: 0,
     limit: 100,
   });

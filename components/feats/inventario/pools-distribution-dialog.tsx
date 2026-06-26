@@ -236,14 +236,14 @@ export function PoolsDistributionDialog({
           {sinPools ? (
             <div className="rounded-lg border border-dashed border-gray-200 py-6 px-4 text-center space-y-2">
               <Package className="h-8 w-8 text-gray-300 mx-auto" />
-              <p className="text-sm text-gray-500">Sin distribución por pool todavía.</p>
+              <p className="text-sm text-gray-500">Sin distribución por sector todavía.</p>
               {((cantidadTotal ?? totales.cantidad) > 0) && (
                 <p className="text-xs text-gray-400">
                   Stock total: <strong className="text-gray-700">{cantidadTotal ?? totales.cantidad}{um ? ` ${um}` : ""}</strong>
                 </p>
               )}
               <p className="text-[11px] text-gray-400">
-                Los pools se llenan al aprobar solicitudes de entrada al almacén con el split correspondiente. Mientras tanto este stock se considera Indistinto.
+                Los sectores se llenan al aprobar solicitudes de entrada al almacén con el split correspondiente. Mientras tanto este stock se considera Común.
               </p>
             </div>
           ) : (
@@ -312,7 +312,7 @@ export function PoolsDistributionDialog({
 
               {mostrarReserva && totales.reservada > 0 && (
                 <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 flex items-center justify-between">
-                  <span>Total reservado en todos los pools</span>
+                  <span>Total reservado en todos los sectores</span>
                   <span className="font-semibold">{totales.reservada}{um ? ` ${um}` : ""}</span>
                 </div>
               )}
@@ -326,7 +326,7 @@ export function PoolsDistributionDialog({
                   className="w-full gap-2 border-indigo-300 text-indigo-700 hover:bg-indigo-50"
                 >
                   <ArrowRightLeft className="h-4 w-4" />
-                  Transferir entre pools
+                  Transferir entre sectores
                 </Button>
               )}
 
@@ -334,12 +334,12 @@ export function PoolsDistributionDialog({
               {habilitarTraspaso && mostrarForm && (
                 <div className="rounded-lg border border-indigo-200 bg-indigo-50/40 p-4 space-y-3">
                   <p className="text-xs font-semibold text-indigo-800 uppercase tracking-wide">
-                    Transferir entre pools
+                    Transferir entre sectores
                   </p>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div className="space-y-1">
-                      <Label className="text-[11px] text-gray-600">Pool origen</Label>
+                      <Label className="text-[11px] text-gray-600">Sector origen</Label>
                       <Select value={poolOrigen} onValueChange={(v) => setPoolOrigen(v as PoolStockKey)} disabled={enviando}>
                         <SelectTrigger className="h-9 bg-white">
                           <SelectValue />
@@ -354,7 +354,7 @@ export function PoolsDistributionDialog({
                       </Select>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[11px] text-gray-600">Pool destino</Label>
+                      <Label className="text-[11px] text-gray-600">Sector destino</Label>
                       <Select value={poolDestino} onValueChange={(v) => setPoolDestino(v as PoolStockKey)} disabled={enviando}>
                         <SelectTrigger className="h-9 bg-white">
                           <SelectValue />
@@ -434,7 +434,7 @@ export function PoolsDistributionDialog({
               )}
 
               <p className="text-[11px] text-gray-400 leading-relaxed border-t border-gray-100 pt-3">
-                <strong className="text-gray-500">Indistinto</strong> disponible para cualquier sector.
+                <strong className="text-gray-500">Común</strong> disponible para ambos sectores.
                 <strong className="text-gray-500"> Instaladora</strong> reservado para vales de instalación.
                 <strong className="text-gray-500"> Ventas</strong> reservado para tiendas.
               </p>

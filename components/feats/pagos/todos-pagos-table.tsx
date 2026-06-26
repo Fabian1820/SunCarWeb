@@ -28,19 +28,27 @@ import {
   Receipt,
   FileText,
   Search,
+  Pencil,
 } from "lucide-react";
-import type { OfertaConPagos } from "@/lib/services/feats/pagos/pago-service";
+import type {
+  OfertaConPagos,
+  Pago,
+} from "@/lib/services/feats/pagos/pago-service";
 import { ExportComprobanteService } from "@/lib/services/feats/pagos/export-comprobante-service";
 import { ExportComprobanteDevolucionService } from "@/lib/services/feats/pagos/export-comprobante-devolucion-service";
 import { FacturaContabilidadService } from "@/lib/services/feats/facturas/factura-contabilidad-service";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
+import { puedeEditarCobro } from "@/lib/constants/pagos-permisos";
+import { EditarPagoDialog } from "./editar-pago-dialog";
+import { PagoTrazabilidad } from "./pago-trazabilidad";
 
 interface TodosPagosTableProps {
   ofertasConPagos: OfertaConPagos[];
   loading: boolean;
   showSearch?: boolean;
   onFacturaCreada?: () => void | Promise<void>;
+  onPagoUpdated?: () => void | Promise<void>;
 }
 
 const toCleanString = (value: unknown): string | null => {
@@ -199,9 +207,11 @@ export function TodosPagosTable({
   loading,
   showSearch = true,
   onFacturaCreada,
+  onPagoUpdated,
 }: TodosPagosTableProps) {
   const { toast } = useToast();
   const { user } = useAuth();
+  const puedeEditar = puedeEditarCobro(user?.ci);
   const [expandedOfertas, setExpandedOfertas] = useState<Set<string>>(
     new Set(),
   );
@@ -215,6 +225,25 @@ export function TodosPagosTable({
   const [nombreFactura, setNombreFactura] = useState("");
   const [fechaEmision, setFechaEmision] = useState(getTodayInputDate);
   const [creandoFactura, setCreandoFactura] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [pagoParaEditar, setPagoParaEditar] = useState<Pago | null>(null);
+  const [ofertaPagoParaEditar, setOfertaPagoParaEditar] =
+    useState<OfertaConPagos | null>(null);
+
+  const handleOpenEditDialog = (oferta: OfertaConPagos, pago: Pago) => {
+    setOfertaPagoParaEditar(oferta);
+    setPagoParaEditar(pago);
+    setEditDialogOpen(true);
+  };
+
+  const handleEditSuccess = async () => {
+    setEditDialogOpen(false);
+    setPagoParaEditar(null);
+    setOfertaPagoParaEditar(null);
+    if (onPagoUpdated) {
+      await onPagoUpdated();
+    }
+  };
 
   // Filtrar ofertas según búsqueda
   const filteredOfertas = useMemo(() => {
@@ -1024,8 +1053,28 @@ export function TodosPagosTable({
                                         </div>
                                       )}
 
-                                      {/* Botón de exportar comprobante */}
-                                      <div className="pt-1">
+                                      {/* Trazabilidad de edición */}
+                                      <PagoTrazabilidad
+                                        pago={pago}
+                                        className="pt-1"
+                                      />
+
+                                      {/* Acciones del cobro */}
+                                      <div className="pt-1 space-y-1">
+                                        {puedeEditar && (
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleOpenEditDialog(oferta, pago);
+                                            }}
+                                            className="w-full h-7 text-xs text-blue-700 border-blue-300 hover:bg-blue-50"
+                                          >
+                                            <Pencil className="h-3 w-3 mr-1" />
+                                            Editar cobro
+                                          </Button>
+                                        )}
                                         <Button
                                           variant="outline"
                                           size="sm"
@@ -1159,6 +1208,16 @@ export function TodosPagosTable({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {puedeEditar && pagoParaEditar && ofertaPagoParaEditar && (
+        <EditarPagoDialog
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          pago={pagoParaEditar}
+          oferta={ofertaPagoParaEditar}
+          onSuccess={handleEditSuccess}
+        />
+      )}
     </div>
   );
 }

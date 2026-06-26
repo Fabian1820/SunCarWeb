@@ -25,7 +25,7 @@ const tipoOptions: { value: InventarioMovimientoTipo; label: string }[] = [
   { value: "entrada", label: "Entrada" },
   { value: "salida", label: "Salida" },
   { value: "transferencia", label: "Transferencia entre almacenes" },
-  { value: "traspaso_sector", label: "Traspaso entre pools (mismo almacén)" },
+  { value: "traspaso_sector", label: "Traspaso entre sectores (mismo almacén)" },
   { value: "ajuste", label: "Ajuste" },
   { value: "venta", label: "Venta" },
   { value: "eliminacion", label: "Eliminación" },
@@ -112,7 +112,7 @@ export function MovimientoForm({ almacenes, tiendas, materiales, defaultTipo = "
         return false
       }
       if (formData.pool_origen === formData.pool_destino) {
-        setError("El pool destino debe ser diferente al origen")
+        setError("El sector destino debe ser diferente al origen")
         return false
       }
     } else if (formData.tipo === "venta") {
@@ -261,11 +261,11 @@ export function MovimientoForm({ almacenes, tiendas, materiales, defaultTipo = "
         {muestraPoolSimple && (
           <div>
             <Label className="text-sm font-medium text-gray-700 mb-2 block">
-              Pool {formData.tipo === "transferencia" ? "(se aplica en ambos almacenes)" : ""}
+              Sector {formData.tipo === "transferencia" ? "(se aplica en ambos almacenes)" : ""}
             </Label>
             <Select value={formData.pool} onValueChange={(value) => setFormData({ ...formData, pool: value as PoolStockKey })}>
               <SelectTrigger>
-                <SelectValue placeholder="Seleccionar pool" />
+                <SelectValue placeholder="Seleccionar sector" />
               </SelectTrigger>
               <SelectContent>
                 {POOLS_STOCK.map(p => (
@@ -279,10 +279,10 @@ export function MovimientoForm({ almacenes, tiendas, materiales, defaultTipo = "
         {esTraspaso && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <Label className="text-sm font-medium text-gray-700 mb-2 block">Pool origen *</Label>
+              <Label className="text-sm font-medium text-gray-700 mb-2 block">Sector origen *</Label>
               <Select value={formData.pool_origen} onValueChange={(value) => setFormData({ ...formData, pool_origen: value as PoolStockKey })}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Pool origen" />
+                  <SelectValue placeholder="Sector origen" />
                 </SelectTrigger>
                 <SelectContent>
                   {POOLS_STOCK.map(p => (
@@ -292,10 +292,10 @@ export function MovimientoForm({ almacenes, tiendas, materiales, defaultTipo = "
               </Select>
             </div>
             <div>
-              <Label className="text-sm font-medium text-gray-700 mb-2 block">Pool destino *</Label>
+              <Label className="text-sm font-medium text-gray-700 mb-2 block">Sector destino *</Label>
               <Select value={formData.pool_destino} onValueChange={(value) => setFormData({ ...formData, pool_destino: value as PoolStockKey })}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Pool destino" />
+                  <SelectValue placeholder="Sector destino" />
                 </SelectTrigger>
                 <SelectContent>
                   {POOLS_STOCK.map(p => (

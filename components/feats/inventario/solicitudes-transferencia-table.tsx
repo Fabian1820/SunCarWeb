@@ -32,11 +32,13 @@ import {
 import { InventarioService } from "@/lib/api-services"
 import type {
   Almacen,
+  MaterialFaltante,
   SolicitudTransferencia,
   SolicitudTransferenciaEstado,
 } from "@/lib/inventario-types"
 import type { Material } from "@/lib/material-types"
 import { useAuth } from "@/contexts/auth-context"
+import { useToast } from "@/hooks/use-toast"
 import { SolicitudTransferenciaDialog } from "./solicitud-transferencia-dialog"
 
 interface SolicitudesTransferenciaTableProps {
@@ -107,6 +109,7 @@ export function SolicitudesTransferenciaTable({
   onResolved,
 }: SolicitudesTransferenciaTableProps) {
   const { user } = useAuth()
+  const { toast } = useToast()
   const [solicitudes, setSolicitudes] = useState<SolicitudTransferencia[]>([])
   const [loading, setLoading] = useState(true)
   const [estadoFilter, setEstadoFilter] = useState<string>("all")
@@ -119,6 +122,8 @@ export function SolicitudesTransferenciaTable({
   } | null>(null)
   const [comentario, setComentario] = useState("")
   const [resolving, setResolving] = useState(false)
+  // Materiales con faltante en origen devueltos por el backend al aprobar.
+  const [faltantes, setFaltantes] = useState<MaterialFaltante[]>([])
   // Id de la solicitud colgada que se está resolviendo (boton "Resolver")
   const [resolvingColgada, setResolvingColgada] = useState<string | null>(null)
 
@@ -166,6 +171,7 @@ export function SolicitudesTransferenciaTable({
   const handleResolve = async () => {
     if (!resolveDialog) return
     setResolving(true)
+    setFaltantes([])
     try {
       if (resolveDialog.action === "aprobar") {
         await InventarioService.aprobarSolicitudTransferencia(
@@ -184,6 +190,22 @@ export function SolicitudesTransferenciaTable({
       onResolved?.()
     } catch (err) {
       console.error("Error resolving solicitud:", err)
+      const errFaltantes = (err as { faltantes?: MaterialFaltante[] })?.faltantes
+      if (Array.isArray(errFaltantes) && errFaltantes.length > 0) {
+        // Mantener el diálogo abierto y listar los materiales en falta debajo.
+        setFaltantes(errFaltantes)
+      }
+      toast({
+        title:
+          resolveDialog.action === "aprobar"
+            ? "No se pudo aprobar la solicitud"
+            : "No se pudo denegar la solicitud",
+        description:
+          err instanceof Error
+            ? err.message
+            : "Ocurrió un error inesperado. Intenta nuevamente.",
+        variant: "destructive",
+      })
     } finally {
       setResolving(false)
     }
@@ -199,6 +221,14 @@ export function SolicitudesTransferenciaTable({
       onResolved?.()
     } catch (err) {
       console.error("Error resolviendo solicitud colgada:", err)
+      toast({
+        title: "No se pudo resolver la solicitud",
+        description:
+          err instanceof Error
+            ? err.message
+            : "Ocurrió un error inesperado. Intenta nuevamente.",
+        variant: "destructive",
+      })
     } finally {
       setResolvingColgada(null)
     }
@@ -546,6 +576,7 @@ export function SolicitudesTransferenciaTable({
           if (!open) {
             setResolveDialog(null)
             setComentario("")
+            setFaltantes([])
           }
         }}
       >
@@ -583,7 +614,57 @@ export function SolicitudesTransferenciaTable({
               </div>
             )}
 
-            {resolveDialog?.action === "aprobar" && (
+            {faltantes.length > 0 && (
+              <div className="text-sm bg-red-50 border border-red-200 p-3 rounded-md space-y-2">
+                <p className="font-medium text-red-700">
+                  No hay stock suficiente en el almacén origen para{" "}
+                  {faltantes.length} material(es):
+                </p>
+                <ul className="space-y-2">
+                  {faltantes.map((f) => (
+                    <li
+                      key={f.material_id}
+                      className="flex items-center gap-3 bg-white rounded-md p-2 border border-red-100"
+                    >
+                      {f.foto ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={f.foto}
+                          alt={f.nombre || f.codigo}
+                          className="h-10 w-10 rounded object-cover flex-shrink-0 border"
+                        />
+                      ) : (
+                        <div className="h-10 w-10 rounded bg-gray-100 flex items-center justify-center flex-shrink-0">
+                          <Package className="h-5 w-5 text-gray-400" />
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-gray-900 truncate">
+                          {f.nombre || "(sin nombre)"}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Código: {f.codigo}
+                        </p>
+                      </div>
+                      <div className="text-right text-xs flex-shrink-0">
+                        <p className="text-red-600 font-medium">
+                          Faltan{" "}
+                          {Math.max(
+                            0,
+                            f.cantidad_solicitada - f.cantidad_disponible,
+                          )}
+                        </p>
+                        <p className="text-gray-500">
+                          {f.cantidad_disponible} / {f.cantidad_solicitada}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {resolveDialog?.action === "aprobar" && faltantes.length === 0 && (
               <div className="text-sm text-amber-700 bg-amber-50 p-3 rounded-md">
                 Al aprobar, el stock se moverá automáticamente del almacén
                 origen al destino.

@@ -129,7 +129,7 @@ export function DevolucionValeDialog({
 
   const valeId = vale?.id || "";
   const valeBloqueado =
-    !vale || vale.estado === "anulado" || vale.facturado === true;
+    !vale || vale.estado === "anulado";
 
   const resetMaterialesDesdeResumen = useCallback(
     (materiales: DevolucionValeResumenMaterial[]) => {
@@ -366,9 +366,7 @@ export function DevolucionValeDialog({
         <div className="space-y-6">
           {valeBloqueado ? (
             <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-              {vale?.estado === "anulado"
-                ? "No se puede crear devoluciones para un vale anulado."
-                : "No se puede crear devoluciones para un vale ya facturado."}
+              No se puede crear devoluciones para un vale anulado.
             </div>
           ) : null}
 

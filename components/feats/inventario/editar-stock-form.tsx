@@ -116,7 +116,7 @@ export function EditarStockForm({ almacen, item, onSubmit, onCancel }: EditarSto
         {/* Distribución actual por pool (contexto para el ajuste). El ajuste solo
             modifica el pool seleccionado; los otros se conservan. */}
         <div>
-          <Label className="text-sm font-medium text-gray-700 mb-2 block">Distribución actual por pool</Label>
+          <Label className="text-sm font-medium text-gray-700 mb-2 block">Distribución actual por sector</Label>
           <div className="grid grid-cols-3 gap-2">
             {POOLS_STOCK.map((p) => (
               <div
@@ -135,10 +135,10 @@ export function EditarStockForm({ almacen, item, onSubmit, onCancel }: EditarSto
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <Label className="text-sm font-medium text-gray-700 mb-2 block">Pool a ajustar *</Label>
+            <Label className="text-sm font-medium text-gray-700 mb-2 block">Sector a ajustar *</Label>
             <Select value={pool} onValueChange={handlePoolChange}>
               <SelectTrigger>
-                <SelectValue placeholder="Selecciona el pool" />
+                <SelectValue placeholder="Selecciona el sector" />
               </SelectTrigger>
               <SelectContent>
                 {POOLS_STOCK.map((p) => (
@@ -161,7 +161,7 @@ export function EditarStockForm({ almacen, item, onSubmit, onCancel }: EditarSto
               value={cantidad}
               onChange={(event) => setCantidad(event.target.value)}
             />
-            <p className="text-[11px] text-gray-400 mt-1">Actual en este pool: {poolActual}</p>
+            <p className="text-[11px] text-gray-400 mt-1">Actual en este sector: {poolActual}</p>
           </div>
         </div>
 

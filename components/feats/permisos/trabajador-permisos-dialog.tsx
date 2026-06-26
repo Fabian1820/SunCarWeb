@@ -299,6 +299,11 @@ export function TrabajadorPermisosDialog({
             </p>
             {m.subPermisos.map((sp) => {
               const tieneSub = permisosSeleccionados.has(sp.key)
+              // Sub-permiso aditivo (ej: almacenes-suncar/admin): es una capacidad
+              // EXTRA, no la concede el padre, así que se marca/desmarca de forma
+              // independiente. Los sub-permisos subconjunto (facturas/*, etc.) sí
+              // los arrastra el "acceso completo": checked+disabled cuando el padre.
+              const heredadoDelPadre = tieneAcceso && !sp.aditivo
               return (
                 <div
                   key={sp.key}
@@ -306,8 +311,8 @@ export function TrabajadorPermisosDialog({
                 >
                   <Checkbox
                     id={`sub-${sp.key}`}
-                    checked={tieneSub || tieneAcceso}
-                    disabled={tieneAcceso}
+                    checked={tieneSub || heredadoDelPadre}
+                    disabled={heredadoDelPadre}
                     onCheckedChange={(checked) =>
                       togglePermiso(sp.key, Boolean(checked))
                     }
@@ -315,7 +320,7 @@ export function TrabajadorPermisosDialog({
                   <Label
                     htmlFor={`sub-${sp.key}`}
                     className={`flex-1 cursor-pointer text-sm ${
-                      tieneAcceso ? "text-gray-400" : "text-gray-700"
+                      heredadoDelPadre ? "text-gray-400" : "text-gray-700"
                     }`}
                   >
                     {sp.label}

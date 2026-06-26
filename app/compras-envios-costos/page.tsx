@@ -34,7 +34,7 @@ const SUB_MODULES: SubModule[] = [
     id: "solicitudes-entrada-almacen",
     href: "/solicitudes-entrada-almacen",
     title: "Solicitudes de Entrada",
-    description: "Recepción de materiales de compra al almacén con split por pool.",
+    description: "Recepción de materiales de compra al almacén con split por sector.",
     icon: PackagePlus,
     iconClass: "text-blue-600",
   },

@@ -131,6 +131,17 @@ export type SubPermiso = {
   key: string
   label: string
   descripcion?: string
+  /**
+   * Si es true, el sub-permiso es ADITIVO (capacidad extra), no un subconjunto
+   * del padre: tener el módulo padre NO lo concede. Hay que asignarlo
+   * explícitamente. Útil para privilegios elevados dentro de un módulo —
+   * p.ej. `almacenes-suncar/admin` (movimientos manuales de inventario): el
+   * almacenero base ve el almacén pero NO los botones; solo el admin sí.
+   *
+   * Por defecto (false/undefined) el sub-permiso es un SUBCONJUNTO: tener el
+   * padre lo concede automáticamente (p.ej. `facturas/*`, `trabajos:*`).
+   */
+  aditivo?: boolean
 }
 
 export type ModuloCatalogo = {
@@ -190,6 +201,15 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
   },
 
   // ───────── Comercial Instaladora ─────────
+  {
+    key: "reservas-instaladora",
+    label: "Reservas Instaladora",
+    descripcion: "Ver reservas de materiales de proyectos de instalación (se crean desde la oferta de confección).",
+    icon: BookmarkCheck,
+    iconClass: "text-orange-600",
+    href: "/reservas-ventas?vista=instaladora",
+    grupo: "comercial-instaladora",
+  },
   {
     key: "leads",
     label: "Gestionar Leads Instaladora",
@@ -470,6 +490,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
       {
         key: "almacenes-suncar/admin",
         label: "Almacenes (admin) — ajustes manuales de inventario",
+        aditivo: true,
       },
     ],
   },

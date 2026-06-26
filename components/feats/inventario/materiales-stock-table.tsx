@@ -497,7 +497,7 @@ export function MaterialesStockTable({
                                     key={pa.almacen_id}
                                     role="button"
                                     tabIndex={0}
-                                    title="Ver distribución por pool"
+                                    title="Ver distribución por sector"
                                     onClick={() =>
                                       setPoolsDialog({
                                         open: true,

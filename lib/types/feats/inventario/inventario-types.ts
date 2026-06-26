@@ -22,7 +22,7 @@ export interface StockPools {
 }
 
 export const POOL_STOCK_LABELS: Record<PoolStockKey, string> = {
-  indistinto: "Indistinto",
+  indistinto: "Común",
   instaladora: "Instaladora",
   ventas: "Ventas",
 };
@@ -186,6 +186,17 @@ export interface SolicitudTransferenciaItem {
   // Backend-enriched live stock at almacen_origen_id at GET/PUT time.
   // null if lookup failed; 0 if material has no stock in that almacén.
   stock_disponible_actual?: number | null;
+}
+
+// Material con faltante de stock en el almacén origen al intentar aprobar una
+// transferencia. El backend devuelve la lista COMPLETA (no solo el primero).
+export interface MaterialFaltante {
+  material_id: string;
+  codigo: string;
+  nombre?: string | null;
+  foto?: string | null;
+  cantidad_solicitada: number;
+  cantidad_disponible: number;
 }
 
 export interface SolicitudTransferencia {

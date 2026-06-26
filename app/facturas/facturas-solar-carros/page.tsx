@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import jsPDF from "jspdf";
-import { ArrowLeft, Eye, FileText, Loader2, Pencil, Receipt } from "lucide-react";
+import { ArrowLeft, Download, Eye, FileText, Loader2, Pencil, Receipt } from "lucide-react";
 import { Button } from "@/components/shared/atom/button";
 import {
   Card,
@@ -78,6 +78,8 @@ interface FacturaSolarCarroMaterialApi {
   nombre_descripcion?: string;
   descripcion?: string;
   cantidad?: number;
+  codigo_contabilidad?: string;
+  precio_contabilidad_cup?: number;
 }
 
 interface FacturaSolarCarroApi {
@@ -131,7 +133,7 @@ interface FacturaSolarCarroView {
   concepto: string;
   totalRegistrado: number;
   monedaTotal: "CUP" | "USD";
-  materiales: Array<{ codigo: string; descripcion: string; cantidad: number }>;
+  materiales: Array<{ codigo: string; descripcion: string; cantidad: number; codigo_contabilidad?: string; precio_contabilidad?: number }>;
 }
 
 interface InstaladoExitoComponentePrincipal {
@@ -678,6 +680,10 @@ function FacturasSolarCarrosPageContent() {
   const [fechaValeDesde, setFechaValeDesde] = useState("");
   const [fechaValeHasta, setFechaValeHasta] = useState("");
 
+  const [searchFacturas, setSearchFacturas] = useState("");
+  const [fechaFacturaDesde, setFechaFacturaDesde] = useState("");
+  const [fechaFacturaHasta, setFechaFacturaHasta] = useState("");
+
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewSaving, setPreviewSaving] = useState(false);
   const [previewSource, setPreviewSource] = useState<FacturaPreviewSource | null>(null);
@@ -743,6 +749,8 @@ function FacturasSolarCarrosPageContent() {
             codigo: String(m.codigo || `MAT-${idx + 1}`),
             descripcion: String(m.nombre_descripcion || m.descripcion || "Material"),
             cantidad: parseNumero(m.cantidad),
+            codigo_contabilidad: m.codigo_contabilidad ? String(m.codigo_contabilidad) : undefined,
+            precio_contabilidad: m.precio_contabilidad_cup != null ? parseNumero(m.precio_contabilidad_cup) : undefined,
           }),
         );
         return {
@@ -921,10 +929,6 @@ function FacturasSolarCarrosPageContent() {
       }
       if (items.length === 0) {
         items = buildFallbackItemsFromClienteOferta(row.cliente);
-      }
-
-      if (items.length === 0) {
-        throw new Error("El cliente no tiene materiales/componentes para facturar.");
       }
 
       const baseFromItems = sumItemsTotalUsd(items);
@@ -1683,6 +1687,27 @@ function FacturasSolarCarrosPageContent() {
     });
   }, [instaladoraRows, searchInstaladora, fechaValeDesde, fechaValeHasta]);
 
+  const facturasSolarFiltradas = useMemo(() => {
+    const term = normalizeKey(searchFacturas);
+    const fromTime = fechaFacturaDesde
+      ? new Date(`${fechaFacturaDesde}T00:00:00`).getTime()
+      : null;
+    const toTime = fechaFacturaHasta
+      ? new Date(`${fechaFacturaHasta}T23:59:59.999`).getTime()
+      : null;
+
+    return facturasSolar.filter((f) => {
+      if (fromTime !== null || toTime !== null) {
+        const ft = f.fecha ? new Date(f.fecha).getTime() : NaN;
+        if (Number.isNaN(ft)) return false;
+        if (fromTime !== null && ft < fromTime) return false;
+        if (toTime !== null && ft > toTime) return false;
+      }
+      if (!term) return true;
+      return normalizeKey(f.cliente.nombre).includes(term);
+    });
+  }, [facturasSolar, searchFacturas, fechaFacturaDesde, fechaFacturaHasta]);
+
   const getExistenciaClass = (existencia: number) => {
     const value = parseNumero(existencia);
     if (value <= 0) return "text-red-600 font-semibold";
@@ -1993,6 +2018,209 @@ function FacturasSolarCarrosPageContent() {
     doc.save(`factura_solar_carros_${safe}.pdf`);
   };
 
+  const handleDownloadOrdenTrabajoDOCX = async (factura: FacturaSolarCarroView) => {
+    try {
+      const {
+        Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+        AlignmentType, BorderStyle, WidthType, VerticalAlign,
+      } = await import("docx");
+
+      // Parse date into DD / MM / AA components
+      let dd = "", mm = "", aa = "";
+      if (factura.fecha) {
+        const raw = factura.fecha.includes("T") ? factura.fecha.split("T")[0] : factura.fecha;
+        const parts = raw.split("-");
+        if (parts.length === 3) {
+          dd = parts[2];
+          mm = parts[1];
+          aa = parts[0].slice(2);
+        }
+      }
+
+      // Border helpers
+      const solidBorder = { style: BorderStyle.SINGLE, size: 4, color: "000000" };
+      const allBorders = { top: solidBorder, bottom: solidBorder, left: solidBorder, right: solidBorder };
+
+      // Paragraph builder
+      const mkP = (text: string, opts: { bold?: boolean; center?: boolean; size?: number } = {}) =>
+        new Paragraph({
+          alignment: opts.center ? AlignmentType.CENTER : AlignmentType.LEFT,
+          spacing: { before: 0, after: 0 },
+          children: [new TextRun({ text, bold: opts.bold ?? false, font: "Arial Black", size: opts.size ?? 20 })],
+        });
+
+      // Cell builder
+      const mkCell = (
+        children: InstanceType<typeof Paragraph>[],
+        width: number,
+        opts: { colspan?: number; rowspan?: number; vAlign?: string } = {},
+      ) =>
+        new TableCell({
+          borders: allBorders,
+          width: { size: width, type: WidthType.DXA },
+          columnSpan: opts.colspan,
+          rowSpan: opts.rowspan,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          verticalAlign: opts.vAlign as any,
+          margins: { top: 60, bottom: 60, left: 110, right: 110 },
+          children,
+        });
+
+      // Column grid (12 cols, matching original template, total = 9246 DXA)
+      const C = [811, 688, 433, 396, 1203, 431, 538, 120, 335, 2022, 724, 1545];
+      const W = (...idx: number[]) => idx.reduce((s, i) => s + C[i], 0);
+
+      const LEFT_W  = W(0,1,2,3,4,5,6,7);   // 4620 – ORGANISMO / EMPRESA
+      const RIGHT_W = W(8,9,10,11);           // 4626 – ORDEN DE TRABAJO / No.
+      const FULL_W  = LEFT_W + RIGHT_W;       // 9246 – client row
+      const COD_W   = W(0,1);                 // 1499 – CODIGO
+      const DESC_W  = W(2,3,4,5,6,7,8);      // 3456 – DESCRIPCIÓN
+      const UM_W    = C[9];                   // 2022 – UM
+      const CANT_W  = W(10,11);              // 2269 – CANTIDAD
+      const SOL_W   = W(0,1,2,3);            // 2328 – Solicitada
+      const APR_W   = W(4,5,6,7);            // 2292 – Aprobada
+      const EMP_W   = C[8];                  // 335  – gap
+      const NO_W    = W(9,10,11);            // 4291 – No. / fecha
+
+      // Filled material rows
+      const materialRows = factura.materiales.map((m) =>
+        new TableRow({
+          height: { value: 320, rule: "atLeast" as const },
+          children: [
+            mkCell([mkP(m.codigo_contabilidad ?? m.codigo ?? "")], COD_W, { colspan: 2 }),
+            mkCell([mkP(m.descripcion ?? "")], DESC_W, { colspan: 7 }),
+            mkCell([mkP("U", { center: true })], UM_W),
+            mkCell([mkP(String(m.cantidad ?? ""), { center: true })], CANT_W, { colspan: 2 }),
+          ],
+        }),
+      );
+
+      // Blank filler rows
+      const emptyCount = Math.max(12 - factura.materiales.length, 0);
+      const emptyRows = Array.from({ length: emptyCount }, () =>
+        new TableRow({
+          height: { value: 320, rule: "atLeast" as const },
+          children: [
+            mkCell([mkP("")], COD_W, { colspan: 2 }),
+            mkCell([mkP("")], DESC_W, { colspan: 7 }),
+            mkCell([mkP("")], UM_W),
+            mkCell([mkP("")], CANT_W, { colspan: 2 }),
+          ],
+        }),
+      );
+
+      const ordenTable = new Table({
+        width: { size: FULL_W, type: WidthType.DXA },
+        columnWidths: C,
+        rows: [
+          // ── Row 1: ORGANISMO | ORDEN DE TRABAJO (spans 2 rows) ──
+          new TableRow({
+            height: { value: 420, rule: "atLeast" as const },
+            children: [
+              mkCell([mkP("ORGANISMO:", { bold: true, size: 24 })], LEFT_W, { colspan: 8 }),
+              mkCell([mkP("ORDEN DE TRABAJO", { bold: true, size: 24, center: true })], RIGHT_W, { colspan: 4, rowspan: 2, vAlign: VerticalAlign.CENTER }),
+            ],
+          }),
+          // ── Row 2: EMPRESA ──
+          new TableRow({
+            height: { value: 300, rule: "atLeast" as const },
+            children: [
+              mkCell([mkP("   EMPRESA: MPM Solar Carro", { bold: true, size: 24 })], LEFT_W, { colspan: 8 }),
+            ],
+          }),
+          // ── Row 3: SERVICIO DE INSTALACIÓN A ──
+          new TableRow({
+            height: { value: 300, rule: "atLeast" as const },
+            children: [
+              mkCell([mkP(`SERVICIO DE INSTALACIÓN A: ${factura.cliente.nombre}`, { bold: true, size: 22 })], FULL_W, { colspan: 12 }),
+            ],
+          }),
+          // ── Row 4: Column headers ──
+          new TableRow({
+            height: { value: 340, rule: "atLeast" as const },
+            children: [
+              mkCell([mkP("CODIGO", { bold: true, center: true })], COD_W, { colspan: 2 }),
+              mkCell([mkP("DESCRIPCIÓN", { bold: true, center: true })], DESC_W, { colspan: 7 }),
+              mkCell([mkP("UM", { bold: true, center: true })], UM_W),
+              mkCell([mkP("CANTIDAD", { bold: true, center: true })], CANT_W, { colspan: 2 }),
+            ],
+          }),
+          // ── Material rows ──
+          ...materialRows,
+          // ── Empty filler rows ──
+          ...emptyRows,
+          // ── Signature row 1: labels ──
+          new TableRow({
+            height: { value: 380, rule: "atLeast" as const },
+            children: [
+              mkCell([mkP("Solicitada por:", { bold: true }), mkP("Nombre y Apellidos:", { bold: true })], SOL_W, { colspan: 4 }),
+              mkCell([mkP("Aprobada por:", { bold: true }), mkP("Nombre y Apellidos:", { bold: true })], APR_W, { colspan: 4 }),
+              mkCell([mkP("")], EMP_W),
+              mkCell([mkP("No.", { bold: true }), mkP(factura.noFactura || "", { bold: true })], NO_W, { colspan: 3 }),
+            ],
+          }),
+          // ── Signature row 2: Firma / D / M / A ──
+          new TableRow({
+            height: { value: 340, rule: "atLeast" as const },
+            children: [
+              mkCell([mkP("Firma", { bold: true, center: true })], C[0]),
+              mkCell([mkP("D",     { bold: true, center: true })], C[1]),
+              mkCell([mkP("M",     { bold: true, center: true })], C[2]),
+              mkCell([mkP("A",     { bold: true, center: true })], C[3]),
+              mkCell([mkP("Firma", { bold: true, center: true })], C[4]),
+              mkCell([mkP("D",     { bold: true, center: true })], C[5]),
+              mkCell([mkP("M",     { bold: true, center: true })], C[6]),
+              mkCell([mkP("A",     { bold: true, center: true })], C[7]),
+              mkCell([mkP("")], EMP_W),
+              mkCell([mkP("")], NO_W, { colspan: 3 }),
+            ],
+          }),
+          // ── Signature row 3: date values ──
+          new TableRow({
+            height: { value: 340, rule: "atLeast" as const },
+            children: [
+              mkCell([mkP("")], C[0]),
+              mkCell([mkP(dd, { center: true })], C[1]),
+              mkCell([mkP(mm, { center: true })], C[2]),
+              mkCell([mkP(aa, { center: true })], C[3]),
+              mkCell([mkP("")], C[4]),
+              mkCell([mkP(dd, { center: true })], C[5]),
+              mkCell([mkP(mm, { center: true })], C[6]),
+              mkCell([mkP(aa, { center: true })], C[7]),
+              mkCell([mkP("")], EMP_W),
+              mkCell([mkP("")], NO_W, { colspan: 3 }),
+            ],
+          }),
+        ],
+      });
+
+      const doc = new Document({
+        sections: [{
+          properties: {
+            page: {
+              size: { width: 11906, height: 16838 },   // A4
+              margin: { top: 720, right: 720, bottom: 720, left: 720 },
+            },
+          },
+          children: [ordenTable],
+        }],
+      });
+
+      const blob = await Packer.toBlob(doc);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Orden_Trabajo_${(factura.noFactura || factura.id).replace(/[^a-zA-Z0-9-_]/g, "_")}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Error generando Orden de Trabajo:", err);
+      toast({ title: "Error", description: "No se pudo generar la Orden de Trabajo.", variant: "destructive" });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
@@ -2246,6 +2474,36 @@ function FacturasSolarCarrosPageContent() {
                 {loadingFacturas && !loadedFacturas ? (
                   <div className="py-10 text-center text-gray-600">Cargando facturas...</div>
                 ) : (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div>
+                        <Label htmlFor="search-facturas">Buscar por cliente</Label>
+                        <Input
+                          id="search-facturas"
+                          placeholder="Nombre del cliente..."
+                          value={searchFacturas}
+                          onChange={(e) => setSearchFacturas(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="fecha-factura-desde">Fecha desde</Label>
+                        <Input
+                          id="fecha-factura-desde"
+                          type="date"
+                          value={fechaFacturaDesde}
+                          onChange={(e) => setFechaFacturaDesde(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="fecha-factura-hasta">Fecha hasta</Label>
+                        <Input
+                          id="fecha-factura-hasta"
+                          type="date"
+                          value={fechaFacturaHasta}
+                          onChange={(e) => setFechaFacturaHasta(e.target.value)}
+                        />
+                      </div>
+                    </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
@@ -2257,7 +2515,7 @@ function FacturasSolarCarrosPageContent() {
                         </tr>
                       </thead>
                       <tbody>
-                        {facturasSolar.map((factura) => {
+                        {facturasSolarFiltradas.map((factura) => {
                           const rowKey = factura.id || factura.noFactura;
                           return (
                             <tr key={rowKey} className="border-b hover:bg-slate-50/60 align-top">
@@ -2311,20 +2569,31 @@ function FacturasSolarCarrosPageContent() {
                                     <FileText className="h-4 w-4 mr-1" />
                                     Descargar PDF
                                   </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => void handleDownloadOrdenTrabajoDOCX(factura)}
+                                  >
+                                    <Download className="h-4 w-4 mr-1" />
+                                    Orden de Trabajo
+                                  </Button>
                                 </div>
                               </td>
                             </tr>
                           );
                         })}
-                        {facturasSolar.length === 0 && (
+                        {facturasSolarFiltradas.length === 0 && (
                           <tr>
                             <td colSpan={4} className="text-center py-6 text-gray-500">
-                              No hay facturas Solar Carros creadas todavía.
+                              {facturasSolar.length === 0
+                                ? "No hay facturas Solar Carros creadas todavía."
+                                : "No se encontraron facturas con los filtros aplicados."}
                             </td>
                           </tr>
                         )}
                       </tbody>
                     </table>
+                  </div>
                   </div>
                 )}
               </TabsContent>
@@ -2911,6 +3180,8 @@ function FacturasSolarCarrosPageContent() {
                           <th className="text-left px-3 py-2">Cantidad</th>
                           <th className="text-left px-3 py-2">Código</th>
                           <th className="text-left px-3 py-2">Descripción</th>
+                          <th className="text-left px-3 py-2">Cód. Contabilidad</th>
+                          <th className="text-right px-3 py-2">Precio Contabilidad</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -2921,6 +3192,12 @@ function FacturasSolarCarrosPageContent() {
                             </td>
                             <td className="px-3 py-2">{m.codigo || "-"}</td>
                             <td className="px-3 py-2">{m.descripcion || "-"}</td>
+                            <td className="px-3 py-2">{m.codigo_contabilidad || "-"}</td>
+                            <td className="px-3 py-2 text-right tabular-nums">
+                              {m.precio_contabilidad != null
+                                ? formatAmountNumber(m.precio_contabilidad)
+                                : "-"}
+                            </td>
                           </tr>
                         ))}
                       </tbody>

@@ -71,6 +71,7 @@ export interface SolicitudMaterialCreateData {
   responsable_recogida?: string | null;
   fecha_recogida?: string | null;
   materiales: SolicitudMaterialItem[];
+  oferta_id?: string | null;
 }
 
 export interface SolicitudMaterialUpdateData {

@@ -57,41 +57,65 @@ interface MaterialRow {
   codigo: string;
   nombre: string;
   um?: string;
-  /** Stock disponible (bruto − reservas activas). null mientras no hay almacén o se carga. */
+  /** Stock disponible (sector ventas + Común − reservas activas). null mientras no hay almacén o se carga. */
   stock_actual: number | null;
   alerta_stock: boolean;
   faltante: number;
+  /** true si el almacén tiene el material sin desglose por sector — backend rechazará. */
+  sinDesgloseSector: boolean;
 }
 
-/** Mapa material_id/codigo → cantidad bruta de stock (sin descontar reservas). */
-const buildStockMap = (items: StockItem[]): Map<string, number> => {
-  const map = new Map<string, number>();
+// Stock disponible desglosado por sector
+type PoolBreakdown = {
+  ventas: number;
+  instaladora: number;
+  indistinto: number;
+  /** true si el doc de stock no traía .pools — el backend rechazará el reserve. */
+  sinDesglose?: boolean;
+};
+const ZERO_POOL: PoolBreakdown = { ventas: 0, instaladora: 0, indistinto: 0 };
+
+/** Mapa material_id/codigo → desglose de stock por sector. */
+const buildPoolStockMap = (items: StockItem[]): Map<string, PoolBreakdown> => {
+  const map = new Map<string, PoolBreakdown>();
   for (const item of items) {
-    if (item.material_id) map.set(item.material_id, item.cantidad);
+    let pools: PoolBreakdown;
+    if (item.pools) {
+      pools = {
+        ventas: item.pools.ventas?.cantidad ?? 0,
+        instaladora: item.pools.instaladora?.cantidad ?? 0,
+        indistinto: item.pools.indistinto?.cantidad ?? 0,
+      };
+      if (pools.ventas + pools.instaladora + pools.indistinto === 0 && item.cantidad > 0) {
+        pools.indistinto = item.cantidad;
+      }
+    } else {
+      pools = { ventas: 0, instaladora: 0, indistinto: item.cantidad, sinDesglose: true };
+    }
+    if (item.material_id) map.set(item.material_id, pools);
     if (item.material_codigo) {
-      map.set(`c:${item.material_codigo.trim().toLowerCase()}`, item.cantidad);
+      map.set(`c:${item.material_codigo.trim().toLowerCase()}`, pools);
     }
   }
   return map;
 };
 
 /**
- * Busca el stock bruto en el mapa ya cargado.
+ * Busca el desglose por sector en el mapa ya cargado.
  * Devuelve null si el mapa aún no está cargado (almacén no seleccionado).
- * Devuelve 0 si el mapa está cargado pero el material no tiene stock.
  */
-const lookupStock = (
-  map: Map<string, number>,
+const lookupPoolStock = (
+  map: Map<string, PoolBreakdown>,
   materialId: string,
   codigo?: string,
-): number | null => {
+): PoolBreakdown | null => {
   if (map.size === 0) return null;
   if (materialId && map.has(materialId)) return map.get(materialId)!;
   if (codigo) {
     const key = `c:${codigo.trim().toLowerCase()}`;
     if (map.has(key)) return map.get(key)!;
   }
-  return 0;
+  return { ...ZERO_POOL };
 };
 
 interface CreateReservaVentaDialogProps {
@@ -132,9 +156,9 @@ export function CreateReservaVentaDialog({
 
   // Stock precargado del almacén seleccionado (una sola llamada al backend)
   const [loadingStock, setLoadingStock] = useState(false);
-  const stockMapRef = useRef<Map<string, number>>(new Map());
-  // Mapa material_id → total neto reservado (todas las reservas activas del almacén)
-  const totalReservaMapRef = useRef<Map<string, number>>(new Map());
+  const poolStockMapRef = useRef<Map<string, PoolBreakdown>>(new Map());
+  // Mapa material_id → reservas netas por sector (todas las reservas activas del almacén)
+  const poolReservaMapRef = useRef<Map<string, PoolBreakdown>>(new Map());
   // Espejo de materialRows para recalcular dentro del efecto de carga de stock
   const materialRowsRef = useRef<MaterialRow[]>([]);
   useEffect(() => {
@@ -210,39 +234,45 @@ export function CreateReservaVentaDialog({
     return () => clearTimeout(timer);
   }, [clienteSearch]);
 
-  // Calcula los campos de stock de una fila a partir de los mapas ya cargados.
-  // Stock disponible para una nueva reserva = bruto − reservas activas del almacén.
+  // Calcula los campos de stock de una fila. Las reservas de ventas consumen
+  // primero el sector ventas, luego el Común — nunca instaladora. Por eso:
+  //   disponible = max(0, pool_ventas − reservado_ventas) + max(0, común − reservado_común)
   const computeStock = (
     materialId: string,
     codigo: string,
     cantidad: number,
-  ): Pick<MaterialRow, "stock_actual" | "alerta_stock" | "faltante"> => {
-    const bruto = lookupStock(stockMapRef.current, materialId, codigo);
-    if (bruto === null) {
-      return { stock_actual: null, alerta_stock: false, faltante: 0 };
+  ): Pick<MaterialRow, "stock_actual" | "alerta_stock" | "faltante" | "sinDesgloseSector"> => {
+    const poolStock = lookupPoolStock(poolStockMapRef.current, materialId, codigo);
+    if (poolStock === null) {
+      return { stock_actual: null, alerta_stock: false, faltante: 0, sinDesgloseSector: false };
     }
-    const disponible = Math.max(
-      0,
-      bruto - (totalReservaMapRef.current.get(materialId) ?? 0),
-    );
+    const poolReserva = poolReservaMapRef.current.get(materialId) ?? { ...ZERO_POOL };
+    const libre_sector = Math.max(0, poolStock.ventas - poolReserva.ventas);
+    const libre_comun = Math.max(0, poolStock.indistinto - poolReserva.indistinto);
+    const disponible = libre_sector + libre_comun;
+    const sinDesgloseSector = poolStock.sinDesglose === true;
     return {
       stock_actual: disponible,
-      alerta_stock: cantidad > disponible,
+      // Bloquear cuando el almacén no tiene desglose por sector: el backend
+      // rechazará la reserva en _distribuir_split_pools.
+      alerta_stock: cantidad > disponible || sinDesgloseSector,
       faltante: Math.max(cantidad - disponible, 0),
+      sinDesgloseSector,
     };
   };
 
   // Una sola llamada al cambiar el almacén: carga stock bruto + reservas activas
   useEffect(() => {
     if (!selectedAlmacenId) {
-      stockMapRef.current = new Map();
-      totalReservaMapRef.current = new Map();
+      poolStockMapRef.current = new Map();
+      poolReservaMapRef.current = new Map();
       setMaterialRows((prev) =>
         prev.map((r) => ({
           ...r,
           stock_actual: null,
           alerta_stock: false,
           faltante: 0,
+          sinDesgloseSector: false,
         })),
       );
       return;
@@ -262,9 +292,10 @@ export function CreateReservaVentaDialog({
         ]);
         if (cancelled) return;
 
-        stockMapRef.current = buildStockMap(items);
+        poolStockMapRef.current = buildPoolStockMap(items);
 
-        const tMap = new Map<string, number>();
+        // Reservas netas activas desglosadas por sector
+        const pMap = new Map<string, PoolBreakdown>();
         for (const reserva of todasReservas) {
           for (const mat of reserva.materiales ?? []) {
             const neta = Math.max(
@@ -272,11 +303,16 @@ export function CreateReservaVentaDialog({
               mat.cantidad_reservada - (mat.cantidad_consumida ?? 0),
             );
             if (neta > 0) {
-              tMap.set(mat.material_id, (tMap.get(mat.material_id) ?? 0) + neta);
+              const rawPool = mat.pool ?? "indistinto";
+              const sectorReserva: keyof PoolBreakdown =
+                rawPool === "ventas" || rawPool === "instaladora" ? rawPool : "indistinto";
+              const curr = pMap.get(mat.material_id) ?? { ...ZERO_POOL };
+              curr[sectorReserva] = (curr[sectorReserva] ?? 0) + neta;
+              pMap.set(mat.material_id, curr);
             }
           }
         }
-        totalReservaMapRef.current = tMap;
+        poolReservaMapRef.current = pMap;
 
         setMaterialRows(
           materialRowsRef.current.map((r) => ({
@@ -286,8 +322,8 @@ export function CreateReservaVentaDialog({
         );
       } catch {
         if (!cancelled) {
-          stockMapRef.current = new Map();
-          totalReservaMapRef.current = new Map();
+          poolStockMapRef.current = new Map();
+          poolReservaMapRef.current = new Map();
         }
       } finally {
         if (!cancelled) setLoadingStock(false);
@@ -430,8 +466,19 @@ export function CreateReservaVentaDialog({
     const newErrors: Record<string, string> = {};
     if (!selectedAlmacenId) newErrors.almacen = "Selecciona un almacén";
     if (!selectedCliente) newErrors.cliente = "Selecciona un cliente";
-    if (materialRows.length === 0)
+    if (materialRows.length === 0) {
       newErrors.materiales = "Agrega al menos un material";
+    } else {
+      const sinDesglose = materialRows.filter((r) => r.sinDesgloseSector);
+      const sinStock = materialRows.filter(
+        (r) => r.stock_actual !== null && r.alerta_stock && !r.sinDesgloseSector,
+      );
+      if (sinDesglose.length > 0) {
+        newErrors.materiales = `Sin desglose por sector en almacén: ${sinDesglose.map((r) => r.nombre).join(", ")}. Genera un movimiento de entrada con split por sector antes de reservar.`;
+      } else if (sinStock.length > 0) {
+        newErrors.materiales = `Stock insuficiente en sector Ventas + Común: ${sinStock.map((r) => r.nombre).join(", ")}`;
+      }
+    }
     if (!fechaExpiracion)
       newErrors.fechaExpiracion = "Ingresa la fecha de expiración";
     else if (new Date(fechaExpiracion) <= new Date())
@@ -446,17 +493,26 @@ export function CreateReservaVentaDialog({
       almacen_id: selectedAlmacenId,
       cliente_id: selectedCliente!.id,
       cliente_tipo: "cliente_venta",
+      origen: "ventas",
+      // pool="indistinto" → el backend auto-distribuye entre sector ventas + Común
+      // (_distribuir_split_pools), generando las líneas de split correctas.
       materiales: materialRows.map((r) => ({
         material_id: r.material_id,
         cantidad_reservada: r.cantidad_reservada,
         cantidad_consumida: 0,
-        // Pool por defecto = "ventas" (este dialog crea reservas para ventas).
-        // Sirve como metadata para trazabilidad; el backend valida disponibilidad.
-        pool: "ventas" as const,
+        pool: "indistinto" as const,
       })),
       fecha_expiracion: new Date(fechaExpiracion).toISOString(),
     };
-    await onSubmit(data);
+    try {
+      await onSubmit(data);
+    } catch (err) {
+      // Backend rechazó (típicamente stock insuficiente por race condition con
+      // otra reserva creada entre la carga del dialog y el submit).
+      const msg = err instanceof Error ? err.message : "No se pudo crear la reserva";
+      setErrors((prev) => ({ ...prev, materiales: msg }));
+      throw err;
+    }
   };
 
   // Min date for expiration (tomorrow)
@@ -792,7 +848,11 @@ export function CreateReservaVentaDialog({
                   <div
                     key={row.material_id}
                     className={`flex items-center gap-3 px-3 py-2 ${
-                      row.alerta_stock ? "bg-red-50/60" : ""
+                      row.sinDesgloseSector
+                        ? "bg-amber-50/60"
+                        : row.alerta_stock
+                          ? "bg-red-50/60"
+                          : ""
                     }`}
                   >
                     <Package className="h-4 w-4 text-gray-400 shrink-0" />
@@ -802,18 +862,22 @@ export function CreateReservaVentaDialog({
                         {row.codigo}
                         {row.um && ` · ${row.um}`}
                       </p>
-                      {row.stock_actual !== null && (
+                      {row.sinDesgloseSector ? (
+                        <p className="text-xs font-medium text-amber-700 mt-0.5">
+                          Sin desglose por sector en este almacén · no se puede reservar
+                        </p>
+                      ) : row.stock_actual !== null ? (
                         row.alerta_stock ? (
                           <p className="text-xs font-medium text-red-600 mt-0.5">
-                            Stock disponible: {row.stock_actual} {row.um || "U"} · Faltan{" "}
+                            Disponible (Ventas + Común): {row.stock_actual} {row.um || "U"} · Faltan{" "}
                             {row.faltante}
                           </p>
                         ) : (
                           <p className="text-xs text-emerald-600 mt-0.5">
-                            Stock disponible: {row.stock_actual} {row.um || "U"}
+                            Disponible (Ventas + Común): {row.stock_actual} {row.um || "U"}
                           </p>
                         )
-                      )}
+                      ) : null}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <Label className="text-xs text-gray-500 whitespace-nowrap">

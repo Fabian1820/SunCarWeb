@@ -47,6 +47,7 @@ interface AuthContextType {
   isLoading: boolean
   getAuthHeader: () => Record<string, string>
   hasPermission: (module: string) => boolean
+  hasExactPermission: (module: string) => boolean
   hasSubPermission: (parent: string, child: string) => boolean
   loadModulosPermitidos: () => Promise<void>
   updateUserFoto: (fotoPerfil: string | null) => void
@@ -195,6 +196,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return modulosPermitidos.some(p => p.startsWith(module + "/"))
   }
 
+  // Verifica membresía EXACTA del permiso, sin herencia padre→hijo. Pensado
+  // para sub-permisos aditivos (ej: "almacenes-suncar/admin"): tener el padre
+  // "almacenes-suncar" NO debe conceder los movimientos manuales; solo cuenta
+  // tener el permiso exacto (o ser superAdmin).
+  const hasExactPermission = (module: string): boolean => {
+    if (!user) return false
+    if (user.is_superAdmin && module !== 'permisos') return true
+    return modulosPermitidos.includes(module)
+  }
+
   // Verifica si el usuario puede acceder a un sub-módulo específico.
   // Retorna true si tiene permiso al módulo padre completo O al sub-módulo exacto.
   const hasSubPermission = (parent: string, child: string): boolean => {
@@ -215,6 +226,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading,
       getAuthHeader,
       hasPermission,
+      hasExactPermission,
       hasSubPermission,
       loadModulosPermitidos,
       updateUserFoto
