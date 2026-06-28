@@ -2,6 +2,20 @@
 
 ---
 
+## 📅 28 de Junio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+Sin commits nuevos de código. No hay cambios en producción.
+
+---
+
+### Puede dar bateo
+
+Sin cambios nuevos — sin riesgos nuevos.
+
+---
+
 ## 📅 26 de Junio, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -232,41 +246,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 20 de Junio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-Sin commits nuevos de código. El único commit en el rango de las últimas 24h es "Analisis diario Claude" del 19/06 (generado automáticamente). No hay cambios en producción.
-
----
-
-### Puede dar bateo
-
-Sin cambios nuevos — sin riesgos nuevos.
-
----
-
-## 📅 19 de Junio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**1 commit** de Fabian1820 — fix puntual en el módulo de devoluciones: se permite ahora iniciar una devolución sobre vales que ya están en estado "facturado".
-
----
-
-### Área 1: Devoluciones — permitir devolución en vales facturados (1 commit — Fabian1820, 19:57)
-
-- **`fix(devoluciones): permitir devolución en vales ya facturados`** — Elimina o relaja la validación en frontend que impedía iniciar el flujo de devolución cuando el vale tenía estado `facturado`.
-
----
-
-### Puede dar bateo
-
-1. **Backend debe aceptar la transición `facturado → con_devolucion`**.
-2. **Impacto contable de la devolución sobre factura emitida — nota de crédito**.
-3. **Devolución parcial en vales mixtos (algunos ítems facturados, otros no)**.
-4. **Badge de estado en la tabla tras devolución — confirmar actualización sin recarga manual**.
-
----
-
-> ⚠️ **Nota de mantenimiento**: Las entradas del **16, 17 y 18 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). Anteriores eliminadas: 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19 y 20 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
