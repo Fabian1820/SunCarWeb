@@ -150,13 +150,21 @@ const getMontoAplicadoUsd = (pago: OfertaConPagos["pagos"][number]): number => {
   return Math.max(0, pago.monto_usd - diferencia);
 };
 
+// Base real a cobrar al cliente: precio final menos lo que la empresa
+// compensa o asume (esos montos no los paga el cliente).
+export const getBaseACobrar = (oferta: OfertaConPagos): number => {
+  const compensacion = oferta.compensacion?.monto_usd ?? 0;
+  const asumido = oferta.asumido_por_empresa?.monto_usd ?? 0;
+  return Math.max(0, oferta.precio_final - compensacion - asumido);
+};
+
 export const calcularPendienteOferta = (oferta: OfertaConPagos): number => {
   if (isOfertaCancelada(oferta.estado || "")) return 0;
   const totalAplicado = oferta.pagos.reduce(
     (sum, p) => sum + getMontoAplicadoUsd(p),
     0,
   );
-  const pendienteCrudo = oferta.precio_final - totalAplicado;
+  const pendienteCrudo = getBaseACobrar(oferta) - totalAplicado;
   const normalizado =
     pendienteCrudo < 0.01 && pendienteCrudo > -0.01
       ? 0
@@ -355,7 +363,7 @@ export function TodosPagosTable({
     if (indicePago < 0) {
       return {
         totalPagadoAnteriormente: 0,
-        pendienteDespuesPago: roundToCents(Math.max(0, oferta.precio_final)),
+        pendienteDespuesPago: roundToCents(Math.max(0, getBaseACobrar(oferta))),
       };
     }
 
@@ -367,7 +375,7 @@ export function TodosPagosTable({
       totalPagadoAnteriormente +
       getMontoAplicadoUsd(pagosOrdenados[indicePago]);
 
-    const pendienteCrudo = oferta.precio_final - totalPagadoConEste;
+    const pendienteCrudo = getBaseACobrar(oferta) - totalPagadoConEste;
     const pendienteNormalizado =
       pendienteCrudo < 0.01 && pendienteCrudo > -0.01
         ? 0
@@ -392,6 +400,8 @@ export function TodosPagosTable({
         numero_oferta: oferta.numero_oferta,
         nombre_completo: oferta.nombre_completo,
         precio_final: oferta.precio_final,
+        compensacion: oferta.compensacion ?? undefined,
+        asumido_por_empresa: oferta.asumido_por_empresa ?? undefined,
       },
       contacto: {
         nombre: oferta.contacto.nombre || "No especificado",

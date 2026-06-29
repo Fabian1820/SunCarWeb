@@ -7,6 +7,8 @@ interface ComprobanteData {
     numero_oferta: string;
     nombre_completo: string;
     precio_final: number;
+    compensacion?: { monto_usd: number; justificacion?: string };
+    asumido_por_empresa?: { monto_usd: number; justificacion?: string };
   };
   contacto: {
     nombre: string;
@@ -169,6 +171,47 @@ export class ExportComprobanteService {
     });
     y += 5;
 
+    // Compensación (asumida por la empresa, no la paga el cliente)
+    const montoCompensacion = oferta.compensacion?.monto_usd ?? 0;
+    if (montoCompensacion > 0) {
+      doc.text("Compensación:", margenIzq, y);
+      doc.text(
+        `- ${this.formatearMoneda(montoCompensacion)} USD`,
+        margenDer,
+        y,
+        { align: "right" },
+      );
+      y += 5;
+    }
+
+    // Asumido por la empresa (no lo paga el cliente)
+    const montoAsumidoEmpresa = oferta.asumido_por_empresa?.monto_usd ?? 0;
+    if (montoAsumidoEmpresa > 0) {
+      doc.text("Asumido por Empresa:", margenIzq, y);
+      doc.text(
+        `- ${this.formatearMoneda(montoAsumidoEmpresa)} USD`,
+        margenDer,
+        y,
+        { align: "right" },
+      );
+      y += 5;
+    }
+
+    // Monto a Cobrar (neto, tras compensación y asumido) si hubo deducciones
+    if (montoCompensacion > 0 || montoAsumidoEmpresa > 0) {
+      const montoACobrar = Math.max(
+        0,
+        oferta.precio_final - montoCompensacion - montoAsumidoEmpresa,
+      );
+      doc.setFont("helvetica", "bold");
+      doc.text("Monto a Cobrar:", margenIzq, y);
+      doc.text(`${this.formatearMoneda(montoACobrar)} USD`, margenDer, y, {
+        align: "right",
+      });
+      doc.setFont("helvetica", "normal");
+      y += 5;
+    }
+
     // Si hay pagos anteriores (no es anticipo), mostrar monto pagado anteriormente
     if (
       data.total_pagado_anteriormente &&
@@ -275,7 +318,11 @@ export class ExportComprobanteService {
       const montoPagadoEfectivo = Math.max(0, pago.monto_usd - diferencia);
       const totalPagadoConEste =
         (data.total_pagado_anteriormente || 0) + montoPagadoEfectivo;
-      montoPendiente = oferta.precio_final - totalPagadoConEste;
+      const baseACobrar = Math.max(
+        0,
+        oferta.precio_final - montoCompensacion - montoAsumidoEmpresa,
+      );
+      montoPendiente = baseACobrar - totalPagadoConEste;
     }
 
     // Si el pendiente es negativo o muy cercano a 0 (menos de 1 centavo), mostrarlo como 0

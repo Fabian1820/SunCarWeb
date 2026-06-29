@@ -169,6 +169,8 @@ export interface OfertaConPagos {
   totalMateriales?: number | string | null;
   precio_final: number;
   monto_pendiente: number;
+  compensacion?: { monto_usd: number; justificacion?: string } | null;
+  asumido_por_empresa?: { monto_usd: number; justificacion?: string } | null;
   almacen_id: string;
   almacen_nombre: string | null;
   pagos: Pago[];

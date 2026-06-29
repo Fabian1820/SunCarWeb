@@ -18,6 +18,7 @@ import type {
   Pago,
 } from "@/lib/services/feats/pagos/pago-service";
 import { ExportComprobanteService } from "@/lib/services/feats/pagos/export-comprobante-service";
+import { getBaseACobrar } from "./todos-pagos-table";
 import { RegistrarDevolucionPagoDialog } from "./registrar-devolucion-pago-dialog";
 import { EditarPagoDialog } from "./editar-pago-dialog";
 import { useAuth } from "@/contexts/auth-context";
@@ -38,6 +39,8 @@ interface PagoConOferta extends Pago {
     precio_final: number;
     monto_pendiente: number;
     estado: string;
+    compensacion?: { monto_usd: number; justificacion?: string } | null;
+    asumido_por_empresa?: { monto_usd: number; justificacion?: string } | null;
   };
   contacto: {
     nombre: string | null;
@@ -114,6 +117,8 @@ export function TodosPagosPlanosTable({
         precio_final: oferta.precio_final,
         monto_pendiente: oferta.monto_pendiente,
         estado: oferta.estado,
+        compensacion: oferta.compensacion,
+        asumido_por_empresa: oferta.asumido_por_empresa,
       },
       contacto: {
         ...oferta.contacto,
@@ -151,7 +156,7 @@ export function TodosPagosPlanosTable({
     if (indicePago < 0) {
       return {
         totalPagadoAnteriormente: 0,
-        pendienteDespuesPago: roundToCents(Math.max(0, oferta.precio_final)),
+        pendienteDespuesPago: roundToCents(Math.max(0, getBaseACobrar(oferta))),
       };
     }
 
@@ -163,7 +168,7 @@ export function TodosPagosPlanosTable({
       totalPagadoAnteriormente +
       getMontoAplicadoUsd(pagosOrdenadosOferta[indicePago]);
 
-    const pendienteCrudo = oferta.precio_final - totalPagadoConEste;
+    const pendienteCrudo = getBaseACobrar(oferta) - totalPagadoConEste;
     const pendienteNormalizado =
       pendienteCrudo < 0.01 && pendienteCrudo > -0.01
         ? 0
@@ -276,12 +281,19 @@ export function TodosPagosPlanosTable({
       (o) => o.numero_oferta === pago.oferta.numero_oferta,
     );
 
+    const baseACobrarFallback = Math.max(
+      0,
+      pago.oferta.precio_final -
+        (pago.oferta.compensacion?.monto_usd ?? 0) -
+        (pago.oferta.asumido_por_empresa?.monto_usd ?? 0),
+    );
+
     const { totalPagadoAnteriormente, pendienteDespuesPago } = ofertaOriginal
       ? getTotalesParaPago(ofertaOriginal, pago.id)
       : {
           totalPagadoAnteriormente: 0,
           pendienteDespuesPago: roundToCents(
-            Math.max(0, pago.oferta.precio_final - getMontoAplicadoUsd(pago)),
+            Math.max(0, baseACobrarFallback - getMontoAplicadoUsd(pago)),
           ),
         };
 
@@ -291,6 +303,8 @@ export function TodosPagosPlanosTable({
         numero_oferta: pago.oferta.numero_oferta,
         nombre_completo: pago.oferta.nombre_completo,
         precio_final: pago.oferta.precio_final,
+        compensacion: pago.oferta.compensacion ?? undefined,
+        asumido_por_empresa: pago.oferta.asumido_por_empresa ?? undefined,
       },
       contacto: {
         nombre: pago.contacto.nombre || "No especificado",
