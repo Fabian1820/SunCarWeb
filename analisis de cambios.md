@@ -2,6 +2,131 @@
 
 ---
 
+## 📅 29 de Junio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**1 commit real** de yany1509 — fix en el módulo de **Cobros**: el pendiente y el comprobante de pago ahora descuentan correctamente la compensación y el monto asumido por la empresa antes de calcular lo que queda por cobrar.
+
+---
+
+### Área 1: Cobros — descontar compensación y monto asumido del pendiente (1 commit — yany1509, 19:02)
+
+- **`fix(cobros): descontar compensación y monto asumido del pendiente y comprobante`** — `OfertaConPagos` ahora incluye los campos `compensacion` y `asumido_por_empresa`. Nuevo helper `getBaseACobrar = precio_final - compensación - asumido`. Las tablas de cobros calculan el pendiente sobre la base neta. El comprobante muestra tres líneas adicionales: Compensación / Asumido por Empresa / Monto a Cobrar para que los montos cuadren visualmente.
+
+---
+
+### Puede dar bateo
+
+1. **`compensacion`/`asumido_por_empresa` sin confirmar en backend**: El frontend ahora espera estos campos en la respuesta de `OfertaConPagos`. Si el backend no los incluye aún (o los devuelve como `null`/`undefined`), `getBaseACobrar` calculará `NaN`, rompiendo el display del pendiente en todas las filas de cobros.
+
+2. **Cobros históricos sin los campos nuevos**: Registros creados antes de este deploy no tendrán `compensacion` ni `asumido_por_empresa` en la respuesta. Si el helper no maneja `null` con un fallback a `0`, todos los cobros históricos mostrarán montos incorrectos o `NaN`.
+
+3. **Base a cobrar negativa sin validación**: Si `compensación + asumido_por_empresa > precio_final` (por error de entrada o sin validación en backend), `getBaseACobrar` devuelve un valor negativo. El pendiente aparecería negativo sin ningún aviso al usuario.
+
+4. **Líneas del comprobante con valor cero visibles**: El comprobante siempre muestra las tres líneas nuevas. Para cobros sin compensación ni monto asumido, aparecerán líneas "Compensación: 0" y "Asumido por Empresa: 0", que pueden confundir al cliente si no hay lógica para ocultarlas cuando son cero.
+
+5. **Posible doble descuento si compensación ya se aplicaba en precio_final**: Si el backend ya restaba la compensación al calcular `precio_final`, ahora el frontend la volvería a restar. Confirmar con el equipo de backend que `precio_final` es el bruto antes de descuentos.
+
+---
+
+#### Seguimientos vigentes
+
+- **`compensacion`/`asumido_por_empresa` en OfertaConPagos — confirmar campos en backend (Jun 29)**.
+- **`getBaseACobrar` sin manejo de null — cobros históricos pueden mostrar NaN (Jun 29)**.
+- **Base a cobrar negativa posible si compensación + asumido supera precio_final (Jun 29)**.
+- **Módulo Asistencia — endpoints de backend sin confirmar (Jun 26)**.
+- **`graph.html`/`graph.json` en main — artefactos pesados sin uso en producción (Jun 26)**.
+- **Export Excel movimientos sin cota máxima — puede bloquear navegador (Jun 26)**.
+- **`referencia_label` en movimientos históricos — campo puede no existir en docs antiguos (Jun 26)**.
+- **Detalle de movimiento — endpoints no confirmados para todos los tipos de referencia (Jun 26)**.
+- **`hasExactPermission` — usuarios con almacenes-suncar sin subpermiso admin explícito perderán acceso (Jun 26)**.
+- **`assertOk` en asignaciones — errores antes silenciosos ahora pueden causar crashes (Jun 26)**.
+- **`searchMaterialesConCosto` — 403 para usuarios sin permiso admin en dialog de asignación (Jun 26)**.
+- **DOCX Orden de Trabajo — generación en cliente puede fallar silenciosamente (Jun 26)**.
+- **Factura instaladora sin materiales — backend puede rechazar submit vacío (Jun 26)**.
+- **Reservas expiradas reactivadas — conflicto con materiales reasignados entre expiración y nueva fecha (Jun 23)**.
+- **Filtro potencia mín/máx sin validación `min > max` — resultados vacíos sin mensaje (Jun 23)**.
+- **Filtros potencia en paneles — unidad ambigua kW vs W en la UI (Jun 23)**.
+- **Filtros combinados tipo+potencia — confirmar soporte simultáneo en backend (Jun 23)**.
+- **Lista blanca de CIs de pagos hardcodeada en frontend — deploy requerido para cambios (Jun 23)**.
+- **Gating editar cobros solo en frontend — endpoint sin validación de autorización en backend (Jun 23)**.
+- **`historial_cambios` en tipo Pago — confirmar campo en respuesta del backend (Jun 23)**.
+- **Devolución en vales facturados — transición de estado en backend (Jun 19)**.
+- **Ajuste contable/nota de crédito por devolución en vale facturado (Jun 19)**.
+- **Devolución parcial en vales con líneas mixtas (Jun 19)**.
+- **`pool=indistinto` para split automático — backend debe implementarlo**.
+- **Race condition en el cálculo de disponible de reservas**.
+- **`sinDesgloseSector` solo detectado en frontend**.
+- **Mapa `material_id→codigo` — race en carga del catálogo de oferta**.
+- **Auto-vincular reserva en `create-solicitud-material` — reserva incorrecta si hay múltiples**.
+- **BMS como categoría reservable — docs sin `.pools` bloquean el 100% de reservas BMS**.
+- **`/reservas-ventas` — visibilidad de tabs por sub-permiso**.
+- **Renombrado UI "indistinto" → "Común" — confirmar en todos los puntos de display**.
+- **Redeploy de Railway — confirmar auto-deploy activo tras commits `chore`**.
+- **`GET /resumen-factura` — endpoint y estructura `$facet` sin confirmar**.
+- **`$facet` aggregation — límite de 100MB de memoria de MongoDB**.
+- **Debounce en búsqueda de facturas-ventas — estado al limpiar**.
+- **`apiRequest success:false` — monitorear regresiones post-deploy**.
+- **`showContableFields` en MaterialForm**.
+- **`costo` y `material_id` en tipo `Material`**.
+- **Wallet historial por miembro — filtros params**.
+- **Excel Fichas de Costo sin cota de registros**.
+- **CI `87120119233` hardcodeado para control de permisos**.
+- **Campos `cambio_real_*` requieren backend actualizado**.
+- **Endpoint lazy load `GET /obras-terminadas/oferta/{id}/facturas-cliente`**.
+- **PDF unificado con `limit=total` sin cota máxima**.
+- **Badge de estado calculado en frontend con flotantes**.
+- **Módulo Vales/Facturas Instaladora comentado sin aviso explícito**.
+- **Sistema de notificaciones — endpoints bulk por tipo**.
+- **`GET /inventario/stock-historico`**.
+- **AdminPass 123456 hardcodeado**.
+- **Auto-sync catálogo → BD al abrir /permisos**.
+- **Logs de debug en producción**.
+- **Eliminación lógica `cantidad = 0` en asignaciones**.
+- **Creación inline sin persistencia inmediata**.
+- **Subida de archivos sin rollback**.
+- **Backend debe aceptar nuevos campos: `motivo`, `nota`, `foto`, `ficha_tecnica_url`, `oferta_venta_id`, `descuento_free`**.
+- **`childKeys` en catálogo de módulos**.
+- **`useEffect` con dependencias `[open, initialData?.id]`**.
+- **Agregados solicitudes-ventas**.
+- **`updateSolicitudTransferencia` — validación de estado en backend**.
+- **Búsqueda por `numero_serie`**.
+- **`stock_disponible_actual` — consistencia entre endpoints**.
+- **Excel export de facturas sin cota de registros**.
+- **`'zelle'` como método de pago — soporte en backend**.
+- **Sort client-side de solicitudes pendientes en ValesSalida**.
+- **Parsing UTC→local en otras tablas con filtros de fecha**.
+- **Tasas MLC/CUP sin persistencia entre sesiones**.
+- **`PonderarCostoResponse` campos nuevos**.
+- **`GET /api/kardex-costo/costo-actual`**.
+- **`materiales` en respuesta de facturas de solicitudes-ventas**.
+- **Filtros de vales de salida — `fecha_desde`, `fecha_hasta`, creador**.
+- **`almacenes-suncar/admin` — gating solo en frontend**.
+- **Estados de transferencia no mapeados en `ESTADO_CONFIG`**.
+- **Campos de dimensionamiento en calculadora sin persistencia confirmada**.
+- **Badges de disponibilidad por pool — snapshot estático**.
+- **Endpoint cumpleaños de la semana**.
+- **Endpoint contador de instalaciones solares**.
+- **Widget de paneles — estado único vs respuesta del backend**.
+- **`window.history.pushState` + Next.js App Router desync**.
+- **Export Excel merge vertical — heterogeneidad de materiales**.
+- **Rebrand paleta — componentes con clases hardcoded**.
+- **`POST /solicitudes-transferencia/{id}/resolver` — endpoint pendiente**.
+- **Módulo "Empleados" — permisos en BD no migrados**.
+- **Sub-permiso implícito — usuarios con padre sin hijo en BD**.
+- **`PATCH /facturas-solar-carros/{id}` — confirmar endpoint**.
+- **`VincularPagoDialog` — endpoint de PagoVenta por solicitud**.
+- **Consignaciones denormalizadas — campos del backend**.
+- **Auto-vinculación de pagos a consignación**.
+- **`POST /consignaciones/{id}/facturas` — endpoint sin confirmar**.
+- **`cargo` en RRHH — confirmar aceptación en `PUT /{ci}/rrhh`**.
+- **Campos `tipo`, `pendiente_costeo`, `regularizada_por` en KardexCosto**.
+- **Badge "Facturado" con flotantes**.
+- **Botón "Actualizar costos" — lógica de decisión interna**.
+
+---
+
 ## 📅 28 de Junio, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -104,100 +229,6 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-#### Seguimientos vigentes
-
-- **Módulo Asistencia — endpoints de backend sin confirmar (Jun 26)**.
-- **`graph.html`/`graph.json` en main — artefactos pesados sin uso en producción (Jun 26)**.
-- **Export Excel movimientos sin cota máxima — puede bloquear navegador (Jun 26)**.
-- **`referencia_label` en movimientos históricos — campo puede no existir en docs antiguos (Jun 26)**.
-- **Detalle de movimiento — endpoints no confirmados para todos los tipos de referencia (Jun 26)**.
-- **`hasExactPermission` — usuarios con almacenes-suncar sin subpermiso admin explícito perderán acceso (Jun 26)**.
-- **`assertOk` en asignaciones — errores antes silenciosos ahora pueden causar crashes (Jun 26)**.
-- **`searchMaterialesConCosto` — 403 para usuarios sin permiso admin en dialog de asignación (Jun 26)**.
-- **DOCX Orden de Trabajo — generación en cliente puede fallar silenciosamente (Jun 26)**.
-- **Factura instaladora sin materiales — backend puede rechazar submit vacío (Jun 26)**.
-- **Reservas expiradas reactivadas — conflicto con materiales reasignados entre expiración y nueva fecha (Jun 23)**.
-- **Filtro potencia mín/máx sin validación `min > max` — resultados vacíos sin mensaje (Jun 23)**.
-- **Filtros potencia en paneles — unidad ambigua kW vs W en la UI (Jun 23)**.
-- **Filtros combinados tipo+potencia — confirmar soporte simultáneo en backend (Jun 23)**.
-- **Lista blanca de CIs de pagos hardcodeada en frontend — deploy requerido para cambios (Jun 23)**.
-- **Gating editar cobros solo en frontend — endpoint sin validación de autorización en backend (Jun 23)**.
-- **`historial_cambios` en tipo Pago — confirmar campo en respuesta del backend (Jun 23)**.
-- **Devolución en vales facturados — transición de estado en backend (Jun 19)**.
-- **Ajuste contable/nota de crédito por devolución en vale facturado (Jun 19)**.
-- **Devolución parcial en vales con líneas mixtas (Jun 19)**.
-- **`pool=indistinto` para split automático — backend debe implementarlo**.
-- **Race condition en el cálculo de disponible de reservas**.
-- **`sinDesgloseSector` solo detectado en frontend**.
-- **Mapa `material_id→codigo` — race en carga del catálogo de oferta**.
-- **Auto-vincular reserva en `create-solicitud-material` — reserva incorrecta si hay múltiples**.
-- **BMS como categoría reservable — docs sin `.pools` bloquean el 100% de reservas BMS**.
-- **`/reservas-ventas` — visibilidad de tabs por sub-permiso**.
-- **Renombrado UI "indistinto" → "Común" — confirmar en todos los puntos de display**.
-- **Redeploy de Railway — confirmar auto-deploy activo tras commits `chore`**.
-- **`GET /resumen-factura` — endpoint y estructura `$facet` sin confirmar**.
-- **`$facet` aggregation — límite de 100MB de memoria de MongoDB**.
-- **Debounce en búsqueda de facturas-ventas — estado al limpiar**.
-- **`apiRequest success:false` — monitorear regresiones post-deploy**.
-- **`showContableFields` en MaterialForm**.
-- **`costo` y `material_id` en tipo `Material`**.
-- **Wallet historial por miembro — filtros params**.
-- **Excel Fichas de Costo sin cota de registros**.
-- **CI `87120119233` hardcodeado para control de permisos**.
-- **Campos `cambio_real_*` requieren backend actualizado**.
-- **Endpoint lazy load `GET /obras-terminadas/oferta/{id}/facturas-cliente`**.
-- **PDF unificado con `limit=total` sin cota máxima**.
-- **Badge de estado calculado en frontend con flotantes**.
-- **Módulo Vales/Facturas Instaladora comentado sin aviso explícito**.
-- **Sistema de notificaciones — endpoints bulk por tipo**.
-- **`GET /inventario/stock-historico`**.
-- **AdminPass 123456 hardcodeado**.
-- **Auto-sync catálogo → BD al abrir /permisos**.
-- **Logs de debug en producción**.
-- **Eliminación lógica `cantidad = 0` en asignaciones**.
-- **Creación inline sin persistencia inmediata**.
-- **Subida de archivos sin rollback**.
-- **Backend debe aceptar nuevos campos: `motivo`, `nota`, `foto`, `ficha_tecnica_url`, `oferta_venta_id`, `descuento_free`**.
-- **`childKeys` en catálogo de módulos**.
-- **`useEffect` con dependencias `[open, initialData?.id]`**.
-- **Agregados solicitudes-ventas**.
-- **`updateSolicitudTransferencia` — validación de estado en backend**.
-- **Búsqueda por `numero_serie`**.
-- **`stock_disponible_actual` — consistencia entre endpoints**.
-- **Excel export de facturas sin cota de registros**.
-- **`'zelle'` como método de pago — soporte en backend**.
-- **Sort client-side de solicitudes pendientes en ValesSalida**.
-- **Parsing UTC→local en otras tablas con filtros de fecha**.
-- **Tasas MLC/CUP sin persistencia entre sesiones**.
-- **`PonderarCostoResponse` campos nuevos**.
-- **`GET /api/kardex-costo/costo-actual`**.
-- **`materiales` en respuesta de facturas de solicitudes-ventas**.
-- **Filtros de vales de salida — `fecha_desde`, `fecha_hasta`, creador**.
-- **`almacenes-suncar/admin` — gating solo en frontend**.
-- **Estados de transferencia no mapeados en `ESTADO_CONFIG`**.
-- **Campos de dimensionamiento en calculadora sin persistencia confirmada**.
-- **Badges de disponibilidad por pool — snapshot estático**.
-- **Endpoint cumpleaños de la semana**.
-- **Endpoint contador de instalaciones solares**.
-- **Widget de paneles — estado único vs respuesta del backend**.
-- **`window.history.pushState` + Next.js App Router desync**.
-- **Export Excel merge vertical — heterogeneidad de materiales**.
-- **Rebrand paleta — componentes con clases hardcoded**.
-- **`POST /solicitudes-transferencia/{id}/resolver` — endpoint pendiente**.
-- **Módulo "Empleados" — permisos en BD no migrados**.
-- **Sub-permiso implícito — usuarios con padre sin hijo en BD**.
-- **`PATCH /facturas-solar-carros/{id}` — confirmar endpoint**.
-- **`VincularPagoDialog` — endpoint de PagoVenta por solicitud**.
-- **Consignaciones denormalizadas — campos del backend**.
-- **Auto-vinculación de pagos a consignación**.
-- **`POST /consignaciones/{id}/facturas` — endpoint sin confirmar**.
-- **`cargo` en RRHH — confirmar aceptación en `PUT /{ci}/rrhh`**.
-- **Campos `tipo`, `pendiente_costeo`, `regularizada_por` en KardexCosto**.
-- **Badge "Facturado" con flotantes**.
-- **Botón "Actualizar costos" — lógica de decisión interna**.
-
----
-
 ## 📅 23 de Junio, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -232,18 +263,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 21 de Junio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-Sin commits nuevos de código. El único commit en el rango de las últimas 24h es "Analisis diario Claude" del 20/06 (generado automáticamente). No hay cambios en producción.
-
----
-
-### Puede dar bateo
-
-Sin cambios nuevos — sin riesgos nuevos.
-
----
-
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19 y 20 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
