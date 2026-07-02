@@ -254,15 +254,6 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     grupo: "comercial-instaladora",
   },
   {
-    key: "reservas-instaladora",
-    label: "Reservas",
-    descripcion: "Gestionar reservas de materiales para proyectos de instalación.",
-    icon: BookmarkCheck,
-    iconClass: "text-emerald-600",
-    href: "/reservas-ventas",
-    grupo: "comercial-instaladora",
-  },
-  {
     // El permission key se mantiene como `reportes-comercial` para preservar
     // asignaciones existentes; el label/href ahora apuntan directamente al
     // submódulo "Resultados por Comercial" (los otros submódulos quedan ocultos).
