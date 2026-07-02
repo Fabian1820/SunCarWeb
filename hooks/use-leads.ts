@@ -418,7 +418,9 @@ export function useLeads(): UseLeadsReturn {
   }, [leads]);
 
   // Comerciales: carga lazy con cache en sessionStorage (TTL 10 min).
-  const COMERCIALES_CACHE_KEY = "leads_comerciales_cache_v1";
+  // v2: la lista ahora une el roster de instaladora con los comerciales
+  // distintos ya usados en leads; se sube la versión para invalidar cachés v1.
+  const COMERCIALES_CACHE_KEY = "leads_comerciales_cache_v2";
   const COMERCIALES_CACHE_TTL_MS = 10 * 60 * 1000;
   const comercialesLoadingRef = useMemo(() => ({ inFlight: false }), []);
 
@@ -445,11 +447,31 @@ export function useLeads(): UseLeadsReturn {
     if (allComerciales.length > 0) return;
     comercialesLoadingRef.inFlight = true;
     try {
-      const response = await apiRequest<{ success: boolean; data: string[] }>(
-        "/trabajadores/comerciales",
-        { method: "GET" },
-      );
-      const comerciales = Array.isArray(response?.data) ? response.data : [];
+      // Unimos el roster de instaladora con los comerciales distintos ya usados
+      // en leads (incluye comerciales de ventas que están de apoyo). Así el de
+      // apoyo aparece de forma fiable tras su primer lead, sin listar a todos.
+      const [instaladoraRes, leadsRes] = await Promise.all([
+        apiRequest<{ success: boolean; data: string[] }>(
+          "/trabajadores/comerciales",
+          { method: "GET" },
+        ).catch(() => null),
+        apiRequest<{ success: boolean; data: string[] }>(
+          "/leads/comerciales",
+          { method: "GET" },
+        ).catch(() => null),
+      ]);
+      const instaladora = instaladoraRes?.data;
+      const deLeads = leadsRes?.data;
+      const set = new Set<string>();
+      for (const nombre of [
+        ...(Array.isArray(instaladora) ? instaladora : []),
+        ...(Array.isArray(deLeads) ? deLeads : []),
+      ]) {
+        if (typeof nombre === "string" && nombre.trim()) {
+          set.add(nombre.trim());
+        }
+      }
+      const comerciales = Array.from(set);
       setAllComerciales(comerciales);
       if (typeof window !== "undefined") {
         try {
