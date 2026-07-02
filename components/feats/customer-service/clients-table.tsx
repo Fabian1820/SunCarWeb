@@ -4672,19 +4672,19 @@ export function ClientsTable({
               <table className="w-full table-fixed divide-y divide-gray-200 min-w-[640px]">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="text-left py-3 px-2 text-[13px] font-semibold text-gray-500 uppercase tracking-wider w-[24%] md:w-[18%]">
+                    <th className="text-left py-3 px-4 text-[13px] font-semibold text-gray-500 uppercase tracking-wider w-[24%] md:w-[18%]">
                       Cliente
                     </th>
-                    <th className="hidden md:table-cell text-left py-3 px-2 text-[13px] font-semibold text-gray-500 uppercase tracking-wider md:w-[24%]">
+                    <th className="hidden md:table-cell text-left py-3 px-4 text-[13px] font-semibold text-gray-500 uppercase tracking-wider md:w-[24%]">
                       Contacto
                     </th>
-                    <th className="text-left py-3 px-2 text-[13px] font-semibold text-gray-500 uppercase tracking-wider w-[22%] md:w-[16%]">
+                    <th className="text-left py-3 px-4 text-[13px] font-semibold text-gray-500 uppercase tracking-wider w-[22%] md:w-[16%]">
                       Estado
                     </th>
-                    <th className="text-left py-3 px-2 text-[13px] font-semibold text-gray-500 uppercase tracking-wider w-[34%] md:w-[24%]">
+                    <th className="text-left py-3 px-4 text-[13px] font-semibold text-gray-500 uppercase tracking-wider w-[34%] md:w-[24%]">
                       Oferta
                     </th>
-                    <th className="text-right py-3 px-2 text-[13px] font-semibold text-gray-500 uppercase tracking-wider w-[20%] md:w-[18%]">
+                    <th className="text-right py-3 px-4 text-[13px] font-semibold text-gray-500 uppercase tracking-wider w-[20%] md:w-[18%]">
                       Acciones
                     </th>
                   </tr>
@@ -4757,7 +4757,7 @@ export function ClientsTable({
                         key={client._id || client.numero}
                         className="hover:bg-gray-50 transition-colors"
                       >
-                        <td className="py-4 px-2 align-top">
+                        <td className="px-4 py-3 align-top">
                           <div className="flex items-start gap-2">
                             <div className="pt-1">
                               <PriorityDot
@@ -4770,7 +4770,7 @@ export function ClientsTable({
                               />
                             </div>
                             <div className="min-w-0">
-                              <p className="font-semibold text-gray-900 text-base mb-0.5 truncate">
+                              <p className="font-semibold text-gray-900 text-sm mb-0.5 truncate">
                                 {client.nombre}
                               </p>
                               <p className="text-[13px] text-gray-500 truncate">
@@ -4806,9 +4806,9 @@ export function ClientsTable({
                             </div>
                           </div>
                         </td>
-                        <td className="hidden md:table-cell py-4 px-2 align-top">
+                        <td className="hidden md:table-cell px-4 py-3 align-top">
                           <div className="flex flex-col gap-1">
-                            <div className="flex items-center text-base text-gray-900">
+                            <div className="flex items-center text-sm text-gray-900">
                               <Phone className="h-4 w-4 text-gray-400 mr-1.5 flex-shrink-0" />
                               <span className="font-medium truncate">
                                 {client.telefono || "Sin teléfono"}
@@ -4831,7 +4831,7 @@ export function ClientsTable({
                             )}
                           </div>
                         </td>
-                        <td className="py-4 px-2 align-top">
+                        <td className="px-4 py-3 align-top">
                           <div className="w-full">
                             {client.estado && (
                               <Badge
@@ -4853,7 +4853,7 @@ export function ClientsTable({
                             )}
                           </div>
                         </td>
-                        <td className="py-4 px-2 align-top">
+                        <td className="px-4 py-3 align-top">
                           {(() => {
                             let inv: { cantidad: number; descripcion: string } | null = null;
                             let bats: { cantidad: number; descripcion: string }[] = [];
@@ -4951,7 +4951,7 @@ export function ClientsTable({
                             );
                           })()}
                         </td>
-                        <td className="py-4 px-2 align-top">
+                        <td className="px-4 py-3 align-top">
                           <div className="flex items-center justify-end gap-1 flex-wrap">
                             <Button
                               variant="ghost"
