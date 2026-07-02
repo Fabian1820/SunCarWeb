@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/shared/atom/select";
 import { PrioritySelect } from "@/components/shared/molecule/priority-select";
+import { FuenteSelector } from "@/components/feats/leads/fuente-selector";
 import { Loader2 } from "lucide-react";
 import type { LeadCreateData } from "@/lib/api-types";
 import { useAuth } from "@/contexts/auth-context";
@@ -151,6 +152,7 @@ export function CreateLeadDialog({
     telefono_adicional: "",
     estado: "",
     fuente: "",
+    fuente_referencia: "",
     referencia: "",
     direccion: "",
     pais_contacto: "",
@@ -176,13 +178,17 @@ export function CreateLeadDialog({
     }
   }, [user]);
 
-  // Asignar prioridad automática cuando cambia la fuente
+  // Asignar prioridad automática cuando la fuente es un trabajador clave.
   useEffect(() => {
-    const fuentesAlta = ["Fernando", "Kelly", "Ale", "Andy"];
-    if (formData.fuente && fuentesAlta.includes(formData.fuente)) {
+    const nombresAlta = ["Fernando", "Kelly", "Ale", "Andy"];
+    const ref = formData.fuente_referencia || "";
+    const esTrabajadorClave =
+      formData.fuente === "Trabajador" &&
+      nombresAlta.some((n) => ref.toLowerCase().includes(n.toLowerCase()));
+    if (esTrabajadorClave) {
       setFormData((prev) => ({ ...prev, prioridad: "Alta" }));
     }
-  }, [formData.fuente]);
+  }, [formData.fuente, formData.fuente_referencia]);
 
   // Cargar provincias al montar el componente
   useEffect(() => {
@@ -655,105 +661,14 @@ export function CreateLeadDialog({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="fuente">Fuente</Label>
-              {!usandoFuentePersonalizada ? (
-                <Select
-                  value={formData.fuente}
-                  onValueChange={(value) => {
-                    if (value === "__custom__") {
-                      setUsandoFuentePersonalizada(true);
-                      handleInputChange("fuente", "");
-                    } else {
-                      handleInputChange("fuente", value);
-                    }
-                  }}
-                >
-                  <SelectTrigger id="fuente" className="text-gray-900">
-                    <SelectValue placeholder="Seleccionar fuente" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[300px] overflow-y-auto">
-                    {fuentesDisponibles.map((fuente) => (
-                      <SelectItem key={fuente} value={fuente}>
-                        {fuente}
-                      </SelectItem>
-                    ))}
-                    <SelectItem value="__custom__">
-                      ✏️ Otra (escribir manualmente)
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              ) : (
-                <div className="space-y-2">
-                  <Input
-                    id="fuente-custom"
-                    type="text"
-                    value={formData.fuente}
-                    onChange={(e) =>
-                      handleInputChange("fuente", e.target.value)
-                    }
-                    placeholder="Escribe la fuente personalizada..."
-                    className="text-gray-900 placeholder:text-gray-400"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      // Si hay una fuente personalizada escrita, agregarla a la lista
-                      if (
-                        formData.fuente &&
-                        formData.fuente.trim() !== "" &&
-                        !fuentesDisponibles.includes(formData.fuente)
-                      ) {
-                        const nuevasFuentes = [
-                          ...fuentesDisponibles,
-                          formData.fuente,
-                        ];
-                        setFuentesDisponibles(nuevasFuentes);
-                        // Guardar en localStorage solo las personalizadas (sin las base)
-                        const personalizadas = nuevasFuentes.filter(
-                          (f) => !fuentesBase.includes(f),
-                        );
-                        localStorage.setItem(
-                          "fuentes_personalizadas",
-                          JSON.stringify(personalizadas),
-                        );
-
-                        // Quitar de la lista de excluidas si estaba ahí
-                        try {
-                          const excluidas = JSON.parse(
-                            localStorage.getItem("fuentes_excluidas") || "[]",
-                          ) as string[];
-                          const nuevasExcluidas = excluidas.filter(
-                            (f) => f !== formData.fuente,
-                          );
-                          if (nuevasExcluidas.length !== excluidas.length) {
-                            localStorage.setItem(
-                              "fuentes_excluidas",
-                              JSON.stringify(nuevasExcluidas),
-                            );
-                          }
-                        } catch (error) {
-                          console.error(
-                            "Error al actualizar fuentes excluidas:",
-                            error,
-                          );
-                        }
-
-                        window.dispatchEvent(
-                          new CustomEvent("fuentes_updated"),
-                        );
-                      }
-                      setUsandoFuentePersonalizada(false);
-                    }}
-                    className="text-xs"
-                  >
-                    ← Volver a opciones predefinidas
-                  </Button>
-                </div>
-              )}
-            </div>
+            <FuenteSelector
+              fuente={formData.fuente}
+              fuenteReferencia={formData.fuente_referencia}
+              onChange={(fuente, fuenteReferencia) => {
+                handleInputChange("fuente", fuente);
+                handleInputChange("fuente_referencia", fuenteReferencia);
+              }}
+            />
           </div>
           {/* 4. Prioridad */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

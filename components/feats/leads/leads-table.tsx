@@ -2353,55 +2353,55 @@ export function LeadsTable({
     > = {
       "Esperando equipo": {
         bg: "bg-amber-100",
-        text: "text-amber-800",
+        text: "text-amber-600",
         hover: "hover:bg-amber-200",
         label: "Esperando equipo",
       },
       "No interesado": {
         bg: "bg-gray-200",
-        text: "text-gray-700",
+        text: "text-slate-500",
         hover: "hover:bg-gray-300",
         label: "No interesado",
       },
       "Pendiente de instalación": {
         bg: "bg-green-100",
-        text: "text-green-800",
+        text: "text-green-600",
         hover: "hover:bg-green-200",
         label: "Pendiente de instalación",
       },
       "Pendiente de presupuesto": {
         bg: "bg-purple-100",
-        text: "text-purple-800",
+        text: "text-violet-700",
         hover: "hover:bg-purple-200",
         label: "Pendiente de presupuesto",
       },
       "Pendiente de visita": {
         bg: "bg-blue-100",
-        text: "text-blue-800",
+        text: "text-blue-600",
         hover: "hover:bg-blue-200",
         label: "Pendiente de visita",
       },
       "Pendiente de visitarnos": {
         bg: "bg-pink-100",
-        text: "text-pink-800",
+        text: "text-fuchsia-600",
         hover: "hover:bg-pink-200",
         label: "Pendiente de visitarnos",
       },
       Proximamente: {
         bg: "bg-cyan-100",
-        text: "text-cyan-800",
+        text: "text-teal-600",
         hover: "hover:bg-cyan-200",
         label: "Próximamente",
       },
       "Revisando ofertas": {
         bg: "bg-indigo-100",
-        text: "text-indigo-800",
+        text: "text-indigo-600",
         hover: "hover:bg-indigo-200",
         label: "Revisando ofertas",
       },
       "Sin respuesta": {
         bg: "bg-red-100",
-        text: "text-red-800",
+        text: "text-red-600",
         hover: "hover:bg-red-200",
         label: "Sin respuesta",
       },
@@ -2409,12 +2409,12 @@ export function LeadsTable({
 
     const config = estadosConfig[estado] || {
       bg: "bg-gray-100",
-      text: "text-gray-800",
+      text: "text-gray-600",
       hover: "hover:bg-gray-200",
       label: estado,
     };
     return {
-      className: `${config.bg} ${config.text} ${config.hover}`,
+      className: `${config.text} bg-transparent border-transparent hover:bg-transparent`,
       label: config.label,
     };
   };
@@ -2490,19 +2490,19 @@ export function LeadsTable({
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-3 py-3 text-left text-[13px] font-semibold text-gray-500 uppercase tracking-wider min-w-[240px] max-w-[320px]">
+                <th className="px-4 py-3 text-left text-[13px] font-semibold text-gray-500 uppercase tracking-wider min-w-[240px] max-w-[320px]">
                   Lead
                 </th>
-                <th className="px-3 py-3 text-left text-[13px] font-semibold text-gray-500 uppercase tracking-wider min-w-[100px]">
+                <th className="px-4 py-3 text-left text-[13px] font-semibold text-gray-500 uppercase tracking-wider min-w-[100px]">
                   Contacto
                 </th>
-                <th className="px-3 py-3 text-left text-[13px] font-semibold text-gray-500 uppercase tracking-wider min-w-[160px] max-w-[190px]">
+                <th className="px-4 py-3 text-left text-[13px] font-semibold text-gray-500 uppercase tracking-wider min-w-[200px] max-w-[240px]">
                   Estado
                 </th>
-                <th className="px-3 py-3 text-left text-[13px] font-semibold text-gray-500 uppercase tracking-wider min-w-[220px]">
+                <th className="px-4 py-3 text-left text-[13px] font-semibold text-gray-500 uppercase tracking-wider min-w-[220px]">
                   Oferta
                 </th>
-                <th className="px-3 py-3 text-right text-[13px] font-semibold text-gray-500 uppercase tracking-wider min-w-[120px] w-[120px]">
+                <th className="px-4 py-3 text-right text-[13px] font-semibold text-gray-500 uppercase tracking-wider min-w-[120px] w-[120px]">
                   Acciones
                 </th>
               </tr>
@@ -2510,12 +2510,12 @@ export function LeadsTable({
             <tbody className="bg-white divide-y divide-gray-200">
               {leads.map((lead) => (
                 <tr key={lead.id} className="hover:bg-gray-50">
-                  <td className="px-3 py-4 min-w-[240px] max-w-[320px]">
+                  <td className="px-4 py-3min-w-[240px] max-w-[320px]">
                     <div>
-                      <div className="text-base font-semibold text-gray-900 break-words">
+                      <div className="text-sm font-semibold text-gray-900 break-words">
                         {lead.nombre}
                       </div>
-                      <div className="text-base text-gray-500 break-words whitespace-pre-line">
+                      <div className="text-sm text-gray-500 break-words whitespace-pre-line">
                         {breakTextAtLength(
                           lead.direccion || "Sin dirección",
                           32,
@@ -2533,12 +2533,12 @@ export function LeadsTable({
                       )}
                     </div>
                   </td>
-                  <td className="px-3 py-4 whitespace-nowrap min-w-[100px] max-w-[130px]">
-                    <div className="text-base text-gray-900 truncate">
+                  <td className="px-4 py-3whitespace-nowrap min-w-[100px] max-w-[130px]">
+                    <div className="text-sm text-gray-900 truncate">
                       {lead.telefono}
                     </div>
                     {lead.telefono_adicional && (
-                      <div className="text-base text-gray-500 flex items-center mt-1">
+                      <div className="text-sm text-gray-500 flex items-center mt-1">
                         <PhoneForwarded className="h-4 w-4 mr-1 text-gray-400" />
                         <span className="truncate">
                           {lead.telefono_adicional}
@@ -2546,33 +2546,33 @@ export function LeadsTable({
                       </div>
                     )}
                     {lead.pais_contacto && (
-                      <div className="text-base text-gray-500 flex items-center mt-1">
+                      <div className="text-sm text-gray-500 flex items-center mt-1">
                         <MapPin className="h-4 w-4 mr-1 text-gray-400" />
                         <span className="truncate">{lead.pais_contacto}</span>
                       </div>
                     )}
                   </td>
-                  <td className="px-3 py-4 min-w-[160px] max-w-[190px]">
+                  <td className="px-4 py-3min-w-[200px] max-w-[240px]">
                     <div className="w-full">
                       {(() => {
                         const estadoBadge = getEstadoBadge(lead.estado);
                         return (
                           <Badge
-                            className={`${estadoBadge.className} text-base whitespace-normal break-words leading-tight inline-block px-3 py-1.5`}
+                            className={`${estadoBadge.className} text-sm whitespace-normal break-words leading-tight inline-block px-3 py-1.5`}
                           >
                             {estadoBadge.label}
                           </Badge>
                         );
                       })()}
                       {lead.comercial && (
-                        <div className="text-base text-gray-500 flex items-center mt-1">
+                        <div className="text-sm text-gray-500 flex items-center mt-1">
                           <UserCheck className="h-4 w-4 mr-1 text-gray-400" />
                           <span className="truncate">{lead.comercial}</span>
                         </div>
                       )}
                     </div>
                   </td>
-                  <td className="px-3 py-4 min-w-[220px] max-w-[280px]">
+                  <td className="px-4 py-3min-w-[220px] max-w-[280px]">
                     <div className="space-y-1">
                       {(() => {
                         type Componente = { cantidad: number; descripcion: string };
@@ -2606,7 +2606,7 @@ export function LeadsTable({
 
                         const sinComponentes = !inv && bats.length === 0 && !pan && !elementoPersonalizado;
                         if (sinComponentes && !oc) {
-                          return <div className="text-base text-gray-400">Sin ofertas</div>;
+                          return <div className="text-sm text-gray-400">Sin ofertas</div>;
                         }
 
                         const totalOfertas = oc?.total_ofertas ?? 0;
@@ -2664,7 +2664,7 @@ export function LeadsTable({
                       })()}
                     </div>
                   </td>
-                  <td className="px-3 py-4 whitespace-nowrap text-right text-sm font-medium min-w-[120px] w-[120px]">
+                  <td className="px-4 py-3whitespace-nowrap text-right text-sm font-medium min-w-[120px] w-[120px]">
                     <div className="flex items-center justify-end space-x-1">
                       <div className="flex items-center h-7 w-7 justify-center">
                         <PriorityDot

@@ -68,6 +68,7 @@ export interface Lead {
   telefono_adicional?: string;
   estado: string;
   fuente?: string;
+  fuente_referencia?: string;
   referencia?: string;
   direccion?: string;
   pais_contacto?: string;
@@ -102,6 +103,7 @@ export interface LeadCreateData {
   estado: string;
   telefono_adicional?: string;
   fuente?: string;
+  fuente_referencia?: string;
   referencia?: string;
   direccion?: string;
   pais_contacto?: string;
@@ -125,6 +127,7 @@ export interface LeadUpdateData {
   telefono_adicional?: string;
   estado?: string;
   fuente?: string;
+  fuente_referencia?: string;
   referencia?: string;
   direccion?: string;
   pais_contacto?: string;
@@ -153,6 +156,7 @@ export interface LeadConversionRequest {
   moneda?: string;
   estado?: string;
   fuente?: string;
+  fuente_referencia?: string;
   municipio?: string;
   equipo_propio?: boolean;
 }

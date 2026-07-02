@@ -37,7 +37,7 @@ import { SmartPagination } from "@/components/shared/molecule/smart-pagination";
 import { CreateLeadDialog } from "@/components/feats/leads/create-lead-dialog";
 import { EditLeadDialog } from "@/components/feats/leads/edit-lead-dialog";
 import { ExportButtons } from "@/components/shared/molecule/export-buttons";
-import { FuentesManager } from "@/components/shared/molecule/fuentes-manager";
+import { FUENTES_FIJAS } from "@/lib/constants/fuentes";
 import { useLeads } from "@/hooks/use-leads";
 import { useFuentesSync } from "@/hooks/use-fuentes-sync";
 import { LeadService } from "@/lib/api-services";
@@ -432,7 +432,14 @@ export default function LeadsPage() {
         badge={{ text: "Ventas", className: "bg-green-100 text-green-800" }}
         actions={
           <div className="flex items-center gap-2">
-            <FuentesManager />
+            {leads.length > 0 && (
+              <ExportButtons
+                getExportOptions={getExportOptions}
+                baseFilename="leads"
+                variant="compact"
+                showPdf={false}
+              />
+            )}
             <Dialog
               open={isCreateLeadDialogOpen}
               onOpenChange={setIsCreateLeadDialogOpen}
@@ -609,14 +616,11 @@ export default function LeadsPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="todas">Todas las fuentes</SelectItem>
-                    <SelectItem value="Página Web">Página Web</SelectItem>
-                    <SelectItem value="Instagram">Instagram</SelectItem>
-                    <SelectItem value="Facebook">Facebook</SelectItem>
-                    <SelectItem value="Directo">Directo</SelectItem>
-                    <SelectItem value="Mensaje de Whatsapp">
-                      Mensaje de Whatsapp
-                    </SelectItem>
-                    <SelectItem value="Visita">Visita</SelectItem>
+                    {FUENTES_FIJAS.map((f) => (
+                      <SelectItem key={f} value={f}>
+                        {f}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -808,70 +812,43 @@ export default function LeadsPage() {
         </Card>
 
         {/* Leads Table */}
-        <Card className="border-l-4 border-l-green-600">
-          <CardHeader>
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  Lista de Leads
-                  {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                </CardTitle>
-                <CardDescription>
-                  Mostrando {leads.length} de {totalLeads} leads
-                </CardDescription>
-              </div>
+        <div className="relative min-h-[16rem]">
+          {loading && leads.length > 0 && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/80 backdrop-blur-sm">
+              <Loader label="Aplicando filtros..." />
+            </div>
+          )}
 
-              {/* Botones de exportación */}
-              {leads.length > 0 && (
-                <div className="flex-shrink-0">
-                  <ExportButtons
-                    getExportOptions={getExportOptions}
-                    baseFilename="leads"
-                    variant="compact"
-                    showPdf={false}
-                  />
-                </div>
+          {loading && leads.length === 0 ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader label="Cargando leads..." />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <LeadsTable
+                leads={leads}
+                onEdit={handleEditLead}
+                onDelete={handleDeleteLead}
+                onConvert={handleConvertLead}
+                onGenerarCodigo={handleGenerarCodigoCliente}
+                onUploadComprobante={handleUploadLeadComprobante}
+                onUploadFotos={handleUploadLeadFoto}
+                onDownloadComprobante={handleDownloadLeadComprobante}
+                onUpdatePrioridad={handleUpdateLeadPrioridad}
+                loading={loading}
+                disableActions={loadingAction}
+                onRefreshLeads={loadLeads}
+              />
+              {totalLeads > limit && (
+                <SmartPagination
+                  currentPage={page}
+                  totalPages={Math.ceil(totalLeads / limit)}
+                  onPageChange={setPage}
+                />
               )}
             </div>
-          </CardHeader>
-          <CardContent className="relative min-h-[16rem]">
-            {loading && leads.length > 0 && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center rounded-b-lg bg-white/80 backdrop-blur-sm">
-                <Loader label="Aplicando filtros..." />
-              </div>
-            )}
-
-            {loading && leads.length === 0 ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader label="Cargando leads..." />
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <LeadsTable
-                  leads={leads}
-                  onEdit={handleEditLead}
-                  onDelete={handleDeleteLead}
-                  onConvert={handleConvertLead}
-                  onGenerarCodigo={handleGenerarCodigoCliente}
-                  onUploadComprobante={handleUploadLeadComprobante}
-                  onUploadFotos={handleUploadLeadFoto}
-                  onDownloadComprobante={handleDownloadLeadComprobante}
-                  onUpdatePrioridad={handleUpdateLeadPrioridad}
-                  loading={loading}
-                  disableActions={loadingAction}
-                  onRefreshLeads={loadLeads}
-                />
-                {totalLeads > limit && (
-                  <SmartPagination
-                    currentPage={page}
-                    totalPages={Math.ceil(totalLeads / limit)}
-                    onPageChange={setPage}
-                  />
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+          )}
+        </div>
 
         {/* Edit Dialog */}
         {editingLead && (
