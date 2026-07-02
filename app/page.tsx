@@ -84,7 +84,7 @@ type GroupMeta = {
 // fallback cuando el grupo no define título en MODULO_GRUPOS.
 const GROUP_META: Record<string, GroupMeta> = {
   "resultados-empresa": {
-    label: "Centro de Control",
+    label: "General",
     icon: LayoutDashboard,
     chip: "bg-emerald-50 text-emerald-700",
     bar: "from-emerald-400 to-emerald-600",

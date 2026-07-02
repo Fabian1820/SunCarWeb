@@ -17,7 +17,8 @@ export default function ReportesComercialPage() {
       description: 'No iniciadas y en proceso de leads y clientes',
       icon: Clock,
       color: 'blue',
-      href: '/reportes-comercial/pendientes-instalacion'
+      href: '/reportes-comercial/pendientes-instalacion',
+      hidden: true
     },
     {
       id: 'resultados-comercial',
@@ -35,7 +36,8 @@ export default function ReportesComercialPage() {
       description: 'Equipos vendidos, entregados y en servicio',
       icon: BarChart3,
       color: 'orange',
-      href: '/reportes-comercial/estado-equipos'
+      href: '/reportes-comercial/estado-equipos',
+      hidden: true
     }
   ]
 

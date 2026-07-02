@@ -27,7 +27,13 @@ import {
   Building,
   BookOpen,
   Image,
+  MapPin,
   Clock,
+  CalendarDays,
+  CalendarCheck,
+  AlertTriangle,
+  CreditCard,
+  HardHat,
 } from "lucide-react"
 
 /**
@@ -72,8 +78,8 @@ export type ModuloGrupo = {
 export const MODULO_GRUPOS: ModuloGrupo[] = [
   {
     key: "resultados-empresa",
-    title: "",
-    subtitle: "",
+    title: "General",
+    subtitle: "Centro de control y billetera.",
   },
   {
     key: "comercial-instaladora",
@@ -108,7 +114,7 @@ export const MODULO_GRUPOS: ModuloGrupo[] = [
   {
     key: "area-direccion",
     title: "Área de Dirección",
-    subtitle: "Billetera y permisos.",
+    subtitle: "Permisos del sistema.",
   },
   {
     key: "web",
@@ -189,7 +195,7 @@ export type ModuloCatalogo = {
 }
 
 export const MODULOS_CATALOGO: ModuloCatalogo[] = [
-  // ───────── Resultados empresa ─────────
+  // ───────── General ─────────
   {
     key: "centro-control",
     label: "Centro de Control",
@@ -198,6 +204,16 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-emerald-700",
     href: "/centro-control",
     grupo: "resultados-empresa",
+  },
+  {
+    key: "wallet",
+    label: "Billetera",
+    descripcion: "Ingresos y gastos manuales con trazabilidad global.",
+    icon: Wallet,
+    iconClass: "text-emerald-800",
+    href: "/wallet",
+    grupo: "resultados-empresa",
+    alwaysVisible: true,
   },
 
   // ───────── Comercial Instaladora ─────────
@@ -212,7 +228,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
   },
   {
     key: "leads",
-    label: "Gestionar Leads Instaladora",
+    label: "Leads",
     descripcion: "Administrar leads y oportunidades de venta.",
     icon: Phone,
     iconClass: "text-emerald-600",
@@ -221,7 +237,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
   },
   {
     key: "clientes",
-    label: "Gestionar Clientes Instaladora",
+    label: "Clientes",
     descripcion: "Administrar información y reportes de clientes.",
     icon: User,
     iconClass: "text-emerald-600",
@@ -230,7 +246,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
   },
   {
     key: "ofertas-gestion",
-    label: "Gestionar Ofertas Instaladora",
+    label: "Ofertas",
     descripcion: "Confección de ofertas y herramientas de ventas.",
     icon: Zap,
     iconClass: "text-emerald-600",
@@ -238,12 +254,24 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     grupo: "comercial-instaladora",
   },
   {
+    key: "reservas-instaladora",
+    label: "Reservas",
+    descripcion: "Gestionar reservas de materiales para proyectos de instalación.",
+    icon: BookmarkCheck,
+    iconClass: "text-emerald-600",
+    href: "/reservas-ventas",
+    grupo: "comercial-instaladora",
+  },
+  {
+    // El permission key se mantiene como `reportes-comercial` para preservar
+    // asignaciones existentes; el label/href ahora apuntan directamente al
+    // submódulo "Resultados por Comercial" (los otros submódulos quedan ocultos).
     key: "reportes-comercial",
-    label: "Reportes Comercial Instaladora",
-    descripcion: "Reportes y análisis del área comercial.",
+    label: "Resultados por Comercial",
+    descripcion: "Ofertas cerradas con pagos y márgenes por comercial.",
     icon: BarChart3,
     iconClass: "text-emerald-600",
-    href: "/reportes-comercial",
+    href: "/reportes-comercial/resultados-comercial",
     grupo: "comercial-instaladora",
   },
 
@@ -324,6 +352,74 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     grupo: "operaciones",
   },
   {
+    key: "solicitudes-materiales",
+    label: "Solicitudes de Materiales",
+    descripcion: "Crear y gestionar solicitudes de materiales.",
+    icon: PackageSearch,
+    iconClass: "text-teal-600",
+    href: "/instalaciones/solicitudes-materiales",
+    grupo: "operaciones",
+  },
+  // Submódulos de Instalaciones surfaced como módulos propios en Operaciones.
+  // Cada uno tiene permiso independiente (formato padre/hijo `instalaciones/*`).
+  {
+    key: "instalaciones/visitas",
+    label: "Visitas",
+    descripcion: "Pendientes, realizadas y todas las visitas.",
+    icon: MapPin,
+    iconClass: "text-teal-600",
+    href: "/instalaciones/pendientes-visita",
+    grupo: "operaciones",
+  },
+  {
+    key: "instalaciones/en-proceso",
+    label: "Instalaciones en Proceso",
+    descripcion: "Clientes con instalación en proceso.",
+    icon: Clock,
+    iconClass: "text-teal-600",
+    href: "/instalaciones/en-proceso",
+    grupo: "operaciones",
+  },
+  {
+    key: "instalaciones/nuevas",
+    label: "Instalaciones Nuevas",
+    descripcion: "Nuevas instalaciones por realizar.",
+    icon: Wrench,
+    iconClass: "text-teal-600",
+    href: "/instalaciones/nuevas",
+    grupo: "operaciones",
+  },
+  {
+    key: "instalaciones/trabajos-diarios",
+    label: "Trabajos Diarios",
+    descripcion: "Confirmar salida y entrega de materiales por vale.",
+    icon: CalendarDays,
+    iconClass: "text-teal-600",
+    href: "/instalaciones/trabajos-diarios",
+    grupo: "operaciones",
+  },
+  {
+    key: "instalaciones/planificacion",
+    label: "Planificación Diaria de Trabajos",
+    descripcion: "Planifica trabajos del día siguiente por brigadas.",
+    icon: CalendarCheck,
+    iconClass: "text-teal-600",
+    href: "/instalaciones/planificacion-diaria-trabajos",
+    grupo: "operaciones",
+  },
+  {
+    key: "instalaciones/averias",
+    label: "Averías",
+    descripcion: "Reportes de averías y mantenimiento.",
+    icon: AlertTriangle,
+    iconClass: "text-teal-600",
+    href: "/instalaciones/averias",
+    grupo: "operaciones",
+  },
+  // El hub Instalaciones y el acceso directo a Trabajos Diarios quedan ocultos
+  // del dashboard (sus submódulos ya aparecen arriba como módulos propios).
+  // Se conservan en el catálogo para preservar permisos/subpermisos existentes.
+  {
     key: "instalaciones",
     label: "Instalaciones",
     descripcion: "Instalaciones en proceso, nuevas y averías.",
@@ -331,6 +427,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-teal-600",
     href: "/instalaciones",
     grupo: "operaciones",
+    hideFromDashboard: true,
     subPermisos: [
       { key: "trabajos:confirmar", label: "Confirmar salidas" },
       { key: "trabajos:registrar", label: "Cierre diario instalaciones" },
@@ -349,18 +446,44 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     href: "/operaciones/todos-trabajos",
     grupo: "operaciones",
     dashboardId: "todos-trabajos",
-  },
-  {
-    key: "solicitudes-materiales",
-    label: "Solicitudes de Materiales",
-    descripcion: "Crear y gestionar solicitudes de materiales.",
-    icon: PackageSearch,
-    iconClass: "text-teal-600",
-    href: "/instalaciones/solicitudes-materiales",
-    grupo: "operaciones",
+    hideFromDashboard: true,
   },
 
   // ───────── Economía ─────────
+  // Submódulos de Facturación surfaced como módulos propios en Economía.
+  // Mantienen sus keys `facturas/*` existentes, así que conservan los permisos
+  // ya asignados (quien tenga el subpermiso exacto o el permiso `facturas`
+  // completo los seguirá viendo).
+  {
+    key: "facturas/pagos-clientes",
+    label: "Pagos Clientes",
+    descripcion: "Pagos recibidos de clientes y cuentas por cobrar.",
+    icon: CreditCard,
+    iconClass: "text-amber-600",
+    href: "/facturas/pagos-clientes",
+    grupo: "economia",
+  },
+  {
+    key: "facturas/facturas-solar-carros",
+    label: "Facturas Solar Carros",
+    descripcion: "Facturación Solar Carros para Instaladora y Ventas.",
+    icon: Receipt,
+    iconClass: "text-amber-600",
+    href: "/facturas/facturas-solar-carros",
+    grupo: "economia",
+  },
+  {
+    key: "facturas/obras-terminadas",
+    label: "Obras Terminadas",
+    descripcion: "Resultados por oferta: pagos, trabajos diarios y comercial.",
+    icon: HardHat,
+    iconClass: "text-amber-600",
+    href: "/facturas/obras-terminadas",
+    grupo: "economia",
+  },
+  // Hub Facturación: oculto del dashboard (sus submódulos ya aparecen arriba).
+  // Se conserva para preservar el permiso padre `facturas` y el subpermiso
+  // `vales-facturas-instaladora` (módulo temporalmente desactivado).
   {
     key: "facturas",
     label: "Facturación",
@@ -369,17 +492,12 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-amber-600",
     href: "/facturas",
     grupo: "economia",
+    hideFromDashboard: true,
     subPermisos: [
-      { key: "facturas/pagos-clientes", label: "Pagos Clientes" },
       {
         key: "facturas/vales-facturas-instaladora",
         label: "Vales y Facturas de Instaladora",
       },
-      {
-        key: "facturas/facturas-solar-carros",
-        label: "Facturas Solar Carros",
-      },
-      { key: "facturas/obras-terminadas", label: "Obras Terminadas" },
     ],
   },
   {
@@ -392,16 +510,6 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     grupo: "economia",
   },
   {
-    key: "kardex-costo",
-    label: "Kardex de Costos",
-    descripcion: "Costo promedio ponderado por material y almacén con histórico de entradas.",
-    icon: Calculator,
-    iconClass: "text-amber-600",
-    href: "/kardex-costo",
-    grupo: "economia",
-    hideFromDashboard: true,
-  },
-  {
     key: "existencias-contabilidad",
     label: "Existencias Contabilidad",
     descripcion: "Gestión de inventario contable y tickets de salida.",
@@ -410,6 +518,9 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     href: "/existencias-contabilidad",
     grupo: "economia",
   },
+  // Hub Compras, Envíos y Costos: oculto del dashboard. Sus submódulos ahora
+  // aparecen como módulos propios en Economía (abajo). Se conserva para la ruta
+  // /compras-envios-costos y para preservar los permisos ya asignados.
   {
     key: "compras-envios-costos",
     label: "Compras, Envíos y Costos",
@@ -418,18 +529,11 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-amber-600",
     href: "/compras-envios-costos",
     grupo: "economia",
-    // Estos hijos no usan formato padre/hijo en BD (por compatibilidad con
-    // asignaciones existentes), así que se declaran explícitos para que el
-    // card padre sea visible cuando el trabajador tiene cualquiera de ellos.
+    hideFromDashboard: true,
     childKeys: ["envio-contenedores", "fichas-costo", "kardex-costo", "solicitudes-entrada-almacen"],
   },
-
-  // Estos viven bajo "Compras, Envíos y Costos" como sub-cards. Se mantienen
-  // en el catálogo para que sus permisos sean asignables y sincronizables con
-  // BD, pero NO aparecen como cards independientes en el dashboard principal
-  // (hideFromDashboard).
-  // El permission key se mantiene como `envio-contenedores` para preservar
-  // asignaciones existentes; el label/href ya reflejan el módulo renombrado.
+  // Submódulos de Compras, Envíos y Costos surfaced como módulos propios.
+  // Mantienen sus keys existentes, así que conservan los permisos ya asignados.
   {
     key: "envio-contenedores",
     label: "Compras",
@@ -438,7 +542,24 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-amber-600",
     href: "/compras",
     grupo: "economia",
-    hideFromDashboard: true,
+  },
+  {
+    key: "solicitudes-entrada-almacen",
+    label: "Solicitudes de Entrada",
+    descripcion: "Recepción de materiales de compra al almacén con split por pool.",
+    icon: PackagePlus,
+    iconClass: "text-amber-600",
+    href: "/solicitudes-entrada-almacen",
+    grupo: "economia",
+  },
+  {
+    key: "kardex-costo",
+    label: "Kardex de Costos",
+    descripcion: "Costo promedio ponderado por material y almacén con histórico de entradas.",
+    icon: Calculator,
+    iconClass: "text-amber-600",
+    href: "/kardex-costo",
+    grupo: "economia",
   },
   {
     key: "fichas-costo",
@@ -448,7 +569,6 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-amber-600",
     href: "/fichas-costo",
     grupo: "economia",
-    hideFromDashboard: true,
     subPermisos: [
       {
         key: "fichas-costo/solo-precios",
@@ -494,20 +614,6 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
       },
     ],
   },
-  {
-    // Vive como sub-card dentro de /compras-envios-costos. Pertenece al flujo
-    // de Compras (recepciones), no al dashboard de almacenes, así que va
-    // hideFromDashboard.
-    key: "solicitudes-entrada-almacen",
-    label: "Solicitudes de Entrada",
-    descripcion: "Recepción de materiales de compra al almacén con split por pool.",
-    icon: PackagePlus,
-    iconClass: "text-amber-600",
-    href: "/solicitudes-entrada-almacen",
-    grupo: "economia",
-    hideFromDashboard: true,
-  },
-
   // ───────── Recursos Humanos ─────────
   {
     key: "asistencia",
@@ -553,18 +659,6 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-violet-600",
     href: "/asignaciones",
     grupo: "recursos-humanos",
-  },
-
-  // ───────── Área de Dirección ─────────
-  {
-    key: "wallet",
-    label: "Billetera",
-    descripcion: "Ingresos y gastos manuales con trazabilidad global.",
-    icon: Wallet,
-    iconClass: "text-emerald-800",
-    href: "/wallet",
-    grupo: "area-direccion",
-    alwaysVisible: true,
   },
 
   // ───────── Marketing ─────────
