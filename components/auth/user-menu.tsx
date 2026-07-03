@@ -82,9 +82,6 @@ export function UserMenu({ trigger }: UserMenuProps) {
                 <Link href="/mi-tarjeta" onClick={() => setIsProfileOpen(false)}>
                   <IdCard className="mr-2 h-4 w-4" />
                   Mi tarjeta de presentación
-                  <span className="ml-auto rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">
-                    Prueba
-                  </span>
                 </Link>
               </Button>
               <Button

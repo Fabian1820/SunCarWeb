@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import {
   IdCard,
-  AlertTriangle,
   Camera,
   Loader2,
   Save,
@@ -225,17 +224,6 @@ export default function MiTarjetaPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
-      {/* Aviso: módulo en fase de prueba */}
-      <div className="mb-6 flex items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900">
-        <AlertTriangle className="h-5 w-5 shrink-0 text-amber-500" />
-        <p className="text-sm font-medium">
-          <span className="mr-2 inline-flex items-center rounded-full bg-amber-500 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-white">
-            Fase de prueba
-          </span>
-          Módulo en pruebas — no tocar por ahora.
-        </p>
-      </div>
-
       {/* Encabezado */}
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
