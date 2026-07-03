@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { Button } from "@/components/shared/atom/button"
 import {
   Card,
@@ -18,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/shared/atom/select"
-import { AlertCircle, Loader2, RefreshCw } from "lucide-react"
+import { AlertCircle, ClipboardList, Loader2, RefreshCw } from "lucide-react"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import { useMaterialesStock } from "@/hooks/use-materiales-stock"
@@ -143,6 +144,14 @@ export default function InventarioPage() {
         subtitle="Consulta las existencias por almacén y tienda"
         badge={{ text: "Inventario", className: "bg-emerald-100 text-emerald-800" }}
         className="bg-white shadow-sm border-b border-emerald-100"
+        actions={
+          <Link href="/inventario/lista-compra">
+            <Button variant="outline" size="sm">
+              <ClipboardList className="h-4 w-4 mr-2" />
+              Lista de compra
+            </Button>
+          </Link>
+        }
       />
 
       <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8 space-y-6">

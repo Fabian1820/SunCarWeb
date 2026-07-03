@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
+import Link from "next/link";
 import ExcelJS from "exceljs";
 import {
   Dialog,
@@ -31,6 +32,9 @@ import {
   ChevronUp,
   Info,
   FileDown,
+  ListPlus,
+  Check,
+  ClipboardList,
 } from "lucide-react";
 import { InventarioService } from "@/lib/services/feats/inventario/inventario-service";
 import type {
@@ -39,6 +43,9 @@ import type {
   EstadoStock,
   ResumenAnalisisStock,
 } from "@/lib/types/feats/inventario/inventario-types";
+import { useListaCompra } from "@/hooks/use-lista-compra";
+import type { UrgenciaCompra } from "@/lib/types/feats/lista-compra/lista-compra-types";
+import { useToast } from "@/hooks/use-toast";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -77,6 +84,22 @@ function diasLabel(dias: number | null | undefined): string {
 
 function nombreProducto(p: ProductoAnalisisStock): string {
   return p.nombre || p.descripcion || p.material_codigo;
+}
+
+function cantidadSugerida(p: ProductoAnalisisStock): number {
+  const deficit = p.stock_minimo_recomendado - p.cantidad_actual;
+  const base = deficit > 0 ? deficit : p.stock_minimo_recomendado;
+  return Math.max(1, Math.round(base));
+}
+
+function urgenciaSugerida(estado: EstadoStock): UrgenciaCompra {
+  if (estado === "critico") return "alta";
+  if (estado === "alerta") return "media";
+  return "baja";
+}
+
+function claveProducto(materialCodigo: string, almacenId?: string): string {
+  return `${materialCodigo}::${almacenId ?? ""}`;
 }
 
 // ── Tarjeta de resumen ────────────────────────────────────────────────────────
@@ -168,7 +191,19 @@ function ExplicacionBox({ leadTime, nivelServicio }: { leadTime: number; nivelSe
 
 // ── Tabla de productos ────────────────────────────────────────────────────────
 
-function ProductosTable({ productos, filtroEstado }: { productos: ProductoAnalisisStock[]; filtroEstado: string }) {
+function ProductosTable({
+  productos,
+  filtroEstado,
+  almacenId,
+  pendientesKeys,
+  onAgregar,
+}: {
+  productos: ProductoAnalisisStock[];
+  filtroEstado: string;
+  almacenId?: string;
+  pendientesKeys: Set<string>;
+  onAgregar: (p: ProductoAnalisisStock) => Promise<void>;
+}) {
   const filtrados =
     filtroEstado === "todos"
       ? productos
@@ -193,78 +228,131 @@ function ProductosTable({ productos, filtroEstado }: { productos: ProductoAnalis
             <th className="px-3 py-2 text-right">Mínimo recomendado</th>
             <th className="px-3 py-2 text-right">Días restantes</th>
             <th className="px-3 py-2 text-right">Sale/día (prom.)</th>
+            <th className="px-3 py-2 text-center">Acciones</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
-          {filtrados.map((p) => {
-            const cfg = estadoConfig(p.estado);
-            const deficit = p.stock_minimo_recomendado - p.cantidad_actual;
-            return (
-              <tr key={p.material_codigo} className={`${cfg.rowBg} hover:opacity-90`}>
-                <td className="px-3 py-2">
-                  <span
-                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${cfg.badge}`}
-                  >
-                    {cfg.icon}
-                    {cfg.label}
-                  </span>
-                </td>
-                <td className="px-3 py-2">
-                  <p className="font-medium text-gray-900 leading-tight">{nombreProducto(p)}</p>
-                  <p className="text-xs text-gray-400">{p.material_codigo}</p>
-                  {p.categoria && (
-                    <p className="text-xs text-gray-400">{p.categoria}</p>
-                  )}
-                </td>
-                <td className="px-3 py-2 text-right">
-                  <span
-                    className={`font-bold ${
-                      p.cantidad_actual <= 0
-                        ? "text-red-700"
-                        : p.estado === "critico"
-                        ? "text-red-600"
-                        : "text-gray-800"
-                    }`}
-                  >
-                    {p.cantidad_actual.toLocaleString()}
-                  </span>
-                  {p.um && <span className="text-xs text-gray-400 ml-1">{p.um}</span>}
-                </td>
-                <td className="px-3 py-2 text-right">
-                  <p className="font-medium text-gray-800">
-                    {p.stock_minimo_recomendado.toLocaleString()}
-                  </p>
-                  {deficit > 0 && (
-                    <p className="text-xs text-red-600 flex items-center justify-end gap-0.5">
-                      <TrendingDown className="h-3 w-3" />
-                      Faltan {Math.ceil(deficit).toLocaleString()}
-                    </p>
-                  )}
-                </td>
-                <td className="px-3 py-2 text-right">
-                  <span
-                    className={`font-medium ${
-                      !p.dias_restantes_estimados || p.dias_restantes_estimados < 7
-                        ? "text-red-600"
-                        : p.dias_restantes_estimados < 14
-                        ? "text-amber-600"
-                        : "text-green-600"
-                    }`}
-                  >
-                    {diasLabel(p.dias_restantes_estimados)}
-                  </span>
-                </td>
-                <td className="px-3 py-2 text-right text-gray-600">
-                  {p.demanda_diaria_promedio > 0
-                    ? p.demanda_diaria_promedio.toFixed(1)
-                    : "—"}
-                </td>
-              </tr>
-            );
-          })}
+          {filtrados.map((p) => (
+            <ProductoRow
+              key={claveProducto(p.material_codigo, almacenId)}
+              producto={p}
+              yaAgregado={pendientesKeys.has(claveProducto(p.material_codigo, almacenId))}
+              onAgregar={onAgregar}
+            />
+          ))}
         </tbody>
       </table>
     </div>
+  );
+}
+
+function ProductoRow({
+  producto: p,
+  yaAgregado,
+  onAgregar,
+}: {
+  producto: ProductoAnalisisStock;
+  yaAgregado: boolean;
+  onAgregar: (p: ProductoAnalisisStock) => Promise<void>;
+}) {
+  const [agregando, setAgregando] = useState(false);
+  const cfg = estadoConfig(p.estado);
+  const deficit = p.stock_minimo_recomendado - p.cantidad_actual;
+
+  const handleClick = async () => {
+    setAgregando(true);
+    try {
+      await onAgregar(p);
+    } finally {
+      setAgregando(false);
+    }
+  };
+
+  return (
+    <tr className={`${cfg.rowBg} hover:opacity-90`}>
+      <td className="px-3 py-2">
+        <span
+          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${cfg.badge}`}
+        >
+          {cfg.icon}
+          {cfg.label}
+        </span>
+      </td>
+      <td className="px-3 py-2">
+        <p className="font-medium text-gray-900 leading-tight">{nombreProducto(p)}</p>
+        <p className="text-xs text-gray-400">{p.material_codigo}</p>
+        {p.categoria && (
+          <p className="text-xs text-gray-400">{p.categoria}</p>
+        )}
+      </td>
+      <td className="px-3 py-2 text-right">
+        <span
+          className={`font-bold ${
+            p.cantidad_actual <= 0
+              ? "text-red-700"
+              : p.estado === "critico"
+              ? "text-red-600"
+              : "text-gray-800"
+          }`}
+        >
+          {p.cantidad_actual.toLocaleString()}
+        </span>
+        {p.um && <span className="text-xs text-gray-400 ml-1">{p.um}</span>}
+      </td>
+      <td className="px-3 py-2 text-right">
+        <p className="font-medium text-gray-800">
+          {p.stock_minimo_recomendado.toLocaleString()}
+        </p>
+        {deficit > 0 && (
+          <p className="text-xs text-red-600 flex items-center justify-end gap-0.5">
+            <TrendingDown className="h-3 w-3" />
+            Faltan {Math.ceil(deficit).toLocaleString()}
+          </p>
+        )}
+      </td>
+      <td className="px-3 py-2 text-right">
+        <span
+          className={`font-medium ${
+            !p.dias_restantes_estimados || p.dias_restantes_estimados < 7
+              ? "text-red-600"
+              : p.dias_restantes_estimados < 14
+              ? "text-amber-600"
+              : "text-green-600"
+          }`}
+        >
+          {diasLabel(p.dias_restantes_estimados)}
+        </span>
+      </td>
+      <td className="px-3 py-2 text-right text-gray-600">
+        {p.demanda_diaria_promedio > 0
+          ? p.demanda_diaria_promedio.toFixed(1)
+          : "—"}
+      </td>
+      <td className="px-3 py-2 text-center">
+        <Button
+          size="sm"
+          variant={yaAgregado ? "outline" : "default"}
+          disabled={yaAgregado || agregando}
+          onClick={handleClick}
+          className={`h-7 px-2 text-xs ${
+            yaAgregado ? "text-green-700 border-green-300" : "bg-blue-600 hover:bg-blue-700 text-white"
+          }`}
+          title="Agregar a la lista de compra"
+        >
+          {yaAgregado ? (
+            <>
+              <Check className="h-3.5 w-3.5 mr-1" />
+              En lista
+            </>
+          ) : (
+            <>
+              <ListPlus className="h-3.5 w-3.5 mr-1" />
+              {agregando ? "..." : "Agregar"}
+            </>
+          )}
+        </Button>
+      </td>
+    </tr>
   );
 }
 
@@ -521,6 +609,41 @@ export function StockMinimoAnalisisModal({
   const [filtroEstado, setFiltroEstado] = useState("todos");
   const [hasCargado, setHasCargado] = useState(false);
   const [exportando, setExportando] = useState(false);
+  const { toast } = useToast();
+  const { items: itemsPendientes, loadItems: loadItemsPendientes, addItem } =
+    useListaCompra("pendiente");
+
+  const pendientesKeys = useMemo(
+    () => new Set(itemsPendientes.map((i) => claveProducto(i.material_codigo, i.almacen_id ?? undefined))),
+    [itemsPendientes],
+  );
+
+  const handleAgregar = useCallback(
+    async (p: ProductoAnalisisStock) => {
+      try {
+        await addItem({
+          material_codigo: p.material_codigo,
+          material_nombre: nombreProducto(p),
+          cantidad: cantidadSugerida(p),
+          urgencia: urgenciaSugerida(p.estado),
+          origen: "automatico",
+          almacen_id: almacenId,
+          dias_restantes_estimados: p.dias_restantes_estimados ?? undefined,
+        });
+        toast({
+          title: "Agregado a la lista de compra",
+          description: `${nombreProducto(p)} — revisa y ajusta cantidad/urgencia en el tablero.`,
+        });
+      } catch (e: any) {
+        toast({
+          title: "Error",
+          description: e?.message || "No se pudo agregar el producto",
+          variant: "destructive",
+        });
+      }
+    },
+    [addItem, almacenId, toast],
+  );
 
   const handleExportarExcel = useCallback(async () => {
     if (!data) return;
@@ -554,7 +677,8 @@ export function StockMinimoAnalisisModal({
     } finally {
       setLoading(false);
     }
-  }, [almacenId, leadTime, nivelServicio]);
+    loadItemsPendientes().catch(() => {});
+  }, [almacenId, leadTime, nivelServicio, loadItemsPendientes]);
 
   // Cargar al abrir por primera vez
   const handleOpenChange = (isOpen: boolean) => {
@@ -640,6 +764,18 @@ export function StockMinimoAnalisisModal({
                 Exportar Excel
               </Button>
             )}
+
+            <Link href="/inventario/lista-compra" className="ml-auto">
+              <Button size="sm" variant="outline" className="h-8">
+                <ClipboardList className="h-4 w-4 mr-1" />
+                Lista de compra
+                {itemsPendientes.length > 0 && (
+                  <Badge className="ml-1.5 bg-blue-600 text-white hover:bg-blue-600">
+                    {itemsPendientes.length}
+                  </Badge>
+                )}
+              </Button>
+            </Link>
           </div>
         </div>
 
@@ -738,7 +874,13 @@ export function StockMinimoAnalisisModal({
 
               {/* Tabla */}
               <div className="rounded-lg border border-gray-200 overflow-hidden">
-                <ProductosTable productos={productos} filtroEstado={filtroEstado} />
+                <ProductosTable
+                  productos={productos}
+                  filtroEstado={filtroEstado}
+                  almacenId={almacenId}
+                  pendientesKeys={pendientesKeys}
+                  onAgregar={handleAgregar}
+                />
               </div>
 
               {/* Nota al pie */}

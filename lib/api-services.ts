@@ -40,3 +40,4 @@ export { CompraService } from "./services/feats/compras/compra-service";
 export { SolicitudEntradaAlmacenService } from "./services/feats/solicitudes-entrada-almacen/solicitud-entrada-almacen-service";
 export { KardexCostoService } from "./services/feats/kardex-costo/kardex-costo-service";
 export { AsignacionService } from "./services/feats/asignaciones/asignacion-service";
+export { ListaCompraService } from "./services/feats/lista-compra/lista-compra-service";
