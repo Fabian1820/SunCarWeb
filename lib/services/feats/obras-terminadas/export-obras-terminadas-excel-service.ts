@@ -3,13 +3,7 @@ import {
   type ObraTerminada,
   type ObrasTerminadasFiltros,
 } from "./obras-terminadas-service";
-import { generateFilename } from "@/lib/export-service";
-import {
-  addBrandedSheet,
-  downloadWorkbook,
-  newBrandedWorkbook,
-  type ExportColumnDef,
-} from "@/lib/export-multi-sheet-service";
+import { exportToExcel, generateFilename } from "@/lib/export-service";
 
 const normalizeEstadoKey = (estado: string) =>
   estado
@@ -49,94 +43,73 @@ const fmtDate = (value?: string | null): string => {
 const round2 = (v?: number | null): number => Math.round(((v ?? 0) + Number.EPSILON) * 100) / 100;
 
 export interface ExportObrasTerminadasResult {
-  obrasCount: number;
-  materialesCount: number;
+  count: number;
   filename: string;
 }
 
-interface MaterialRow {
-  cliente: string;
-  numeroOferta: string;
-  codigo: string;
-  descripcion: string;
-  cantidad: number;
-}
-
-const RESUMEN_COLUMNS: ExportColumnDef[] = [
-  { header: "Cliente", width: 30 },
-  { header: "N° Oferta", width: 16 },
-  { header: "Comercial", width: 20 },
-  { header: "Estado Cliente", width: 26 },
-  { header: "F. Creación", width: 14 },
-  { header: "F. Eq. Instalado", width: 16 },
-  { header: "Precio Oferta", width: 16, currency: true },
-  { header: "Total Materiales", width: 16, currency: true },
-  { header: "Cobrado", width: 14, currency: true },
-  { header: "Devuelto", width: 14, currency: true },
-  { header: "Pendiente", width: 14, currency: true },
-  { header: "Facturada", width: 12 },
-  { header: "N° Factura", width: 16 },
-];
-
-const MATERIALES_COLUMNS: ExportColumnDef[] = [
-  { header: "Cliente", width: 30 },
-  { header: "N° Oferta", width: 16 },
-  { header: "Código", width: 18 },
-  { header: "Material", width: 44 },
-  { header: "Cantidad", width: 12 },
-];
-
 export class ExportObrasTerminadasExcelService {
   /**
-   * Exporta las obras terminadas que coinciden con los filtros aplicados en pantalla
-   * a un Excel con dos hojas: el listado de obras y, aparte, el detalle de los
-   * materiales instalados en cada una (código, nombre y cantidad).
+   * Exporta las obras terminadas que coincidan con los filtros aplicados en
+   * pantalla. Una fila por obra; el código, nombre y cantidad de cada
+   * material se apilan dentro de esa misma fila (igual que el export de
+   * vales de salida), sin repetir cliente ni el resto de columnas.
    */
   static async exportar(
     filtros: ObrasTerminadasFiltros = {},
   ): Promise<ExportObrasTerminadasResult> {
     const obras = await this.fetchTodasLasObras(filtros);
 
-    const workbook = newBrandedWorkbook();
-    const fechaGenerado = new Date().toLocaleString("es-ES");
-
-    addBrandedSheet(workbook, {
-      sheetName: "Obras Terminadas",
-      title: "SunCar SRL — Obras Terminadas",
-      subtitle: `Generado: ${fechaGenerado} · Registros: ${obras.length}`,
-      columns: RESUMEN_COLUMNS,
-      rows: obras,
-      toValues: (obra) => [
-        obra.cliente_nombre || obra.nombre_completo || "Sin cliente",
-        obra.numero_oferta || "",
-        obra.comercial || "",
-        getEstadoLabel(obra.estado_cliente),
-        fmtDate(obra.fecha_creacion),
-        fmtDate(obra.fecha_equipo_instalado),
-        round2(obra.precio_final),
-        round2(obra.total_materiales),
-        round2(obra.total_pagado),
-        round2(obra.total_devuelto),
-        round2(obra.monto_pendiente),
-        obra.facturada ? "Sí" : "No",
-        obra.numero_factura || "",
-      ],
-    });
-
-    const materialRows = this.buildMaterialRows(obras);
-    addBrandedSheet(workbook, {
-      sheetName: "Materiales Instalados",
-      title: "SunCar SRL — Materiales Instalados por Cliente",
-      subtitle: "Detalle independiente de los materiales asignados a cada obra terminada",
-      columns: MATERIALES_COLUMNS,
-      rows: materialRows,
-      toValues: (m) => [m.cliente, m.numeroOferta, m.codigo, m.descripcion, m.cantidad],
+    const rows = obras.map((obra) => {
+      const materiales = obra.materiales ?? [];
+      return {
+        cliente: obra.cliente_nombre || obra.nombre_completo || "Sin cliente",
+        numero_oferta: obra.numero_oferta || "",
+        comercial: obra.comercial || "",
+        estado_cliente: getEstadoLabel(obra.estado_cliente),
+        fecha_creacion: fmtDate(obra.fecha_creacion),
+        fecha_equipo_instalado: fmtDate(obra.fecha_equipo_instalado),
+        precio_final: round2(obra.precio_final),
+        total_materiales: round2(obra.total_materiales),
+        total_pagado: round2(obra.total_pagado),
+        total_devuelto: round2(obra.total_devuelto),
+        monto_pendiente: round2(obra.monto_pendiente),
+        facturada: obra.facturada ? "Sí" : "No",
+        numero_factura: obra.numero_factura || "",
+        material_codigo: materiales.map((m) => m.material_codigo || ""),
+        material: materiales.map((m) => m.descripcion || ""),
+        cantidad: materiales.map((m) => m.cantidad ?? 0),
+      };
     });
 
     const filename = generateFilename("obras_terminadas");
-    await downloadWorkbook(workbook, filename);
 
-    return { obrasCount: obras.length, materialesCount: materialRows.length, filename };
+    await exportToExcel({
+      title: "Suncar SRL - Obras Terminadas",
+      subtitle: `Registros: ${obras.length}`,
+      filename,
+      columns: [
+        { header: "Cliente", key: "cliente", width: 28 },
+        { header: "N° Oferta", key: "numero_oferta", width: 16 },
+        { header: "Comercial", key: "comercial", width: 20 },
+        { header: "Estado Cliente", key: "estado_cliente", width: 24 },
+        { header: "F. Creación", key: "fecha_creacion", width: 14 },
+        { header: "F. Eq. Instalado", key: "fecha_equipo_instalado", width: 16 },
+        { header: "Precio Oferta", key: "precio_final", width: 14 },
+        { header: "Total Materiales", key: "total_materiales", width: 16 },
+        { header: "Cobrado", key: "total_pagado", width: 14 },
+        { header: "Devuelto", key: "total_devuelto", width: 14 },
+        { header: "Pendiente", key: "monto_pendiente", width: 14 },
+        { header: "Facturada", key: "facturada", width: 12 },
+        { header: "N° Factura", key: "numero_factura", width: 16 },
+        { header: "Código", key: "material_codigo", width: 16 },
+        { header: "Material", key: "material", width: 36 },
+        { header: "Cantidad", key: "cantidad", width: 10 },
+      ],
+      data: rows,
+      stackedColumnKeys: ["material_codigo", "material", "cantidad"],
+    });
+
+    return { count: obras.length, filename };
   }
 
   private static async fetchTodasLasObras(
@@ -153,22 +126,5 @@ export class ExportObrasTerminadasExcelService {
       hasMore = resp.data.length === PAGE_SIZE;
     }
     return all;
-  }
-
-  private static buildMaterialRows(obras: ObraTerminada[]): MaterialRow[] {
-    const rows: MaterialRow[] = [];
-    obras.forEach((obra) => {
-      const cliente = obra.cliente_nombre || obra.nombre_completo || "Sin cliente";
-      (obra.materiales ?? []).forEach((m) => {
-        rows.push({
-          cliente,
-          numeroOferta: obra.numero_oferta || "",
-          codigo: m.material_codigo || "",
-          descripcion: m.descripcion || "",
-          cantidad: m.cantidad ?? 0,
-        });
-      });
-    });
-    return rows;
   }
 }

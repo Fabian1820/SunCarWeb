@@ -970,14 +970,14 @@ const [exportingPagos, setExportingPagos]           = useState(false);
   const handleExportarPagosExcel = async () => {
     setExportingPagos(true);
     try {
-      const { pagosCount, filename } = await ExportPagosRealizadosExcelService.exportar(f3Params);
+      const { count, filename } = await ExportPagosRealizadosExcelService.exportar(f3Params);
       toast({
-        title: pagosCount > 0 ? "Excel exportado" : "Sin datos",
+        title: count > 0 ? "Excel exportado" : "Sin datos",
         description:
-          pagosCount > 0
-            ? `Se exportaron ${pagosCount} pago${pagosCount === 1 ? "" : "s"} a ${filename}.xlsx`
+          count > 0
+            ? `Se exportaron ${count} pago${count === 1 ? "" : "s"} a ${filename}.xlsx`
             : "No se encontraron pagos con los filtros actuales.",
-        variant: pagosCount > 0 ? "default" : "destructive",
+        variant: count > 0 ? "default" : "destructive",
       });
     } catch (e) {
       toast({

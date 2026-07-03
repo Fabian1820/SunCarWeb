@@ -79,7 +79,7 @@ export default function ObrasTerminadasPage() {
       const resultado = await ExportObrasTerminadasExcelService.exportar(serverFiltros)
       toast({
         title: "Exportación exitosa",
-        description: `${resultado.obrasCount} obras y ${resultado.materialesCount} materiales instalados exportados a ${resultado.filename}.xlsx`,
+        description: `${resultado.count} obra${resultado.count === 1 ? "" : "s"} exportada${resultado.count === 1 ? "" : "s"} a ${resultado.filename}.xlsx`,
       })
     } catch (error) {
       toast({

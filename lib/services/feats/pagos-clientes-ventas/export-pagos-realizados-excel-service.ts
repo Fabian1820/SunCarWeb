@@ -4,13 +4,7 @@ import type {
   PagoVenta,
   PagoVentaListParams,
 } from "@/lib/types/feats/pagos-clientes-ventas/pago-cliente-venta-types";
-import { generateFilename } from "@/lib/export-service";
-import {
-  addBrandedSheet,
-  downloadWorkbook,
-  newBrandedWorkbook,
-  type ExportColumnDef,
-} from "@/lib/export-multi-sheet-service";
+import { exportToExcel, generateFilename } from "@/lib/export-service";
 
 const METODO_LABELS: Record<string, string> = {
   efectivo: "Efectivo",
@@ -56,9 +50,6 @@ const getMaterialesRaw = (p: PagoVenta): PagoVentaMaterialRaw[] => {
   return raw.filter((m): m is PagoVentaMaterialRaw => !!m && typeof m === "object");
 };
 
-const getSolicitudKey = (p: PagoVenta): string =>
-  p.solicitud_venta_id || p.solicitud_codigo || p.id;
-
 interface CatalogoMaterial {
   codigo: string;
   nombre: string;
@@ -85,50 +76,16 @@ const buildCatalogoPorMaterialId = async (): Promise<Map<string, CatalogoMateria
 };
 
 export interface ExportPagosRealizadosResult {
-  pagosCount: number;
-  materialesCount: number;
+  count: number;
   filename: string;
 }
-
-interface MaterialRow {
-  cliente: string;
-  codigoSolicitud: string;
-  codigo: string;
-  descripcion: string;
-  cantidad: number;
-}
-
-const RESUMEN_COLUMNS: ExportColumnDef[] = [
-  { header: "Fecha", width: 14 },
-  { header: "Código Solicitud", width: 18 },
-  { header: "N° Factura", width: 16 },
-  { header: "Cliente", width: 28 },
-  { header: "Comercial", width: 20 },
-  { header: "Método de Pago", width: 18 },
-  { header: "Monto", width: 14, currency: true },
-  { header: "Moneda", width: 10 },
-  { header: "Descuento %", width: 12 },
-  { header: "Pendiente (USD)", width: 16, currency: true },
-  { header: "A Plazos", width: 10 },
-  { header: "Recibido por", width: 20 },
-  { header: "Notas", width: 30 },
-];
-
-const MATERIALES_COLUMNS: ExportColumnDef[] = [
-  { header: "Cliente", width: 28 },
-  { header: "Código Solicitud", width: 18 },
-  { header: "Código", width: 18 },
-  { header: "Material", width: 44 },
-  { header: "Cantidad", width: 12 },
-];
 
 export class ExportPagosRealizadosExcelService {
   /**
    * Exporta los pagos realizados (pestaña "Pagos Realizados" de Solicitudes de
-   * Venta) que coincidan con los filtros aplicados, a un Excel con dos hojas:
-   * el listado de pagos y, aparte, el detalle de los materiales vendidos en
-   * cada solicitud (código, nombre y cantidad) — sin repetir materiales entre
-   * pagos de una misma solicitud (ej. pagos a plazos).
+   * Venta) que coincidan con los filtros aplicados. Una fila por pago; el
+   * código, nombre y cantidad de cada material de la solicitud se apilan
+   * dentro de esa misma fila (igual que el export de vales de salida).
    */
   static async exportar(
     filtros: PagoVentaListParams = {},
@@ -138,46 +95,60 @@ export class ExportPagosRealizadosExcelService {
       buildCatalogoPorMaterialId(),
     ]);
 
-    const workbook = newBrandedWorkbook();
-    const fechaGenerado = new Date().toLocaleString("es-ES");
+    const rows = pagos.map((p) => {
+      const materiales = getMaterialesRaw(p);
+      const catalogoDe = (m: PagoVentaMaterialRaw): CatalogoMaterial | undefined =>
+        m.material_id ? catalogo.get(m.material_id) : undefined;
 
-    addBrandedSheet(workbook, {
-      sheetName: "Pagos Realizados",
-      title: "SunCar SRL — Pagos Realizados",
-      subtitle: `Generado: ${fechaGenerado} · Registros: ${pagos.length}`,
-      columns: RESUMEN_COLUMNS,
-      rows: pagos,
-      toValues: (p) => [
-        fmtDate(p.fecha),
-        p.solicitud_codigo || "",
-        p.factura_numero || "",
-        p.cliente_nombre || "",
-        p.comercial || "",
-        METODO_LABELS[p.metodo_pago || ""] || p.metodo_pago || "",
-        round2(p.monto),
-        p.moneda || "USD",
-        p.descuento_porcentaje || 0,
-        round2(getPendienteUsd(p)),
-        p.es_a_plazos ? "Sí" : "No",
-        p.recibido_por || "",
-        p.notas || "",
-      ],
-    });
-
-    const materialRows = this.buildMaterialRows(pagos, catalogo);
-    addBrandedSheet(workbook, {
-      sheetName: "Materiales Vendidos",
-      title: "SunCar SRL — Materiales Vendidos por Cliente",
-      subtitle: "Detalle independiente de los materiales de cada solicitud (sin repetir por pagos a plazos)",
-      columns: MATERIALES_COLUMNS,
-      rows: materialRows,
-      toValues: (m) => [m.cliente, m.codigoSolicitud, m.codigo, m.descripcion, m.cantidad],
+      return {
+        fecha: fmtDate(p.fecha),
+        solicitud_codigo: p.solicitud_codigo || "",
+        factura_numero: p.factura_numero || "",
+        cliente: p.cliente_nombre || "",
+        comercial: p.comercial || "",
+        metodo_pago: METODO_LABELS[p.metodo_pago || ""] || p.metodo_pago || "",
+        monto: round2(p.monto),
+        moneda: p.moneda || "USD",
+        descuento: p.descuento_porcentaje || 0,
+        pendiente_usd: round2(getPendienteUsd(p)),
+        a_plazos: p.es_a_plazos ? "Sí" : "No",
+        recibido_por: p.recibido_por || "",
+        notas: p.notas || "",
+        material_codigo: materiales.map((m) => m.codigo || catalogoDe(m)?.codigo || ""),
+        material: materiales.map((m) => m.descripcion || catalogoDe(m)?.nombre || ""),
+        cantidad: materiales.map((m) => m.cantidad ?? 0),
+      };
     });
 
     const filename = generateFilename("pagos_realizados");
-    await downloadWorkbook(workbook, filename);
 
-    return { pagosCount: pagos.length, materialesCount: materialRows.length, filename };
+    await exportToExcel({
+      title: "Suncar SRL - Pagos Realizados",
+      subtitle: `Registros: ${pagos.length}`,
+      filename,
+      columns: [
+        { header: "Fecha", key: "fecha", width: 12 },
+        { header: "Código Solicitud", key: "solicitud_codigo", width: 16 },
+        { header: "N° Factura", key: "factura_numero", width: 14 },
+        { header: "Cliente", key: "cliente", width: 26 },
+        { header: "Comercial", key: "comercial", width: 18 },
+        { header: "Método de Pago", key: "metodo_pago", width: 16 },
+        { header: "Monto", key: "monto", width: 12 },
+        { header: "Moneda", key: "moneda", width: 8 },
+        { header: "Descuento %", key: "descuento", width: 12 },
+        { header: "Pendiente (USD)", key: "pendiente_usd", width: 14 },
+        { header: "A Plazos", key: "a_plazos", width: 10 },
+        { header: "Recibido por", key: "recibido_por", width: 18 },
+        { header: "Notas", key: "notas", width: 24 },
+        { header: "Código", key: "material_codigo", width: 16 },
+        { header: "Material", key: "material", width: 36 },
+        { header: "Cantidad", key: "cantidad", width: 10 },
+      ],
+      data: rows,
+      stackedColumnKeys: ["material_codigo", "material", "cantidad"],
+    });
+
+    return { count: pagos.length, filename };
   }
 
   private static async fetchTodosLosPagos(
@@ -195,33 +166,5 @@ export class ExportPagosRealizadosExcelService {
       hasMore = resp.data.length === PAGE_SIZE;
     }
     return all;
-  }
-
-  private static buildMaterialRows(
-    pagos: PagoVenta[],
-    catalogo: Map<string, CatalogoMaterial>,
-  ): MaterialRow[] {
-    const vistos = new Set<string>();
-    const rows: MaterialRow[] = [];
-    pagos.forEach((p) => {
-      const key = getSolicitudKey(p);
-      if (vistos.has(key)) return;
-      vistos.add(key);
-
-      const materiales = getMaterialesRaw(p);
-      if (!materiales.length) return;
-      const cliente = p.cliente_nombre || "Sin cliente";
-      materiales.forEach((m) => {
-        const catInfo = m.material_id ? catalogo.get(m.material_id) : undefined;
-        rows.push({
-          cliente,
-          codigoSolicitud: p.solicitud_codigo || "",
-          codigo: m.codigo || catInfo?.codigo || "",
-          descripcion: m.descripcion || catInfo?.nombre || "",
-          cantidad: m.cantidad ?? 0,
-        });
-      });
-    });
-    return rows;
   }
 }
