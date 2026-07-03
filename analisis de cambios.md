@@ -2,50 +2,52 @@
 
 ---
 
-## 📅 1 de Julio, 2026
+## 📅 2 de Julio, 2026
 
 ### Resumen de cambios (últimas 24h)
 
-Sin commits nuevos de código. Los 2 commits de Fabian1820 sobre el módulo Movimientos (18:31 y 18:44 del 30 de Junio) ya fueron registrados en la entrada anterior. El único commit propio de este período es "Analisis diario Claude" (generado automáticamente).
+**2 commits reales** de Fabian1820 — (1) nueva pantalla de **Tarjeta de Presentación** del trabajador con QR y enlace público editable; (2) mejora al **filtro de comerciales** en Leads para incluir comerciales de ventas de apoyo combinando dos fuentes de datos.
+
+---
+
+### Área 1: Mi Tarjeta — editor de tarjeta de presentación del trabajador (1 commit — Fabian1820, 20:13)
+
+- **`feat(mi-tarjeta): editor de tarjeta de presentación del trabajador`** — Pantalla `/mi-tarjeta` (autenticada) para que el trabajador edite su tarjeta (título, bio, contacto, redes, foto) contra `/api/tarjetas/mi-tarjeta`, con QR y enlace público. Acceso desde el menú "Mi Perfil". Marcado como fase de prueba.
+
+---
+
+### Área 2: Leads — comerciales de ventas de apoyo en filtro (1 commit — Fabian1820, 21:31)
+
+- **`feat(leads): incluir comerciales de ventas de apoyo en filtro`** — El filtro de comercial en la página de leads ahora une el roster de instaladora (`/trabajadores/comerciales`) con los comerciales distintos ya usados en leads (`/leads/comerciales`), para que los comerciales de ventas que están de apoyo aparezcan de forma fiable tras su primer lead, sin listar a todos. Cache subida a v2 para invalidar la lista v1 (solo-instaladora).
 
 ---
 
 ### Puede dar bateo
 
-Sin cambios nuevos — sin riesgos nuevos.
+1. **Endpoint `/api/tarjetas/mi-tarjeta` sin confirmar en backend**: Si el backend no implementó el endpoint, la pantalla `/mi-tarjeta` fallará con 404 al cargar o al guardar. Toda la funcionalidad de edición queda inutilizable.
 
----
+2. **Tarjeta pública accesible sin autenticación — exposición de datos del trabajador**: Si el enlace público de la tarjeta no requiere auth, contacto personal, redes sociales y bio quedan expuestos públicamente. Confirmar que el diseño intencional es público antes de desplegar en producción.
 
-## 📅 30 de Junio, 2026
+3. **Tarjeta no editada con enlace público activo**: Si un trabajador nunca editó su tarjeta pero el QR/enlace ya existe, el backend puede devolver una respuesta vacía, 404 o datos por defecto incorrectos, confundiendo a quien reciba el QR antes de que el trabajador lo configure.
 
-### Resumen de cambios (últimas 24h)
+4. **Fase de prueba sin gating de permiso**: El módulo está marcado como "fase de prueba" pero es accesible desde el menú "Mi Perfil" para cualquier usuario autenticado. Sin un feature flag o permiso específico, todos los usuarios podrán usarlo de inmediato.
 
-**2 commits** de Fabian1820 — módulo **Movimientos de Inventario**: se agrega la columna Estado con badge de color en tabla, diálogo de detalle y exportación Excel; y se corrige `normalizeMovimiento` para propagar correctamente `estado` y `motivo_error` al componente desde el backend (antes se omitían aunque el backend los enviara).
+5. **Deduplicación de comerciales entre ambas fuentes del filtro**: Si un comercial de ventas aparece tanto en `/trabajadores/comerciales` como en `/leads/comerciales` (por ya tener leads propios), puede aparecer duplicado en el filtro si no hay deduplicación explícita por nombre o CI.
 
----
+6. **Comerciales dados de baja persisten en el filtro**: El endpoint `/leads/comerciales` devuelve cualquier nombre que alguna vez fue comercial en un lead. Comerciales inactivos o desvinculados seguirán apareciendo en el filtro sin indicación de que ya no están activos.
 
-### Área 1: Movimientos — estado en tabla, detalle y Excel (2 commits — Fabian1820, 18:31 y 18:44)
+7. **Fallo parcial silencioso si uno de los dos endpoints cae**: Si `/leads/comerciales` o `/trabajadores/comerciales` devuelve error, el filtro puede mostrar solo la fuente que funcionó o quedar vacío sin mensaje explicativo al usuario.
 
-- **`feat(movimientos): mostrar estado del movimiento en tabla, detalle y Excel`** (18:31) — Nueva columna Estado con badge de color en la tabla de movimientos. El diálogo de detalle incluye `estado` y `motivo_error`. La exportación a Excel incorpora ambos campos como columnas adicionales. Archivos: `app/almacenes/[almacenId]/page.tsx`, `components/feats/inventario/movimientos-table.tsx`, `lib/types/feats/inventario/inventario-types.ts`.
-
-- **`fix(movimientos): incluir estado y motivo_error en normalizeMovimiento`** (18:44) — La función `normalizeMovimiento` en `lib/services/feats/inventario/inventario-service.ts` construía el objeto manualmente omitiendo estos campos, por lo que nunca llegaban al componente aunque el backend los enviara. Sin este fix el feat anterior producía la columna siempre vacía.
-
----
-
-### Puede dar bateo
-
-1. **`estado` sin valor en movimientos históricos**: Registros anteriores a la implementación del campo pueden devolver `estado` como `null`/`undefined`. Si el badge no tiene fallback visual, aparecerá una celda rota o en blanco en la tabla para todos esos movimientos.
-
-2. **`motivo_error` mostrado en estados no-error**: El diálogo muestra el campo siempre. Para movimientos exitosos donde el backend devuelve `null` o `""`, puede aparecer una sección "Motivo de Error" vacía que confunde al usuario.
-
-3. **Excel con nueva columna — desplazamiento en importaciones fijas**: Si algún flujo externo consume el Excel de movimientos esperando columnas en posiciones fijas, la nueva columna Estado (y motivo_error) desplazará las existentes y romperá esas importaciones.
-
-4. **Orden de deploy feat → fix**: El commit feat (18:31) precede al fix (18:44). Si el deploy se aplicó parcialmente entre ambos pushes, los usuarios habrían visto la columna Estado siempre vacía durante ese intervalo.
+8. **Cache v2 sin estrategia de rollback en cliente**: Subir la versión del cache invalida la lista v1. Si el nuevo comportamiento combinado tiene un bug, revertir requiere bajar el número de versión en código y un nuevo deploy, sin mecanismo de rollback en caliente.
 
 ---
 
 #### Seguimientos vigentes
 
+- **Endpoint `/api/tarjetas/mi-tarjeta` — confirmar implementación en backend (Jul 2)**.
+- **Tarjeta pública sin auth — confirmar política de visibilidad intencional (Jul 2)**.
+- **Deduplicación de comerciales entre `/trabajadores/comerciales` y `/leads/comerciales` (Jul 2)**.
+- **Comerciales dados de baja persisten en filtro de leads (Jul 2)**.
 - **`estado`/`motivo_error` en movimientos históricos — confirmar fallback para docs sin campo (Jun 30)**.
 - **Excel movimientos con nueva columna Estado — confirmar flujos de importación existentes (Jun 30)**.
 - **`compensacion`/`asumido_por_empresa` en OfertaConPagos — confirmar campos en backend (Jun 29)**.
@@ -143,6 +145,48 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
+## 📅 1 de Julio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+Sin commits nuevos de código. Los 2 commits de Fabian1820 sobre el módulo Movimientos (18:31 y 18:44 del 30 de Junio) ya fueron registrados en la entrada anterior. El único commit propio de este período es "Analisis diario Claude" (generado automáticamente).
+
+---
+
+### Puede dar bateo
+
+Sin cambios nuevos — sin riesgos nuevos.
+
+---
+
+## 📅 30 de Junio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**2 commits** de Fabian1820 — módulo **Movimientos de Inventario**: se agrega la columna Estado con badge de color en tabla, diálogo de detalle y exportación Excel; y se corrige `normalizeMovimiento` para propagar correctamente `estado` y `motivo_error` al componente desde el backend (antes se omitían aunque el backend los enviara).
+
+---
+
+### Área 1: Movimientos — estado en tabla, detalle y Excel (2 commits — Fabian1820, 18:31 y 18:44)
+
+- **`feat(movimientos): mostrar estado del movimiento en tabla, detalle y Excel`** (18:31) — Nueva columna Estado con badge de color en la tabla de movimientos. El diálogo de detalle incluye `estado` y `motivo_error`. La exportación a Excel incorpora ambos campos como columnas adicionales. Archivos: `app/almacenes/[almacenId]/page.tsx`, `components/feats/inventario/movimientos-table.tsx`, `lib/types/feats/inventario/inventario-types.ts`.
+
+- **`fix(movimientos): incluir estado y motivo_error en normalizeMovimiento`** (18:44) — La función `normalizeMovimiento` en `lib/services/feats/inventario/inventario-service.ts` construía el objeto manualmente omitiendo estos campos, por lo que nunca llegaban al componente aunque el backend los enviara. Sin este fix el feat anterior producía la columna siempre vacía.
+
+---
+
+### Puede dar bateo
+
+1. **`estado` sin valor en movimientos históricos**: Registros anteriores a la implementación del campo pueden devolver `estado` como `null`/`undefined`. Si el badge no tiene fallback visual, aparecerá una celda rota o en blanco en la tabla para todos esos movimientos.
+
+2. **`motivo_error` mostrado en estados no-error**: El diálogo muestra el campo siempre. Para movimientos exitosos donde el backend devuelve `null` o `""`, puede aparecer una sección "Motivo de Error" vacía que confunde al usuario.
+
+3. **Excel con nueva columna — desplazamiento en importaciones fijas**: Si algún flujo externo consume el Excel de movimientos esperando columnas en posiciones fijas, la nueva columna Estado (y motivo_error) desplazará las existentes y romperá esas importaciones.
+
+4. **Orden de deploy feat → fix**: El commit feat (18:31) precede al fix (18:44). Si el deploy se aplicó parcialmente entre ambos pushes, los usuarios habrían visto la columna Estado siempre vacía durante ese intervalo.
+
+---
+
 ## 📅 29 de Junio, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -168,103 +212,6 @@ Sin cambios nuevos — sin riesgos nuevos.
 4. **Líneas del comprobante con valor cero visibles**: El comprobante siempre muestra las tres líneas nuevas. Para cobros sin compensación ni monto asumido, aparecerán líneas "Compensación: 0" y "Asumido por Empresa: 0", que pueden confundir al cliente si no hay lógica para ocultarlas cuando son cero.
 
 5. **Posible doble descuento si compensación ya se aplicaba en precio_final**: Si el backend ya restaba la compensación al calcular `precio_final`, ahora el frontend la volvería a restar. Confirmar con el equipo de backend que `precio_final` es el bruto antes de descuentos.
-
----
-
-#### Seguimientos vigentes
-
-- **`compensacion`/`asumido_por_empresa` en OfertaConPagos — confirmar campos en backend (Jun 29)**.
-- **`getBaseACobrar` sin manejo de null — cobros históricos pueden mostrar NaN (Jun 29)**.
-- **Base a cobrar negativa posible si compensación + asumido supera precio_final (Jun 29)**.
-- **Módulo Asistencia — endpoints de backend sin confirmar (Jun 26)**.
-- **`graph.html`/`graph.json` en main — artefactos pesados sin uso en producción (Jun 26)**.
-- **Export Excel movimientos sin cota máxima — puede bloquear navegador (Jun 26)**.
-- **`referencia_label` en movimientos históricos — campo puede no existir en docs antiguos (Jun 26)**.
-- **Detalle de movimiento — endpoints no confirmados para todos los tipos de referencia (Jun 26)**.
-- **`hasExactPermission` — usuarios con almacenes-suncar sin subpermiso admin explícito perderán acceso (Jun 26)**.
-- **`assertOk` en asignaciones — errores antes silenciosos ahora pueden causar crashes (Jun 26)**.
-- **`searchMaterialesConCosto` — 403 para usuarios sin permiso admin en dialog de asignación (Jun 26)**.
-- **DOCX Orden de Trabajo — generación en cliente puede fallar silenciosamente (Jun 26)**.
-- **Factura instaladora sin materiales — backend puede rechazar submit vacío (Jun 26)**.
-- **Reservas expiradas reactivadas — conflicto con materiales reasignados entre expiración y nueva fecha (Jun 23)**.
-- **Filtro potencia mín/máx sin validación `min > max` — resultados vacíos sin mensaje (Jun 23)**.
-- **Filtros potencia en paneles — unidad ambigua kW vs W en la UI (Jun 23)**.
-- **Filtros combinados tipo+potencia — confirmar soporte simultáneo en backend (Jun 23)**.
-- **Lista blanca de CIs de pagos hardcodeada en frontend — deploy requerido para cambios (Jun 23)**.
-- **Gating editar cobros solo en frontend — endpoint sin validación de autorización en backend (Jun 23)**.
-- **`historial_cambios` en tipo Pago — confirmar campo en respuesta del backend (Jun 23)**.
-- **Devolución en vales facturados — transición de estado en backend (Jun 19)**.
-- **Ajuste contable/nota de crédito por devolución en vale facturado (Jun 19)**.
-- **Devolución parcial en vales con líneas mixtas (Jun 19)**.
-- **`pool=indistinto` para split automático — backend debe implementarlo**.
-- **Race condition en el cálculo de disponible de reservas**.
-- **`sinDesgloseSector` solo detectado en frontend**.
-- **Mapa `material_id→codigo` — race en carga del catálogo de oferta**.
-- **Auto-vincular reserva en `create-solicitud-material` — reserva incorrecta si hay múltiples**.
-- **BMS como categoría reservable — docs sin `.pools` bloquean el 100% de reservas BMS**.
-- **`/reservas-ventas` — visibilidad de tabs por sub-permiso**.
-- **Renombrado UI "indistinto" → "Común" — confirmar en todos los puntos de display**.
-- **Redeploy de Railway — confirmar auto-deploy activo tras commits `chore`**.
-- **`GET /resumen-factura` — endpoint y estructura `$facet` sin confirmar**.
-- **`$facet` aggregation — límite de 100MB de memoria de MongoDB**.
-- **Debounce en búsqueda de facturas-ventas — estado al limpiar**.
-- **`apiRequest success:false` — monitorear regresiones post-deploy**.
-- **`showContableFields` en MaterialForm**.
-- **`costo` y `material_id` en tipo `Material`**.
-- **Wallet historial por miembro — filtros params**.
-- **Excel Fichas de Costo sin cota de registros**.
-- **CI `87120119233` hardcodeado para control de permisos**.
-- **Campos `cambio_real_*` requieren backend actualizado**.
-- **Endpoint lazy load `GET /obras-terminadas/oferta/{id}/facturas-cliente`**.
-- **PDF unificado con `limit=total` sin cota máxima**.
-- **Badge de estado calculado en frontend con flotantes**.
-- **Módulo Vales/Facturas Instaladora comentado sin aviso explícito**.
-- **Sistema de notificaciones — endpoints bulk por tipo**.
-- **`GET /inventario/stock-historico`**.
-- **AdminPass 123456 hardcodeado**.
-- **Auto-sync catálogo → BD al abrir /permisos**.
-- **Logs de debug en producción**.
-- **Eliminación lógica `cantidad = 0` en asignaciones**.
-- **Creación inline sin persistencia inmediata**.
-- **Subida de archivos sin rollback**.
-- **Backend debe aceptar nuevos campos: `motivo`, `nota`, `foto`, `ficha_tecnica_url`, `oferta_venta_id`, `descuento_free`**.
-- **`childKeys` en catálogo de módulos**.
-- **`useEffect` con dependencias `[open, initialData?.id]`**.
-- **Agregados solicitudes-ventas**.
-- **`updateSolicitudTransferencia` — validación de estado en backend**.
-- **Búsqueda por `numero_serie`**.
-- **`stock_disponible_actual` — consistencia entre endpoints**.
-- **Excel export de facturas sin cota de registros**.
-- **`'zelle'` como método de pago — soporte en backend**.
-- **Sort client-side de solicitudes pendientes en ValesSalida**.
-- **Parsing UTC→local en otras tablas con filtros de fecha**.
-- **Tasas MLC/CUP sin persistencia entre sesiones**.
-- **`PonderarCostoResponse` campos nuevos**.
-- **`GET /api/kardex-costo/costo-actual`**.
-- **`materiales` en respuesta de facturas de solicitudes-ventas**.
-- **Filtros de vales de salida — `fecha_desde`, `fecha_hasta`, creador**.
-- **`almacenes-suncar/admin` — gating solo en frontend**.
-- **Estados de transferencia no mapeados en `ESTADO_CONFIG`**.
-- **Campos de dimensionamiento en calculadora sin persistencia confirmada**.
-- **Badges de disponibilidad por pool — snapshot estático**.
-- **Endpoint cumpleaños de la semana**.
-- **Endpoint contador de instalaciones solares**.
-- **Widget de paneles — estado único vs respuesta del backend**.
-- **`window.history.pushState` + Next.js App Router desync**.
-- **Export Excel merge vertical — heterogeneidad de materiales**.
-- **Rebrand paleta — componentes con clases hardcoded**.
-- **`POST /solicitudes-transferencia/{id}/resolver` — endpoint pendiente**.
-- **Módulo "Empleados" — permisos en BD no migrados**.
-- **Sub-permiso implícito — usuarios con padre sin hijo en BD**.
-- **`PATCH /facturas-solar-carros/{id}` — confirmar endpoint**.
-- **`VincularPagoDialog` — endpoint de PagoVenta por solicitud**.
-- **Consignaciones denormalizadas — campos del backend**.
-- **Auto-vinculación de pagos a consignación**.
-- **`POST /consignaciones/{id}/facturas` — endpoint sin confirmar**.
-- **`cargo` en RRHH — confirmar aceptación en `PUT /{ci}/rrhh`**.
-- **Campos `tipo`, `pendiente_costeo`, `regularizada_por` en KardexCosto**.
-- **Badge "Facturado" con flotantes**.
-- **Botón "Actualizar costos" — lógica de decisión interna**.
 
 ---
 
@@ -356,111 +303,17 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 6. **`hasExactPermission` — usuarios con almacenes-suncar sin subpermiso admin explícito en BD**: Usuarios que actualmente tienen `almacenes-suncar` en BD sin el subpermiso `admin` explícito perderán acceso a los botones de entrada/salida manual tras este deploy. Requiere migración o re-asignación de permisos.
 
-7. **`assertOk` en asignaciones — errores antes silenciosos ahora lanzan**: Componentes que usaban el service de asignaciones sin bloque try/catch (porque `apiRequest` no relanzaba) pueden ahora mostrar crashes o pantallas en blanco. Confirmar que todos los consumidores del service manejan errores.
+7. **`assertOk` en asignaciones — errores antes silenciosos ahora lanzan**: Componentes que usaban el service de asignaciones sin bloque try/catch pueden ahora mostrar crashes o pantallas en blanco. Confirmar que todos los consumidores del service manejan errores.
 
-8. **`searchMaterialesConCosto` — endpoint admin, 403 para no-admins**: El dialog de asignación usa este endpoint. Si un usuario sin permiso admin accede, recibirá 403 y el picker de materiales quedará vacío sin mensaje explicativo de por qué no hay resultados.
+8. **`searchMaterialesConCosto` — endpoint admin, 403 para no-admins**: El dialog de asignación usa este endpoint. Si un usuario sin permiso admin accede, recibirá 403 y el picker de materiales quedará vacío sin mensaje explicativo.
 
-9. **Decisión Reservas — Instaladora solo lectura sin alternativa**: Si el flujo de negocio requiere en el futuro que la instaladora cree reservas directamente (no desde una oferta de Ventas), no hay diálogo disponible; habría que reconstruirlo desde cero.
+9. **Decisión Reservas — Instaladora solo lectura sin alternativa**: Si el flujo de negocio requiere en el futuro que la instaladora cree reservas directamente, no hay diálogo disponible; habría que reconstruirlo desde cero.
 
-10. **DOCX Orden de Trabajo — generación en cliente**: La generación de DOCX ocurre en el navegador. En facturas con muchos materiales o navegadores con memoria limitada, la generación puede fallar silenciosamente (sin mensaje de error al usuario).
+10. **DOCX Orden de Trabajo — generación en cliente**: La generación de DOCX ocurre en el navegador. En facturas con muchos materiales o navegadores con memoria limitada, la generación puede fallar silenciosamente.
 
-11. **`precio_contabilidad_cup` — facturas históricas**: El fix corrige el campo para nuevas cargas. Facturas creadas antes que tengan el campo con nombre incorrecto en BD seguirán mostrando "-" a menos que el backend haga una migración.
+11. **`precio_contabilidad_cup` — facturas históricas**: El fix corrige el campo para nuevas cargas. Facturas creadas antes con el campo incorrecto en BD seguirán mostrando "-" sin migración en backend.
 
-12. **Factura instaladora sin materiales — validación en backend**: El fix elimina el bloqueo en frontend para abrir el preview sin materiales. Si el backend valida que la factura no puede estar vacía al momento del submit, el error se aplaza pero no se elimina.
-
----
-
-#### Seguimientos vigentes
-
-- **Módulo Asistencia — endpoints de backend sin confirmar (Jun 26)**.
-- **`graph.html`/`graph.json` en main — artefactos pesados sin uso en producción (Jun 26)**.
-- **Export Excel movimientos sin cota máxima — puede bloquear navegador (Jun 26)**.
-- **`referencia_label` en movimientos históricos — campo puede no existir en docs antiguos (Jun 26)**.
-- **Detalle de movimiento — endpoints no confirmados para todos los tipos de referencia (Jun 26)**.
-- **`hasExactPermission` — usuarios con almacenes-suncar sin subpermiso admin explícito perderán acceso (Jun 26)**.
-- **`assertOk` en asignaciones — errores antes silenciosos ahora pueden causar crashes (Jun 26)**.
-- **`searchMaterialesConCosto` — 403 para usuarios sin permiso admin en dialog de asignación (Jun 26)**.
-- **DOCX Orden de Trabajo — generación en cliente puede fallar silenciosamente (Jun 26)**.
-- **Factura instaladora sin materiales — backend puede rechazar submit vacío (Jun 26)**.
-- **Reservas expiradas reactivadas — conflicto con materiales reasignados entre expiración y nueva fecha (Jun 23)**.
-- **Filtro potencia mín/máx sin validación `min > max` — resultados vacíos sin mensaje (Jun 23)**.
-- **Filtros potencia en paneles — unidad ambigua kW vs W en la UI (Jun 23)**.
-- **Filtros combinados tipo+potencia — confirmar soporte simultáneo en backend (Jun 23)**.
-- **Lista blanca de CIs de pagos hardcodeada en frontend — deploy requerido para cambios (Jun 23)**.
-- **Gating editar cobros solo en frontend — endpoint sin validación de autorización en backend (Jun 23)**.
-- **`historial_cambios` en tipo Pago — confirmar campo en respuesta del backend (Jun 23)**.
-- **Devolución en vales facturados — transición de estado en backend (Jun 19)**.
-- **Ajuste contable/nota de crédito por devolución en vale facturado (Jun 19)**.
-- **Devolución parcial en vales con líneas mixtas (Jun 19)**.
-- **`pool=indistinto` para split automático — backend debe implementarlo**.
-- **Race condition en el cálculo de disponible de reservas**.
-- **`sinDesgloseSector` solo detectado en frontend**.
-- **Mapa `material_id→codigo` — race en carga del catálogo de oferta**.
-- **Auto-vincular reserva en `create-solicitud-material` — reserva incorrecta si hay múltiples**.
-- **BMS como categoría reservable — docs sin `.pools` bloquean el 100% de reservas BMS**.
-- **`/reservas-ventas` — visibilidad de tabs por sub-permiso**.
-- **Renombrado UI "indistinto" → "Común" — confirmar en todos los puntos de display**.
-- **Redeploy de Railway — confirmar auto-deploy activo tras commits `chore`**.
-- **`GET /resumen-factura` — endpoint y estructura `$facet` sin confirmar**.
-- **`$facet` aggregation — límite de 100MB de memoria de MongoDB**.
-- **Debounce en búsqueda de facturas-ventas — estado al limpiar**.
-- **`apiRequest success:false` — monitorear regresiones post-deploy**.
-- **`showContableFields` en MaterialForm**.
-- **`costo` y `material_id` en tipo `Material`**.
-- **Wallet historial por miembro — filtros params**.
-- **Excel Fichas de Costo sin cota de registros**.
-- **CI `87120119233` hardcodeado para control de permisos**.
-- **Campos `cambio_real_*` requieren backend actualizado**.
-- **Endpoint lazy load `GET /obras-terminadas/oferta/{id}/facturas-cliente`**.
-- **PDF unificado con `limit=total` sin cota máxima**.
-- **Badge de estado calculado en frontend con flotantes**.
-- **Módulo Vales/Facturas Instaladora comentado sin aviso explícito**.
-- **Sistema de notificaciones — endpoints bulk por tipo**.
-- **`GET /inventario/stock-historico`**.
-- **AdminPass 123456 hardcodeado**.
-- **Auto-sync catálogo → BD al abrir /permisos**.
-- **Logs de debug en producción**.
-- **Eliminación lógica `cantidad = 0` en asignaciones**.
-- **Creación inline sin persistencia inmediata**.
-- **Subida de archivos sin rollback**.
-- **Backend debe aceptar nuevos campos: `motivo`, `nota`, `foto`, `ficha_tecnica_url`, `oferta_venta_id`, `descuento_free`**.
-- **`childKeys` en catálogo de módulos**.
-- **`useEffect` con dependencias `[open, initialData?.id]`**.
-- **Agregados solicitudes-ventas**.
-- **`updateSolicitudTransferencia` — validación de estado en backend**.
-- **Búsqueda por `numero_serie`**.
-- **`stock_disponible_actual` — consistencia entre endpoints**.
-- **Excel export de facturas sin cota de registros**.
-- **`'zelle'` como método de pago — soporte en backend**.
-- **Sort client-side de solicitudes pendientes en ValesSalida**.
-- **Parsing UTC→local en otras tablas con filtros de fecha**.
-- **Tasas MLC/CUP sin persistencia entre sesiones**.
-- **`PonderarCostoResponse` campos nuevos**.
-- **`GET /api/kardex-costo/costo-actual`**.
-- **`materiales` en respuesta de facturas de solicitudes-ventas**.
-- **Filtros de vales de salida — `fecha_desde`, `fecha_hasta`, creador**.
-- **`almacenes-suncar/admin` — gating solo en frontend**.
-- **Estados de transferencia no mapeados en `ESTADO_CONFIG`**.
-- **Campos de dimensionamiento en calculadora sin persistencia confirmada**.
-- **Badges de disponibilidad por pool — snapshot estático**.
-- **Endpoint cumpleaños de la semana**.
-- **Endpoint contador de instalaciones solares**.
-- **Widget de paneles — estado único vs respuesta del backend**.
-- **`window.history.pushState` + Next.js App Router desync**.
-- **Export Excel merge vertical — heterogeneidad de materiales**.
-- **Rebrand paleta — componentes con clases hardcoded**.
-- **`POST /solicitudes-transferencia/{id}/resolver` — endpoint pendiente**.
-- **Módulo "Empleados" — permisos en BD no migrados**.
-- **Sub-permiso implícito — usuarios con padre sin hijo en BD**.
-- **`PATCH /facturas-solar-carros/{id}` — confirmar endpoint**.
-- **`VincularPagoDialog` — endpoint de PagoVenta por solicitud**.
-- **Consignaciones denormalizadas — campos del backend**.
-- **Auto-vinculación de pagos a consignación**.
-- **`POST /consignaciones/{id}/facturas` — endpoint sin confirmar**.
-- **`cargo` en RRHH — confirmar aceptación en `PUT /{ci}/rrhh`**.
-- **Campos `tipo`, `pendiente_costeo`, `regularizada_por` en KardexCosto**.
-- **Badge "Facturado" con flotantes**.
-- **Botón "Actualizar costos" — lógica de decisión interna**.
+12. **Factura instaladora sin materiales — validación en backend**: El fix elimina el bloqueo en frontend. Si el backend valida que la factura no puede estar vacía al submit, el error se aplaza pero no se elimina.
 
 ---
 
