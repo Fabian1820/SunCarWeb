@@ -2,48 +2,63 @@
 
 ---
 
-## 📅 2 de Julio, 2026
+## 📅 3 de Julio, 2026
 
 ### Resumen de cambios (últimas 24h)
 
-**2 commits reales** de Fabian1820 — (1) nueva pantalla de **Tarjeta de Presentación** del trabajador con QR y enlace público editable; (2) mejora al **filtro de comerciales** en Leads para incluir comerciales de ventas de apoyo combinando dos fuentes de datos.
+**5 commits reales** de Fabian1820 — jornada centrada en el sistema de exportaciones Excel: (1) Mi Tarjeta promovida a producción (quita badge de prueba); (2) fix en vales de salida para mostrar nombre real del material; (3) ciclo completo feat→fix→refactor en exportaciones de Obras Terminadas y Pagos Realizados: primero dos hojas separadas, luego fix de hoja vacía, finalmente consolidación en una sola hoja con materiales apilados.
 
 ---
 
-### Área 1: Mi Tarjeta — editor de tarjeta de presentación del trabajador (1 commit — Fabian1820, 20:13)
+### Área 1: Mi Tarjeta — promovida a producción (1 commit — Fabian1820, 14:40)
 
-- **`feat(mi-tarjeta): editor de tarjeta de presentación del trabajador`** — Pantalla `/mi-tarjeta` (autenticada) para que el trabajador edite su tarjeta (título, bio, contacto, redes, foto) contra `/api/tarjetas/mi-tarjeta`, con QR y enlace público. Acceso desde el menú "Mi Perfil". Marcado como fase de prueba.
+- **`chore(mi-tarjeta): quitar badge de fase de prueba`** — El módulo pasa a uso normal. Se retira el banner de aviso del editor y la etiqueta 'Prueba' del menú Mi Perfil. El endpoint `/api/tarjetas/mi-tarjeta` sigue sin confirmación explícita en backend (ver seguimiento Jul 2).
 
 ---
 
-### Área 2: Leads — comerciales de ventas de apoyo en filtro (1 commit — Fabian1820, 21:31)
+### Área 2: Vales de Salida — nombre de material en export Excel (1 commit — Fabian1820, 15:09)
 
-- **`feat(leads): incluir comerciales de ventas de apoyo en filtro`** — El filtro de comercial en la página de leads ahora une el roster de instaladora (`/trabajadores/comerciales`) con los comerciales distintos ya usados en leads (`/leads/comerciales`), para que los comerciales de ventas que están de apoyo aparezcan de forma fiable tras su primer lead, sin listar a todos. Cache subida a v2 para invalidar la lista v1 (solo-instaladora).
+- **`fix(vales-salida): mostrar nombre del material en export Excel`** — La columna "Material" del export enriquece contra el catálogo (`MaterialService.getAllMaterials`) para mostrar el nombre del material, con respaldo a `material_descripcion` o código si el nombre no está disponible.
+
+---
+
+### Área 3: Exportaciones Obras Terminadas y Pagos Realizados — ciclo feat→fix→refactor (3 commits — Fabian1820, 20:17→21:33)
+
+Tres commits en 76 minutos representan una iteración completa de diseño:
+
+1. **`feat(exportaciones): exportar Excel con materiales aparte en Obras Terminadas y Pagos Realizados`** (20:17) — Botón "Exportar Excel" en ambas vistas. Workbook de dos hojas: listado principal + hoja de materiales (código, nombre, cantidad). En Pagos Realizados la hoja de materiales deduplica por solicitud. Lógica extraída a `lib/export-multi-sheet-service.ts`.
+
+2. **`fix(exportaciones): corregir hoja de materiales vacía`** (20:47) — Obras Terminadas: el backend embebe materiales directamente en `/obras-terminadas/datos`; el export los lee desde ahí en vez de hacer N+1 llamadas a `/oferta/detalle`. Pagos Realizados: agrega catálogo `material_id→{codigo, nombre}` de respaldo para materiales con campos opcionales incompletos.
+
+3. **`refactor(exportaciones): usar formato de una sola hoja con materiales apilados`** (21:33) — Reemplaza las dos hojas por el patrón de vales de salida: una fila por obra/pago con código, material y cantidad apilados en la misma fila vía `stackedColumnKeys` de `exportToExcel`. Elimina `lib/export-multi-sheet-service.ts`.
 
 ---
 
 ### Puede dar bateo
 
-1. **Endpoint `/api/tarjetas/mi-tarjeta` sin confirmar en backend**: Si el backend no implementó el endpoint, la pantalla `/mi-tarjeta` fallará con 404 al cargar o al guardar. Toda la funcionalidad de edición queda inutilizable.
+1. **`stackedColumnKeys` en `exportToExcel` sin confirmar**: El refactor usa esta funcionalidad. Si `lib/export-service.ts` no la implementa, el export lanzará error silencioso o vacío en runtime para todos los usuarios.
 
-2. **Tarjeta pública accesible sin autenticación — exposición de datos del trabajador**: Si el enlace público de la tarjeta no requiere auth, contacto personal, redes sociales y bio quedan expuestos públicamente. Confirmar que el diseño intencional es público antes de desplegar en producción.
+2. **`lib/export-multi-sheet-service.ts` eliminado en la misma sesión**: Si algún import de otro componente referencia este archivo (o TypeScript lo tiene en caché), habrá crash al compilar o en runtime. El archivo existió menos de una hora; confirmar que no quedaron referencias.
 
-3. **Tarjeta no editada con enlace público activo**: Si un trabajador nunca editó su tarjeta pero el QR/enlace ya existe, el backend puede devolver una respuesta vacía, 404 o datos por defecto incorrectos, confundiendo a quien reciba el QR antes de que el trabajador lo configure.
+3. **Obras Terminadas — embedding de materiales en backend no confirmado**: El fix asume que `/obras-terminadas/datos` ya embebe los materiales. Si el backend todavía no implementó ese embedding, la columna de materiales quedará vacía en el export sin ningún mensaje de error.
 
-4. **Fase de prueba sin gating de permiso**: El módulo está marcado como "fase de prueba" pero es accesible desde el menú "Mi Perfil" para cualquier usuario autenticado. Sin un feature flag o permiso específico, todos los usuarios podrán usarlo de inmediato.
+4. **Catálogo de respaldo en Pagos Realizados — fallo silencioso**: Si `MaterialService.getAllMaterials()` falla al cargar, los materiales con campos opcionales incompletos mostrarán código/nombre vacíos sin aviso al usuario.
 
-5. **Deduplicación de comerciales entre ambas fuentes del filtro**: Si un comercial de ventas aparece tanto en `/trabajadores/comerciales` como en `/leads/comerciales` (por ya tener leads propios), puede aparecer duplicado en el filtro si no hay deduplicación explícita por nombre o CI.
+5. **Diseño final inconsistente con el anuncio inicial**: La feature se documentó como "materiales en hoja separada" y el estado final es "materiales apilados en una columna". El comportamiento exportado cambia radicalmente dentro del mismo día; usuarios que exportaron por la mañana verán un formato distinto por la tarde.
 
-6. **Comerciales dados de baja persisten en el filtro**: El endpoint `/leads/comerciales` devuelve cualquier nombre que alguna vez fue comercial en un lead. Comerciales inactivos o desvinculados seguirán apareciendo en el filtro sin indicación de que ya no están activos.
+6. **Mi Tarjeta sin badge — backend aún sin confirmar**: Quitar el aviso de fase de prueba sin confirmar que el backend de tarjetas está listo expone errores 404/500 a usuarios normales sin ningún indicador visual de que el feature puede no funcionar.
 
-7. **Fallo parcial silencioso si uno de los dos endpoints cae**: Si `/leads/comerciales` o `/trabajadores/comerciales` devuelve error, el filtro puede mostrar solo la fuente que funcionó o quedar vacío sin mensaje explicativo al usuario.
-
-8. **Cache v2 sin estrategia de rollback en cliente**: Subir la versión del cache invalida la lista v1. Si el nuevo comportamiento combinado tiene un bug, revertir requiere bajar el número de versión en código y un nuevo deploy, sin mecanismo de rollback en caliente.
+7. **Vales de salida — `getAllMaterials()` sin caché explícito**: Cada apertura del dialog de export puede disparar una llamada completa al catálogo de materiales. En entornos con muchos materiales, esto genera latencia innecesaria.
 
 ---
 
 #### Seguimientos vigentes
 
+- **`stackedColumnKeys` en `exportToExcel` — verificar implementación en `lib/export-service.ts` (Jul 3)**.
+- **`lib/export-multi-sheet-service.ts` eliminado — confirmar sin imports residuales (Jul 3)**.
+- **Obras Terminadas export — embedding de materiales en `/obras-terminadas/datos` sin confirmar en backend (Jul 3)**.
+- **Mi Tarjeta fuera de fase de prueba — confirmar backend `/api/tarjetas/mi-tarjeta` listo para producción (Jul 3)**.
+- **Vales de salida — `getAllMaterials()` puede generar llamadas sin caché al abrir export (Jul 3)**.
 - **Endpoint `/api/tarjetas/mi-tarjeta` — confirmar implementación en backend (Jul 2)**.
 - **Tarjeta pública sin auth — confirmar política de visibilidad intencional (Jul 2)**.
 - **Deduplicación de comerciales entre `/trabajadores/comerciales` y `/leads/comerciales` (Jul 2)**.
@@ -142,6 +157,46 @@
 - **Campos `tipo`, `pendiente_costeo`, `regularizada_por` en KardexCosto**.
 - **Badge "Facturado" con flotantes**.
 - **Botón "Actualizar costos" — lógica de decisión interna**.
+
+---
+
+## 📅 2 de Julio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**2 commits reales** de Fabian1820 — (1) nueva pantalla de **Tarjeta de Presentación** del trabajador con QR y enlace público editable; (2) mejora al **filtro de comerciales** en Leads para incluir comerciales de ventas de apoyo combinando dos fuentes de datos.
+
+---
+
+### Área 1: Mi Tarjeta — editor de tarjeta de presentación del trabajador (1 commit — Fabian1820, 20:13)
+
+- **`feat(mi-tarjeta): editor de tarjeta de presentación del trabajador`** — Pantalla `/mi-tarjeta` (autenticada) para que el trabajador edite su tarjeta (título, bio, contacto, redes, foto) contra `/api/tarjetas/mi-tarjeta`, con QR y enlace público. Acceso desde el menú "Mi Perfil". Marcado como fase de prueba.
+
+---
+
+### Área 2: Leads — comerciales de ventas de apoyo en filtro (1 commit — Fabian1820, 21:31)
+
+- **`feat(leads): incluir comerciales de ventas de apoyo en filtro`** — El filtro de comercial en la página de leads ahora une el roster de instaladora (`/trabajadores/comerciales`) con los comerciales distintos ya usados en leads (`/leads/comerciales`), para que los comerciales de ventas que están de apoyo aparezcan de forma fiable tras su primer lead, sin listar a todos. Cache subida a v2 para invalidar la lista v1 (solo-instaladora).
+
+---
+
+### Puede dar bateo
+
+1. **Endpoint `/api/tarjetas/mi-tarjeta` sin confirmar en backend**: Si el backend no implementó el endpoint, la pantalla `/mi-tarjeta` fallará con 404 al cargar o al guardar. Toda la funcionalidad de edición queda inutilizable.
+
+2. **Tarjeta pública accesible sin autenticación — exposición de datos del trabajador**: Si el enlace público de la tarjeta no requiere auth, contacto personal, redes sociales y bio quedan expuestos públicamente. Confirmar que el diseño intencional es público antes de desplegar en producción.
+
+3. **Tarjeta no editada con enlace público activo**: Si un trabajador nunca editó su tarjeta pero el QR/enlace ya existe, el backend puede devolver una respuesta vacía, 404 o datos por defecto incorrectos, confundiendo a quien reciba el QR antes de que el trabajador lo configure.
+
+4. **Fase de prueba sin gating de permiso**: El módulo está marcado como "fase de prueba" pero es accesible desde el menú "Mi Perfil" para cualquier usuario autenticado. Sin un feature flag o permiso específico, todos los usuarios podrán usarlo de inmediato.
+
+5. **Deduplicación de comerciales entre ambas fuentes del filtro**: Si un comercial de ventas aparece tanto en `/trabajadores/comerciales` como en `/leads/comerciales` (por ya tener leads propios), puede aparecer duplicado en el filtro si no hay deduplicación explícita por nombre o CI.
+
+6. **Comerciales dados de baja persisten en el filtro**: El endpoint `/leads/comerciales` devuelve cualquier nombre que alguna vez fue comercial en un lead. Comerciales inactivos o desvinculados seguirán apareciendo en el filtro sin indicación de que ya no están activos.
+
+7. **Fallo parcial silencioso si uno de los dos endpoints cae**: Si `/leads/comerciales` o `/trabajadores/comerciales` devuelve error, el filtro puede mostrar solo la fuente que funcionó o quedar vacío sin mensaje explicativo al usuario.
+
+8. **Cache v2 sin estrategia de rollback en cliente**: Subir la versión del cache invalida la lista v1. Si el nuevo comportamiento combinado tiene un bug, revertir requiere bajar el número de versión en código y un nuevo deploy, sin mecanismo de rollback en caliente.
 
 ---
 
