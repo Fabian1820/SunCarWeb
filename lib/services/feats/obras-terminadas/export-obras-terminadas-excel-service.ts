@@ -1,6 +1,5 @@
 import {
   ObrasTerminadasService,
-  type MaterialOferta,
   type ObraTerminada,
   type ObrasTerminadasFiltros,
 } from "./obras-terminadas-service";
@@ -55,11 +54,6 @@ export interface ExportObrasTerminadasResult {
   filename: string;
 }
 
-interface ObraConMateriales {
-  obra: ObraTerminada;
-  materiales: MaterialOferta[];
-}
-
 interface MaterialRow {
   cliente: string;
   numeroOferta: string;
@@ -102,7 +96,6 @@ export class ExportObrasTerminadasExcelService {
     filtros: ObrasTerminadasFiltros = {},
   ): Promise<ExportObrasTerminadasResult> {
     const obras = await this.fetchTodasLasObras(filtros);
-    const obrasConMateriales = await this.fetchMateriales(obras);
 
     const workbook = newBrandedWorkbook();
     const fechaGenerado = new Date().toLocaleString("es-ES");
@@ -130,7 +123,7 @@ export class ExportObrasTerminadasExcelService {
       ],
     });
 
-    const materialRows = this.buildMaterialRows(obrasConMateriales);
+    const materialRows = this.buildMaterialRows(obras);
     addBrandedSheet(workbook, {
       sheetName: "Materiales Instalados",
       title: "SunCar SRL — Materiales Instalados por Cliente",
@@ -162,27 +155,11 @@ export class ExportObrasTerminadasExcelService {
     return all;
   }
 
-  private static async fetchMateriales(
-    obras: ObraTerminada[],
-  ): Promise<ObraConMateriales[]> {
-    return Promise.all(
-      obras.map(async (obra): Promise<ObraConMateriales> => {
-        if (!obra.oferta_id) return { obra, materiales: [] };
-        try {
-          const detalle = await ObrasTerminadasService.getOfertaDetalle(obra.oferta_id);
-          return { obra, materiales: detalle.materiales ?? [] };
-        } catch {
-          return { obra, materiales: [] };
-        }
-      }),
-    );
-  }
-
-  private static buildMaterialRows(obrasConMateriales: ObraConMateriales[]): MaterialRow[] {
+  private static buildMaterialRows(obras: ObraTerminada[]): MaterialRow[] {
     const rows: MaterialRow[] = [];
-    obrasConMateriales.forEach(({ obra, materiales }) => {
+    obras.forEach((obra) => {
       const cliente = obra.cliente_nombre || obra.nombre_completo || "Sin cliente";
-      materiales.forEach((m) => {
+      (obra.materiales ?? []).forEach((m) => {
         rows.push({
           cliente,
           numeroOferta: obra.numero_oferta || "",

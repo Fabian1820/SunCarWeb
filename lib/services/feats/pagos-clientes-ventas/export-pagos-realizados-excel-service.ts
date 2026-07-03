@@ -1,4 +1,5 @@
 import { PagoVentaService } from "./pago-cliente-venta-service";
+import { MaterialService } from "@/lib/api-services";
 import type {
   PagoVenta,
   PagoVentaListParams,
@@ -41,6 +42,7 @@ const getPendienteUsd = (p: PagoVenta): number => {
 };
 
 interface PagoVentaMaterialRaw {
+  material_id?: string | null;
   codigo?: string | null;
   descripcion?: string | null;
   cantidad?: number | null;
@@ -56,6 +58,31 @@ const getMaterialesRaw = (p: PagoVenta): PagoVentaMaterialRaw[] => {
 
 const getSolicitudKey = (p: PagoVenta): string =>
   p.solicitud_venta_id || p.solicitud_codigo || p.id;
+
+interface CatalogoMaterial {
+  codigo: string;
+  nombre: string;
+}
+
+/**
+ * Catálogo material_id -> {codigo, nombre}, igual que usa el export de vales
+ * de salida, para rellenar código/nombre cuando el material embebido en la
+ * solicitud no los trae (campos opcionales en el backend).
+ */
+const buildCatalogoPorMaterialId = async (): Promise<Map<string, CatalogoMaterial>> => {
+  const map = new Map<string, CatalogoMaterial>();
+  try {
+    const materiales = await MaterialService.getAllMaterials();
+    for (const m of materiales) {
+      const key = m.material_id || m.id;
+      if (!key) continue;
+      map.set(key, { codigo: m.codigo || "", nombre: m.nombre || m.descripcion || "" });
+    }
+  } catch {
+    // Si falla el catálogo, se exporta solo con los datos embebidos en la solicitud.
+  }
+  return map;
+};
 
 export interface ExportPagosRealizadosResult {
   pagosCount: number;
@@ -106,7 +133,10 @@ export class ExportPagosRealizadosExcelService {
   static async exportar(
     filtros: PagoVentaListParams = {},
   ): Promise<ExportPagosRealizadosResult> {
-    const pagos = await this.fetchTodosLosPagos(filtros);
+    const [pagos, catalogo] = await Promise.all([
+      this.fetchTodosLosPagos(filtros),
+      buildCatalogoPorMaterialId(),
+    ]);
 
     const workbook = newBrandedWorkbook();
     const fechaGenerado = new Date().toLocaleString("es-ES");
@@ -134,7 +164,7 @@ export class ExportPagosRealizadosExcelService {
       ],
     });
 
-    const materialRows = this.buildMaterialRows(pagos);
+    const materialRows = this.buildMaterialRows(pagos, catalogo);
     addBrandedSheet(workbook, {
       sheetName: "Materiales Vendidos",
       title: "SunCar SRL — Materiales Vendidos por Cliente",
@@ -167,7 +197,10 @@ export class ExportPagosRealizadosExcelService {
     return all;
   }
 
-  private static buildMaterialRows(pagos: PagoVenta[]): MaterialRow[] {
+  private static buildMaterialRows(
+    pagos: PagoVenta[],
+    catalogo: Map<string, CatalogoMaterial>,
+  ): MaterialRow[] {
     const vistos = new Set<string>();
     const rows: MaterialRow[] = [];
     pagos.forEach((p) => {
@@ -179,11 +212,12 @@ export class ExportPagosRealizadosExcelService {
       if (!materiales.length) return;
       const cliente = p.cliente_nombre || "Sin cliente";
       materiales.forEach((m) => {
+        const catInfo = m.material_id ? catalogo.get(m.material_id) : undefined;
         rows.push({
           cliente,
           codigoSolicitud: p.solicitud_codigo || "",
-          codigo: m.codigo || "",
-          descripcion: m.descripcion || "",
+          codigo: m.codigo || catInfo?.codigo || "",
+          descripcion: m.descripcion || catInfo?.nombre || "",
           cantidad: m.cantidad ?? 0,
         });
       });
