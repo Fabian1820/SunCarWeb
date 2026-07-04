@@ -30,6 +30,8 @@ import {
   Trash2,
   FileText,
   Zap,
+  FileSpreadsheet,
+  Loader2,
 } from "lucide-react";
 import type { Cliente } from "@/lib/api-types";
 import { ClienteService } from "@/lib/api-services";
@@ -41,6 +43,7 @@ import { apiRequest } from "@/lib/api-config";
 import { extractOfertaIdsFromEntity } from "@/lib/utils/oferta-id";
 import { seleccionarOfertaConfirmada } from "@/hooks/use-ofertas-confeccion";
 import { OfertaCell } from "@/components/feats/instalaciones/oferta-cell";
+import { ExportInstalacionesEnProcesoExcelService } from "@/lib/services/feats/instalaciones/export-instalaciones-en-proceso-excel-service";
 
 interface InstalacionesEnProcesoTableProps {
   clients: Cliente[];
@@ -447,6 +450,7 @@ export function InstalacionesEnProcesoTable({
   resumenServicioPorCliente,
 }: InstalacionesEnProcesoTableProps) {
   const { toast } = useToast();
+  const [exporting, setExporting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState("");
@@ -781,6 +785,34 @@ export function InstalacionesEnProcesoTable({
       });
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  const handleExportarExcel = async () => {
+    if (clients.length === 0) {
+      toast({
+        title: "Sin datos",
+        description: "No hay instalaciones en proceso para exportar.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setExporting(true);
+    try {
+      const { count, filename } =
+        await ExportInstalacionesEnProcesoExcelService.exportar(clients);
+      toast({
+        title: "Excel exportado",
+        description: `Se exportaron ${count} instalación${count === 1 ? "" : "es"} a ${filename}.xlsx`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error al exportar",
+        description: error?.message || "No se pudo generar el archivo Excel.",
+        variant: "destructive",
+      });
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -1879,6 +1911,26 @@ export function InstalacionesEnProcesoTable({
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>Instalaciones en Proceso ({clients.length})</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportarExcel}
+              disabled={exporting || clients.length === 0}
+              className="border-green-300 text-green-700 hover:bg-green-50"
+              title="Exportar a Excel las instalaciones filtradas con sus materiales"
+            >
+              {exporting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Exportando...
+                </>
+              ) : (
+                <>
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Exportar Excel
+                </>
+              )}
+            </Button>
           </CardTitle>
         </CardHeader>
         <CardContent>

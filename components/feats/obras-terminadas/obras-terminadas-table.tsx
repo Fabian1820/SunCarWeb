@@ -144,8 +144,6 @@ const buildFacturaCliente = (obra: OfertaObra, detalle: OfertaDetalleObras): Fac
    Date utils
 ───────────────────────────────────────────── */
 
-const todayStr = (): string => new Date().toISOString().slice(0, 10)
-
 const mesActualRange = (): { desde: string; hasta: string } => {
   const now = new Date()
   const year = now.getFullYear()
@@ -213,10 +211,10 @@ const colorBarra = (t: TrabajoDiarioObra) => {
 
 type DateFilterMode = "off" | "mes" | "rango"
 interface DateFilterState { mode: DateFilterMode; desde: string; hasta: string }
-const initialDateFilter = (): DateFilterState => {
-  const mes = mesActualRange()
-  return { mode: "off", desde: mes.desde, hasta: todayStr() }
-}
+// Sin fechas pre-rellenadas: al abrir "Rango" los campos empiezan vacíos para
+// que no se aplique un filtro del mes actual en silencio (el usuario debe elegir
+// las fechas explícitamente). "Este mes" sí fija el rango del mes al pulsarlo.
+const initialDateFilter = (): DateFilterState => ({ mode: "off", desde: "", hasta: "" })
 
 const getDateRangeParams = (state: DateFilterState) => {
   if (state.mode === "off") return { desde: undefined, hasta: undefined }
