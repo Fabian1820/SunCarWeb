@@ -27,7 +27,12 @@ import {
   MODULO_GRUPOS,
   type ModuloCatalogo,
   type ModuloGrupoKey,
+  type SubPermiso,
 } from "@/lib/modulos-catalogo"
+
+/** Todas las claves de sub-permiso de un módulo, incluyendo las anidadas. */
+const subKeysRecursivo = (subs?: SubPermiso[]): string[] =>
+  (subs ?? []).flatMap((s) => [s.key, ...subKeysRecursivo(s.subPermisos)])
 import {
   Select,
   SelectContent,
@@ -130,7 +135,7 @@ export function TrabajadorPermisosDialog({
       // Abrir por defecto las secciones que tienen algún permiso seleccionado.
       const seccionesConSeleccion = new Set<ModuloGrupoKey>()
       for (const m of MODULOS_CATALOGO) {
-        const nombresDelModulo = [m.key, ...(m.subPermisos?.map((s) => s.key) ?? [])]
+        const nombresDelModulo = [m.key, ...subKeysRecursivo(m.subPermisos)]
         if (nombresDelModulo.some((n) => nombresAsignados.includes(n))) {
           seccionesConSeleccion.add(m.grupo)
         }
@@ -301,33 +306,67 @@ export function TrabajadorPermisosDialog({
               const tieneSub = permisosSeleccionados.has(sp.key)
               // Sub-permiso aditivo (ej: almacenes-suncar/admin): es una capacidad
               // EXTRA, no la concede el padre, así que se marca/desmarca de forma
-              // independiente. Los sub-permisos subconjunto (facturas/*, etc.) sí
-              // los arrastra el "acceso completo": checked+disabled cuando el padre.
+              // independiente. Los sub-permisos subconjunto (facturas/*,
+              // instalaciones/*) sí los arrastra el "acceso completo":
+              // checked+disabled cuando el padre.
               const heredadoDelPadre = tieneAcceso && !sp.aditivo
               return (
-                <div
-                  key={sp.key}
-                  className="flex items-center gap-2 py-1 px-1 rounded hover:bg-white"
-                >
-                  <Checkbox
-                    id={`sub-${sp.key}`}
-                    checked={tieneSub || heredadoDelPadre}
-                    disabled={heredadoDelPadre}
-                    onCheckedChange={(checked) =>
-                      togglePermiso(sp.key, Boolean(checked))
-                    }
-                  />
-                  <Label
-                    htmlFor={`sub-${sp.key}`}
-                    className={`flex-1 cursor-pointer text-sm ${
-                      heredadoDelPadre ? "text-gray-400" : "text-gray-700"
-                    }`}
-                  >
-                    {sp.label}
-                    <span className="ml-2 text-xs text-gray-400 font-mono">
-                      {sp.key}
-                    </span>
-                  </Label>
+                <div key={sp.key}>
+                  <div className="flex items-center gap-2 py-1 px-1 rounded hover:bg-white">
+                    <Checkbox
+                      id={`sub-${sp.key}`}
+                      checked={tieneSub || heredadoDelPadre}
+                      disabled={heredadoDelPadre}
+                      onCheckedChange={(checked) =>
+                        togglePermiso(sp.key, Boolean(checked))
+                      }
+                    />
+                    <Label
+                      htmlFor={`sub-${sp.key}`}
+                      className={`flex-1 cursor-pointer text-sm ${
+                        heredadoDelPadre ? "text-gray-400" : "text-gray-700"
+                      }`}
+                    >
+                      {sp.label}
+                      <span className="ml-2 text-xs text-gray-400 font-mono">
+                        {sp.key}
+                      </span>
+                    </Label>
+                  </div>
+
+                  {/* Sub-permisos anidados (ej: trabajos:* bajo "Trabajos
+                      Diarios"). Son SIEMPRE independientes: no los concede el
+                      padre en runtime, así que se asignan explícitamente. */}
+                  {sp.subPermisos && sp.subPermisos.length > 0 ? (
+                    <div className="ml-6 mt-1 mb-1 space-y-1 border-l-2 border-gray-200 pl-3">
+                      {sp.subPermisos.map((csp) => {
+                        const tieneChild = permisosSeleccionados.has(csp.key)
+                        return (
+                          <div
+                            key={csp.key}
+                            className="flex items-center gap-2 py-1 px-1 rounded hover:bg-white"
+                          >
+                            <Checkbox
+                              id={`sub-${csp.key}`}
+                              checked={tieneChild}
+                              onCheckedChange={(checked) =>
+                                togglePermiso(csp.key, Boolean(checked))
+                              }
+                            />
+                            <Label
+                              htmlFor={`sub-${csp.key}`}
+                              className="flex-1 cursor-pointer text-sm text-gray-700"
+                            >
+                              {csp.label}
+                              <span className="ml-2 text-xs text-gray-400 font-mono">
+                                {csp.key}
+                              </span>
+                            </Label>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : null}
                 </div>
               )
             })}
@@ -344,8 +383,9 @@ export function TrabajadorPermisosDialog({
     if (modulos.length === 0) return null
     const abierta = seccionesAbiertas.has(grupoKey)
     const cuentaAsignados = modulos.filter((m) => {
-      const subs = m.subPermisos?.map((s) => s.key) ?? []
-      return [m.key, ...subs].some((n) => permisosSeleccionados.has(n))
+      return [m.key, ...subKeysRecursivo(m.subPermisos)].some((n) =>
+        permisosSeleccionados.has(n),
+      )
     }).length
 
     return (

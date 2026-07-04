@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/shared/molecule/toaster";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { InstalacionesEnProcesoTable } from "@/components/feats/instalaciones/instalaciones-en-proceso-table";
+import { RouteGuard } from "@/components/auth/route-guard";
 import type { Cliente } from "@/lib/api-types";
 import {
   extractContactoEntregaKeysFromEntity,
@@ -582,6 +583,7 @@ export default function InstalacionesEnProcesoPage() {
   }
 
   return (
+    <RouteGuard requiredModule="instalaciones/en-proceso">
     <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Instalaciones en Proceso"
@@ -604,5 +606,6 @@ export default function InstalacionesEnProcesoPage() {
       </main>
       <Toaster />
     </div>
+    </RouteGuard>
   );
 }

@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/shared/molecule/toaster"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { AveriasTable } from "@/components/feats/instalaciones/averias-table"
+import { RouteGuard } from "@/components/auth/route-guard"
 import type { Cliente } from "@/lib/api-types"
 
 export default function AveriasPage() {
@@ -159,6 +160,7 @@ export default function AveriasPage() {
   }
 
   return (
+    <RouteGuard requiredModule="instalaciones/averias">
     <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Averías"
@@ -178,5 +180,6 @@ export default function AveriasPage() {
       </main>
       <Toaster />
     </div>
+    </RouteGuard>
   )
 }

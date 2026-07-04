@@ -7,21 +7,30 @@ import { PageLoader } from "@/components/shared/atom/page-loader"
 
 interface RouteGuardProps {
   children: React.ReactNode
-  requiredModule: string
+  /**
+   * Módulo(s) requerido(s). Si es un array, basta con tener CUALQUIERA de ellos
+   * (útil p.ej. para "Trabajos Diarios", accesible con `instalaciones/trabajos-diarios`
+   * o con cualquier `trabajos:*`).
+   */
+  requiredModule: string | string[]
 }
 
 export function RouteGuard({ children, requiredModule }: RouteGuardProps) {
   const { isAuthenticated, isLoading, hasPermission, user } = useAuth()
   const router = useRouter()
 
+  const tieneAcceso = Array.isArray(requiredModule)
+    ? requiredModule.some((m) => hasPermission(m))
+    : hasPermission(requiredModule)
+
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      if (!hasPermission(requiredModule)) {
+      if (!tieneAcceso) {
         console.warn(`Usuario ${user?.nombre} no tiene permiso para acceder a: ${requiredModule}`)
         router.push("/")
       }
     }
-  }, [isLoading, isAuthenticated, hasPermission, requiredModule, router, user])
+  }, [isLoading, isAuthenticated, tieneAcceso, requiredModule, router, user])
 
   if (isLoading) {
     return <PageLoader />
@@ -31,7 +40,7 @@ export function RouteGuard({ children, requiredModule }: RouteGuardProps) {
     return null // AuthGuard se encargará de mostrar el login
   }
 
-  if (!hasPermission(requiredModule)) {
+  if (!tieneAcceso) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
         <div className="text-center">

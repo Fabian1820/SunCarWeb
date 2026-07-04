@@ -12,9 +12,21 @@ import {
   ClipboardList,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/auth-context";
+
+// Sub-permisos `trabajos:*` que dan acceso a la tarjeta "Trabajos Diarios".
+const TRABAJOS_MODULOS = [
+  "trabajos:confirmar",
+  "trabajos:registrar",
+  "trabajos:averias",
+  "trabajos:actualizaciones",
+  "trabajos:entregas",
+  "trabajos:todos",
+];
 
 export default function InstalacionesPage() {
   const router = useRouter();
+  const { hasPermission } = useAuth();
 
   const opciones = [
     {
@@ -75,6 +87,20 @@ export default function InstalacionesPage() {
     },
   ];
 
+  // Cada tarjeta = un sub-permiso `instalaciones/<id>`. Quien tiene el módulo
+  // `instalaciones` completo los hereda todos; los granulares ven solo lo suyo.
+  const puedeVerOpcion = (id: string): boolean => {
+    if (id === "trabajos-diarios") {
+      return (
+        hasPermission("instalaciones/trabajos-diarios") ||
+        TRABAJOS_MODULOS.some((m) => hasPermission(m))
+      );
+    }
+    return hasPermission(`instalaciones/${id}`);
+  };
+
+  const opcionesVisibles = opciones.filter((opcion) => puedeVerOpcion(opcion.id));
+
   const getColorClasses = (color: string) => {
     const colors = {
       orange: {
@@ -129,8 +155,16 @@ export default function InstalacionesPage() {
       />
 
       <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
+        {opcionesVisibles.length === 0 ? (
+          <div className="text-center py-16">
+            <p className="text-gray-500">
+              No tienes permisos para acceder a ninguna sección de Instalaciones.
+              Contacta con el equipo de informáticos.
+            </p>
+          </div>
+        ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {opciones.map((opcion) => {
+          {opcionesVisibles.map((opcion) => {
             const Icon = opcion.icon;
             const colors = getColorClasses(opcion.color);
 
@@ -159,6 +193,7 @@ export default function InstalacionesPage() {
             );
           })}
         </div>
+        )}
       </main>
     </div>
   );

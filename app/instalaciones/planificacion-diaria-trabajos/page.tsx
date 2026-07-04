@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
+import { RouteGuard } from "@/components/auth/route-guard";
 import { PageLoader } from "@/components/shared/atom/page-loader";
 import { Toaster } from "@/components/shared/molecule/toaster";
 import { useToast } from "@/hooks/use-toast";
@@ -660,6 +661,7 @@ export default function PlanificacionDiariaTrabajosPage() {
   }
 
   return (
+    <RouteGuard requiredModule="instalaciones/planificacion-diaria-trabajos">
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
       <ModuleHeader
         title="Planificación Diaria de Trabajos"
@@ -748,5 +750,6 @@ export default function PlanificacionDiariaTrabajosPage() {
 
       <Toaster />
     </div>
+    </RouteGuard>
   );
 }
