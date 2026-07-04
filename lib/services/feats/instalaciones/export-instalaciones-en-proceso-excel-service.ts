@@ -1,4 +1,5 @@
 import { apiRequest } from "@/lib/api-config";
+import { MaterialService } from "@/lib/api-services";
 import { exportToExcel, generateFilename } from "@/lib/export-service";
 import {
   normalizeOfertaConfeccion,
@@ -11,6 +12,32 @@ interface MaterialInstalacion {
   descripcion: string;
   cantidad: number;
 }
+
+const normCodigo = (value?: string | null): string =>
+  String(value || "").trim().toLowerCase();
+
+/**
+ * Catálogo código(normalizado) -> nombre del material. El item de la oferta
+ * solo guarda `descripcion`, no el nombre; para mostrar el NOMBRE del material
+ * (igual que el export de vales de salida) se enriquece desde el catálogo.
+ */
+const cargarNombresPorCodigo = async (): Promise<Map<string, string>> => {
+  const map = new Map<string, string>();
+  try {
+    const materiales = await MaterialService.getAllMaterials();
+    for (const m of materiales) {
+      const codigo = normCodigo((m as { codigo?: string }).codigo);
+      if (!codigo) continue;
+      const nombre = String(
+        (m as { nombre?: string }).nombre || (m as { descripcion?: string }).descripcion || "",
+      ).trim();
+      if (nombre) map.set(codigo, nombre);
+    }
+  } catch {
+    // Si falla el catálogo, se cae al `descripcion` del item de la oferta.
+  }
+  return map;
+};
 
 /**
  * Trae los materiales (código, nombre, cantidad) de la oferta confirmada más
@@ -89,10 +116,18 @@ export class ExportInstalacionesEnProcesoExcelService {
   static async exportar(
     clients: Cliente[],
   ): Promise<ExportInstalacionesEnProcesoResult> {
-    const materialesPorCliente = await enLotes(clients, 8, async (client) => ({
-      client,
-      materiales: await fetchMaterialesDeCliente(client.numero),
-    }));
+    const [nombresPorCodigo, materialesPorCliente] = await Promise.all([
+      cargarNombresPorCodigo(),
+      enLotes(clients, 8, async (client) => ({
+        client,
+        materiales: await fetchMaterialesDeCliente(client.numero),
+      })),
+    ]);
+
+    // Nombre del material: catálogo por código; si no está, cae al `descripcion`
+    // guardado en la oferta.
+    const nombreDe = (m: MaterialInstalacion): string =>
+      nombresPorCodigo.get(normCodigo(m.codigo)) || m.descripcion || m.codigo;
 
     const rows = materialesPorCliente.map(({ client, materiales }) => ({
       cliente: client.nombre || "Sin nombre",
@@ -100,7 +135,7 @@ export class ExportInstalacionesEnProcesoExcelService {
       direccion: client.direccion || "",
       falta_instalacion: client.falta_instalacion || "",
       material_codigo: materiales.map((m) => m.codigo),
-      material: materiales.map((m) => m.descripcion),
+      material: materiales.map((m) => nombreDe(m)),
       cantidad: materiales.map((m) => m.cantidad),
     }));
 
