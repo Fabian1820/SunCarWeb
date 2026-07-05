@@ -2,6 +2,42 @@
 
 ---
 
+## 📅 5 de Julio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**2 commits reales** de Fabian1820 — llegaron a las 23:22 del 4/Jul, después de que se escribió el análisis de ayer: (1) fix para mostrar el nombre real del material (no la descripción) en el export de Instalaciones en Proceso; (2) sistema de permisos granulares por tarjeta dentro del módulo Instalaciones, con los `trabajos:*` anidados visualmente.
+
+---
+
+### Área 1: Instalaciones en Proceso — nombre de material en export (1 commit — Fabian1820, 23:22)
+
+- **`fix(instalaciones): mostrar nombre del material (no descripción) en export en proceso`** — El export de Instalaciones en Proceso mostraba el campo `descripcion` del item de oferta en lugar del nombre real del material. El fix enriquece cada item desde el catálogo (`MaterialService.getAllMaterials`) buscando por código de material, con fallback a `descripcion` y luego al código si el nombre no está disponible. Mismo patrón que el fix de vales de salida del 3 de Julio.
+
+---
+
+### Área 2: Permisos granulares por tarjeta de Instalaciones (1 commit — Fabian1820, 23:22)
+
+- **`feat(permisos): permiso granular por tarjeta de Instalaciones + trabajos:* anidados`** — Cada una de las 7 tarjetas del módulo Instalaciones pasa a ser un sub-permiso asignable independiente con separador `/`: `instalaciones/pendientes-visita`, `instalaciones/en-proceso`, `instalaciones/nuevas`, `instalaciones/trabajos-diarios`, `instalaciones/averias`, `instalaciones/planificacion-diaria-trabajos`, `instalaciones/ordenes-trabajo`. Los sub-permisos `trabajos:*` se muestran anidados visualmente bajo la tarjeta "Trabajos Diarios" en el panel de permisos pero conservan su clave original con `:` y siguen siendo independientes (el padre no los concede en runtime). `getNombresCatalogo` ahora recorre los anidados para mantenerlos sincronizados. `RouteGuard` acepta `string | string[]` y pasa con cualquiera de los permisos. La landing `/instalaciones` muestra solo las tarjetas que el usuario tiene permitidas. Compatibilidad verificada: 22 usuarios con `instalaciones` completo en BD heredan las 7 tarjetas por herencia de prefijo `/`; 17 usuarios con `trabajos:*` conservan acceso sin cambios.
+
+---
+
+### Puede dar bateo
+
+1. **Herencia `instalaciones` → 7 sub-permisos solo en runtime**: Los 22 usuarios con `instalaciones` completo en BD heredan los sub-permisos por lógica de prefijo `/` en runtime, no por registros explícitos en BD. Si esa lógica cambia o falla en edge cases, pierden acceso a las 7 tarjetas sin ninguna migración de BD que los proteja.
+
+2. **Dos separadores de sub-permiso en el mismo sistema (`/` vs `:`)**: Los sub-permisos de instalaciones usan barra (`instalaciones/en-proceso`) mientras que los de trabajos usan dos puntos (`trabajos:montaje`). Dos convenciones distintas en el catálogo aumentan la probabilidad de errores al definir nuevos permisos, buscar en BD o extender el sistema.
+
+3. **`RouteGuard` con `string[]` — semántica OR sin confirmación formal**: El guard pasa si el usuario tiene CUALQUIERA de los permisos del array. Si en alguna ruta la intención era requerir TODOS (AND), el gating es demasiado permisivo. Confirmar que OR es la semántica intencional en cada uso del array.
+
+4. **Landing `/instalaciones` vacía sin mensaje para usuario sin sub-permisos**: Si un usuario no tiene ningún `instalaciones/*` asignado, la landing mostrará la lista de tarjetas vacía sin ningún aviso. Usuarios con rol `instalaciones` padre que aún no tienen sub-permisos asignados verán pantalla en blanco sin saber por qué.
+
+5. **Sub-permisos nuevos no asignados automáticamente desde el panel (SuperAdmin)**: Los 7 `instalaciones/*` se crean en el catálogo pero no se auto-asignan al abrir el panel de permisos de un usuario. Un SuperAdmin que crea un usuario nuevo debe asignarlos manualmente uno a uno, sin agrupación que sugiera "dar acceso completo a Instalaciones".
+
+6. **Export Instalaciones en Proceso — `getAllMaterials()` sin caché explícito**: El fix llama a `getAllMaterials()` en cada apertura del dialog de export para enriquecer los nombres de material. Sin caché, esto genera una llamada completa al catálogo por cada exportación. Si la llamada falla (timeout, 403), el export cae silenciosamente a `descripcion` o código sin ningún aviso al usuario.
+
+---
+
 ## 📅 4 de Julio, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -206,6 +242,11 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 #### Seguimientos vigentes
 
+- **Herencia `instalaciones` → 7 sub-permisos solo en runtime, no persistida en BD — migración necesaria si la lógica de prefijo cambia (Jul 5)**.
+- **Dos separadores de sub-permiso (`/` e `:`) — inconsistencia en el catálogo de permisos (Jul 5)**.
+- **`RouteGuard` con `string[]` — confirmar semántica OR vs AND en cada ruta (Jul 5)**.
+- **Landing `/instalaciones` vacía sin mensaje para usuario sin sub-permisos asignados (Jul 5)**.
+- **Export Instalaciones en Proceso — `getAllMaterials()` sin caché en lookup de nombre de material (Jul 5)**.
 - **Export Instalaciones en Proceso — N+1 llamadas a `/ofertas/confeccion/cliente/{numero}` (Jul 4)**.
 - **Materiales del export de Instalaciones representan la oferta actual, no el momento de instalación (Jul 4)**.
 - **Filtro "Rango" vacío en Obras Terminadas — export completo sin cota de fecha (Jul 4)**.
