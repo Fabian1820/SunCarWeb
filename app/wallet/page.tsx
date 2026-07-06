@@ -2223,16 +2223,33 @@ function WalletPageContent() {
                 {/* Totales por moneda — historial del miembro */}
                 {!loadingSelectedWalletDetail && memberTxTotalsByCurrency.length > 0 && (
                   <div className="grid grid-cols-3 gap-2">
-                    {memberTxTotalsByCurrency.map((t) => (
-                      <div key={t.currency_code} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 space-y-0.5">
-                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{t.currency_code}</p>
-                        <p className="text-[11px] text-emerald-600 font-medium">+{t.ingreso_total.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                        <p className="text-[11px] text-rose-500 font-medium">−{t.gasto_total.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                        <p className={`text-[11px] font-semibold border-t border-slate-200 pt-0.5 mt-0.5 ${(t.ingreso_total - t.gasto_total) >= 0 ? "text-slate-700" : "text-rose-600"}`}>
-                          {(t.ingreso_total - t.gasto_total) >= 0 ? "=" : "="}{(t.ingreso_total - t.gasto_total).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2">
+                      <p className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wider mb-1.5">Total Ingresos</p>
+                      {memberTxTotalsByCurrency.map((t) => (
+                        <p key={t.currency_code} className="text-[12px] text-emerald-700 font-semibold">
+                          {t.currency_code}: {t.ingreso_total.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </p>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                    <div className="rounded-lg border border-rose-100 bg-rose-50 px-3 py-2">
+                      <p className="text-[10px] font-semibold text-rose-500 uppercase tracking-wider mb-1.5">Total Gastos</p>
+                      {memberTxTotalsByCurrency.map((t) => (
+                        <p key={t.currency_code} className="text-[12px] text-rose-600 font-semibold">
+                          {t.currency_code}: {t.gasto_total.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                      ))}
+                    </div>
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Total</p>
+                      {memberTxTotalsByCurrency.map((t) => {
+                        const neto = t.ingreso_total - t.gasto_total;
+                        return (
+                          <p key={t.currency_code} className={`text-[12px] font-semibold ${neto >= 0 ? "text-slate-700" : "text-rose-600"}`}>
+                            {t.currency_code}: {neto.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
                 <TransactionsResponsiveList
@@ -2285,16 +2302,33 @@ function WalletPageContent() {
                 {/* Totales por moneda — historial global */}
                 {!loadingTransactions && txTotalsByCurrency.length > 0 && (
                   <div className="grid grid-cols-3 gap-2">
-                    {txTotalsByCurrency.map((t) => (
-                      <div key={t.currency_code} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 space-y-0.5">
-                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{t.currency_code}</p>
-                        <p className="text-[11px] text-emerald-600 font-medium">+{t.ingreso_total.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                        <p className="text-[11px] text-rose-500 font-medium">−{t.gasto_total.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                        <p className={`text-[11px] font-semibold border-t border-slate-200 pt-0.5 mt-0.5 ${(t.ingreso_total - t.gasto_total) >= 0 ? "text-slate-700" : "text-rose-600"}`}>
-                          {(t.ingreso_total - t.gasto_total).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2">
+                      <p className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wider mb-1.5">Total Ingresos</p>
+                      {txTotalsByCurrency.map((t) => (
+                        <p key={t.currency_code} className="text-[12px] text-emerald-700 font-semibold">
+                          {t.currency_code}: {t.ingreso_total.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </p>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                    <div className="rounded-lg border border-rose-100 bg-rose-50 px-3 py-2">
+                      <p className="text-[10px] font-semibold text-rose-500 uppercase tracking-wider mb-1.5">Total Gastos</p>
+                      {txTotalsByCurrency.map((t) => (
+                        <p key={t.currency_code} className="text-[12px] text-rose-600 font-semibold">
+                          {t.currency_code}: {t.gasto_total.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                      ))}
+                    </div>
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Total</p>
+                      {txTotalsByCurrency.map((t) => {
+                        const neto = t.ingreso_total - t.gasto_total;
+                        return (
+                          <p key={t.currency_code} className={`text-[12px] font-semibold ${neto >= 0 ? "text-slate-700" : "text-rose-600"}`}>
+                            {t.currency_code}: {neto.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
                 <TransactionsResponsiveList
