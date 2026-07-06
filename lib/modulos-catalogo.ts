@@ -218,15 +218,6 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
 
   // ───────── Comercial Instaladora ─────────
   {
-    key: "reservas-instaladora",
-    label: "Reservas Instaladora",
-    descripcion: "Ver reservas de materiales de proyectos de instalación.",
-    icon: BookmarkCheck,
-    iconClass: "text-emerald-600",
-    href: "/reservas-ventas?vista=instaladora",
-    grupo: "comercial-instaladora",
-  },
-  {
     key: "leads",
     label: "Leads",
     descripcion: "Administrar leads y oportunidades de venta.",
@@ -251,6 +242,15 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     icon: Zap,
     iconClass: "text-emerald-600",
     href: "/ofertas-gestion",
+    grupo: "comercial-instaladora",
+  },
+  {
+    key: "reservas-instaladora",
+    label: "Reservas Instaladora",
+    descripcion: "Ver reservas de materiales de proyectos de instalación.",
+    icon: BookmarkCheck,
+    iconClass: "text-emerald-600",
+    href: "/reservas-ventas?vista=instaladora",
     grupo: "comercial-instaladora",
   },
   {
