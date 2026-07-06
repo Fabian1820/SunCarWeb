@@ -2,6 +2,230 @@
 
 ---
 
+## 📅 5 de Julio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**2 commits reales** de Fabian1820 — llegaron a las 23:22 del 4/Jul, después de que se escribió el análisis de ayer: (1) fix para mostrar el nombre real del material (no la descripción) en el export de Instalaciones en Proceso; (2) sistema de permisos granulares por tarjeta dentro del módulo Instalaciones, con los `trabajos:*` anidados visualmente.
+
+---
+
+### Área 1: Instalaciones en Proceso — nombre de material en export (1 commit — Fabian1820, 23:22)
+
+- **`fix(instalaciones): mostrar nombre del material (no descripción) en export en proceso`** — El export de Instalaciones en Proceso mostraba el campo `descripcion` del item de oferta en lugar del nombre real del material. El fix enriquece cada item desde el catálogo (`MaterialService.getAllMaterials`) buscando por código de material, con fallback a `descripcion` y luego al código si el nombre no está disponible. Mismo patrón que el fix de vales de salida del 3 de Julio.
+
+---
+
+### Área 2: Permisos granulares por tarjeta de Instalaciones (1 commit — Fabian1820, 23:22)
+
+- **`feat(permisos): permiso granular por tarjeta de Instalaciones + trabajos:* anidados`** — Cada una de las 7 tarjetas del módulo Instalaciones pasa a ser un sub-permiso asignable independiente con separador `/`: `instalaciones/pendientes-visita`, `instalaciones/en-proceso`, `instalaciones/nuevas`, `instalaciones/trabajos-diarios`, `instalaciones/averias`, `instalaciones/planificacion-diaria-trabajos`, `instalaciones/ordenes-trabajo`. Los sub-permisos `trabajos:*` se muestran anidados visualmente bajo la tarjeta "Trabajos Diarios" en el panel de permisos pero conservan su clave original con `:` y siguen siendo independientes (el padre no los concede en runtime). `getNombresCatalogo` ahora recorre los anidados para mantenerlos sincronizados. `RouteGuard` acepta `string | string[]` y pasa con cualquiera de los permisos. La landing `/instalaciones` muestra solo las tarjetas que el usuario tiene permitidas. Compatibilidad verificada: 22 usuarios con `instalaciones` completo en BD heredan las 7 tarjetas por herencia de prefijo `/`; 17 usuarios con `trabajos:*` conservan acceso sin cambios.
+
+---
+
+### Puede dar bateo
+
+1. **Herencia `instalaciones` → 7 sub-permisos solo en runtime**: Los 22 usuarios con `instalaciones` completo en BD heredan los sub-permisos por lógica de prefijo `/` en runtime, no por registros explícitos en BD. Si esa lógica cambia o falla en edge cases, pierden acceso a las 7 tarjetas sin ninguna migración de BD que los proteja.
+
+2. **Dos separadores de sub-permiso en el mismo sistema (`/` vs `:`)**: Los sub-permisos de instalaciones usan barra (`instalaciones/en-proceso`) mientras que los de trabajos usan dos puntos (`trabajos:montaje`). Dos convenciones distintas en el catálogo aumentan la probabilidad de errores al definir nuevos permisos, buscar en BD o extender el sistema.
+
+3. **`RouteGuard` con `string[]` — semántica OR sin confirmación formal**: El guard pasa si el usuario tiene CUALQUIERA de los permisos del array. Si en alguna ruta la intención era requerir TODOS (AND), el gating es demasiado permisivo. Confirmar que OR es la semántica intencional en cada uso del array.
+
+4. **Landing `/instalaciones` vacía sin mensaje para usuario sin sub-permisos**: Si un usuario no tiene ningún `instalaciones/*` asignado, la landing mostrará la lista de tarjetas vacía sin ningún aviso. Usuarios con rol `instalaciones` padre que aún no tienen sub-permisos asignados verán pantalla en blanco sin saber por qué.
+
+5. **Sub-permisos nuevos no asignados automáticamente desde el panel (SuperAdmin)**: Los 7 `instalaciones/*` se crean en el catálogo pero no se auto-asignan al abrir el panel de permisos de un usuario. Un SuperAdmin que crea un usuario nuevo debe asignarlos manualmente uno a uno, sin agrupación que sugiera "dar acceso completo a Instalaciones".
+
+6. **Export Instalaciones en Proceso — `getAllMaterials()` sin caché explícito**: El fix llama a `getAllMaterials()` en cada apertura del dialog de export para enriquecer los nombres de material. Sin caché, esto genera una llamada completa al catálogo por cada exportación. Si la llamada falla (timeout, 403), el export cae silenciosamente a `descripcion` o código sin ningún aviso al usuario.
+
+---
+
+## 📅 4 de Julio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**1 commit real** de Fabian1820 — export Excel del módulo **Instalaciones en Proceso** y fix del filtro de fecha en Obras Terminadas.
+
+---
+
+### Área 1: Instalaciones en Proceso + Obras Terminadas (1 commit — Fabian1820, 21:57)
+
+- **`feat(instalaciones): export Excel de instalaciones en proceso + fix filtro fecha obras terminadas`** — Nuevo botón "Exportar Excel" en Instalaciones en Proceso: genera una fila por cliente con código, material y cantidad apilados en el mismo estilo que los demás exports. Los materiales se traen de la oferta confirmada vía `/ofertas/confeccion/cliente/{numero}` (los campos embebidos en el cliente no incluyen los items de la oferta). Respeta los filtros aplicados en pantalla. Fix en Obras Terminadas: el botón "Rango" del filtro de fecha ya no pre-rellena el mes actual; empieza vacío para no aplicar un filtro silencioso que causaba que los exports siempre filtraran por junio.
+
+---
+
+### Puede dar bateo
+
+1. **Export Instalaciones — N+1 llamadas a `/ofertas/confeccion/cliente/{numero}`**: Para cada cliente en la lista se dispara una petición HTTP separada al backend. Con muchos clientes en proceso, esto puede generar decenas de llamadas en paralelo, provocando timeouts, throttling o bloqueo del navegador durante la generación del Excel.
+
+2. **Materiales del export representan la oferta actual, no el momento de instalación**: Si la oferta fue modificada después de iniciar la instalación (cambio de paneles, inversores, cantidades), el Excel mostrará los materiales actuales de la oferta, no los que efectivamente se están instalando. Posible discrepancia contable o de seguimiento.
+
+3. **Filtro "Rango" vacío en Obras Terminadas — export sin cota de fecha**: Al quitar el pre-relleno del mes actual, una exportación sin ningún filtro de fecha trae el historial completo de obras terminadas. Sin paginación forzada en el export, esto puede bloquear el navegador o generar un archivo masivo sin advertencia al usuario.
+
+4. **`fecha_equipo_instalado` solo existe desde mayo 2026**: El filtro de fecha en Obras Terminadas depende de este campo. Obras anteriores a mayo 2026 no aparecen en ningún filtro por fecha aunque existan en el sistema, y el comportamiento es silencioso (sin aviso al usuario de que hay registros ocultos).
+
+5. **Instalación concurrente con cambio de estado**: Si durante la generación del Excel un cliente pasa de "en proceso" a "terminado" (o viceversa), los materiales traídos pueden corresponder a un estado de oferta ya no válido para ese cliente.
+
+---
+
+## 📅 3 de Julio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**5 commits reales** de Fabian1820 — jornada centrada en el sistema de exportaciones Excel: (1) Mi Tarjeta promovida a producción (quita badge de prueba); (2) fix en vales de salida para mostrar nombre real del material; (3) ciclo completo feat→fix→refactor en exportaciones de Obras Terminadas y Pagos Realizados: primero dos hojas separadas, luego fix de hoja vacía, finalmente consolidación en una sola hoja con materiales apilados.
+
+---
+
+### Área 1: Mi Tarjeta — promovida a producción (1 commit — Fabian1820, 14:40)
+
+- **`chore(mi-tarjeta): quitar badge de fase de prueba`** — El módulo pasa a uso normal. Se retira el banner de aviso del editor y la etiqueta 'Prueba' del menú Mi Perfil. El endpoint `/api/tarjetas/mi-tarjeta` sigue sin confirmación explícita en backend (ver seguimiento Jul 2).
+
+---
+
+### Área 2: Vales de Salida — nombre de material en export Excel (1 commit — Fabian1820, 15:09)
+
+- **`fix(vales-salida): mostrar nombre del material en export Excel`** — La columna "Material" del export enriquece contra el catálogo (`MaterialService.getAllMaterials`) para mostrar el nombre del material, con respaldo a `material_descripcion` o código si el nombre no está disponible.
+
+---
+
+### Área 3: Exportaciones Obras Terminadas y Pagos Realizados — ciclo feat→fix→refactor (3 commits — Fabian1820, 20:17→21:33)
+
+Tres commits en 76 minutos representan una iteración completa de diseño:
+
+1. **`feat(exportaciones): exportar Excel con materiales aparte en Obras Terminadas y Pagos Realizados`** (20:17) — Botón "Exportar Excel" en ambas vistas. Workbook de dos hojas: listado principal + hoja de materiales (código, nombre, cantidad). En Pagos Realizados la hoja de materiales deduplica por solicitud. Lógica extraída a `lib/export-multi-sheet-service.ts`.
+
+2. **`fix(exportaciones): corregir hoja de materiales vacía`** (20:47) — Obras Terminadas: el backend embebe materiales directamente en `/obras-terminadas/datos`; el export los lee desde ahí en vez de hacer N+1 llamadas a `/oferta/detalle`. Pagos Realizados: agrega catálogo `material_id→{codigo, nombre}` de respaldo para materiales con campos opcionales incompletos.
+
+3. **`refactor(exportaciones): usar formato de una sola hoja con materiales apilados`** (21:33) — Reemplaza las dos hojas por el patrón de vales de salida: una fila por obra/pago con código, material y cantidad apilados en la misma fila vía `stackedColumnKeys` de `exportToExcel`. Elimina `lib/export-multi-sheet-service.ts`.
+
+---
+
+### Puede dar bateo
+
+1. **`stackedColumnKeys` en `exportToExcel` sin confirmar**: El refactor usa esta funcionalidad. Si `lib/export-service.ts` no la implementa, el export lanzará error silencioso o vacío en runtime para todos los usuarios.
+
+2. **`lib/export-multi-sheet-service.ts` eliminado en la misma sesión**: Si algún import de otro componente referencia este archivo (o TypeScript lo tiene en caché), habrá crash al compilar o en runtime. El archivo existió menos de una hora; confirmar que no quedaron referencias.
+
+3. **Obras Terminadas — embedding de materiales en backend no confirmado**: El fix asume que `/obras-terminadas/datos` ya embebe los materiales. Si el backend todavía no implementó ese embedding, la columna de materiales quedará vacía en el export sin ningún mensaje de error.
+
+4. **Catálogo de respaldo en Pagos Realizados — fallo silencioso**: Si `MaterialService.getAllMaterials()` falla al cargar, los materiales con campos opcionales incompletos mostrarán código/nombre vacíos sin aviso al usuario.
+
+5. **Diseño final inconsistente con el anuncio inicial**: La feature se documentó como "materiales en hoja separada" y el estado final es "materiales apilados en una columna". El comportamiento exportado cambia radicalmente dentro del mismo día; usuarios que exportaron por la mañana verán un formato distinto por la tarde.
+
+6. **Mi Tarjeta sin badge — backend aún sin confirmar**: Quitar el aviso de fase de prueba sin confirmar que el backend de tarjetas está listo expone errores 404/500 a usuarios normales sin ningún indicador visual de que el feature puede no funcionar.
+
+7. **Vales de salida — `getAllMaterials()` sin caché explícito**: Cada apertura del dialog de export puede disparar una llamada completa al catálogo de materiales. En entornos con muchos materiales, esto genera latencia innecesaria.
+
+---
+
+## 📅 2 de Julio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**2 commits reales** de Fabian1820 — (1) nueva pantalla de **Tarjeta de Presentación** del trabajador con QR y enlace público editable; (2) mejora al **filtro de comerciales** en Leads para incluir comerciales de ventas de apoyo combinando dos fuentes de datos.
+
+---
+
+### Área 1: Mi Tarjeta — editor de tarjeta de presentación del trabajador (1 commit — Fabian1820, 20:13)
+
+- **`feat(mi-tarjeta): editor de tarjeta de presentación del trabajador`** — Pantalla `/mi-tarjeta` (autenticada) para que el trabajador edite su tarjeta (título, bio, contacto, redes, foto) contra `/api/tarjetas/mi-tarjeta`, con QR y enlace público. Acceso desde el menú "Mi Perfil". Marcado como fase de prueba.
+
+---
+
+### Área 2: Leads — comerciales de ventas de apoyo en filtro (1 commit — Fabian1820, 21:31)
+
+- **`feat(leads): incluir comerciales de ventas de apoyo en filtro`** — El filtro de comercial en la página de leads ahora une el roster de instaladora (`/trabajadores/comerciales`) con los comerciales distintos ya usados en leads (`/leads/comerciales`), para que los comerciales de ventas que están de apoyo aparezcan de forma fiable tras su primer lead, sin listar a todos. Cache subida a v2 para invalidar la lista v1 (solo-instaladora).
+
+---
+
+### Puede dar bateo
+
+1. **Endpoint `/api/tarjetas/mi-tarjeta` sin confirmar en backend**: Si el backend no implementó el endpoint, la pantalla `/mi-tarjeta` fallará con 404 al cargar o al guardar. Toda la funcionalidad de edición queda inutilizable.
+
+2. **Tarjeta pública accesible sin autenticación — exposición de datos del trabajador**: Si el enlace público de la tarjeta no requiere auth, contacto personal, redes sociales y bio quedan expuestos públicamente. Confirmar que el diseño intencional es público antes de desplegar en producción.
+
+3. **Tarjeta no editada con enlace público activo**: Si un trabajador nunca editó su tarjeta pero el QR/enlace ya existe, el backend puede devolver una respuesta vacía, 404 o datos por defecto incorrectos, confundiendo a quien reciba el QR antes de que el trabajador lo configure.
+
+4. **Fase de prueba sin gating de permiso**: El módulo está marcado como "fase de prueba" pero es accesible desde el menú "Mi Perfil" para cualquier usuario autenticado. Sin un feature flag o permiso específico, todos los usuarios podrán usarlo de inmediato.
+
+5. **Deduplicación de comerciales entre ambas fuentes del filtro**: Si un comercial de ventas aparece tanto en `/trabajadores/comerciales` como en `/leads/comerciales` (por ya tener leads propios), puede aparecer duplicado en el filtro si no hay deduplicación explícita por nombre o CI.
+
+6. **Comerciales dados de baja persisten en el filtro**: El endpoint `/leads/comerciales` devuelve cualquier nombre que alguna vez fue comercial en un lead. Comerciales inactivos o desvinculados seguirán apareciendo en el filtro sin indicación de que ya no están activos.
+
+7. **Fallo parcial silencioso si uno de los dos endpoints cae**: Si `/leads/comerciales` o `/trabajadores/comerciales` devuelve error, el filtro puede mostrar solo la fuente que funcionó o quedar vacío sin mensaje explicativo al usuario.
+
+8. **Cache v2 sin estrategia de rollback en cliente**: Subir la versión del cache invalida la lista v1. Si el nuevo comportamiento combinado tiene un bug, revertir requiere bajar el número de versión en código y un nuevo deploy, sin mecanismo de rollback en caliente.
+
+---
+
+## 📅 1 de Julio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+Sin commits nuevos de código. Los 2 commits de Fabian1820 sobre el módulo Movimientos (18:31 y 18:44 del 30 de Junio) ya fueron registrados en la entrada anterior. El único commit propio de este período es "Analisis diario Claude" (generado automáticamente).
+
+---
+
+### Puede dar bateo
+
+Sin cambios nuevos — sin riesgos nuevos.
+
+---
+
+## 📅 30 de Junio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**2 commits** de Fabian1820 — módulo **Movimientos de Inventario**: se agrega la columna Estado con badge de color en tabla, diálogo de detalle y exportación Excel; y se corrige `normalizeMovimiento` para propagar correctamente `estado` y `motivo_error` al componente desde el backend (antes se omitían aunque el backend los enviara).
+
+---
+
+### Área 1: Movimientos — estado en tabla, detalle y Excel (2 commits — Fabian1820, 18:31 y 18:44)
+
+- **`feat(movimientos): mostrar estado del movimiento en tabla, detalle y Excel`** (18:31) — Nueva columna Estado con badge de color en la tabla de movimientos. El diálogo de detalle incluye `estado` y `motivo_error`. La exportación a Excel incorpora ambos campos como columnas adicionales. Archivos: `app/almacenes/[almacenId]/page.tsx`, `components/feats/inventario/movimientos-table.tsx`, `lib/types/feats/inventario/inventario-types.ts`.
+
+- **`fix(movimientos): incluir estado y motivo_error en normalizeMovimiento`** (18:44) — La función `normalizeMovimiento` en `lib/services/feats/inventario/inventario-service.ts` construía el objeto manualmente omitiendo estos campos, por lo que nunca llegaban al componente aunque el backend los enviara. Sin este fix el feat anterior producía la columna siempre vacía.
+
+---
+
+### Puede dar bateo
+
+1. **`estado` sin valor en movimientos históricos**: Registros anteriores a la implementación del campo pueden devolver `estado` como `null`/`undefined`. Si el badge no tiene fallback visual, aparecerá una celda rota o en blanco en la tabla para todos esos movimientos.
+
+2. **`motivo_error` mostrado en estados no-error**: El diálogo muestra el campo siempre. Para movimientos exitosos donde el backend devuelve `null` o `""`, puede aparecer una sección "Motivo de Error" vacía que confunde al usuario.
+
+3. **Excel con nueva columna — desplazamiento en importaciones fijas**: Si algún flujo externo consume el Excel de movimientos esperando columnas en posiciones fijas, la nueva columna Estado (y motivo_error) desplazará las existentes y romperá esas importaciones.
+
+4. **Orden de deploy feat → fix**: El commit feat (18:31) precede al fix (18:44). Si el deploy se aplicó parcialmente entre ambos pushes, los usuarios habrían visto la columna Estado siempre vacía durante ese intervalo.
+
+---
+
+## 📅 29 de Junio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**1 commit real** de yany1509 — fix en el módulo de **Cobros**: el pendiente y el comprobante de pago ahora descuentan correctamente la compensación y el monto asumido por la empresa antes de calcular lo que queda por cobrar.
+
+---
+
+### Área 1: Cobros — descontar compensación y monto asumido del pendiente (1 commit — yany1509, 19:02)
+
+- **`fix(cobros): descontar compensación y monto asumido del pendiente y comprobante`** — `OfertaConPagos` ahora incluye los campos `compensacion` y `asumido_por_empresa`. Nuevo helper `getBaseACobrar = precio_final - compensación - asumido`. Las tablas de cobros calculan el pendiente sobre la base neta. El comprobante muestra tres líneas adicionales: Compensación / Asumido por Empresa / Monto a Cobrar para que los montos cuadren visualmente.
+
+---
+
+### Puede dar bateo
+
+1. **`compensacion`/`asumido_por_empresa` sin confirmar en backend**: El frontend ahora espera estos campos en la respuesta de `OfertaConPagos`. Si el backend no los incluye aún (o los devuelve como `null`/`undefined`), `getBaseACobrar` calculará `NaN`, rompiendo el display del pendiente en todas las filas de cobros.
+
+2. **Cobros históricos sin los campos nuevos**: Registros creados antes de este deploy no tendrán `compensacion` ni `asumido_por_empresa` en la respuesta. Si el helper no maneja `null` con un fallback a `0`, todos los cobros históricos mostrarán montos incorrectos o `NaN`.
+
+3. **Base a cobrar negativa sin validación**: Si `compensación + asumido_por_empresa > precio_final` (por error de entrada o sin validación en backend), `getBaseACobrar` devuelve un valor negativo. El pendiente aparecería negativo sin ningún aviso al usuario.
+
+4. **Líneas del comprobante con valor cero visibles**: El comprobante siempre muestra las tres líneas nuevas. Para cobros sin compensación ni monto asumido, aparecerán líneas "Compensación: 0" y "Asumido por Empresa: 0", que pueden confundir al cliente si no hay lógica para ocultarlas cuando son cero.
+
+5. **Posible doble descuento si compensación ya se aplicaba en precio_final**: Si el backend ya restaba la compensación al calcular `precio_final`, ahora el frontend la volvería a restar. Confirmar con el equipo de backend que `precio_final` es el bruto antes de descuentos.
+
+---
+
 ## 📅 28 de Junio, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -16,96 +240,31 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 26 de Junio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**12 commits reales** de Fabian1820, yany1509 y Ruben0304 — día de alta actividad en tres frentes paralelos: (1) módulo completo de **Asistencia** de personal; (2) mejoras al módulo de **Inventario** (referencias legibles + export Excel de movimientos); (3) fixes en **Transferencias** (UI de faltantes al aprobar); (4) rollback de diseño en **Reservas** (restaurar flujo Ventas, eliminar dialog unificado); (5) subpermiso aditivo en **Almacenes**; (6) cuatro commits en **Facturas Solar-Carros** (contabilidad + DOCX + buscador + fix sin oferta); (7) grafo de conocimiento Graphify del código fuente.
-
----
-
-### Área 1: Módulo Asistencia — control de llegada del personal (1 commit — Ruben0304, 14:08)
-
-- **`feat(asistencia): módulo completo de control de llegada del personal`** — Página `/asistencia` con tabs "Ahora mismo" y "Reporte del día". Panel en tiempo real con grid de trabajadores presentes. Tabla de reporte diario con entrada, salida, horas y estado. Diálogo para marcar entrada/salida manualmente desde el admin. Hook `use-asistencia` con carga automática. Módulo registrado en catálogo (grupo recursos-humanos).
-
----
-
-### Área 2: Graphify — grafo del código fuente (1 commit — Ruben0304, 14:29)
-
-- **`feat(graphify): knowledge graph del código fuente de SunCarAdmin`** — 4,548 nodos · 14,486 edges · 223 comunidades. God nodes: Button (268), useToast (224), apiRequest (222). Artefactos subidos: `graph.html`, `graph.json`, `GRAPH_REPORT.md`.
-
----
-
-### Área 3: Transferencias — feedback de error con lista de faltantes (2 commits — Fabian1820)
-
-- **`feat(transferencias): mostrar feedback de error al aprobar con lista de faltantes`** (Jun 25, 19:02) — Service lanza si `success===false`; aprobar adjunta `detail.faltantes`. La tabla muestra toast destructivo y lista cada material en falta con foto, código, nombre y cantidades.
-- **`fix(transferencias): limpiar estado de faltantes entre diálogos y ocultar botón aprobar tras fallo`** (Jun 26, 16:34) — Tras fallo de aprobación, el diálogo deja solo el botón Cerrar. Limpieza de faltantes/comentario al abrir cualquier diálogo y al cancelar.
-
----
-
-### Área 4: Permisos — subpermiso almacenes-suncar/admin aditivo (1 commit — Fabian1820, Jun 25 18:21)
-
-- **`feat(permisos): subpermiso almacenes-suncar/admin aditivo (no heredado del padre)`** — Nuevo flag `SubPermiso.aditivo`. Tener el módulo padre `almacenes-suncar` ya no concede los botones de entrada/salida manual. Nuevo `hasExactPermission` en auth-context (membresía exacta, sin herencia padre→hijo).
-
----
-
-### Área 5: Asignaciones — alerta costo cero + errores sin falsos positivos (1 commit — Fabian1820, Jun 25 18:19)
-
-- **`fix(asignaciones): alerta precisa de costo cero + manejo de errores sin falsos positivos`** — `searchMaterialesConCosto` (endpoint admin) para detectar materiales sin costo. Helper `assertOk` en todos los mutadores de `asignacion-service` para que errores 400/401/404/500 dejen de mostrarse como éxitos.
-
----
-
-### Área 6: Reservas — restaurar flujo de Ventas (1 commit — Fabian1820, Jun 25 21:00)
-
-- **`fix(reservas): restaurar flujo de Ventas (carga de oferta, sin filtro de categorías)`** — El diálogo unificado creado hace ~8 días rompía Ventas: filtraba por categorías reservables (pero `categoria=null` en endpoint `materiales-web`), y eliminó el panel "Cargar desde oferta de venta". Decisión: Reservas crea SOLO reservas de Ventas. Vista Instaladora (`?vista=instaladora`) es solo lectura. Diálogo unificado eliminado.
-
----
-
-### Área 7: Facturas Solar-Carros (4 commits — yany1509, Jun 25)
-
-- **`feat(facturas-solar-carros): agregar código/precio contabilidad en vista y botón Orden de Trabajo DOCX`** (15:38) — Campos `codigo_contabilidad` y `precio_contabilidad` en tipo API y vista. Genera y descarga Orden de Trabajo en DOCX fiel al template oficial (12 columnas, cabecera, firma, fecha).
-- **`fix(facturas-solar-carros): corregir nombre de campo precio_contabilidad_cup`** (15:58) — El backend devuelve `precio_contabilidad_cup`, no `precio_contabilidad`. El campo incorrecto causaba que el precio siempre mostrara "-".
-- **`feat(facturas-solar-carros): buscador por cliente y filtros de fecha en Facturas Creadas`** (16:03).
-- **`fix(facturas-solar-carros): permitir crear factura de instaladora sin oferta previa`** (16:07) — Elimina el bloqueo que impedía abrir el preview cuando el cliente no tiene materiales/componentes.
-
----
-
-### Área 8: Inventario — referencia legible + export Excel de movimientos (1 commit — Fabian1820, Jun 26 18:05)
-
-- **`feat(inventario): referencia legible, detalle y export Excel de movimientos`** — Historial de movimientos: columna Referencia y detalle usan `referencia_label` en vez del ObjectId. Modal muestra datos del documento origen. Botón "Exportar Excel" exporta todos los movimientos filtrados omitiendo paginación (lotes de 200). Export de vales de salida: código del material en columna propia.
-
----
-
-### Puede dar bateo
-
-1. **Módulo Asistencia — endpoints de backend sin confirmar**: El hook `use-asistencia` llama a endpoints del backend. Si aún no están implementados o los nombres de rutas difieren, el módulo fallará con 404/500 al cargar. Especialmente el marcado manual entrada/salida desde admin.
-
-2. **`graph.html` y `graph.json` en main — artefactos pesados**: Con 4,548 nodos y 14,486 edges, estos archivos probablemente ocupen varios MB. Engordan el repo sin aportar a producción. Considerar moverlos a una rama separada o `.gitignore`.
-
-3. **Export Excel de movimientos sin cota máxima**: "Lotes de 200" describe cómo se paginan las peticiones al backend, no un límite total. Un almacén con miles de movimientos puede generar una descarga que bloquee el navegador o agote la memoria del cliente.
-
-4. **`referencia_label` en movimientos históricos**: Movimientos creados antes de que el backend añadiera este campo mostrarán `undefined` o vacío en la columna Referencia. Confirmar que el backend migró o rellena el campo para docs históricos.
-
-5. **Detalle de movimiento — llamada adicional por tipo de documento**: El modal de detalle llama al documento origen (vale, solicitud, transferencia). Si no existen endpoints para todos los tipos de referencia, algunos modales lanzarán errores sin mensaje explicativo al usuario.
-
-6. **`hasExactPermission` — usuarios con almacenes-suncar sin subpermiso admin explícito en BD**: Usuarios que actualmente tienen `almacenes-suncar` en BD sin el subpermiso `admin` explícito perderán acceso a los botones de entrada/salida manual tras este deploy. Requiere migración o re-asignación de permisos.
-
-7. **`assertOk` en asignaciones — errores antes silenciosos ahora lanzan**: Componentes que usaban el service de asignaciones sin bloque try/catch (porque `apiRequest` no relanzaba) pueden ahora mostrar crashes o pantallas en blanco. Confirmar que todos los consumidores del service manejan errores.
-
-8. **`searchMaterialesConCosto` — endpoint admin, 403 para no-admins**: El dialog de asignación usa este endpoint. Si un usuario sin permiso admin accede, recibirá 403 y el picker de materiales quedará vacío sin mensaje explicativo de por qué no hay resultados.
-
-9. **Decisión Reservas — Instaladora solo lectura sin alternativa**: Si el flujo de negocio requiere en el futuro que la instaladora cree reservas directamente (no desde una oferta de Ventas), no hay diálogo disponible; habría que reconstruirlo desde cero.
-
-10. **DOCX Orden de Trabajo — generación en cliente**: La generación de DOCX ocurre en el navegador. En facturas con muchos materiales o navegadores con memoria limitada, la generación puede fallar silenciosamente (sin mensaje de error al usuario).
-
-11. **`precio_contabilidad_cup` — facturas históricas**: El fix corrige el campo para nuevas cargas. Facturas creadas antes que tengan el campo con nombre incorrecto en BD seguirán mostrando "-" a menos que el backend haga una migración.
-
-12. **Factura instaladora sin materiales — validación en backend**: El fix elimina el bloqueo en frontend para abrir el preview sin materiales. Si el backend valida que la factura no puede estar vacía al momento del submit, el error se aplaza pero no se elimina.
-
----
-
 #### Seguimientos vigentes
 
+- **Herencia `instalaciones` → 7 sub-permisos solo en runtime, no persistida en BD — migración necesaria si la lógica de prefijo cambia (Jul 5)**.
+- **Dos separadores de sub-permiso (`/` e `:`) — inconsistencia en el catálogo de permisos (Jul 5)**.
+- **`RouteGuard` con `string[]` — confirmar semántica OR vs AND en cada ruta (Jul 5)**.
+- **Landing `/instalaciones` vacía sin mensaje para usuario sin sub-permisos asignados (Jul 5)**.
+- **Export Instalaciones en Proceso — `getAllMaterials()` sin caché en lookup de nombre de material (Jul 5)**.
+- **Export Instalaciones en Proceso — N+1 llamadas a `/ofertas/confeccion/cliente/{numero}` (Jul 4)**.
+- **Materiales del export de Instalaciones representan la oferta actual, no el momento de instalación (Jul 4)**.
+- **Filtro "Rango" vacío en Obras Terminadas — export completo sin cota de fecha (Jul 4)**.
+- **`fecha_equipo_instalado` — campo solo existe desde mayo 2026, obras previas invisibles en filtros de fecha (Jul 4)**.
+- **`stackedColumnKeys` en `exportToExcel` — verificar implementación en `lib/export-service.ts` (Jul 3)**.
+- **`lib/export-multi-sheet-service.ts` eliminado — confirmar sin imports residuales (Jul 3)**.
+- **Obras Terminadas export — embedding de materiales en `/obras-terminadas/datos` sin confirmar en backend (Jul 3)**.
+- **Mi Tarjeta fuera de fase de prueba — confirmar backend `/api/tarjetas/mi-tarjeta` listo para producción (Jul 3)**.
+- **Vales de salida — `getAllMaterials()` puede generar llamadas sin caché al abrir export (Jul 3)**.
+- **Endpoint `/api/tarjetas/mi-tarjeta` — confirmar implementación en backend (Jul 2)**.
+- **Tarjeta pública sin auth — confirmar política de visibilidad intencional (Jul 2)**.
+- **Deduplicación de comerciales entre `/trabajadores/comerciales` y `/leads/comerciales` (Jul 2)**.
+- **Comerciales dados de baja persisten en filtro de leads (Jul 2)**.
+- **`estado`/`motivo_error` en movimientos históricos — confirmar fallback para docs sin campo (Jun 30)**.
+- **Excel movimientos con nueva columna Estado — confirmar flujos de importación existentes (Jun 30)**.
+- **`compensacion`/`asumido_por_empresa` en OfertaConPagos — confirmar campos en backend (Jun 29)**.
+- **`getBaseACobrar` sin manejo de null — cobros históricos pueden mostrar NaN (Jun 29)**.
+- **Base a cobrar negativa posible si compensación + asumido supera precio_final (Jun 29)**.
 - **Módulo Asistencia — endpoints de backend sin confirmar (Jun 26)**.
 - **`graph.html`/`graph.json` en main — artefactos pesados sin uso en producción (Jun 26)**.
 - **Export Excel movimientos sin cota máxima — puede bloquear navegador (Jun 26)**.
@@ -198,52 +357,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 23 de Junio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**2 commits** de Fabian1820 y yany1509 — módulo de **Reservas** (Fabian1820): filtros por tipo de equipo y potencia + edición de reservas expiradas; y módulo de **Pagos** (yany1509): restauración del botón de editar cobros con lista blanca por CI y trazabilidad de edición.
-
----
-
-### Área 1: Reservas — filtros de equipo y edición de expiradas (1 commit — Fabian1820)
-
-- **`feat(reservas): filtros por tipo de equipo y potencia + editar expiradas`** — Select de tipo de equipo; inputs de potencia mín/máx en kW; botón "Limpiar". Botón de editar visible también para reservas en estado "expirada".
-
----
-
-### Área 2: Pagos — botón editar con lista blanca y trazabilidad (1 commit — yany1509)
-
-- **`feat(pagos): restaurar botón editar cobro con trazabilidad`** — Lista blanca de CIs en `lib/constants/pagos-permisos.ts`. Nuevo componente `PagoTrazabilidad`. Tipo `Pago` ampliado con `editado_por`, `editado_por_nombre` e `historial_cambios`.
-
----
-
-### Puede dar bateo
-
-1. **Reactivación de reservas expiradas — conflicto con materiales reasignados**.
-2. **Inputs de potencia mín/máx sin validación `min > max`**.
-3. **Filtro de potencia para paneles — unidad ambigua (kW vs W)**.
-4. **Filtros combinados tipo+potencia — soporte en backend sin confirmar**.
-5. **Botón "Limpiar" solo limpia filtros de equipo**.
-6. **Lista blanca de CIs hardcodeada en frontend — deploy para cambios**.
-7. **Gating por CI solo en frontend — sin validación en backend**.
-8. **`historial_cambios` en tipo `Pago` sin confirmar soporte en backend**.
-9. **Botón editar en contextos adicionales no cubiertos por el gateo**.
-
----
-
-## 📅 21 de Junio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-Sin commits nuevos de código. El único commit en el rango de las últimas 24h es "Analisis diario Claude" del 20/06 (generado automáticamente). No hay cambios en producción.
-
----
-
-### Puede dar bateo
-
-Sin cambios nuevos — sin riesgos nuevos.
-
----
-
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19 y 20 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.

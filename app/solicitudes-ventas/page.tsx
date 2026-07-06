@@ -56,6 +56,7 @@ import {
 import { ExportFacturaVentaConsolidadaService } from "@/lib/services/feats/pagos-clientes-ventas/export-factura-venta-consolidada-service";
 import { ExportFacturasExcelService } from "@/lib/services/feats/pagos-clientes-ventas/export-facturas-excel-service";
 import { ExportSolicitudesVentasExcelService } from "@/lib/services/feats/solicitudes-ventas/export-solicitudes-ventas-excel-service";
+import { ExportPagosRealizadosExcelService } from "@/lib/services/feats/pagos-clientes-ventas/export-pagos-realizados-excel-service";
 import { TicketFacturaVentaService } from "@/lib/services/feats/pagos-clientes-ventas/ticket-factura-venta-service";
 import type { ExportTipo } from "@/components/feats/solicitudes-ventas/solicitudes-ventas-table";
 import { FacturaClienteVentaService, PagoVentaService } from "@/lib/services/feats/pagos-clientes-ventas/pago-cliente-venta-service";
@@ -139,6 +140,7 @@ export default function SolicitudesVentasPage() {
   const [facturaDetalle, setFacturaDetalle]           = useState<FacturaVentaResumen | null>(null);
 const [anularLoading, setAnularLoading]             = useState(false);
 const [exportingSolicitudes, setExportingSolicitudes] = useState(false);
+const [exportingPagos, setExportingPagos]           = useState(false);
 
   // ── Filtros por pestaña ────────────────────────────────────────────────────
   const [f1Estado, setF1Estado]       = useState("");
@@ -965,6 +967,32 @@ const [exportingSolicitudes, setExportingSolicitudes] = useState(false);
     }
   };
 
+  const handleExportarPagosExcel = async () => {
+    setExportingPagos(true);
+    try {
+      const { count, filename } = await ExportPagosRealizadosExcelService.exportar(f3Params);
+      toast({
+        title: count > 0 ? "Excel exportado" : "Sin datos",
+        description:
+          count > 0
+            ? `Se exportaron ${count} pago${count === 1 ? "" : "s"} a ${filename}.xlsx`
+            : "No se encontraron pagos con los filtros actuales.",
+        variant: count > 0 ? "default" : "destructive",
+      });
+    } catch (e) {
+      toast({
+        title: "Error al exportar",
+        description:
+          e instanceof Error
+            ? e.message
+            : "No se pudo generar el archivo Excel.",
+        variant: "destructive",
+      });
+    } finally {
+      setExportingPagos(false);
+    }
+  };
+
   const handleExportarTicket = async (factura: FacturaClienteVenta) => {
     try {
       const resumen = await resolveResumen(factura);
@@ -1030,6 +1058,28 @@ const [exportingSolicitudes, setExportingSolicitudes] = useState(false);
             >
               <FileText className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">Emitir Factura</span>
+            </Button>
+          ) : activeTab === "pagos-realizados" ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportarPagosExcel}
+              disabled={exportingPagos}
+              className="h-9 sm:h-auto sm:px-4 sm:py-2 border-green-300 text-green-700 hover:bg-green-50 touch-manipulation"
+              title="Exportar a Excel los pagos filtrados"
+            >
+              {exportingPagos ? (
+                <>
+                  <Loader2 className="h-4 w-4 sm:mr-2 animate-spin" />
+                  <span className="hidden sm:inline">Exportando...</span>
+                </>
+              ) : (
+                <>
+                  <FileSpreadsheet className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Exportar Excel</span>
+                </>
+              )}
+              <span className="sr-only">Exportar pagos realizados a Excel</span>
             </Button>
           ) : null
         }

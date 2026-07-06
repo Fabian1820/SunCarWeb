@@ -146,9 +146,20 @@ export type SubPermiso = {
    * almacenero base ve el almacén pero NO los botones; solo el admin sí.
    *
    * Por defecto (false/undefined) el sub-permiso es un SUBCONJUNTO: tener el
-   * padre lo concede automáticamente (p.ej. `facturas/*`, `trabajos:*`).
+   * padre lo concede automáticamente (p.ej. `facturas/*`, `instalaciones/*`).
    */
   aditivo?: boolean
+  /**
+   * Sub-permisos anidados un nivel más (ej: los `trabajos:*` bajo la tarjeta
+   * "Trabajos Diarios", que a su vez está bajo `instalaciones`).
+   *
+   * IMPORTANTE: los anidados son SIEMPRE independientes en runtime — como sus
+   * claves usan `:` (no `padre/hijo`), `hasPermission` NO los hereda del módulo
+   * ni del sub-permiso contenedor, así que hay que asignarlos explícitamente
+   * (se comportan como aditivos). El anidamiento aquí es solo agrupación visual
+   * en el panel de permisos; NO cambia quién los tiene.
+   */
+  subPermisos?: SubPermiso[]
 }
 
 export type ModuloCatalogo = {
@@ -237,15 +248,6 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
 
   // ───────── Comercial Instaladora ─────────
   {
-    key: "reservas-instaladora",
-    label: "Reservas Instaladora",
-    descripcion: "Ver reservas de materiales de proyectos de instalación (se crean desde la oferta de confección).",
-    icon: BookmarkCheck,
-    iconClass: "text-orange-600",
-    href: "/reservas-ventas?vista=instaladora",
-    grupo: "comercial-instaladora",
-  },
-  {
     key: "leads",
     label: "Leads",
     descripcion: "Administrar leads y oportunidades de venta.",
@@ -274,11 +276,11 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
   },
   {
     key: "reservas-instaladora",
-    label: "Reservas",
-    descripcion: "Gestionar reservas de materiales para proyectos de instalación.",
+    label: "Reservas Instaladora",
+    descripcion: "Ver reservas de materiales de proyectos de instalación.",
     icon: BookmarkCheck,
     iconClass: "text-emerald-600",
-    href: "/reservas-ventas",
+    href: "/reservas-ventas?vista=instaladora",
     grupo: "comercial-instaladora",
   },
   {
@@ -447,13 +449,31 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     href: "/instalaciones",
     grupo: "operaciones",
     hideFromDashboard: true,
+    // Una tarjeta = un sub-permiso (`instalaciones/<tarjeta>`). Tener el módulo
+    // `instalaciones` completo concede todas (herencia padre→hijo por el `/`).
+    // Asignar solo un sub-permiso da acceso únicamente a esa tarjeta.
     subPermisos: [
-      { key: "trabajos:confirmar", label: "Confirmar salidas" },
-      { key: "trabajos:registrar", label: "Cierre diario instalaciones" },
-      { key: "trabajos:averias", label: "Averías" },
-      { key: "trabajos:actualizaciones", label: "Actualizaciones" },
-      { key: "trabajos:entregas", label: "Entregas sin instalar" },
-      { key: "trabajos:todos", label: "Todos los trabajos" },
+      { key: "instalaciones/pendientes-visita", label: "Visitas" },
+      { key: "instalaciones/en-proceso", label: "Instalaciones en Proceso" },
+      { key: "instalaciones/nuevas", label: "Instalaciones Nuevas" },
+      {
+        key: "instalaciones/trabajos-diarios",
+        label: "Trabajos Diarios",
+        // Los `trabajos:*` viven bajo esta tarjeta. Se mantienen con su clave
+        // `trabajos:*` original (no se renombran) para no romper asignaciones
+        // existentes; son independientes (ver nota en SubPermiso.subPermisos).
+        subPermisos: [
+          { key: "trabajos:confirmar", label: "Confirmar salidas" },
+          { key: "trabajos:registrar", label: "Cierre diario instalaciones" },
+          { key: "trabajos:averias", label: "Averías" },
+          { key: "trabajos:actualizaciones", label: "Actualizaciones" },
+          { key: "trabajos:entregas", label: "Entregas sin instalar" },
+          { key: "trabajos:todos", label: "Todos los trabajos" },
+        ],
+      },
+      { key: "instalaciones/averias", label: "Averías" },
+      { key: "instalaciones/planificacion-diaria-trabajos", label: "Planificación Diaria de Trabajos" },
+      { key: "instalaciones/ordenes-trabajo", label: "Órdenes de Trabajo" },
     ],
   },
   {
@@ -709,11 +729,16 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
  */
 export function getNombresCatalogo(): string[] {
   const out: string[] = []
+  const pushSub = (subs?: SubPermiso[]) => {
+    if (!subs) return
+    for (const sp of subs) {
+      out.push(sp.key)
+      pushSub(sp.subPermisos) // recursivo: incluye anidados (ej. trabajos:*)
+    }
+  }
   for (const m of MODULOS_CATALOGO) {
     out.push(m.key)
-    if (m.subPermisos) {
-      for (const sp of m.subPermisos) out.push(sp.key)
-    }
+    pushSub(m.subPermisos)
   }
   return out
 }

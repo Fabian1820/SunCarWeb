@@ -26,12 +26,8 @@ import {
   CommandList,
 } from "@/components/shared/molecule/command"
 import { cn } from "@/lib/utils"
-import {
-  FUENTES_FIJAS,
-  fuenteRequiereReferencia,
-  etiquetaReferencia,
-} from "@/lib/constants/fuentes"
-import { SedeService, TrabajadorService, ClienteService } from "@/lib/api-services"
+import { FuenteService, TrabajadorOpcionesService, SedeService, ClienteService } from "@/lib/api-services"
+import type { Fuente } from "@/lib/types/feats/fuentes/fuente-types"
 
 interface FuenteSelectorProps {
   fuente: string
@@ -41,50 +37,54 @@ interface FuenteSelectorProps {
 
 type Opcion = { value: string; label: string }
 
-/**
- * Selector de fuente con lista FIJA. Para "Sucursal", "Trabajador" y
- * "Otro cliente" muestra un sub-selector con la referencia concreta.
- */
-export function FuenteSelector({
-  fuente,
-  fuenteReferencia,
-  onChange,
-}: FuenteSelectorProps) {
+export function FuenteSelector({ fuente, fuenteReferencia, onChange }: FuenteSelectorProps) {
+  const [fuentes, setFuentes] = useState<Fuente[]>([])
+  const [loadingFuentes, setLoadingFuentes] = useState(false)
+
+  useEffect(() => {
+    let activo = true
+    setLoadingFuentes(true)
+    FuenteService.getFuentes(true)
+      .then((data) => { if (activo) setFuentes(data) })
+      .catch(() => { if (activo) setFuentes([]) })
+      .finally(() => { if (activo) setLoadingFuentes(false) })
+    return () => { activo = false }
+  }, [])
+
+  const fuenteActual = fuentes.find((f) => f.nombre === fuente)
+
   return (
     <div className="space-y-3">
       <div className="space-y-1">
         <Label htmlFor="fuente">Fuente</Label>
         <Select
           value={fuente || undefined}
-          onValueChange={(value) => {
-            // Al cambiar el tipo de fuente, se limpia la referencia previa.
-            onChange(value, "")
-          }}
+          onValueChange={(value) => onChange(value, "")}
         >
           <SelectTrigger id="fuente" className="text-gray-900">
-            <SelectValue placeholder="Seleccionar fuente" />
+            <SelectValue placeholder={loadingFuentes ? "Cargando..." : "Seleccionar fuente"} />
           </SelectTrigger>
           <SelectContent>
-            {FUENTES_FIJAS.map((f) => (
-              <SelectItem key={f} value={f}>
-                {f}
+            {fuentes.map((f) => (
+              <SelectItem key={f.id} value={f.nombre}>
+                {f.nombre}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
 
-      {fuenteRequiereReferencia(fuente) && (
+      {fuenteActual?.requiere_referencia && (
         <div className="space-y-1">
-          <Label>{etiquetaReferencia(fuente)}</Label>
-          {fuente === "Sucursal" ? (
+          <Label>{etiquetaReferencia(fuenteActual.tipo_referencia)}</Label>
+          {fuenteActual.tipo_referencia === "sucursal" ? (
             <SucursalSelect
               value={fuenteReferencia || ""}
               onChange={(v) => onChange(fuente, v)}
             />
           ) : (
             <ReferenciaCombobox
-              tipo={fuente as "Trabajador" | "Otro cliente"}
+              tipo={fuenteActual.tipo_referencia!}
               value={fuenteReferencia || ""}
               onChange={(v) => onChange(fuente, v)}
             />
@@ -95,43 +95,38 @@ export function FuenteSelector({
   )
 }
 
-/** Sub-selector de sucursal: lista las sedes. */
-function SucursalSelect({
-  value,
-  onChange,
-}: {
-  value: string
-  onChange: (v: string) => void
-}) {
-  const [sedes, setSedes] = useState<Opcion[]>([])
+function etiquetaReferencia(tipo: string | null | undefined): string {
+  if (tipo === "sucursal") return "Sucursal"
+  if (tipo === "trabajador") return "Trabajador"
+  if (tipo === "cliente") return "Cliente que recomendó"
+  return "Referencia"
+}
+
+/** Sucursales: lista completa (son pocas, ~8) */
+function SucursalSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [opciones, setOpciones] = useState<Opcion[]>([])
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     let activo = true
     setLoading(true)
-    SedeService.getSedes()
+    SedeService.getSedes(true)
       .then((data) => {
         if (!activo) return
-        setSedes(
-          (data || []).map((s) => ({ value: s.nombre, label: s.nombre })),
-        )
+        setOpciones((data || []).map((s) => ({ value: s.nombre, label: s.nombre })))
       })
-      .catch(() => activo && setSedes([]))
+      .catch(() => activo && setOpciones([]))
       .finally(() => activo && setLoading(false))
-    return () => {
-      activo = false
-    }
+    return () => { activo = false }
   }, [])
 
   return (
     <Select value={value || undefined} onValueChange={onChange}>
       <SelectTrigger className="text-gray-900">
-        <SelectValue
-          placeholder={loading ? "Cargando sucursales..." : "Seleccionar sucursal"}
-        />
+        <SelectValue placeholder={loading ? "Cargando sucursales..." : "Seleccionar sucursal"} />
       </SelectTrigger>
       <SelectContent>
-        {sedes.map((s) => (
+        {opciones.map((s) => (
           <SelectItem key={s.value} value={s.value}>
             {s.label}
           </SelectItem>
@@ -141,13 +136,14 @@ function SucursalSelect({
   )
 }
 
-/** Combobox buscable para Trabajador (lista local) y Otro cliente (búsqueda async). */
+/** Trabajadores: endpoint ligero /trabajadores/opciones (solo id+nombre) */
+/** Clientes: búsqueda async con debounce, limit 20 */
 function ReferenciaCombobox({
   tipo,
   value,
   onChange,
 }: {
-  tipo: "Trabajador" | "Otro cliente"
+  tipo: "trabajador" | "cliente"
   value: string
   onChange: (v: string) => void
 }) {
@@ -155,43 +151,35 @@ function ReferenciaCombobox({
   const [query, setQuery] = useState("")
   const [opciones, setOpciones] = useState<Opcion[]>([])
   const [loading, setLoading] = useState(false)
-  const trabajadoresCargados = useRef(false)
+  const cargado = useRef(false)
 
-  // Trabajadores: cargar todos una vez (filtrado en cliente).
+  // Trabajadores: endpoint ligero, carga única
   useEffect(() => {
-    if (tipo !== "Trabajador" || trabajadoresCargados.current) return
-    trabajadoresCargados.current = true
+    if (tipo !== "trabajador" || cargado.current) return
+    cargado.current = true
     setLoading(true)
-    TrabajadorService.getAllTrabajadores()
+    TrabajadorOpcionesService.getOpciones()
       .then((data) => {
-        setOpciones(
-          (data || [])
-            .filter((t) => t.activo !== false)
-            .map((t) => ({ value: t.nombre, label: t.nombre })),
-        )
+        setOpciones((data || []).map((t) => ({ value: t.nombre, label: t.nombre })))
       })
       .catch(() => setOpciones([]))
       .finally(() => setLoading(false))
   }, [tipo])
 
-  // Otro cliente: búsqueda async con debounce.
+  // Clientes: búsqueda async con debounce
   useEffect(() => {
-    if (tipo !== "Otro cliente") return
-    const term = query.trim()
+    if (tipo !== "cliente") return
     let activo = true
     setLoading(true)
     const t = setTimeout(async () => {
       try {
-        const res = await ClienteService.getClientes({
-          q: term || undefined,
-          limit: 20,
-        })
+        const res = await ClienteService.getClientes({ q: query.trim() || undefined, limit: 20 })
         if (!activo) return
         setOpciones(
           (res.clients || []).map((c) => ({
             value: `${c.nombre} (${c.numero})`,
             label: `${c.nombre} (${c.numero})`,
-          })),
+          }))
         )
       } catch {
         if (activo) setOpciones([])
@@ -199,14 +187,10 @@ function ReferenciaCombobox({
         if (activo) setLoading(false)
       }
     }, 300)
-    return () => {
-      activo = false
-      clearTimeout(t)
-    }
+    return () => { activo = false; clearTimeout(t) }
   }, [tipo, query])
 
-  const placeholder =
-    tipo === "Trabajador" ? "Buscar trabajador..." : "Buscar cliente..."
+  const placeholder = tipo === "trabajador" ? "Buscar trabajador..." : "Buscar cliente..."
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -225,12 +209,8 @@ function ReferenciaCombobox({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command shouldFilter={tipo === "Trabajador"}>
-          <CommandInput
-            placeholder={placeholder}
-            value={query}
-            onValueChange={setQuery}
-          />
+        <Command shouldFilter={tipo === "trabajador"}>
+          <CommandInput placeholder={placeholder} value={query} onValueChange={setQuery} />
           <CommandList>
             {loading ? (
               <div className="flex items-center justify-center py-6 text-sm text-gray-500">
@@ -244,17 +224,9 @@ function ReferenciaCombobox({
                     <CommandItem
                       key={o.value}
                       value={o.value}
-                      onSelect={() => {
-                        onChange(o.value)
-                        setOpen(false)
-                      }}
+                      onSelect={() => { onChange(o.value); setOpen(false) }}
                     >
-                      <Check
-                        className={cn(
-                          "mr-2 h-4 w-4",
-                          value === o.value ? "opacity-100" : "opacity-0",
-                        )}
-                      />
+                      <Check className={cn("mr-2 h-4 w-4", value === o.value ? "opacity-100" : "opacity-0")} />
                       {o.label}
                     </CommandItem>
                   ))}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/shared/atom/button";
 import {
   Card,
@@ -37,10 +37,9 @@ import { SmartPagination } from "@/components/shared/molecule/smart-pagination";
 import { CreateLeadDialog } from "@/components/feats/leads/create-lead-dialog";
 import { EditLeadDialog } from "@/components/feats/leads/edit-lead-dialog";
 import { ExportButtons } from "@/components/shared/molecule/export-buttons";
-import { FUENTES_FIJAS } from "@/lib/constants/fuentes";
 import { useLeads } from "@/hooks/use-leads";
 import { useFuentesSync } from "@/hooks/use-fuentes-sync";
-import { LeadService } from "@/lib/api-services";
+import { LeadService, FuenteService } from "@/lib/api-services";
 import { Loader } from "@/components/shared/atom/loader";
 import { PageLoader } from "@/components/shared/atom/page-loader";
 import { useToast } from "@/hooks/use-toast";
@@ -55,6 +54,7 @@ import type { ExportOptions } from "@/lib/export-service";
 import { downloadFile } from "@/lib/utils/download-file";
 import { extraerComponentesDeOfertaConfeccion } from "@/lib/utils/oferta-confeccion-items";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
+import { GestionarFuentesDialog } from "@/components/feats/leads/gestionar-fuentes-dialog";
 
 export default function LeadsPage() {
   const {
@@ -89,8 +89,16 @@ export default function LeadsPage() {
   // Sincronizar fuentes de leads con localStorage
   useFuentesSync(leads, [], !loading);
 
+  const [fuentesDisponibles, setFuentesDisponibles] = useState<string[]>([]);
+  useEffect(() => {
+    FuenteService.getFuentes(true)
+      .then((data) => setFuentesDisponibles(data.map((f) => f.nombre)))
+      .catch(() => setFuentesDisponibles([]));
+  }, []);
+
   const [isCreateLeadDialogOpen, setIsCreateLeadDialogOpen] = useState(false);
   const [isEditLeadDialogOpen, setIsEditLeadDialogOpen] = useState(false);
+  const [isGestionarFuentesOpen, setIsGestionarFuentesOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [loadingAction, setLoadingAction] = useState(false);
   const { toast } = useToast();
@@ -440,6 +448,14 @@ export default function LeadsPage() {
                 showPdf={false}
               />
             )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setIsGestionarFuentesOpen(true)}
+              className="hidden sm:flex border-gray-300 text-gray-600 hover:bg-gray-50"
+            >
+              Gestionar fuentes
+            </Button>
             <Dialog
               open={isCreateLeadDialogOpen}
               onOpenChange={setIsCreateLeadDialogOpen}
@@ -616,7 +632,7 @@ export default function LeadsPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="todas">Todas las fuentes</SelectItem>
-                    {FUENTES_FIJAS.map((f) => (
+                    {fuentesDisponibles.map((f) => (
                       <SelectItem key={f} value={f}>
                         {f}
                       </SelectItem>
@@ -862,6 +878,15 @@ export default function LeadsPage() {
         )}
       </main>
       <Toaster />
+      <GestionarFuentesDialog
+        open={isGestionarFuentesOpen}
+        onOpenChange={setIsGestionarFuentesOpen}
+        onFuentesChange={() => {
+          FuenteService.getFuentes(true)
+            .then((data) => setFuentesDisponibles(data.map((f) => f.nombre)))
+            .catch(() => {})
+        }}
+      />
     </div>
   );
 }

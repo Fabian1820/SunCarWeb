@@ -5,10 +5,12 @@ import type {
 } from "@/lib/api-types";
 import { exportToExcel, generateFilename } from "@/lib/export-service";
 
-interface MaterialPrecios {
+interface MaterialInfo {
   precio?: number;
   precio_instaladora?: number;
   costo?: number;
+  nombre?: string;
+  descripcion?: string;
 }
 
 const normCodigo = (value?: string | null): string =>
@@ -17,9 +19,9 @@ const normCodigo = (value?: string | null): string =>
 const fmtPrecio = (value?: number): string =>
   typeof value === "number" && Number.isFinite(value) ? value.toFixed(2) : "-";
 
-/** Mapa código(normalizado) -> precios del material (catálogo actual). */
-const cargarPreciosPorCodigo = async (): Promise<Map<string, MaterialPrecios>> => {
-  const map = new Map<string, MaterialPrecios>();
+/** Mapa código(normalizado) -> datos del material del catálogo actual (precios + nombre/descripción). */
+const cargarMaterialesPorCodigo = async (): Promise<Map<string, MaterialInfo>> => {
+  const map = new Map<string, MaterialInfo>();
   try {
     const materiales = await MaterialService.getAllMaterials();
     for (const m of materiales) {
@@ -29,10 +31,12 @@ const cargarPreciosPorCodigo = async (): Promise<Map<string, MaterialPrecios>> =
         precio: (m as any).precio,
         precio_instaladora: (m as any).precio_instaladora,
         costo: (m as any).costo,
+        nombre: (m as any).nombre,
+        descripcion: (m as any).descripcion,
       });
     }
   } catch {
-    // Si falla el catálogo, se exporta sin precios enriquecidos.
+    // Si falla el catálogo, se exporta sin datos enriquecidos.
   }
   return map;
 };
@@ -69,8 +73,18 @@ const formatDateDDMMYYYY = (value?: string | null): string => {
 const formatMaterialCodigo = (m: ValeSalidaSummaryMaterial): string =>
   m.material_codigo || m.material_id || "";
 
-const formatMaterialNombre = (m: ValeSalidaSummaryMaterial): string =>
-  (m.material_descripcion || m.material_codigo || m.material_id || "").trim();
+const formatMaterialNombre = (
+  m: ValeSalidaSummaryMaterial,
+  info: MaterialInfo,
+): string =>
+  (
+    info.nombre ||
+    info.descripcion ||
+    m.material_descripcion ||
+    m.material_codigo ||
+    m.material_id ||
+    ""
+  ).trim();
 
 interface ExportValesOptions {
   almacenId?: string;
@@ -116,9 +130,9 @@ export class ExportValesSalidaListExcelService {
     const response = await ValeSalidaService.getValesSummary(params);
     const vales: ValeSalidaSummary[] = response.data || [];
 
-    const preciosPorCodigo = await cargarPreciosPorCodigo();
-    const preciosDe = (m: ValeSalidaSummaryMaterial): MaterialPrecios =>
-      preciosPorCodigo.get(normCodigo(m.material_codigo)) || {};
+    const materialesPorCodigo = await cargarMaterialesPorCodigo();
+    const infoDe = (m: ValeSalidaSummaryMaterial): MaterialInfo =>
+      materialesPorCodigo.get(normCodigo(m.material_codigo)) || {};
 
     const rows: Array<Record<string, string | number | string[] | number[]>> =
       [];
@@ -140,11 +154,11 @@ export class ExportValesSalidaListExcelService {
           vale.materiales_resumen ||
           (materiales.length > 0 ? `${materiales.length} materiales` : ""),
         material_codigo: materiales.map((m) => formatMaterialCodigo(m)),
-        material: materiales.map((m) => formatMaterialNombre(m)),
+        material: materiales.map((m) => formatMaterialNombre(m, infoDe(m))),
         cantidad: materiales.map((m) => Number(m.cantidad) || 0),
-        precio_venta: materiales.map((m) => fmtPrecio(preciosDe(m).precio)),
-        precio_instaladora: materiales.map((m) => fmtPrecio(preciosDe(m).precio_instaladora)),
-        costo: materiales.map((m) => fmtPrecio(preciosDe(m).costo)),
+        precio_venta: materiales.map((m) => fmtPrecio(infoDe(m).precio)),
+        precio_instaladora: materiales.map((m) => fmtPrecio(infoDe(m).precio_instaladora)),
+        costo: materiales.map((m) => fmtPrecio(infoDe(m).costo)),
         fecha_creacion: formatDateDDMMYYYY(vale.fecha_creacion),
         fecha_recogida: formatDateDDMMYYYY(vale.fecha_recogida),
       });

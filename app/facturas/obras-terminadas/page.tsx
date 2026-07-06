@@ -3,16 +3,20 @@
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/shared/atom/button"
-import { ArrowLeft, RefreshCw, HardHat, AlertCircle, ChevronLeft, ChevronRight, FileDown, Loader2 } from "lucide-react"
+import { ArrowLeft, RefreshCw, HardHat, AlertCircle, ChevronLeft, ChevronRight, FileDown, FileSpreadsheet, Loader2 } from "lucide-react"
 import { useObrasTerminadas } from "@/hooks/use-obras-terminadas"
 import { ObrasTerminadasTable } from "@/components/feats/obras-terminadas/obras-terminadas-table"
 import type { ObrasTerminadasFiltros } from "@/lib/services/feats/obras-terminadas/obras-terminadas-service"
 import { ObrasTerminadasService } from "@/lib/services/feats/obras-terminadas/obras-terminadas-service"
 import { ExportFacturaClienteService } from "@/lib/services/feats/obras-terminadas/export-factura-cliente-service"
+import { ExportObrasTerminadasExcelService } from "@/lib/services/feats/obras-terminadas/export-obras-terminadas-excel-service"
+import { useToast } from "@/hooks/use-toast"
 
 export default function ObrasTerminadasPage() {
   const [serverFiltros, setServerFiltros] = useState<ObrasTerminadasFiltros>({})
   const [exportingAll, setExportingAll] = useState(false)
+  const [exportingExcel, setExportingExcel] = useState(false)
+  const { toast } = useToast()
 
   const {
     ofertasConPagos, loading, error, fetchData,
@@ -69,6 +73,25 @@ export default function ObrasTerminadasPage() {
     }
   }, [serverFiltros, total])
 
+  const handleExportarExcel = useCallback(async () => {
+    setExportingExcel(true)
+    try {
+      const resultado = await ExportObrasTerminadasExcelService.exportar(serverFiltros)
+      toast({
+        title: "Exportación exitosa",
+        description: `${resultado.count} obra${resultado.count === 1 ? "" : "s"} exportada${resultado.count === 1 ? "" : "s"} a ${resultado.filename}.xlsx`,
+      })
+    } catch (error) {
+      toast({
+        title: "Error al exportar",
+        description: error instanceof Error ? error.message : "No se pudo generar el archivo Excel",
+        variant: "destructive",
+      })
+    } finally {
+      setExportingExcel(false)
+    }
+  }, [serverFiltros, toast])
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       {/* Header */}
@@ -122,6 +145,19 @@ export default function ObrasTerminadasPage() {
                   ? <Loader2 className="h-4 w-4 animate-spin" />
                   : <FileDown className="h-4 w-4" />}
                 <span className="hidden sm:inline">PDF unificado</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportarExcel}
+                disabled={exportingExcel || loading || total === 0}
+                className="gap-1.5 border-green-300 text-green-700 hover:bg-green-50"
+                title="Exportar obras terminadas y materiales instalados a Excel"
+              >
+                {exportingExcel
+                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                  : <FileSpreadsheet className="h-4 w-4" />}
+                <span className="hidden sm:inline">Exportar Excel</span>
               </Button>
               <Button
                 variant="outline"

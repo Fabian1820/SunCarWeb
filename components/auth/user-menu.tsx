@@ -10,7 +10,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/shared/molecule/dialog";
-import { LogOut, User, KeyRound } from "lucide-react";
+import Link from "next/link";
+import { LogOut, User, KeyRound, IdCard } from "lucide-react";
 import { ChangePasswordDialog } from "@/components/auth/change-password-dialog";
 import { WorkerAvatarUploader } from "@/components/feats/worker/worker-avatar";
 
@@ -73,6 +74,16 @@ export function UserMenu({ trigger }: UserMenuProps) {
             </div>
 
             <div className="flex w-full flex-col gap-2">
+              <Button
+                variant="outline"
+                className="w-full justify-start"
+                asChild
+              >
+                <Link href="/mi-tarjeta" onClick={() => setIsProfileOpen(false)}>
+                  <IdCard className="mr-2 h-4 w-4" />
+                  Mi tarjeta de presentación
+                </Link>
+              </Button>
               <Button
                 variant="outline"
                 className="w-full justify-start"

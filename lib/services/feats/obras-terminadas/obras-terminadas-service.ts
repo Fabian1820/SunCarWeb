@@ -26,6 +26,8 @@ export interface ObraTerminada {
   almacen_nombre?: string | null;
   facturada?: boolean | null;
   numero_factura?: string | null;
+  /** Materiales de la oferta, embebidos directamente en el listado (igual que vales de salida). */
+  materiales?: MaterialOferta[] | null;
 }
 
 export interface ObrasTerminadasListResponse {

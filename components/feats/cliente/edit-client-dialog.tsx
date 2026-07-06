@@ -20,6 +20,7 @@ import {
 } from "@/components/shared/atom/select";
 import { PrioritySelect } from "@/components/shared/molecule/priority-select";
 import { Loader2, MapPin } from "lucide-react";
+import { FechaInstalacionDialog } from "@/components/shared/molecule/fecha-instalacion-dialog";
 import type { Cliente, ClienteUpdateData } from "@/lib/api-types";
 import { useAuth } from "@/contexts/auth-context";
 import { API_BASE_URL, apiRequest } from "@/lib/api-config";
@@ -228,6 +229,8 @@ export function EditClientDialog({
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [fechaInstalacionOpen, setFechaInstalacionOpen] = useState(false);
+  const [pendingSubmitData, setPendingSubmitData] = useState<ClienteUpdateData | null>(null);
 
   // Reset cuando se abre el diálogo con un cliente diferente
   useEffect(() => {
@@ -546,6 +549,22 @@ export function EditClientDialog({
     return Object.keys(newErrors).length === 0;
   };
 
+  const esInstalado = (estado?: string) =>
+    (estado ?? "").toLowerCase().includes("equipo instalado");
+
+  const handleConfirmarFecha = async (fechaISO: string) => {
+    setFechaInstalacionOpen(false);
+    if (!pendingSubmitData) return;
+    try {
+      await onSubmit({ ...pendingSubmitData, fecha_equipo_instalado: fechaISO });
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Error al actualizar cliente:", error);
+    } finally {
+      setPendingSubmitData(null);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -567,6 +586,16 @@ export function EditClientDialog({
           clientDataToSubmit.motivo_visita.trim();
       }
 
+      // Si el estado cambia a "Equipo instalado con éxito", preguntar fecha
+      if (
+        esInstalado(clientDataToSubmit.estado) &&
+        !esInstalado(client.estado)
+      ) {
+        setPendingSubmitData(clientDataToSubmit);
+        setFechaInstalacionOpen(true);
+        return;
+      }
+
       await onSubmit(clientDataToSubmit);
       onOpenChange(false);
     } catch (error) {
@@ -577,7 +606,11 @@ export function EditClientDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+        <DialogContent
+          className="max-w-4xl max-h-[90vh] overflow-hidden"
+          onPointerDownOutside={(e) => { if (fechaInstalacionOpen) e.preventDefault(); }}
+          onInteractOutside={(e) => { if (fechaInstalacionOpen) e.preventDefault(); }}
+        >
           <DialogHeader>
             <DialogTitle>Editar Cliente - {client.nombre}</DialogTitle>
           </DialogHeader>
@@ -1137,6 +1170,15 @@ export function EditClientDialog({
           </div>
         </DialogContent>
       </Dialog>
+
+      <FechaInstalacionDialog
+        open={fechaInstalacionOpen}
+        onOpenChange={(v) => {
+          setFechaInstalacionOpen(v);
+          if (!v) setPendingSubmitData(null);
+        }}
+        onConfirm={handleConfirmarFecha}
+      />
     </>
   );
 }

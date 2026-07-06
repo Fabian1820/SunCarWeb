@@ -3445,19 +3445,21 @@ export function LeadsTable({
                         {conversionData.equipo_propio === true && "✓ "}Sí, es
                         equipo propio
                       </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className={`w-full ${
-                          conversionData.equipo_propio === false
-                            ? "bg-amber-100 border-amber-500 border-2"
-                            : "border-amber-300"
-                        } hover:bg-amber-100`}
-                        onClick={() => handleSeleccionEquipoPropio(false)}
-                      >
-                        {conversionData.equipo_propio === false && "✓ "}No, usar
-                        oferta confeccionada
-                      </Button>
+                      {leadTieneOfertaConfeccionada && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className={`w-full ${
+                            conversionData.equipo_propio === false
+                              ? "bg-amber-100 border-amber-500 border-2"
+                              : "border-amber-300"
+                          } hover:bg-amber-100`}
+                          onClick={() => handleSeleccionEquipoPropio(false)}
+                        >
+                          {conversionData.equipo_propio === false && "✓ "}No, usar
+                          oferta confeccionada
+                        </Button>
+                      )}
                       {!leadTieneOfertaConfeccionada && (
                         <Button
                           type="button"

@@ -98,6 +98,8 @@ export interface MovimientoInventario {
   referencia_detalle?: Record<string, unknown>;
   fecha?: string;
   usuario?: string;
+  estado?: string;
+  motivo_error?: string;
 }
 
 export interface AlmacenCreateData {

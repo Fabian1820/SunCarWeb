@@ -595,6 +595,8 @@ export default function AlmacenDetallePage() {
           { header: "Referencia", key: "referencia", width: 30 },
           { header: "Motivo", key: "motivo", width: 30 },
           { header: "Usuario", key: "usuario", width: 18 },
+          { header: "Estado", key: "estado", width: 14 },
+          { header: "Error", key: "motivo_error", width: 40 },
         ],
         data: allMovimientos.map((mov) => {
           const codigo = String(mov.material_codigo || "").trim().toLowerCase();
@@ -624,6 +626,8 @@ export default function AlmacenDetallePage() {
             referencia: normalizeValue(mov.referencia_label || mov.referencia || mov.motivo),
             motivo: normalizeValue(mov.motivo),
             usuario: normalizeValue(mov.usuario),
+            estado: normalizeValue(mov.estado),
+            motivo_error: normalizeValue(mov.motivo_error),
           };
         }),
       });
