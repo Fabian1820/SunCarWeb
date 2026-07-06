@@ -606,7 +606,11 @@ export function EditClientDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+        <DialogContent
+          className="max-w-4xl max-h-[90vh] overflow-hidden"
+          onPointerDownOutside={(e) => { if (fechaInstalacionOpen) e.preventDefault(); }}
+          onInteractOutside={(e) => { if (fechaInstalacionOpen) e.preventDefault(); }}
+        >
           <DialogHeader>
             <DialogTitle>Editar Cliente - {client.nombre}</DialogTitle>
           </DialogHeader>
