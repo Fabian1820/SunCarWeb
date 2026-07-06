@@ -28,6 +28,14 @@ const tipoClassNames: Record<string, string> = {
   venta: "bg-purple-50 text-purple-700 border-purple-200",
 }
 
+const estadoClassNames: Record<string, string> = {
+  aplicado: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  rechazado: "bg-red-50 text-red-700 border-red-200",
+  nuevo: "bg-gray-50 text-gray-600 border-gray-200",
+  procesando: "bg-amber-50 text-amber-700 border-amber-200",
+  rollback: "bg-orange-50 text-orange-700 border-orange-200",
+}
+
 const referenciaTipoTitulo: Record<string, string> = {
   vale_salida: "Vale de salida",
   devolucion_vale: "Devolución de vale",
@@ -155,6 +163,7 @@ export function MovimientosTable({ movimientos, materials = [], almacenes = [] }
             <tr className="border-b border-gray-200">
               <th className="text-left py-3 px-4 font-semibold text-gray-900">Fecha</th>
               <th className="text-left py-3 px-4 font-semibold text-gray-900">Tipo</th>
+              <th className="text-left py-3 px-4 font-semibold text-gray-900">Estado</th>
               <th className="text-left py-3 px-4 font-semibold text-gray-900">Material</th>
               <th className="text-left py-3 px-4 font-semibold text-gray-900">Cantidad</th>
               <th className="text-left py-3 px-4 font-semibold text-gray-900">Origen/Destino</th>
@@ -187,6 +196,13 @@ export function MovimientosTable({ movimientos, materials = [], almacenes = [] }
                     <Badge variant="outline" className={tipoClassNames[mov.tipo] || "bg-gray-50 text-gray-700 border-gray-200"}>
                       {mov.tipo}
                     </Badge>
+                  </td>
+                  <td className="py-3 px-4">
+                    {mov.estado ? (
+                      <Badge variant="outline" className={estadoClassNames[mov.estado] || "bg-gray-50 text-gray-700 border-gray-200"}>
+                        {mov.estado}
+                      </Badge>
+                    ) : <span className="text-sm text-gray-400">-</span>}
                   </td>
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-3">
@@ -267,6 +283,16 @@ export function MovimientosTable({ movimientos, materials = [], almacenes = [] }
                       {selected.tipo}
                     </Badge>
                   </DetalleRow>
+                  {selected.estado && (
+                    <DetalleRow label="Estado">
+                      <Badge variant="outline" className={estadoClassNames[selected.estado] || "bg-gray-50 text-gray-700 border-gray-200"}>
+                        {selected.estado}
+                      </Badge>
+                    </DetalleRow>
+                  )}
+                  {selected.motivo_error && (
+                    <DetalleRow label="Error" value={selected.motivo_error} />
+                  )}
                   <DetalleRow label="Fecha" value={selected.fecha} />
                   <DetalleRow label="Cantidad" value={selected.cantidad != null ? `${selected.cantidad}${selected.um ? ` ${selected.um}` : ""}` : undefined} />
                   <DetalleRow label="Motivo" value={selected.motivo} />

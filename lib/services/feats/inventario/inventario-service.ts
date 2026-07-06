@@ -373,6 +373,8 @@ export class InventarioService {
         asString(raw?.usuario) ||
         asString(raw?.usuario_nombre) ||
         asString(raw?.created_by),
+      estado: asString(raw?.estado),
+      motivo_error: asString(raw?.motivo_error),
     };
   }
 

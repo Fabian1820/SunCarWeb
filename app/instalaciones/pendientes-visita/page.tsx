@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { PendientesVisitaTable } from "@/components/feats/instalaciones/pendientes-visita-table";
+import { RouteGuard } from "@/components/auth/route-guard";
 import { apiRequest } from "@/lib/api-config";
 import { useToast } from "@/hooks/use-toast";
 import type { PendienteVisita } from "@/lib/types/feats/instalaciones/instalaciones-types";
@@ -128,6 +129,7 @@ export default function PendientesVisitaPage() {
   };
 
   return (
+    <RouteGuard requiredModule="instalaciones/pendientes-visita">
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
       <ModuleHeader
         title="Visitas"
@@ -148,5 +150,6 @@ export default function PendientesVisitaPage() {
         />
       </main>
     </div>
+    </RouteGuard>
   );
 }

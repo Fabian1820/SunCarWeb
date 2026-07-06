@@ -30,6 +30,8 @@ import {
   Trash2,
   FileText,
   Zap,
+  FileSpreadsheet,
+  Loader2,
 } from "lucide-react";
 import type { Cliente } from "@/lib/api-types";
 import { ClienteService } from "@/lib/api-services";
@@ -37,10 +39,12 @@ import type { ResumenEquiposEnServicioCliente } from "@/lib/services/feats/insta
 import { useToast } from "@/hooks/use-toast";
 import { ClienteFotosDialog } from "@/components/feats/instalaciones/cliente-fotos-dialog";
 import { EntregaCelebrationAnimation } from "@/components/feats/instalaciones/entrega-celebration-animation";
+import { FechaInstalacionDialog } from "@/components/shared/molecule/fecha-instalacion-dialog";
 import { apiRequest } from "@/lib/api-config";
 import { extractOfertaIdsFromEntity } from "@/lib/utils/oferta-id";
 import { seleccionarOfertaConfirmada } from "@/hooks/use-ofertas-confeccion";
 import { OfertaCell } from "@/components/feats/instalaciones/oferta-cell";
+import { ExportInstalacionesEnProcesoExcelService } from "@/lib/services/feats/instalaciones/export-instalaciones-en-proceso-excel-service";
 
 interface InstalacionesEnProcesoTableProps {
   clients: Cliente[];
@@ -447,6 +451,7 @@ export function InstalacionesEnProcesoTable({
   resumenServicioPorCliente,
 }: InstalacionesEnProcesoTableProps) {
   const { toast } = useToast();
+  const [exporting, setExporting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState("");
@@ -468,6 +473,8 @@ export function InstalacionesEnProcesoTable({
   const [isEditFaltaDialogOpen, setIsEditFaltaDialogOpen] = useState(false);
   const [faltaValue, setFaltaValue] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
+  const [fechaInstalacionOpen, setFechaInstalacionOpen] = useState(false);
+  const [clienteParaInstalar, setClienteParaInstalar] = useState<Cliente | null>(null);
   const [clienteFotosSeleccionado, setClienteFotosSeleccionado] =
     useState<Cliente | null>(null);
   const [entregaDialogOpen, setEntregaDialogOpen] = useState(false);
@@ -762,15 +769,23 @@ export function InstalacionesEnProcesoTable({
   // Formatear ofertas para mostrar
 
   // Cambiar estado a "Equipo Instalado con Éxito"
-  const handleCambiarEstado = async (client: Cliente) => {
+  const handleCambiarEstado = (client: Cliente) => {
+    setClienteParaInstalar(client);
+    setFechaInstalacionOpen(true);
+  };
+
+  const handleConfirmarFechaInstalacion = async (fechaISO: string) => {
+    if (!clienteParaInstalar) return;
+    setFechaInstalacionOpen(false);
     setIsUpdating(true);
     try {
-      await ClienteService.actualizarCliente(client.numero, {
+      await ClienteService.actualizarCliente(clienteParaInstalar.numero, {
         estado: "Equipo Instalado con Éxito",
+        fecha_equipo_instalado: fechaISO,
       });
       toast({
         title: "Estado actualizado",
-        description: `El cliente ${client.nombre} ahora tiene estado "Equipo Instalado con Éxito"`,
+        description: `El cliente ${clienteParaInstalar.nombre} ahora tiene estado "Equipo Instalado con Éxito"`,
       });
       onRefresh();
     } catch (error: any) {
@@ -781,6 +796,35 @@ export function InstalacionesEnProcesoTable({
       });
     } finally {
       setIsUpdating(false);
+      setClienteParaInstalar(null);
+    }
+  };
+
+  const handleExportarExcel = async () => {
+    if (clients.length === 0) {
+      toast({
+        title: "Sin datos",
+        description: "No hay instalaciones en proceso para exportar.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setExporting(true);
+    try {
+      const { count, filename } =
+        await ExportInstalacionesEnProcesoExcelService.exportar(clients);
+      toast({
+        title: "Excel exportado",
+        description: `Se exportaron ${count} instalación${count === 1 ? "" : "es"} a ${filename}.xlsx`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error al exportar",
+        description: error?.message || "No se pudo generar el archivo Excel.",
+        variant: "destructive",
+      });
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -1879,6 +1923,26 @@ export function InstalacionesEnProcesoTable({
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>Instalaciones en Proceso ({clients.length})</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportarExcel}
+              disabled={exporting || clients.length === 0}
+              className="border-green-300 text-green-700 hover:bg-green-50"
+              title="Exportar a Excel las instalaciones filtradas con sus materiales"
+            >
+              {exporting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Exportando...
+                </>
+              ) : (
+                <>
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Exportar Excel
+                </>
+              )}
+            </Button>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -2706,6 +2770,15 @@ export function InstalacionesEnProcesoTable({
       <EntregaCelebrationAnimation
         open={showEntregaCelebration}
         onClose={() => setShowEntregaCelebration(false)}
+      />
+
+      <FechaInstalacionDialog
+        open={fechaInstalacionOpen}
+        onOpenChange={(v) => {
+          setFechaInstalacionOpen(v);
+          if (!v) setClienteParaInstalar(null);
+        }}
+        onConfirm={handleConfirmarFechaInstalacion}
       />
 
       {/* Diálogo para ver oferta */}

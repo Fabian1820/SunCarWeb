@@ -103,4 +103,6 @@ export interface ClienteSimpleCreateData {
   falta_instalacion?: string; // Qué le falta a la instalación
 }
 
-export type ClienteUpdateData = Partial<ClienteCreateData>;
+export type ClienteUpdateData = Partial<ClienteCreateData> & {
+  fecha_equipo_instalado?: string;
+};

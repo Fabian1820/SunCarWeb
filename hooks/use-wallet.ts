@@ -12,6 +12,7 @@ import type {
   WalletTransactionCreateData,
   WalletTransactionsFilters,
   WalletPendingTransfer,
+  TotalPorMoneda,
 } from "@/lib/types/feats/wallet/wallet-types";
 
 const getErrorMessage = (error: unknown, fallback: string): string => {
@@ -23,6 +24,8 @@ export function useWallet() {
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [totalTransactions, setTotalTransactions] = useState(0);
+  const [txTotalsByCurrency, setTxTotalsByCurrency] = useState<TotalPorMoneda[]>([]);
+  const [memberTxTotalsByCurrency, setMemberTxTotalsByCurrency] = useState<TotalPorMoneda[]>([]);
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [walletsLookup, setWalletsLookup] = useState<
     Array<{ id: string; user_ci: string; user_nombre: string }>
@@ -99,6 +102,7 @@ export function useWallet() {
         const result = await WalletService.getGlobalTransactions(filters);
         setTransactions(result.items);
         setTotalTransactions(result.total);
+        setTxTotalsByCurrency(result.totals_by_currency ?? []);
       } catch (err: unknown) {
         console.error("[useWallet] Error loading transactions:", err);
         setError(getErrorMessage(err, "Error al cargar transacciones"));
@@ -188,6 +192,7 @@ export function useWallet() {
         setSelectedWallet(walletDetail);
         setSelectedWalletTransactions(transactionsResult.items);
         setTotalSelectedWalletTransactions(transactionsResult.total);
+        setMemberTxTotalsByCurrency(transactionsResult.totals_by_currency ?? []);
 
         return {
           wallet: walletDetail,
@@ -386,6 +391,8 @@ export function useWallet() {
     wallet,
     transactions,
     totalTransactions,
+    txTotalsByCurrency,
+    memberTxTotalsByCurrency,
     wallets,
     walletsLookup,
     loadingWalletsLookup,

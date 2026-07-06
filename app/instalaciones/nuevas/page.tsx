@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/shared/molecule/toaster";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { InstalacionesNuevasTable } from "@/components/feats/instalaciones/instalaciones-nuevas-table";
+import { RouteGuard } from "@/components/auth/route-guard";
 import {
   extractContactoEntregaKeysFromEntity,
   extractOfertaIdsFromEntity,
@@ -515,6 +516,7 @@ export default function InstalacionesNuevasPage() {
   }
 
   return (
+    <RouteGuard requiredModule="instalaciones/nuevas">
     <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Instalaciones Nuevas"
@@ -536,5 +538,6 @@ export default function InstalacionesNuevasPage() {
       </main>
       <Toaster />
     </div>
+    </RouteGuard>
   );
 }
