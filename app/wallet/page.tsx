@@ -2317,14 +2317,11 @@ function WalletPageContent() {
                     </div>
                     <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
                       <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Total</p>
-                      {txTotalsByCurrency.map((t) => {
-                        const neto = t.ingreso_total - t.gasto_total;
-                        return (
-                          <p key={t.currency_code} className={`text-[12px] font-semibold ${neto >= 0 ? "text-slate-700" : "text-rose-600"}`}>
-                            {t.currency_code}: {neto.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </p>
-                        );
-                      })}
+                      {txTotalsByCurrency.map((t) => (
+                        <p key={t.currency_code} className="text-[12px] font-semibold text-slate-700">
+                          {t.currency_code}: {(t.ingreso_total + t.gasto_total).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                      ))}
                     </div>
                   </div>
                 )}
