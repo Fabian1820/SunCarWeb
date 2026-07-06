@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/shared/atom/button";
 import {
   Card,
@@ -37,10 +37,9 @@ import { SmartPagination } from "@/components/shared/molecule/smart-pagination";
 import { CreateLeadDialog } from "@/components/feats/leads/create-lead-dialog";
 import { EditLeadDialog } from "@/components/feats/leads/edit-lead-dialog";
 import { ExportButtons } from "@/components/shared/molecule/export-buttons";
-import { FUENTES_FIJAS } from "@/lib/constants/fuentes";
 import { useLeads } from "@/hooks/use-leads";
 import { useFuentesSync } from "@/hooks/use-fuentes-sync";
-import { LeadService } from "@/lib/api-services";
+import { LeadService, FuenteService } from "@/lib/api-services";
 import { Loader } from "@/components/shared/atom/loader";
 import { PageLoader } from "@/components/shared/atom/page-loader";
 import { useToast } from "@/hooks/use-toast";
@@ -88,6 +87,13 @@ export default function LeadsPage() {
 
   // Sincronizar fuentes de leads con localStorage
   useFuentesSync(leads, [], !loading);
+
+  const [fuentesDisponibles, setFuentesDisponibles] = useState<string[]>([]);
+  useEffect(() => {
+    FuenteService.getFuentes(true)
+      .then((data) => setFuentesDisponibles(data.map((f) => f.nombre)))
+      .catch(() => setFuentesDisponibles([]));
+  }, []);
 
   const [isCreateLeadDialogOpen, setIsCreateLeadDialogOpen] = useState(false);
   const [isEditLeadDialogOpen, setIsEditLeadDialogOpen] = useState(false);
@@ -616,7 +622,7 @@ export default function LeadsPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="todas">Todas las fuentes</SelectItem>
-                    {FUENTES_FIJAS.map((f) => (
+                    {fuentesDisponibles.map((f) => (
                       <SelectItem key={f} value={f}>
                         {f}
                       </SelectItem>
