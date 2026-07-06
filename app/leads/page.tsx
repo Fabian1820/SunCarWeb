@@ -54,6 +54,7 @@ import type { ExportOptions } from "@/lib/export-service";
 import { downloadFile } from "@/lib/utils/download-file";
 import { extraerComponentesDeOfertaConfeccion } from "@/lib/utils/oferta-confeccion-items";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
+import { GestionarFuentesDialog } from "@/components/feats/leads/gestionar-fuentes-dialog";
 
 export default function LeadsPage() {
   const {
@@ -97,6 +98,7 @@ export default function LeadsPage() {
 
   const [isCreateLeadDialogOpen, setIsCreateLeadDialogOpen] = useState(false);
   const [isEditLeadDialogOpen, setIsEditLeadDialogOpen] = useState(false);
+  const [isGestionarFuentesOpen, setIsGestionarFuentesOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [loadingAction, setLoadingAction] = useState(false);
   const { toast } = useToast();
@@ -446,6 +448,14 @@ export default function LeadsPage() {
                 showPdf={false}
               />
             )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setIsGestionarFuentesOpen(true)}
+              className="hidden sm:flex border-gray-300 text-gray-600 hover:bg-gray-50"
+            >
+              Gestionar fuentes
+            </Button>
             <Dialog
               open={isCreateLeadDialogOpen}
               onOpenChange={setIsCreateLeadDialogOpen}
@@ -868,6 +878,15 @@ export default function LeadsPage() {
         )}
       </main>
       <Toaster />
+      <GestionarFuentesDialog
+        open={isGestionarFuentesOpen}
+        onOpenChange={setIsGestionarFuentesOpen}
+        onFuentesChange={() => {
+          FuenteService.getFuentes(true)
+            .then((data) => setFuentesDisponibles(data.map((f) => f.nombre)))
+            .catch(() => {})
+        }}
+      />
     </div>
   );
 }
