@@ -1,7 +1,7 @@
 "use client"
 
 import { useLayoutEffect, useRef, type ReactNode } from "react"
-import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 import { Button } from "@/components/shared/atom/button"
 import { cn } from "@/lib/utils"
@@ -37,6 +37,7 @@ export function ModuleHeader({
   actions,
   className,
 }: ModuleHeaderProps) {
+  const router = useRouter()
   const headerRef = useRef<HTMLElement>(null)
 
   // Si se proporciona backButton, usar esos valores
@@ -86,17 +87,24 @@ export function ModuleHeader({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between py-3 sm:py-6 gap-3">
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            <Link href={finalBackHref} className="flex shrink-0" aria-label={finalBackLabel} title={finalBackLabel}>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="touch-manipulation h-9 w-9 sm:h-10 sm:w-auto sm:px-4 sm:rounded-md gap-2"
-              >
-                <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span className="hidden sm:inline">{finalBackLabel}</span>
-                <span className="sr-only">{finalBackLabel}</span>
-              </Button>
-            </Link>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="touch-manipulation h-9 w-9 sm:h-10 sm:w-auto sm:px-4 sm:rounded-md gap-2 shrink-0"
+              aria-label={finalBackLabel}
+              title={finalBackLabel}
+              onClick={() => {
+                if (window.history.length > 1) {
+                  router.back()
+                } else {
+                  router.push(finalBackHref)
+                }
+              }}
+            >
+              <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="hidden sm:inline">{finalBackLabel}</span>
+              <span className="sr-only">{finalBackLabel}</span>
+            </Button>
 
             <div className="rounded-xl bg-suncar-primary shadow-sm flex items-center justify-center h-9 w-9 sm:h-12 sm:w-12 shrink-0 p-1.5 sm:p-2">
               <img
