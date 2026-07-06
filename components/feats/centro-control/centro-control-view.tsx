@@ -2694,9 +2694,12 @@ export default function CentroControlView() {
       {/* ── Header ── */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-amber-500/20 bg-slate-900/80 backdrop-blur-sm shrink-0 gap-4">
         <div className="flex items-center gap-3 min-w-0">
-          <Link href="/" className="flex items-center gap-1 text-slate-400 hover:text-amber-400 transition-colors shrink-0">
+          <button
+            onClick={() => window.history.length > 1 ? window.history.back() : (window.location.href = "/")}
+            className="flex items-center gap-1 text-slate-400 hover:text-amber-400 transition-colors shrink-0"
+          >
             <ArrowLeft className="h-4 w-4" />
-          </Link>
+          </button>
           <div className="h-2 w-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
           <span className="text-sm font-bold text-amber-400 tracking-wider uppercase truncate">Centro de Control · Operaciones</span>
           <span className="text-xs text-slate-500 hidden sm:inline shrink-0">SunCar S.R.L.</span>
