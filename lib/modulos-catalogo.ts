@@ -34,6 +34,7 @@ import {
   AlertTriangle,
   CreditCard,
   HardHat,
+  MessageCircle,
 } from "lucide-react"
 
 /**
@@ -214,6 +215,24 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     href: "/wallet",
     grupo: "resultados-empresa",
     alwaysVisible: true,
+  },
+  {
+    key: "suncar-whatsapp",
+    label: "Suncar Whatsapp",
+    descripcion: "Conversaciones de WhatsApp con clientes.",
+    icon: MessageCircle,
+    iconClass: "text-emerald-600",
+    href: "/api/chatwoot/sso",
+    grupo: "resultados-empresa",
+    subPermisos: [
+      {
+        key: "suncar-whatsapp/admin",
+        label: "Suncar Whatsapp (administrador)",
+        descripcion:
+          "Entra a Chatwoot con rol administrador en vez de agente. Sin este sub-permiso, el trabajador entra como agente.",
+        aditivo: true,
+      },
+    ],
   },
 
   // ───────── Comercial Instaladora ─────────
