@@ -220,9 +220,9 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
   {
     key: "reservas-instaladora",
     label: "Reservas Instaladora",
-    descripcion: "Ver reservas de materiales de proyectos de instalación (se crean desde la oferta de confección).",
+    descripcion: "Ver reservas de materiales de proyectos de instalación.",
     icon: BookmarkCheck,
-    iconClass: "text-orange-600",
+    iconClass: "text-emerald-600",
     href: "/reservas-ventas?vista=instaladora",
     grupo: "comercial-instaladora",
   },
