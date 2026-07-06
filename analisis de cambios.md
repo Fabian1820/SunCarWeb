@@ -2,6 +2,48 @@
 
 ---
 
+## 📅 6 de Julio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**5 commits reales** de yany1509 — dos áreas: (1) diálogo de selección de fecha al cambiar estado a "equipo instalado con éxito" y fix del bug de Radix que impedía mostrarlo al editar cliente; (2) totales por moneda en la billetera: feat, rediseño visual de 3 tarjetas y fix del cálculo (volumen total, no neto).
+
+---
+
+### Área 1: Instalaciones — diálogo de fecha de instalación (2 commits — yany1509)
+
+- **`feat(instalaciones): preguntar fecha al cambiar estado a equipo instalado con éxito`** (15:58) — Al cambiar el estado de un cliente a "equipo instalado con éxito" desde Instalaciones en Proceso o desde el formulario de edición de cliente, se abre `FechaInstalacionDialog` para elegir entre el último día del mes anterior o la fecha actual como `fecha_equipo_instalado`, antes de confirmar el cambio de estado.
+
+- **`fix(clientes): mostrar dialog de fecha al cambiar a equipo instalado desde editar cliente`** (17:55) — El `FechaInstalacionDialog` era destruido por Radix UI porque al abrirse su overlay disparaba `onPointerDownOutside` del diálogo principal, desmontando el componente y borrando el estado. Fix: `preventDefault` en `onPointerDownOutside` e `onInteractOutside` del diálogo principal cuando `fechaInstalacionOpen` está activo.
+
+---
+
+### Área 2: Billetera — totales por moneda en historial (3 commits — yany1509)
+
+- **`feat(billetera): totales por moneda en historial de transacciones`** (16:08) — Muestra ingresos, gastos y neto por moneda sobre TODAS las páginas del historial filtrado, en vista global y por miembro. El backend devuelve los totales vía agregación MongoDB junto con los ítems paginados en un solo request.
+
+- **`style(billetera): rediseñar totales como 3 tarjetas Total Ingresos / Total Gastos / Total`** (16:12) — UI de totales reemplazada por 3 tarjetas diferenciadas.
+
+- **`fix(billetera): Total = ingresos + gastos (volumen total, no neto)`** (16:27) — La vista global mostraba valores negativos porque calculaba `ingreso_total - gasto_total`. Fix: suma ambos para mostrar volumen total, mismo que la vista de miembro.
+
+---
+
+### Puede dar bateo
+
+1. **`FechaInstalacionDialog` — `fechaInstalacionOpen` atascado bloquea el diálogo principal**: Si el componente interno rompe (error no capturado, llamada al backend colgada), el estado `fechaInstalacionOpen` permanece `true` y el `preventDefault` activo vuelve el diálogo principal imposible de cerrar con click fuera o Escape, forzando recarga de página.
+
+2. **Dos rutas hacia el mismo cambio de estado — posible divergencia**: El diálogo se activa desde Instalaciones en Proceso y desde Editar Cliente. Si ambas rutas llaman endpoints distintos o manejan el resultado diferente, una puede guardar `fecha_equipo_instalado` y la otra no, sin feedback visible al usuario.
+
+3. **"Último día del mes anterior" sin validación de coherencia temporal**: La opción puede resultar en una fecha de instalación anterior a la fecha de contrato o primera visita, sin ninguna validación ni alerta al usuario.
+
+4. **Totales de billetera — sin fallback si el backend no devuelve los campos de agregación**: Si el API responde sin los campos de totales (deploy parcial, versión anterior), las 3 tarjetas mostrarán cero o `undefined` sin ningún aviso al usuario.
+
+5. **"Total" cambió de neto a volumen sin nota explicativa en UI**: Usuarios que antes interpretaban "Total" como saldo neto verán un número más alto y diferente sin ninguna explicación del cambio de semántica en pantalla.
+
+6. **Ciclo feat→fix en 19 minutos — ventana con totales negativos en producción**: Los tres commits de billetera se completaron entre 16:08 y 16:27. Si hubo deploy automático entre ellos, usuarios que abrieron el historial en esa ventana vieron totales negativos antes del fix.
+
+---
+
 ## 📅 5 de Julio, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -226,20 +268,6 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 28 de Junio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-Sin commits nuevos de código. No hay cambios en producción.
-
----
-
-### Puede dar bateo
-
-Sin cambios nuevos — sin riesgos nuevos.
-
----
-
 #### Seguimientos vigentes
 
 - **Herencia `instalaciones` → 7 sub-permisos solo en runtime, no persistida en BD — migración necesaria si la lógica de prefijo cambia (Jul 5)**.
@@ -357,4 +385,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
