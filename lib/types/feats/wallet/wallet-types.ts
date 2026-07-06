@@ -85,11 +85,19 @@ export interface WalletCounterpart {
   nombre: string;
 }
 
+export interface TotalPorMoneda {
+  currency_code: string;
+  currency_name: string;
+  ingreso_total: number;
+  gasto_total: number;
+}
+
 export interface WalletTransactionsResult {
   items: WalletTransaction[];
   total: number;
   skip: number;
   limit: number;
+  totals_by_currency: TotalPorMoneda[];
 }
 
 export interface WalletsFilters {

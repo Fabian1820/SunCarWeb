@@ -592,6 +592,8 @@ function WalletPageContent() {
     selectedWalletTransactions,
     totalTransactions,
     totalSelectedWalletTransactions,
+    txTotalsByCurrency,
+    memberTxTotalsByCurrency,
     currencies,
     loadingWallet,
     loadingWallets,
@@ -2218,6 +2220,21 @@ function WalletPageContent() {
           <CardContent className="px-4 pb-4 space-y-3">
             {memberView ? (
               <>
+                {/* Totales por moneda — historial del miembro */}
+                {!loadingSelectedWalletDetail && memberTxTotalsByCurrency.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {memberTxTotalsByCurrency.map((t) => (
+                      <div key={t.currency_code} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 space-y-0.5">
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{t.currency_code}</p>
+                        <p className="text-[11px] text-emerald-600 font-medium">+{t.ingreso_total.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        <p className="text-[11px] text-rose-500 font-medium">−{t.gasto_total.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        <p className={`text-[11px] font-semibold border-t border-slate-200 pt-0.5 mt-0.5 ${(t.ingreso_total - t.gasto_total) >= 0 ? "text-slate-700" : "text-rose-600"}`}>
+                          {(t.ingreso_total - t.gasto_total) >= 0 ? "=" : "="}{(t.ingreso_total - t.gasto_total).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <TransactionsResponsiveList
                   transactions={selectedWalletTransactions}
                   loading={loadingSelectedWalletDetail}
@@ -2265,6 +2282,21 @@ function WalletPageContent() {
               </>
             ) : (
               <>
+                {/* Totales por moneda — historial global */}
+                {!loadingTransactions && txTotalsByCurrency.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {txTotalsByCurrency.map((t) => (
+                      <div key={t.currency_code} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 space-y-0.5">
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{t.currency_code}</p>
+                        <p className="text-[11px] text-emerald-600 font-medium">+{t.ingreso_total.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        <p className="text-[11px] text-rose-500 font-medium">−{t.gasto_total.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        <p className={`text-[11px] font-semibold border-t border-slate-200 pt-0.5 mt-0.5 ${(t.ingreso_total - t.gasto_total) >= 0 ? "text-slate-700" : "text-rose-600"}`}>
+                          {(t.ingreso_total - t.gasto_total).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <TransactionsResponsiveList
                   transactions={filteredWalletTransactions}
                   loading={loadingTransactions}

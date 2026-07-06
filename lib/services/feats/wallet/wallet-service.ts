@@ -13,6 +13,7 @@ import type {
   WalletsFilters,
   WalletTransactionsFilters,
   WalletTransactionsResult,
+  TotalPorMoneda,
 } from "../../../types/feats/wallet/wallet-types";
 
 type WrappedResponse<T> = {
@@ -664,6 +665,7 @@ export class WalletService {
         total: response.length,
         skip: filters.skip ?? 0,
         limit: filters.limit ?? response.length,
+        totals_by_currency: [],
       };
     }
 
@@ -673,11 +675,20 @@ export class WalletService {
         ? response.items
         : [];
 
+    const rawTotals: unknown[] = (response as any).totals_by_currency ?? [];
+    const totals_by_currency: TotalPorMoneda[] = rawTotals.map((t: any) => ({
+      currency_code: t.currency_code ?? "",
+      currency_name: t.currency_name ?? "",
+      ingreso_total: Number(t.ingreso_total ?? 0),
+      gasto_total: Number(t.gasto_total ?? 0),
+    }));
+
     return {
       items: data,
       total: response.total ?? data.length,
       skip: response.skip ?? filters.skip ?? 0,
       limit: response.limit ?? filters.limit ?? data.length,
+      totals_by_currency,
     };
   }
 }
