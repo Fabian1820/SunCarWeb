@@ -28,6 +28,12 @@ import {
   BookOpen,
   Image,
   Clock,
+  CalendarDays,
+  CalendarCheck,
+  AlertTriangle,
+  CreditCard,
+  HardHat,
+  MessageCircle,
 } from "lucide-react"
 
 /**
@@ -209,6 +215,34 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-emerald-700",
     href: "/centro-control",
     grupo: "resultados-empresa",
+  },
+  {
+    key: "wallet",
+    label: "Billetera",
+    descripcion: "Ingresos y gastos manuales con trazabilidad global.",
+    icon: Wallet,
+    iconClass: "text-emerald-800",
+    href: "/wallet",
+    grupo: "resultados-empresa",
+    alwaysVisible: true,
+  },
+  {
+    key: "suncar-whatsapp",
+    label: "Suncar Whatsapp",
+    descripcion: "Conversaciones de WhatsApp con clientes.",
+    icon: MessageCircle,
+    iconClass: "text-emerald-600",
+    href: "/api/chatwoot/sso",
+    grupo: "resultados-empresa",
+    subPermisos: [
+      {
+        key: "suncar-whatsapp/admin",
+        label: "Suncar Whatsapp (administrador)",
+        descripcion:
+          "Entra a Chatwoot con rol administrador en vez de agente. Sin este sub-permiso, el trabajador entra como agente.",
+        aditivo: true,
+      },
+    ],
   },
 
   // ───────── Comercial Instaladora ─────────
@@ -666,16 +700,6 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
   },
 
   // ───────── Área de Dirección ─────────
-  {
-    key: "wallet",
-    label: "Billetera",
-    descripcion: "Ingresos y gastos manuales con trazabilidad global.",
-    icon: Wallet,
-    iconClass: "text-emerald-800",
-    href: "/wallet",
-    grupo: "area-direccion",
-    alwaysVisible: true,
-  },
   {
     key: "informe-direccion",
     label: "Informe de Dirección",

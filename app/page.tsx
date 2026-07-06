@@ -151,7 +151,7 @@ const FAVORITES_STORAGE_KEY = "suncar_dashboard_favorites";
 
 export default function Dashboard() {
   const router = useRouter();
-  const { hasPermission, user, loadModulosPermitidos, updateUserFoto } = useAuth();
+  const { hasPermission, user, loadModulosPermitidos, updateUserFoto, getAuthHeader } = useAuth();
   const { permiso: myWalletPermiso } = useMyWalletPermiso();
 
   const [isContactosDialogOpen, setIsContactosDialogOpen] = useState(false);
@@ -480,15 +480,48 @@ export default function Dashboard() {
   // ───────── Tarjeta de módulo (con estrella de favorito) ─────────
   const ModuleCard = ({ module }: { module: DashboardModule }) => {
     const isFav = favorites.includes(module.id);
+
+    // Módulos cuyo href es una API route (no una página interna) abren un
+    // destino externo (ej. Suncar Whatsapp/Chatwoot) en pestaña nueva, vía
+    // un link de SSO pedido al momento. La pestaña se abre YA, dentro del
+    // gesto de click, para que el navegador no la bloquee como popup cuando
+    // la URL real llegue después de forma asíncrona.
+    const openExternalModule = async () => {
+      const win = window.open("about:blank", "_blank");
+      try {
+        const res = await fetch(module.href, {
+          method: "POST",
+          headers: { ...getAuthHeader(), "Content-Type": "application/json" },
+          body: JSON.stringify({ ci: user?.ci, nombre: user?.nombre }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.url) {
+          throw new Error(data.message || "No se pudo abrir el módulo");
+        }
+        if (win) win.location.href = data.url;
+      } catch (error) {
+        win?.close();
+        console.error("Error abriendo módulo externo:", error);
+      }
+    };
+
+    const handleActivate = () => {
+      if (module.href.startsWith("/api/")) {
+        openExternalModule();
+      } else {
+        router.push(module.href);
+      }
+    };
+
     return (
       <div
         role="button"
         tabIndex={0}
-        onClick={() => router.push(module.href)}
+        onClick={handleActivate}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            router.push(module.href);
+            handleActivate();
           }
         }}
         className="group relative flex cursor-pointer flex-col items-center rounded-2xl border border-gray-200/70 bg-white/80 p-5 text-center shadow-sm backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
