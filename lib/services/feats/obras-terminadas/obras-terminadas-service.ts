@@ -22,6 +22,12 @@ export interface ObraTerminada {
   total_pagado?: number | null;
   total_devuelto?: number | null;
   monto_pendiente?: number | null;
+  /** Descuento de la oferta = descuento comercial + asumido por la empresa + compensación. */
+  descuento_oferta?: number | null;
+  monto_descuento?: number | null;
+  descuento_porcentaje?: number | null;
+  monto_asumido_empresa?: number | null;
+  monto_compensacion?: number | null;
   cantidad_pagos?: number | null;
   almacen_nombre?: string | null;
   facturada?: boolean | null;
@@ -30,10 +36,19 @@ export interface ObraTerminada {
   materiales?: MaterialOferta[] | null;
 }
 
+/** Totales globales sobre todo el conjunto filtrado (no la página actual). */
+export interface ObrasTerminadasTotales {
+  total_cobrado: number;
+  total_pendiente: number;
+  total_facturado: number;
+  total_descuento: number;
+}
+
 export interface ObrasTerminadasListResponse {
   success: boolean;
   data: ObraTerminada[];
   total: number;
+  totales?: ObrasTerminadasTotales;
   skip: number;
   limit: number;
 }

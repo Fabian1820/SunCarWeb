@@ -7,9 +7,17 @@ import {
   type OfertaDetalleObras,
   type FacturaClienteObra,
   type ObrasTerminadasFiltros,
+  type ObrasTerminadasTotales,
 } from "@/lib/services/feats/obras-terminadas/obras-terminadas-service"
 
-export type { ObraTerminada, OfertaDetalleObras, FacturaClienteObra }
+export type { ObraTerminada, OfertaDetalleObras, FacturaClienteObra, ObrasTerminadasTotales }
+
+const TOTALES_VACIOS: ObrasTerminadasTotales = {
+  total_cobrado: 0,
+  total_pendiente: 0,
+  total_facturado: 0,
+  total_descuento: 0,
+}
 
 export type OfertaObra = ObraTerminada
 
@@ -18,6 +26,7 @@ const PAGE_SIZE = 20
 export function useObrasTerminadas() {
   const [obras, setObras] = useState<ObraTerminada[]>([])
   const [total, setTotal] = useState(0)
+  const [totales, setTotales] = useState<ObrasTerminadasTotales>(TOTALES_VACIOS)
   const [page, setPage] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -69,6 +78,7 @@ export function useObrasTerminadas() {
       const data = resp.data ?? []
       setObras(data)
       setTotal(resp.total ?? 0)
+      setTotales(resp.totales ?? TOTALES_VACIOS)
       setPage(pageNum)
     } catch (err) {
       if (signal.aborted) return
@@ -138,6 +148,7 @@ export function useObrasTerminadas() {
   return {
     obras,
     total,
+    totales,
     page,
     totalPages,
     pageSize: PAGE_SIZE,

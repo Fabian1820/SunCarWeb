@@ -22,7 +22,7 @@ export default function ObrasTerminadasPage() {
     ofertasConPagos, loading, error, fetchData,
     fetchDetalle, detalleCache, detalleLoading, detalleError,
     fetchFacturasCliente, facturasClienteCache, facturasClienteLoading, facturasClienteError,
-    page, total, totalPages, goToPage,
+    page, total, totales, totalPages, goToPage,
   } = useObrasTerminadas()
 
   useEffect(() => {
@@ -199,6 +199,7 @@ export default function ObrasTerminadasPage() {
         <div className="bg-white rounded-lg border border-emerald-100 shadow-sm p-4 overflow-x-auto">
           <ObrasTerminadasTable
             ofertasConPagos={ofertasConPagos}
+            totales={totales}
             loading={loading}
             fetchDetalle={fetchDetalle}
             detalleCache={detalleCache}
