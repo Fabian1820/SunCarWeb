@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { MaterialService } from "@/lib/api-services";
 import type { FacturaVentaResumen } from "@/lib/types/feats/pagos-clientes-ventas/pago-cliente-venta-types";
 
 const EMPRESA = {
@@ -57,7 +58,42 @@ const line = (doc: jsPDF, y: number, ml: number, mr: number) => {
 
 type MatRow = [string, string, string, string, string] | [string, string, string, string];
 
-const extractMateriales = (factura: FacturaVentaResumen): { rows: MatRow[]; hasDiscount: boolean } => {
+const normCodigo = (v?: string | null): string =>
+  String(v || "").trim().toLowerCase();
+
+/**
+ * Catálogo de nombres del material indexado por código y por material_id. El
+ * resumen de la factura solo trae `descripcion` (no el nombre), así que el
+ * NOMBRE real se resuelve desde el catálogo.
+ */
+const cargarNombresPorCodigo = async (): Promise<Map<string, string>> => {
+  const map = new Map<string, string>();
+  try {
+    const materiales = await MaterialService.getAllMaterials();
+    for (const m of materiales) {
+      const nombre = String(
+        (m as { nombre?: string }).nombre ||
+          (m as { descripcion?: string }).descripcion ||
+          "",
+      ).trim();
+      if (!nombre) continue;
+      const codigo = normCodigo((m as { codigo?: string }).codigo);
+      if (codigo) map.set(`cod:${codigo}`, nombre);
+      const id =
+        (m as { material_id?: string }).material_id ||
+        (m as { id?: string }).id;
+      if (id) map.set(`id:${id}`, nombre);
+    }
+  } catch {
+    // Sin catálogo, se cae a la descripción embebida.
+  }
+  return map;
+};
+
+const extractMateriales = (
+  factura: FacturaVentaResumen,
+  nombresPorCodigo?: Map<string, string>,
+): { rows: MatRow[]; hasDiscount: boolean } => {
   const rows: MatRow[] = [];
   let hasDiscount = false;
 
@@ -69,6 +105,9 @@ const extractMateriales = (factura: FacturaVentaResumen): { rows: MatRow[]; hasD
       }
       if (!m || typeof m !== "object") continue;
       const r = m as {
+        material_codigo?: string;
+        codigo?: string;
+        material_id?: string;
         material_descripcion?: string;
         descripcion?: string;
         nombre?: string;
@@ -79,6 +118,11 @@ const extractMateriales = (factura: FacturaVentaResumen): { rows: MatRow[]; hasD
         descuento_porcentaje?: number;
         descuento_monto?: number;
       };
+      const codigo = r.material_codigo || r.codigo || "";
+      const nombreCatalogo =
+        (codigo && nombresPorCodigo?.get(`cod:${normCodigo(codigo)}`)) ||
+        (r.material_id && nombresPorCodigo?.get(`id:${r.material_id}`)) ||
+        "";
       const cant = Number(r.cantidad ?? 0);
       const precio = Number(r.precio ?? 0);
       const descPct = Number(r.descuento_porcentaje ?? 0);
@@ -94,7 +138,7 @@ const extractMateriales = (factura: FacturaVentaResumen): { rows: MatRow[]; hasD
       const descLabel = descPct > 0 ? `${descPct.toFixed(1)}%` : "";
       if (descPct > 0) hasDiscount = true;
       rows.push([
-        r.material_descripcion || r.descripcion || r.nombre || "Material",
+        nombreCatalogo || r.material_descripcion || r.descripcion || r.nombre || "Material",
         String(cant),
         fmt(precio),
         descLabel,
@@ -111,6 +155,7 @@ export class ExportFacturaVentaConsolidadaService {
     doc: jsPDF,
     factura: FacturaVentaResumen,
     logo: string | null,
+    nombresPorCodigo?: Map<string, string>,
   ): void {
     const W = 210;
     const ml = 20;
@@ -184,7 +229,7 @@ export class ExportFacturaVentaConsolidadaService {
     y += 6;
 
     // ── Materiales ─────────────────────────────────────────────────────────────
-    const { rows: materiales, hasDiscount } = extractMateriales(factura);
+    const { rows: materiales, hasDiscount } = extractMateriales(factura, nombresPorCodigo);
     if (materiales.length > 0) {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(7);
@@ -195,7 +240,7 @@ export class ExportFacturaVentaConsolidadaService {
       if (hasDiscount) {
         autoTable(doc, {
           startY: y,
-          head: [["Descripción", "Cant.", "Precio", "Desc.", "Subtotal"]],
+          head: [["Material", "Cant.", "Precio", "Desc.", "Subtotal"]],
           body: materiales as string[][],
           margin: { left: ml, right: ml },
           theme: "plain",
@@ -228,7 +273,7 @@ export class ExportFacturaVentaConsolidadaService {
         const rowsSimple = materiales.map(r => [r[0], r[1], r[2], r[4] ?? ""]);
         autoTable(doc, {
           startY: y,
-          head: [["Descripción", "Cant.", "Precio", "Subtotal"]],
+          head: [["Material", "Cant.", "Precio", "Subtotal"]],
           body: rowsSimple,
           margin: { left: ml, right: ml },
           theme: "plain",
@@ -432,8 +477,11 @@ export class ExportFacturaVentaConsolidadaService {
 
   static async exportarPDF(factura: FacturaVentaResumen): Promise<void> {
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-    const logo = await resolveLogo();
-    this.renderFactura(doc, factura, logo);
+    const [logo, nombresPorCodigo] = await Promise.all([
+      resolveLogo(),
+      cargarNombresPorCodigo(),
+    ]);
+    this.renderFactura(doc, factura, logo, nombresPorCodigo);
     doc.save(`Factura_${factura.numero_factura || "sin_numero"}.pdf`);
   }
 
@@ -444,10 +492,13 @@ export class ExportFacturaVentaConsolidadaService {
   ): Promise<void> {
     if (facturas.length === 0) return;
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-    const logo = await resolveLogo();
+    const [logo, nombresPorCodigo] = await Promise.all([
+      resolveLogo(),
+      cargarNombresPorCodigo(),
+    ]);
     facturas.forEach((factura, idx) => {
       if (idx > 0) doc.addPage();
-      this.renderFactura(doc, factura, logo);
+      this.renderFactura(doc, factura, logo, nombresPorCodigo);
     });
     const fecha = new Date().toISOString().slice(0, 10);
     doc.save(nombreArchivo ?? `Facturas_${fecha}.pdf`);

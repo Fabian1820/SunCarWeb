@@ -856,6 +856,8 @@ const [exportingPagos, setExportingPagos]           = useState(false);
           try {
             const resumen = await resolveResumen(f);
             const materialesAgregados: Array<{
+              material_codigo?: string;
+              material_id?: string;
               material_descripcion?: string;
               cantidad?: number;
               precio?: number;
@@ -868,6 +870,9 @@ const [exportingPagos, setExportingPagos]           = useState(false);
                   materialesAgregados.push({ material_descripcion: m });
                 } else if (m && typeof m === "object") {
                   const mo = m as {
+                    material_codigo?: string;
+                    codigo?: string;
+                    material_id?: string;
                     material_descripcion?: string;
                     descripcion?: string;
                     nombre?: string;
@@ -876,6 +881,8 @@ const [exportingPagos, setExportingPagos]           = useState(false);
                     subtotal?: number;
                   };
                   materialesAgregados.push({
+                    material_codigo: mo.material_codigo || mo.codigo,
+                    material_id: mo.material_id,
                     material_descripcion:
                       mo.material_descripcion || mo.descripcion || mo.nombre || "",
                     cantidad: mo.cantidad,
@@ -915,7 +922,7 @@ const [exportingPagos, setExportingPagos]           = useState(false);
           }
         }),
       );
-      ExportFacturasExcelService.exportar(conPagos, {
+      await ExportFacturasExcelService.exportar(conPagos, {
         fechaDesde: f4Desde || (f4Mes ? `${f4Mes}-01` : undefined),
         fechaHasta: f4Hasta || (f4Mes
           ? (() => {

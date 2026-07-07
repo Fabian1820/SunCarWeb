@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx";
+import { MaterialService } from "@/lib/api-services";
 import type { FacturaClienteVenta } from "@/lib/types/feats/pagos-clientes-ventas/pago-cliente-venta-types";
 
 const METODO_LABELS: Record<string, string> = {
@@ -18,6 +19,7 @@ type MaterialFactura =
   | {
       material_id?: string;
       material_codigo?: string;
+      codigo?: string;
       material_descripcion?: string;
       descripcion?: string;
       nombre?: string;
@@ -39,20 +41,58 @@ const getCantidadMateriales = (f: FacturaClienteVenta): number => {
   return getMaterialesList(f).length;
 };
 
-const formatMaterialNombre = (m: MaterialFactura): string => {
+const normCodigo = (v?: string | null): string =>
+  String(v || "").trim().toLowerCase();
+
+/**
+ * Catálogo de nombres del material indexado por código y por material_id. El
+ * material embebido en la factura solo trae `descripcion` (y el resumen se
+ * agrega sin nombre), así que el NOMBRE real se resuelve desde el catálogo.
+ */
+const cargarNombresPorCodigo = async (): Promise<Map<string, string>> => {
+  const map = new Map<string, string>();
+  try {
+    const materiales = await MaterialService.getAllMaterials();
+    for (const m of materiales) {
+      const nombre = String(
+        (m as { nombre?: string }).nombre ||
+          (m as { descripcion?: string }).descripcion ||
+          "",
+      ).trim();
+      if (!nombre) continue;
+      const codigo = normCodigo((m as { codigo?: string }).codigo);
+      if (codigo) map.set(`cod:${codigo}`, nombre);
+      const id =
+        (m as { material_id?: string }).material_id ||
+        (m as { id?: string }).id;
+      if (id) map.set(`id:${id}`, nombre);
+    }
+  } catch {
+    // Sin catálogo, se cae a la descripción embebida.
+  }
+  return map;
+};
+
+const formatMaterialNombre = (
+  m: MaterialFactura,
+  nombresPorCodigo?: Map<string, string>,
+): string => {
   if (typeof m === "string") return m.trim();
+  const codigo = m.material_codigo || m.codigo || "";
+  const nombreCatalogo =
+    (codigo && nombresPorCodigo?.get(`cod:${normCodigo(codigo)}`)) ||
+    (m.material_id && nombresPorCodigo?.get(`id:${m.material_id}`)) ||
+    "";
   const nombre =
+    nombreCatalogo ||
     m.nombre ||
     m.material_descripcion ||
     m.descripcion ||
-    m.material_codigo ||
+    codigo ||
     m.material_id ||
     "";
-  const codigo =
-    m.material_codigo && m.material_codigo !== nombre
-      ? ` [${m.material_codigo}]`
-      : "";
-  return `${nombre}${codigo}`.trim();
+  const codigoSuffix = codigo && codigo !== nombre ? ` [${codigo}]` : "";
+  return `${nombre}${codigoSuffix}`.trim();
 };
 
 const getMaterialCantidad = (m: MaterialFactura): number | "" => {
@@ -108,14 +148,15 @@ export class ExportFacturasExcelService {
    * Una fila lógica por factura: `Material` y `Cantidad` se apilan en celdas
    * verticales; el resto de columnas se fusionan para cubrir esa altura.
    */
-  static exportar(
+  static async exportar(
     facturas: FacturaClienteVenta[],
     options: ExportRangeOptions = {},
-  ): void {
+  ): Promise<void> {
     const { fechaDesde, fechaHasta } = options;
     const filtradas = facturas.filter((f) =>
       dateInRange(f.fecha_emision, fechaDesde, fechaHasta),
     );
+    const nombresPorCodigo = await cargarNombresPorCodigo();
 
     const buildBase = (f: FacturaClienteVenta) => ({
       "Nº Factura": f.numero_factura || "",
@@ -160,7 +201,9 @@ export class ExportFacturasExcelService {
       const base = buildBase(f);
       const lista = getMaterialesList(f);
       const materiales =
-        lista.length > 0 ? lista.map((m) => formatMaterialNombre(m)) : [""];
+        lista.length > 0
+          ? lista.map((m) => formatMaterialNombre(m, nombresPorCodigo))
+          : [""];
       const cantidades =
         lista.length > 0
           ? lista.map((m) => getMaterialCantidad(m))
