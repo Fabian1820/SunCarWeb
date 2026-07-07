@@ -29,6 +29,7 @@ import {
   Plus,
   FileSpreadsheet,
   Boxes,
+  Coins,
   X,
   ChevronLeft,
   ChevronRight,
@@ -41,6 +42,7 @@ import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { MaterialForm } from "@/components/feats/materials/material-form"
 import { MaterialContableDetalle } from "@/components/feats/fichas-costo/material-contable-detalle"
 import { MaterialStockDialog } from "@/components/feats/fichas-costo/material-stock-dialog"
+import { EstablecerCostoDialog, type CostoMaterialRef } from "@/components/feats/fichas-costo/establecer-costo-dialog"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/shared/molecule/tooltip"
 import { useMaterials } from "@/hooks/use-materials"
 import { useMarcas } from "@/hooks/use-marcas"
@@ -112,6 +114,8 @@ function FichasCostoPageContent() {
   const [isDetalleOpen, setIsDetalleOpen] = useState(false)
   const [stockMaterial, setStockMaterial] = useState<Material | null>(null)
   const [isStockOpen, setIsStockOpen] = useState(false)
+  const [costoMaterial, setCostoMaterial] = useState<CostoMaterialRef | null>(null)
+  const [isCostoOpen, setIsCostoOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
 
   const units = useMemo(
@@ -278,7 +282,11 @@ function FichasCostoPageContent() {
           toast({ title: "Error", description: "No se encontró el producto para este material", variant: "destructive" })
           return
         }
-        await editMaterialInProduct(producto.id, materialCodigo, payload as any, categoria)
+        // El costo NO se edita desde aquí: se gestiona con la acción "Costo"
+        // (kardex / saldo inicial). Solo persistimos el resto de campos.
+        const payloadSinCosto = { ...payload }
+        delete (payloadSinCosto as any).costo
+        await editMaterialInProduct(producto.id, materialCodigo, payloadSinCosto as any, categoria)
       }
       toast({ title: "Éxito", description: "Material actualizado correctamente." })
       setIsEditOpen(false)
@@ -352,6 +360,18 @@ function FichasCostoPageContent() {
   const openStock = (m: Material) => {
     setStockMaterial(m)
     setIsStockOpen(true)
+  }
+  const openCosto = (m: Material) => {
+    const material_id = String((m as any)._id || (m as any).material_id || (m as any).id || "")
+    const producto = catalogs.find((c) => c.categoria === m.categoria)
+    setCostoMaterial({
+      material_id,
+      producto_id: producto?.id,
+      codigo: m.codigo,
+      nombre: m.nombre || m.descripcion,
+      costo: m.costo,
+    })
+    setIsCostoOpen(true)
   }
 
   const from = filtered.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1
@@ -597,6 +617,9 @@ function FichasCostoPageContent() {
                                     <button onClick={() => openEdit(row)} title="Editar material" className="inline-flex items-center justify-center rounded p-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-colors">
                                       <Pencil className="h-3.5 w-3.5" />
                                     </button>
+                                    <button onClick={() => openCosto(row)} title="Establecer / corregir costo" className="inline-flex items-center justify-center rounded p-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 transition-colors">
+                                      <Coins className="h-3.5 w-3.5" />
+                                    </button>
                                     <button onClick={() => openDetalle(row)} title="Ver ficha (kardex y compras)" className="inline-flex items-center justify-center rounded p-1 text-amber-600 hover:text-amber-700 hover:bg-amber-50 transition-colors">
                                       <Eye className="h-3.5 w-3.5" />
                                     </button>
@@ -670,6 +693,7 @@ function FichasCostoPageContent() {
               existingUnits={units}
               isEditing
               showContableFields
+              costoReadonly
             />
           )}
         </DialogContent>
@@ -710,6 +734,13 @@ function FichasCostoPageContent() {
               }
             : null
         }
+      />
+
+      <EstablecerCostoDialog
+        open={isCostoOpen}
+        onOpenChange={(o) => { setIsCostoOpen(o); if (!o) setCostoMaterial(null) }}
+        material={costoMaterial}
+        onSaved={() => { void refetch() }}
       />
 
       <Toaster />

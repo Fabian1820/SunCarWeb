@@ -51,6 +51,9 @@ interface MaterialFormProps {
   /** Muestra e incluye los campos contables (costo, precios, % rebajable).
    *  Usado en Fichas de Costo; el catálogo de Materiales lo deja en false. */
   showContableFields?: boolean;
+  /** Deja el campo Costo en solo-lectura (se gestiona con la acción "Costo":
+   *  kardex / saldo inicial). El resto de campos contables siguen editables. */
+  costoReadonly?: boolean;
 }
 
 export function MaterialForm({
@@ -62,6 +65,7 @@ export function MaterialForm({
   existingUnits,
   isEditing = false,
   showContableFields = false,
+  costoReadonly = false,
 }: MaterialFormProps) {
   const { toast } = useToast();
   const { marcasSimplificadas, loading: loadingMarcas } = useMarcas();
@@ -1080,8 +1084,14 @@ export function MaterialForm({
                     value={costo}
                     onChange={(e) => setCosto(e.target.value)}
                     placeholder="0.00"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || costoReadonly}
+                    className={costoReadonly ? "bg-gray-100 cursor-not-allowed" : undefined}
                   />
+                  {costoReadonly && (
+                    <p className="text-[11px] text-gray-500 mt-1">
+                      El costo se gestiona con la acción <span className="font-medium">Costo</span> (kardex / saldo inicial), no desde aquí.
+                    </p>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="material-precio" className="text-sm font-medium text-gray-700 mb-2 block">
