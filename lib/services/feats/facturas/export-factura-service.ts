@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import ExcelJS from "exceljs";
+import { MaterialService } from "@/lib/api-services";
 import type {
   Factura,
   ItemVale,
@@ -102,9 +103,38 @@ const resolveLogoBase64 = async (): Promise<string> => {
   return "";
 };
 
+const normCodigo = (value?: string | null): string =>
+  String(value || "").trim().toLowerCase();
+
+/**
+ * Catálogo código(normalizado) -> nombre del material. El `ItemVale` embebido
+ * en la factura solo trae `descripcion`; para mostrar el NOMBRE del material se
+ * enriquece desde el catálogo (igual que el resto de exports).
+ */
+const cargarNombresPorCodigo = async (): Promise<Map<string, string>> => {
+  const map = new Map<string, string>();
+  try {
+    const materiales = await MaterialService.getAllMaterials();
+    for (const m of materiales) {
+      const codigo = normCodigo((m as { codigo?: string }).codigo);
+      if (!codigo) continue;
+      const nombre = String(
+        (m as { nombre?: string }).nombre ||
+          (m as { descripcion?: string }).descripcion ||
+          "",
+      ).trim();
+      if (nombre) map.set(codigo, nombre);
+    }
+  } catch {
+    // Si falla el catálogo, se cae al `descripcion` del item de la factura.
+  }
+  return map;
+};
+
 const buildRows = (
   factura: Factura,
   valeSalidaCodeMap?: Map<string, string>,
+  nombresPorCodigo?: Map<string, string>,
 ): FacturaExportRow[] => {
   const rows: FacturaExportRow[] = [];
   let itemIndex = 1;
@@ -128,7 +158,9 @@ const buildRows = (
 
       rows.push({
         item: itemIndex++,
-        descripcion: cleanText(item.descripcion),
+        descripcion: cleanText(
+          nombresPorCodigo?.get(normCodigo(item.codigo)) || item.descripcion,
+        ),
         um: cleanText(um),
         cantidad,
         precioUnitario,
@@ -255,7 +287,8 @@ export class ExportFacturaService {
     valeSalidaCodeMap?: Map<string, string>,
     meta?: FacturaExportMeta,
   ): Promise<void> {
-    const rows = buildRows(factura, valeSalidaCodeMap);
+    const nombresPorCodigo = await cargarNombresPorCodigo();
+    const rows = buildRows(factura, valeSalidaCodeMap, nombresPorCodigo);
     const total = getFacturaTotal(factura, rows);
     const filename = `factura_${sanitizeFilename(factura.numero_factura || "sin_numero")}.pdf`;
 
@@ -391,7 +424,7 @@ export class ExportFacturaService {
       head: [
         [
           "ITEM",
-          "DESCRIPCIÓN",
+          "MATERIAL",
           "U/M",
           "CANTIDAD",
           "PRECIO UNIT",
@@ -470,7 +503,8 @@ export class ExportFacturaService {
     valeSalidaCodeMap?: Map<string, string>,
     meta?: FacturaExportMeta,
   ): Promise<void> {
-    const rows = buildRows(factura, valeSalidaCodeMap);
+    const nombresPorCodigo = await cargarNombresPorCodigo();
+    const rows = buildRows(factura, valeSalidaCodeMap, nombresPorCodigo);
     const total = getFacturaTotal(factura, rows);
     const safeNumber = sanitizeFilename(factura.numero_factura || "sin_numero");
     const filename = `factura_${safeNumber}.xlsx`;
@@ -528,7 +562,7 @@ export class ExportFacturaService {
     const headerRow = worksheet.getRow(headerRowNumber);
     const headers = [
       "ITEM",
-      "DESCRIPCION",
+      "MATERIAL",
       "U/M",
       "CANTIDAD",
       "PRECIO UNITARIO",

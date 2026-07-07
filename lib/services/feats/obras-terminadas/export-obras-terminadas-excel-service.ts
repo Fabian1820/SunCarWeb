@@ -3,7 +3,34 @@ import {
   type ObraTerminada,
   type ObrasTerminadasFiltros,
 } from "./obras-terminadas-service";
+import { MaterialService } from "@/lib/api-services";
 import { exportToExcel, generateFilename } from "@/lib/export-service";
+
+const normCodigo = (value?: string | null): string =>
+  String(value || "").trim().toLowerCase();
+
+/**
+ * Catálogo código(normalizado) -> nombre del material. El item de la oferta
+ * solo guarda `descripcion`, no el nombre; para mostrar el NOMBRE del material
+ * (igual que el resto de exports) se enriquece desde el catálogo.
+ */
+const cargarNombresPorCodigo = async (): Promise<Map<string, string>> => {
+  const map = new Map<string, string>();
+  try {
+    const materiales = await MaterialService.getAllMaterials();
+    for (const m of materiales) {
+      const codigo = normCodigo((m as { codigo?: string }).codigo);
+      if (!codigo) continue;
+      const nombre = String(
+        (m as { nombre?: string }).nombre || (m as { descripcion?: string }).descripcion || "",
+      ).trim();
+      if (nombre) map.set(codigo, nombre);
+    }
+  } catch {
+    // Si falla el catálogo, se cae al `descripcion` del item de la oferta.
+  }
+  return map;
+};
 
 const normalizeEstadoKey = (estado: string) =>
   estado
@@ -57,7 +84,10 @@ export class ExportObrasTerminadasExcelService {
   static async exportar(
     filtros: ObrasTerminadasFiltros = {},
   ): Promise<ExportObrasTerminadasResult> {
-    const obras = await this.fetchTodasLasObras(filtros);
+    const [obras, nombresPorCodigo] = await Promise.all([
+      this.fetchTodasLasObras(filtros),
+      cargarNombresPorCodigo(),
+    ]);
 
     const rows = obras.map((obra) => {
       const materiales = obra.materiales ?? [];
@@ -76,7 +106,12 @@ export class ExportObrasTerminadasExcelService {
         facturada: obra.facturada ? "Sí" : "No",
         numero_factura: obra.numero_factura || "",
         material_codigo: materiales.map((m) => m.material_codigo || ""),
-        material: materiales.map((m) => m.descripcion || ""),
+        material: materiales.map(
+          (m) =>
+            nombresPorCodigo.get(normCodigo(m.material_codigo)) ||
+            m.descripcion ||
+            "",
+        ),
         cantidad: materiales.map((m) => m.cantidad ?? 0),
       };
     });

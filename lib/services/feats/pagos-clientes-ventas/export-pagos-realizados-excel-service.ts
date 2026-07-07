@@ -115,7 +115,7 @@ export class ExportPagosRealizadosExcelService {
         recibido_por: p.recibido_por || "",
         notas: p.notas || "",
         material_codigo: materiales.map((m) => m.codigo || catalogoDe(m)?.codigo || ""),
-        material: materiales.map((m) => m.descripcion || catalogoDe(m)?.nombre || ""),
+        material: materiales.map((m) => catalogoDe(m)?.nombre || m.descripcion || ""),
         cantidad: materiales.map((m) => m.cantidad ?? 0),
       };
     });

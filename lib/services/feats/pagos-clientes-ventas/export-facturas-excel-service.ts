@@ -42,9 +42,9 @@ const getCantidadMateriales = (f: FacturaClienteVenta): number => {
 const formatMaterialNombre = (m: MaterialFactura): string => {
   if (typeof m === "string") return m.trim();
   const nombre =
+    m.nombre ||
     m.material_descripcion ||
     m.descripcion ||
-    m.nombre ||
     m.material_codigo ||
     m.material_id ||
     "";
