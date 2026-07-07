@@ -2,6 +2,60 @@
 
 ---
 
+## 📅 7 de Julio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**5 commits reales** de Fabian1820 — dos áreas principales: (1) nuevo flujo de "Establecer Costo" inteligente en Fichas de Costo con detección automática del estado del material; (2) ciclo de fixes en exports para mostrar el nombre real del material en lugar de la descripción, afectando múltiples módulos; más (3) totales globales y nueva columna Descuento en Obras Terminadas.
+
+---
+
+### Área 1: Fichas de Costo — acción "Establecer Costo" inteligente (2 commits — Fabian1820)
+
+- **`feat(fichas-costo): acción "Costo" inteligente (referencia / saldo inicial / ajuste)`** (19:22) — El costo del material sale del form genérico "Editar" (ahora read-only para ese campo) y pasa a una nueva acción dedicada `EstablecerCostoDialog` que detecta el estado real del material y elige la operación correcta automáticamente:
+  - Sin stock ni kardex → costo de referencia en el catálogo (`PUT /productos/{id}`)
+  - Con stock, sin kardex → saldo inicial (`POST /kardex-costo/saldo-inicial`)
+  - Con kardex → ajuste de costo (`POST /kardex-costo/ajuste-costo`)
+  Nuevos métodos `KardexCostoService.saldoInicial` y `ajusteCosto`. Prop `costoReadonly` añadida a `MaterialForm`.
+
+- **`feat(fichas-costo): el diálogo de costo avisa y maneja pendiente_costeo`** (19:43) — `KardexCostoService.mapKardex` ahora mapea los campos `pendiente_costeo`, `regularizada_por` y `tipo`. `EstablecerCostoDialog` detecta cuando la entrada tiene costeo pendiente (modo kardex) y muestra aviso rojo. Si el ajuste devuelve `con_pendiente=true` (nada se ajustó porque hay costeo pendiente), avisa al usuario que primero debe ponderar/sincronizar la compra antes de poder ajustar.
+
+---
+
+### Área 2: Exports — nombre real del material (2 commits — Fabian1820)
+
+- **`fix(exports): mostrar nombre del material en vez de la descripción`** (19:37) — Afecta exports de vales, facturas, obras terminadas, solicitudes de venta y pagos. El nombre se enriquece desde el catálogo buscando por código de material, con fallback a `descripcion` y luego al código si el nombre no está disponible. Las columnas "Descripción" pasan a llamarse "Material" en el vale individual y la factura individual.
+
+- **`fix(exports): resolver nombre del material desde el catálogo en facturas emitidas`** (21:01) — Complemento al fix anterior para el Excel de facturas emitidas y el PDF consolidado. Los ítems embebidos en facturas solo traen `descripcion` (sin `nombre`), por lo que el primer fix no era suficiente. Solución: lookup por `codigo`/`material_id` desde el catálogo. La agregación de la página ahora preserva el `codigo` para que el lookup funcione correctamente.
+
+---
+
+### Área 3: Obras Terminadas — totales globales y columna Descuento (1 commit — Fabian1820)
+
+- **`feat(obras-terminadas): totales globales, columna Descuento y limpieza`** (21:23) — Barra de totales globales (cobrado / pendiente / facturado + descuentos) independiente de la paginación, calculada sobre todo el conjunto filtrado. Nueva columna "Descuento" que consolida descuento comercial + asumido + compensación en una sola celda con tooltip de desglose. Se elimina la columna "Total Mat." de la tabla y del export Excel.
+
+---
+
+### Puede dar bateo
+
+1. **`EstablecerCostoDialog` — lógica de detección de estado frágil**: La elección entre referencia/saldo inicial/ajuste depende de consultar el estado del material (stock y kardex) al abrir el diálogo. Si el backend devuelve campos ausentes o nulos, o hay una race condition entre la consulta y la acción del usuario, el diálogo puede elegir el endpoint incorrecto — ej. usar saldo inicial cuando ya existe kardex, generando duplicación o inconsistencia en el registro de costos.
+
+2. **`con_pendiente=true` — usuario bloqueado sin flujo alternativo en pantalla**: Cuando el backend responde `con_pendiente`, el diálogo muestra solo un aviso de texto. Si el usuario no sabe cómo "ponderar/sincronizar" la compra pendiente (proceso en otro módulo), queda bloqueado sin ninguna acción disponible en la misma pantalla ni enlace directo al flujo correcto.
+
+3. **`costoReadonly` en `MaterialForm` — costo inaccesible por flujos legacy**: Los materiales editados por el form genérico ahora tienen el campo costo deshabilitado permanentemente. Si existe algún flujo de importación, script de seed o pantalla secundaria que usaba el form para actualizar el costo, ese camino queda silenciosamente roto sin ninguna advertencia.
+
+4. **Dos fixes separados para el mismo problema en 24 minutos — paths de datos no cubiertos**: El primer fix (19:37) cubrió vales/facturas/obras/solicitudes/pagos. El segundo fix (21:01) tuvo que corregir el mismo problema en facturas emitidas con lógica adicional. Que se necesitara un segundo commit sugiere que el primer fix no contempló todos los paths de datos embebidos; puede quedar algún otro export mostrando `descripcion` en lugar del nombre real.
+
+5. **`getAllMaterials()` sin caché compartido — múltiples llamadas al catálogo por export**: Ambos fixes llaman a `getAllMaterials()` de forma independiente dentro de sus propios flujos. Sin un caché compartido a nivel de sesión o módulo, cada acción de export dispara una llamada completa al catálogo de materiales, multiplicando la latencia en exports que afectan varias tablas simultáneamente.
+
+6. **Totales globales en Obras Terminadas — dependencia de campo de backend sin confirmar**: La barra de totales es independiente de la paginación, lo que implica que el backend devuelve totales agregados separados de los ítems de página. Si el endpoint aún no incluye estos campos o los devuelve bajo un parámetro de query específico, las tarjetas mostrarán cero o `undefined` sin ningún aviso visible al usuario.
+
+7. **Eliminación de columna "Total Mat." del Excel — puede romper importaciones externas**: Usuarios con automatizaciones o macros que consumían el Excel de Obras Terminadas esperando la columna "Total Mat." verán que desaparece sin previo aviso ni versionado del formato. Mismo riesgo documentado el Jun 30 para el Excel de movimientos.
+
+8. **Ciclo feat→fix en exports (19:37 → 21:01) — ventana de exports incorrectos en producción**: Si hubo auto-deploy entre ambos commits, los usuarios que exportaron facturas emitidas entre las 19:37 y las 21:01 obtuvieron archivos con `descripcion` en lugar del nombre real del material.
+
+---
+
 ## 📅 6 de Julio, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -240,34 +294,6 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 29 de Junio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**1 commit real** de yany1509 — fix en el módulo de **Cobros**: el pendiente y el comprobante de pago ahora descuentan correctamente la compensación y el monto asumido por la empresa antes de calcular lo que queda por cobrar.
-
----
-
-### Área 1: Cobros — descontar compensación y monto asumido del pendiente (1 commit — yany1509, 19:02)
-
-- **`fix(cobros): descontar compensación y monto asumido del pendiente y comprobante`** — `OfertaConPagos` ahora incluye los campos `compensacion` y `asumido_por_empresa`. Nuevo helper `getBaseACobrar = precio_final - compensación - asumido`. Las tablas de cobros calculan el pendiente sobre la base neta. El comprobante muestra tres líneas adicionales: Compensación / Asumido por Empresa / Monto a Cobrar para que los montos cuadren visualmente.
-
----
-
-### Puede dar bateo
-
-1. **`compensacion`/`asumido_por_empresa` sin confirmar en backend**: El frontend ahora espera estos campos en la respuesta de `OfertaConPagos`. Si el backend no los incluye aún (o los devuelve como `null`/`undefined`), `getBaseACobrar` calculará `NaN`, rompiendo el display del pendiente en todas las filas de cobros.
-
-2. **Cobros históricos sin los campos nuevos**: Registros creados antes de este deploy no tendrán `compensacion` ni `asumido_por_empresa` en la respuesta. Si el helper no maneja `null` con un fallback a `0`, todos los cobros históricos mostrarán montos incorrectos o `NaN`.
-
-3. **Base a cobrar negativa sin validación**: Si `compensación + asumido_por_empresa > precio_final` (por error de entrada o sin validación en backend), `getBaseACobrar` devuelve un valor negativo. El pendiente aparecería negativo sin ningún aviso al usuario.
-
-4. **Líneas del comprobante con valor cero visibles**: El comprobante siempre muestra las tres líneas nuevas. Para cobros sin compensación ni monto asumido, aparecerán líneas "Compensación: 0" y "Asumido por Empresa: 0", que pueden confundir al cliente si no hay lógica para ocultarlas cuando son cero.
-
-5. **Posible doble descuento si compensación ya se aplicaba en precio_final**: Si el backend ya restaba la compensación al calcular `precio_final`, ahora el frontend la volvería a restar. Confirmar con el equipo de backend que `precio_final` es el bruto antes de descuentos.
-
----
-
 #### Seguimientos vigentes
 
 - **Herencia `instalaciones` → 7 sub-permisos solo en runtime, no persistida en BD — migración necesaria si la lógica de prefijo cambia (Jul 5)**.
@@ -385,4 +411,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
