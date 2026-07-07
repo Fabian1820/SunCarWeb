@@ -12,7 +12,7 @@ import { Button } from "@/components/shared/atom/button"
 import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, Coins, Warehouse, Layers, Info } from "lucide-react"
+import { Loader2, Coins, Warehouse, Layers, Info, AlertTriangle } from "lucide-react"
 import { KardexCostoService } from "@/lib/services/feats/kardex-costo/kardex-costo-service"
 import { InventarioService } from "@/lib/services/feats/inventario/inventario-service"
 import { FichaCostoService } from "@/lib/services/feats/fichas-costo/ficha-costo-service"
@@ -49,6 +49,7 @@ export function EstablecerCostoDialog({
   const [modo, setModo] = useState<Modo>("cargando")
   const [stockTotal, setStockTotal] = useState(0)
   const [almacenesConKardex, setAlmacenesConKardex] = useState(0)
+  const [pendienteAbierta, setPendienteAbierta] = useState(false)
   const [nuevoCosto, setNuevoCosto] = useState("")
   const [saving, setSaving] = useState(false)
 
@@ -64,6 +65,7 @@ export function EstablecerCostoDialog({
       ])
       const tieneKardex = historial.length > 0
       const almacenes = new Set(historial.map((k) => k.almacen_id)).size
+      const pendiente = historial.some((k) => k.pendiente_costeo && !k.regularizada_por)
       const lista: any[] = Array.isArray((stockRes as any)?.data) ? (stockRes as any).data : []
       const encontrado =
         lista.find((m) => mat.material_id && m.material_id === mat.material_id) ||
@@ -72,6 +74,7 @@ export function EstablecerCostoDialog({
       const total = Number(encontrado?.total ?? 0)
       setStockTotal(total)
       setAlmacenesConKardex(almacenes)
+      setPendienteAbierta(pendiente)
       setModo(tieneKardex ? "kardex" : total > 0 ? "saldo_inicial" : "referencia")
       setNuevoCosto(typeof mat.costo === "number" && mat.costo > 0 ? String(mat.costo) : "")
     } catch {
@@ -86,6 +89,7 @@ export function EstablecerCostoDialog({
       setNuevoCosto("")
       setStockTotal(0)
       setAlmacenesConKardex(0)
+      setPendienteAbierta(false)
     }
   }, [open, material, analizar])
 
@@ -101,8 +105,20 @@ export function EstablecerCostoDialog({
       let msg = ""
       if (modo === "kardex") {
         const r = await KardexCostoService.ajusteCosto([{ material_id: material.material_id, costo }])
-        const n = r?.ajustados?.[0]?.almacenes ?? almacenesConKardex
-        msg = `Costo corregido en el kardex (ajuste en ${n} almacén/es).`
+        if (!r?.ajustados?.length && r?.con_pendiente?.length) {
+          toast({
+            title: "No se pudo ajustar",
+            description:
+              "Este material tiene una entrada pendiente de costeo. Costea esa compra (ponderar / sincronizar) antes de corregir el costo aquí.",
+            variant: "destructive",
+          })
+          return
+        }
+        const a = r?.ajustados?.[0]
+        const om = a?.almacenes_pendientes_omitidos
+        msg = a
+          ? `Costo corregido en el kardex (ajuste en ${a.almacenes ?? 0} almacén/es${om ? `, ${om} pendiente(s) omitido(s)` : ""}).`
+          : "El costo ya estaba en ese valor."
       } else if (modo === "saldo_inicial") {
         const r = await KardexCostoService.saldoInicial([{ material_id: material.material_id, costo }])
         const n = r?.sembrados?.length ?? 0
@@ -176,6 +192,18 @@ export function EstablecerCostoDialog({
               </div>
               <p className="text-xs mt-1 leading-relaxed">{banner.texto}</p>
             </div>
+
+            {modo === "kardex" && pendienteAbierta && (
+              <div className="rounded-lg border p-3 bg-red-50 border-red-200 text-red-700">
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <AlertTriangle className="h-4 w-4" />
+                  Tiene entrada pendiente de costeo
+                </div>
+                <p className="text-xs mt-1 leading-relaxed">
+                  Uno o más almacenes tienen stock sin costear: esos NO se ajustan aquí (costea esa compra con ponderar / sincronizar). Si todos están pendientes, el ajuste se rechaza.
+                </p>
+              </div>
+            )}
 
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-500">Costo actual</span>

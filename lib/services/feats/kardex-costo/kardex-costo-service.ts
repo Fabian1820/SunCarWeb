@@ -43,6 +43,9 @@ const mapKardex = (raw: any): KardexCosto => ({
   costo_entrada: Number(raw?.costo_entrada ?? 0),
   cantidad_nueva: Number(raw?.cantidad_nueva ?? 0),
   costo_nuevo: Number(raw?.costo_nuevo ?? 0),
+  tipo: typeof raw?.tipo === "string" ? raw.tipo : undefined,
+  pendiente_costeo: raw?.pendiente_costeo === true,
+  regularizada_por: typeof raw?.regularizada_por === "string" ? raw.regularizada_por : undefined,
   registrado_por_ci: typeof raw?.registrado_por_ci === "string" ? raw.registrado_por_ci : undefined,
   nota: typeof raw?.nota === "string" ? raw.nota : undefined,
 });
