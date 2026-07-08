@@ -774,7 +774,10 @@ export function InstalacionesEnProcesoTable({
     setFechaInstalacionOpen(true);
   };
 
-  const handleConfirmarFechaInstalacion = async (fechaISO: string) => {
+  const handleConfirmarFechaInstalacion = async (
+    fechaISO: string,
+    faltaInstalacion?: string
+  ) => {
     if (!clienteParaInstalar) return;
     setFechaInstalacionOpen(false);
     setIsUpdating(true);
@@ -782,6 +785,8 @@ export function InstalacionesEnProcesoTable({
       await ClienteService.actualizarCliente(clienteParaInstalar.numero, {
         estado: "Equipo Instalado con Éxito",
         fecha_equipo_instalado: fechaISO,
+        // Solo se envía si el usuario seleccionó algo, para no pisar un valor existente.
+        ...(faltaInstalacion ? { falta_instalacion: faltaInstalacion } : {}),
       });
       toast({
         title: "Estado actualizado",
@@ -2779,6 +2784,7 @@ export function InstalacionesEnProcesoTable({
           if (!v) setClienteParaInstalar(null);
         }}
         onConfirm={handleConfirmarFechaInstalacion}
+        showFalta
       />
 
       {/* Diálogo para ver oferta */}

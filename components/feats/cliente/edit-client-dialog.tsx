@@ -19,8 +19,10 @@ import {
   SelectValue,
 } from "@/components/shared/atom/select";
 import { PrioritySelect } from "@/components/shared/molecule/priority-select";
+import { FaltaInstalacionSelect } from "@/components/shared/molecule/falta-instalacion-select";
 import { Loader2, MapPin } from "lucide-react";
 import { FechaInstalacionDialog } from "@/components/shared/molecule/fecha-instalacion-dialog";
+import { compareStrings } from "@/lib/utils/string-utils";
 import type { Cliente, ClienteUpdateData } from "@/lib/api-types";
 import { useAuth } from "@/contexts/auth-context";
 import { API_BASE_URL, apiRequest } from "@/lib/api-config";
@@ -911,7 +913,7 @@ export function EditClientDialog({
                   />
                 </div>
 
-                {/* Campo condicional: Falta Instalación */}
+                {/* Campo condicional: Falta Instalación (texto libre en proceso) */}
                 {formData.estado === "Instalación en Proceso" && (
                   <div>
                     <Label htmlFor="falta_instalacion">
@@ -926,6 +928,25 @@ export function EditClientDialog({
                       rows={2}
                       className="text-gray-900 placeholder:text-gray-400"
                       placeholder="Describe qué le falta para completar la instalación..."
+                    />
+                  </div>
+                )}
+
+                {/* Campo condicional: Qué falta (equipo instalado con éxito) */}
+                {compareStrings(
+                  formData.estado || "",
+                  "Equipo instalado con éxito"
+                ) && (
+                  <div>
+                    <Label htmlFor="falta_instalacion_instalado">
+                      ¿Queda algo pendiente?
+                    </Label>
+                    <FaltaInstalacionSelect
+                      id="falta_instalacion_instalado"
+                      value={formData.falta_instalacion}
+                      onChange={(v) =>
+                        handleInputChange("falta_instalacion", v)
+                      }
                     />
                   </div>
                 )}

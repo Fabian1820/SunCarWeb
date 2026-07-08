@@ -60,6 +60,7 @@ import {
 } from "lucide-react";
 import { ClienteService } from "@/lib/api-services";
 import { apiRequest } from "@/lib/api-config";
+import { compareStrings } from "@/lib/utils/string-utils";
 import MapPicker from "@/components/shared/organism/MapPickerNoSSR";
 import { ClienteDetallesDialog } from "@/components/feats/customer/cliente-detalles-dialog";
 import { useOfertasPersonalizadas } from "@/hooks/use-ofertas-personalizadas";
@@ -4881,7 +4882,10 @@ export function ClientsTable({
 
                             const sinComponentes = !inv && bats.length === 0 && !pan;
                             const enProceso = client.estado === "Instalación en Proceso";
-                            const faltaInfo = enProceso ? (
+                            const instaladoConFalta =
+                              compareStrings(client.estado || "", "Equipo instalado con éxito") &&
+                              !!client.falta_instalacion;
+                            const faltaInfo = enProceso || instaladoConFalta ? (
                               <div className="mt-1.5 inline-flex items-start gap-1 rounded bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 text-[12px] text-emerald-700">
                                 <span className="font-medium">Falta:</span>
                                 <span className="break-words">
