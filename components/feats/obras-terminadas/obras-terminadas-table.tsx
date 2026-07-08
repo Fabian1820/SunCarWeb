@@ -1060,6 +1060,7 @@ export function ObrasTerminadasTable({
         q: searchTerm.trim() || undefined,
         comercial: comercialFilter !== "todos" ? comercialFilter : undefined,
         estado_pago: estadoPago,
+        estado_factura: filtroFacturada !== "todos" ? filtroFacturada : undefined,
         fecha_creacion_desde: fechaCreacion.desde,
         fecha_creacion_hasta: fechaCreacion.hasta,
         fecha_equipo_desde: fechaEquipo.desde,
@@ -1067,7 +1068,7 @@ export function ObrasTerminadasTable({
       })
     }, 250)
     return () => clearTimeout(t)
-  }, [searchTerm, comercialFilter, estadoPago, filtroFechaCliente, filtroFechaEquipo, onServerFiltersChange])
+  }, [searchTerm, comercialFilter, estadoPago, filtroFacturada, filtroFechaCliente, filtroFechaEquipo, onServerFiltersChange])
 
   const comerciales = useMemo(() => {
     const set = new Set<string>()
@@ -1078,14 +1079,9 @@ export function ObrasTerminadasTable({
     return Array.from(set).sort((a, b) => a.localeCompare(b, "es"))
   }, [ofertasConPagos])
 
-  const filteredOfertas = useMemo(() => {
-    if (filtroFacturada === "todos") return ofertasConPagos
-    if (filtroFacturada === "sin_factura") return ofertasConPagos.filter((o) => !o.facturada)
-    if (filtroFacturada === "pagada")
-      return ofertasConPagos.filter((o) => o.facturada && (o.precio_final ?? 0) - (o.total_pagado ?? 0) <= 0.01)
-    // pendiente
-    return ofertasConPagos.filter((o) => o.facturada && (o.precio_final ?? 0) - (o.total_pagado ?? 0) > 0.01)
-  }, [ofertasConPagos, filtroFacturada])
+  // El filtro "Factura cliente" ahora se resuelve en el backend (para que afecte
+  // también la paginación y las exportaciones); la lista ya llega filtrada.
+  const filteredOfertas = ofertasConPagos
 
   if (loading)
     return (
@@ -1254,7 +1250,7 @@ export function ObrasTerminadasTable({
 
       {/* Contador de página */}
       <div className="text-sm text-gray-500 px-1">
-        Mostrando <strong>{filteredOfertas.length}</strong> de {ofertasConPagos.length} obras en esta página
+        Mostrando <strong>{ofertasConPagos.length}</strong> obras en esta página
       </div>
 
       {(filteredOfertas.length === 0 || ofertasConPagos.length === 0) ? (
