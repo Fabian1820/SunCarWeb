@@ -238,6 +238,15 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-emerald-600",
     href: "/clientes",
     grupo: "comercial-instaladora",
+    subPermisos: [
+      {
+        key: "costos-materiales-cliente",
+        label: "Ver costos de materiales (entregados/pendientes)",
+        descripcion:
+          "Muestra el costo de los materiales y los totales entregado/pendiente en el dashboard del carrito de clientes e instalaciones en proceso. ADITIVO: tener el módulo Clientes NO lo concede; hay que asignarlo explícitamente a quien pueda ver costos.",
+        aditivo: true,
+      },
+    ],
   },
   {
     key: "ofertas-gestion",

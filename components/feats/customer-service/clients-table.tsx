@@ -88,6 +88,7 @@ import type {
   OfertaPersonalizadaUpdateRequest,
 } from "@/lib/types/feats/ofertas-personalizadas/oferta-personalizada-types";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/auth-context";
 import type { Cliente, ClienteFoto } from "@/lib/api-types";
 import { extraerComponentesDeOfertaConfeccion } from "@/lib/utils/oferta-confeccion-items";
 
@@ -335,6 +336,34 @@ const formatOfertaMoney = (value?: number) =>
 const parseNumber = (value: unknown) => {
   const numberValue = Number(value);
   return Number.isFinite(numberValue) ? numberValue : 0;
+};
+
+// Costos de materiales entregados/pendientes (endpoint gateado
+// /entregas-materiales/cliente/{n}/costos). El costo es el WAC actual de
+// catálogo; sin_costo=true cuando el material no tiene costo cargado.
+type CostoItemEntregado = {
+  material_codigo?: string | null;
+  costo_unitario: number;
+  costo_entregado: number;
+  costo_pendiente: number;
+  sin_costo: boolean;
+};
+
+type CostoOfertaEntregado = {
+  id?: string | null;
+  numero_oferta?: string | null;
+  items: CostoItemEntregado[];
+  total_costo_entregado: number;
+  total_costo_pendiente: number;
+  adicionales_costo_entregado: number;
+};
+
+type CostosEntregadoData = {
+  cliente_numero: string;
+  ofertas: CostoOfertaEntregado[];
+  total_costo_entregado: number;
+  total_costo_pendiente: number;
+  hay_materiales_sin_costo: boolean;
 };
 
 const parseBoolean = (value: unknown) => {
@@ -588,6 +617,9 @@ export function ClientsTable({
   initialSearchTerm = "",
 }: ClientsTableProps) {
   const { toast } = useToast();
+  const { hasExactPermission } = useAuth();
+  // Subpermiso ADITIVO: solo quien lo tenga (o superAdmin) ve costos y totales.
+  const verCostos = hasExactPermission("costos-materiales-cliente");
   const {
     ofertas,
     loading: ofertasLoading,
@@ -708,6 +740,8 @@ export function ClientsTable({
   const [ofertasEquipoEntregado, setOfertasEquipoEntregado] = useState<
     OfertaConfeccion[]
   >([]);
+  const [costosEquipoEntregado, setCostosEquipoEntregado] =
+    useState<CostosEntregadoData | null>(null);
   const [ofertaEquipoEntregadoIndex, setOfertaEquipoEntregadoIndex] =
     useState(0);
   const [showEquiposEnServicioDialog, setShowEquiposEnServicioDialog] =
@@ -1748,6 +1782,7 @@ export function ClientsTable({
     setClientForEquipoEntregado(null);
     setLoadingEquipoEntregadoDialog(false);
     setOfertasEquipoEntregado([]);
+    setCostosEquipoEntregado(null);
     setOfertaEquipoEntregadoIndex(0);
   };
 
@@ -1767,12 +1802,20 @@ export function ClientsTable({
     setClientForEquipoEntregado(client);
     setLoadingEquipoEntregadoDialog(true);
     setOfertasEquipoEntregado([]);
+    setCostosEquipoEntregado(null);
     setOfertaEquipoEntregadoIndex(0);
 
     try {
-      const ofertasCliente = await cargarOfertasEntregasCliente(numeroCliente);
+      // Carga entregas y (si el usuario puede ver costos) los costos en paralelo.
+      const [ofertasCliente, costosCliente] = await Promise.all([
+        cargarOfertasEntregasCliente(numeroCliente),
+        verCostos
+          ? cargarCostosEntregasCliente(numeroCliente)
+          : Promise.resolve(null),
+      ]);
 
       setOfertasEquipoEntregado(ofertasCliente);
+      setCostosEquipoEntregado(costosCliente);
 
       const ofertaConEntregasIndex = ofertasCliente.findIndex((item) =>
         ofertaTieneEntregas(item),
@@ -1903,6 +1946,41 @@ export function ClientsTable({
     detalleItemsPendientesEquipo,
   ]);
 
+  // Costos de la oferta seleccionada (por id) + índice por código de material.
+  const costosOfertaSeleccionada = useMemo(() => {
+    if (
+      !verCostos ||
+      !costosEquipoEntregado ||
+      !ofertaEquipoEntregadoSeleccionada
+    ) {
+      return null;
+    }
+    const ofertaId = ofertaEquipoEntregadoSeleccionada.id;
+    const ofertas = costosEquipoEntregado.ofertas || [];
+    return (
+      ofertas.find(
+        (o) => o.id && ofertaId && String(o.id) === String(ofertaId),
+      ) ?? null
+    );
+  }, [verCostos, costosEquipoEntregado, ofertaEquipoEntregadoSeleccionada]);
+
+  const costoPorCodigoEquipo = useMemo(() => {
+    const map = new Map<string, CostoItemEntregado>();
+    if (!costosOfertaSeleccionada) return map;
+    for (const it of costosOfertaSeleccionada.items || []) {
+      const cod = String(it.material_codigo ?? "")
+        .trim()
+        .toLowerCase();
+      if (cod) map.set(cod, it);
+    }
+    return map;
+  }, [costosOfertaSeleccionada]);
+
+  const ofertaTieneMaterialesSinCosto = useMemo(() => {
+    if (!costosOfertaSeleccionada) return false;
+    return (costosOfertaSeleccionada.items || []).some((it) => it.sin_costo);
+  }, [costosOfertaSeleccionada]);
+
   const getFallbackServicioStatus = useCallback((client: Cliente) => {
     const rawClient = client as Cliente & Record<string, unknown>;
     if (
@@ -2012,6 +2090,27 @@ export function ClientsTable({
           : [];
     },
     [extraerOfertasDesdeRespuesta, obtenerOfertaPorCliente],
+  );
+
+  // Costos de materiales entregados/pendientes (endpoint gateado). Best-effort:
+  // si falla (p. ej. 403 sin permiso) devuelve null y el dashboard no se rompe.
+  const cargarCostosEntregasCliente = useCallback(
+    async (numeroCliente: string): Promise<CostosEntregadoData | null> => {
+      try {
+        const response = await apiRequest<{ data?: CostosEntregadoData }>(
+          `/entregas-materiales/cliente/${encodeURIComponent(
+            numeroCliente,
+          )}/costos`,
+          { method: "GET" },
+        );
+        const data = (response as { data?: CostosEntregadoData } | null)?.data;
+        return data && typeof data === "object" ? data : null;
+      } catch (error) {
+        console.warn("No se pudieron cargar los costos de entregas:", error);
+        return null;
+      }
+    },
+    [],
   );
 
   const buildServicioDraftFromOferta = useCallback(
@@ -5945,6 +6044,39 @@ export function ClientsTable({
                 </div>
               </div>
 
+              {verCostos && costosOfertaSeleccionada && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                    <p className="text-[11px] uppercase tracking-wide text-emerald-700">
+                      Total entregado (costo)
+                    </p>
+                    <p className="text-lg font-semibold text-emerald-800">
+                      $
+                      {formatOfertaMoney(
+                        costosOfertaSeleccionada.total_costo_entregado,
+                      )}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                    <p className="text-[11px] uppercase tracking-wide text-amber-700">
+                      Total pendiente (costo)
+                    </p>
+                    <p className="text-lg font-semibold text-amber-800">
+                      $
+                      {formatOfertaMoney(
+                        costosOfertaSeleccionada.total_costo_pendiente,
+                      )}
+                    </p>
+                  </div>
+                  {ofertaTieneMaterialesSinCosto && (
+                    <p className="col-span-2 text-[11px] text-slate-500">
+                      * Total parcial: hay materiales sin costo de catálogo (WAC
+                      actual).
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                 <Card className="border-emerald-200 bg-white shadow-sm">
                   <CardContent className="p-3 space-y-2.5">
@@ -5981,6 +6113,21 @@ export function ClientsTable({
                                   item.ultimaFechaEntrega?.toISOString(),
                                 )}
                               </p>
+                              {verCostos &&
+                                costosOfertaSeleccionada &&
+                                (() => {
+                                  const c = costoPorCodigoEquipo.get(
+                                    String(item.codigo).trim().toLowerCase(),
+                                  );
+                                  return (
+                                    <p className="text-xs font-semibold text-emerald-800">
+                                      Costo entregado:{" "}
+                                      {c && !c.sin_costo
+                                        ? `$${formatOfertaMoney(c.costo_entregado)}`
+                                        : "sin costo"}
+                                    </p>
+                                  );
+                                })()}
                             </div>
                           </div>
                         ))}
@@ -6019,6 +6166,21 @@ export function ClientsTable({
                             <p className="text-xs text-slate-600">
                               Código: {item.codigo}
                             </p>
+                            {verCostos &&
+                              costosOfertaSeleccionada &&
+                              (() => {
+                                const c = costoPorCodigoEquipo.get(
+                                  String(item.codigo).trim().toLowerCase(),
+                                );
+                                return (
+                                  <p className="text-xs font-semibold text-amber-800">
+                                    Costo pendiente:{" "}
+                                    {c && !c.sin_costo
+                                      ? `$${formatOfertaMoney(c.costo_pendiente)}`
+                                      : "sin costo"}
+                                  </p>
+                                );
+                              })()}
                           </div>
                         ))}
                       </div>
