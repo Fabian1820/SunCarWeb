@@ -16,7 +16,6 @@ import { useToast } from "@/hooks/use-toast"
 import { Loader2, Coins, Warehouse, Layers, Info, AlertTriangle, ExternalLink } from "lucide-react"
 import { KardexCostoService } from "@/lib/services/feats/kardex-costo/kardex-costo-service"
 import { InventarioService } from "@/lib/services/feats/inventario/inventario-service"
-import { FichaCostoService } from "@/lib/services/feats/fichas-costo/ficha-costo-service"
 
 export interface CostoMaterialRef {
   material_id: string
@@ -54,6 +53,7 @@ export function EstablecerCostoDialog({
   const [pendienteAbierta, setPendienteAbierta] = useState(false)
   const [comprasPendientes, setComprasPendientes] = useState<string[]>([])
   const [nuevoCosto, setNuevoCosto] = useState("")
+  const [motivo, setMotivo] = useState("")
   const [saving, setSaving] = useState(false)
 
   const analizar = useCallback(async (mat: CostoMaterialRef) => {
@@ -102,6 +102,7 @@ export function EstablecerCostoDialog({
       setAlmacenesConKardex(0)
       setPendienteAbierta(false)
       setComprasPendientes([])
+      setMotivo("")
     }
   }, [open, material, analizar])
 
@@ -115,8 +116,9 @@ export function EstablecerCostoDialog({
     setSaving(true)
     try {
       let msg = ""
+      const causa = motivo.trim() || undefined
       if (modo === "kardex") {
-        const r = await KardexCostoService.ajusteCosto([{ material_id: material.material_id, costo }])
+        const r = await KardexCostoService.ajusteCosto([{ material_id: material.material_id, costo, motivo: causa }])
         if (!r?.ajustados?.length && r?.con_pendiente?.length) {
           toast({
             title: "No se pudo ajustar",
@@ -127,18 +129,17 @@ export function EstablecerCostoDialog({
           return
         }
         const a = r?.ajustados?.[0]
-        const om = a?.almacenes_pendientes_omitidos
         msg = a
-          ? `Costo corregido en el kardex (ajuste en ${a.almacenes ?? 0} almacén/es${om ? `, ${om} pendiente(s) omitido(s)` : ""}).`
+          ? `Costo corregido en el kardex (ajuste en ${a.almacenes ?? 0} almacén/es).`
           : "El costo ya estaba en ese valor."
       } else if (modo === "saldo_inicial") {
-        const r = await KardexCostoService.saldoInicial([{ material_id: material.material_id, costo }])
+        const r = await KardexCostoService.saldoInicial([{ material_id: material.material_id, costo, motivo: causa }])
         const n = r?.sembrados?.length ?? 0
         msg = `Costo registrado como saldo inicial (${n} apertura/s de kardex).`
       } else {
-        if (!material.producto_id) throw new Error("No se pudo resolver el producto del material.")
-        await FichaCostoService.editPreciosCosto(material.producto_id, material.codigo, { costo })
-        msg = "Costo de referencia guardado en el catálogo."
+        // referencia: el costo no se define a mano (entra por compras). No debería
+        // llegar aquí porque el botón se oculta para materiales sin existencias.
+        return
       }
       toast({ title: "Costo actualizado", description: msg })
       onSaved()
@@ -170,8 +171,8 @@ export function EstablecerCostoDialog({
     return {
       icon: <Info className="h-4 w-4 text-gray-500" />,
       cls: "bg-gray-50 border-gray-200 text-gray-700",
-      titulo: "Costo de referencia",
-      texto: "Este material no tiene stock ni kardex. El costo se guarda como referencia en el catálogo (útil para cotizar). Cuando entre stock por una compra, el costo real de esa compra tomará el mando automáticamente.",
+      titulo: "El costo entra por compras",
+      texto: "Este material no tiene existencias ni kardex. Su costo se registra a través de una compra (al aprobar la entrada con su costo), no a mano aquí.",
     }
   })()
 
@@ -233,27 +234,48 @@ export function EstablecerCostoDialog({
               </div>
             )}
 
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-500">Costo actual</span>
-              <span className="font-semibold text-gray-900">{fmt(material.costo)}</span>
-            </div>
+            {modo !== "referencia" && !(modo === "kardex" && pendienteAbierta) && (
+              <>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500">Costo actual</span>
+                  <span className="font-semibold text-gray-900">{fmt(material.costo)}</span>
+                </div>
 
-            <div>
-              <Label htmlFor="nuevo-costo" className="text-sm font-medium text-gray-700 mb-1.5 block">
-                Nuevo costo
-              </Label>
-              <Input
-                id="nuevo-costo"
-                type="number"
-                step="0.01"
-                min="0"
-                value={nuevoCosto}
-                onChange={(e) => setNuevoCosto(e.target.value)}
-                placeholder="0.00"
-                disabled={saving}
-                autoFocus
-              />
-            </div>
+                <div>
+                  <Label htmlFor="nuevo-costo" className="text-sm font-medium text-gray-700 mb-1.5 block">
+                    Nuevo costo
+                  </Label>
+                  <Input
+                    id="nuevo-costo"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={nuevoCosto}
+                    onChange={(e) => setNuevoCosto(e.target.value)}
+                    placeholder="0.00"
+                    disabled={saving}
+                    autoFocus
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="motivo-costo" className="text-sm font-medium text-gray-700 mb-1.5 block">
+                    Motivo / causa <span className="text-gray-400 font-normal">(opcional)</span>
+                  </Label>
+                  <Input
+                    id="motivo-costo"
+                    type="text"
+                    value={motivo}
+                    onChange={(e) => setMotivo(e.target.value)}
+                    placeholder={modo === "kardex" ? "Ej: corrección de error de digitación" : "Ej: carga de costo inicial"}
+                    disabled={saving}
+                  />
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    Queda registrado en el kardex con tu usuario y la fecha.
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -263,7 +285,7 @@ export function EstablecerCostoDialog({
           </Button>
           <Button
             onClick={handleGuardar}
-            disabled={saving || modo === "cargando" || (modo === "kardex" && pendienteAbierta)}
+            disabled={saving || modo === "cargando" || modo === "referencia" || (modo === "kardex" && pendienteAbierta)}
             className="bg-amber-600 hover:bg-amber-700"
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}

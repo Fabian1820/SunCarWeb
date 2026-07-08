@@ -128,7 +128,7 @@ export class KardexCostoService {
    * Vía correcta para sembrar el costo de materiales con stock pero sin kardex.
    */
   static async saldoInicial(
-    items: { material_id: string; costo: number }[],
+    items: { material_id: string; costo: number; motivo?: string }[],
     dryRun = false,
   ): Promise<any> {
     const raw = await apiRequest<any>(`${BASE_ENDPOINT}/saldo-inicial`, {
@@ -145,7 +145,7 @@ export class KardexCostoService {
    * (crea filas ajuste_costo en todos sus almacenes) y sincroniza el catálogo.
    */
   static async ajusteCosto(
-    items: { material_id: string; costo: number }[],
+    items: { material_id: string; costo: number; motivo?: string }[],
     dryRun = false,
   ): Promise<any> {
     const raw = await apiRequest<any>(`${BASE_ENDPOINT}/ajuste-costo`, {
