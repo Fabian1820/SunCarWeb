@@ -19,6 +19,8 @@ export interface TrabajadorRRHH {
   departamento_nombre?: string | null
   telefono?: string
   foto_perfil?: string | null
+  pertenece_mipyme?: boolean
+  pertenece_tcp?: boolean
 }
 
 export interface IngresoMensual {
@@ -47,6 +49,8 @@ export interface ActualizarTrabajadorRRHHRequest {
   sede_id?: string | null
   departamento_id?: string | null
   telefono?: string
+  pertenece_mipyme?: boolean
+  pertenece_tcp?: boolean
 }
 
 export interface CrearTrabajadorRRHHRequest {
@@ -64,6 +68,8 @@ export interface CrearTrabajadorRRHHRequest {
   sede_id?: string | null
   departamento_id?: string | null
   telefono?: string
+  pertenece_mipyme?: boolean
+  pertenece_tcp?: boolean
 }
 
 export interface IngresoMensualRequest {

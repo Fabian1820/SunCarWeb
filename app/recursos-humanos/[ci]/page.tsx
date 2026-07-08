@@ -550,6 +550,18 @@ function TabLaboral({ emp, sedes, departamentos, onUpdate }: {
     setToggling(null)
   }
 
+  const toggleMipyme = async () => {
+    setToggling("pertenece_mipyme")
+    await onUpdate("pertenece_mipyme", !emp.pertenece_mipyme)
+    setToggling(null)
+  }
+
+  const toggleTcp = async () => {
+    setToggling("pertenece_tcp")
+    await onUpdate("pertenece_tcp", !emp.pertenece_tcp)
+    setToggling(null)
+  }
+
   const confirmarToggleActivo = async () => {
     setConfirmando(false)
     setToggling("activo")
@@ -608,6 +620,26 @@ function TabLaboral({ emp, sedes, departamentos, onUpdate }: {
               <option value="oficina">🏢 Oficina</option>
               <option value="brigadista">🪖 Brigadista</option>
             </select>
+          </div>
+
+          {/* Pertenencia a MIPYME / TCP */}
+          <div className="flex flex-wrap gap-3">
+            <CampoToggle
+              label="MIPYME"
+              value={emp.pertenece_mipyme === true}
+              onToggle={toggleMipyme}
+              activeLabel="Pertenece a MIPYME"
+              inactiveLabel="No pertenece a MIPYME"
+              saving={toggling === "pertenece_mipyme"}
+            />
+            <CampoToggle
+              label="TCP"
+              value={emp.pertenece_tcp === true}
+              onToggle={toggleTcp}
+              activeLabel="Pertenece a TCP"
+              inactiveLabel="No pertenece a TCP"
+              saving={toggling === "pertenece_tcp"}
+            />
           </div>
         </div>
 
@@ -964,6 +996,16 @@ export default function EmpleadoDetallePage() {
               {emp.is_brigadista && (
                 <Badge variant="outline" className="text-xs bg-[#F2C300]/20 text-[#7a5f00] border-[#F2C300]/60 hidden sm:flex">
                   <HardHat className="h-3 w-3 mr-1" /> Brigadista
+                </Badge>
+              )}
+              {emp.pertenece_mipyme && (
+                <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 hidden sm:flex">
+                  MIPYME
+                </Badge>
+              )}
+              {emp.pertenece_tcp && (
+                <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200 hidden sm:flex">
+                  TCP
                 </Badge>
               )}
             </div>

@@ -120,6 +120,8 @@ function EmpleadoRow({ emp }: { emp:TrabajadorRRHH }) {
           </Badge>
           {emp.is_brigadista  && <Badge variant="outline" className="text-xs bg-[#F2C300]/20 text-[#7a5f00] border-[#F2C300]/60">Brigadista</Badge>}
           {emp.tiene_contraseña && <Badge variant="outline" className="text-xs bg-[#0A052D]/10 text-[#0A052D] border-[#0A052D]/20">Acceso</Badge>}
+          {emp.pertenece_mipyme && <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">MIPYME</Badge>}
+          {emp.pertenece_tcp && <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200">TCP</Badge>}
         </div>
       </td>
     </tr>
