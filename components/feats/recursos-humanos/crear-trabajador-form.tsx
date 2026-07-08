@@ -63,6 +63,8 @@ export function CrearTrabajadorForm({
     sede_id: null,
     departamento_id: null,
     telefono: "",
+    pertenece_mipyme: false,
+    pertenece_tcp: false,
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -407,6 +409,34 @@ export function CrearTrabajadorForm({
             />
             <Label htmlFor="is_brigadista" className="font-normal cursor-pointer">
               Es brigadista (puede asignarse a brigadas)
+            </Label>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="pertenece_mipyme"
+              checked={formData.pertenece_mipyme || false}
+              onCheckedChange={(checked) =>
+                setFormData({ ...formData, pertenece_mipyme: checked as boolean })
+              }
+              disabled={submitting}
+            />
+            <Label htmlFor="pertenece_mipyme" className="font-normal cursor-pointer">
+              Pertenece a MIPYME
+            </Label>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="pertenece_tcp"
+              checked={formData.pertenece_tcp || false}
+              onCheckedChange={(checked) =>
+                setFormData({ ...formData, pertenece_tcp: checked as boolean })
+              }
+              disabled={submitting}
+            />
+            <Label htmlFor="pertenece_tcp" className="font-normal cursor-pointer">
+              Pertenece a TCP
             </Label>
           </div>
 
