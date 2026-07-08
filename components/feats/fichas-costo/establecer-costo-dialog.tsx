@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import {
   Dialog,
   DialogContent,
@@ -12,7 +13,7 @@ import { Button } from "@/components/shared/atom/button"
 import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, Coins, Warehouse, Layers, Info, AlertTriangle } from "lucide-react"
+import { Loader2, Coins, Warehouse, Layers, Info, AlertTriangle, ExternalLink } from "lucide-react"
 import { KardexCostoService } from "@/lib/services/feats/kardex-costo/kardex-costo-service"
 import { InventarioService } from "@/lib/services/feats/inventario/inventario-service"
 import { FichaCostoService } from "@/lib/services/feats/fichas-costo/ficha-costo-service"
@@ -46,10 +47,12 @@ export function EstablecerCostoDialog({
   onSaved: () => void
 }) {
   const { toast } = useToast()
+  const router = useRouter()
   const [modo, setModo] = useState<Modo>("cargando")
   const [stockTotal, setStockTotal] = useState(0)
   const [almacenesConKardex, setAlmacenesConKardex] = useState(0)
   const [pendienteAbierta, setPendienteAbierta] = useState(false)
+  const [comprasPendientes, setComprasPendientes] = useState<string[]>([])
   const [nuevoCosto, setNuevoCosto] = useState("")
   const [saving, setSaving] = useState(false)
 
@@ -66,6 +69,13 @@ export function EstablecerCostoDialog({
       const tieneKardex = historial.length > 0
       const almacenes = new Set(historial.map((k) => k.almacen_id)).size
       const pendiente = historial.some((k) => k.pendiente_costeo && !k.regularizada_por)
+      const compras = Array.from(
+        new Set(
+          historial
+            .filter((k) => k.pendiente_costeo && !k.regularizada_por && k.compra_id)
+            .map((k) => k.compra_id as string),
+        ),
+      )
       const lista: any[] = Array.isArray((stockRes as any)?.data) ? (stockRes as any).data : []
       const encontrado =
         lista.find((m) => mat.material_id && m.material_id === mat.material_id) ||
@@ -75,6 +85,7 @@ export function EstablecerCostoDialog({
       setStockTotal(total)
       setAlmacenesConKardex(almacenes)
       setPendienteAbierta(pendiente)
+      setComprasPendientes(compras)
       setModo(tieneKardex ? "kardex" : total > 0 ? "saldo_inicial" : "referencia")
       setNuevoCosto(typeof mat.costo === "number" && mat.costo > 0 ? String(mat.costo) : "")
     } catch {
@@ -90,6 +101,7 @@ export function EstablecerCostoDialog({
       setStockTotal(0)
       setAlmacenesConKardex(0)
       setPendienteAbierta(false)
+      setComprasPendientes([])
     }
   }, [open, material, analizar])
 
@@ -200,8 +212,24 @@ export function EstablecerCostoDialog({
                   Tiene entrada pendiente de costeo
                 </div>
                 <p className="text-xs mt-1 leading-relaxed">
-                  Uno o más almacenes tienen stock sin costear: esos NO se ajustan aquí (costea esa compra con ponderar / sincronizar). Si todos están pendientes, el ajuste se rechaza.
+                  Este material tiene stock sin costear, así que el ajuste completo no se aplica. Costea su compra (ponderar / sincronizar) desde la ficha de costo y vuelve.
                 </p>
+                {comprasPendientes.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {comprasPendientes.map((cid) => (
+                      <Button
+                        key={cid}
+                        size="sm"
+                        variant="outline"
+                        className="border-red-300 text-red-700 hover:bg-red-100"
+                        onClick={() => router.push(`/compras/${cid}/ficha-costo`)}
+                      >
+                        <ExternalLink className="h-3.5 w-3.5 mr-1" />
+                        Ir a costear la compra
+                      </Button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -235,7 +263,7 @@ export function EstablecerCostoDialog({
           </Button>
           <Button
             onClick={handleGuardar}
-            disabled={saving || modo === "cargando"}
+            disabled={saving || modo === "cargando" || (modo === "kardex" && pendienteAbierta)}
             className="bg-amber-600 hover:bg-amber-700"
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
