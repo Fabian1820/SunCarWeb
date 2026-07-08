@@ -64,6 +64,8 @@ export interface EntregaMaterial {
 export interface MaterialOferta {
   material_codigo?: string | null;
   descripcion?: string | null;
+  /** Nombre del material resuelto por el backend desde el catálogo. */
+  nombre?: string | null;
   categoria?: string | null;
   cantidad?: number | null;
   precio?: number | null;
