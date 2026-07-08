@@ -174,19 +174,15 @@ const normalizeMaterialCode = (value: string): string =>
   value.trim().toUpperCase();
 
 /**
- * Nombre del material a mostrar. El detalle embebido del vale solo trae
- * `material_descripcion` (el backend no proyecta el nombre); por eso se
- * prioriza el NOMBRE del catálogo por código y se cae a la descripción.
+ * Nombre del material a mostrar. El backend enriquece `material_nombre` desde el
+ * catálogo; se cae al nombre/descripción embebidos si no viniera.
  */
-const getMaterialNombre = (
-  material: ValeSalidaMaterialItemDetalle,
-  preciosByCodigo?: Map<string, MaterialPreciosVale>,
-): string => {
-  const catalogNombre = preciosByCodigo
-    ?.get(normalizeMaterialCode(getMaterialCode(material)))
-    ?.nombre;
+const getMaterialNombre = (material: ValeSalidaMaterialItemDetalle): string => {
+  const record = material as unknown as Record<string, unknown>;
+  const materialNombre =
+    typeof record.material_nombre === "string" ? record.material_nombre : "";
   return (
-    catalogNombre ||
+    materialNombre ||
     material.material?.nombre ||
     material.material?.descripcion ||
     material.material_descripcion ||
@@ -395,10 +391,7 @@ export class ExportValeSalidaService {
     const header = getValeHeaderInfo(vale);
     const cliente = getClienteInfo(vale);
     const materiales = vale.materiales || [];
-    const [stockByCode, preciosByCodigo] = await Promise.all([
-      loadStockByCode(vale),
-      loadPreciosByCodigo(),
-    ]);
+    const stockByCode = await loadStockByCode(vale);
 
     const marginLeft = 14;
     const marginRight = 14;
@@ -571,7 +564,7 @@ export class ExportValeSalidaService {
           ? materiales.map((material) => {
               return [
                 getMaterialCode(material),
-                getMaterialNombre(material, preciosByCodigo),
+                getMaterialNombre(material),
                 getMaterialUm(material),
                 String(material.cantidad || 0),
                 material.numero_serie || "-",
@@ -820,10 +813,7 @@ export class ExportValeSalidaService {
           : getMaterialPrice(material);
 
       worksheet.getCell(`A${currentRow}`).value = getMaterialCode(material);
-      worksheet.getCell(`B${currentRow}`).value = getMaterialNombre(
-        material,
-        preciosByCodigo,
-      );
+      worksheet.getCell(`B${currentRow}`).value = getMaterialNombre(material);
       worksheet.getCell(`E${currentRow}`).value = getMaterialUm(material);
       worksheet.getCell(`F${currentRow}`).value = Number(
         material.cantidad || 0,

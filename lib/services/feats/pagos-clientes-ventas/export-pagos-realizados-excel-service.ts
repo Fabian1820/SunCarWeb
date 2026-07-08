@@ -1,5 +1,4 @@
 import { PagoVentaService } from "./pago-cliente-venta-service";
-import { MaterialService } from "@/lib/api-services";
 import type {
   PagoVenta,
   PagoVentaListParams,
@@ -39,40 +38,17 @@ interface PagoVentaMaterialRaw {
   material_id?: string | null;
   codigo?: string | null;
   descripcion?: string | null;
+  /** Nombre del material resuelto por el backend desde el catálogo. */
+  nombre?: string | null;
   cantidad?: number | null;
 }
 
 /** `PagoVenta.materiales` está tipado como `string[] | string | null`, pero el
- * endpoint consolidado devuelve objetos `{ codigo, descripcion, cantidad, ... }`. */
+ * endpoint consolidado devuelve objetos `{ codigo, descripcion, nombre, cantidad, ... }`. */
 const getMaterialesRaw = (p: PagoVenta): PagoVentaMaterialRaw[] => {
   const raw = p.materiales as unknown;
   if (!Array.isArray(raw)) return [];
   return raw.filter((m): m is PagoVentaMaterialRaw => !!m && typeof m === "object");
-};
-
-interface CatalogoMaterial {
-  codigo: string;
-  nombre: string;
-}
-
-/**
- * Catálogo material_id -> {codigo, nombre}, igual que usa el export de vales
- * de salida, para rellenar código/nombre cuando el material embebido en la
- * solicitud no los trae (campos opcionales en el backend).
- */
-const buildCatalogoPorMaterialId = async (): Promise<Map<string, CatalogoMaterial>> => {
-  const map = new Map<string, CatalogoMaterial>();
-  try {
-    const materiales = await MaterialService.getAllMaterials();
-    for (const m of materiales) {
-      const key = m.material_id || m.id;
-      if (!key) continue;
-      map.set(key, { codigo: m.codigo || "", nombre: m.nombre || m.descripcion || "" });
-    }
-  } catch {
-    // Si falla el catálogo, se exporta solo con los datos embebidos en la solicitud.
-  }
-  return map;
 };
 
 export interface ExportPagosRealizadosResult {
@@ -90,15 +66,10 @@ export class ExportPagosRealizadosExcelService {
   static async exportar(
     filtros: PagoVentaListParams = {},
   ): Promise<ExportPagosRealizadosResult> {
-    const [pagos, catalogo] = await Promise.all([
-      this.fetchTodosLosPagos(filtros),
-      buildCatalogoPorMaterialId(),
-    ]);
+    const pagos = await this.fetchTodosLosPagos(filtros);
 
     const rows = pagos.map((p) => {
       const materiales = getMaterialesRaw(p);
-      const catalogoDe = (m: PagoVentaMaterialRaw): CatalogoMaterial | undefined =>
-        m.material_id ? catalogo.get(m.material_id) : undefined;
 
       return {
         fecha: fmtDate(p.fecha),
@@ -114,8 +85,8 @@ export class ExportPagosRealizadosExcelService {
         a_plazos: p.es_a_plazos ? "Sí" : "No",
         recibido_por: p.recibido_por || "",
         notas: p.notas || "",
-        material_codigo: materiales.map((m) => m.codigo || catalogoDe(m)?.codigo || ""),
-        material: materiales.map((m) => catalogoDe(m)?.nombre || m.descripcion || ""),
+        material_codigo: materiales.map((m) => m.codigo || ""),
+        material: materiales.map((m) => m.nombre || m.descripcion || ""),
         cantidad: materiales.map((m) => m.cantidad ?? 0),
       };
     });

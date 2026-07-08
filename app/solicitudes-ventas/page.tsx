@@ -859,6 +859,7 @@ const [exportingPagos, setExportingPagos]           = useState(false);
               material_codigo?: string;
               material_id?: string;
               material_descripcion?: string;
+              nombre?: string;
               cantidad?: number;
               precio?: number;
               subtotal?: number;
@@ -884,7 +885,8 @@ const [exportingPagos, setExportingPagos]           = useState(false);
                     material_codigo: mo.material_codigo || mo.codigo,
                     material_id: mo.material_id,
                     material_descripcion:
-                      mo.material_descripcion || mo.descripcion || mo.nombre || "",
+                      mo.material_descripcion || mo.descripcion || "",
+                    nombre: mo.nombre,
                     cantidad: mo.cantidad,
                     precio: mo.precio,
                     subtotal: mo.subtotal,
@@ -922,7 +924,7 @@ const [exportingPagos, setExportingPagos]           = useState(false);
           }
         }),
       );
-      await ExportFacturasExcelService.exportar(conPagos, {
+      ExportFacturasExcelService.exportar(conPagos, {
         fechaDesde: f4Desde || (f4Mes ? `${f4Mes}-01` : undefined),
         fechaHasta: f4Hasta || (f4Mes
           ? (() => {
