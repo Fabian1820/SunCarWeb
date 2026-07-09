@@ -383,12 +383,25 @@ function FichasCostoPageContent() {
     let cancel = false
     ;(async () => {
       try {
-        const res = await InventarioService.getMaterialesStock({ limit: 2000 })
+        // El endpoint valida limit <= 500, así que paginamos hasta traerlos todos.
+        // (Traer solo la primera página ocultaría el botón "Costo" a los materiales
+        // que quedaran fuera, porque no estarían en el mapa de stock.)
+        const PAGE = 500
         const map: Record<string, number> = {}
-        for (const it of ((res?.data ?? []) as any[])) {
-          const total = Number(it?.total ?? 0)
-          if (it?.material_id) map[String(it.material_id)] = total
-          if (it?.codigo != null) map[`c:${String(it.codigo)}`] = total
+        let skip = 0
+        let total = Number.POSITIVE_INFINITY
+        let guard = 0
+        while (!cancel && skip < total && guard++ < 20) {
+          const res: any = await InventarioService.getMaterialesStock({ skip, limit: PAGE })
+          const lote: any[] = Array.isArray(res?.data) ? res.data : []
+          if (typeof res?.total === "number") total = res.total
+          for (const it of lote) {
+            const t = Number(it?.total ?? 0)
+            if (it?.material_id) map[String(it.material_id)] = t
+            if (it?.codigo != null) map[`c:${String(it.codigo)}`] = t
+          }
+          if (lote.length === 0) break
+          skip += lote.length
         }
         if (!cancel) {
           setStockPorMaterial(map)
