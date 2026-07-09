@@ -535,9 +535,40 @@ const mapItemsFromOfertaRaw = (ofertaRaw: unknown): FacturaValeItem[] => {
     .filter((item): item is FacturaValeItem => item !== null);
 };
 
-const getOfertaDataParaFactura = async (
+const esOfertaConfirmada = (oferta: Record<string, unknown>) => {
+  const estado = normalizeKey(String(oferta.estado || oferta.status || ""));
+  return estado.includes("confirmada_por_cliente") || estado.includes("confirmada_cliente");
+};
+
+const ofertaTieneComponentesPrincipales = (oferta: Record<string, unknown>) => {
+  const inv = parseNumero(oferta.inversor_cantidad);
+  const bat = parseNumero(oferta.bateria_cantidad);
+  const pan = parseNumero(oferta.panel_cantidad);
+  if (inv > 0 || bat > 0 || pan > 0) return true;
+  return mapItemsFromOfertaRaw(oferta).length > 0;
+};
+
+const fechaOfertaMs = (oferta: Record<string, unknown>) => {
+  const raw = oferta.fecha_creacion || oferta.fecha_actualizacion || oferta.created_at;
+  const t = raw ? new Date(String(raw)).getTime() : NaN;
+  return Number.isFinite(t) ? t : 0;
+};
+
+const ofertaIdRaw = (oferta: Record<string, unknown>) =>
+  String(oferta.id || oferta._id || "").trim();
+
+/**
+ * Trae las ofertas de confección CONFIRMADAS de un cliente (nunca se
+ * incluyen ofertas sin confirmar, ni siquiera como respaldo), ordenadas de
+ * más reciente a más antigua. Dentro de las confirmadas se priorizan las que
+ * tienen componentes principales. NO elige una sola — eso lo decide quien la
+ * llama: automático si solo hay una candidata, o con un selector si hay
+ * varias. Si no hay ninguna confirmada, devuelve un array vacío (el llamador
+ * sigue con otros fallbacks, pero nunca mostrará una oferta sin confirmar).
+ */
+const fetchOfertasCandidatasCliente = async (
   clienteNumero: string,
-): Promise<OfertaFacturaData> => {
+): Promise<Record<string, unknown>[]> => {
   const endpoint = `/ofertas/confeccion/cliente/${encodeURIComponent(clienteNumero)}`;
   const response = await apiRequest<unknown>(endpoint, { method: "GET" });
   const ofertas = extractArray(response);
@@ -546,58 +577,34 @@ const getOfertaDataParaFactura = async (
       !!ofertaRaw && typeof ofertaRaw === "object",
   );
 
-  const esConfirmada = (oferta: Record<string, unknown>) => {
-    const estado = normalizeKey(String(oferta.estado || oferta.status || ""));
-    return estado.includes("confirmada_por_cliente") || estado.includes("confirmada_cliente");
-  };
+  const confirmadas = ofertasValidas.filter(esOfertaConfirmada);
+  const confirmadasConComponentes = confirmadas.filter(ofertaTieneComponentesPrincipales);
 
-  const tieneComponentesPrincipales = (oferta: Record<string, unknown>) => {
-    const inv = parseNumero(oferta.inversor_cantidad);
-    const bat = parseNumero(oferta.bateria_cantidad);
-    const pan = parseNumero(oferta.panel_cantidad);
-    if (inv > 0 || bat > 0 || pan > 0) return true;
-    return mapItemsFromOfertaRaw(oferta).length > 0;
-  };
-
-  const fechaOferta = (oferta: Record<string, unknown>) => {
-    const raw = oferta.fecha_creacion || oferta.fecha_actualizacion || oferta.created_at;
-    const t = raw ? new Date(String(raw)).getTime() : NaN;
-    return Number.isFinite(t) ? t : 0;
-  };
-
-  const masReciente = (
-    lista: Record<string, unknown>[],
-  ): Record<string, unknown> | null =>
-    lista.reduce<Record<string, unknown> | null>(
-      (best, oferta) => (!best || fechaOferta(oferta) > fechaOferta(best) ? oferta : best),
-      null,
-    );
-
-  const confirmadas = ofertasValidas.filter(esConfirmada);
-  const confirmadasConComponentes = confirmadas.filter(tieneComponentesPrincipales);
-  // Se usa UNA sola oferta (no se mezclan materiales de varias): preferimos
-  // confirmadas con componentes; si hay más de una, la más reciente.
   const candidatas =
-    confirmadasConComponentes.length > 0
-      ? confirmadasConComponentes
-      : confirmadas.length > 0
-        ? confirmadas
-        : ofertasValidas;
+    confirmadasConComponentes.length > 0 ? confirmadasConComponentes : confirmadas;
 
-  const ofertaSeleccionada = masReciente(candidatas);
+  return [...candidatas].sort((a, b) => fechaOfertaMs(b) - fechaOfertaMs(a));
+};
 
-  const items: FacturaValeItem[] = ofertaSeleccionada
-    ? mapItemsFromOfertaRaw(ofertaSeleccionada)
-    : [];
-  let precioFinalUsd = ofertaSeleccionada
-    ? parseNumero(ofertaSeleccionada.precio_final || ofertaSeleccionada.precio || 0)
+const ofertaRawToFacturaData = (
+  oferta: Record<string, unknown> | null,
+): OfertaFacturaData => {
+  const items: FacturaValeItem[] = oferta ? mapItemsFromOfertaRaw(oferta) : [];
+  let precioFinalUsd = oferta
+    ? parseNumero(oferta.precio_final || oferta.precio || 0)
     : 0;
-
   if (precioFinalUsd <= 0) {
     precioFinalUsd = sumItemsTotalUsd(items);
   }
-
   return { items, precioFinalUsd };
+};
+
+const ofertaPickerLabel = (oferta: Record<string, unknown>, index: number) => {
+  const numero = String(oferta.numero_oferta || oferta.numero || "").trim();
+  const fechaRaw = oferta.fecha_creacion || oferta.fecha_actualizacion;
+  const fecha = fechaRaw ? formatDate(String(fechaRaw)) : "";
+  const base = numero || `Oferta ${index + 1}`;
+  return fecha ? `${base} — ${fecha}` : base;
 };
 
 const getOfertaDataPorReferencia = async (
@@ -707,6 +714,10 @@ function FacturasSolarCarrosPageContent() {
   const [loadedFacturas, setLoadedFacturas] = useState(false);
   const [creatingClienteKey, setCreatingClienteKey] = useState<string | null>(null);
   const [creatingVentaKey, setCreatingVentaKey] = useState<string | null>(null);
+  const [ofertaPickerOpen, setOfertaPickerOpen] = useState(false);
+  const [ofertaPickerRow, setOfertaPickerRow] = useState<InstaladoraRow | null>(null);
+  const [ofertaPickerCandidatas, setOfertaPickerCandidatas] = useState<Record<string, unknown>[]>([]);
+  const [ofertaPickerSeleccionId, setOfertaPickerSeleccionId] = useState<string>("");
   const [instaladoraRows, setInstaladoraRows] = useState<InstaladoraRow[]>([]);
   const [facturasSolar, setFacturasSolar] = useState<FacturaSolarCarroView[]>([]);
   const [facturaVista, setFacturaVista] = useState<FacturaSolarCarroView | null>(null);
@@ -946,26 +957,26 @@ function FacturasSolarCarrosPageContent() {
     setPreviewOpen(true);
   };
 
-  const handleGenerarFacturaInstaladora = async (row: InstaladoraRow) => {
+  /**
+   * Continúa la generación de la factura ya sabiendo qué oferta usar
+   * (`ofertaElegida`, o null si no se encontró/eligió ninguna). Se separa de
+   * `handleGenerarFacturaInstaladora` porque cuando el cliente tiene más de
+   * una oferta confirmada, primero hay que preguntarle al usuario cuál usar.
+   */
+  const continuarGenerarFacturaInstaladora = async (
+    row: InstaladoraRow,
+    ofertaElegida: Record<string, unknown> | null,
+  ) => {
     const key = row.cliente.numero || row.cliente.id || row.cliente.nombre;
     setCreatingClienteKey(key);
 
     try {
-      const clienteNumero = String(row.cliente.numero || "").trim();
-      let ofertaData: OfertaFacturaData = { items: [], precioFinalUsd: 0 };
+      let ofertaData = ofertaRawToFacturaData(ofertaElegida);
 
-      if (clienteNumero && !clienteNumero.startsWith("INST-")) {
-        try {
-          ofertaData = await getOfertaDataParaFactura(clienteNumero);
-        } catch {
-          // Si falla lookup de oferta por cliente, probamos por id/número de oferta.
-        }
-      }
-
-      // El lookup por número de cliente puede no encontrar la oferta (o
-      // encontrarla sin items). Si tenemos el id/número de la oferta de
-      // confección asociada, la traemos directo — trae TODOS sus materiales,
-      // no solo los principales (a diferencia del fallback de más abajo).
+      // Si no se encontró ninguna oferta por número de cliente (o llegó sin
+      // items). Si tenemos el id/número de la oferta de confección asociada,
+      // la traemos directo — trae TODOS sus materiales, no solo los
+      // principales (a diferencia del fallback de más abajo).
       if (ofertaData.items.length === 0) {
         const referenciaOferta = row.ofertaConfeccionId || row.ofertaConfeccionNumero;
         if (referenciaOferta) {
@@ -1025,6 +1036,49 @@ function FacturasSolarCarrosPageContent() {
     } finally {
       setCreatingClienteKey(null);
     }
+  };
+
+  const handleGenerarFacturaInstaladora = async (row: InstaladoraRow) => {
+    const clienteNumero = String(row.cliente.numero || "").trim();
+    let candidatas: Record<string, unknown>[] = [];
+
+    if (clienteNumero && !clienteNumero.startsWith("INST-")) {
+      const key = row.cliente.numero || row.cliente.id || row.cliente.nombre;
+      setCreatingClienteKey(key);
+      try {
+        candidatas = await fetchOfertasCandidatasCliente(clienteNumero);
+      } catch {
+        // Sin candidatas por este camino, se sigue con los fallbacks.
+      } finally {
+        setCreatingClienteKey(null);
+      }
+    }
+
+    if (candidatas.length > 1) {
+      setOfertaPickerRow(row);
+      setOfertaPickerCandidatas(candidatas);
+      setOfertaPickerSeleccionId(ofertaIdRaw(candidatas[0]));
+      setOfertaPickerOpen(true);
+      return;
+    }
+
+    await continuarGenerarFacturaInstaladora(row, candidatas[0] || null);
+  };
+
+  const handleConfirmarOfertaPicker = async () => {
+    if (!ofertaPickerRow) return;
+    const row = ofertaPickerRow;
+    const elegida =
+      ofertaPickerCandidatas.find((o) => ofertaIdRaw(o) === ofertaPickerSeleccionId) ||
+      ofertaPickerCandidatas[0] ||
+      null;
+
+    setOfertaPickerOpen(false);
+    setOfertaPickerRow(null);
+    setOfertaPickerCandidatas([]);
+    setOfertaPickerSeleccionId("");
+
+    await continuarGenerarFacturaInstaladora(row, elegida);
   };
 
   const handleGenerarFacturaVentas = async (row: VentasFacturaRow) => {
@@ -2666,6 +2720,49 @@ function FacturasSolarCarrosPageContent() {
           </CardContent>
         </Card>
       </main>
+
+      <Dialog
+        open={ofertaPickerOpen}
+        onOpenChange={(open) => {
+          setOfertaPickerOpen(open);
+          if (!open) {
+            setOfertaPickerRow(null);
+            setOfertaPickerCandidatas([]);
+            setOfertaPickerSeleccionId("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Elegir oferta a facturar</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-gray-600">
+              {ofertaPickerRow?.cliente.nombre} tiene más de una oferta confirmada.
+              Elige cuál facturar.
+            </p>
+            <select
+              className="w-full border rounded-md px-3 py-2 text-sm"
+              value={ofertaPickerSeleccionId}
+              onChange={(e) => setOfertaPickerSeleccionId(e.target.value)}
+            >
+              {ofertaPickerCandidatas.map((oferta, index) => (
+                <option key={ofertaIdRaw(oferta) || index} value={ofertaIdRaw(oferta)}>
+                  {ofertaPickerLabel(oferta, index)}
+                </option>
+              ))}
+            </select>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setOfertaPickerOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={() => void handleConfirmarOfertaPicker()}>
+                Continuar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="w-[96vw] max-w-[1500px] max-h-[95vh] overflow-y-auto">
