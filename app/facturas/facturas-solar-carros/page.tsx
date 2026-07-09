@@ -56,6 +56,8 @@ interface InstaladoraRow {
   componentesPrincipales: string[];
   ultimaFechaValeSalida: string | null;
   ofertaItems: FacturaValeItem[];
+  ofertaConfeccionId: string | null;
+  ofertaConfeccionNumero: string | null;
 }
 
 
@@ -557,26 +559,61 @@ const getOfertaDataParaFactura = async (
     return mapItemsFromOfertaRaw(oferta).length > 0;
   };
 
+  const fechaOferta = (oferta: Record<string, unknown>) => {
+    const raw = oferta.fecha_creacion || oferta.fecha_actualizacion || oferta.created_at;
+    const t = raw ? new Date(String(raw)).getTime() : NaN;
+    return Number.isFinite(t) ? t : 0;
+  };
+
+  const masReciente = (
+    lista: Record<string, unknown>[],
+  ): Record<string, unknown> | null =>
+    lista.reduce<Record<string, unknown> | null>(
+      (best, oferta) => (!best || fechaOferta(oferta) > fechaOferta(best) ? oferta : best),
+      null,
+    );
+
   const confirmadas = ofertasValidas.filter(esConfirmada);
   const confirmadasConComponentes = confirmadas.filter(tieneComponentesPrincipales);
-  const seleccionadas =
+  // Se usa UNA sola oferta (no se mezclan materiales de varias): preferimos
+  // confirmadas con componentes; si hay más de una, la más reciente.
+  const candidatas =
     confirmadasConComponentes.length > 0
       ? confirmadasConComponentes
       : confirmadas.length > 0
         ? confirmadas
         : ofertasValidas;
 
-  const items: FacturaValeItem[] = [];
-  let precioFinalUsd = 0;
+  const ofertaSeleccionada = masReciente(candidatas);
 
-  seleccionadas.forEach((oferta) => {
-    items.push(...mapItemsFromOfertaRaw(oferta));
-    precioFinalUsd += parseNumero(oferta.precio_final || oferta.precio || 0);
-  });
+  const items: FacturaValeItem[] = ofertaSeleccionada
+    ? mapItemsFromOfertaRaw(ofertaSeleccionada)
+    : [];
+  let precioFinalUsd = ofertaSeleccionada
+    ? parseNumero(ofertaSeleccionada.precio_final || ofertaSeleccionada.precio || 0)
+    : 0;
 
   if (precioFinalUsd <= 0) {
     precioFinalUsd = sumItemsTotalUsd(items);
   }
+
+  return { items, precioFinalUsd };
+};
+
+const getOfertaDataPorReferencia = async (
+  referencia: string,
+): Promise<OfertaFacturaData> => {
+  const endpoint = `/ofertas/confeccion/${encodeURIComponent(referencia)}`;
+  const response = await apiRequest<unknown>(endpoint, { method: "GET" });
+
+  const obj =
+    response && typeof response === "object" ? (response as Record<string, unknown>) : {};
+  const ofertaRaw =
+    obj.data && typeof obj.data === "object" ? (obj.data as Record<string, unknown>) : obj;
+
+  const items = mapItemsFromOfertaRaw(ofertaRaw);
+  const precioFinalUsd =
+    parseNumero(ofertaRaw.precio_final || ofertaRaw.precio) || sumItemsTotalUsd(items);
 
   return { items, precioFinalUsd };
 };
@@ -834,6 +871,8 @@ function FacturasSolarCarrosPageContent() {
         },
         componentesPrincipales: labels,
         ofertaItems: items,
+        ofertaConfeccionId: String(item.oferta_confeccion?.id || "").trim() || null,
+        ofertaConfeccionNumero: String(item.oferta_confeccion?.numero_oferta || "").trim() || null,
         ultimaFechaValeSalida: item.fecha_ultimo_vale_salida || null,
       };
     });
@@ -919,7 +958,22 @@ function FacturasSolarCarrosPageContent() {
         try {
           ofertaData = await getOfertaDataParaFactura(clienteNumero);
         } catch {
-          // Si falla lookup de oferta por cliente, usamos componentes del endpoint nuevo.
+          // Si falla lookup de oferta por cliente, probamos por id/número de oferta.
+        }
+      }
+
+      // El lookup por número de cliente puede no encontrar la oferta (o
+      // encontrarla sin items). Si tenemos el id/número de la oferta de
+      // confección asociada, la traemos directo — trae TODOS sus materiales,
+      // no solo los principales (a diferencia del fallback de más abajo).
+      if (ofertaData.items.length === 0) {
+        const referenciaOferta = row.ofertaConfeccionId || row.ofertaConfeccionNumero;
+        if (referenciaOferta) {
+          try {
+            ofertaData = await getOfertaDataPorReferencia(referenciaOferta);
+          } catch {
+            // Si también falla, seguimos con los fallbacks de componentes principales.
+          }
         }
       }
 
