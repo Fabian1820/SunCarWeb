@@ -32,6 +32,7 @@ export interface ObraTerminada {
   almacen_nombre?: string | null;
   facturada?: boolean | null;
   numero_factura?: string | null;
+  fecha_facturacion?: string | null;
   /** Materiales de la oferta, embebidos directamente en el listado (igual que vales de salida). */
   materiales?: MaterialOferta[] | null;
 }
@@ -175,11 +176,13 @@ export interface ObrasTerminadasFiltros {
   comercial?: string;
   q?: string;
   estado_pago?: "todos" | "pagado" | "pendiente";
-  estado_factura?: "todos" | "pagada" | "pendiente" | "sin_factura";
+  estado_factura?: "todos" | "facturada" | "pagada" | "pendiente" | "sin_factura";
   fecha_creacion_desde?: string;
   fecha_creacion_hasta?: string;
   fecha_equipo_desde?: string;
   fecha_equipo_hasta?: string;
+  fecha_facturacion_desde?: string;
+  fecha_facturacion_hasta?: string;
 }
 
 /* ── Servicio ───────────────────────────────────────────────────────── */
@@ -204,6 +207,8 @@ export const ObrasTerminadasService = {
     if (filtros.fecha_creacion_hasta)  params.set("fecha_creacion_hasta", filtros.fecha_creacion_hasta);
     if (filtros.fecha_equipo_desde)    params.set("fecha_equipo_desde", filtros.fecha_equipo_desde);
     if (filtros.fecha_equipo_hasta)    params.set("fecha_equipo_hasta", filtros.fecha_equipo_hasta);
+    if (filtros.fecha_facturacion_desde) params.set("fecha_facturacion_desde", filtros.fecha_facturacion_desde);
+    if (filtros.fecha_facturacion_hasta) params.set("fecha_facturacion_hasta", filtros.fecha_facturacion_hasta);
     const qs = params.toString();
     const url = qs ? `${BASE}/datos?${qs}` : `${BASE}/datos`;
     return apiRequest<ObrasTerminadasListResponse>(url, { method: "GET", signal });

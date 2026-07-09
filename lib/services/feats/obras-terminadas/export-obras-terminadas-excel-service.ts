@@ -53,15 +53,19 @@ export class ExportObrasTerminadasExcelService {
    * pantalla. Una fila por obra; el código, nombre y cantidad de cada
    * material se apilan dentro de esa misma fila (igual que el export de
    * vales de salida), sin repetir cliente ni el resto de columnas.
+   *
+   * Con `incluirMateriales: false` genera exactamente el mismo Excel pero
+   * sin las columnas de materiales (Código, Material, Cantidad).
    */
   static async exportar(
     filtros: ObrasTerminadasFiltros = {},
+    opciones: { incluirMateriales?: boolean } = {},
   ): Promise<ExportObrasTerminadasResult> {
+    const incluirMateriales = opciones.incluirMateriales ?? true;
     const obras = await this.fetchTodasLasObras(filtros);
 
     const rows = obras.map((obra) => {
-      const materiales = obra.materiales ?? [];
-      return {
+      const base = {
         cliente: obra.cliente_nombre || obra.nombre_completo || "Sin cliente",
         numero_oferta: obra.numero_oferta || "",
         comercial: obra.comercial || "",
@@ -74,40 +78,64 @@ export class ExportObrasTerminadasExcelService {
         monto_pendiente: round2(obra.monto_pendiente),
         facturada: obra.facturada ? "Sí" : "No",
         numero_factura: obra.numero_factura || "",
+      };
+
+      if (!incluirMateriales) return base;
+
+      const materiales = obra.materiales ?? [];
+      return {
+        ...base,
         material_codigo: materiales.map((m) => m.material_codigo || ""),
         material: materiales.map((m) => m.nombre || m.descripcion || ""),
         cantidad: materiales.map((m) => m.cantidad ?? 0),
       };
     });
 
-    const filename = generateFilename("obras_terminadas");
+    const filename = generateFilename(
+      incluirMateriales ? "obras_terminadas" : "obras_terminadas_sin_materiales",
+    );
+
+    const columnasBase = [
+      { header: "Cliente", key: "cliente", width: 28 },
+      { header: "N° Oferta", key: "numero_oferta", width: 16 },
+      { header: "Comercial", key: "comercial", width: 20 },
+      { header: "Estado Cliente", key: "estado_cliente", width: 24 },
+      { header: "F. Creación", key: "fecha_creacion", width: 14 },
+      { header: "F. Eq. Instalado", key: "fecha_equipo_instalado", width: 16 },
+      { header: "Precio Oferta", key: "precio_final", width: 14 },
+      { header: "Cobrado", key: "total_pagado", width: 14 },
+      { header: "Devuelto", key: "total_devuelto", width: 14 },
+      { header: "Pendiente", key: "monto_pendiente", width: 14 },
+      { header: "Facturada", key: "facturada", width: 12 },
+      { header: "N° Factura", key: "numero_factura", width: 16 },
+    ];
 
     await exportToExcel({
       title: "Suncar SRL - Obras Terminadas",
       subtitle: `Registros: ${obras.length}`,
       filename,
-      columns: [
-        { header: "Cliente", key: "cliente", width: 28 },
-        { header: "N° Oferta", key: "numero_oferta", width: 16 },
-        { header: "Comercial", key: "comercial", width: 20 },
-        { header: "Estado Cliente", key: "estado_cliente", width: 24 },
-        { header: "F. Creación", key: "fecha_creacion", width: 14 },
-        { header: "F. Eq. Instalado", key: "fecha_equipo_instalado", width: 16 },
-        { header: "Precio Oferta", key: "precio_final", width: 14 },
-        { header: "Cobrado", key: "total_pagado", width: 14 },
-        { header: "Devuelto", key: "total_devuelto", width: 14 },
-        { header: "Pendiente", key: "monto_pendiente", width: 14 },
-        { header: "Facturada", key: "facturada", width: 12 },
-        { header: "N° Factura", key: "numero_factura", width: 16 },
-        { header: "Código", key: "material_codigo", width: 16 },
-        { header: "Material", key: "material", width: 36 },
-        { header: "Cantidad", key: "cantidad", width: 10 },
-      ],
+      columns: incluirMateriales
+        ? [
+            ...columnasBase,
+            { header: "Código", key: "material_codigo", width: 16 },
+            { header: "Material", key: "material", width: 36 },
+            { header: "Cantidad", key: "cantidad", width: 10 },
+          ]
+        : columnasBase,
       data: rows,
-      stackedColumnKeys: ["material_codigo", "material", "cantidad"],
+      stackedColumnKeys: incluirMateriales
+        ? ["material_codigo", "material", "cantidad"]
+        : undefined,
     });
 
     return { count: obras.length, filename };
+  }
+
+  /** Exactamente el mismo Excel que `exportar`, pero sin las columnas de materiales. */
+  static async exportarSinMateriales(
+    filtros: ObrasTerminadasFiltros = {},
+  ): Promise<ExportObrasTerminadasResult> {
+    return this.exportar(filtros, { incluirMateriales: false });
   }
 
   private static async fetchTodasLasObras(

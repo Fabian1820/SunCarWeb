@@ -1,22 +1,49 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/shared/atom/button"
-import { ArrowLeft, RefreshCw, HardHat, AlertCircle, ChevronLeft, ChevronRight, FileDown, FileSpreadsheet, Loader2 } from "lucide-react"
+import { Input } from "@/components/shared/molecule/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/shared/atom/select"
+import {
+  ArrowLeft,
+  RefreshCw,
+  HardHat,
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  FileDown,
+  FileSpreadsheet,
+  FileText,
+  Loader2,
+  FilterX,
+} from "lucide-react"
 import { useObrasTerminadas } from "@/hooks/use-obras-terminadas"
 import { ObrasTerminadasTable } from "@/components/feats/obras-terminadas/obras-terminadas-table"
+import { FacturasObrasTerminadasTable } from "@/components/feats/obras-terminadas/facturas-obras-terminadas-table"
 import type { ObrasTerminadasFiltros } from "@/lib/services/feats/obras-terminadas/obras-terminadas-service"
 import { ObrasTerminadasService } from "@/lib/services/feats/obras-terminadas/obras-terminadas-service"
 import { ExportFacturaClienteService } from "@/lib/services/feats/obras-terminadas/export-factura-cliente-service"
 import { ExportObrasTerminadasExcelService } from "@/lib/services/feats/obras-terminadas/export-obras-terminadas-excel-service"
 import { useToast } from "@/hooks/use-toast"
 
+type Vista = "obras" | "facturas"
+
 export default function ObrasTerminadasPage() {
+  const [vista, setVista] = useState<Vista>("obras")
+  const { toast } = useToast()
+
+  /* ── Vista: Obras (tabla original, sin cambios) ─────────────────────── */
   const [serverFiltros, setServerFiltros] = useState<ObrasTerminadasFiltros>({})
   const [exportingAll, setExportingAll] = useState(false)
   const [exportingExcel, setExportingExcel] = useState(false)
-  const { toast } = useToast()
+  const [exportingExcelSinMateriales, setExportingExcelSinMateriales] = useState(false)
 
   const {
     ofertasConPagos, loading, error, fetchData,
@@ -26,8 +53,8 @@ export default function ObrasTerminadasPage() {
   } = useObrasTerminadas()
 
   useEffect(() => {
-    fetchData(serverFiltros, 0)
-  }, [fetchData, serverFiltros])
+    if (vista === "obras") fetchData(serverFiltros, 0)
+  }, [fetchData, serverFiltros, vista])
 
   const handleServerFiltersChange = useCallback((next: ObrasTerminadasFiltros) => {
     setServerFiltros(next)
@@ -36,7 +63,6 @@ export default function ObrasTerminadasPage() {
   const handleExportarTodasPDF = useCallback(async () => {
     setExportingAll(true)
     try {
-      // Traer TODOS los resultados filtrados paginando de a 500 (límite backend)
       const PAGE_SIZE = 500
       let allData: typeof ofertasConPagos = []
       let skip = 0
@@ -71,7 +97,7 @@ export default function ObrasTerminadasPage() {
     } finally {
       setExportingAll(false)
     }
-  }, [serverFiltros, total])
+  }, [serverFiltros])
 
   const handleExportarExcel = useCallback(async () => {
     setExportingExcel(true)
@@ -91,6 +117,118 @@ export default function ObrasTerminadasPage() {
       setExportingExcel(false)
     }
   }, [serverFiltros, toast])
+
+  const handleExportarExcelSinMateriales = useCallback(async () => {
+    setExportingExcelSinMateriales(true)
+    try {
+      const resultado = await ExportObrasTerminadasExcelService.exportarSinMateriales(serverFiltros)
+      toast({
+        title: "Exportación exitosa",
+        description: `${resultado.count} obra${resultado.count === 1 ? "" : "s"} exportada${resultado.count === 1 ? "" : "s"} a ${resultado.filename}.xlsx`,
+      })
+    } catch (error) {
+      toast({
+        title: "Error al exportar",
+        description: error instanceof Error ? error.message : "No se pudo generar el archivo Excel",
+        variant: "destructive",
+      })
+    } finally {
+      setExportingExcelSinMateriales(false)
+    }
+  }, [serverFiltros, toast])
+
+  /* ── Vista: Facturas de obras terminadas ─────────────────────────────── */
+  const [fSearch, setFSearch] = useState("")
+  const [fComercial, setFComercial] = useState("")
+  const [fEstado, setFEstado] = useState<"" | "pagada" | "pendiente">("")
+  const [fDesde, setFDesde] = useState("")
+  const [fHasta, setFHasta] = useState("")
+  const [exportingAllFacturas, setExportingAllFacturas] = useState(false)
+  const [exportingExcelFacturas, setExportingExcelFacturas] = useState(false)
+
+  const {
+    ofertasConPagos: facturas,
+    loading: loadingFacturas,
+    error: errorFacturas,
+    fetchData: fetchFacturas,
+    page: pageFacturas,
+    total: totalFacturas,
+    totales: totalesFacturas,
+    totalPages: totalPagesFacturas,
+    goToPage: goToPageFacturas,
+  } = useObrasTerminadas()
+
+  const facturasServerFiltros = useMemo<ObrasTerminadasFiltros>(() => ({
+    q: fSearch || undefined,
+    comercial: fComercial || undefined,
+    estado_factura: fEstado || "facturada",
+    fecha_facturacion_desde: fDesde || undefined,
+    fecha_facturacion_hasta: fHasta || undefined,
+  }), [fSearch, fComercial, fEstado, fDesde, fHasta])
+
+  useEffect(() => {
+    if (vista !== "facturas") return
+    const timeout = setTimeout(() => fetchFacturas(facturasServerFiltros, 0), 250)
+    return () => clearTimeout(timeout)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vista, facturasServerFiltros])
+
+  const comercialesFacturas = useMemo(() => {
+    const set = new Set<string>()
+    for (const o of facturas) {
+      const c = (o.comercial || "").trim()
+      if (c) set.add(c)
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "es"))
+  }, [facturas])
+
+  const hayFiltrosFacturas = !!(fComercial || fEstado || fDesde || fHasta)
+  const limpiarFiltrosFacturas = () => {
+    setFComercial(""); setFEstado(""); setFDesde(""); setFHasta("")
+  }
+
+  const handleExportarTodasPDFFacturas = useCallback(async (obrasListadas: typeof facturas) => {
+    setExportingAllFacturas(true)
+    try {
+      const results = (
+        await Promise.all(
+          obrasListadas.filter((o) => o.oferta_id).map(async (obra) => {
+            try {
+              const facturasCliente = await ObrasTerminadasService.getFacturasCliente(obra.oferta_id!)
+              return facturasCliente.length ? { obra, factura: facturasCliente[0] } : null
+            } catch {
+              return null
+            }
+          }),
+        )
+      ).filter((r): r is { obra: typeof obrasListadas[0]; factura: Awaited<ReturnType<typeof ObrasTerminadasService.getFacturasCliente>>[0] } => r !== null)
+
+      if (results.length) {
+        await ExportFacturaClienteService.exportarMultiplesPDF(results)
+      }
+    } finally {
+      setExportingAllFacturas(false)
+    }
+  }, [])
+
+  const handleExportarExcelFacturas = useCallback(async () => {
+    setExportingExcelFacturas(true)
+    try {
+      const resultado = await ExportObrasTerminadasExcelService.exportar(facturasServerFiltros)
+      toast({
+        title: "Exportación exitosa",
+        description: `${resultado.count} factura${resultado.count === 1 ? "" : "s"} exportada${resultado.count === 1 ? "" : "s"} a ${resultado.filename}.xlsx`,
+      })
+    } catch (error) {
+      toast({
+        title: "Error al exportar",
+        description: error instanceof Error ? error.message : "No se pudo generar el archivo Excel",
+        variant: "destructive",
+      })
+    } finally {
+      setExportingExcelFacturas(false)
+    }
+  }, [facturasServerFiltros, toast])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
@@ -133,118 +271,281 @@ export default function ObrasTerminadasPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleExportarTodasPDF}
-                disabled={exportingAll || loading || !ofertasConPagos.some((o) => o.facturada)}
-                className="gap-1.5 border-red-300 text-red-700 hover:bg-red-50"
-                title="Exportar todas las facturas cliente en un PDF unificado"
-              >
-                {exportingAll
-                  ? <Loader2 className="h-4 w-4 animate-spin" />
-                  : <FileDown className="h-4 w-4" />}
-                <span className="hidden sm:inline">PDF unificado</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleExportarExcel}
-                disabled={exportingExcel || loading || total === 0}
-                className="gap-1.5 border-green-300 text-green-700 hover:bg-green-50"
-                title="Exportar obras terminadas y materiales instalados a Excel"
-              >
-                {exportingExcel
-                  ? <Loader2 className="h-4 w-4 animate-spin" />
-                  : <FileSpreadsheet className="h-4 w-4" />}
-                <span className="hidden sm:inline">Exportar Excel</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => fetchData(serverFiltros, page)}
-                disabled={loading}
-                className="gap-1.5"
-              >
-                <RefreshCw
-                  className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
-                />
-                <span className="hidden sm:inline">Actualizar</span>
-              </Button>
+              {vista === "obras" ? (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExportarTodasPDF}
+                    disabled={exportingAll || loading || !ofertasConPagos.some((o) => o.facturada)}
+                    className="gap-1.5 border-red-300 text-red-700 hover:bg-red-50"
+                    title="Exportar todas las facturas cliente en un PDF unificado"
+                  >
+                    {exportingAll
+                      ? <Loader2 className="h-4 w-4 animate-spin" />
+                      : <FileDown className="h-4 w-4" />}
+                    <span className="hidden sm:inline">PDF unificado</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExportarExcel}
+                    disabled={exportingExcel || loading || total === 0}
+                    className="gap-1.5 border-green-300 text-green-700 hover:bg-green-50"
+                    title="Exportar obras terminadas y materiales instalados a Excel"
+                  >
+                    {exportingExcel
+                      ? <Loader2 className="h-4 w-4 animate-spin" />
+                      : <FileSpreadsheet className="h-4 w-4" />}
+                    <span className="hidden sm:inline">Exportar Excel</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExportarExcelSinMateriales}
+                    disabled={exportingExcelSinMateriales || loading || total === 0}
+                    className="gap-1.5 border-green-300 text-green-700 hover:bg-green-50"
+                    title="Exportar obras terminadas a Excel, sin las columnas de materiales"
+                  >
+                    {exportingExcelSinMateriales
+                      ? <Loader2 className="h-4 w-4 animate-spin" />
+                      : <FileSpreadsheet className="h-4 w-4" />}
+                    <span className="hidden sm:inline">Exportar Excel sin materiales</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fetchData(serverFiltros, page)}
+                    disabled={loading}
+                    className="gap-1.5"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                    <span className="hidden sm:inline">Actualizar</span>
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fetchFacturas(facturasServerFiltros, pageFacturas)}
+                  disabled={loadingFacturas}
+                  className="gap-1.5"
+                >
+                  <RefreshCw className={`h-4 w-4 ${loadingFacturas ? "animate-spin" : ""}`} />
+                  <span className="hidden sm:inline">Actualizar</span>
+                </Button>
+              )}
             </div>
+          </div>
+
+          {/* Selector de vista */}
+          <div className="flex gap-1 pb-3">
+            <button
+              onClick={() => setVista("obras")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                vista === "obras"
+                  ? "bg-emerald-600 text-white"
+                  : "text-gray-600 hover:bg-emerald-50"
+              }`}
+            >
+              <HardHat className="h-4 w-4" />
+              Obras
+            </button>
+            <button
+              onClick={() => setVista("facturas")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                vista === "facturas"
+                  ? "bg-emerald-600 text-white"
+                  : "text-gray-600 hover:bg-emerald-50"
+              }`}
+            >
+              <FileText className="h-4 w-4" />
+              Facturas
+            </button>
           </div>
         </div>
       </header>
 
       <main className="content-with-fixed-header pb-10 px-4 sm:px-6 lg:px-8">
-        {/* Error */}
-        {error && (
-          <div className="mb-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            <span>
-              <strong>Error al cargar datos:</strong> {error}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => fetchData()}
-              className="ml-auto border-red-300 text-red-700 hover:bg-red-100"
-            >
-              Reintentar
-            </Button>
-          </div>
-        )}
-
-        {/* Tabla principal */}
-        <div className="bg-white rounded-lg border border-emerald-100 shadow-sm p-4 overflow-x-auto">
-          <ObrasTerminadasTable
-            ofertasConPagos={ofertasConPagos}
-            totales={totales}
-            loading={loading}
-            fetchDetalle={fetchDetalle}
-            detalleCache={detalleCache}
-            detalleLoading={detalleLoading}
-            detalleError={detalleError}
-            fetchFacturasCliente={fetchFacturasCliente}
-            facturasClienteCache={facturasClienteCache}
-            facturasClienteLoading={facturasClienteLoading}
-            facturasClienteError={facturasClienteError}
-            serverFiltros={serverFiltros}
-            onServerFiltersChange={handleServerFiltersChange}
-          />
-
-          {totalPages > 0 && (
-            <div className="mt-4 flex flex-col gap-3 border-t border-emerald-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-gray-600">
-                Página <strong>{page + 1}</strong> de <strong>{totalPages}</strong> ·{" "}
-                <strong>{total}</strong> resultados
-              </p>
-
-              <div className="flex items-center gap-2">
+        {vista === "obras" ? (
+          <>
+            {error && (
+              <div className="mb-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>
+                  <strong>Error al cargar datos:</strong> {error}
+                </span>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => goToPage(page - 1)}
-                  disabled={loading || page <= 0}
-                  className="gap-1.5"
+                  onClick={() => fetchData()}
+                  className="ml-auto border-red-300 text-red-700 hover:bg-red-100"
                 >
-                  <ChevronLeft className="h-4 w-4" />
-                  Anterior
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => goToPage(page + 1)}
-                  disabled={loading || page >= totalPages - 1}
-                  className="gap-1.5"
-                >
-                  Siguiente
-                  <ChevronRight className="h-4 w-4" />
+                  Reintentar
                 </Button>
               </div>
+            )}
+
+            <div className="bg-white rounded-lg border border-emerald-100 shadow-sm p-4 overflow-x-auto">
+              <ObrasTerminadasTable
+                ofertasConPagos={ofertasConPagos}
+                totales={totales}
+                loading={loading}
+                fetchDetalle={fetchDetalle}
+                detalleCache={detalleCache}
+                detalleLoading={detalleLoading}
+                detalleError={detalleError}
+                fetchFacturasCliente={fetchFacturasCliente}
+                facturasClienteCache={facturasClienteCache}
+                facturasClienteLoading={facturasClienteLoading}
+                facturasClienteError={facturasClienteError}
+                serverFiltros={serverFiltros}
+                onServerFiltersChange={handleServerFiltersChange}
+              />
+
+              {totalPages > 0 && (
+                <div className="mt-4 flex flex-col gap-3 border-t border-emerald-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-gray-600">
+                    Página <strong>{page + 1}</strong> de <strong>{totalPages}</strong> ·{" "}
+                    <strong>{total}</strong> resultados
+                  </p>
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => goToPage(page - 1)}
+                      disabled={loading || page <= 0}
+                      className="gap-1.5"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Anterior
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => goToPage(page + 1)}
+                      disabled={loading || page >= totalPages - 1}
+                      className="gap-1.5"
+                    >
+                      Siguiente
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </>
+        ) : (
+          <>
+            {errorFacturas && (
+              <div className="mb-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>
+                  <strong>Error al cargar facturas:</strong> {errorFacturas}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fetchFacturas(facturasServerFiltros, 0)}
+                  className="ml-auto border-red-300 text-red-700 hover:bg-red-100"
+                >
+                  Reintentar
+                </Button>
+              </div>
+            )}
+
+            <div className="bg-white rounded-lg border border-emerald-100 shadow-sm overflow-hidden">
+              <div className="flex flex-wrap items-center gap-2 px-4 sm:px-6 py-3 border-b bg-gray-50/60">
+                <Input
+                  type="date"
+                  value={fDesde}
+                  onChange={(e) => setFDesde(e.target.value)}
+                  className="h-8 w-36 text-xs"
+                  title="Fecha facturación desde"
+                />
+                <Input
+                  type="date"
+                  value={fHasta}
+                  onChange={(e) => setFHasta(e.target.value)}
+                  className="h-8 w-36 text-xs"
+                  title="Fecha facturación hasta"
+                />
+                <Select value={fEstado || "all"} onValueChange={(v) => setFEstado(v === "all" ? "" : (v as "pagada" | "pendiente"))}>
+                  <SelectTrigger className="h-8 w-32 text-xs"><SelectValue placeholder="Estado" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    <SelectItem value="pagada">Pagada</SelectItem>
+                    <SelectItem value="pendiente">Pendiente</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={fComercial || "all"} onValueChange={(v) => setFComercial(v === "all" ? "" : v)}>
+                  <SelectTrigger className="h-8 w-40 text-xs"><SelectValue placeholder="Comercial" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los comerciales</SelectItem>
+                    {comercialesFacturas.map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {hayFiltrosFacturas && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-gray-400 hover:text-gray-600"
+                    onClick={limpiarFiltrosFacturas}
+                  >
+                    <FilterX className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+
+              <FacturasObrasTerminadasTable
+                obras={facturas}
+                loading={loadingFacturas}
+                error={null}
+                onRefresh={() => fetchFacturas(facturasServerFiltros, pageFacturas)}
+                onExportarTodas={handleExportarTodasPDFFacturas}
+                onExportarExcel={handleExportarExcelFacturas}
+                variant="embedded"
+                searchValue={fSearch}
+                onSearchChange={setFSearch}
+                totalCount={totalFacturas}
+                totales={totalesFacturas}
+                footer={totalPagesFacturas > 0 ? (
+                  <div className="flex flex-col gap-3 border-t px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm text-gray-600">
+                      Página <strong>{pageFacturas + 1}</strong> de <strong>{totalPagesFacturas}</strong> ·{" "}
+                      <strong>{totalFacturas}</strong> resultados
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => goToPageFacturas(pageFacturas - 1)}
+                        disabled={loadingFacturas || pageFacturas <= 0}
+                        className="gap-1.5"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        Anterior
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => goToPageFacturas(pageFacturas + 1)}
+                        disabled={loadingFacturas || pageFacturas >= totalPagesFacturas - 1}
+                        className="gap-1.5"
+                      >
+                        Siguiente
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+              />
+            </div>
+          </>
+        )}
       </main>
     </div>
   )

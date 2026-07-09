@@ -757,7 +757,7 @@ function FacturasPanel({ facturas, oferta }: { facturas: Factura[]; oferta: Ofer
    Panel: FACTURAS CLIENTE TERMINADO
 ───────────────────────────────────────────── */
 
-function FacturasClientePanel({ facturas, oferta }: { facturas: FacturaClienteObra[]; oferta: OfertaObra }) {
+export function FacturasClientePanel({ facturas, oferta }: { facturas: FacturaClienteObra[]; oferta: OfertaObra }) {
   const [exportingId, setExportingId] = React.useState<string | null>(null)
 
   if (!facturas.length)
