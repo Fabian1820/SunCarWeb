@@ -1200,11 +1200,13 @@ function FacturasSolarCarrosPageContent() {
       return;
     }
 
-    const basePrincipales = (previewSource.items || []).filter(
-      (item) => detectCategory(item) !== "otro",
-    );
+    // Se muestran y validan TODOS los materiales de la oferta (no solo
+    // inversor/batería/panel): cada uno se vincula al catálogo de
+    // contabilidad, descuenta existencia y bloquea el guardado si falta
+    // vínculo o stock, igual que los principales.
+    const baseMateriales = previewSource.items || [];
 
-    const mapped = basePrincipales.map((item, index) => {
+    const mapped = baseMateriales.map((item, index) => {
       const catalogMatch = pickCatalogMaterialForItem(item, catalogMateriales);
       const category = detectCategory(item);
       const resolvedMaterialId =
@@ -1562,17 +1564,6 @@ function FacturasSolarCarrosPageContent() {
         return;
       }
 
-      const itemsPrincipalesParaFactura = itemsConceptoPrincipales.length > 0
-        ? itemsConceptoPrincipales
-        : (previewSource.items || []).filter((item) => detectCategory(item) !== "otro");
-
-      // Materiales de la oferta que no son inversor/batería/panel: se cargan y
-      // guardan en la factura igual que los principales, pero no pasan por la
-      // tabla editable (no se validan contra contabilidad ni se muestran ahí).
-      const itemsNoPrincipalesDeOferta = (previewSource.items || []).filter(
-        (item) => detectCategory(item) === "otro",
-      );
-
       const materialesSalida = editableConceptItems
         .filter(
           (item) =>
@@ -1632,14 +1623,10 @@ function FacturasSolarCarrosPageContent() {
         })),
       );
 
-      // El escalado a USD objetivo solo aplica a los materiales principales
-      // (son los que determinan el precio facturado); los no principales se
-      // guardan con su cantidad/precio original de la oferta, sin re-escalar.
-      const adjustedPrincipales = scaleItemsToTargetUsd(
-        itemsPrincipalesParaFactura,
+      const adjustedItems = scaleItemsToTargetUsd(
+        itemsConceptoPrincipales,
         totalFacturarUsd,
       );
-      const adjustedItems = [...adjustedPrincipales, ...itemsNoPrincipalesDeOferta];
 
       const nowIso = new Date().toISOString();
       const materialesPayload = adjustedItems.map((item) => {
