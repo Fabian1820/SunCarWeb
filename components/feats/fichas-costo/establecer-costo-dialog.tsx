@@ -121,21 +121,21 @@ export function EstablecerCostoDialog({
         const r = await KardexCostoService.ajusteCosto([{ material_id: material.material_id, costo, motivo: causa }])
         if (!r?.ajustados?.length && r?.con_pendiente?.length) {
           toast({
-            title: "No se pudo ajustar",
+            title: "No se pudo corregir",
             description:
-              "Este material tiene una entrada pendiente de costeo. Costea esa compra (ponderar / sincronizar) antes de corregir el costo aquí.",
+              "Este material tiene una compra sin costo asignado. Asigna primero el costo de esa compra y vuelve a intentarlo.",
             variant: "destructive",
           })
           return
         }
         const a = r?.ajustados?.[0]
         msg = a
-          ? `Costo corregido en el kardex (ajuste en ${a.almacenes ?? 0} almacén/es).`
+          ? `Costo corregido en ${a.almacenes ?? 0} almacén/es.`
           : "El costo ya estaba en ese valor."
       } else if (modo === "saldo_inicial") {
         const r = await KardexCostoService.saldoInicial([{ material_id: material.material_id, costo, motivo: causa }])
         const n = r?.sembrados?.length ?? 0
-        msg = `Costo registrado como saldo inicial (${n} apertura/s de kardex).`
+        msg = `Costo inicial registrado en ${n} almacén/es.`
       } else {
         // referencia: el costo no se define a mano (entra por compras). No debería
         // llegar aquí porque el botón se oculta para materiales sin existencias.
@@ -158,21 +158,21 @@ export function EstablecerCostoDialog({
       return {
         icon: <Layers className="h-4 w-4 text-amber-600" />,
         cls: "bg-amber-50 border-amber-200 text-amber-800",
-        titulo: "Costo gestionado por el kardex",
-        texto: `Este material ya tiene kardex (${almacenesConKardex} almacén/es). Su costo es el promedio ponderado. Al guardar se registra un ajuste de costo en todos sus almacenes y se sincroniza el catálogo.`,
+        titulo: "El costo lo calcula el sistema",
+        texto: `Este material ya tiene costo registrado en ${almacenesConKardex} almacén/es: es el promedio de sus compras. Al guardar se registra una corrección de costo en todos sus almacenes y queda en el historial de costos.`,
       }
     if (modo === "saldo_inicial")
       return {
         icon: <Warehouse className="h-4 w-4 text-sky-600" />,
         cls: "bg-sky-50 border-sky-200 text-sky-800",
-        titulo: "Se registrará como saldo inicial",
-        texto: `Este material tiene ${stockTotal} en stock pero aún sin costo en el kardex. Al guardar se crea la fila de apertura del kardex (stock actual a este costo) y se sincroniza el catálogo — así las compras futuras promedian bien.`,
+        titulo: "Se registrará como costo inicial",
+        texto: `Este material tiene ${stockTotal} en existencia pero todavía sin costo registrado. Al guardar, esa existencia queda valorada a este costo — así las compras futuras promedian bien.`,
       }
     return {
       icon: <Info className="h-4 w-4 text-gray-500" />,
       cls: "bg-gray-50 border-gray-200 text-gray-700",
       titulo: "El costo entra por compras",
-      texto: "Este material no tiene existencias ni kardex. Su costo se registra a través de una compra (al aprobar la entrada con su costo), no a mano aquí.",
+      texto: "Este material no tiene existencias ni costo registrado. Su costo se registra a través de una compra (al aprobar la entrada con su costo), no a mano aquí.",
     }
   })()
 
@@ -194,7 +194,7 @@ export function EstablecerCostoDialog({
         {modo === "cargando" ? (
           <div className="flex items-center justify-center py-10 gap-3 text-gray-500">
             <Loader2 className="h-5 w-5 animate-spin text-amber-600" />
-            <span className="text-sm">Analizando kardex y stock…</span>
+            <span className="text-sm">Analizando costos y existencias…</span>
           </div>
         ) : (
           <div className="space-y-4">
@@ -210,10 +210,10 @@ export function EstablecerCostoDialog({
               <div className="rounded-lg border p-3 bg-red-50 border-red-200 text-red-700">
                 <div className="flex items-center gap-2 text-sm font-semibold">
                   <AlertTriangle className="h-4 w-4" />
-                  Tiene entrada pendiente de costeo
+                  Hay una compra sin costo asignado
                 </div>
                 <p className="text-xs mt-1 leading-relaxed">
-                  Este material tiene stock sin costear, así que el ajuste completo no se aplica. Costea su compra (ponderar / sincronizar) desde la ficha de costo y vuelve.
+                  Este material tiene existencias que aún no tienen costo, así que la corrección no se puede aplicar. Asigna el costo de esa compra y vuelve.
                 </p>
                 {comprasPendientes.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -271,7 +271,7 @@ export function EstablecerCostoDialog({
                     disabled={saving}
                   />
                   <p className="text-[11px] text-gray-400 mt-1">
-                    Queda registrado en el kardex con tu usuario y la fecha.
+                    Queda registrado en el historial de costos con tu usuario y la fecha.
                   </p>
                 </div>
               </>

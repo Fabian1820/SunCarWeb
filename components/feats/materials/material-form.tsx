@@ -1089,7 +1089,7 @@ export function MaterialForm({
                   />
                   {costoReadonly && (
                     <p className="text-[11px] text-gray-500 mt-1">
-                      El costo se gestiona con la acción <span className="font-medium">Costo</span> (kardex / saldo inicial), no desde aquí.
+                      El costo se gestiona con la acción <span className="font-medium">Costo</span>, no desde aquí.
                     </p>
                   )}
                 </div>

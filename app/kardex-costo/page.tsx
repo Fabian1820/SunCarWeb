@@ -218,14 +218,14 @@ function KardexCostoContent() {
   const pendientesCount = historial.filter((k) => k.pendiente_costeo).length;
 
   if (loadingMaterials || loadingAlmacenes) {
-    return <PageLoader moduleName="Kardex de Costos" text="Cargando catálogo..." />;
+    return <PageLoader moduleName="Historial de Costos" text="Cargando catálogo..." />;
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-violet-50">
       <ModuleHeader
-        title="Kardex de Costos"
-        subtitle="Historial del costo promedio ponderado por material y almacén"
+        title="Historial de Costos"
+        subtitle="Cómo se formó el costo promedio de cada material en cada almacén"
         badge={{ text: "Economía", className: "bg-violet-100 text-violet-800" }}
         backHref="/compras-envios-costos"
         backLabel="Volver a Compras, Envíos y Costos"
@@ -234,7 +234,7 @@ function KardexCostoContent() {
             variant="ghost"
             size="icon"
             onClick={() => void refresh()}
-            title="Recargar kardex"
+            title="Recargar historial"
             aria-label="Recargar"
             className="touch-manipulation"
           >
@@ -347,7 +347,7 @@ function KardexCostoContent() {
                     <TendenciaInfo historial={historial} costoActual={costoActual.costo_actual} />
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-500">Sin registros de kardex para esta combinación.</p>
+                  <p className="text-sm text-gray-500">Sin historial de costos para esta combinación.</p>
                 )}
               </div>
               {pendientesCount > 0 && (

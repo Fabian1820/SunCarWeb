@@ -687,7 +687,7 @@ function FichaCostoContent() {
       return;
     }
     if (!confirm(
-      "Se guardará la ficha actual y luego se aplicará el costo de la ficha a las entradas pendientes del kardex. El costo del catálogo se actualizará con el promedio global de todos los almacenes. ¿Continuar?",
+      "Se guardará la ficha actual y luego se aplicará el costo de la ficha a las entradas pendientes de costo. El costo del catálogo se actualizará con el promedio global de todos los almacenes. ¿Continuar?",
     )) return;
     setPonderando(true);
     try {
@@ -721,7 +721,7 @@ function FichaCostoContent() {
 
       const partes: string[] = ["Ficha guardada"];
       if (r.actualizados > 0) {
-        partes.push(`${r.actualizados} entrada${r.actualizados !== 1 ? "s" : ""} del kardex actualizada${r.actualizados !== 1 ? "s" : ""}`);
+        partes.push(`${r.actualizados} entrada${r.actualizados !== 1 ? "s" : ""} de costo actualizada${r.actualizados !== 1 ? "s" : ""}`);
       } else {
         partes.push("sin entradas pendientes de costear");
       }
@@ -749,7 +749,7 @@ function FichaCostoContent() {
       return;
     }
     if (!confirm(
-      "Se guardará la ficha actual y luego se creará un ajuste de costo en el kardex para reflejar los costos adicionales agregados. Las cantidades en almacén no se modifican. ¿Continuar?",
+      "Se guardará la ficha actual y luego se creará un ajuste de costo en el historial de costos para reflejar los costos adicionales agregados. Las cantidades en almacén no se modifican. ¿Continuar?",
     )) return;
     setAjustando(true);
     try {
@@ -779,7 +779,7 @@ function FichaCostoContent() {
 
       const partes: string[] = ["Ficha guardada"];
       if (r.actualizados > 0) {
-        partes.push(`${r.actualizados} material${r.actualizados !== 1 ? "es" : ""} ajustado${r.actualizados !== 1 ? "s" : ""} en kardex`);
+        partes.push(`${r.actualizados} material${r.actualizados !== 1 ? "es" : ""} ajustado${r.actualizados !== 1 ? "s" : ""} en el historial de costos`);
       } else {
         partes.push("sin materiales para ajustar");
       }
@@ -816,7 +816,7 @@ function FichaCostoContent() {
       return;
     }
     if (!confirm(
-      "Se guardará la ficha y se actualizará el kardex: los materiales con entradas pendientes serán ponderados, y los ya ponderados con costos distintos recibirán un ajuste. ¿Continuar?",
+      "Se guardará la ficha y se actualizará el historial de costos: los materiales con entradas pendientes serán ponderados, y los ya ponderados con costos distintos recibirán un ajuste. ¿Continuar?",
     )) return;
     setSincronizando(true);
     try {
@@ -923,7 +923,7 @@ function FichaCostoContent() {
                 onClick={handleSincronizarCostos}
                 disabled={sincronizando || savingBorrador || saving}
                 className="gap-1.5 bg-violet-600 hover:bg-violet-700 text-white"
-                title="Guarda la ficha y actualiza el kardex: pondera materiales pendientes y ajusta los ya ponderados si el costo cambió."
+                title="Guarda la ficha y actualiza el historial de costos: pondera materiales pendientes y ajusta los ya ponderados si el costo cambió."
               >
                 {sincronizando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Calculator className="h-3.5 w-3.5" />}
                 <span className="hidden lg:inline">Actualizar costos</span>

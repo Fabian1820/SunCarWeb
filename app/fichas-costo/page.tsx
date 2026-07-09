@@ -430,7 +430,7 @@ function FichasCostoPageContent() {
     <div className="min-h-screen bg-gradient-to-br from-[#fdf6ec] via-white to-[#fbe6cf]">
       <ModuleHeader
         title="Fichas de Costo"
-        subtitle="Vista contable de materiales: costos, precios, márgenes, kardex y compras"
+        subtitle="Vista contable de materiales: costos, precios, márgenes, historial de costos y compras"
         badge={{ text: "Costos", className: "bg-amber-100 text-amber-800" }}
         backHref="/compras-envios-costos"
         backLabel="Volver a Compras, Envíos y Costos"
@@ -671,7 +671,7 @@ function FichasCostoPageContent() {
                                         <Coins className="h-3.5 w-3.5" />
                                       </button>
                                     )}
-                                    <button onClick={() => openDetalle(row)} title="Ver ficha (kardex y compras)" className="inline-flex items-center justify-center rounded p-1 text-amber-600 hover:text-amber-700 hover:bg-amber-50 transition-colors">
+                                    <button onClick={() => openDetalle(row)} title="Ver ficha (historial de costos y compras)" className="inline-flex items-center justify-center rounded p-1 text-amber-600 hover:text-amber-700 hover:bg-amber-50 transition-colors">
                                       <Eye className="h-3.5 w-3.5" />
                                     </button>
                                     <button onClick={() => openStock(row)} title="Ver stock en almacenes" className="inline-flex items-center justify-center rounded p-1 text-sky-600 hover:text-sky-700 hover:bg-sky-50 transition-colors">

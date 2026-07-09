@@ -141,7 +141,7 @@ export function MaterialContableDetalle({ open, onOpenChange, material }: Materi
         <Tabs defaultValue="precios" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="precios">Precios y margen</TabsTrigger>
-            <TabsTrigger value="kardex">Kardex</TabsTrigger>
+            <TabsTrigger value="kardex">Historial de costos</TabsTrigger>
             <TabsTrigger value="compras">Compras</TabsTrigger>
           </TabsList>
 
@@ -181,10 +181,10 @@ export function MaterialContableDetalle({ open, onOpenChange, material }: Materi
             {loadingKardex ? (
               <div className="flex items-center justify-center py-12 gap-3 text-gray-500">
                 <Loader2 className="h-5 w-5 animate-spin text-amber-600" />
-                <span className="text-sm">Cargando kardex...</span>
+                <span className="text-sm">Cargando historial de costos...</span>
               </div>
             ) : kardex.length === 0 ? (
-              <EmptyState icon={<Warehouse className="h-8 w-8 text-gray-300" />} text="Sin movimientos de kardex para este material." />
+              <EmptyState icon={<Warehouse className="h-8 w-8 text-gray-300" />} text="Sin historial de costos para este material." />
             ) : (
               <div className="overflow-x-auto max-h-[50vh]">
                 <table className="w-full text-xs">
