@@ -96,6 +96,7 @@ export interface MovimientoInventario {
   referencia_tipo?: string;
   referencia_label?: string;
   referencia_detalle?: Record<string, unknown>;
+  origen_captura?: string;
   fecha?: string;
   usuario?: string;
   estado?: string;
