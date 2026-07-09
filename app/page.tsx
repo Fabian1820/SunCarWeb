@@ -492,7 +492,11 @@ export default function Dashboard() {
         const res = await fetch(module.href, {
           method: "POST",
           headers: { ...getAuthHeader(), "Content-Type": "application/json" },
-          body: JSON.stringify({ ci: user?.ci, nombre: user?.nombre }),
+          body: JSON.stringify({
+            ci: user?.ci,
+            nombre: user?.nombre,
+            foto_perfil: user?.foto_perfil,
+          }),
         });
         const data = await res.json();
         if (!res.ok || !data.url) {

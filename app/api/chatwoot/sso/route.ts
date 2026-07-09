@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'No autenticado' }, { status: 401 })
     }
 
-    const { ci, nombre } = await request.json()
+    const { ci, nombre, foto_perfil: fotoPerfil } = await request.json()
     if (!ci || !nombre) {
       return NextResponse.json(
         { success: false, message: 'Faltan datos del usuario' },
@@ -75,7 +75,12 @@ export async function POST(request: NextRequest) {
     const userRes = await fetch(`${CHATWOOT_BASE_URL}/platform/api/v1/users`, {
       method: 'POST',
       headers: chatwootHeaders,
-      body: JSON.stringify({ name: nombre, email, password: randomPassword() }),
+      body: JSON.stringify({
+        name: nombre,
+        email,
+        password: randomPassword(),
+        ...(fotoPerfil ? { avatar_url: fotoPerfil } : {}),
+      }),
     })
     if (!userRes.ok) {
       console.error('Chatwoot platform user create failed:', await userRes.text())
