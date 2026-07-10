@@ -243,7 +243,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
         key: "costos-materiales-cliente",
         label: "Ver costos de materiales (entregados/pendientes)",
         descripcion:
-          "Muestra el costo de los materiales y los totales entregado/pendiente en el dashboard del carrito de clientes e instalaciones en proceso. ADITIVO: tener el módulo Clientes NO lo concede; hay que asignarlo explícitamente a quien pueda ver costos.",
+          "Muestra el costo de los materiales y los totales entregado/pendiente en el diálogo de entregas de Clientes, Instalaciones en Proceso e Instalaciones Nuevas. ADITIVO: tener el módulo padre NO lo concede; hay que asignarlo explícitamente a quien pueda ver costos.",
         aditivo: true,
       },
     ],
