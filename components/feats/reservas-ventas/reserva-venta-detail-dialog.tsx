@@ -247,6 +247,17 @@ export function ReservaVentaDetailDialog({
             )}
           </div>
 
+          {/* Creado por */}
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Creado por</p>
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4 text-gray-400" />
+              <p className="text-sm text-gray-900">
+                {reserva.creado_por_nombre || reserva.creado_por_ci || "-"}
+              </p>
+            </div>
+          </div>
+
           {/* Footer meta */}
           <div className="pt-2 border-t text-xs text-gray-400 flex flex-wrap gap-x-4 gap-y-1">
             <span>Creado: {formatDate(reserva.fecha_creacion)}</span>
