@@ -6,7 +6,7 @@
 
 ### Resumen de cambios (últimas 24h)
 
-Sin commits nuevos de código. Los commits del 10 de Julio ya fueron documentados en la entrada de ayer. No hay cambios en producción.
+Sin commits nuevos de código. Los commits reales del 10 de Julio (costos en instalaciones y nombre del creador en reservas) ya están documentados en la entrada de ayer. No hay cambios en producción hoy.
 
 ---
 
