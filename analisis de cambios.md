@@ -2,6 +2,20 @@
 
 ---
 
+## 📅 11 de Julio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+Sin commits nuevos de código. Los commits del 10 de Julio ya fueron documentados en la entrada de ayer. No hay cambios en producción.
+
+---
+
+### Puede dar bateo
+
+Sin cambios nuevos — sin riesgos nuevos.
+
+---
+
 ## 📅 10 de Julio, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -192,7 +206,7 @@
 
 6. **Totales globales en Obras Terminadas — dependencia de campo de backend sin confirmar**: Si el endpoint no devuelve los totales agregados, las tarjetas mostrarán cero o `undefined` sin aviso.
 
-7. **Eliminación de columna "Total Mat." del Excel — puede romper importaciones externas**: Usuarios con automatizaciones que consumían el Excel esperando esa columna verán que desaparece sin aviso ni versionado del formato.
+7. **Eliminación de columna "Total Mat." del Excel — puede romper importaciones externas**: Usuarios con automatizaciones que consumian el Excel esperando esa columna verán que desaparece sin aviso ni versionado del formato.
 
 8. **Ciclo feat→fix en exports (19:37 → 21:01) — ventana de exports incorrectos en producción**: Si hubo auto-deploy entre ambos commits, los exports de facturas emitidas generados en esa ventana tienen `descripcion` en lugar del nombre real.
 
@@ -301,50 +315,6 @@
 4. **`fecha_equipo_instalado` solo existe desde mayo 2026**: Obras anteriores a mayo 2026 no aparecen en ningún filtro por fecha de forma silenciosa.
 
 5. **Instalación concurrente con cambio de estado**: Si durante la generación del Excel un cliente pasa de "en proceso" a "terminado", los materiales traídos pueden corresponder a un estado ya no válido.
-
----
-
-## 📅 3 de Julio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**5 commits reales** de Fabian1820 — jornada centrada en el sistema de exportaciones Excel: (1) Mi Tarjeta promovida a producción; (2) fix en vales de salida para mostrar nombre real del material; (3) ciclo completo feat→fix→refactor en exportaciones de Obras Terminadas y Pagos Realizados.
-
----
-
-### Área 1: Mi Tarjeta — promovida a producción (1 commit — Fabian1820, 14:40)
-
-- **`chore(mi-tarjeta): quitar badge de fase de prueba`** — El módulo pasa a uso normal. Se retira el banner de aviso y la etiqueta 'Prueba' del menú Mi Perfil.
-
----
-
-### Área 2: Vales de Salida — nombre de material en export Excel (1 commit — Fabian1820, 15:09)
-
-- **`fix(vales-salida): mostrar nombre del material en export Excel`** — La columna "Material" del export enriquece contra el catálogo para mostrar el nombre real, con respaldo a `material_descripcion` o código.
-
----
-
-### Área 3: Exportaciones Obras Terminadas y Pagos Realizados — ciclo feat→fix→refactor (3 commits — Fabian1820, 20:17→21:33)
-
-1. **`feat(exportaciones): exportar Excel con materiales aparte`** (20:17) — Workbook de dos hojas: listado principal + hoja de materiales.
-2. **`fix(exportaciones): corregir hoja de materiales vacía`** (20:47) — Obras Terminadas lee materiales desde el backend; Pagos Realizados agrega catálogo de respaldo.
-3. **`refactor(exportaciones): usar formato de una sola hoja con materiales apilados`** (21:33) — Reemplaza las dos hojas por el patrón de vales de salida. Elimina `lib/export-multi-sheet-service.ts`.
-
----
-
-### Puede dar bateo
-
-1. **`stackedColumnKeys` en `exportToExcel` — verificar implementación en `lib/export-service.ts`**: Si no está implementado, el export lanzará error silencioso o vacío en runtime.
-
-2. **`lib/export-multi-sheet-service.ts` eliminado — confirmar sin imports residuales**: Si quedó algún import referenciando ese archivo, habrá crash al compilar.
-
-3. **Obras Terminadas export — embedding de materiales en backend no confirmado**: El fix asume que `/obras-terminadas/datos` ya embebe los materiales. Si no, la columna quedará vacía.
-
-4. **Catálogo de respaldo en Pagos Realizados — fallo silencioso**: Si `getAllMaterials()` falla, los materiales con campos opcionales incompletos mostrarán vacíos sin aviso.
-
-5. **Mi Tarjeta sin badge — backend aún sin confirmar**: Quitar el aviso de fase de prueba sin confirmar el backend expone errores 404/500 a usuarios normales.
-
-6. **Vales de salida — `getAllMaterials()` sin caché explícito**: Cada apertura del dialog de export puede disparar una llamada completa al catálogo.
 
 ---
 
@@ -478,4 +448,4 @@
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
