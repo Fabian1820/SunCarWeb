@@ -2,6 +2,20 @@
 
 ---
 
+## 📅 12 de Julio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+Sin commits nuevos de código. Los únicos commits en las últimas 24h son automáticos ("Analisis diario Claude"). Los últimos commits reales fueron el 10 de Julio, ya documentados en la entrada del 11 de Julio. No hay cambios en producción hoy.
+
+---
+
+### Puede dar bateo
+
+Sin cambios nuevos — sin riesgos nuevos.
+
+---
+
 ## 📅 11 de Julio, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -290,34 +304,6 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 4 de Julio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**1 commit real** de Fabian1820 — export Excel del módulo **Instalaciones en Proceso** y fix del filtro de fecha en Obras Terminadas.
-
----
-
-### Área 1: Instalaciones en Proceso + Obras Terminadas (1 commit — Fabian1820, 21:57)
-
-- **`feat(instalaciones): export Excel de instalaciones en proceso + fix filtro fecha obras terminadas`** — Nuevo botón "Exportar Excel" en Instalaciones en Proceso con materiales por cliente vía `/ofertas/confeccion/cliente/{numero}`. Fix en Obras Terminadas: el botón "Rango" del filtro de fecha empieza vacío para no aplicar un filtro silencioso.
-
----
-
-### Puede dar bateo
-
-1. **Export Instalaciones — N+1 llamadas a `/ofertas/confeccion/cliente/{numero}`**: Para cada cliente en la lista se dispara una petición HTTP separada. Con muchos clientes puede generar decenas de llamadas en paralelo.
-
-2. **Materiales del export representan la oferta actual, no el momento de instalación**: Si la oferta fue modificada después de iniciar la instalación, el Excel mostrará los materiales actuales.
-
-3. **Filtro "Rango" vacío en Obras Terminadas — export sin cota de fecha**: Sin ningún filtro de fecha, una exportación trae el historial completo sin advertencia.
-
-4. **`fecha_equipo_instalado` solo existe desde mayo 2026**: Obras anteriores a mayo 2026 no aparecen en ningún filtro por fecha de forma silenciosa.
-
-5. **Instalación concurrente con cambio de estado**: Si durante la generación del Excel un cliente pasa de "en proceso" a "terminado", los materiales traídos pueden corresponder a un estado ya no válido.
-
----
-
 #### Seguimientos vigentes
 
 - **Facturas Solar Carros — precio escalado nulo si algún material tiene precio nulo en catálogo de contabilidad (Jul 10)**.
@@ -448,4 +434,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. La entrada del **4 de Julio** fue eliminada el 12 de Julio al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
