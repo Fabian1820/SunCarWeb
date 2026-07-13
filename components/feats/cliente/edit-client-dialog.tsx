@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/molecule/input";
 import { Label } from "@/components/shared/atom/label";
+import { Checkbox } from "@/components/shared/molecule/checkbox";
 import { Textarea } from "@/components/shared/molecule/textarea";
 import {
   Dialog,
@@ -228,6 +229,7 @@ export function EditClientDialog({
     prioridad: client.prioridad || "Baja",
     motivo_visita: client.motivo_visita || "",
     tipo_persona: normalizeTipoPersona(client.tipo_persona || ""),
+    es_trabajador_suncar: client.es_trabajador_suncar ?? false,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -286,6 +288,7 @@ export function EditClientDialog({
         prioridad: client.prioridad || "Baja",
         motivo_visita: client.motivo_visita || "",
         tipo_persona: normalizeTipoPersona(client.tipo_persona || ""),
+        es_trabajador_suncar: client.es_trabajador_suncar ?? false,
       });
 
       // Actualizar el estado de fuente personalizada
@@ -903,6 +906,23 @@ export function EditClientDialog({
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                {/* Trabajador de SunCar */}
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="es_trabajador_suncar-edit"
+                    checked={formData.es_trabajador_suncar ?? false}
+                    onCheckedChange={(checked) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        es_trabajador_suncar: checked === true,
+                      }))
+                    }
+                  />
+                  <Label htmlFor="es_trabajador_suncar-edit" className="cursor-pointer">
+                    Es trabajador de SunCar
+                  </Label>
                 </div>
 
                 {/* Prioridad */}

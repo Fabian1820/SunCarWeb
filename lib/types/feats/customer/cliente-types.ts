@@ -48,6 +48,7 @@ export interface Cliente {
   motivo_visita?: string; // Campo temporal para crear visita automática cuando estado = "Pendiente de visita"
   tipo_persona?: string;
   oferta_confeccion?: OfertaConfeccionResumen | null;
+  es_trabajador_suncar?: boolean;
 }
 
 export interface ClienteResponse {
@@ -87,6 +88,7 @@ export interface ClienteCreateData {
   falta_instalacion?: string; // Qué le falta a la instalación
   fotos?: ClienteFoto[];
   equipo_propio?: boolean; // Si el equipo es propio del cliente (código con P)
+  es_trabajador_suncar?: boolean;
   prioridad?: "Alta" | "Media" | "Baja";
   motivo_visita?: string; // Campo temporal para crear visita automática cuando estado = "Pendiente de visita"
   tipo_persona?: string;

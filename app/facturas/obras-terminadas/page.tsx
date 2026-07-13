@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/shared/atom/button"
 import { Input } from "@/components/shared/molecule/input"
@@ -23,7 +23,14 @@ import {
   FileText,
   Loader2,
   FilterX,
+  Users,
 } from "lucide-react"
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/components/shared/molecule/tabs"
 import { useObrasTerminadas } from "@/hooks/use-obras-terminadas"
 import { ObrasTerminadasTable } from "@/components/feats/obras-terminadas/obras-terminadas-table"
 import { FacturasObrasTerminadasTable } from "@/components/feats/obras-terminadas/facturas-obras-terminadas-table"
@@ -137,58 +144,76 @@ export default function ObrasTerminadasPage() {
     }
   }, [serverFiltros, toast])
 
-  /* ── Vista: Facturas de obras terminadas ─────────────────────────────── */
+  /* ── Vista: Facturas de obras terminadas — 2 sub-pestañas (clientes/trabajadores) ── */
+  const [subVista, setSubVista] = useState<"clientes" | "trabajadores">("clientes")
   const [fSearch, setFSearch] = useState("")
   const [fComercial, setFComercial] = useState("")
   const [fEstado, setFEstado] = useState<"" | "pagada" | "pendiente">("")
   const [fDesde, setFDesde] = useState("")
   const [fHasta, setFHasta] = useState("")
-  const [exportingAllFacturas, setExportingAllFacturas] = useState(false)
-  const [exportingExcelFacturas, setExportingExcelFacturas] = useState(false)
+  const [exportingAllFacturasClientes, setExportingAllFacturasClientes] = useState(false)
+  const [exportingAllFacturasTrabajadores, setExportingAllFacturasTrabajadores] = useState(false)
+  const [exportingExcelFacturasClientes, setExportingExcelFacturasClientes] = useState(false)
+  const [exportingExcelFacturasTrabajadores, setExportingExcelFacturasTrabajadores] = useState(false)
 
-  const {
-    ofertasConPagos: facturas,
-    loading: loadingFacturas,
-    error: errorFacturas,
-    fetchData: fetchFacturas,
-    page: pageFacturas,
-    total: totalFacturas,
-    totales: totalesFacturas,
-    totalPages: totalPagesFacturas,
-    goToPage: goToPageFacturas,
-  } = useObrasTerminadas()
+  const facturasClientesHook = useObrasTerminadas()
+  const facturasTrabajadoresHook = useObrasTerminadas()
 
-  const facturasServerFiltros = useMemo<ObrasTerminadasFiltros>(() => ({
+  const filtrosClientesFacturas = useMemo<ObrasTerminadasFiltros>(() => ({
     q: fSearch || undefined,
     comercial: fComercial || undefined,
     estado_factura: fEstado || "facturada",
     fecha_facturacion_desde: fDesde || undefined,
     fecha_facturacion_hasta: fHasta || undefined,
+    es_trabajador_suncar: false,
   }), [fSearch, fComercial, fEstado, fDesde, fHasta])
 
+  const filtrosTrabajadoresFacturas = useMemo<ObrasTerminadasFiltros>(() => ({
+    q: fSearch || undefined,
+    comercial: fComercial || undefined,
+    estado_factura: fEstado || "facturada",
+    fecha_facturacion_desde: fDesde || undefined,
+    fecha_facturacion_hasta: fHasta || undefined,
+    es_trabajador_suncar: true,
+  }), [fSearch, fComercial, fEstado, fDesde, fHasta])
+
+  // Carga perezosa + cache: solo se fetchea la sub-pestaña activa, y solo si sus
+  // filtros cambiaron desde la última vez que se cargó (evita refetch al solo
+  // alternar entre pestañas ya visitadas con los mismos filtros).
+  const ultimaFirmaCargada = useRef<{ clientes?: string; trabajadores?: string }>({})
   useEffect(() => {
     if (vista !== "facturas") return
-    const timeout = setTimeout(() => fetchFacturas(facturasServerFiltros, 0), 250)
+    const filtros = subVista === "clientes" ? filtrosClientesFacturas : filtrosTrabajadoresFacturas
+    const firma = JSON.stringify(filtros)
+    if (ultimaFirmaCargada.current[subVista] === firma) return
+    const timeout = setTimeout(() => {
+      const hook = subVista === "clientes" ? facturasClientesHook : facturasTrabajadoresHook
+      hook.fetchData(filtros, 0)
+      ultimaFirmaCargada.current[subVista] = firma
+    }, 250)
     return () => clearTimeout(timeout)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vista, facturasServerFiltros])
+  }, [vista, subVista, filtrosClientesFacturas, filtrosTrabajadoresFacturas])
 
   const comercialesFacturas = useMemo(() => {
     const set = new Set<string>()
-    for (const o of facturas) {
+    for (const o of [...facturasClientesHook.ofertasConPagos, ...facturasTrabajadoresHook.ofertasConPagos]) {
       const c = (o.comercial || "").trim()
       if (c) set.add(c)
     }
     return Array.from(set).sort((a, b) => a.localeCompare(b, "es"))
-  }, [facturas])
+  }, [facturasClientesHook.ofertasConPagos, facturasTrabajadoresHook.ofertasConPagos])
 
   const hayFiltrosFacturas = !!(fComercial || fEstado || fDesde || fHasta)
   const limpiarFiltrosFacturas = () => {
     setFComercial(""); setFEstado(""); setFDesde(""); setFHasta("")
   }
 
-  const handleExportarTodasPDFFacturas = useCallback(async (obrasListadas: typeof facturas) => {
-    setExportingAllFacturas(true)
+  const handleExportarTodasPDFFacturas = useCallback(async (
+    obrasListadas: typeof facturasClientesHook.ofertasConPagos,
+    setExporting: (v: boolean) => void,
+  ) => {
+    setExporting(true)
     try {
       const results = (
         await Promise.all(
@@ -207,14 +232,17 @@ export default function ObrasTerminadasPage() {
         await ExportFacturaClienteService.exportarMultiplesPDF(results)
       }
     } finally {
-      setExportingAllFacturas(false)
+      setExporting(false)
     }
   }, [])
 
-  const handleExportarExcelFacturas = useCallback(async () => {
-    setExportingExcelFacturas(true)
+  const handleExportarExcelFacturas = useCallback(async (
+    filtros: ObrasTerminadasFiltros,
+    setExporting: (v: boolean) => void,
+  ) => {
+    setExporting(true)
     try {
-      const resultado = await ExportObrasTerminadasExcelService.exportar(facturasServerFiltros)
+      const resultado = await ExportObrasTerminadasExcelService.exportar(filtros)
       toast({
         title: "Exportación exitosa",
         description: `${resultado.count} factura${resultado.count === 1 ? "" : "s"} exportada${resultado.count === 1 ? "" : "s"} a ${resultado.filename}.xlsx`,
@@ -226,9 +254,9 @@ export default function ObrasTerminadasPage() {
         variant: "destructive",
       })
     } finally {
-      setExportingExcelFacturas(false)
+      setExporting(false)
     }
-  }, [facturasServerFiltros, toast])
+  }, [toast])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
@@ -327,11 +355,17 @@ export default function ObrasTerminadasPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => fetchFacturas(facturasServerFiltros, pageFacturas)}
-                  disabled={loadingFacturas}
+                  onClick={() => {
+                    if (subVista === "clientes") {
+                      facturasClientesHook.fetchData(filtrosClientesFacturas, facturasClientesHook.page)
+                    } else {
+                      facturasTrabajadoresHook.fetchData(filtrosTrabajadoresFacturas, facturasTrabajadoresHook.page)
+                    }
+                  }}
+                  disabled={subVista === "clientes" ? facturasClientesHook.loading : facturasTrabajadoresHook.loading}
                   className="gap-1.5"
                 >
-                  <RefreshCw className={`h-4 w-4 ${loadingFacturas ? "animate-spin" : ""}`} />
+                  <RefreshCw className={`h-4 w-4 ${(subVista === "clientes" ? facturasClientesHook.loading : facturasTrabajadoresHook.loading) ? "animate-spin" : ""}`} />
                   <span className="hidden sm:inline">Actualizar</span>
                 </Button>
               )}
@@ -438,16 +472,20 @@ export default function ObrasTerminadasPage() {
           </>
         ) : (
           <>
-            {errorFacturas && (
+            {(subVista === "clientes" ? facturasClientesHook.error : facturasTrabajadoresHook.error) && (
               <div className="mb-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 <span>
-                  <strong>Error al cargar facturas:</strong> {errorFacturas}
+                  <strong>Error al cargar facturas:</strong>{" "}
+                  {subVista === "clientes" ? facturasClientesHook.error : facturasTrabajadoresHook.error}
                 </span>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => fetchFacturas(facturasServerFiltros, 0)}
+                  onClick={() => {
+                    if (subVista === "clientes") facturasClientesHook.fetchData(filtrosClientesFacturas, 0)
+                    else facturasTrabajadoresHook.fetchData(filtrosTrabajadoresFacturas, 0)
+                  }}
                   className="ml-auto border-red-300 text-red-700 hover:bg-red-100"
                 >
                   Reintentar
@@ -500,49 +538,112 @@ export default function ObrasTerminadasPage() {
                 )}
               </div>
 
-              <FacturasObrasTerminadasTable
-                obras={facturas}
-                loading={loadingFacturas}
-                error={null}
-                onRefresh={() => fetchFacturas(facturasServerFiltros, pageFacturas)}
-                onExportarTodas={handleExportarTodasPDFFacturas}
-                onExportarExcel={handleExportarExcelFacturas}
-                variant="embedded"
-                searchValue={fSearch}
-                onSearchChange={setFSearch}
-                totalCount={totalFacturas}
-                totales={totalesFacturas}
-                footer={totalPagesFacturas > 0 ? (
-                  <div className="flex flex-col gap-3 border-t px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-sm text-gray-600">
-                      Página <strong>{pageFacturas + 1}</strong> de <strong>{totalPagesFacturas}</strong> ·{" "}
-                      <strong>{totalFacturas}</strong> resultados
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => goToPageFacturas(pageFacturas - 1)}
-                        disabled={loadingFacturas || pageFacturas <= 0}
-                        className="gap-1.5"
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                        Anterior
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => goToPageFacturas(pageFacturas + 1)}
-                        disabled={loadingFacturas || pageFacturas >= totalPagesFacturas - 1}
-                        className="gap-1.5"
-                      >
-                        Siguiente
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ) : null}
-              />
+              <Tabs value={subVista} onValueChange={(v) => setSubVista(v as "clientes" | "trabajadores")}>
+                <div className="px-4 sm:px-6 pt-3">
+                  <TabsList>
+                    <TabsTrigger value="clientes" className="gap-1.5">
+                      <FileText className="h-4 w-4" />
+                      Facturas clientes
+                    </TabsTrigger>
+                    <TabsTrigger value="trabajadores" className="gap-1.5">
+                      <Users className="h-4 w-4" />
+                      Facturas trabajadores
+                    </TabsTrigger>
+                  </TabsList>
+                </div>
+
+                <TabsContent value="clientes" forceMount className={subVista === "clientes" ? "" : "hidden"}>
+                  <FacturasObrasTerminadasTable
+                    obras={facturasClientesHook.ofertasConPagos}
+                    loading={facturasClientesHook.loading}
+                    error={null}
+                    onRefresh={() => facturasClientesHook.fetchData(filtrosClientesFacturas, facturasClientesHook.page)}
+                    onExportarTodas={(obras) => handleExportarTodasPDFFacturas(obras, setExportingAllFacturasClientes)}
+                    onExportarExcel={() => handleExportarExcelFacturas(filtrosClientesFacturas, setExportingExcelFacturasClientes)}
+                    variant="embedded"
+                    searchValue={fSearch}
+                    onSearchChange={setFSearch}
+                    totalCount={facturasClientesHook.total}
+                    totales={facturasClientesHook.totales}
+                    footer={facturasClientesHook.totalPages > 0 ? (
+                      <div className="flex flex-col gap-3 border-t px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-sm text-gray-600">
+                          Página <strong>{facturasClientesHook.page + 1}</strong> de <strong>{facturasClientesHook.totalPages}</strong> ·{" "}
+                          <strong>{facturasClientesHook.total}</strong> resultados
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => facturasClientesHook.goToPage(facturasClientesHook.page - 1)}
+                            disabled={facturasClientesHook.loading || facturasClientesHook.page <= 0}
+                            className="gap-1.5"
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                            Anterior
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => facturasClientesHook.goToPage(facturasClientesHook.page + 1)}
+                            disabled={facturasClientesHook.loading || facturasClientesHook.page >= facturasClientesHook.totalPages - 1}
+                            className="gap-1.5"
+                          >
+                            Siguiente
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : null}
+                  />
+                </TabsContent>
+
+                <TabsContent value="trabajadores" forceMount className={subVista === "trabajadores" ? "" : "hidden"}>
+                  <FacturasObrasTerminadasTable
+                    obras={facturasTrabajadoresHook.ofertasConPagos}
+                    loading={facturasTrabajadoresHook.loading}
+                    error={null}
+                    onRefresh={() => facturasTrabajadoresHook.fetchData(filtrosTrabajadoresFacturas, facturasTrabajadoresHook.page)}
+                    onExportarTodas={(obras) => handleExportarTodasPDFFacturas(obras, setExportingAllFacturasTrabajadores)}
+                    onExportarExcel={() => handleExportarExcelFacturas(filtrosTrabajadoresFacturas, setExportingExcelFacturasTrabajadores)}
+                    variant="embedded"
+                    searchValue={fSearch}
+                    onSearchChange={setFSearch}
+                    totalCount={facturasTrabajadoresHook.total}
+                    totales={facturasTrabajadoresHook.totales}
+                    footer={facturasTrabajadoresHook.totalPages > 0 ? (
+                      <div className="flex flex-col gap-3 border-t px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-sm text-gray-600">
+                          Página <strong>{facturasTrabajadoresHook.page + 1}</strong> de <strong>{facturasTrabajadoresHook.totalPages}</strong> ·{" "}
+                          <strong>{facturasTrabajadoresHook.total}</strong> resultados
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => facturasTrabajadoresHook.goToPage(facturasTrabajadoresHook.page - 1)}
+                            disabled={facturasTrabajadoresHook.loading || facturasTrabajadoresHook.page <= 0}
+                            className="gap-1.5"
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                            Anterior
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => facturasTrabajadoresHook.goToPage(facturasTrabajadoresHook.page + 1)}
+                            disabled={facturasTrabajadoresHook.loading || facturasTrabajadoresHook.page >= facturasTrabajadoresHook.totalPages - 1}
+                            className="gap-1.5"
+                          >
+                            Siguiente
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : null}
+                  />
+                </TabsContent>
+              </Tabs>
             </div>
           </>
         )}

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/molecule/input";
 import { Label } from "@/components/shared/atom/label";
+import { Checkbox } from "@/components/shared/molecule/checkbox";
 import { Textarea } from "@/components/shared/molecule/textarea";
 import {
   Select,
@@ -181,6 +182,7 @@ export function CreateClientDialog({
     prioridad: "Baja", // Valor por defecto según documentación
     motivo_visita: "",
     tipo_persona: "",
+    es_trabajador_suncar: false,
   });
 
   const [generandoCodigo, setGenerandoCodigo] = useState(false);
@@ -938,6 +940,23 @@ export function CreateClientDialog({
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            {/* Trabajador de SunCar */}
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="es_trabajador_suncar"
+                checked={formData.es_trabajador_suncar ?? false}
+                onCheckedChange={(checked) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    es_trabajador_suncar: checked === true,
+                  }))
+                }
+              />
+              <Label htmlFor="es_trabajador_suncar" className="cursor-pointer">
+                Es trabajador de SunCar
+              </Label>
             </div>
 
             {/* 4. Prioridad */}

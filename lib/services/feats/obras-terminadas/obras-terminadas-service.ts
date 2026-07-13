@@ -177,6 +177,7 @@ export interface ObrasTerminadasFiltros {
   q?: string;
   estado_pago?: "todos" | "pagado" | "pendiente";
   estado_factura?: "todos" | "facturada" | "pagada" | "pendiente" | "sin_factura";
+  es_trabajador_suncar?: boolean;
   fecha_creacion_desde?: string;
   fecha_creacion_hasta?: string;
   fecha_equipo_desde?: string;
@@ -203,6 +204,7 @@ export const ObrasTerminadasService = {
     if (filtros.q)                     params.set("q",              filtros.q);
     if (filtros.estado_pago)           params.set("estado_pago",     filtros.estado_pago);
     if (filtros.estado_factura)        params.set("estado_factura",  filtros.estado_factura);
+    if (filtros.es_trabajador_suncar != null) params.set("es_trabajador_suncar", String(filtros.es_trabajador_suncar));
     if (filtros.fecha_creacion_desde)  params.set("fecha_creacion_desde", filtros.fecha_creacion_desde);
     if (filtros.fecha_creacion_hasta)  params.set("fecha_creacion_hasta", filtros.fecha_creacion_hasta);
     if (filtros.fecha_equipo_desde)    params.set("fecha_equipo_desde", filtros.fecha_equipo_desde);
