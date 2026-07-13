@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/shared/atom/button";
 import {
   Card,
@@ -57,6 +58,10 @@ import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { GestionarFuentesDialog } from "@/components/feats/leads/gestionar-fuentes-dialog";
 
 export default function LeadsPage() {
+  const searchParams = useSearchParams();
+  const crearOfertaLeadIdParam = searchParams.get("crear_oferta_lead") ?? "";
+  const editarOfertaLeadIdParam =
+    searchParams.get("editar_oferta_lead") ?? "";
   const {
     leads,
     availableSources,
@@ -854,6 +859,8 @@ export default function LeadsPage() {
                 loading={loading}
                 disableActions={loadingAction}
                 onRefreshLeads={loadLeads}
+                autoOpenCrearOfertaLeadId={crearOfertaLeadIdParam || undefined}
+                autoOpenEditarOfertaLeadId={editarOfertaLeadIdParam || undefined}
               />
               {totalLeads > limit && (
                 <SmartPagination

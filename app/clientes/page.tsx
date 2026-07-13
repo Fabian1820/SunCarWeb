@@ -270,6 +270,10 @@ const matchesClientDateFilters = (
 export default function ClientesPage() {
   const searchParams = useSearchParams();
   const buscarParam = searchParams.get("buscar") ?? "";
+  const editarOfertaClienteParam =
+    searchParams.get("editar_oferta_cliente") ?? "";
+  const crearOfertaClienteParam =
+    searchParams.get("crear_oferta_cliente") ?? "";
 
   const [clients, setClients] = useState<Cliente[]>([]);
   const [totalClients, setTotalClients] = useState(0);
@@ -985,6 +989,8 @@ export default function ClientesPage() {
             loading={loading}
             onFiltersChange={handleFiltersChange}
             initialSearchTerm={buscarParam}
+            autoOpenEditarOfertaClienteNumero={editarOfertaClienteParam || undefined}
+            autoOpenCrearOfertaClienteNumero={crearOfertaClienteParam || undefined}
             exportButtons={
               totalClients > 0 ? (
                 <ExportButtons

@@ -103,6 +103,8 @@ interface LeadsTableProps {
   disableActions?: boolean;
   /** Callback para refrescar la lista de leads (tras asignar/editar/eliminar oferta). */
   onRefreshLeads?: () => Promise<void>;
+  autoOpenCrearOfertaLeadId?: string;
+  autoOpenEditarOfertaLeadId?: string;
 }
 
 // Helper function to break text at approximately 25 characters
@@ -144,6 +146,8 @@ export function LeadsTable({
   loading,
   disableActions,
   onRefreshLeads,
+  autoOpenCrearOfertaLeadId,
+  autoOpenEditarOfertaLeadId,
 }: LeadsTableProps) {
   const { toast } = useToast();
   const {
@@ -209,6 +213,39 @@ export function LeadsTable({
   const [selectedLeadForOfertas, setSelectedLeadForOfertas] =
     useState<Lead | null>(null);
   const [isCreateOfertaOpen, setIsCreateOfertaOpen] = useState(false);
+  const autoOpenCrearOfertaTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (
+      !autoOpenCrearOfertaLeadId ||
+      autoOpenCrearOfertaTriggeredRef.current
+    ) {
+      return;
+    }
+    autoOpenCrearOfertaTriggeredRef.current = true;
+
+    (async () => {
+      const leadEnPagina = leads.find(
+        (l) => l.id === autoOpenCrearOfertaLeadId,
+      );
+      const lead =
+        leadEnPagina ||
+        (await LeadService.getLeadById(autoOpenCrearOfertaLeadId).catch(
+          () => null,
+        ));
+      if (lead) {
+        setSelectedLeadForOfertas(lead);
+        setIsCreateOfertaOpen(true);
+      } else {
+        toast({
+          title: "No se encontró el lead",
+          description:
+            "No se pudo abrir la oferta para este lead automáticamente.",
+          variant: "destructive",
+        });
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenCrearOfertaLeadId, leads]);
   const [isEditOfertaOpen, setIsEditOfertaOpen] = useState(false);
   const [editingOferta, setEditingOferta] =
     useState<OfertaPersonalizada | null>(null);
@@ -878,6 +915,32 @@ export function LeadsTable({
     // Cerrar el diálogo de detalles si está abierto
     setShowDetalleOfertaDialog(false);
   };
+
+  const autoOpenEditarOfertaTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (
+      !autoOpenEditarOfertaLeadId ||
+      autoOpenEditarOfertaTriggeredRef.current
+    ) {
+      return;
+    }
+    autoOpenEditarOfertaTriggeredRef.current = true;
+
+    (async () => {
+      const result = await obtenerOfertaPorLead(autoOpenEditarOfertaLeadId);
+      if (result.success && result.oferta) {
+        handleEditarOferta(result.oferta);
+      } else {
+        toast({
+          title: "No se encontró la oferta",
+          description:
+            "No se pudo abrir la oferta de este lead automáticamente.",
+          variant: "destructive",
+        });
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenEditarOfertaLeadId]);
 
   const handleEliminarOferta = (oferta: OfertaConfeccion) => {
     setOfertaParaEliminar(oferta);

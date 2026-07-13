@@ -122,6 +122,8 @@ interface ClientsTableProps {
   }) => void;
   exportButtons?: React.ReactNode;
   initialSearchTerm?: string;
+  autoOpenEditarOfertaClienteNumero?: string;
+  autoOpenCrearOfertaClienteNumero?: string;
 }
 
 const CLIENT_ESTADOS = [
@@ -585,6 +587,8 @@ export function ClientsTable({
   onFiltersChange,
   exportButtons,
   initialSearchTerm = "",
+  autoOpenEditarOfertaClienteNumero,
+  autoOpenCrearOfertaClienteNumero,
 }: ClientsTableProps) {
   const { toast } = useToast();
   const {
@@ -624,6 +628,39 @@ export function ClientsTable({
     null,
   );
   const [isCreateOfertaOpen, setIsCreateOfertaOpen] = useState(false);
+  const autoOpenCrearOfertaTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (
+      !autoOpenCrearOfertaClienteNumero ||
+      autoOpenCrearOfertaTriggeredRef.current
+    ) {
+      return;
+    }
+    autoOpenCrearOfertaTriggeredRef.current = true;
+
+    (async () => {
+      const clienteEnPagina = clients.find(
+        (c) => c.numero === autoOpenCrearOfertaClienteNumero,
+      );
+      const cliente =
+        clienteEnPagina ||
+        (await ClienteService.getClienteByNumero(
+          autoOpenCrearOfertaClienteNumero,
+        ).catch(() => null));
+      if (cliente) {
+        setClientForOfertas(cliente);
+        setIsCreateOfertaOpen(true);
+      } else {
+        toast({
+          title: "No se encontró el cliente",
+          description:
+            "No se pudo abrir la creación de oferta para este cliente automáticamente.",
+          variant: "destructive",
+        });
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenCrearOfertaClienteNumero, clients]);
   const [isEditOfertaOpen, setIsEditOfertaOpen] = useState(false);
   const [editingOferta, setEditingOferta] =
     useState<OfertaPersonalizada | null>(null);
@@ -1702,6 +1739,34 @@ export function ClientsTable({
     // Cerrar el diálogo de detalles si está abierto
     setShowDetalleOfertaDialog(false);
   };
+
+  const autoOpenOfertaTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (
+      !autoOpenEditarOfertaClienteNumero ||
+      autoOpenOfertaTriggeredRef.current
+    ) {
+      return;
+    }
+    autoOpenOfertaTriggeredRef.current = true;
+
+    (async () => {
+      const result = await obtenerOfertaPorCliente(
+        autoOpenEditarOfertaClienteNumero,
+      );
+      if (result.success && result.oferta) {
+        handleEditarOferta(result.oferta);
+      } else {
+        toast({
+          title: "No se encontró la oferta",
+          description:
+            "No se pudo abrir la oferta de este cliente automáticamente.",
+          variant: "destructive",
+        });
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenEditarOfertaClienteNumero]);
 
   const handleEliminarOferta = (oferta: OfertaConfeccion) => {
     setOfertaParaEliminar(oferta);
