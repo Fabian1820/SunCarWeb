@@ -44,7 +44,7 @@ export interface Cliente {
   falta_instalacion?: string; // Qué le falta a la instalación (solo para estado "Instalación en proceso")
   averias?: Averia[]; // Array de averías del cliente
   fotos?: ClienteFoto[]; // Evidencias (fotos/videos) del cliente
-  prioridad?: "Alta" | "Media" | "Baja";
+  prioridad?: "Ninguna" | "Urgente" | "Alta" | "Media" | "Baja";
   motivo_visita?: string; // Campo temporal para crear visita automática cuando estado = "Pendiente de visita"
   tipo_persona?: string;
   oferta_confeccion?: OfertaConfeccionResumen | null;
@@ -87,7 +87,7 @@ export interface ClienteCreateData {
   falta_instalacion?: string; // Qué le falta a la instalación
   fotos?: ClienteFoto[];
   equipo_propio?: boolean; // Si el equipo es propio del cliente (código con P)
-  prioridad?: "Alta" | "Media" | "Baja";
+  prioridad?: "Ninguna" | "Urgente" | "Alta" | "Media" | "Baja";
   motivo_visita?: string; // Campo temporal para crear visita automática cuando estado = "Pendiente de visita"
   tipo_persona?: string;
 }

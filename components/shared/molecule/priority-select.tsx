@@ -3,7 +3,7 @@
 import { Label } from "@/components/shared/atom/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
 
-type Prioridad = "Alta" | "Media" | "Baja"
+type Prioridad = "Ninguna" | "Urgente" | "Alta" | "Media" | "Baja"
 
 interface PrioritySelectProps {
   value?: Prioridad
@@ -34,9 +34,11 @@ export function PrioritySelect({
           <SelectValue placeholder="Seleccionar prioridad" />
         </SelectTrigger>
         <SelectContent>
+          <SelectItem value="Urgente">🟣 Urgente</SelectItem>
           <SelectItem value="Alta">🔴 Alta</SelectItem>
           <SelectItem value="Media">🟠 Media</SelectItem>
           <SelectItem value="Baja">🔵 Baja</SelectItem>
+          <SelectItem value="Ninguna">⚪ Ninguna</SelectItem>
         </SelectContent>
       </Select>
       {showHelp && (
