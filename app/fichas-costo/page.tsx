@@ -383,12 +383,25 @@ function FichasCostoPageContent() {
     let cancel = false
     ;(async () => {
       try {
-        const res = await InventarioService.getMaterialesStock({ limit: 2000 })
+        // El endpoint valida limit <= 500, así que paginamos hasta traerlos todos.
+        // (Traer solo la primera página ocultaría el botón "Costo" a los materiales
+        // que quedaran fuera, porque no estarían en el mapa de stock.)
+        const PAGE = 500
         const map: Record<string, number> = {}
-        for (const it of ((res?.data ?? []) as any[])) {
-          const total = Number(it?.total ?? 0)
-          if (it?.material_id) map[String(it.material_id)] = total
-          if (it?.codigo != null) map[`c:${String(it.codigo)}`] = total
+        let skip = 0
+        let total = Number.POSITIVE_INFINITY
+        let guard = 0
+        while (!cancel && skip < total && guard++ < 20) {
+          const res: any = await InventarioService.getMaterialesStock({ skip, limit: PAGE })
+          const lote: any[] = Array.isArray(res?.data) ? res.data : []
+          if (typeof res?.total === "number") total = res.total
+          for (const it of lote) {
+            const t = Number(it?.total ?? 0)
+            if (it?.material_id) map[String(it.material_id)] = t
+            if (it?.codigo != null) map[`c:${String(it.codigo)}`] = t
+          }
+          if (lote.length === 0) break
+          skip += lote.length
         }
         if (!cancel) {
           setStockPorMaterial(map)
@@ -417,7 +430,7 @@ function FichasCostoPageContent() {
     <div className="min-h-screen bg-gradient-to-br from-[#fdf6ec] via-white to-[#fbe6cf]">
       <ModuleHeader
         title="Fichas de Costo"
-        subtitle="Vista contable de materiales: costos, precios, márgenes, kardex y compras"
+        subtitle="Vista contable de materiales: costos, precios, márgenes, historial de costos y compras"
         badge={{ text: "Costos", className: "bg-amber-100 text-amber-800" }}
         backHref="/compras-envios-costos"
         backLabel="Volver a Compras, Envíos y Costos"
@@ -658,7 +671,7 @@ function FichasCostoPageContent() {
                                         <Coins className="h-3.5 w-3.5" />
                                       </button>
                                     )}
-                                    <button onClick={() => openDetalle(row)} title="Ver ficha (kardex y compras)" className="inline-flex items-center justify-center rounded p-1 text-amber-600 hover:text-amber-700 hover:bg-amber-50 transition-colors">
+                                    <button onClick={() => openDetalle(row)} title="Ver ficha (historial de costos y compras)" className="inline-flex items-center justify-center rounded p-1 text-amber-600 hover:text-amber-700 hover:bg-amber-50 transition-colors">
                                       <Eye className="h-3.5 w-3.5" />
                                     </button>
                                     <button onClick={() => openStock(row)} title="Ver stock en almacenes" className="inline-flex items-center justify-center rounded p-1 text-sky-600 hover:text-sky-700 hover:bg-sky-50 transition-colors">

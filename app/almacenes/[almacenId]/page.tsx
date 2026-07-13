@@ -76,6 +76,37 @@ import { StockHistoricoModal } from "@/components/feats/inventario/stock-histori
 const STOCK_LIMIT = 40;
 const MOVIMIENTOS_LIMIT = 40;
 
+/** Etiqueta el documento que originó el movimiento. El `tipo` del backend no
+ * alcanza: compras, devoluciones de vale, anulaciones y reversos automáticos
+ * comparten `tipo: "entrada"` y solo se distinguen por `origen_captura`,
+ * `estado` y el `origen` de la solicitud referenciada. */
+const describeOrigenMovimiento = (mov: MovimientoInventario): string => {
+  if (String(mov.estado || "").toLowerCase() === "rollback") return "Reverso automático";
+
+  switch (String(mov.origen_captura || "").trim()) {
+    case "solicitud_entrada_almacen": {
+      const origen = String(mov.referencia_detalle?.origen || "").toLowerCase();
+      if (origen === "compra") return "Compra";
+      if (origen === "consignacion") return "Consignación";
+      return "Solicitud de entrada";
+    }
+    case "devolucion_vale":
+      return "Devolución de vale";
+    case "vale_salida":
+      return mov.tipo === "entrada" ? "Anulación de vale" : "Salida por vale";
+  }
+
+  switch (mov.tipo) {
+    case "transferencia": return "Transferencia entre almacenes";
+    case "traspaso_sector": return "Traspaso entre sectores";
+    case "venta": return "Venta";
+    case "ajuste": return "Ajuste manual";
+    case "eliminacion": return "Eliminación";
+    case "salida": return "Salida manual";
+    default: return "Entrada manual";
+  }
+};
+
 export default function AlmacenDetallePage() {
   const params = useParams();
   const almacenId = params.almacenId as string;
@@ -586,6 +617,7 @@ export default function AlmacenDetallePage() {
         columns: [
           { header: "Fecha", key: "fecha", width: 20 },
           { header: "Tipo", key: "tipo", width: 16 },
+          { header: "Origen del movimiento", key: "origen_movimiento", width: 26 },
           { header: "Código", key: "material_codigo", width: 18 },
           { header: "Material", key: "material_nombre", width: 32 },
           { header: "Cantidad", key: "cantidad", width: 12 },
@@ -617,6 +649,7 @@ export default function AlmacenDetallePage() {
           return {
             fecha: fmtFecha(mov.fecha),
             tipo: normalizeValue(mov.tipo),
+            origen_movimiento: describeOrigenMovimiento(mov),
             material_codigo: normalizeValue(material?.codigo || (embedded?.codigo as string | undefined) || mov.material_codigo),
             material_nombre: normalizeValue(nombreMaterial),
             cantidad: typeof mov.cantidad === "number" ? mov.cantidad : normalizeValue(mov.cantidad),

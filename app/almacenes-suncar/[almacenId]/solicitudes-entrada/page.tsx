@@ -106,7 +106,7 @@ export default function SolicitudesEntradaPorAlmacenPage() {
 
   const handleAprobar = async (id: string, payload: Parameters<typeof aprobarSolicitud>[1]) => {
     await aprobarSolicitud(id, payload);
-    toast({ title: "Solicitud aprobada", description: "Se generaron los movimientos de entrada y el kardex." });
+    toast({ title: "Solicitud aprobada", description: "Se generaron los movimientos de entrada y se registró el costo." });
     void CompraService.getCompras().then(setCompras);
   };
 

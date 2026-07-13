@@ -266,7 +266,7 @@ export function SolicitudEntradaDetailDialog({
             {solicitud.estado === "aprobada" && (solicitud.movimientos_generados.length > 0 || solicitud.kardex_generados.length > 0) && (
               <p className="text-xs text-gray-400 mt-2">
                 {solicitud.movimientos_generados.length} movimiento{solicitud.movimientos_generados.length !== 1 ? "s" : ""} ·{" "}
-                {solicitud.kardex_generados.length} entrada{solicitud.kardex_generados.length !== 1 ? "s" : ""} en kardex
+                {solicitud.kardex_generados.length} entrada{solicitud.kardex_generados.length !== 1 ? "s" : ""} de costo registrada{solicitud.kardex_generados.length !== 1 ? "s" : ""}
               </p>
             )}
           </section>

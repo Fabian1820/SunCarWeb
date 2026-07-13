@@ -365,6 +365,7 @@ export class InventarioService {
         raw?.referencia_detalle && typeof raw.referencia_detalle === "object"
           ? (raw.referencia_detalle as Record<string, unknown>)
           : undefined,
+      origen_captura: asString(raw?.origen_captura),
       fecha:
         asString(raw?.fecha) ||
         asString(raw?.created_at) ||
