@@ -150,6 +150,7 @@ export function CreateLeadDialog({
     nombre: "",
     telefono: "",
     telefono_adicional: "",
+    telefono_adicional_nombre: "",
     estado: "",
     fuente: "",
     fuente_referencia: "",
@@ -480,6 +481,11 @@ export function CreateLeadDialog({
       cleaned.motivo_visita = cleaned.motivo_visita.trim();
     }
 
+    // El nombre del teléfono adicional no tiene sentido sin el número.
+    if (!cleaned.telefono_adicional) {
+      delete cleaned.telefono_adicional_nombre;
+    }
+
     return cleaned as unknown as LeadCreateData;
   };
 
@@ -535,16 +541,15 @@ export function CreateLeadDialog({
       onSubmit={handleSubmit}
       className="space-y-6 max-h-[80vh] overflow-y-auto pr-2 overflow-x-hidden"
     >
-      {/* Sección 1: Datos Personales */}
+      {/* Sección 1: Contacto */}
       <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
         <div className="pb-4 mb-4 border-b-2 border-gray-200">
-          <h3 className="text-xl font-bold text-gray-900">Datos Personales</h3>
+          <h3 className="text-xl font-bold text-gray-900">Contacto</h3>
           <p className="text-sm text-gray-500 mt-1">
-            Información básica del contacto
+            Quién es y cómo comunicarse
           </p>
         </div>
         <div className="space-y-4">
-          {/* 1. Nombre y Referencia */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="nombre">
@@ -572,26 +577,25 @@ export function CreateLeadDialog({
               />
             </div>
           </div>
-          {/* 2. Teléfono y Teléfono Adicional */}
+          <div>
+            <Label htmlFor="telefono">
+              Teléfono <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="telefono"
+              value={formData.telefono}
+              onChange={(e) => handleTelefonoChange(e.target.value)}
+              placeholder="+53 5 1234567"
+              className={`text-gray-900 placeholder:text-gray-400 ${errors.telefono ? "border-red-500" : ""}`}
+            />
+            {errors.telefono && (
+              <p className="text-sm text-red-500 mt-1">{errors.telefono}</p>
+            )}
+            {detectingCountry && (
+              <p className="text-sm text-blue-500 mt-1">Detectando país...</p>
+            )}
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="telefono">
-                Teléfono <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="telefono"
-                value={formData.telefono}
-                onChange={(e) => handleTelefonoChange(e.target.value)}
-                placeholder="+53 5 1234567"
-                className={`text-gray-900 placeholder:text-gray-400 ${errors.telefono ? "border-red-500" : ""}`}
-              />
-              {errors.telefono && (
-                <p className="text-sm text-red-500 mt-1">{errors.telefono}</p>
-              )}
-              {detectingCountry && (
-                <p className="text-sm text-blue-500 mt-1">Detectando país...</p>
-              )}
-            </div>
             <div>
               <Label htmlFor="telefono_adicional">Teléfono Adicional</Label>
               <Input
@@ -604,80 +608,36 @@ export function CreateLeadDialog({
                 className="text-gray-900 placeholder:text-gray-400"
               />
             </div>
-          </div>
-          {/* 3. Estado y Fuente */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="estado">
-                Estado <span className="text-red-500">*</span>
-              </Label>
-              <Select
-                value={formData.estado}
-                onValueChange={(value) => handleInputChange("estado", value)}
-              >
-                <SelectTrigger
-                  id="estado"
-                  className={`text-gray-900 ${errors.estado ? "border-red-500" : ""}`}
-                >
-                  <SelectValue placeholder="Seleccionar estado" />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px] overflow-y-auto">
-                  {estadosDisponibles.map((estado) => (
-                    <SelectItem key={estado} value={estado}>
-                      {estado}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.estado && (
-                <p className="text-sm text-red-500 mt-1">{errors.estado}</p>
-              )}
-            </div>
-
-            {/* Motivo de Visita - Solo visible cuando estado es "Pendiente de visita" */}
-            {formData.estado === "Pendiente de visita" && (
-              <div className="md:col-span-2">
-                <Label htmlFor="motivo_visita">Motivo de Visita</Label>
-                <Textarea
-                  id="motivo_visita"
-                  value={formData.motivo_visita || ""}
+            {formData.telefono_adicional && (
+              <div>
+                <Label htmlFor="telefono_adicional_nombre">
+                  ¿De quién es ese teléfono?
+                </Label>
+                <Input
+                  id="telefono_adicional_nombre"
+                  value={formData.telefono_adicional_nombre || ""}
                   onChange={(e) =>
-                    handleInputChange("motivo_visita", e.target.value)
+                    handleInputChange(
+                      "telefono_adicional_nombre",
+                      e.target.value,
+                    )
                   }
-                  placeholder="Ej: Primera evaluación técnica, verificar consumo actual, revisar estado del techo..."
-                  rows={3}
-                  className="text-gray-900"
+                  placeholder="Ej: esposo, hijo, vecino..."
+                  className="text-gray-900 placeholder:text-gray-400"
                 />
-                {errors.motivo_visita && (
-                  <p className="text-sm text-red-500 mt-1">
-                    {errors.motivo_visita}
-                  </p>
-                )}
-                <p className="text-xs text-gray-500 mt-1">
-                  Describe el motivo o propósito de la visita programada
-                </p>
               </div>
             )}
           </div>
+        </div>
+      </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FuenteSelector
-              fuente={formData.fuente}
-              fuenteReferencia={formData.fuente_referencia}
-              onChange={(fuente, fuenteReferencia) => {
-                handleInputChange("fuente", fuente);
-                handleInputChange("fuente_referencia", fuenteReferencia);
-              }}
-            />
-          </div>
-          {/* 4. Prioridad */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <PrioritySelect
-              value={formData.prioridad}
-              onChange={(value) => handleInputChange("prioridad", value)}
-            />
-          </div>
-          {/* 5. Dirección (a lo largo) */}
+      {/* Sección 2: Ubicación */}
+      <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
+        <div className="pb-4 mb-4 border-b-2 border-gray-200">
+          <h3 className="text-xl font-bold text-gray-900">Ubicación</h3>
+          <p className="text-sm text-gray-500 mt-1">Dónde se haría el montaje</p>
+        </div>
+        <div className="space-y-4">
           <div>
             <Label htmlFor="direccion">Dirección</Label>
             <Input
@@ -687,7 +647,6 @@ export function CreateLeadDialog({
               className="text-gray-900 placeholder:text-gray-400"
             />
           </div>
-          {/* 5. Provincia y Municipio */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="provincia_montaje">Provincia</Label>
@@ -751,16 +710,110 @@ export function CreateLeadDialog({
         </div>
       </div>
 
-      {/* Comentarios */}
-      <div className="space-y-2">
-        <Label htmlFor="comentario">Comentario</Label>
-        <Textarea
-          id="comentario"
-          value={formData.comentario || ""}
-          onChange={(e) => handleInputChange("comentario", e.target.value)}
-          rows={3}
-          className="text-gray-900 placeholder:text-gray-400"
-        />
+      {/* Sección 3: Origen y Prioridad */}
+      <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
+        <div className="pb-4 mb-4 border-b-2 border-gray-200">
+          <h3 className="text-xl font-bold text-gray-900">
+            Origen y Prioridad
+          </h3>
+          <p className="text-sm text-gray-500 mt-1">
+            De dónde vino el lead y qué tan urgente es
+          </p>
+        </div>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FuenteSelector
+              fuente={formData.fuente}
+              fuenteReferencia={formData.fuente_referencia}
+              onChange={(fuente, fuenteReferencia) => {
+                handleInputChange("fuente", fuente);
+                handleInputChange("fuente_referencia", fuenteReferencia);
+              }}
+            />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <PrioritySelect
+              value={formData.prioridad}
+              onChange={(value) => handleInputChange("prioridad", value)}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Sección 4: Estado y Seguimiento */}
+      <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
+        <div className="pb-4 mb-4 border-b-2 border-gray-200">
+          <h3 className="text-xl font-bold text-gray-900">
+            Estado y Seguimiento
+          </h3>
+          <p className="text-sm text-gray-500 mt-1">
+            En qué punto está este lead ahora
+          </p>
+        </div>
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="estado">
+              Estado <span className="text-red-500">*</span>
+            </Label>
+            <Select
+              value={formData.estado}
+              onValueChange={(value) => handleInputChange("estado", value)}
+            >
+              <SelectTrigger
+                id="estado"
+                className={`text-gray-900 ${errors.estado ? "border-red-500" : ""}`}
+              >
+                <SelectValue placeholder="Seleccionar estado" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[300px] overflow-y-auto">
+                {estadosDisponibles.map((estado) => (
+                  <SelectItem key={estado} value={estado}>
+                    {estado}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {errors.estado && (
+              <p className="text-sm text-red-500 mt-1">{errors.estado}</p>
+            )}
+          </div>
+
+          {/* Motivo de Visita - Solo visible cuando estado es "Pendiente de visita" */}
+          {formData.estado === "Pendiente de visita" && (
+            <div>
+              <Label htmlFor="motivo_visita">Motivo de Visita</Label>
+              <Textarea
+                id="motivo_visita"
+                value={formData.motivo_visita || ""}
+                onChange={(e) =>
+                  handleInputChange("motivo_visita", e.target.value)
+                }
+                placeholder="Ej: Primera evaluación técnica, verificar consumo actual, revisar estado del techo..."
+                rows={3}
+                className="text-gray-900"
+              />
+              {errors.motivo_visita && (
+                <p className="text-sm text-red-500 mt-1">
+                  {errors.motivo_visita}
+                </p>
+              )}
+              <p className="text-xs text-gray-500 mt-1">
+                Describe el motivo o propósito de la visita programada
+              </p>
+            </div>
+          )}
+
+          <div>
+            <Label htmlFor="comentario">Comentario</Label>
+            <Textarea
+              id="comentario"
+              value={formData.comentario || ""}
+              onChange={(e) => handleInputChange("comentario", e.target.value)}
+              rows={3}
+              className="text-gray-900 placeholder:text-gray-400"
+            />
+          </div>
+        </div>
       </div>
 
       {/* Botones */}

@@ -161,7 +161,7 @@ export default function LeadsPage() {
 
   const handleUpdateLeadPrioridad = async (
     leadId: string,
-    prioridad: "Alta" | "Media" | "Baja",
+    prioridad: "Ninguna" | "Urgente" | "Alta" | "Media" | "Baja",
   ) => {
     if (!leadId) return;
     try {

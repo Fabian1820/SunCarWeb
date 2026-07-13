@@ -660,7 +660,7 @@ export default function ClientesPage() {
   // Handler para actualizar solo la prioridad del cliente
   const handleUpdateClientPrioridad = async (
     clientId: string,
-    prioridad: "Alta" | "Media" | "Baja",
+    prioridad: "Ninguna" | "Urgente" | "Alta" | "Media" | "Baja",
   ) => {
     try {
       // Buscar el cliente por su ID de MongoDB
