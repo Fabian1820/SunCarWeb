@@ -637,7 +637,7 @@ export function LeadsTable({
 
   const handlePrioridadChange = async (
     leadId: string,
-    prioridad: "Alta" | "Media" | "Baja",
+    prioridad: "Ninguna" | "Urgente" | "Alta" | "Media" | "Baja",
   ) => {
     if (onUpdatePrioridad) {
       try {
