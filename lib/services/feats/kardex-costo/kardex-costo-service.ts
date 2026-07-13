@@ -145,7 +145,7 @@ export class KardexCostoService {
    * (crea filas ajuste_costo en todos sus almacenes) y sincroniza el catálogo.
    */
   static async ajusteCosto(
-    items: { material_id: string; costo: number; motivo?: string }[],
+    items: { material_id: string; costo: number; motivo?: string; almacen_id?: string }[],
     dryRun = false,
   ): Promise<any> {
     const raw = await apiRequest<any>(`${BASE_ENDPOINT}/ajuste-costo`, {
