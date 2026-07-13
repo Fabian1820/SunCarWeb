@@ -2,6 +2,48 @@
 
 ---
 
+## 📅 13 de Julio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**2 commits reales** de Fabian1820 y yany1509 — dos áreas: (1) diálogo de costo en Fichas de Costo mejorado para mostrar desglose por almacén y permitir ajuste específico o general; (2) checkbox `es_trabajador_suncar` en clientes y pestañas separadas en la vista de Facturas dentro de Obras Terminadas.
+
+---
+
+### Área 1: Fichas de Costo — desglose por almacén y ajuste específico o general (1 commit — Fabian1820, 17:05)
+
+- **`feat(fichas-costo): diálogo de costo muestra costo por almacén + ajuste específico o general`** — Al abrir el diálogo de un material con costo, ahora muestra el desglose de costo por almacén con su existencia y explica que la ficha es el promedio de todos. Desde ahí se puede corregir el costo de un almacén específico (✎ por fila) o hacer un "Ajuste general" que iguala todos los almacenes, con aviso de que se pierden las diferencias. Los almacenes con compra sin costo se marcan "sin costo aún" y no son editables.
+
+---
+
+### Área 2: Clientes — es_trabajador_suncar y pestañas Facturas en Obras Terminadas (1 commit — yany1509, 18:08)
+
+- **`feat(clientes): checkbox de trabajador de SunCar y pestañas separadas de facturas en obras terminadas`** — Agrega `es_trabajador_suncar` a los tipos y diálogos de crear/editar cliente. Divide la vista de Facturas dentro de Obras Terminadas en dos pestañas (clientes/trabajadores), cada una con su propio filtro server-side, carga perezosa y cache para no repetir la query al alternar entre pestañas ya visitadas.
+
+---
+
+### Puede dar bateo
+
+1. **"Ajuste general" irreversible sin confirmación robusta — destruye diferencias por almacén**: Al ejecutar el ajuste general todos los almacenes quedan con el mismo costo y se pierden las diferencias históricas. El aviso existe pero puede ignorarse fácilmente en flujos rápidos; no hay un paso de confirmación explícita tipo "escribe el motivo" o doble-click.
+
+2. **Endpoint de ajuste por almacén específico (✎ por fila) sin confirmar en backend**: La acción de editar el costo de un almacén individual asume un endpoint dedicado. Si el backend solo expone el ajuste general, el flujo por fila fallará con un error no manejado y sin mensaje claro al usuario.
+
+3. **Desglose por almacén stale al abrir el diálogo con movimientos concurrentes**: El costo y existencia por almacén se leen al abrir el diálogo, no en tiempo real. En almacenes de alta rotación, el ajuste puede aplicarse sobre datos ya desactualizados sin que el usuario lo note.
+
+4. **"Sin costo aún" en almacenes con compra pendiente — bloqueado sin ruta de resolución directa**: El usuario ve la fila deshabilitada pero no hay enlace directo a la compra pendiente de costeo desde este diálogo. Puede quedar atascado sin saber cómo desbloquearla.
+
+5. **Promedio "de todos" puede confundir si hay almacenes excluidos por sin-costo**: Si un almacén se excluye del promedio por estar sin costo aún, el valor mostrado en la ficha diferirá del cálculo manual que el usuario haría sumando las filas, sin nota explicativa de la exclusión.
+
+6. **`es_trabajador_suncar` — clientes históricos sin el campo, datos incompletos en filtros y conteos**: Los registros creados antes de este commit no tienen el campo y el backend los tratará como `false`. Conteos de "trabajadores SunCar" serán incorrectos hasta que se migre la base de datos.
+
+7. **Pestañas Facturas clientes/trabajadores — filtro `es_trabajador_suncar` en backend sin confirmar**: Si el backend no acepta ese parámetro en la query, ambas pestañas devolverán el mismo resultado sin ningún error visible, haciendo inútil la separación.
+
+8. **Cache estático de pestañas — facturas nuevas no visibles sin recarga manual**: El cache que evita repetir la query al alternar pestañas no tiene invalidación automática. Facturas generadas mientras el usuario está en otra pestaña no aparecerán hasta recargar la página.
+
+9. **`es_trabajador_suncar` en edición de cliente — confirmar persistencia en `PUT /clientes/{id}`**: Si el backend no acepta y persiste el nuevo campo en el endpoint de edición, el checkbox siempre aparecerá desmarcado al reabrir el formulario, dando falsa sensación de que se guardó cuando no.
+
+---
+
 ## 📅 11 de Julio, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -254,72 +296,15 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 5 de Julio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**2 commits reales** de Fabian1820 — llegaron a las 23:22 del 4/Jul: (1) fix para mostrar el nombre real del material en el export de Instalaciones en Proceso; (2) sistema de permisos granulares por tarjeta dentro del módulo Instalaciones.
-
----
-
-### Área 1: Instalaciones en Proceso — nombre de material en export (1 commit — Fabian1820, 23:22)
-
-- **`fix(instalaciones): mostrar nombre del material (no descripción) en export en proceso`** — El export enriquece cada item desde el catálogo buscando por código de material, con fallback a `descripcion` y luego al código.
-
----
-
-### Área 2: Permisos granulares por tarjeta de Instalaciones (1 commit — Fabian1820, 23:22)
-
-- **`feat(permisos): permiso granular por tarjeta de Instalaciones + trabajos:* anidados`** — Cada una de las 7 tarjetas del módulo Instalaciones pasa a ser un sub-permiso asignable independiente con separador `/`. Los sub-permisos `trabajos:*` se muestran anidados visualmente pero conservan su clave original con `:`. `RouteGuard` acepta `string | string[]` y pasa con cualquiera de los permisos.
-
----
-
-### Puede dar bateo
-
-1. **Herencia `instalaciones` → 7 sub-permisos solo en runtime**: Los 22 usuarios con `instalaciones` completo en BD heredan los sub-permisos por lógica de prefijo `/` en runtime, no por registros explícitos en BD. Si esa lógica cambia, pierden acceso sin migración de BD.
-
-2. **Dos separadores de sub-permiso en el mismo sistema (`/` vs `:`)**: Los sub-permisos de instalaciones usan barra mientras que los de trabajos usan dos puntos. Dos convenciones distintas aumentan la probabilidad de errores al definir nuevos permisos.
-
-3. **`RouteGuard` con `string[]` — semántica OR sin confirmación formal**: El guard pasa si el usuario tiene CUALQUIERA de los permisos. Si en alguna ruta la intención era requerir TODOS (AND), el gating es demasiado permisivo.
-
-4. **Landing `/instalaciones` vacía sin mensaje para usuario sin sub-permisos**: Si un usuario no tiene ningún `instalaciones/*` asignado, la landing mostrará la lista de tarjetas vacía sin ningún aviso.
-
-5. **Sub-permisos nuevos no asignados automáticamente**: Los 7 `instalaciones/*` se crean en el catálogo pero no se auto-asignan. Un SuperAdmin que crea un usuario nuevo debe asignarlos manualmente uno a uno.
-
-6. **Export Instalaciones en Proceso — `getAllMaterials()` sin caché explícito**: El fix llama a `getAllMaterials()` en cada apertura del dialog de export. Sin caché, cada exportación dispara una llamada completa al catálogo.
-
----
-
-## 📅 4 de Julio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**1 commit real** de Fabian1820 — export Excel del módulo **Instalaciones en Proceso** y fix del filtro de fecha en Obras Terminadas.
-
----
-
-### Área 1: Instalaciones en Proceso + Obras Terminadas (1 commit — Fabian1820, 21:57)
-
-- **`feat(instalaciones): export Excel de instalaciones en proceso + fix filtro fecha obras terminadas`** — Nuevo botón "Exportar Excel" en Instalaciones en Proceso con materiales por cliente vía `/ofertas/confeccion/cliente/{numero}`. Fix en Obras Terminadas: el botón "Rango" del filtro de fecha empieza vacío para no aplicar un filtro silencioso.
-
----
-
-### Puede dar bateo
-
-1. **Export Instalaciones — N+1 llamadas a `/ofertas/confeccion/cliente/{numero}`**: Para cada cliente en la lista se dispara una petición HTTP separada. Con muchos clientes puede generar decenas de llamadas en paralelo.
-
-2. **Materiales del export representan la oferta actual, no el momento de instalación**: Si la oferta fue modificada después de iniciar la instalación, el Excel mostrará los materiales actuales.
-
-3. **Filtro "Rango" vacío en Obras Terminadas — export sin cota de fecha**: Sin ningún filtro de fecha, una exportación trae el historial completo sin advertencia.
-
-4. **`fecha_equipo_instalado` solo existe desde mayo 2026**: Obras anteriores a mayo 2026 no aparecen en ningún filtro por fecha de forma silenciosa.
-
-5. **Instalación concurrente con cambio de estado**: Si durante la generación del Excel un cliente pasa de "en proceso" a "terminado", los materiales traídos pueden corresponder a un estado ya no válido.
-
----
-
 #### Seguimientos vigentes
 
+- **Fichas de Costo — "Ajuste general" irreversible destruye diferencias por almacén sin confirmación robusta (Jul 13)**.
+- **Fichas de Costo — endpoint de ajuste por almacén específico (✎) sin confirmar en backend (Jul 13)**.
+- **Fichas de Costo — desglose por almacén stale al abrir el diálogo con movimientos concurrentes (Jul 13)**.
+- **`es_trabajador_suncar` — clientes históricos sin el campo, datos incompletos en filtros y conteos (Jul 13)**.
+- **Pestañas Facturas clientes/trabajadores — filtro `es_trabajador_suncar` en backend sin confirmar (Jul 13)**.
+- **Cache de pestañas Facturas — facturas nuevas no visibles sin recarga manual (Jul 13)**.
+- **`es_trabajador_suncar` en edición — confirmar persistencia en `PUT /clientes/{id}` (Jul 13)**.
 - **Facturas Solar Carros — precio escalado nulo si algún material tiene precio nulo en catálogo de contabilidad (Jul 10)**.
 - **Facturas Solar Carros — bloqueo stock al abrir el diálogo, no tiempo real; riesgo de sobreventa en alta concurrencia (Jul 10)**.
 - **Vista "Facturas" en Obras Terminadas — endpoint de backend sin confirmar (Jul 10)**.
@@ -342,10 +327,6 @@ Sin cambios nuevos — sin riesgos nuevos.
 - **`RouteGuard` con `string[]` — confirmar semántica OR vs AND en cada ruta (Jul 5)**.
 - **Landing `/instalaciones` vacía sin mensaje para usuario sin sub-permisos asignados (Jul 5)**.
 - **Export Instalaciones en Proceso — `getAllMaterials()` sin caché en lookup de nombre de material (Jul 5)**.
-- **Export Instalaciones en Proceso — N+1 llamadas a `/ofertas/confeccion/cliente/{numero}` (Jul 4)**.
-- **Materiales del export de Instalaciones representan la oferta actual, no el momento de instalación (Jul 4)**.
-- **Filtro "Rango" vacío en Obras Terminadas — export completo sin cota de fecha (Jul 4)**.
-- **`fecha_equipo_instalado` — campo solo existe desde mayo 2026, obras previas invisibles en filtros de fecha (Jul 4)**.
 - **`stackedColumnKeys` en `exportToExcel` — verificar implementación en `lib/export-service.ts` (Jul 3)**.
 - **`lib/export-multi-sheet-service.ts` eliminado — confirmar sin imports residuales (Jul 3)**.
 - **Obras Terminadas export — embedding de materiales en `/obras-terminadas/datos` sin confirmar en backend (Jul 3)**.
@@ -448,4 +429,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
