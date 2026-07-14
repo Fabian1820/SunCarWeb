@@ -264,7 +264,7 @@ export default function ObrasTerminadasPage() {
     setExporting(true)
     try {
       const resultado = sinMateriales
-        ? await ExportObrasTerminadasExcelService.exportarSinMateriales(filtros)
+        ? await ExportObrasTerminadasExcelService.exportarFacturasSinMateriales(filtros)
         : await ExportObrasTerminadasExcelService.exportar(filtros)
       toast({
         title: "Exportación exitosa",

@@ -138,6 +138,47 @@ export class ExportObrasTerminadasExcelService {
     return this.exportar(filtros, { incluirMateriales: false });
   }
 
+  /**
+   * Export reducido para la vista de Facturas: solo las columnas relevantes
+   * para contabilidad (sin comercial, estado, fecha de creación, devuelto ni
+   * facturada).
+   */
+  static async exportarFacturasSinMateriales(
+    filtros: ObrasTerminadasFiltros = {},
+  ): Promise<ExportObrasTerminadasResult> {
+    const obras = await this.fetchTodasLasObras(filtros);
+
+    const rows = obras.map((obra) => ({
+      cliente: obra.cliente_nombre || obra.nombre_completo || "Sin cliente",
+      numero_oferta: obra.numero_oferta || "",
+      fecha_equipo_instalado: fmtDate(obra.fecha_equipo_instalado),
+      precio_final: round2(obra.precio_final),
+      numero_factura: obra.numero_factura || "",
+      total_pagado: round2(obra.total_pagado),
+      monto_pendiente: round2(obra.monto_pendiente),
+    }));
+
+    const filename = generateFilename("facturas_obras_terminadas_sin_materiales");
+
+    await exportToExcel({
+      title: "Suncar SRL - Facturas Obras Terminadas",
+      subtitle: `Registros: ${obras.length}`,
+      filename,
+      columns: [
+        { header: "Cliente", key: "cliente", width: 28 },
+        { header: "Oferta", key: "numero_oferta", width: 16 },
+        { header: "F. Eq. Instalado", key: "fecha_equipo_instalado", width: 16 },
+        { header: "Precio Oferta", key: "precio_final", width: 14 },
+        { header: "N° Factura", key: "numero_factura", width: 16 },
+        { header: "Cobrado", key: "total_pagado", width: 14 },
+        { header: "Pendiente", key: "monto_pendiente", width: 14 },
+      ],
+      data: rows,
+    });
+
+    return { count: obras.length, filename };
+  }
+
   private static async fetchTodasLasObras(
     filtros: ObrasTerminadasFiltros,
   ): Promise<ObraTerminada[]> {
