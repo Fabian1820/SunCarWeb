@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/molecule/input";
 import { Label } from "@/components/shared/atom/label";
+import { Checkbox } from "@/components/shared/molecule/checkbox";
 import { Textarea } from "@/components/shared/molecule/textarea";
 import {
   Dialog,
@@ -19,8 +20,10 @@ import {
   SelectValue,
 } from "@/components/shared/atom/select";
 import { PrioritySelect } from "@/components/shared/molecule/priority-select";
+import { FaltaInstalacionSelect } from "@/components/shared/molecule/falta-instalacion-select";
 import { Loader2, MapPin } from "lucide-react";
 import { FechaInstalacionDialog } from "@/components/shared/molecule/fecha-instalacion-dialog";
+import { compareStrings } from "@/lib/utils/string-utils";
 import type { Cliente, ClienteUpdateData } from "@/lib/api-types";
 import { useAuth } from "@/contexts/auth-context";
 import { API_BASE_URL, apiRequest } from "@/lib/api-config";
@@ -226,6 +229,7 @@ export function EditClientDialog({
     prioridad: client.prioridad || "Baja",
     motivo_visita: client.motivo_visita || "",
     tipo_persona: normalizeTipoPersona(client.tipo_persona || ""),
+    es_trabajador_suncar: client.es_trabajador_suncar ?? false,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -284,6 +288,7 @@ export function EditClientDialog({
         prioridad: client.prioridad || "Baja",
         motivo_visita: client.motivo_visita || "",
         tipo_persona: normalizeTipoPersona(client.tipo_persona || ""),
+        es_trabajador_suncar: client.es_trabajador_suncar ?? false,
       });
 
       // Actualizar el estado de fuente personalizada
@@ -903,6 +908,23 @@ export function EditClientDialog({
                   </div>
                 </div>
 
+                {/* Trabajador de SunCar */}
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="es_trabajador_suncar-edit"
+                    checked={formData.es_trabajador_suncar ?? false}
+                    onCheckedChange={(checked) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        es_trabajador_suncar: checked === true,
+                      }))
+                    }
+                  />
+                  <Label htmlFor="es_trabajador_suncar-edit" className="cursor-pointer">
+                    Es trabajador de SunCar
+                  </Label>
+                </div>
+
                 {/* Prioridad */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <PrioritySelect
@@ -911,7 +933,7 @@ export function EditClientDialog({
                   />
                 </div>
 
-                {/* Campo condicional: Falta Instalación */}
+                {/* Campo condicional: Falta Instalación (texto libre en proceso) */}
                 {formData.estado === "Instalación en Proceso" && (
                   <div>
                     <Label htmlFor="falta_instalacion">
@@ -926,6 +948,25 @@ export function EditClientDialog({
                       rows={2}
                       className="text-gray-900 placeholder:text-gray-400"
                       placeholder="Describe qué le falta para completar la instalación..."
+                    />
+                  </div>
+                )}
+
+                {/* Campo condicional: Qué falta (equipo instalado con éxito) */}
+                {compareStrings(
+                  formData.estado || "",
+                  "Equipo instalado con éxito"
+                ) && (
+                  <div>
+                    <Label htmlFor="falta_instalacion_instalado">
+                      ¿Queda algo pendiente?
+                    </Label>
+                    <FaltaInstalacionSelect
+                      id="falta_instalacion_instalado"
+                      value={formData.falta_instalacion}
+                      onChange={(v) =>
+                        handleInputChange("falta_instalacion", v)
+                      }
                     />
                   </div>
                 )}

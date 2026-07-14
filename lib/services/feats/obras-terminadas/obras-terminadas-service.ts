@@ -22,18 +22,34 @@ export interface ObraTerminada {
   total_pagado?: number | null;
   total_devuelto?: number | null;
   monto_pendiente?: number | null;
+  /** Descuento de la oferta = descuento comercial + asumido por la empresa + compensación. */
+  descuento_oferta?: number | null;
+  monto_descuento?: number | null;
+  descuento_porcentaje?: number | null;
+  monto_asumido_empresa?: number | null;
+  monto_compensacion?: number | null;
   cantidad_pagos?: number | null;
   almacen_nombre?: string | null;
   facturada?: boolean | null;
   numero_factura?: string | null;
+  fecha_facturacion?: string | null;
   /** Materiales de la oferta, embebidos directamente en el listado (igual que vales de salida). */
   materiales?: MaterialOferta[] | null;
+}
+
+/** Totales globales sobre todo el conjunto filtrado (no la página actual). */
+export interface ObrasTerminadasTotales {
+  total_cobrado: number;
+  total_pendiente: number;
+  total_facturado: number;
+  total_descuento: number;
 }
 
 export interface ObrasTerminadasListResponse {
   success: boolean;
   data: ObraTerminada[];
   total: number;
+  totales?: ObrasTerminadasTotales;
   skip: number;
   limit: number;
 }
@@ -49,6 +65,8 @@ export interface EntregaMaterial {
 export interface MaterialOferta {
   material_codigo?: string | null;
   descripcion?: string | null;
+  /** Nombre del material resuelto por el backend desde el catálogo. */
+  nombre?: string | null;
   categoria?: string | null;
   cantidad?: number | null;
   precio?: number | null;
@@ -158,10 +176,15 @@ export interface ObrasTerminadasFiltros {
   comercial?: string;
   q?: string;
   estado_pago?: "todos" | "pagado" | "pendiente";
+  estado_factura?: "todos" | "facturada" | "pagada" | "pendiente" | "sin_factura";
+  es_trabajador_suncar?: boolean;
+  requiere_instalado?: boolean;
   fecha_creacion_desde?: string;
   fecha_creacion_hasta?: string;
   fecha_equipo_desde?: string;
   fecha_equipo_hasta?: string;
+  fecha_facturacion_desde?: string;
+  fecha_facturacion_hasta?: string;
 }
 
 /* ── Servicio ───────────────────────────────────────────────────────── */
@@ -181,10 +204,15 @@ export const ObrasTerminadasService = {
     if (filtros.comercial)             params.set("comercial",      filtros.comercial);
     if (filtros.q)                     params.set("q",              filtros.q);
     if (filtros.estado_pago)           params.set("estado_pago",     filtros.estado_pago);
+    if (filtros.estado_factura)        params.set("estado_factura",  filtros.estado_factura);
+    if (filtros.es_trabajador_suncar != null) params.set("es_trabajador_suncar", String(filtros.es_trabajador_suncar));
+    if (filtros.requiere_instalado != null) params.set("requiere_instalado", String(filtros.requiere_instalado));
     if (filtros.fecha_creacion_desde)  params.set("fecha_creacion_desde", filtros.fecha_creacion_desde);
     if (filtros.fecha_creacion_hasta)  params.set("fecha_creacion_hasta", filtros.fecha_creacion_hasta);
     if (filtros.fecha_equipo_desde)    params.set("fecha_equipo_desde", filtros.fecha_equipo_desde);
     if (filtros.fecha_equipo_hasta)    params.set("fecha_equipo_hasta", filtros.fecha_equipo_hasta);
+    if (filtros.fecha_facturacion_desde) params.set("fecha_facturacion_desde", filtros.fecha_facturacion_desde);
+    if (filtros.fecha_facturacion_hasta) params.set("fecha_facturacion_hasta", filtros.fecha_facturacion_hasta);
     const qs = params.toString();
     const url = qs ? `${BASE}/datos?${qs}` : `${BASE}/datos`;
     return apiRequest<ObrasTerminadasListResponse>(url, { method: "GET", signal });
@@ -207,6 +235,26 @@ export const ObrasTerminadasService = {
     return apiRequest<FacturaClienteObra[]>(
       `${BASE}/oferta/${encodeURIComponent(ofertaId)}/facturas-cliente`,
       { method: "GET", signal },
+    );
+  },
+
+  async generarFactura(
+    ofertaId: string,
+    signal?: AbortSignal,
+  ): Promise<{ success: boolean; factura_id: string | null; numero_factura: string; vales_incluidos: number }> {
+    return apiRequest(
+      `${BASE}/oferta/${encodeURIComponent(ofertaId)}/generar-factura`,
+      { method: "POST", signal },
+    );
+  },
+
+  async marcarFacturada(
+    ofertaId: string,
+    signal?: AbortSignal,
+  ): Promise<{ success: boolean; factura_id: string | null; numero_factura: string; vales_incluidos: number }> {
+    return apiRequest(
+      `${BASE}/oferta/${encodeURIComponent(ofertaId)}/marcar-facturada`,
+      { method: "POST", signal },
     );
   },
 

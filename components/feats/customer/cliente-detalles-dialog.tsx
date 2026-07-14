@@ -19,6 +19,7 @@ import {
 } from "lucide-react"
 import type { Cliente, ClienteFoto } from "@/lib/api-types"
 import { downloadFile } from "@/lib/utils/download-file"
+import { compareStrings } from "@/lib/utils/string-utils"
 
 interface ClienteDetallesDialogProps {
   open: boolean
@@ -240,7 +241,9 @@ export function ClienteDetallesDialog({
               )}
 
               {/* Fila 4.5: Falta Instalación (Condicional) */}
-              {cliente.estado === 'Instalación en Proceso' && cliente.falta_instalacion && (
+              {cliente.falta_instalacion &&
+                (compareStrings(cliente.estado || '', 'Instalación en Proceso') ||
+                  compareStrings(cliente.estado || '', 'Equipo instalado con éxito')) && (
                 <div>
                   <Label className="text-gray-700">¿Qué le falta a la instalación?</Label>
                   <p className="text-sm text-gray-700 bg-amber-50 p-3 rounded-md border border-amber-200 mt-1">

@@ -39,6 +39,7 @@ import type {
   TrabajoDiarioObra,
   ValeSalidaObra,
   ObrasTerminadasFiltros,
+  ObrasTerminadasTotales,
   FacturaClienteObra,
 } from "@/lib/services/feats/obras-terminadas/obras-terminadas-service"
 import { ExportFacturaClienteService } from "@/lib/services/feats/obras-terminadas/export-factura-cliente-service"
@@ -756,7 +757,7 @@ function FacturasPanel({ facturas, oferta }: { facturas: Factura[]; oferta: Ofer
    Panel: FACTURAS CLIENTE TERMINADO
 ───────────────────────────────────────────── */
 
-function FacturasClientePanel({ facturas, oferta }: { facturas: FacturaClienteObra[]; oferta: OfertaObra }) {
+export function FacturasClientePanel({ facturas, oferta }: { facturas: FacturaClienteObra[]; oferta: OfertaObra }) {
   const [exportingId, setExportingId] = React.useState<string | null>(null)
 
   if (!facturas.length)
@@ -972,6 +973,7 @@ type SectionTab = "materiales" | "pagos" | "trabajos" | "vales" | "facturas" | "
 
 interface ObrasTerminadasTableProps {
   ofertasConPagos: OfertaObra[]
+  totales: ObrasTerminadasTotales
   loading: boolean
   fetchDetalle: (ofertaId: string) => Promise<void>
   detalleCache: Record<string, OfertaDetalleObras>
@@ -987,6 +989,7 @@ interface ObrasTerminadasTableProps {
 
 export function ObrasTerminadasTable({
   ofertasConPagos,
+  totales,
   loading,
   fetchDetalle,
   detalleCache,
@@ -1057,6 +1060,7 @@ export function ObrasTerminadasTable({
         q: searchTerm.trim() || undefined,
         comercial: comercialFilter !== "todos" ? comercialFilter : undefined,
         estado_pago: estadoPago,
+        estado_factura: filtroFacturada !== "todos" ? filtroFacturada : undefined,
         fecha_creacion_desde: fechaCreacion.desde,
         fecha_creacion_hasta: fechaCreacion.hasta,
         fecha_equipo_desde: fechaEquipo.desde,
@@ -1064,7 +1068,7 @@ export function ObrasTerminadasTable({
       })
     }, 250)
     return () => clearTimeout(t)
-  }, [searchTerm, comercialFilter, estadoPago, filtroFechaCliente, filtroFechaEquipo, onServerFiltersChange])
+  }, [searchTerm, comercialFilter, estadoPago, filtroFacturada, filtroFechaCliente, filtroFechaEquipo, onServerFiltersChange])
 
   const comerciales = useMemo(() => {
     const set = new Set<string>()
@@ -1075,14 +1079,9 @@ export function ObrasTerminadasTable({
     return Array.from(set).sort((a, b) => a.localeCompare(b, "es"))
   }, [ofertasConPagos])
 
-  const filteredOfertas = useMemo(() => {
-    if (filtroFacturada === "todos") return ofertasConPagos
-    if (filtroFacturada === "sin_factura") return ofertasConPagos.filter((o) => !o.facturada)
-    if (filtroFacturada === "pagada")
-      return ofertasConPagos.filter((o) => o.facturada && (o.precio_final ?? 0) - (o.total_pagado ?? 0) <= 0.01)
-    // pendiente
-    return ofertasConPagos.filter((o) => o.facturada && (o.precio_final ?? 0) - (o.total_pagado ?? 0) > 0.01)
-  }, [ofertasConPagos, filtroFacturada])
+  // El filtro "Factura cliente" ahora se resuelve en el backend (para que afecte
+  // también la paginación y las exportaciones); la lista ya llega filtrada.
+  const filteredOfertas = ofertasConPagos
 
   if (loading)
     return (
@@ -1224,15 +1223,34 @@ export function ObrasTerminadasTable({
         )}
       </div>
 
-      {/* Contador */}
-      <div className="text-sm text-gray-500 px-1">
-        Mostrando <strong>{filteredOfertas.length}</strong> de {ofertasConPagos.length} obras
-        {filteredOfertas.length > 0 && (
-          <span className="ml-3 text-blue-600 font-medium">
-            Total cobrado: {fmtCurrency(filteredOfertas.reduce((s, o) => s + (o.total_pagado ?? 0), 0))} ·
-            Pendiente: {fmtCurrency(filteredOfertas.reduce((s, o) => s + (o.monto_pendiente ?? 0), 0))}
-          </span>
+      {/* Totales globales — de TODAS las obras del filtro actual, no solo la página */}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-emerald-100 bg-emerald-50/40 px-4 py-3">
+        <span className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+          Totales · todas las páginas
+        </span>
+        <div className="flex flex-col">
+          <span className="text-[11px] text-gray-500">Total cobrado</span>
+          <span className="text-sm font-bold text-green-700 tabular-nums">{fmtCurrency(totales.total_cobrado)}</span>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-[11px] text-gray-500">Total pendiente</span>
+          <span className="text-sm font-bold text-emerald-700 tabular-nums">{fmtCurrency(totales.total_pendiente)}</span>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-[11px] text-gray-500">Total facturado</span>
+          <span className="text-sm font-bold text-slate-900 tabular-nums">{fmtCurrency(totales.total_facturado)}</span>
+        </div>
+        {totales.total_descuento > 0.01 && (
+          <div className="flex flex-col">
+            <span className="text-[11px] text-gray-500">Descuentos aplicados</span>
+            <span className="text-sm font-bold text-amber-700 tabular-nums">{fmtCurrency(totales.total_descuento)}</span>
+          </div>
         )}
+      </div>
+
+      {/* Contador de página */}
+      <div className="text-sm text-gray-500 px-1">
+        Mostrando <strong>{ofertasConPagos.length}</strong> obras en esta página
       </div>
 
       {(filteredOfertas.length === 0 || ofertasConPagos.length === 0) ? (
@@ -1257,7 +1275,7 @@ export function ObrasTerminadasTable({
                 <TableHead className="w-[10%] text-xs">F. Creación</TableHead>
                 <TableHead className="w-[10%] text-xs">F. Eq. Instalado</TableHead>
                 <TableHead className="w-[10%] text-right text-xs">Precio Oferta</TableHead>
-                <TableHead className="w-[10%] text-right text-xs">Total Mat.</TableHead>
+                <TableHead className="w-[10%] text-right text-xs">Descuento</TableHead>
                 <TableHead className="w-[10%] text-right text-xs">Cobrado</TableHead>
                 <TableHead className="w-[10%] text-right text-xs">Devuelto</TableHead>
                 <TableHead className="w-[10%] text-right text-xs">Pendiente</TableHead>
@@ -1339,7 +1357,32 @@ export function ObrasTerminadasTable({
                         {oferta.fecha_equipo_instalado ? fmtDate(oferta.fecha_equipo_instalado) : <span className="text-gray-400">—</span>}
                       </TableCell>
                       <TableCell className="text-right font-semibold text-sm py-2.5 whitespace-nowrap tabular-nums">{fmtCurrency(oferta.precio_final ?? 0)}</TableCell>
-                      <TableCell className="text-right text-sm py-2.5 text-slate-700 whitespace-nowrap tabular-nums">{oferta.total_materiales != null ? fmtCurrency(oferta.total_materiales) : "-"}</TableCell>
+                      <TableCell className="text-right text-sm py-2.5 whitespace-nowrap tabular-nums">
+                        {(() => {
+                          const descuento = oferta.descuento_oferta ?? 0
+                          if (descuento <= 0.01) return <span className="text-gray-300">—</span>
+                          const desc = oferta.monto_descuento ?? 0
+                          const pct = oferta.descuento_porcentaje ?? 0
+                          const asumido = oferta.monto_asumido_empresa ?? 0
+                          const compensacion = oferta.monto_compensacion ?? 0
+                          const partes = [
+                            desc > 0.01
+                              ? `Descuento comercial: ${fmtCurrency(desc)}${pct > 0 ? ` (${Number(pct.toFixed(2))}%)` : ""}`
+                              : null,
+                            asumido > 0.01
+                              ? `Asumido por la empresa: ${fmtCurrency(asumido)}`
+                              : null,
+                            compensacion > 0.01
+                              ? `Compensación: ${fmtCurrency(compensacion)}`
+                              : null,
+                          ].filter(Boolean).join(" · ")
+                          return (
+                            <span className="text-amber-700 font-medium cursor-help" title={partes}>
+                              {fmtCurrency(descuento)}
+                            </span>
+                          )
+                        })()}
+                      </TableCell>
                       <TableCell className="text-right text-sm py-2.5 text-green-700 font-semibold whitespace-nowrap tabular-nums">{fmtCurrency(oferta.total_pagado ?? 0)}</TableCell>
                       <TableCell className="text-right text-sm py-2.5 text-red-700 font-semibold whitespace-nowrap tabular-nums">{fmtCurrency(oferta.total_devuelto ?? 0)}</TableCell>
                       <TableCell className="text-right text-sm py-2.5 font-semibold whitespace-nowrap tabular-nums">

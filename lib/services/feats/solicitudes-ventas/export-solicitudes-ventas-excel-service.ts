@@ -35,9 +35,9 @@ const formatMaterialNombre = (
   m: NonNullable<SolicitudVentaSummary["materiales"]>[number],
 ): string => {
   const nombre =
-    m.material_descripcion ||
     m.material_nombre ||
     m.nombre ||
+    m.material_descripcion ||
     m.material_codigo ||
     m.material_id ||
     "";

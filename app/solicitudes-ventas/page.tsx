@@ -856,7 +856,10 @@ const [exportingPagos, setExportingPagos]           = useState(false);
           try {
             const resumen = await resolveResumen(f);
             const materialesAgregados: Array<{
+              material_codigo?: string;
+              material_id?: string;
               material_descripcion?: string;
+              nombre?: string;
               cantidad?: number;
               precio?: number;
               subtotal?: number;
@@ -868,6 +871,9 @@ const [exportingPagos, setExportingPagos]           = useState(false);
                   materialesAgregados.push({ material_descripcion: m });
                 } else if (m && typeof m === "object") {
                   const mo = m as {
+                    material_codigo?: string;
+                    codigo?: string;
+                    material_id?: string;
                     material_descripcion?: string;
                     descripcion?: string;
                     nombre?: string;
@@ -876,8 +882,11 @@ const [exportingPagos, setExportingPagos]           = useState(false);
                     subtotal?: number;
                   };
                   materialesAgregados.push({
+                    material_codigo: mo.material_codigo || mo.codigo,
+                    material_id: mo.material_id,
                     material_descripcion:
-                      mo.material_descripcion || mo.descripcion || mo.nombre || "",
+                      mo.material_descripcion || mo.descripcion || "",
+                    nombre: mo.nombre,
                     cantidad: mo.cantidad,
                     precio: mo.precio,
                     subtotal: mo.subtotal,

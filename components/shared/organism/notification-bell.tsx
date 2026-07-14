@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Bell, X, CheckCheck, ExternalLink, Trash2, Handshake, Hourglass, CheckCircle2, Wallet } from "lucide-react"
+import { Bell, X, CheckCheck, ExternalLink, Trash2, Handshake, Hourglass, CheckCircle2, Wallet, Receipt } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/contexts/auth-context"
 import {
@@ -68,18 +68,27 @@ function getGrupoFecha(fechaStr: string): Grupo {
 const ORDEN_GRUPOS: Grupo[] = ["Hoy", "Ayer", "Esta semana", "Anteriores"]
 
 // ── Pestañas por tipo ────────────────────────────────────────────────────────
-type TabKey = "nuevos" | "atrasados" | "instaladas" | "reservas"
+type TabKey = "nuevos" | "atrasados" | "instaladas" | "reservas" | "facturas"
 
 const TABS: { key: TabKey; label: string; tipo: string }[] = [
-  { key: "nuevos",     label: "Nuevos",     tipo: "lead_convertido"     },
-  { key: "atrasados",  label: "Atrasados",  tipo: "demora_instalacion"  },
-  { key: "instaladas", label: "Instaladas", tipo: "instalacion_exitosa" },
-  { key: "reservas",   label: "Reservas",   tipo: "reserva_pendiente"   },
+  { key: "nuevos",     label: "Nuevos",     tipo: "lead_convertido"        },
+  { key: "atrasados",  label: "Atrasados",  tipo: "demora_instalacion"     },
+  { key: "instaladas", label: "Instaladas", tipo: "instalacion_exitosa"    },
+  { key: "reservas",   label: "Reservas",   tipo: "reserva_pendiente"     },
+  { key: "facturas",   label: "Facturar",   tipo: "factura_multiple_ofertas" },
 ]
 
 function tipoToTab(tipo: string): TabKey {
   const t = TABS.find((x) => x.tipo === tipo)
   return t?.key ?? "instaladas"
+}
+
+/** Destino del botón "Ver cliente" según el tipo de notificación. */
+function linkParaNotificacion(notif: Notificacion): string {
+  if (notif.tipo === "factura_multiple_ofertas") {
+    return `/facturas/obras-terminadas?cliente=${encodeURIComponent(notif.cliente_numero)}`
+  }
+  return `/clientes?buscar=${encodeURIComponent(notif.cliente_numero)}`
 }
 
 // ── Estilos visuales por tipo de notificación ────────────────────────────────
@@ -119,6 +128,13 @@ function visualPorTipo(tipo: string): TipoVisual {
         iconClass: "text-violet-600",
         bgClass: "bg-violet-50",
         ringClass: "ring-violet-100",
+      }
+    case "factura_multiple_ofertas":
+      return {
+        Icon: Receipt,
+        iconClass: "text-rose-600",
+        bgClass: "bg-rose-50",
+        ringClass: "ring-rose-100",
       }
     default:
       return {
@@ -344,7 +360,7 @@ export function NotificationBell() {
     e.stopPropagation()
     if (!notif.leida) await NotificacionService.marcarLeida(notif.id)
     setOpen(false)
-    router.push(`/clientes?buscar=${encodeURIComponent(notif.cliente_numero)}`)
+    router.push(linkParaNotificacion(notif))
   }
 
   async function handleMarcarTodasLeidas() {
@@ -382,7 +398,7 @@ export function NotificationBell() {
   const grupos      = agruparNotificaciones(visibles)
 
   // Conteo de no leídas por pestaña
-  const conteoPorTab: Record<TabKey, number> = { nuevos: 0, atrasados: 0, instaladas: 0 }
+  const conteoPorTab: Record<TabKey, number> = { nuevos: 0, atrasados: 0, instaladas: 0, reservas: 0, facturas: 0 }
   for (const n of notificaciones) {
     if (!n.leida) conteoPorTab[tipoToTab(n.tipo)]++
   }
@@ -648,7 +664,7 @@ export function NotificationBell() {
             toastData.notif.link_cliente && toastData.notif.cliente_numero
               ? () => {
                   setToastData(null)
-                  router.push(`/clientes?buscar=${encodeURIComponent(toastData.notif.cliente_numero)}`)
+                  router.push(linkParaNotificacion(toastData.notif))
                 }
               : undefined
           }

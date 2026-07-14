@@ -264,6 +264,15 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-emerald-600",
     href: "/clientes",
     grupo: "comercial-instaladora",
+    subPermisos: [
+      {
+        key: "costos-materiales-cliente",
+        label: "Ver costos de materiales (entregados/pendientes)",
+        descripcion:
+          "Muestra el costo de los materiales y los totales entregado/pendiente en el diálogo de entregas de Clientes, Instalaciones en Proceso e Instalaciones Nuevas. ADITIVO: tener el módulo padre NO lo concede; hay que asignarlo explícitamente a quien pueda ver costos.",
+        aditivo: true,
+      },
+    ],
   },
   {
     key: "ofertas-gestion",
@@ -563,7 +572,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
   {
     key: "compras-envios-costos",
     label: "Compras, Envíos y Costos",
-    descripcion: "Compras, contenedores, kardex de costos y recepciones de almacén.",
+    descripcion: "Compras, contenedores, historial de costos y recepciones de almacén.",
     icon: FileSpreadsheet,
     iconClass: "text-amber-600",
     href: "/compras-envios-costos",
@@ -603,7 +612,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
   {
     key: "fichas-costo",
     label: "Fichas de Costo",
-    descripcion: "Vista contable de materiales: costos, precios, márgenes, kardex y compras por material.",
+    descripcion: "Vista contable de materiales: costos, precios, márgenes, historial de costos y compras por material.",
     icon: FileSpreadsheet,
     iconClass: "text-amber-600",
     href: "/fichas-costo",

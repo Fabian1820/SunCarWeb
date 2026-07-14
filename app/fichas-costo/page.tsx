@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/shared/atom/button"
 import { Badge } from "@/components/shared/atom/badge"
 import { Card, CardContent } from "@/components/shared/molecule/card"
@@ -29,6 +29,7 @@ import {
   Plus,
   FileSpreadsheet,
   Boxes,
+  Coins,
   X,
   ChevronLeft,
   ChevronRight,
@@ -41,6 +42,8 @@ import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { MaterialForm } from "@/components/feats/materials/material-form"
 import { MaterialContableDetalle } from "@/components/feats/fichas-costo/material-contable-detalle"
 import { MaterialStockDialog } from "@/components/feats/fichas-costo/material-stock-dialog"
+import { EstablecerCostoDialog, type CostoMaterialRef } from "@/components/feats/fichas-costo/establecer-costo-dialog"
+import { InventarioService } from "@/lib/services/feats/inventario/inventario-service"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/shared/molecule/tooltip"
 import { useMaterials } from "@/hooks/use-materials"
 import { useMarcas } from "@/hooks/use-marcas"
@@ -112,6 +115,10 @@ function FichasCostoPageContent() {
   const [isDetalleOpen, setIsDetalleOpen] = useState(false)
   const [stockMaterial, setStockMaterial] = useState<Material | null>(null)
   const [isStockOpen, setIsStockOpen] = useState(false)
+  const [costoMaterial, setCostoMaterial] = useState<CostoMaterialRef | null>(null)
+  const [isCostoOpen, setIsCostoOpen] = useState(false)
+  const [stockPorMaterial, setStockPorMaterial] = useState<Record<string, number>>({})
+  const [stockReady, setStockReady] = useState(false)
   const [exporting, setExporting] = useState(false)
 
   const units = useMemo(
@@ -278,7 +285,11 @@ function FichasCostoPageContent() {
           toast({ title: "Error", description: "No se encontró el producto para este material", variant: "destructive" })
           return
         }
-        await editMaterialInProduct(producto.id, materialCodigo, payload as any, categoria)
+        // El costo NO se edita desde aquí: se gestiona con la acción "Costo"
+        // (kardex / saldo inicial). Solo persistimos el resto de campos.
+        const payloadSinCosto = { ...payload }
+        delete (payloadSinCosto as any).costo
+        await editMaterialInProduct(producto.id, materialCodigo, payloadSinCosto as any, categoria)
       }
       toast({ title: "Éxito", description: "Material actualizado correctamente." })
       setIsEditOpen(false)
@@ -353,6 +364,64 @@ function FichasCostoPageContent() {
     setStockMaterial(m)
     setIsStockOpen(true)
   }
+  const openCosto = (m: Material) => {
+    const material_id = String((m as any)._id || (m as any).material_id || (m as any).id || "")
+    const producto = catalogs.find((c) => c.categoria === m.categoria)
+    setCostoMaterial({
+      material_id,
+      producto_id: producto?.id,
+      codigo: m.codigo,
+      nombre: m.nombre || m.descripcion,
+      costo: m.costo,
+    })
+    setIsCostoOpen(true)
+  }
+
+  // Stock total por material: la acción "Costo" solo se muestra a los que tienen
+  // existencias. Los que no tienen stock reciben su costo solo por compras (no a mano).
+  useEffect(() => {
+    let cancel = false
+    ;(async () => {
+      try {
+        // El endpoint valida limit <= 500, así que paginamos hasta traerlos todos.
+        // (Traer solo la primera página ocultaría el botón "Costo" a los materiales
+        // que quedaran fuera, porque no estarían en el mapa de stock.)
+        const PAGE = 500
+        const map: Record<string, number> = {}
+        let skip = 0
+        let total = Number.POSITIVE_INFINITY
+        let guard = 0
+        while (!cancel && skip < total && guard++ < 20) {
+          const res: any = await InventarioService.getMaterialesStock({ skip, limit: PAGE })
+          const lote: any[] = Array.isArray(res?.data) ? res.data : []
+          if (typeof res?.total === "number") total = res.total
+          for (const it of lote) {
+            const t = Number(it?.total ?? 0)
+            if (it?.material_id) map[String(it.material_id)] = t
+            if (it?.codigo != null) map[`c:${String(it.codigo)}`] = t
+          }
+          if (lote.length === 0) break
+          skip += lote.length
+        }
+        if (!cancel) {
+          setStockPorMaterial(map)
+          setStockReady(true)
+        }
+      } catch {
+        // fail-open: si falla la carga de stock, se muestra el botón igual
+      }
+    })()
+    return () => {
+      cancel = true
+    }
+  }, [])
+
+  const tieneExistencias = (m: Material): boolean => {
+    if (!stockReady) return true // fail-open hasta que cargue el stock
+    const id = String((m as any)._id || (m as any).material_id || (m as any).id || "")
+    const total = stockPorMaterial[id] ?? stockPorMaterial[`c:${String(m.codigo)}`] ?? 0
+    return total > 0
+  }
 
   const from = filtered.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1
   const to = Math.min(currentPage * PAGE_SIZE, filtered.length)
@@ -361,7 +430,7 @@ function FichasCostoPageContent() {
     <div className="min-h-screen bg-gradient-to-br from-[#fdf6ec] via-white to-[#fbe6cf]">
       <ModuleHeader
         title="Fichas de Costo"
-        subtitle="Vista contable de materiales: costos, precios, márgenes, kardex y compras"
+        subtitle="Vista contable de materiales: costos, precios, márgenes, historial de costos y compras"
         badge={{ text: "Costos", className: "bg-amber-100 text-amber-800" }}
         backHref="/compras-envios-costos"
         backLabel="Volver a Compras, Envíos y Costos"
@@ -597,7 +666,12 @@ function FichasCostoPageContent() {
                                     <button onClick={() => openEdit(row)} title="Editar material" className="inline-flex items-center justify-center rounded p-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-colors">
                                       <Pencil className="h-3.5 w-3.5" />
                                     </button>
-                                    <button onClick={() => openDetalle(row)} title="Ver ficha (kardex y compras)" className="inline-flex items-center justify-center rounded p-1 text-amber-600 hover:text-amber-700 hover:bg-amber-50 transition-colors">
+                                    {tieneExistencias(row) && (
+                                      <button onClick={() => openCosto(row)} title="Establecer / corregir costo" className="inline-flex items-center justify-center rounded p-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 transition-colors">
+                                        <Coins className="h-3.5 w-3.5" />
+                                      </button>
+                                    )}
+                                    <button onClick={() => openDetalle(row)} title="Ver ficha (historial de costos y compras)" className="inline-flex items-center justify-center rounded p-1 text-amber-600 hover:text-amber-700 hover:bg-amber-50 transition-colors">
                                       <Eye className="h-3.5 w-3.5" />
                                     </button>
                                     <button onClick={() => openStock(row)} title="Ver stock en almacenes" className="inline-flex items-center justify-center rounded p-1 text-sky-600 hover:text-sky-700 hover:bg-sky-50 transition-colors">
@@ -670,6 +744,7 @@ function FichasCostoPageContent() {
               existingUnits={units}
               isEditing
               showContableFields
+              costoReadonly
             />
           )}
         </DialogContent>
@@ -710,6 +785,13 @@ function FichasCostoPageContent() {
               }
             : null
         }
+      />
+
+      <EstablecerCostoDialog
+        open={isCostoOpen}
+        onOpenChange={(o) => { setIsCostoOpen(o); if (!o) setCostoMaterial(null) }}
+        material={costoMaterial}
+        onSaved={() => { void refetch() }}
       />
 
       <Toaster />

@@ -12,6 +12,7 @@ type MaterialPreciosVale = {
   precio?: number;
   precio_instaladora?: number;
   costo?: number;
+  nombre?: string;
 };
 
 type ValeClienteInfo = {
@@ -172,14 +173,23 @@ const getMaterialCode = (material: ValeSalidaMaterialItemDetalle): string =>
 const normalizeMaterialCode = (value: string): string =>
   value.trim().toUpperCase();
 
-const getMaterialDescription = (
-  material: ValeSalidaMaterialItemDetalle,
-): string =>
-  material.material?.descripcion ||
-  material.material?.nombre ||
-  material.material_descripcion ||
-  material.descripcion ||
-  "Sin descripción";
+/**
+ * Nombre del material a mostrar. El backend enriquece `material_nombre` desde el
+ * catálogo; se cae al nombre/descripción embebidos si no viniera.
+ */
+const getMaterialNombre = (material: ValeSalidaMaterialItemDetalle): string => {
+  const record = material as unknown as Record<string, unknown>;
+  const materialNombre =
+    typeof record.material_nombre === "string" ? record.material_nombre : "";
+  return (
+    materialNombre ||
+    material.material?.nombre ||
+    material.material?.descripcion ||
+    material.material_descripcion ||
+    material.descripcion ||
+    "Sin nombre"
+  );
+};
 
 const getMaterialUm = (material: ValeSalidaMaterialItemDetalle): string =>
   material.um || material.material?.um || "U";
@@ -351,6 +361,7 @@ const loadPreciosByCodigo = async (): Promise<
         precio: m?.precio,
         precio_instaladora: m?.precio_instaladora,
         costo: m?.costo,
+        nombre: m?.nombre || m?.descripcion,
       });
     });
   } catch {
@@ -546,14 +557,14 @@ export class ExportValeSalidaService {
       startY: y + 2,
       margin: { left: marginLeft, right: marginRight },
       head: [
-        ["Código", "Descripción", "U/M", "Cantidad", "N° Series", "Precio"],
+        ["Código", "Material", "U/M", "Cantidad", "N° Series", "Precio"],
       ],
       body:
         materiales.length > 0
           ? materiales.map((material) => {
               return [
                 getMaterialCode(material),
-                getMaterialDescription(material),
+                getMaterialNombre(material),
                 getMaterialUm(material),
                 String(material.cantidad || 0),
                 material.numero_serie || "-",
@@ -763,7 +774,7 @@ export class ExportValeSalidaService {
     const headerRow = tableStartRow + 1;
     const tableHeaders = [
       { cell: `A${headerRow}`, label: "Código" },
-      { cell: `B${headerRow}`, label: "Descripción" },
+      { cell: `B${headerRow}`, label: "Material" },
       { cell: `E${headerRow}`, label: "UM" },
       { cell: `F${headerRow}`, label: "Cantidad" },
       { cell: `G${headerRow}`, label: "Precio venta" },
@@ -802,8 +813,7 @@ export class ExportValeSalidaService {
           : getMaterialPrice(material);
 
       worksheet.getCell(`A${currentRow}`).value = getMaterialCode(material);
-      worksheet.getCell(`B${currentRow}`).value =
-        getMaterialDescription(material);
+      worksheet.getCell(`B${currentRow}`).value = getMaterialNombre(material);
       worksheet.getCell(`E${currentRow}`).value = getMaterialUm(material);
       worksheet.getCell(`F${currentRow}`).value = Number(
         material.cantidad || 0,

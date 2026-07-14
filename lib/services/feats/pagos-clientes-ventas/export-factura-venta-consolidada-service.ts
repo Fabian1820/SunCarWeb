@@ -57,7 +57,9 @@ const line = (doc: jsPDF, y: number, ml: number, mr: number) => {
 
 type MatRow = [string, string, string, string, string] | [string, string, string, string];
 
-const extractMateriales = (factura: FacturaVentaResumen): { rows: MatRow[]; hasDiscount: boolean } => {
+const extractMateriales = (
+  factura: FacturaVentaResumen,
+): { rows: MatRow[]; hasDiscount: boolean } => {
   const rows: MatRow[] = [];
   let hasDiscount = false;
 
@@ -94,7 +96,7 @@ const extractMateriales = (factura: FacturaVentaResumen): { rows: MatRow[]; hasD
       const descLabel = descPct > 0 ? `${descPct.toFixed(1)}%` : "";
       if (descPct > 0) hasDiscount = true;
       rows.push([
-        r.material_descripcion || r.descripcion || r.nombre || "Material",
+        r.nombre || r.material_descripcion || r.descripcion || "Material",
         String(cant),
         fmt(precio),
         descLabel,
@@ -195,7 +197,7 @@ export class ExportFacturaVentaConsolidadaService {
       if (hasDiscount) {
         autoTable(doc, {
           startY: y,
-          head: [["Descripción", "Cant.", "Precio", "Desc.", "Subtotal"]],
+          head: [["Material", "Cant.", "Precio", "Desc.", "Subtotal"]],
           body: materiales as string[][],
           margin: { left: ml, right: ml },
           theme: "plain",
@@ -228,7 +230,7 @@ export class ExportFacturaVentaConsolidadaService {
         const rowsSimple = materiales.map(r => [r[0], r[1], r[2], r[4] ?? ""]);
         autoTable(doc, {
           startY: y,
-          head: [["Descripción", "Cant.", "Precio", "Subtotal"]],
+          head: [["Material", "Cant.", "Precio", "Subtotal"]],
           body: rowsSimple,
           margin: { left: ml, right: ml },
           theme: "plain",

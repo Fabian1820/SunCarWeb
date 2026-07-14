@@ -303,6 +303,10 @@ export function useRecursosHumanos() {
           rrhhData.is_brigadista = data.is_brigadista;
         if (data.telefono !== undefined && data.telefono !== "")
           rrhhData.telefono = data.telefono;
+        if (data.pertenece_mipyme !== undefined)
+          rrhhData.pertenece_mipyme = data.pertenece_mipyme;
+        if (data.pertenece_tcp !== undefined)
+          rrhhData.pertenece_tcp = data.pertenece_tcp;
         // sede_id y departamento_id se envían directamente en el POST de creación
         // (TrabajadorService.crearTrabajador). No hace falta duplicarlos aquí.
 

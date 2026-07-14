@@ -33,7 +33,7 @@ export interface Reserva {
   fecha_reserva: string;
   fecha_expiracion: string;
   fecha_cierre?: string | null;
-  creado_por: string;
+  creado_por_ci: string;
   fecha_creacion: string;
   fecha_actualizacion: string;
   // Campos populados por el backend en GET

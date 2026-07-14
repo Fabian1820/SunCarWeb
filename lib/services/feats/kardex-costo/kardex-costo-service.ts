@@ -43,6 +43,9 @@ const mapKardex = (raw: any): KardexCosto => ({
   costo_entrada: Number(raw?.costo_entrada ?? 0),
   cantidad_nueva: Number(raw?.cantidad_nueva ?? 0),
   costo_nuevo: Number(raw?.costo_nuevo ?? 0),
+  tipo: typeof raw?.tipo === "string" ? raw.tipo : undefined,
+  pendiente_costeo: raw?.pendiente_costeo === true,
+  regularizada_por: typeof raw?.regularizada_por === "string" ? raw.regularizada_por : undefined,
   registrado_por_ci: typeof raw?.registrado_por_ci === "string" ? raw.registrado_por_ci : undefined,
   nota: typeof raw?.nota === "string" ? raw.nota : undefined,
 });
@@ -117,5 +120,40 @@ export class KardexCostoService {
     const error = extractApiError(raw);
     if (error) throw new Error(error);
     return mapKardex(unwrapPayload(raw));
+  }
+
+  /**
+   * Saldo inicial: crea la fila de apertura del kardex por almacén
+   * (cantidad = stock real, costo = indicado) y sincroniza el catálogo.
+   * Vía correcta para sembrar el costo de materiales con stock pero sin kardex.
+   */
+  static async saldoInicial(
+    items: { material_id: string; costo: number; motivo?: string }[],
+    dryRun = false,
+  ): Promise<any> {
+    const raw = await apiRequest<any>(`${BASE_ENDPOINT}/saldo-inicial`, {
+      method: "POST",
+      body: JSON.stringify({ items, dry_run: dryRun }),
+    });
+    const error = extractApiError(raw);
+    if (error) throw new Error(error);
+    return unwrapPayload(raw);
+  }
+
+  /**
+   * Ajuste de costo: corrige el costo de materiales que YA tienen kardex
+   * (crea filas ajuste_costo en todos sus almacenes) y sincroniza el catálogo.
+   */
+  static async ajusteCosto(
+    items: { material_id: string; costo: number; motivo?: string; almacen_id?: string }[],
+    dryRun = false,
+  ): Promise<any> {
+    const raw = await apiRequest<any>(`${BASE_ENDPOINT}/ajuste-costo`, {
+      method: "POST",
+      body: JSON.stringify({ items, dry_run: dryRun }),
+    });
+    const error = extractApiError(raw);
+    if (error) throw new Error(error);
+    return unwrapPayload(raw);
   }
 }

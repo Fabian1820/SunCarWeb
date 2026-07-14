@@ -41,8 +41,8 @@ const SUB_MODULES: SubModule[] = [
   {
     id: "kardex-costo",
     href: "/kardex-costo",
-    title: "Kardex de Costos",
-    description: "Costo promedio ponderado por material y almacén con histórico de entradas.",
+    title: "Historial de Costos",
+    description: "Costo promedio de cada material por almacén, con el histórico de compras que lo formaron.",
     icon: Calculator,
     iconClass: "text-violet-600",
   },
@@ -85,7 +85,7 @@ export default function ComprasEnviosCostosPage() {
     <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Compras, Envíos y Costos"
-        subtitle="Compras, contenedores, kardex de costos y recepciones de almacén"
+        subtitle="Compras, contenedores, historial de costos y recepciones de almacén"
         badge={{ text: "Economía", className: "bg-teal-100 text-teal-800" }}
         actions={
           <Button

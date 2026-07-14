@@ -18,6 +18,7 @@ type MaterialFactura =
   | {
       material_id?: string;
       material_codigo?: string;
+      codigo?: string;
       material_descripcion?: string;
       descripcion?: string;
       nombre?: string;
@@ -41,18 +42,17 @@ const getCantidadMateriales = (f: FacturaClienteVenta): number => {
 
 const formatMaterialNombre = (m: MaterialFactura): string => {
   if (typeof m === "string") return m.trim();
+  const codigo = m.material_codigo || m.codigo || "";
+  // El backend resuelve `nombre` desde el catálogo; `descripcion` es el fallback.
   const nombre =
+    m.nombre ||
     m.material_descripcion ||
     m.descripcion ||
-    m.nombre ||
-    m.material_codigo ||
+    codigo ||
     m.material_id ||
     "";
-  const codigo =
-    m.material_codigo && m.material_codigo !== nombre
-      ? ` [${m.material_codigo}]`
-      : "";
-  return `${nombre}${codigo}`.trim();
+  const codigoSuffix = codigo && codigo !== nombre ? ` [${codigo}]` : "";
+  return `${nombre}${codigoSuffix}`.trim();
 };
 
 const getMaterialCantidad = (m: MaterialFactura): number | "" => {
@@ -160,7 +160,9 @@ export class ExportFacturasExcelService {
       const base = buildBase(f);
       const lista = getMaterialesList(f);
       const materiales =
-        lista.length > 0 ? lista.map((m) => formatMaterialNombre(m)) : [""];
+        lista.length > 0
+          ? lista.map((m) => formatMaterialNombre(m))
+          : [""];
       const cantidades =
         lista.length > 0
           ? lista.map((m) => getMaterialCantidad(m))

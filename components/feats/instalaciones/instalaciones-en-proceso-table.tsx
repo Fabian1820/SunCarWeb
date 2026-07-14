@@ -43,6 +43,11 @@ import { FechaInstalacionDialog } from "@/components/shared/molecule/fecha-insta
 import { apiRequest } from "@/lib/api-config";
 import { extractOfertaIdsFromEntity } from "@/lib/utils/oferta-id";
 import { seleccionarOfertaConfirmada } from "@/hooks/use-ofertas-confeccion";
+import {
+  formatCostoItem,
+  formatCostoTotal,
+  useCostosOferta,
+} from "@/hooks/use-costos-oferta";
 import { OfertaCell } from "@/components/feats/instalaciones/oferta-cell";
 import { ExportInstalacionesEnProcesoExcelService } from "@/lib/services/feats/instalaciones/export-instalaciones-en-proceso-excel-service";
 
@@ -774,7 +779,10 @@ export function InstalacionesEnProcesoTable({
     setFechaInstalacionOpen(true);
   };
 
-  const handleConfirmarFechaInstalacion = async (fechaISO: string) => {
+  const handleConfirmarFechaInstalacion = async (
+    fechaISO: string,
+    faltaInstalacion?: string
+  ) => {
     if (!clienteParaInstalar) return;
     setFechaInstalacionOpen(false);
     setIsUpdating(true);
@@ -782,6 +790,8 @@ export function InstalacionesEnProcesoTable({
       await ClienteService.actualizarCliente(clienteParaInstalar.numero, {
         estado: "Equipo Instalado con Éxito",
         fecha_equipo_instalado: fechaISO,
+        // Solo se envía si el usuario seleccionó algo, para no pisar un valor existente.
+        ...(faltaInstalacion ? { falta_instalacion: faltaInstalacion } : {}),
       });
       toast({
         title: "Estado actualizado",
@@ -1415,6 +1425,21 @@ export function InstalacionesEnProcesoTable({
       null,
     [ofertasEntrega, ofertaEntregaSeleccionadaUid],
   );
+
+  // Costos de la oferta seleccionada (solo si el diálogo está abierto y el
+  // usuario tiene el subpermiso aditivo `costos-materiales-cliente`).
+  const ofertaCostosId = useMemo(
+    () =>
+      entregaDialogOpen
+        ? getOfertaPersistedId(ofertaEntregaSeleccionada)
+        : null,
+    [entregaDialogOpen, ofertaEntregaSeleccionada],
+  );
+  const {
+    verCostos,
+    costos: costosOferta,
+    costoPorCodigo,
+  } = useCostosOferta(ofertaCostosId);
 
   const detalleItemsEntrega = useMemo(() => {
     if (!ofertaEntregaSeleccionada) return [];
@@ -2433,6 +2458,37 @@ export function InstalacionesEnProcesoTable({
                           />
                         </div>
                       </div>
+
+                      {verCostos && costosOferta && (
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                            <p className="text-[11px] uppercase tracking-wide text-emerald-700">
+                              Total entregado (costo)
+                            </p>
+                            <p className="text-lg font-semibold text-emerald-800">
+                              {formatCostoTotal(
+                                costosOferta.total_costo_entregado,
+                              )}
+                            </p>
+                          </div>
+                          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                            <p className="text-[11px] uppercase tracking-wide text-amber-700">
+                              Total pendiente (costo)
+                            </p>
+                            <p className="text-lg font-semibold text-amber-800">
+                              {formatCostoTotal(
+                                costosOferta.total_costo_pendiente,
+                              )}
+                            </p>
+                          </div>
+                          {costosOferta.hay_materiales_sin_costo && (
+                            <p className="col-span-2 text-[11px] text-slate-500">
+                              * Total parcial: hay materiales sin costo de
+                              catálogo (WAC actual).
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
 
@@ -2485,6 +2541,19 @@ export function InstalacionesEnProcesoTable({
                                         )
                                       : "--"}
                                   </p>
+                                  {verCostos && costosOferta && (
+                                    <p className="text-xs font-semibold text-emerald-800">
+                                      Costo entregado:{" "}
+                                      {formatCostoItem(
+                                        costoPorCodigo.get(
+                                          String(item.codigo)
+                                            .trim()
+                                            .toLowerCase(),
+                                        ),
+                                        "costo_entregado",
+                                      )}
+                                    </p>
+                                  )}
                                 </div>
                               );
                             })}
@@ -2523,6 +2592,19 @@ export function InstalacionesEnProcesoTable({
                                       Cantidad pendiente: {item.pendiente} u
                                     </p>
                                   </div>
+                                  {verCostos && costosOferta && (
+                                    <p className="mt-1 text-xs font-semibold text-amber-800">
+                                      Costo pendiente:{" "}
+                                      {formatCostoItem(
+                                        costoPorCodigo.get(
+                                          String(item.codigo)
+                                            .trim()
+                                            .toLowerCase(),
+                                        ),
+                                        "costo_pendiente",
+                                      )}
+                                    </p>
+                                  )}
                                 </div>
                               );
                             })}
@@ -2779,6 +2861,7 @@ export function InstalacionesEnProcesoTable({
           if (!v) setClienteParaInstalar(null);
         }}
         onConfirm={handleConfirmarFechaInstalacion}
+        showFalta
       />
 
       {/* Diálogo para ver oferta */}
