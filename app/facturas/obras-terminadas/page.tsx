@@ -24,6 +24,7 @@ import {
   Loader2,
   FilterX,
   Users,
+  FilePlus2,
 } from "lucide-react"
 import {
   Tabs,
@@ -31,6 +32,7 @@ import {
   TabsTrigger,
   TabsContent,
 } from "@/components/shared/molecule/tabs"
+import { GenerarFacturaClienteDialog } from "@/components/feats/obras-terminadas/generar-factura-cliente-dialog"
 import { useObrasTerminadas } from "@/hooks/use-obras-terminadas"
 import { ObrasTerminadasTable } from "@/components/feats/obras-terminadas/obras-terminadas-table"
 import { FacturasObrasTerminadasTable } from "@/components/feats/obras-terminadas/facturas-obras-terminadas-table"
@@ -146,6 +148,7 @@ export default function ObrasTerminadasPage() {
 
   /* ── Vista: Facturas de obras terminadas — 2 sub-pestañas (clientes/trabajadores) ── */
   const [subVista, setSubVista] = useState<"clientes" | "trabajadores">("clientes")
+  const [generarFacturaOpen, setGenerarFacturaOpen] = useState(false)
   const [fSearch, setFSearch] = useState("")
   const [fComercial, setFComercial] = useState("")
   const [fEstado, setFEstado] = useState<"" | "pagada" | "pendiente">("")
@@ -166,6 +169,7 @@ export default function ObrasTerminadasPage() {
     fecha_facturacion_desde: fDesde || undefined,
     fecha_facturacion_hasta: fHasta || undefined,
     es_trabajador_suncar: false,
+    requiere_instalado: false,
   }), [fSearch, fComercial, fEstado, fDesde, fHasta])
 
   const filtrosTrabajadoresFacturas = useMemo<ObrasTerminadasFiltros>(() => ({
@@ -175,6 +179,7 @@ export default function ObrasTerminadasPage() {
     fecha_facturacion_desde: fDesde || undefined,
     fecha_facturacion_hasta: fHasta || undefined,
     es_trabajador_suncar: true,
+    requiere_instalado: false,
   }), [fSearch, fComercial, fEstado, fDesde, fHasta])
 
   // Carga perezosa + cache: solo se fetchea la sub-pestaña activa, y solo si sus
@@ -352,22 +357,33 @@ export default function ObrasTerminadasPage() {
                   </Button>
                 </>
               ) : (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    if (subVista === "clientes") {
-                      facturasClientesHook.fetchData(filtrosClientesFacturas, facturasClientesHook.page)
-                    } else {
-                      facturasTrabajadoresHook.fetchData(filtrosTrabajadoresFacturas, facturasTrabajadoresHook.page)
-                    }
-                  }}
-                  disabled={subVista === "clientes" ? facturasClientesHook.loading : facturasTrabajadoresHook.loading}
-                  className="gap-1.5"
-                >
-                  <RefreshCw className={`h-4 w-4 ${(subVista === "clientes" ? facturasClientesHook.loading : facturasTrabajadoresHook.loading) ? "animate-spin" : ""}`} />
-                  <span className="hidden sm:inline">Actualizar</span>
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setGenerarFacturaOpen(true)}
+                    className="gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                  >
+                    <FilePlus2 className="h-4 w-4" />
+                    <span className="hidden sm:inline">Generar factura a cliente</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (subVista === "clientes") {
+                        facturasClientesHook.fetchData(filtrosClientesFacturas, facturasClientesHook.page)
+                      } else {
+                        facturasTrabajadoresHook.fetchData(filtrosTrabajadoresFacturas, facturasTrabajadoresHook.page)
+                      }
+                    }}
+                    disabled={subVista === "clientes" ? facturasClientesHook.loading : facturasTrabajadoresHook.loading}
+                    className="gap-1.5"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${(subVista === "clientes" ? facturasClientesHook.loading : facturasTrabajadoresHook.loading) ? "animate-spin" : ""}`} />
+                    <span className="hidden sm:inline">Actualizar</span>
+                  </Button>
+                </>
               )}
             </div>
           </div>
@@ -648,6 +664,18 @@ export default function ObrasTerminadasPage() {
           </>
         )}
       </main>
+
+      <GenerarFacturaClienteDialog
+        open={generarFacturaOpen}
+        onOpenChange={setGenerarFacturaOpen}
+        onFacturada={() => {
+          if (subVista === "clientes") {
+            facturasClientesHook.fetchData(filtrosClientesFacturas, facturasClientesHook.page)
+          } else {
+            facturasTrabajadoresHook.fetchData(filtrosTrabajadoresFacturas, facturasTrabajadoresHook.page)
+          }
+        }}
+      />
     </div>
   )
 }

@@ -178,6 +178,7 @@ export interface ObrasTerminadasFiltros {
   estado_pago?: "todos" | "pagado" | "pendiente";
   estado_factura?: "todos" | "facturada" | "pagada" | "pendiente" | "sin_factura";
   es_trabajador_suncar?: boolean;
+  requiere_instalado?: boolean;
   fecha_creacion_desde?: string;
   fecha_creacion_hasta?: string;
   fecha_equipo_desde?: string;
@@ -205,6 +206,7 @@ export const ObrasTerminadasService = {
     if (filtros.estado_pago)           params.set("estado_pago",     filtros.estado_pago);
     if (filtros.estado_factura)        params.set("estado_factura",  filtros.estado_factura);
     if (filtros.es_trabajador_suncar != null) params.set("es_trabajador_suncar", String(filtros.es_trabajador_suncar));
+    if (filtros.requiere_instalado != null) params.set("requiere_instalado", String(filtros.requiere_instalado));
     if (filtros.fecha_creacion_desde)  params.set("fecha_creacion_desde", filtros.fecha_creacion_desde);
     if (filtros.fecha_creacion_hasta)  params.set("fecha_creacion_hasta", filtros.fecha_creacion_hasta);
     if (filtros.fecha_equipo_desde)    params.set("fecha_equipo_desde", filtros.fecha_equipo_desde);
@@ -233,6 +235,26 @@ export const ObrasTerminadasService = {
     return apiRequest<FacturaClienteObra[]>(
       `${BASE}/oferta/${encodeURIComponent(ofertaId)}/facturas-cliente`,
       { method: "GET", signal },
+    );
+  },
+
+  async generarFactura(
+    ofertaId: string,
+    signal?: AbortSignal,
+  ): Promise<{ success: boolean; factura_id: string | null; numero_factura: string; vales_incluidos: number }> {
+    return apiRequest(
+      `${BASE}/oferta/${encodeURIComponent(ofertaId)}/generar-factura`,
+      { method: "POST", signal },
+    );
+  },
+
+  async marcarFacturada(
+    ofertaId: string,
+    signal?: AbortSignal,
+  ): Promise<{ success: boolean; factura_id: string | null; numero_factura: string; vales_incluidos: number }> {
+    return apiRequest(
+      `${BASE}/oferta/${encodeURIComponent(ofertaId)}/marcar-facturada`,
+      { method: "POST", signal },
     );
   },
 
