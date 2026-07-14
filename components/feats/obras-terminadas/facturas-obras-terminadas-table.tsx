@@ -42,6 +42,8 @@ interface FacturasObrasTerminadasTableProps {
   /** Exporta todas las facturas listadas (respetando filtros) en un único PDF, una por página. */
   onExportarTodas?: (obras: ObraTerminada[]) => Promise<void> | void
   onExportarExcel?: () => Promise<void> | void
+  /** Igual que onExportarExcel pero sin las columnas de materiales. */
+  onExportarExcelSinMateriales?: () => Promise<void> | void
   variant?: "default" | "embedded"
   searchValue?: string
   onSearchChange?: (value: string) => void
@@ -86,6 +88,7 @@ export function FacturasObrasTerminadasTable({
   onRefresh,
   onExportarTodas,
   onExportarExcel,
+  onExportarExcelSinMateriales,
   variant = "default",
   searchValue,
   onSearchChange,
@@ -103,6 +106,7 @@ export function FacturasObrasTerminadasTable({
 
   const [exportingAll, setExportingAll] = useState(false)
   const [exportingExcel, setExportingExcel] = useState(false)
+  const [exportingExcelSinMateriales, setExportingExcelSinMateriales] = useState(false)
   const [exportingRowId, setExportingRowId] = useState<string | null>(null)
   const [detalleLoadingId, setDetalleLoadingId] = useState<string | null>(null)
   const [detalleCache, setDetalleCache] = useState<Record<string, FacturaClienteObra[]>>({})
@@ -213,6 +217,26 @@ export function FacturasObrasTerminadasTable({
           >
             {exportingExcel ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
             <span className="hidden sm:inline">{exportingExcel ? "Generando..." : "Exportar Excel"}</span>
+          </Button>
+        )}
+        {onExportarExcelSinMateriales && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 text-green-700 border-green-300 hover:bg-green-50"
+            disabled={exportingExcelSinMateriales || filtered.length === 0}
+            title="Exportar a Excel las facturas listadas, sin las columnas de materiales"
+            onClick={async () => {
+              setExportingExcelSinMateriales(true)
+              try {
+                await onExportarExcelSinMateriales()
+              } finally {
+                setExportingExcelSinMateriales(false)
+              }
+            }}
+          >
+            {exportingExcelSinMateriales ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+            <span className="hidden sm:inline">{exportingExcelSinMateriales ? "Generando..." : "Exportar Excel sin materiales"}</span>
           </Button>
         )}
         <Badge variant="secondary" className="text-xs">

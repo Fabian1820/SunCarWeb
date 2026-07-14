@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/shared/atom/button"
 import { Input } from "@/components/shared/molecule/input"
 import {
@@ -149,6 +150,18 @@ export default function ObrasTerminadasPage() {
   /* ── Vista: Facturas de obras terminadas — 2 sub-pestañas (clientes/trabajadores) ── */
   const [subVista, setSubVista] = useState<"clientes" | "trabajadores">("clientes")
   const [generarFacturaOpen, setGenerarFacturaOpen] = useState(false)
+  const searchParams = useSearchParams()
+  const clienteQueryParam = searchParams.get("cliente")
+
+  // Deep link desde una notificación (ej. "selecciona cuál oferta facturar"):
+  // abre directo el modal de Generar factura a cliente con ese cliente cargado.
+  useEffect(() => {
+    if (clienteQueryParam) {
+      setVista("facturas")
+      setSubVista("clientes")
+      setGenerarFacturaOpen(true)
+    }
+  }, [clienteQueryParam])
   const [fSearch, setFSearch] = useState("")
   const [fComercial, setFComercial] = useState("")
   const [fEstado, setFEstado] = useState<"" | "pagada" | "pendiente">("")
@@ -158,6 +171,8 @@ export default function ObrasTerminadasPage() {
   const [exportingAllFacturasTrabajadores, setExportingAllFacturasTrabajadores] = useState(false)
   const [exportingExcelFacturasClientes, setExportingExcelFacturasClientes] = useState(false)
   const [exportingExcelFacturasTrabajadores, setExportingExcelFacturasTrabajadores] = useState(false)
+  const [exportingExcelSinMatFacturasClientes, setExportingExcelSinMatFacturasClientes] = useState(false)
+  const [exportingExcelSinMatFacturasTrabajadores, setExportingExcelSinMatFacturasTrabajadores] = useState(false)
 
   const facturasClientesHook = useObrasTerminadas()
   const facturasTrabajadoresHook = useObrasTerminadas()
@@ -244,10 +259,13 @@ export default function ObrasTerminadasPage() {
   const handleExportarExcelFacturas = useCallback(async (
     filtros: ObrasTerminadasFiltros,
     setExporting: (v: boolean) => void,
+    sinMateriales = false,
   ) => {
     setExporting(true)
     try {
-      const resultado = await ExportObrasTerminadasExcelService.exportar(filtros)
+      const resultado = sinMateriales
+        ? await ExportObrasTerminadasExcelService.exportarSinMateriales(filtros)
+        : await ExportObrasTerminadasExcelService.exportar(filtros)
       toast({
         title: "Exportación exitosa",
         description: `${resultado.count} factura${resultado.count === 1 ? "" : "s"} exportada${resultado.count === 1 ? "" : "s"} a ${resultado.filename}.xlsx`,
@@ -576,6 +594,7 @@ export default function ObrasTerminadasPage() {
                     onRefresh={() => facturasClientesHook.fetchData(filtrosClientesFacturas, facturasClientesHook.page)}
                     onExportarTodas={(obras) => handleExportarTodasPDFFacturas(obras, setExportingAllFacturasClientes)}
                     onExportarExcel={() => handleExportarExcelFacturas(filtrosClientesFacturas, setExportingExcelFacturasClientes)}
+                    onExportarExcelSinMateriales={() => handleExportarExcelFacturas(filtrosClientesFacturas, setExportingExcelSinMatFacturasClientes, true)}
                     variant="embedded"
                     searchValue={fSearch}
                     onSearchChange={setFSearch}
@@ -622,6 +641,7 @@ export default function ObrasTerminadasPage() {
                     onRefresh={() => facturasTrabajadoresHook.fetchData(filtrosTrabajadoresFacturas, facturasTrabajadoresHook.page)}
                     onExportarTodas={(obras) => handleExportarTodasPDFFacturas(obras, setExportingAllFacturasTrabajadores)}
                     onExportarExcel={() => handleExportarExcelFacturas(filtrosTrabajadoresFacturas, setExportingExcelFacturasTrabajadores)}
+                    onExportarExcelSinMateriales={() => handleExportarExcelFacturas(filtrosTrabajadoresFacturas, setExportingExcelSinMatFacturasTrabajadores, true)}
                     variant="embedded"
                     searchValue={fSearch}
                     onSearchChange={setFSearch}
@@ -668,6 +688,7 @@ export default function ObrasTerminadasPage() {
       <GenerarFacturaClienteDialog
         open={generarFacturaOpen}
         onOpenChange={setGenerarFacturaOpen}
+        clienteNumeroInicial={clienteQueryParam ?? undefined}
         onFacturada={() => {
           if (subVista === "clientes") {
             facturasClientesHook.fetchData(filtrosClientesFacturas, facturasClientesHook.page)

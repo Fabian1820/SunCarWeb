@@ -22,6 +22,7 @@ interface GenerarFacturaClienteDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onFacturada?: () => void
+  clienteNumeroInicial?: string
 }
 
 const INSTALADO_RE = /equipo\s+instalad/i
@@ -38,6 +39,7 @@ export function GenerarFacturaClienteDialog({
   open,
   onOpenChange,
   onFacturada,
+  clienteNumeroInicial,
 }: GenerarFacturaClienteDialogProps) {
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [loadingClientes, setLoadingClientes] = useState(false)
@@ -64,6 +66,10 @@ export function GenerarFacturaClienteDialog({
       .finally(() => setLoadingClientes(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
+
+  useEffect(() => {
+    if (open && clienteNumeroInicial) setClienteId(clienteNumeroInicial)
+  }, [open, clienteNumeroInicial])
 
   useEffect(() => {
     const numero = clienteSeleccionado?.numero
