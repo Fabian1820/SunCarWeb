@@ -258,14 +258,15 @@ export const ObrasTerminadasService = {
     );
   },
 
-  /** Registra un pago de ajuste por los centavos residuales de monto_pendiente (redondeo de tasa de cambio). */
+  /** Registra un pago de ajuste de contabilidad por el monto indicado. */
   async ajustarSaldo(
     ofertaId: string,
+    monto: number,
     signal?: AbortSignal,
   ): Promise<{ success: boolean; pago_id: string; monto_pendiente_actualizado: number }> {
     return apiRequest(
       `${BASE}/oferta/${encodeURIComponent(ofertaId)}/ajustar-saldo`,
-      { method: "POST", signal },
+      { method: "POST", body: JSON.stringify({ monto }), signal },
     );
   },
 

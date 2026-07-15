@@ -17,7 +17,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  ConfirmEditDialog,
 } from "@/components/shared/molecule/dialog"
 import {
   Search,
@@ -34,6 +33,7 @@ import {
   type FacturaClienteObra,
 } from "@/lib/services/feats/obras-terminadas/obras-terminadas-service"
 import { ExportFacturaClienteService } from "@/lib/services/feats/obras-terminadas/export-factura-cliente-service"
+import { AjustarSaldoDialog } from "./ajustar-saldo-dialog"
 import { FacturasClientePanel } from "./obras-terminadas-table"
 
 interface FacturasObrasTerminadasTableProps {
@@ -47,7 +47,7 @@ interface FacturasObrasTerminadasTableProps {
   /** Igual que onExportarExcel pero sin las columnas de materiales. */
   onExportarExcelSinMateriales?: () => Promise<void> | void
   /** Registra un pago de ajuste por los centavos residuales de monto_pendiente. */
-  onAjustarSaldo?: (obra: ObraTerminada) => Promise<void>
+  onAjustarSaldo?: (obra: ObraTerminada, monto: number) => Promise<void>
   variant?: "default" | "embedded"
   searchValue?: string
   onSearchChange?: (value: string) => void
@@ -135,9 +135,6 @@ export function FacturasObrasTerminadasTable({
 
   const rowKey = (o: ObraTerminada) => o.oferta_id || o.numero_factura || o.numero_oferta || ""
 
-  const roundToCents = (v: number) => Math.round((v + Number.EPSILON) * 100) / 100
-  const tieneCentavos = (pendiente: number) => Math.round(roundToCents(pendiente) * 100) % 100 !== 0
-
   const getFacturaDetalle = async (obra: ObraTerminada): Promise<FacturaClienteObra[]> => {
     const key = rowKey(obra)
     if (detalleCache[key]) return detalleCache[key]
@@ -171,31 +168,15 @@ export function FacturasObrasTerminadasTable({
     }
   }
 
-  const handleAjustarSaldo = async (obra: ObraTerminada) => {
+  const handleAjustarSaldo = async (obra: ObraTerminada, monto: number) => {
     if (!onAjustarSaldo) return
     const key = rowKey(obra)
     setAjustandoRowId(key)
     try {
-      await onAjustarSaldo(obra)
+      await onAjustarSaldo(obra, monto)
     } finally {
       setAjustandoRowId(null)
     }
-  }
-
-  const buildMensajeAjuste = (obra: ObraTerminada) => {
-    const pendiente = roundToCents(obra.monto_pendiente ?? 0)
-    const enteros = Math.trunc(pendiente)
-    const residuo = roundToCents(pendiente - enteros)
-    const quedaPendiente = enteros > 0
-    return (
-      `Se registrará un pago de ajuste de ${formatCurrency(residuo)} para cubrir los centavos ` +
-      `residuales de la oferta #${obra.numero_oferta || obra.numero_factura || ""} ` +
-      `(causados por redondeo de tasa de cambio). ` +
-      (quedaPendiente
-        ? `El resto de la deuda (${formatCurrency(enteros)}) seguirá pendiente. `
-        : `La oferta quedará marcada como pagada. `) +
-      `Este ajuste queda registrado como un pago auditable y no se puede deshacer desde aquí.`
-    )
   }
 
   const em = variant === "embedded"
@@ -344,7 +325,7 @@ export function FacturasObrasTerminadasTable({
                 const isLoadingDetalle = detalleLoadingId === key
                 const isAjustandoRow = ajustandoRowId === key
                 const pendiente = o.monto_pendiente ?? 0
-                const mostrarAjustarSaldo = Boolean(onAjustarSaldo) && tieneCentavos(pendiente)
+                const mostrarAjustarSaldo = Boolean(onAjustarSaldo) && pendiente > 0.01
                 return (
                   <TableRow key={key} className="hover:bg-gray-50 transition-colors">
                     <TableCell className="font-medium text-blue-700 text-sm">
@@ -429,18 +410,10 @@ export function FacturasObrasTerminadasTable({
         </DialogContent>
       </Dialog>
 
-      <ConfirmEditDialog
-        open={!!confirmAjusteObra}
+      <AjustarSaldoDialog
+        obra={confirmAjusteObra}
         onOpenChange={(open) => { if (!open) setConfirmAjusteObra(null) }}
-        title="Ajustar saldo por redondeo"
-        message={confirmAjusteObra ? buildMensajeAjuste(confirmAjusteObra) : ""}
-        confirmText="Sí, ajustar"
-        cancelText="Cancelar"
-        onConfirm={() => {
-          const obra = confirmAjusteObra
-          setConfirmAjusteObra(null)
-          if (obra) void handleAjustarSaldo(obra)
-        }}
+        onConfirm={(obra, monto) => handleAjustarSaldo(obra, monto)}
       />
     </div>
   )
