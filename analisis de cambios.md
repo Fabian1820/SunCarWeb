@@ -2,6 +2,52 @@
 
 ---
 
+## 📅 14 de Julio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**3 commits reales** de yany1509 — todos en el área de Facturas y Obras Terminadas: (1) nuevo modal "Generar factura a cliente" con soporte para clientes no instalados; (2) deep-link desde la campana de notificaciones al caso ambiguo de múltiples ofertas confirmadas sin facturar, más botón "Exportar Excel sin materiales" en la tabla de Facturas; (3) refactor del export sin materiales reduciendo las columnas a las relevantes para contabilidad.
+
+---
+
+### Área 1: Obras Terminadas — modal "Generar factura a cliente" + clientes no instalados (1 commit — yany1509, 17:12)
+
+- **`feat(obras-terminadas): modal "Generar factura a cliente" + facturas de clientes no instalados`** — Nuevo diálogo para buscar un cliente, ver sus ofertas confirmadas con pagos/pendiente/estado, y facturar la que falte con un click. La vista de Facturas ahora puede listar ofertas facturadas de clientes que aún no están instalados (`requiere_instalado=false`), con advertencia al facturar si el cliente no está instalado todavía.
+
+---
+
+### Área 2: Campana de notificaciones — deep-link factura ambigua + botón Excel sin materiales (1 commit — yany1509, 20:33)
+
+- **`feat(facturas): deep-link a factura ambigua + exportar Excel sin materiales`** — Nueva pestaña "Facturar" en el notification-bell (tipo `factura_multiple_ofertas`) que enlaza directo a `/facturas/obras-terminadas?cliente=...` con el modal "Generar factura a cliente" ya abierto y ese cliente precargado, para el caso de 2+ ofertas confirmadas sin facturar. Botón "Exportar Excel sin materiales" en la tabla de Facturas de Obras Terminadas.
+
+---
+
+### Área 3: Export Excel sin materiales — columnas reducidas para contabilidad (1 commit — yany1509, 21:29)
+
+- **`feat(facturas): reduce columnas del Excel sin materiales en Facturas`** — El export "Exportar Excel sin materiales" de la vista de Facturas usa ahora un método dedicado (`exportarFacturasSinMateriales`) con solo las columnas relevantes para contabilidad: Cliente, Oferta, F. Eq. Instalado, Precio Oferta, N° Factura, Cobrado, Pendiente. El export sin materiales de la vista de Obras no cambia.
+
+---
+
+### Puede dar bateo
+
+1. **Modal "Generar factura a cliente" — endpoint de búsqueda con estado de pagos sin confirmar**: El modal necesita un endpoint que devuelva las ofertas confirmadas del cliente junto con el estado de pagos/pendiente. Si el backend no lo implementó o devuelve una estructura diferente, el modal cargará vacío o fallará sin mensaje claro.
+
+2. **`requiere_instalado=false` — advertencia solo en frontend, backend puede rechazar la factura igualmente**: Si el backend valida que el cliente esté instalado antes de aceptar la factura, la advertencia del frontend sería solo estética y la operación fallaría con un 422 sin mensaje útil al usuario.
+
+3. **Deep-link `?cliente=...` — apertura automática del modal depende de lectura de URL al montar el componente**: Si el componente de Obras Terminadas no lee el parámetro de query al montar, el usuario llega a la vista sin contexto y sin modal abierto, sin ningún mensaje que explique qué pasó.
+
+4. **Notificación `factura_multiple_ofertas` persistente tras facturar por otra vía**: Si el usuario factura al cliente desde otro flujo, la notificación en la campana seguirá apareciendo. El deep-link abrirá el modal pero sin ofertas pendientes, sin mensaje de "ya facturado".
+
+5. **Ciclo de 3 commits en ~4h con auto-deploy — ventana de inestabilidad**: Los commits llegaron entre 17:12 y 21:29. Usuarios en esa ventana pudieron ver el modal sin el botón de export, o el export con columnas incorrectas antes del fix del commit 21:29.
+
+6. **`exportarFacturasSinMateriales` — columnas fijas vacías en facturas históricas sin los campos nuevos**: Si facturas antiguas no tienen `N° Factura` o `F. Eq. Instalado`, esas columnas aparecerán vacías en el Excel sin ninguna nota explicativa.
+
+7. **Campana notifica solo `factura_multiple_ofertas` (2+ ofertas) — 1 oferta confirmada sin facturar no genera notificación**: Clientes con exactamente una oferta confirmada sin facturar nunca aparecen en la campana. Puede haber backlog de facturas pendientes invisible para el equipo.
+
+8. **Búsqueda de cliente en modal — sin paginación ni límite visible**: Si el endpoint devuelve todos los clientes con su historial de ofertas y pagos, una base grande puede producir respuestas lentas o timeouts sin indicador de carga.
+
+---
+
 ## 📅 13 de Julio, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -30,17 +76,17 @@
 
 3. **Desglose por almacén stale al abrir el diálogo con movimientos concurrentes**: El costo y existencia por almacén se leen al abrir el diálogo, no en tiempo real. En almacenes de alta rotación, el ajuste puede aplicarse sobre datos ya desactualizados sin que el usuario lo note.
 
-4. **"Sin costo aún" en almacenes con compra pendiente — bloqueado sin ruta de resolución directa**: El usuario ve la fila deshabilitada pero no hay enlace directo a la compra pendiente de costeo desde este diálogo. Puede quedar atascado sin saber cómo desbloquearla.
+4. **"Sin costo aún" en almacenes con compra pendiente — bloqueado sin ruta de resolución directa**: El usuario ve la fila deshabilitada pero no hay enlace directo a la compra pendiente de costeo desde este diálogo.
 
-5. **Promedio "de todos" puede confundir si hay almacenes excluidos por sin-costo**: Si un almacén se excluye del promedio por estar sin costo aún, el valor mostrado en la ficha diferirá del cálculo manual que el usuario haría sumando las filas, sin nota explicativa de la exclusión.
+5. **Promedio "de todos" puede confundir si hay almacenes excluidos por sin-costo**: Si un almacén se excluye del promedio por estar sin costo aún, el valor mostrado en la ficha diferirá del cálculo manual que el usuario haría sumando las filas, sin nota explicativa.
 
 6. **`es_trabajador_suncar` — clientes históricos sin el campo, datos incompletos en filtros y conteos**: Los registros creados antes de este commit no tienen el campo y el backend los tratará como `false`. Conteos de "trabajadores SunCar" serán incorrectos hasta que se migre la base de datos.
 
-7. **Pestañas Facturas clientes/trabajadores — filtro `es_trabajador_suncar` en backend sin confirmar**: Si el backend no acepta ese parámetro en la query, ambas pestañas devolverán el mismo resultado sin ningún error visible, haciendo inútil la separación.
+7. **Pestañas Facturas clientes/trabajadores — filtro `es_trabajador_suncar` en backend sin confirmar**: Si el backend no acepta ese parámetro en la query, ambas pestañas devolverán el mismo resultado sin ningún error visible.
 
 8. **Cache estático de pestañas — facturas nuevas no visibles sin recarga manual**: El cache que evita repetir la query al alternar pestañas no tiene invalidación automática. Facturas generadas mientras el usuario está en otra pestaña no aparecerán hasta recargar la página.
 
-9. **`es_trabajador_suncar` en edición de cliente — confirmar persistencia en `PUT /clientes/{id}`**: Si el backend no acepta y persiste el nuevo campo en el endpoint de edición, el checkbox siempre aparecerá desmarcado al reabrir el formulario, dando falsa sensación de que se guardó cuando no.
+9. **`es_trabajador_suncar` en edición de cliente — confirmar persistencia en `PUT /clientes/{id}`**: Si el backend no acepta y persiste el nuevo campo en el endpoint de edición, el checkbox siempre aparecerá desmarcado al reabrir el formulario.
 
 ---
 
@@ -70,37 +116,37 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 - **`feat(facturas-solar-carros): incluir todos los materiales de la oferta al facturar instaladora`** (16:40) — Antes solo se guardaban inversor/batería/panel. Ahora se cargan y guardan todos, pero la tabla editable y el descuento de inventario siguen usando solo los principales. Los no principales se guardan con `categoria_principal="otro"` y precio/cantidad original sin re-escalar.
 
-- **`fix(facturas-solar-carros): usar una sola oferta confirmada (la más reciente) al facturar instaladora`** (16:55) — Antes se mezclaban materiales de todas las ofertas confirmadas. Ahora se elige una sola (prioridad: confirmada con componentes > confirmada > cualquiera), desempate por `fecha_creacion` más reciente. Agrega respaldo por `oferta_confeccion` del cliente si el lookup por número falla.
+- **`fix(facturas-solar-carros): usar una sola oferta confirmada (la más reciente) al facturar instaladora`** (16:55) — Antes se mezclaban materiales de todas las ofertas confirmadas. Ahora se elige una sola (prioridad: confirmada con componentes > confirmada > cualquiera), desempate por `fecha_creacion` más reciente.
 
 - **`feat(facturas-solar-carros): selector de oferta cuando el cliente tiene varias confirmadas`** (17:10) — Diálogo de selección cuando hay más de una oferta confirmada, ordenadas de más reciente a más antigua. Ofertas sin confirmar nunca se muestran.
 
 - **`feat(facturas-solar-carros): mostrar y validar todos los materiales de la oferta en instaladora`** (17:43) — La tabla "Concepto" muestra todos los materiales de la oferta, cada uno vinculado al catálogo de contabilidad con validación de existencia en stock. Bloquea el guardado si falta vínculo o stock. Precio objetivo escalado proporcionalmente entre todos los materiales.
 
-- **`feat(obras-terminadas): ordenar por fecha de instalación, exportar sin materiales y vista de Facturas`** (18:42) — Nuevo botón "Exportar Excel sin materiales". Nueva vista "Facturas" (selector Obras/Facturas en el header) con listado de facturas de obras terminadas, filtros de fecha de facturación, estado y comercial; ver detalle, PDF por fila, PDF unificado y Excel.
+- **`feat(obras-terminadas): ordenar por fecha de instalación, exportar sin materiales y vista de Facturas`** (18:42) — Nuevo botón "Exportar Excel sin materiales". Nueva vista "Facturas" con listado de facturas de obras terminadas, filtros de fecha de facturación, estado y comercial; ver detalle, PDF por fila, PDF unificado y Excel.
 
 ---
 
 ### Área 2: Fichas de Costo — fix paginación stock (1 commit — Fabian1820, 9 Jul)
 
-- **`fix(fichas-costo): paginar la carga de stock (el endpoint valida limit<=500)`** (19:40) — El módulo pedía `limit=2000` al backend que respondía 422. Ahora pagina de a 500 hasta traer todos (561 materiales = 2 páginas). Cargar solo la primera página habría ocultado el botón "Costo" a 61 materiales sin ningún aviso.
+- **`fix(fichas-costo): paginar la carga de stock (el endpoint valida limit<=500)`** (19:40) — El módulo pedía `limit=2000` al backend que respondía 422. Ahora pagina de a 500 hasta traer todos (561 materiales = 2 páginas).
 
 ---
 
 ### Área 3: Copy — "kardex" → "historial de costos" (1 commit — Fabian1820, 9 Jul)
 
-- **`copy(costos): "kardex" → "historial de costos" en todo el texto visible`** (20:31) — Cambio solo en copy visible: diálogo Establecer costo, hints del formulario, Fichas de Costo, pestaña del detalle, módulo en nav/header/dashboard, ficha de costo de compra y solicitudes de entrada. Las claves internas `kardex-costo` (permisos/rutas) no se modificaron para no romper accesos.
+- **`copy(costos): "kardex" → "historial de costos" en todo el texto visible`** (20:31) — Cambio solo en copy visible. Las claves internas `kardex-costo` (permisos/rutas) no se modificaron para no romper accesos.
 
 ---
 
 ### Área 4: Movimientos — origen en export Excel (1 commit — Fabian1820, 9 Jul)
 
-- **`feat(movimientos): columna "Origen del movimiento" en el export a Excel`** (20:37) — Deriva la etiqueta de `origen_captura`, `estado` y `origen` de la solicitud referenciada, campos ya presentes en la respuesta del backend que el export descartaba. Solo afecta al Excel; tabla en pantalla sin cambios.
+- **`feat(movimientos): columna "Origen del movimiento" en el export a Excel`** (20:37) — Deriva la etiqueta de `origen_captura`, `estado` y `origen` de la solicitud referenciada, campos ya presentes en la respuesta del backend que el export descartaba.
 
 ---
 
 ### Área 5: Costos en Instalaciones + Reservas (2 commits — Fabian1820, 10 Jul)
 
-- **`feat(costos+export): costos en instalaciones y columna Entregado en Excel`** (15:27) — Hook compartido `hooks/use-costos-oferta.ts` (useCostosOferta + formatCostoItem/formatCostoTotal) para no triplicar lógica en los 3 archivos donde el diálogo de entregas está duplicado. Instalaciones en Proceso y Nuevas muestran totales costo entregado/pendiente vía `/entregas-materiales/oferta/{id}/costos`, gateados por el subpermiso aditivo `costos-materiales-cliente`. Nueva columna "Entregado" en Excel (Si / No / Parcial con cantidad) calculada de `item.entregas[]` ya presente en la respuesta sin llamadas extra. Instalaciones Nuevas estrena botón export; helpers comunes en `export-instalaciones-shared.ts`.
+- **`feat(costos+export): costos en instalaciones y columna Entregado en Excel`** (15:27) — Hook compartido `hooks/use-costos-oferta.ts`. Instalaciones en Proceso y Nuevas muestran totales costo entregado/pendiente vía `/entregas-materiales/oferta/{id}/costos`, gateados por el subpermiso aditivo `costos-materiales-cliente`. Nueva columna "Entregado" en Excel (Si / No / Parcial con cantidad). Instalaciones Nuevas estrena botón export; helpers comunes en `export-instalaciones-shared.ts`.
 
 - **`feat(reservas): mostrar nombre del creador en detalle de reserva`** (17:46) — Agrega sección "Creado por" al diálogo de detalle usando `creado_por_nombre` resuelto por el backend, con CI como respaldo. Corrige el campo mal nombrado `creado_por` → `creado_por_ci`.
 
@@ -108,27 +154,27 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ### Puede dar bateo
 
-1. **Facturas Solar Carros — precio escalado nulo o incorrecto si algún material no tiene precio en el catálogo de contabilidad**: El precio objetivo se distribuye proporcionalmente entre todos los materiales. Si un material (estructura, cableado, etc.) tiene `precio = null` o `0`, el cálculo proporcional puede producir precios erróneos o la factura puede guardarse con precios cero sin alerta visible.
+1. **Facturas Solar Carros — precio escalado nulo o incorrecto si algún material no tiene precio en el catálogo de contabilidad**: Si un material tiene `precio = null` o `0`, el cálculo proporcional puede producir precios erróneos o la factura puede guardarse con precios cero sin alerta visible.
 
-2. **Facturas Solar Carros — ventana de facturas incorrectas entre commits 16:40 y 16:55**: El primer commit incluyó todos los materiales mezclando múltiples ofertas; el fix (usar solo una) llegó 15 minutos después. Si el auto-deploy estaba activo, hay facturas generadas en esa ventana que mezclan materiales de más de una oferta del cliente.
+2. **Facturas Solar Carros — ventana de facturas incorrectas entre commits 16:40 y 16:55**: Si el auto-deploy estaba activo, hay facturas generadas en esa ventana que mezclan materiales de más de una oferta del cliente.
 
-3. **Selector de oferta — empate en `fecha_creacion` genera orden inestable**: Dos ofertas con exactamente la misma fecha de creación (p.ej. import masivo o migración) pueden mostrarse en orden distinto entre sesiones o recargas sin criterio de desempate estable.
+3. **Selector de oferta — empate en `fecha_creacion` genera orden inestable**: Dos ofertas con exactamente la misma fecha de creación pueden mostrarse en orden distinto entre sesiones o recargas.
 
-4. **Bloqueo por stock en Facturas Solar Carros — stock leído al abrir, no en tiempo real**: Si otro usuario genera un vale de salida o una factura entre la apertura del diálogo y el guardado, el backend rechazará con 422 por stock insuficiente, pero el usuario no recibió aviso temprano en pantalla.
+4. **Bloqueo por stock en Facturas Solar Carros — stock leído al abrir, no en tiempo real**: Si otro usuario genera un vale de salida entre la apertura del diálogo y el guardado, el backend rechazará con 422 por stock insuficiente sin aviso temprano.
 
-5. **Vista "Facturas" en Obras Terminadas — endpoint sin confirmar en backend**: La nueva vista asume un endpoint específico para facturas de obras con filtros. Si el backend aún no lo implementó, la vista cargará vacía o con 404 sin ningún indicador de error.
+5. **Vista "Facturas" en Obras Terminadas — endpoint sin confirmar en backend**: Si el backend aún no lo implementó, la vista cargará vacía o con 404 sin indicador de error.
 
-6. **Fix de paginación — snapshot inconsistente entre página 1 y página 2 de stock**: Con movimientos de inventario concurrentes entre las dos llamadas paginadas, la lista consolidada mezcla stocks de dos instantes distintos, pudiendo mostrar disponibilidad incorrecta para materiales en la segunda página.
+6. **Fix de paginación — snapshot inconsistente entre página 1 y página 2 de stock**: Con movimientos concurrentes entre las dos llamadas paginadas, la lista consolida stocks de dos instantes distintos.
 
-7. **Clave interna `kardex-costo` sin renombrar — "historial de costos" no encontrable en panel de permisos**: Un SuperAdmin que busque "historial de costos" para asignar permisos no encontrará el módulo porque la clave técnica sigue siendo `kardex-costo`. Puede pensar que el módulo no existe o asignarlo incorrectamente.
+7. **Clave interna `kardex-costo` sin renombrar — "historial de costos" no encontrable en panel de permisos**: Un SuperAdmin que busque "historial de costos" no encontrará el módulo porque la clave técnica sigue siendo `kardex-costo`.
 
-8. **Columna "Origen del movimiento" — campos ausentes en movimientos históricos**: Movimientos creados antes de que el backend implementara `origen_captura`, `estado` y `origen` mostrarán la columna vacía sin nota explicativa de datos históricos incompletos.
+8. **Columna "Origen del movimiento" — campos ausentes en movimientos históricos**: Movimientos creados antes de que el backend implementara esos campos mostrarán la columna vacía.
 
-9. **`costos-materiales-cliente` en Instalaciones — ningún usuario lo tiene hasta asignación manual de SuperAdmin**: El subpermiso aditivo no se hereda de `instalaciones` ni de ningún módulo padre. Sin comunicación activa de que es necesario asignarlo, los costos serán invisibles para todos hasta configuración explícita.
+9. **`costos-materiales-cliente` en Instalaciones — ningún usuario lo tiene hasta asignación manual de SuperAdmin**: El subpermiso aditivo no se hereda de `instalaciones` ni de ningún módulo padre.
 
-10. **`creado_por` → `creado_por_ci` — reservas históricas en BD con campo original muestran creador vacío**: Reservas anteriores a este commit pueden tener el campo como `creado_por` (sin `_ci`). El detalle mostrará la sección "Creado por" vacía aunque la reserva tenga creador registrado en la BD.
+10. **`creado_por` → `creado_por_ci` — reservas históricas con campo original muestran creador vacío**.
 
-11. **Diálogo de entregas sigue duplicado en 3 archivos — regresiones silenciosas posibles**: El hook extrae la lógica de costos, pero el componente de diálogo en sí permanece duplicado. Diferencias sutiles entre las 3 instancias no capturadas en el hook pueden producir comportamientos distintos según la vista sin ningún error visible.
+11. **Diálogo de entregas sigue duplicado en 3 archivos — regresiones silenciosas posibles**: El hook extrae la lógica de costos, pero el componente de diálogo en sí permanece duplicado.
 
 ---
 
@@ -142,65 +188,65 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ### Área 1: RRHH — campos pertenece_mipyme y pertenece_tcp (1 commit — yany1509)
 
-- **`feat(rrhh): agregar campos pertenece_mipyme y pertenece_tcp al trabajador`** (15:45) — Nuevos checkboxes al crear empleado, toggles al editar (pestaña Laboral) y badges en la tabla/detalle. Consume el nuevo endpoint del backend.
+- **`feat(rrhh): agregar campos pertenece_mipyme y pertenece_tcp al trabajador`** (15:45) — Nuevos checkboxes al crear empleado, toggles al editar (pestaña Laboral) y badges en la tabla/detalle.
 
 ---
 
 ### Área 2: Fichas de Costo — bloqueo inteligente y restricción por stock (2 commits — Fabian1820)
 
-- **`feat(fichas-costo): atajo a la ficha de compra pendiente + bloquear ajuste`** (14:23) — Cuando el material tiene una entrada pendiente de costeo, el diálogo `EstablecerCostoDialog` deshabilita el botón Guardar y muestra en su lugar un enlace "Ir a costear la compra" que navega directamente a `/compras/{id}/ficha-costo`. Así el usuario no puede hacer un ajuste all-or-nothing que el backend rechazaría de todos modos.
+- **`feat(fichas-costo): atajo a la ficha de compra pendiente + bloquear ajuste`** (14:23) — Cuando el material tiene una entrada pendiente de costeo, el diálogo deshabilita el botón Guardar y muestra un enlace "Ir a costear la compra" que navega a `/compras/{id}/ficha-costo`.
 
-- **`feat(fichas-costo): botón Costo solo con existencias + motivo + quita referencia`** (16:51) — El botón "Costo" solo aparece para materiales con `stock > 0`. El stock se carga una vez al abrir la ficha. El diálogo ahora pide un motivo/causa opcional registrado en el kardex junto con usuario y fecha. El form genérico de Editar material ya NO escribe el costo de referencia al catálogo.
+- **`feat(fichas-costo): botón Costo solo con existencias + motivo + quita referencia`** (16:51) — El botón "Costo" solo aparece para materiales con `stock > 0`. El diálogo ahora pide un motivo/causa opcional registrado en el kardex. El form genérico de Editar material ya NO escribe el costo de referencia al catálogo.
 
 ---
 
 ### Área 3: Exports — refactor global, nombre del material desde el backend (2 commits — Fabian1820)
 
-- **`refactor(exports): leer nombre del material desde el backend y quitar lookups al catálogo`** (15:59) — El backend ahora expone el nombre del material en las lecturas de facturas de venta, vale, solicitudes y pagos, por lo que los exports ya no necesitan llamar `getAllMaterials()`. Se elimina ese workaround en facturas emitidas (Excel), PDF consolidado, pagos realizados y nombre del vale. Se mantiene fallback a `descripcion` por seguridad. −160 líneas netas.
+- **`refactor(exports): leer nombre del material desde el backend y quitar lookups al catálogo`** (15:59) — −160 líneas netas. Se mantiene fallback a `descripcion` por seguridad.
 
-- **`refactor(obras-terminadas): leer nombre del material del backend en el export`** (17:07) — Extensión del refactor anterior a Obras Terminadas: el export lee `m.nombre` directamente, con fallback a `descripcion`. Se agrega el campo `nombre` al tipo `MaterialOferta`.
+- **`refactor(obras-terminadas): leer nombre del material del backend en el export`** (17:07) — El export lee `m.nombre` directamente, con fallback a `descripcion`. Se agrega el campo `nombre` al tipo `MaterialOferta`.
 
 ---
 
 ### Área 4: Obras Terminadas — filtro de factura cliente propagado al backend (1 commit — Fabian1820)
 
-- **`feat(obras-terminadas): propagar filtro de factura cliente al backend`** (17:05) — El toggle "Factura cliente" se envía como parámetro `estado_factura` en la query al backend en lugar de filtrar solo en el cliente. Corrige que antes el filtro solo afectaba la página visible, sin impacto en paginación ni en los exports.
+- **`feat(obras-terminadas): propagar filtro de factura cliente al backend`** (17:05) — El toggle "Factura cliente" se envía como parámetro `estado_factura` en la query al backend. Corrige que antes el filtro solo afectaba la página visible, sin impacto en paginación ni exports.
 
 ---
 
 ### Área 5: Clientes — selector 'qué falta' en estado equipo instalado (1 commit — Fabian1820)
 
-- **`feat(clientes): selector 'qué falta' (aterramiento/otro) en estado equipo instalado`** (17:21) — Nuevo componente `FaltaInstalacionSelect` con tres opciones: "Aterramiento con pica", "Aterramiento con grapa", u "Otro" con texto libre. Capturado al marcar "Equipo instalado con éxito" en `FechaInstalacionDialog` y editable en `edit-client-dialog`. El campo `falta_instalacion` deja de ocultarse en estado instalado.
+- **`feat(clientes): selector 'qué falta' (aterramiento/otro) en estado equipo instalado`** (17:21) — Nuevo componente `FaltaInstalacionSelect` con tres opciones: "Aterramiento con pica", "Aterramiento con grapa", u "Otro" con texto libre. El campo `falta_instalacion` deja de ocultarse en estado instalado.
 
 ---
 
 ### Área 6: Clientes — dashboard de costos de materiales entregados/pendientes (1 commit — Fabian1820)
 
-- **`feat(costos): mostrar costo de materiales entregados/pendientes en dashboard de cliente`** (17:25) — En el diálogo del carrito se muestran, gateados por el subpermiso ADITIVO `costos-materiales-cliente` (verificado con `hasExactPermission`), el costo por material y los totales entregado/pendiente. Fetch best-effort a `/entregas-materiales/cliente/{n}/costos`; si falla (p.ej. 403) devuelve `null` sin romper el dashboard. Merge por `id de oferta + material_codigo`. Muestra nota de "total parcial" cuando hay materiales sin costo en catálogo.
+- **`feat(costos): mostrar costo de materiales entregados/pendientes en dashboard de cliente`** (17:25) — Gateados por el subpermiso ADITIVO `costos-materiales-cliente` (verificado con `hasExactPermission`). Fetch best-effort a `/entregas-materiales/cliente/{n}/costos`; si falla (p.ej. 403) devuelve `null` sin romper el dashboard. Muestra nota de "total parcial" cuando hay materiales sin costo en catálogo.
 
 ---
 
 ### Puede dar bateo
 
-1. **`pertenece_mipyme`/`pertenece_tcp` — endpoint del backend sin confirmar en código visible**: Si el backend no implementó la aceptación de esos campos en `PUT /{ci}/rrhh`, los checkboxes enviarán datos que serán ignorados silenciosamente o causarán 422, sin feedback al usuario.
+1. **`pertenece_mipyme`/`pertenece_tcp` — endpoint del backend sin confirmar en código visible**: Si el backend no acepta esos campos en `PUT /{ci}/rrhh`, los checkboxes enviarán datos ignorados silenciosamente.
 
-2. **Botón "Costo" oculto para `stock > 0` — borde con stock nulo o negativo**: Si el campo de stock devuelve `null`, `undefined` o un valor negativo, la condición `stock > 0` ocultará el botón incluso cuando el material sí debería costearse, sin ningún aviso.
+2. **Botón "Costo" oculto para `stock > 0` — borde con stock nulo o negativo**: Si el campo de stock devuelve `null`, `undefined` o un valor negativo, el botón se ocultará cuando no debería.
 
-3. **Carga de stock al abrir la ficha — latencia por cada material**: El botón "Costo" requiere cargar el stock de cada material antes de decidir si mostrarlo. En fichas con muchos materiales esto puede generar múltiples llamadas en paralelo y un retraso visible.
+3. **Carga de stock al abrir la ficha — múltiples llamadas al backend por material en fichas grandes**.
 
-4. **"Quita referencia" del costo — cambio de comportamiento sin mensaje de migración**: Usuarios con el hábito de actualizar el costo desde el form "Editar material" encontrarán que el campo ahora es read-only, sin ninguna indicación en pantalla que los dirija al nuevo flujo.
+4. **"Quita referencia" del costo — cambio de comportamiento sin mensaje de migración para usuarios con hábito anterior**.
 
-5. **Refactor exports (-160 líneas) — fallback a `descripcion` no cubre backends staging sin campo `nombre`**: Si en algún entorno el backend todavía no expone `nombre` en todas las respuestas, los exports mostrarán la descripción en lugar del nombre sin ningún error visible.
+5. **Refactor exports (-160 líneas) — fallback a `descripcion` no cubre backends staging sin campo `nombre`**.
 
-6. **Filtro `estado_factura` propagado al backend — contrato de API sin confirmación**: Si el backend no implementó ese parámetro de filtro, lo ignorará silenciosamente; los usuarios creerán que el filtro funciona pero verán resultados sin filtrar.
+6. **Filtro `estado_factura` propagado al backend — si el backend no implementó el parámetro, lo ignorará silenciosamente**.
 
-7. **`falta_instalacion` texto libre — comparaciones exactas en backend pueden no matchear valores históricos**: Si el backend hace comparaciones exactas con ese campo, los registros históricos con texto distinto quedarán fuera sin aviso.
+7. **`falta_instalacion` texto libre — comparaciones exactas en backend pueden no matchear valores históricos**.
 
-8. **`hasExactPermission('costos-materiales-cliente')` — subpermiso aditivo, ningún usuario lo tiene hasta asignación manual**: Tener el módulo `clientes` NO concede este subpermiso. Todos los usuarios con acceso a Clientes necesitan que un SuperAdmin se los asigne explícitamente.
+8. **`hasExactPermission('costos-materiales-cliente')` — ningún usuario lo tiene hasta asignación manual de SuperAdmin**.
 
-9. **Fetch best-effort `/entregas-materiales/cliente/{n}/costos` — 500 silenciado como null**: Si el endpoint devuelve 500, el dashboard lo trata igual que "sin datos", mostrando el panel de costos vacío sin indicador de error real de backend.
+9. **Fetch best-effort `/entregas-materiales/cliente/{n}/costos` — 500 silenciado como null, dashboard incompleto sin indicador de error real**.
 
-10. **Merge por `id de oferta + material_codigo` — posible solapamiento con mismo código en dos ofertas**: Si un cliente tiene materiales con el mismo código en dos ofertas distintas, el merge puede solapar cantidades o costos entre ambas.
+10. **Merge por `id de oferta + material_codigo` — solapamiento posible con mismo código en dos ofertas del mismo cliente**.
 
 ---
 
@@ -214,9 +260,9 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ### Área 1: Fichas de Costo — acción "Establecer Costo" inteligente (2 commits — Fabian1820)
 
-- **`feat(fichas-costo): acción "Costo" inteligente (referencia / saldo inicial / ajuste)`** (19:22) — El costo del material sale del form genérico "Editar" (ahora read-only para ese campo) y pasa a una nueva acción dedicada `EstablecerCostoDialog` que detecta el estado real del material automáticamente: sin stock ni kardex → costo de referencia; con stock sin kardex → saldo inicial; con kardex → ajuste de costo. Nuevos métodos `KardexCostoService.saldoInicial` y `ajusteCosto`.
+- **`feat(fichas-costo): acción "Costo" inteligente (referencia / saldo inicial / ajuste)`** (19:22) — El costo del material sale del form genérico "Editar" y pasa a una nueva acción dedicada `EstablecerCostoDialog` que detecta el estado real del material automáticamente: sin stock ni kardex → costo de referencia; con stock sin kardex → saldo inicial; con kardex → ajuste de costo. Nuevos métodos `KardexCostoService.saldoInicial` y `ajusteCosto`.
 
-- **`feat(fichas-costo): el diálogo de costo avisa y maneja pendiente_costeo`** (19:43) — `KardexCostoService.mapKardex` mapea `pendiente_costeo`, `regularizada_por` y `tipo`. `EstablecerCostoDialog` detecta costeo pendiente y muestra aviso rojo. Si el ajuste devuelve `con_pendiente=true`, avisa que primero debe ponderarse/sincronizarse la compra antes de ajustar.
+- **`feat(fichas-costo): el diálogo de costo avisa y maneja pendiente_costeo`** (19:43) — `KardexCostoService.mapKardex` mapea `pendiente_costeo`, `regularizada_por` y `tipo`. `EstablecerCostoDialog` detecta costeo pendiente y muestra aviso rojo. Si el ajuste devuelve `con_pendiente=true`, avisa que primero debe ponderarse/sincronizarse la compra.
 
 ---
 
@@ -224,7 +270,7 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 - **`fix(exports): mostrar nombre del material en vez de la descripción`** (19:37) — Afecta vales, facturas, obras terminadas, solicitudes de venta y pagos. El nombre se enriquece desde el catálogo buscando por código, con fallback a `descripcion` y luego al código.
 
-- **`fix(exports): resolver nombre del material desde el catálogo en facturas emitidas`** (21:01) — Complemento al fix anterior para el Excel de facturas emitidas y PDF consolidado. Los ítems embebidos en facturas solo traen `descripcion` (sin `nombre`), por lo que el primer fix no era suficiente. Solución: lookup por `codigo`/`material_id` desde el catálogo.
+- **`fix(exports): resolver nombre del material desde el catálogo en facturas emitidas`** (21:01) — Complemento al fix anterior para el Excel de facturas emitidas y PDF consolidado. Los ítems embebidos en facturas solo traen `descripcion` (sin `nombre`), por lo que el primer fix no era suficiente.
 
 ---
 
@@ -236,68 +282,32 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ### Puede dar bateo
 
-1. **`EstablecerCostoDialog` — lógica de detección de estado frágil**: La elección entre referencia/saldo inicial/ajuste depende de consultar el estado del material al abrir el diálogo. Si el backend devuelve campos nulos o hay race condition, el diálogo puede elegir el endpoint incorrecto.
+1. **`EstablecerCostoDialog` — lógica de detección de estado frágil**: Si el backend devuelve campos nulos o hay race condition, el diálogo puede elegir el endpoint incorrecto.
 
-2. **`con_pendiente=true` — usuario bloqueado sin flujo alternativo en pantalla**: Cuando el backend responde `con_pendiente`, el diálogo muestra solo un aviso de texto. El usuario queda bloqueado sin enlace directo al flujo de costeo de compra pendiente.
+2. **`con_pendiente=true` — usuario bloqueado sin flujo alternativo en pantalla**: El diálogo muestra solo un aviso de texto sin enlace directo al flujo de costeo de compra pendiente.
 
 3. **`costoReadonly` en `MaterialForm` — costo inaccesible por flujos legacy**: Flujos de importación o scripts de seed que usaban el form para actualizar el costo quedan silenciosamente rotos.
 
-4. **Dos fixes separados para el mismo problema en 24 minutos — paths de datos no cubiertos**: El primer fix (19:37) no cubrió facturas emitidas; se necesitó un segundo commit (21:01). Puede quedar algún otro export mostrando `descripcion` en lugar del nombre real.
+4. **Dos fixes separados para el mismo problema en 24 minutos — puede quedar algún export mostrando `descripcion` en lugar del nombre real**.
 
-5. **`getAllMaterials()` sin caché compartido — múltiples llamadas al catálogo por export**: Ambos fixes llaman a `getAllMaterials()` de forma independiente. Sin caché compartido, cada export dispara una llamada completa al catálogo.
+5. **`getAllMaterials()` sin caché compartido — múltiples llamadas al catálogo por export**.
 
-6. **Totales globales en Obras Terminadas — dependencia de campo de backend sin confirmar**: Si el endpoint no devuelve los totales agregados, las tarjetas mostrarán cero o `undefined` sin aviso.
+6. **Totales globales en Obras Terminadas — dependencia de campo de backend sin confirmar**: Si el endpoint no devuelve los totales agregados, las tarjetas mostrarán cero o `undefined`.
 
-7. **Eliminación de columna "Total Mat." del Excel — puede romper importaciones externas**: Usuarios con automatizaciones que consumian el Excel esperando esa columna verán que desaparece sin aviso ni versionado del formato.
+7. **Eliminación de columna "Total Mat." del Excel — puede romper importaciones externas con automatizaciones que consumían esa columna**.
 
-8. **Ciclo feat→fix en exports (19:37 → 21:01) — ventana de exports incorrectos en producción**: Si hubo auto-deploy entre ambos commits, los exports de facturas emitidas generados en esa ventana tienen `descripcion` en lugar del nombre real.
-
----
-
-## 📅 6 de Julio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**5 commits reales** de yany1509 — dos áreas: (1) diálogo de selección de fecha al cambiar estado a "equipo instalado con éxito" y fix del bug de Radix que impedía mostrarlo al editar cliente; (2) totales por moneda en la billetera: feat, rediseño visual de 3 tarjetas y fix del cálculo (volumen total, no neto).
-
----
-
-### Área 1: Instalaciones — diálogo de fecha de instalación (2 commits — yany1509)
-
-- **`feat(instalaciones): preguntar fecha al cambiar estado a equipo instalado con éxito`** (15:58) — Al cambiar el estado a "equipo instalado con éxito" se abre `FechaInstalacionDialog` para elegir entre el último día del mes anterior o la fecha actual como `fecha_equipo_instalado`.
-
-- **`fix(clientes): mostrar dialog de fecha al cambiar a equipo instalado desde editar cliente`** (17:55) — El `FechaInstalacionDialog` era destruido por Radix UI porque su overlay disparaba `onPointerDownOutside` del diálogo principal. Fix: `preventDefault` en `onPointerDownOutside` e `onInteractOutside` del diálogo principal cuando `fechaInstalacionOpen` está activo.
-
----
-
-### Área 2: Billetera — totales por moneda en historial (3 commits — yany1509)
-
-- **`feat(billetera): totales por moneda en historial de transacciones`** (16:08) — Muestra ingresos, gastos y neto por moneda sobre TODAS las páginas del historial filtrado. El backend devuelve los totales vía agregación MongoDB junto con los ítems paginados en un solo request.
-
-- **`style(billetera): rediseñar totales como 3 tarjetas Total Ingresos / Total Gastos / Total`** (16:12) — UI de totales reemplazada por 3 tarjetas diferenciadas.
-
-- **`fix(billetera): Total = ingresos + gastos (volumen total, no neto)`** (16:27) — La vista global mostraba valores negativos porque calculaba `ingreso_total - gasto_total`. Fix: suma ambos para mostrar volumen total.
-
----
-
-### Puede dar bateo
-
-1. **`FechaInstalacionDialog` — `fechaInstalacionOpen` atascado bloquea el diálogo principal**: Si el componente interno rompe, el estado `fechaInstalacionOpen` permanece `true` y el `preventDefault` activo vuelve el diálogo principal imposible de cerrar, forzando recarga de página.
-
-2. **Dos rutas hacia el mismo cambio de estado — posible divergencia**: El diálogo se activa desde Instalaciones en Proceso y desde Editar Cliente. Si ambas rutas llaman endpoints distintos, una puede guardar `fecha_equipo_instalado` y la otra no.
-
-3. **"Último día del mes anterior" sin validación de coherencia temporal**: La opción puede resultar en una fecha de instalación anterior a la fecha de contrato o primera visita, sin ninguna validación.
-
-4. **Totales de billetera — sin fallback si el backend no devuelve los campos de agregación**: Si el API responde sin los campos de totales, las 3 tarjetas mostrarán cero o `undefined` sin aviso.
-
-5. **"Total" cambió de neto a volumen sin nota explicativa en UI**: Usuarios que antes interpretaban "Total" como saldo neto verán un número diferente sin explicación del cambio de semántica.
-
-6. **Ciclo feat→fix en 19 minutos — ventana con totales negativos en producción**: Los tres commits de billetera se completaron entre 16:08 y 16:27. Si hubo deploy automático entre ellos, usuarios que abrieron el historial en esa ventana vieron totales negativos.
+8. **Ciclo feat→fix en exports (19:37 → 21:01) — ventana de exports incorrectos en producción si hubo auto-deploy entre ambos commits**.
 
 ---
 
 #### Seguimientos vigentes
 
+- **Modal "Generar factura a cliente" — endpoint de búsqueda con estado de pagos sin confirmar (Jul 14)**.
+- **`requiere_instalado=false` — advertencia solo en frontend, backend puede rechazar la factura igualmente (Jul 14)**.
+- **Deep-link `?cliente=...` — apertura del modal falla si el parámetro no se lee al montar (Jul 14)**.
+- **Notificación `factura_multiple_ofertas` persistente tras facturar por otra vía — modal abre sin ofertas pendientes (Jul 14)**.
+- **`exportarFacturasSinMateriales` — columnas fijas vacías en facturas históricas sin los campos nuevos (Jul 14)**.
+- **Campana notifica solo 2+ ofertas confirmadas sin facturar — 1 sola oferta pendiente nunca genera notificación (Jul 14)**.
 - **Fichas de Costo — "Ajuste general" irreversible destruye diferencias por almacén sin confirmación robusta (Jul 13)**.
 - **Fichas de Costo — endpoint de ajuste por almacén específico (✎) sin confirmar en backend (Jul 13)**.
 - **Fichas de Costo — desglose por almacén stale al abrir el diálogo con movimientos concurrentes (Jul 13)**.
@@ -429,4 +439,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.

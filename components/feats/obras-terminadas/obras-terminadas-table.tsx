@@ -187,6 +187,7 @@ const MetodoPagoBadge = ({ metodo }: { metodo: string }) => {
   if (metodo === "efectivo") return <Badge className="bg-green-100 text-green-700">Efectivo</Badge>
   if (metodo === "transferencia_bancaria") return <Badge className="bg-emerald-100 text-emerald-700">Transferencia</Badge>
   if (metodo === "stripe") return <Badge className="bg-indigo-100 text-indigo-700">Stripe</Badge>
+  if (metodo === "ajuste") return <Badge className="bg-amber-100 text-amber-700">Ajuste de contabilidad</Badge>
   return <Badge>{metodo}</Badge>
 }
 

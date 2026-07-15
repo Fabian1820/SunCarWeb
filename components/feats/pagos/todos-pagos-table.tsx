@@ -322,6 +322,7 @@ export function TodosPagosTable({
         <Badge className="bg-emerald-100 text-emerald-700">Transferencia</Badge>
       ),
       stripe: <Badge className="bg-indigo-100 text-indigo-700">Stripe</Badge>,
+      ajuste: <Badge className="bg-amber-100 text-amber-700">Ajuste de contabilidad</Badge>,
     };
     return badges[metodo as keyof typeof badges] || <Badge>{metodo}</Badge>;
   };

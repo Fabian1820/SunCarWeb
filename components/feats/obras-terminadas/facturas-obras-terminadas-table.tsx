@@ -25,6 +25,7 @@ import {
   Eye,
   FileDown,
   Loader2,
+  Coins,
 } from "lucide-react"
 import {
   ObrasTerminadasService,
@@ -32,6 +33,7 @@ import {
   type FacturaClienteObra,
 } from "@/lib/services/feats/obras-terminadas/obras-terminadas-service"
 import { ExportFacturaClienteService } from "@/lib/services/feats/obras-terminadas/export-factura-cliente-service"
+import { AjustarSaldoDialog } from "./ajustar-saldo-dialog"
 import { FacturasClientePanel } from "./obras-terminadas-table"
 
 interface FacturasObrasTerminadasTableProps {
@@ -44,6 +46,8 @@ interface FacturasObrasTerminadasTableProps {
   onExportarExcel?: () => Promise<void> | void
   /** Igual que onExportarExcel pero sin las columnas de materiales. */
   onExportarExcelSinMateriales?: () => Promise<void> | void
+  /** Registra un pago de ajuste por los centavos residuales de monto_pendiente. */
+  onAjustarSaldo?: (obra: ObraTerminada, monto: number) => Promise<void>
   variant?: "default" | "embedded"
   searchValue?: string
   onSearchChange?: (value: string) => void
@@ -89,6 +93,7 @@ export function FacturasObrasTerminadasTable({
   onExportarTodas,
   onExportarExcel,
   onExportarExcelSinMateriales,
+  onAjustarSaldo,
   variant = "default",
   searchValue,
   onSearchChange,
@@ -108,6 +113,8 @@ export function FacturasObrasTerminadasTable({
   const [exportingExcel, setExportingExcel] = useState(false)
   const [exportingExcelSinMateriales, setExportingExcelSinMateriales] = useState(false)
   const [exportingRowId, setExportingRowId] = useState<string | null>(null)
+  const [ajustandoRowId, setAjustandoRowId] = useState<string | null>(null)
+  const [confirmAjusteObra, setConfirmAjusteObra] = useState<ObraTerminada | null>(null)
   const [detalleLoadingId, setDetalleLoadingId] = useState<string | null>(null)
   const [detalleCache, setDetalleCache] = useState<Record<string, FacturaClienteObra[]>>({})
   const [detalleObra, setDetalleObra] = useState<ObraTerminada | null>(null)
@@ -158,6 +165,17 @@ export function FacturasObrasTerminadasTable({
       }
     } finally {
       setExportingRowId(null)
+    }
+  }
+
+  const handleAjustarSaldo = async (obra: ObraTerminada, monto: number) => {
+    if (!onAjustarSaldo) return
+    const key = rowKey(obra)
+    setAjustandoRowId(key)
+    try {
+      await onAjustarSaldo(obra, monto)
+    } finally {
+      setAjustandoRowId(null)
     }
   }
 
@@ -305,7 +323,9 @@ export function FacturasObrasTerminadasTable({
                 const key = rowKey(o)
                 const isExportingRow = exportingRowId === key
                 const isLoadingDetalle = detalleLoadingId === key
+                const isAjustandoRow = ajustandoRowId === key
                 const pendiente = o.monto_pendiente ?? 0
+                const mostrarAjustarSaldo = Boolean(onAjustarSaldo) && pendiente > 0.01
                 return (
                   <TableRow key={key} className="hover:bg-gray-50 transition-colors">
                     <TableCell className="font-medium text-blue-700 text-sm">
@@ -351,6 +371,18 @@ export function FacturasObrasTerminadasTable({
                         >
                           {isExportingRow ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
                         </Button>
+                        {mostrarAjustarSaldo && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-amber-600 hover:text-amber-800 hover:bg-amber-50"
+                            onClick={() => setConfirmAjusteObra(o)}
+                            disabled={isAjustandoRow}
+                            title="Ajustar saldo (quita solo los centavos residuales)"
+                          >
+                            {isAjustandoRow ? <Loader2 className="h-4 w-4 animate-spin" /> : <Coins className="h-4 w-4" />}
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -377,6 +409,12 @@ export function FacturasObrasTerminadasTable({
           )}
         </DialogContent>
       </Dialog>
+
+      <AjustarSaldoDialog
+        obra={confirmAjusteObra}
+        onOpenChange={(open) => { if (!open) setConfirmAjusteObra(null) }}
+        onConfirm={(obra, monto) => handleAjustarSaldo(obra, monto)}
+      />
     </div>
   )
 }

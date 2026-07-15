@@ -264,7 +264,7 @@ export default function ObrasTerminadasPage() {
     setExporting(true)
     try {
       const resultado = sinMateriales
-        ? await ExportObrasTerminadasExcelService.exportarSinMateriales(filtros)
+        ? await ExportObrasTerminadasExcelService.exportarFacturasSinMateriales(filtros)
         : await ExportObrasTerminadasExcelService.exportar(filtros)
       toast({
         title: "Exportación exitosa",
@@ -278,6 +278,28 @@ export default function ObrasTerminadasPage() {
       })
     } finally {
       setExporting(false)
+    }
+  }, [toast])
+
+  const handleAjustarSaldo = useCallback(async (
+    obra: { oferta_id?: string | null },
+    monto: number,
+    onAdjusted: () => void,
+  ) => {
+    if (!obra.oferta_id) return
+    try {
+      await ObrasTerminadasService.ajustarSaldo(obra.oferta_id, monto)
+      toast({
+        title: "Saldo ajustado",
+        description: "Se registró el ajuste de contabilidad.",
+      })
+      onAdjusted()
+    } catch (error) {
+      toast({
+        title: "No se pudo ajustar el saldo",
+        description: error instanceof Error ? error.message : "Intenta de nuevo.",
+        variant: "destructive",
+      })
     }
   }, [toast])
 
@@ -595,6 +617,7 @@ export default function ObrasTerminadasPage() {
                     onExportarTodas={(obras) => handleExportarTodasPDFFacturas(obras, setExportingAllFacturasClientes)}
                     onExportarExcel={() => handleExportarExcelFacturas(filtrosClientesFacturas, setExportingExcelFacturasClientes)}
                     onExportarExcelSinMateriales={() => handleExportarExcelFacturas(filtrosClientesFacturas, setExportingExcelSinMatFacturasClientes, true)}
+                    onAjustarSaldo={(obra, monto) => handleAjustarSaldo(obra, monto, () => facturasClientesHook.fetchData(filtrosClientesFacturas, facturasClientesHook.page))}
                     variant="embedded"
                     searchValue={fSearch}
                     onSearchChange={setFSearch}
@@ -642,6 +665,7 @@ export default function ObrasTerminadasPage() {
                     onExportarTodas={(obras) => handleExportarTodasPDFFacturas(obras, setExportingAllFacturasTrabajadores)}
                     onExportarExcel={() => handleExportarExcelFacturas(filtrosTrabajadoresFacturas, setExportingExcelFacturasTrabajadores)}
                     onExportarExcelSinMateriales={() => handleExportarExcelFacturas(filtrosTrabajadoresFacturas, setExportingExcelSinMatFacturasTrabajadores, true)}
+                    onAjustarSaldo={(obra, monto) => handleAjustarSaldo(obra, monto, () => facturasTrabajadoresHook.fetchData(filtrosTrabajadoresFacturas, facturasTrabajadoresHook.page))}
                     variant="embedded"
                     searchValue={fSearch}
                     onSearchChange={setFSearch}

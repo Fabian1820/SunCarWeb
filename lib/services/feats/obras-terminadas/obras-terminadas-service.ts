@@ -258,6 +258,18 @@ export const ObrasTerminadasService = {
     );
   },
 
+  /** Registra un pago de ajuste de contabilidad por el monto indicado. */
+  async ajustarSaldo(
+    ofertaId: string,
+    monto: number,
+    signal?: AbortSignal,
+  ): Promise<{ success: boolean; pago_id: string; monto_pendiente_actualizado: number }> {
+    return apiRequest(
+      `${BASE}/oferta/${encodeURIComponent(ofertaId)}/ajustar-saldo`,
+      { method: "POST", body: JSON.stringify({ monto }), signal },
+    );
+  },
+
   /** @deprecated Usa getOfertaDetalle */
   async getClienteDetalle(
     clienteNumero: string,
