@@ -17,6 +17,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  ConfirmEditDialog,
 } from "@/components/shared/molecule/dialog"
 import {
   Search,
@@ -113,6 +114,7 @@ export function FacturasObrasTerminadasTable({
   const [exportingExcelSinMateriales, setExportingExcelSinMateriales] = useState(false)
   const [exportingRowId, setExportingRowId] = useState<string | null>(null)
   const [ajustandoRowId, setAjustandoRowId] = useState<string | null>(null)
+  const [confirmAjusteObra, setConfirmAjusteObra] = useState<ObraTerminada | null>(null)
   const [detalleLoadingId, setDetalleLoadingId] = useState<string | null>(null)
   const [detalleCache, setDetalleCache] = useState<Record<string, FacturaClienteObra[]>>({})
   const [detalleObra, setDetalleObra] = useState<ObraTerminada | null>(null)
@@ -178,6 +180,22 @@ export function FacturasObrasTerminadasTable({
     } finally {
       setAjustandoRowId(null)
     }
+  }
+
+  const buildMensajeAjuste = (obra: ObraTerminada) => {
+    const pendiente = roundToCents(obra.monto_pendiente ?? 0)
+    const enteros = Math.trunc(pendiente)
+    const residuo = roundToCents(pendiente - enteros)
+    const quedaPendiente = enteros > 0
+    return (
+      `Se registrará un pago de ajuste de ${formatCurrency(residuo)} para cubrir los centavos ` +
+      `residuales de la oferta #${obra.numero_oferta || obra.numero_factura || ""} ` +
+      `(causados por redondeo de tasa de cambio). ` +
+      (quedaPendiente
+        ? `El resto de la deuda (${formatCurrency(enteros)}) seguirá pendiente. `
+        : `La oferta quedará marcada como pagada. `) +
+      `Este ajuste queda registrado como un pago auditable y no se puede deshacer desde aquí.`
+    )
   }
 
   const em = variant === "embedded"
@@ -377,7 +395,7 @@ export function FacturasObrasTerminadasTable({
                             variant="ghost"
                             size="icon"
                             className="text-amber-600 hover:text-amber-800 hover:bg-amber-50"
-                            onClick={() => void handleAjustarSaldo(o)}
+                            onClick={() => setConfirmAjusteObra(o)}
                             disabled={isAjustandoRow}
                             title="Ajustar saldo (quita solo los centavos residuales)"
                           >
@@ -410,6 +428,20 @@ export function FacturasObrasTerminadasTable({
           )}
         </DialogContent>
       </Dialog>
+
+      <ConfirmEditDialog
+        open={!!confirmAjusteObra}
+        onOpenChange={(open) => { if (!open) setConfirmAjusteObra(null) }}
+        title="Ajustar saldo por redondeo"
+        message={confirmAjusteObra ? buildMensajeAjuste(confirmAjusteObra) : ""}
+        confirmText="Sí, ajustar"
+        cancelText="Cancelar"
+        onConfirm={() => {
+          const obra = confirmAjusteObra
+          setConfirmAjusteObra(null)
+          if (obra) void handleAjustarSaldo(obra)
+        }}
+      />
     </div>
   )
 }
