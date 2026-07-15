@@ -304,6 +304,15 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     href: "/reportes-comercial/resultados-comercial",
     grupo: "comercial-instaladora",
   },
+  {
+    key: "distribucion-comerciales",
+    label: "Distribución de Comerciales",
+    descripcion: "Organizar en equipos a los comerciales de instaladora y a las de ventas que apoyan.",
+    icon: Users,
+    iconClass: "text-emerald-600",
+    href: "/distribucion-comerciales",
+    grupo: "comercial-instaladora",
+  },
 
   // ───────── Comercial Ventas ─────────
   {
