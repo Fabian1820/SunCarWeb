@@ -270,8 +270,8 @@ export function LeadsTable({
           () => null,
         ));
       if (lead) {
-        setSelectedLeadForOfertas(lead);
-        setIsCreateOfertaOpen(true);
+        setLeadForAsignarOferta(lead);
+        setShowCrearOfertaPersonalizadaDialog(true);
       } else {
         toast({
           title: "No se encontró el lead",

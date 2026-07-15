@@ -681,8 +681,8 @@ export function ClientsTable({
           autoOpenCrearOfertaClienteNumero,
         ).catch(() => null));
       if (cliente) {
-        setClientForOfertas(cliente);
-        setIsCreateOfertaOpen(true);
+        setClientForAsignarOferta(cliente);
+        setShowCrearOfertaPersonalizadaDialog(true);
       } else {
         toast({
           title: "No se encontró el cliente",
