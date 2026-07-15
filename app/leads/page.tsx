@@ -60,8 +60,7 @@ import { GestionarFuentesDialog } from "@/components/feats/leads/gestionar-fuent
 export default function LeadsPage() {
   const searchParams = useSearchParams();
   const crearOfertaLeadIdParam = searchParams.get("crear_oferta_lead") ?? "";
-  const editarOfertaLeadIdParam =
-    searchParams.get("editar_oferta_lead") ?? "";
+  const editarOfertaLeadIdParam = searchParams.get("editar_oferta_lead") ?? "";
   const {
     leads,
     availableSources,
@@ -362,24 +361,38 @@ export default function LeadsPage() {
 
       const oc = lead.oferta_confeccion;
       if (oc && oc.items?.length) {
-        const { inv: itemInv, bats: itemBats, pan: itemPan } = extraerComponentesDeOfertaConfeccion(oc);
+        const {
+          inv: itemInv,
+          bats: itemBats,
+          pan: itemPan,
+        } = extraerComponentesDeOfertaConfeccion(oc);
         const productos: string[] = [];
-        if (itemInv) productos.push(`${itemInv.cantidad}x ${itemInv.descripcion}`);
-        itemBats.forEach((b) => productos.push(`${b.cantidad}x ${b.descripcion}`));
-        if (itemPan) productos.push(`${itemPan.cantidad}x ${itemPan.descripcion}`);
+        if (itemInv)
+          productos.push(`${itemInv.cantidad}x ${itemInv.descripcion}`);
+        itemBats.forEach((b) =>
+          productos.push(`${b.cantidad}x ${b.descripcion}`),
+        );
+        if (itemPan)
+          productos.push(`${itemPan.cantidad}x ${itemPan.descripcion}`);
         ofertaTexto = productos.length > 0 ? productos.join(" • ") : "";
       } else if (lead.ofertas && lead.ofertas.length > 0) {
         const ofertasFormateadas = lead.ofertas
           .map((oferta) => {
             const productos: string[] = [];
             if (oferta.inversor_codigo && oferta.inversor_cantidad > 0) {
-              productos.push(`${oferta.inversor_cantidad}x ${oferta.inversor_nombre || oferta.inversor_codigo}`);
+              productos.push(
+                `${oferta.inversor_cantidad}x ${oferta.inversor_nombre || oferta.inversor_codigo}`,
+              );
             }
             if (oferta.bateria_codigo && oferta.bateria_cantidad > 0) {
-              productos.push(`${oferta.bateria_cantidad}x ${oferta.bateria_nombre || oferta.bateria_codigo}`);
+              productos.push(
+                `${oferta.bateria_cantidad}x ${oferta.bateria_nombre || oferta.bateria_codigo}`,
+              );
             }
             if (oferta.panel_codigo && oferta.panel_cantidad > 0) {
-              productos.push(`${oferta.panel_cantidad}x ${oferta.panel_nombre || oferta.panel_codigo}`);
+              productos.push(
+                `${oferta.panel_cantidad}x ${oferta.panel_nombre || oferta.panel_codigo}`,
+              );
             }
             if (oferta.elementos_personalizados) {
               productos.push(oferta.elementos_personalizados);
@@ -432,7 +445,13 @@ export default function LeadsPage() {
     };
   };
 
-  if (initialLoading)
+  // Si hay un deep-link de oferta pendiente, montamos la tabla de una vez
+  // para que el fetch de la oferta arranque en paralelo con la lista de
+  // leads en vez de esperar a que esta termine de cargar primero.
+  const hasPendingOfertaDeepLink = Boolean(
+    crearOfertaLeadIdParam || editarOfertaLeadIdParam,
+  );
+  if (initialLoading && !hasPendingOfertaDeepLink)
     return <PageLoader moduleName="Leads" text="Cargando leads..." />;
   if (error) return <div>Error: {error}</div>;
 
@@ -477,9 +496,11 @@ export default function LeadsPage() {
                   <span className="sr-only">Nuevo lead</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Crear Nuevo Lead</DialogTitle>
+              <DialogContent className="max-w-xl max-h-[85vh] overflow-hidden p-0 gap-0 flex flex-col">
+                <DialogHeader className="shrink-0 border-b border-gray-100 px-5 py-4">
+                  <DialogTitle className="text-base font-semibold text-gray-900">
+                    Crear nuevo lead
+                  </DialogTitle>
                 </DialogHeader>
                 <CreateLeadDialog
                   onSubmit={handleCreateLead}
@@ -675,7 +696,10 @@ export default function LeadsPage() {
               <div>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-between">
+                    <Button
+                      variant="outline"
+                      className="w-full justify-between"
+                    >
                       <span className="truncate">
                         {filters.provincia.length > 0
                           ? `${filters.provincia.length} provincia${filters.provincia.length > 1 ? "s" : ""}`
@@ -692,7 +716,9 @@ export default function LeadsPage() {
                           variant="ghost"
                           size="sm"
                           className="h-7 px-2 text-xs"
-                          onClick={() => setFilters({ provincia: [], municipio: [] })}
+                          onClick={() =>
+                            setFilters({ provincia: [], municipio: [] })
+                          }
                         >
                           Limpiar
                         </Button>
@@ -700,7 +726,10 @@ export default function LeadsPage() {
                     </div>
                     <div className="space-y-2 max-h-52 overflow-y-auto">
                       {availableProvincias.map((p) => (
-                        <label key={p} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                        <label
+                          key={p}
+                          className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer"
+                        >
                           <Checkbox
                             checked={filters.provincia.includes(p)}
                             onCheckedChange={() => {
@@ -755,7 +784,10 @@ export default function LeadsPage() {
                     </div>
                     <div className="space-y-2 max-h-52 overflow-y-auto">
                       {availableMunicipios.map((m) => (
-                        <label key={m} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                        <label
+                          key={m}
+                          className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer"
+                        >
                           <Checkbox
                             checked={filters.municipio.includes(m)}
                             onCheckedChange={() => {
@@ -856,11 +888,13 @@ export default function LeadsPage() {
                 onUploadFotos={handleUploadLeadFoto}
                 onDownloadComprobante={handleDownloadLeadComprobante}
                 onUpdatePrioridad={handleUpdateLeadPrioridad}
-                loading={loading}
+                loading={loading || initialLoading}
                 disableActions={loadingAction}
                 onRefreshLeads={loadLeads}
                 autoOpenCrearOfertaLeadId={crearOfertaLeadIdParam || undefined}
-                autoOpenEditarOfertaLeadId={editarOfertaLeadIdParam || undefined}
+                autoOpenEditarOfertaLeadId={
+                  editarOfertaLeadIdParam || undefined
+                }
               />
               {totalLeads > limit && (
                 <SmartPagination
@@ -891,7 +925,7 @@ export default function LeadsPage() {
         onFuentesChange={() => {
           FuenteService.getFuentes(true)
             .then((data) => setFuentesDisponibles(data.map((f) => f.nombre)))
-            .catch(() => {})
+            .catch(() => {});
         }}
       />
     </div>

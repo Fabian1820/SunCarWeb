@@ -947,8 +947,14 @@ export default function ClientesPage() {
     };
   };
 
-  // Mostrar loader mientras se cargan los datos iniciales
-  if (initialLoading) {
+  // Mostrar loader mientras se cargan los datos iniciales, salvo que haya
+  // un deep-link de oferta pendiente: en ese caso montamos la tabla de una
+  // vez para que el fetch de la oferta arranque en paralelo con la lista
+  // en vez de esperar a que la lista termine de cargar primero.
+  const hasPendingOfertaDeepLink = Boolean(
+    editarOfertaClienteParam || crearOfertaClienteParam,
+  );
+  if (initialLoading && !hasPendingOfertaDeepLink) {
     return (
       <PageLoader moduleName="Clientes" text="Cargando lista de clientes..." />
     );
@@ -986,7 +992,7 @@ export default function ClientesPage() {
             onViewLocation={handleViewClientLocation}
             onUploadFotos={handleUploadClientFoto}
             onUpdatePrioridad={handleUpdateClientPrioridad}
-            loading={loading}
+            loading={loading || initialLoading}
             onFiltersChange={handleFiltersChange}
             initialSearchTerm={buscarParam}
             autoOpenEditarOfertaClienteNumero={editarOfertaClienteParam || undefined}

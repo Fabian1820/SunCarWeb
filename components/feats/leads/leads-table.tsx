@@ -1,6 +1,13 @@
 "use client";
 
-import { useMemo, useState, useEffect, useCallback, useRef } from "react";
+import {
+  useMemo,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  type ReactNode,
+} from "react";
 import { Button } from "@/components/shared/atom/button";
 import { Badge } from "@/components/shared/atom/badge";
 import { PriorityDot } from "@/components/shared/atom/priority-dot";
@@ -47,6 +54,8 @@ import {
   Zap,
   Battery,
   Sun,
+  Globe,
+  type LucideIcon,
 } from "lucide-react";
 import { useOfertasPersonalizadas } from "@/hooks/use-ofertas-personalizadas";
 import { useOfertasConfeccion } from "@/hooks/use-ofertas-confeccion";
@@ -72,13 +81,44 @@ import type {
   OfertaPersonalizadaUpdateRequest,
 } from "@/lib/types/feats/ofertas-personalizadas/oferta-personalizada-types";
 import type { OfertaConfeccion } from "@/hooks/use-ofertas-confeccion";
-import { seleccionarOfertaConfirmada, normalizeOfertaConfeccion } from "@/hooks/use-ofertas-confeccion";
+import {
+  seleccionarOfertaConfirmada,
+  normalizeOfertaConfeccion,
+} from "@/hooks/use-ofertas-confeccion";
 import { apiRequest } from "@/lib/api-config";
 import { useToast } from "@/hooks/use-toast";
 import type { Lead, LeadConversionRequest, LeadFoto } from "@/lib/api-types";
 import { extraerComponentesDeOfertaConfeccion } from "@/lib/utils/oferta-confeccion-items";
 
 const CODIGO_BATERIA_ESPECIAL_NOMBRE = "FLS48100SCG01";
+
+/** Fila compacta "etiqueta encima del valor" usada en el panel de detalle del lead. */
+function LeadInfoRow({
+  icon: Icon,
+  label,
+  value,
+  strong,
+}: {
+  icon?: LucideIcon;
+  label: string;
+  value?: ReactNode;
+  strong?: boolean;
+}) {
+  if (value === undefined || value === null || value === "") return null;
+  return (
+    <div className="flex items-start gap-2.5">
+      {Icon && <Icon className="h-3.5 w-3.5 text-gray-400 mt-0.5 shrink-0" />}
+      <div className="min-w-0 flex-1">
+        <p className="text-xs text-gray-500">{label}</p>
+        <p
+          className={`text-sm text-gray-900 break-words mt-0.5 ${strong ? "font-semibold" : "font-medium"}`}
+        >
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+}
 
 interface LeadsTableProps {
   leads: Lead[];
@@ -215,10 +255,7 @@ export function LeadsTable({
   const [isCreateOfertaOpen, setIsCreateOfertaOpen] = useState(false);
   const autoOpenCrearOfertaTriggeredRef = useRef(false);
   useEffect(() => {
-    if (
-      !autoOpenCrearOfertaLeadId ||
-      autoOpenCrearOfertaTriggeredRef.current
-    ) {
+    if (!autoOpenCrearOfertaLeadId || autoOpenCrearOfertaTriggeredRef.current) {
       return;
     }
     autoOpenCrearOfertaTriggeredRef.current = true;
@@ -321,7 +358,6 @@ export function LeadsTable({
     useState<OfertaConfeccion | null>(null);
   const [terminosCondicionesPayload, setTerminosCondicionesPayload] =
     useState<TerminosCondicionesPayload | null>(null);
-
 
   const ofertasDelLead = useMemo(() => {
     if (!selectedLeadForOfertas) return [];
@@ -2640,38 +2676,81 @@ export function LeadsTable({
                   <td className="px-4 py-3min-w-[220px] max-w-[280px]">
                     <div className="space-y-1">
                       {(() => {
-                        type Componente = { cantidad: number; descripcion: string };
+                        type Componente = {
+                          cantidad: number;
+                          descripcion: string;
+                        };
                         let inv: Componente | null = null;
                         let bats: Componente[] = [];
                         let pan: Componente | null = null;
                         let elementoPersonalizado: string | null = null;
 
-                        const embebidas = lead.ofertas?.filter(
-                          (o) => o.inversor_codigo || o.bateria_codigo || o.panel_codigo || o.elementos_personalizados
-                        ) ?? [];
+                        const embebidas =
+                          lead.ofertas?.filter(
+                            (o) =>
+                              o.inversor_codigo ||
+                              o.bateria_codigo ||
+                              o.panel_codigo ||
+                              o.elementos_personalizados,
+                          ) ?? [];
                         const oc = lead.oferta_confeccion;
 
                         if (oc && oc.items?.length) {
-                          ({ inv, bats, pan } = extraerComponentesDeOfertaConfeccion(oc));
+                          ({ inv, bats, pan } =
+                            extraerComponentesDeOfertaConfeccion(oc));
                         } else if (embebidas.length > 0) {
                           const oferta = embebidas[0];
-                          if (oferta.inversor_codigo && oferta.inversor_cantidad > 0) {
-                            inv = { cantidad: oferta.inversor_cantidad, descripcion: oferta.inversor_nombre || oferta.inversor_codigo };
+                          if (
+                            oferta.inversor_codigo &&
+                            oferta.inversor_cantidad > 0
+                          ) {
+                            inv = {
+                              cantidad: oferta.inversor_cantidad,
+                              descripcion:
+                                oferta.inversor_nombre ||
+                                oferta.inversor_codigo,
+                            };
                           }
-                          if (oferta.bateria_codigo && oferta.bateria_cantidad > 0) {
-                            bats = [{ cantidad: oferta.bateria_cantidad, descripcion: oferta.bateria_nombre || oferta.bateria_codigo }];
+                          if (
+                            oferta.bateria_codigo &&
+                            oferta.bateria_cantidad > 0
+                          ) {
+                            bats = [
+                              {
+                                cantidad: oferta.bateria_cantidad,
+                                descripcion:
+                                  oferta.bateria_nombre ||
+                                  oferta.bateria_codigo,
+                              },
+                            ];
                           }
-                          if (oferta.panel_codigo && oferta.panel_cantidad > 0) {
-                            pan = { cantidad: oferta.panel_cantidad, descripcion: oferta.panel_nombre || oferta.panel_codigo };
+                          if (
+                            oferta.panel_codigo &&
+                            oferta.panel_cantidad > 0
+                          ) {
+                            pan = {
+                              cantidad: oferta.panel_cantidad,
+                              descripcion:
+                                oferta.panel_nombre || oferta.panel_codigo,
+                            };
                           }
                           if (oferta.elementos_personalizados) {
-                            elementoPersonalizado = oferta.elementos_personalizados;
+                            elementoPersonalizado =
+                              oferta.elementos_personalizados;
                           }
                         }
 
-                        const sinComponentes = !inv && bats.length === 0 && !pan && !elementoPersonalizado;
+                        const sinComponentes =
+                          !inv &&
+                          bats.length === 0 &&
+                          !pan &&
+                          !elementoPersonalizado;
                         if (sinComponentes && !oc) {
-                          return <div className="text-sm text-gray-400">Sin ofertas</div>;
+                          return (
+                            <div className="text-sm text-gray-400">
+                              Sin ofertas
+                            </div>
+                          );
                         }
 
                         const totalOfertas = oc?.total_ofertas ?? 0;
@@ -2682,7 +2761,8 @@ export function LeadsTable({
                             {oc && (
                               <div className="flex flex-wrap gap-1">
                                 <span className="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-[13px] font-medium text-gray-700">
-                                  {totalOfertas} {totalOfertas === 1 ? "oferta" : "ofertas"}
+                                  {totalOfertas}{" "}
+                                  {totalOfertas === 1 ? "oferta" : "ofertas"}
                                 </span>
                                 <span
                                   className={`inline-flex items-center rounded px-2 py-0.5 text-[13px] font-medium ${
@@ -2691,7 +2771,8 @@ export function LeadsTable({
                                       : "bg-amber-100 text-amber-700"
                                   }`}
                                 >
-                                  {totalConfirmadas} confirmada{totalConfirmadas === 1 ? "" : "s"}
+                                  {totalConfirmadas} confirmada
+                                  {totalConfirmadas === 1 ? "" : "s"}
                                 </span>
                               </div>
                             )}
@@ -2699,29 +2780,48 @@ export function LeadsTable({
                               {inv && (
                                 <div className="flex items-center gap-1.5 text-gray-700">
                                   <Zap className="h-4 w-4 text-emerald-500 flex-shrink-0" />
-                                  <span className="font-medium">{inv.cantidad}x</span>
-                                  <span className="truncate">{inv.descripcion}</span>
+                                  <span className="font-medium">
+                                    {inv.cantidad}x
+                                  </span>
+                                  <span className="truncate">
+                                    {inv.descripcion}
+                                  </span>
                                 </div>
                               )}
                               {bats.map((bat, i) => (
-                                <div key={i} className="flex items-center gap-1.5 text-gray-700">
+                                <div
+                                  key={i}
+                                  className="flex items-center gap-1.5 text-gray-700"
+                                >
                                   <Battery className="h-4 w-4 text-green-500 flex-shrink-0" />
-                                  <span className="font-medium">{bat.cantidad}x</span>
-                                  <span className="truncate">{bat.descripcion}</span>
+                                  <span className="font-medium">
+                                    {bat.cantidad}x
+                                  </span>
+                                  <span className="truncate">
+                                    {bat.descripcion}
+                                  </span>
                                 </div>
                               ))}
                               {pan && (
                                 <div className="flex items-center gap-1.5 text-gray-700">
                                   <Sun className="h-4 w-4 text-yellow-500 flex-shrink-0" />
-                                  <span className="font-medium">{pan.cantidad}x</span>
-                                  <span className="truncate">{pan.descripcion}</span>
+                                  <span className="font-medium">
+                                    {pan.cantidad}x
+                                  </span>
+                                  <span className="truncate">
+                                    {pan.descripcion}
+                                  </span>
                                 </div>
                               )}
                               {elementoPersonalizado && (
-                                <div className="text-gray-700 text-[13px] truncate">{elementoPersonalizado}</div>
+                                <div className="text-gray-700 text-[13px] truncate">
+                                  {elementoPersonalizado}
+                                </div>
                               )}
                               {sinComponentes && oc && (
-                                <div className="text-gray-400 text-[13px]">Sin componentes principales</div>
+                                <div className="text-gray-400 text-[13px]">
+                                  Sin componentes principales
+                                </div>
                               )}
                             </div>
                           </div>
@@ -2847,112 +2947,33 @@ export function LeadsTable({
           }
         }}
       >
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader className="border-b pb-4">
-            <DialogTitle className="text-xl font-semibold text-gray-900">
-              Información del Lead
-            </DialogTitle>
-          </DialogHeader>
-
-          {selectedLead && (
-            <div className="space-y-6 pt-4">
-              {/* Sección 1: Datos Personales */}
-              <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
-                <div className="pb-4 mb-4 border-b-2 border-gray-200">
-                  <h3 className="text-xl font-bold text-gray-900">
-                    Datos Personales
-                  </h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Información básica del contacto
-                  </p>
+        <DialogContent className="max-w-md max-h-[85vh] overflow-hidden p-0 gap-0 flex flex-col">
+          <DialogHeader className="shrink-0 border-b border-gray-100 px-5 py-4 pr-10">
+            {selectedLead && (
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-base font-semibold text-emerald-700">
+                  {selectedLead.nombre?.charAt(0)?.toUpperCase() || "?"}
                 </div>
-                <div className="space-y-4">
-                  {/* Fila 1: Nombre y Referencia */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-gray-700">Nombre</Label>
-                      <p className="text-gray-900 font-medium mt-1">
-                        {selectedLead.nombre}
-                      </p>
-                    </div>
-                    {selectedLead.referencia && (
-                      <div>
-                        <Label className="text-gray-700">Referencia</Label>
-                        <p className="text-gray-900 mt-1">
-                          {selectedLead.referencia}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Fila 2: Teléfono y Teléfono Adicional */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-gray-700">Teléfono</Label>
-                      <p className="text-gray-900 font-medium flex items-center gap-2 mt-1">
-                        <Phone className="h-4 w-4 text-gray-400" />
-                        {selectedLead.telefono}
-                      </p>
-                    </div>
-                    {selectedLead.telefono_adicional && (
-                      <div>
-                        <Label className="text-gray-700">
-                          Teléfono Adicional
-                        </Label>
-                        <p className="text-gray-900 flex items-center gap-2 mt-1">
-                          <PhoneForwarded className="h-4 w-4 text-gray-400" />
-                          {selectedLead.telefono_adicional}
-                          {selectedLead.telefono_adicional_nombre &&
-                            ` (${selectedLead.telefono_adicional_nombre})`}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Fila 3: Estado, Fuente y Fecha */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <Label className="text-gray-700">Estado</Label>
-                      <div className="mt-1">
-                        {(() => {
-                          const estadoBadge = getEstadoBadge(
-                            selectedLead.estado,
-                          );
-                          return (
-                            <Badge
-                              className={`${estadoBadge.className} text-sm px-3 py-1`}
-                            >
-                              {estadoBadge.label}
-                            </Badge>
-                          );
-                        })()}
-                      </div>
-                    </div>
-                    {selectedLead.fuente && (
-                      <div>
-                        <Label className="text-gray-700">Fuente</Label>
-                        <p className="text-gray-900 mt-1">
-                          {selectedLead.fuente}
-                        </p>
-                      </div>
-                    )}
-                    <div>
-                      <Label className="text-gray-700">Fecha de Contacto</Label>
-                      <p className="text-gray-900 flex items-center gap-2 mt-1">
-                        <Calendar className="h-4 w-4 text-gray-400" />
-                        {formatDate(selectedLead.fecha_contacto)}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Fila 3.5: Prioridad */}
-                  {selectedLead.prioridad && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <Label className="text-gray-700">Prioridad</Label>
-                        <div className="mt-1 flex items-center gap-2">
-                          <div
-                            className={`w-3 h-3 rounded-full ${
+                <div className="min-w-0 flex-1">
+                  <DialogTitle className="truncate text-base font-semibold text-gray-900">
+                    {selectedLead.nombre}
+                  </DialogTitle>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                    {(() => {
+                      const estadoBadge = getEstadoBadge(selectedLead.estado);
+                      return (
+                        <Badge
+                          className={`${estadoBadge.className} px-2 py-0.5 text-xs`}
+                        >
+                          {estadoBadge.label}
+                        </Badge>
+                      );
+                    })()}
+                    {selectedLead.prioridad &&
+                      selectedLead.prioridad !== "Ninguna" && (
+                        <span className="inline-flex items-center gap-1.5 text-xs text-gray-500">
+                          <span
+                            className={`h-1.5 w-1.5 rounded-full ${
                               selectedLead.prioridad === "Alta"
                                 ? "bg-red-500"
                                 : selectedLead.prioridad === "Baja"
@@ -2960,443 +2981,361 @@ export function LeadsTable({
                                   : "bg-emerald-500"
                             }`}
                           />
-                          <span className="text-sm text-gray-900 font-medium">
-                            {selectedLead.prioridad}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Fila 4: Dirección (ancho completo) */}
-                  {selectedLead.direccion && (
-                    <div>
-                      <Label className="text-gray-700">Dirección</Label>
-                      <p className="text-gray-900 flex items-start gap-2 mt-1">
-                        <MapPin className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                        {selectedLead.direccion}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Fila 5: Provincia, Municipio y País */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {selectedLead.provincia_montaje && (
-                      <div>
-                        <Label className="text-gray-700">Provincia</Label>
-                        <p className="text-gray-900 mt-1">
-                          {selectedLead.provincia_montaje}
-                        </p>
-                      </div>
-                    )}
-                    {selectedLead.municipio && (
-                      <div>
-                        <Label className="text-gray-700">Municipio</Label>
-                        <p className="text-gray-900 mt-1">
-                          {selectedLead.municipio}
-                        </p>
-                      </div>
-                    )}
-                    {selectedLead.pais_contacto && (
-                      <div>
-                        <Label className="text-gray-700">
-                          País de Contacto
-                        </Label>
-                        <p className="text-gray-900 mt-1">
-                          {selectedLead.pais_contacto}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Fila 6: Comercial */}
-                  {selectedLead.comercial && (
-                    <div>
-                      <Label className="text-gray-700">
-                        Comercial Asignado
-                      </Label>
-                      <p className="text-gray-900 flex items-center gap-2 mt-1">
-                        <UserCheck className="h-4 w-4 text-gray-400" />
-                        {selectedLead.comercial}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Sección 2: Oferta */}
-              {selectedLead.ofertas && selectedLead.ofertas.length > 0 && (
-                <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
-                  <div className="pb-4 mb-4 border-b-2 border-gray-200">
-                    <h3 className="text-xl font-bold text-gray-900">Oferta</h3>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Detalles de productos y cantidades
-                    </p>
-                  </div>
-                  <div className="space-y-4">
-                    {selectedLead.ofertas.map((oferta, idx) => (
-                      <div
-                        key={idx}
-                        className="border rounded-lg p-4 bg-gray-50"
-                      >
-                        {/* Productos en Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          {/* Inversor */}
-                          {oferta.inversor_codigo &&
-                            oferta.inversor_cantidad > 0 && (
-                              <div>
-                                <Label className="text-gray-700">
-                                  Inversor
-                                </Label>
-                                <p className="text-gray-900 font-medium mt-1">
-                                  {oferta.inversor_nombre ||
-                                    oferta.inversor_codigo}
-                                </p>
-                                <p className="text-sm text-gray-600 mt-1">
-                                  Cantidad: {oferta.inversor_cantidad}
-                                </p>
-                              </div>
-                            )}
-
-                          {/* Batería */}
-                          {oferta.bateria_codigo &&
-                            oferta.bateria_cantidad > 0 && (
-                              <div>
-                                <Label className="text-gray-700">Batería</Label>
-                                <p className="text-gray-900 font-medium mt-1">
-                                  {oferta.bateria_nombre ||
-                                    oferta.bateria_codigo}
-                                </p>
-                                <p className="text-sm text-gray-600 mt-1">
-                                  Cantidad: {oferta.bateria_cantidad}
-                                </p>
-                              </div>
-                            )}
-
-                          {/* Paneles */}
-                          {oferta.panel_codigo && oferta.panel_cantidad > 0 && (
-                            <div>
-                              <Label className="text-gray-700">Paneles</Label>
-                              <p className="text-gray-900 font-medium mt-1">
-                                {oferta.panel_nombre || oferta.panel_codigo}
-                              </p>
-                              <p className="text-sm text-gray-600 mt-1">
-                                Cantidad: {oferta.panel_cantidad}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Estado de la Oferta */}
-                        {(oferta.aprobada || oferta.pagada) && (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                            {oferta.aprobada && (
-                              <div className="flex items-center space-x-2 p-3 border rounded-md bg-white">
-                                <input
-                                  type="checkbox"
-                                  checked={true}
-                                  disabled
-                                  className="h-5 w-5 rounded border-gray-300 text-green-600"
-                                />
-                                <Label className="font-medium">
-                                  Oferta Aprobada
-                                </Label>
-                              </div>
-                            )}
-                            {oferta.pagada && (
-                              <div className="flex items-center space-x-2 p-3 border rounded-md bg-white">
-                                <input
-                                  type="checkbox"
-                                  checked={true}
-                                  disabled
-                                  className="h-5 w-5 rounded border-gray-300 text-blue-600"
-                                />
-                                <Label className="font-medium">
-                                  Oferta Pagada
-                                </Label>
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Elementos Personalizados */}
-                        {oferta.elementos_personalizados && (
-                          <div className="mt-4">
-                            <Label className="text-gray-700">
-                              Elementos Personalizados (Comentario)
-                            </Label>
-                            <p className="text-sm text-gray-700 bg-white p-3 rounded-md border mt-1">
-                              {oferta.elementos_personalizados}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Sección 3: Costos y Pago */}
-              {selectedLead.ofertas && selectedLead.ofertas.length > 0 && (
-                <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
-                  <div className="pb-4 mb-4 border-b-2 border-gray-200">
-                    <h3 className="text-xl font-bold text-gray-900">
-                      Costos y Pago
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Información financiera de la oferta
-                    </p>
-                  </div>
-                  <div className="space-y-4">
-                    {selectedLead.ofertas.map((oferta, idx) => (
-                      <div key={`costos-${idx}`}>
-                        {/* Costos - Primera fila */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div>
-                            <Label className="text-gray-700">
-                              Costo de Oferta
-                            </Label>
-                            <p className="text-gray-900 font-semibold mt-1">
-                              ${oferta.costo_oferta.toFixed(2)}
-                            </p>
-                          </div>
-                          {oferta.costo_extra > 0 && (
-                            <div>
-                              <Label className="text-gray-700">
-                                Costo Extra
-                              </Label>
-                              <p className="text-gray-900 font-semibold mt-1">
-                                ${oferta.costo_extra.toFixed(2)}
-                              </p>
-                            </div>
-                          )}
-                          {oferta.costo_transporte > 0 && (
-                            <div>
-                              <Label className="text-gray-700">
-                                Costo de Transporte
-                              </Label>
-                              <p className="text-gray-900 font-semibold mt-1">
-                                ${oferta.costo_transporte.toFixed(2)}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Costo Final */}
-                        <div className="mt-4 p-4 bg-gray-50 rounded-lg border">
-                          <Label className="text-gray-700">Costo Final</Label>
-                          <p className="text-2xl font-bold text-gray-900 mt-1">
-                            $
-                            {(
-                              oferta.costo_oferta +
-                              oferta.costo_extra +
-                              oferta.costo_transporte
-                            ).toFixed(2)}
-                          </p>
-                        </div>
-
-                        {/* Razón del Costo Extra */}
-                        {oferta.razon_costo_extra && (
-                          <div className="mt-4">
-                            <Label className="text-gray-700">
-                              Razón del Costo Extra
-                            </Label>
-                            <p className="text-sm text-gray-700 bg-white p-3 rounded-md border mt-1">
-                              {oferta.razon_costo_extra}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-
-                    {/* Método de Pago y Moneda */}
-                    {(selectedLead.metodo_pago || selectedLead.moneda) && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
-                        {selectedLead.metodo_pago && (
-                          <div>
-                            <Label className="text-gray-700">
-                              Método de Pago
-                            </Label>
-                            <p className="text-gray-900 font-medium mt-1">
-                              {selectedLead.metodo_pago}
-                            </p>
-                          </div>
-                        )}
-                        {selectedLead.moneda && (
-                          <div>
-                            <Label className="text-gray-700">Moneda</Label>
-                            <p className="text-gray-900 font-medium mt-1">
-                              {selectedLead.moneda}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Comprobante de Pago */}
-                    {selectedLead.comprobante_pago_url && (
-                      <div className="pt-4 border-t">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            void handleDownloadComprobante(selectedLead)
-                          }
-                          className="w-full md:w-auto"
-                        >
-                          <Download className="h-4 w-4 mr-2" />
-                          Descargar Comprobante
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Sección 4: Evidencias (Fotos/Videos) */}
-              <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
-                <div className="pb-4 mb-4 border-b-2 border-gray-200">
-                  <h3 className="text-xl font-bold text-gray-900">
-                    Evidencias
-                  </h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Archivos subidos del lead (instalación o avería)
-                  </p>
-                </div>
-
-                {loadingFotosLeadDetails ? (
-                  <p className="text-sm text-gray-500">Cargando archivos...</p>
-                ) : fotosLeadDetails.length === 0 ? (
-                  <p className="text-sm text-gray-500">
-                    Este lead no tiene archivos subidos.
-                  </p>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {fotosLeadDetails.map((archivo, index) => (
-                      <div
-                        key={`${archivo.url}-${index}`}
-                        className="border rounded-lg p-3 bg-gray-50"
-                      >
-                        <div className="w-full h-48 bg-black/5 rounded-md overflow-hidden mb-3">
-                          {isVideoUrl(archivo.url) ? (
-                            <video
-                              src={archivo.url}
-                              controls
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <img
-                              src={archivo.url}
-                              alt={`Evidencia ${index + 1}`}
-                              className="w-full h-full object-cover"
-                            />
-                          )}
-                        </div>
-
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between gap-2">
-                            <Badge className="bg-blue-100 text-blue-700 border-blue-200">
-                              {archivo.tipo === "instalacion"
-                                ? "Instalación"
-                                : "Avería"}
-                            </Badge>
-                            <span className="text-xs text-gray-500">
-                              {formatFechaArchivo(archivo.fecha)}
-                            </span>
-                          </div>
-
-                          <div className="flex gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => window.open(archivo.url, "_blank")}
-                              className="flex-1"
-                            >
-                              Ver
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                void handleDownloadArchivo(archivo.url, index)
-                              }
-                              className="flex-1"
-                            >
-                              Descargar
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Sección 5: Comentarios (Condicional) */}
-              {selectedLead.comentario && (
-                <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
-                  <div className="pb-4 mb-4 border-b-2 border-gray-200">
-                    <h3 className="text-xl font-bold text-gray-900">
-                      Comentarios
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Notas adicionales sobre el lead
-                    </p>
-                  </div>
-                  <div className="space-y-4">
-                    <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap break-words bg-gray-50 p-4 rounded-lg border">
-                      {selectedLead.comentario}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Sección 6: Elementos Personalizados (Condicional) */}
-              {selectedLead.elementos_personalizados &&
-                selectedLead.elementos_personalizados.length > 0 && (
-                  <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
-                    <div className="pb-4 mb-4 border-b-2 border-gray-200">
-                      <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                        <ListChecks className="h-5 w-5" />
-                        Elementos Personalizados
-                      </h3>
-                      <p className="text-sm text-gray-500 mt-1">
-                        Elementos adicionales del lead
-                      </p>
-                    </div>
-                    <div className="space-y-2">
-                      {selectedLead.elementos_personalizados.map(
-                        (elemento, index) => (
-                          <div
-                            key={index}
-                            className="flex items-center justify-between border rounded-md px-4 py-3 bg-gray-50"
-                          >
-                            <span className="text-sm text-gray-900">
-                              {elemento.descripcion}
-                            </span>
-                            <span className="text-sm font-medium text-gray-600 ml-4">
-                              Cant: {elemento.cantidad}
-                            </span>
-                          </div>
-                        ),
+                          {selectedLead.prioridad}
+                        </span>
                       )}
-                    </div>
                   </div>
-                )}
+                </div>
+              </div>
+            )}
+          </DialogHeader>
 
-              {/* Botón Cerrar */}
-              <div className="flex justify-end pt-4 border-t">
+          {selectedLead && (
+            <>
+              <div className="flex-1 overflow-y-auto px-5 py-4">
+                <div className="space-y-5">
+                  {/* Contacto */}
+                  <section>
+                    <h4 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                      Contacto
+                    </h4>
+                    <div className="space-y-2.5">
+                      <LeadInfoRow
+                        icon={Phone}
+                        label="Teléfono"
+                        value={selectedLead.telefono}
+                      />
+                      {selectedLead.telefono_adicional && (
+                        <LeadInfoRow
+                          icon={PhoneForwarded}
+                          label="Teléfono adicional"
+                          value={`${selectedLead.telefono_adicional}${
+                            selectedLead.telefono_adicional_nombre
+                              ? ` (${selectedLead.telefono_adicional_nombre})`
+                              : ""
+                          }`}
+                        />
+                      )}
+                      <LeadInfoRow
+                        icon={Globe}
+                        label="País de contacto"
+                        value={selectedLead.pais_contacto}
+                      />
+                      <LeadInfoRow
+                        label="Referencia"
+                        value={selectedLead.referencia}
+                      />
+                    </div>
+                  </section>
+
+                  {/* Ubicación */}
+                  {(selectedLead.direccion ||
+                    selectedLead.provincia_montaje ||
+                    selectedLead.municipio) && (
+                    <section className="border-t border-gray-100 pt-5">
+                      <h4 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                        Ubicación
+                      </h4>
+                      <div className="space-y-2.5">
+                        <LeadInfoRow
+                          icon={MapPin}
+                          label="Dirección"
+                          value={selectedLead.direccion}
+                        />
+                        <LeadInfoRow
+                          label="Provincia"
+                          value={selectedLead.provincia_montaje}
+                        />
+                        <LeadInfoRow
+                          label="Municipio"
+                          value={selectedLead.municipio}
+                        />
+                      </div>
+                    </section>
+                  )}
+
+                  {/* Seguimiento */}
+                  <section className="border-t border-gray-100 pt-5">
+                    <h4 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                      Seguimiento
+                    </h4>
+                    <div className="space-y-2.5">
+                      <LeadInfoRow
+                        icon={Calendar}
+                        label="Fecha de contacto"
+                        value={formatDate(selectedLead.fecha_contacto)}
+                      />
+                      <LeadInfoRow label="Fuente" value={selectedLead.fuente} />
+                      <LeadInfoRow
+                        icon={UserCheck}
+                        label="Comercial asignado"
+                        value={selectedLead.comercial}
+                      />
+                    </div>
+                  </section>
+
+                  {/* Oferta */}
+                  {selectedLead.ofertas && selectedLead.ofertas.length > 0 && (
+                    <section className="border-t border-gray-100 pt-5">
+                      <h4 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                        Oferta
+                      </h4>
+                      <div className="space-y-4">
+                        {selectedLead.ofertas.map((oferta, idx) => (
+                          <div key={idx} className="space-y-2.5">
+                            <LeadInfoRow
+                              icon={Zap}
+                              label="Inversor"
+                              value={
+                                oferta.inversor_codigo &&
+                                oferta.inversor_cantidad > 0
+                                  ? `${oferta.inversor_nombre || oferta.inversor_codigo} · Cant: ${oferta.inversor_cantidad}`
+                                  : undefined
+                              }
+                            />
+                            <LeadInfoRow
+                              icon={Battery}
+                              label="Batería"
+                              value={
+                                oferta.bateria_codigo &&
+                                oferta.bateria_cantidad > 0
+                                  ? `${oferta.bateria_nombre || oferta.bateria_codigo} · Cant: ${oferta.bateria_cantidad}`
+                                  : undefined
+                              }
+                            />
+                            <LeadInfoRow
+                              icon={Sun}
+                              label="Paneles"
+                              value={
+                                oferta.panel_codigo && oferta.panel_cantidad > 0
+                                  ? `${oferta.panel_nombre || oferta.panel_codigo} · Cant: ${oferta.panel_cantidad}`
+                                  : undefined
+                              }
+                            />
+                            {(oferta.aprobada || oferta.pagada) && (
+                              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                                {oferta.aprobada && (
+                                  <Badge className="bg-green-100 px-2 py-0.5 text-xs text-green-700">
+                                    Oferta aprobada
+                                  </Badge>
+                                )}
+                                {oferta.pagada && (
+                                  <Badge className="bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+                                    Oferta pagada
+                                  </Badge>
+                                )}
+                              </div>
+                            )}
+                            {oferta.elementos_personalizados && (
+                              <LeadInfoRow
+                                label="Elementos personalizados"
+                                value={oferta.elementos_personalizados}
+                              />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* Costos y Pago */}
+                  {selectedLead.ofertas && selectedLead.ofertas.length > 0 && (
+                    <section className="border-t border-gray-100 pt-5">
+                      <h4 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                        Costos y pago
+                      </h4>
+                      <div className="space-y-4">
+                        {selectedLead.ofertas.map((oferta, idx) => (
+                          <div key={`costos-${idx}`} className="space-y-2.5">
+                            <LeadInfoRow
+                              icon={CreditCard}
+                              label="Costo de oferta"
+                              value={`$${oferta.costo_oferta.toFixed(2)}`}
+                            />
+                            {oferta.costo_extra > 0 && (
+                              <LeadInfoRow
+                                label="Costo extra"
+                                value={`$${oferta.costo_extra.toFixed(2)}`}
+                              />
+                            )}
+                            {oferta.costo_transporte > 0 && (
+                              <LeadInfoRow
+                                label="Costo de transporte"
+                                value={`$${oferta.costo_transporte.toFixed(2)}`}
+                              />
+                            )}
+                            <LeadInfoRow
+                              strong
+                              label="Costo final"
+                              value={`$${(
+                                oferta.costo_oferta +
+                                oferta.costo_extra +
+                                oferta.costo_transporte
+                              ).toFixed(2)}`}
+                            />
+                            {oferta.razon_costo_extra && (
+                              <LeadInfoRow
+                                label="Razón del costo extra"
+                                value={oferta.razon_costo_extra}
+                              />
+                            )}
+                          </div>
+                        ))}
+
+                        <LeadInfoRow
+                          label="Método de pago"
+                          value={selectedLead.metodo_pago}
+                        />
+                        <LeadInfoRow
+                          label="Moneda"
+                          value={selectedLead.moneda}
+                        />
+
+                        {selectedLead.comprobante_pago_url && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              void handleDownloadComprobante(selectedLead)
+                            }
+                            className="mt-1 w-full"
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            Descargar comprobante
+                          </Button>
+                        )}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* Evidencias */}
+                  <section className="border-t border-gray-100 pt-5">
+                    <h4 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                      Evidencias
+                    </h4>
+                    {loadingFotosLeadDetails ? (
+                      <p className="text-sm text-gray-500">
+                        Cargando archivos...
+                      </p>
+                    ) : fotosLeadDetails.length === 0 ? (
+                      <p className="text-sm text-gray-500">
+                        Este lead no tiene archivos subidos.
+                      </p>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2.5">
+                        {fotosLeadDetails.map((archivo, index) => (
+                          <div
+                            key={`${archivo.url}-${index}`}
+                            className="rounded-md border border-gray-100 p-2"
+                          >
+                            <div className="mb-2 h-24 w-full overflow-hidden rounded bg-black/5">
+                              {isVideoUrl(archivo.url) ? (
+                                <video
+                                  src={archivo.url}
+                                  controls
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <img
+                                  src={archivo.url}
+                                  alt={`Evidencia ${index + 1}`}
+                                  className="h-full w-full object-cover"
+                                />
+                              )}
+                            </div>
+                            <div className="flex items-center justify-between gap-1">
+                              <Badge className="border-blue-200 bg-blue-100 px-1.5 py-0 text-[10px] text-blue-700">
+                                {archivo.tipo === "instalacion"
+                                  ? "Instalación"
+                                  : "Avería"}
+                              </Badge>
+                              <span className="text-[10px] text-gray-500">
+                                {formatFechaArchivo(archivo.fecha)}
+                              </span>
+                            </div>
+                            <div className="mt-2 flex gap-1.5">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  window.open(archivo.url, "_blank")
+                                }
+                                className="h-7 flex-1 px-1 text-xs"
+                              >
+                                Ver
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  void handleDownloadArchivo(archivo.url, index)
+                                }
+                                className="h-7 flex-1 px-1 text-xs"
+                              >
+                                Descargar
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+
+                  {/* Comentarios */}
+                  {selectedLead.comentario && (
+                    <section className="border-t border-gray-100 pt-5">
+                      <h4 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                        Comentarios
+                      </h4>
+                      <p className="whitespace-pre-wrap break-words rounded-md bg-gray-50 p-3 text-sm leading-relaxed text-gray-700">
+                        {selectedLead.comentario}
+                      </p>
+                    </section>
+                  )}
+
+                  {/* Elementos Personalizados */}
+                  {selectedLead.elementos_personalizados &&
+                    selectedLead.elementos_personalizados.length > 0 && (
+                      <section className="border-t border-gray-100 pt-5">
+                        <h4 className="mb-2.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                          <ListChecks className="h-3.5 w-3.5" />
+                          Elementos personalizados
+                        </h4>
+                        <div className="divide-y divide-gray-100">
+                          {selectedLead.elementos_personalizados.map(
+                            (elemento, index) => (
+                              <div
+                                key={index}
+                                className="flex items-center justify-between py-2 text-sm"
+                              >
+                                <span className="text-gray-900">
+                                  {elemento.descripcion}
+                                </span>
+                                <span className="ml-4 font-medium text-gray-500">
+                                  Cant: {elemento.cantidad}
+                                </span>
+                              </div>
+                            ),
+                          )}
+                        </div>
+                      </section>
+                    )}
+                </div>
+              </div>
+
+              <div className="flex shrink-0 justify-end border-t border-gray-100 px-5 py-3.5">
                 <Button
                   variant="outline"
+                  size="sm"
                   onClick={() => setIsDetailDialogOpen(false)}
                 >
                   Cerrar
                 </Button>
               </div>
-            </div>
+            </>
           )}
         </DialogContent>
       </Dialog>
@@ -3523,8 +3462,8 @@ export function LeadsTable({
                           } hover:bg-amber-100`}
                           onClick={() => handleSeleccionEquipoPropio(false)}
                         >
-                          {conversionData.equipo_propio === false && "✓ "}No, usar
-                          oferta confeccionada
+                          {conversionData.equipo_propio === false && "✓ "}No,
+                          usar oferta confeccionada
                         </Button>
                       )}
                       {!leadTieneOfertaConfeccionada && (
