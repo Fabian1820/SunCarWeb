@@ -2,6 +2,50 @@
 
 ---
 
+## 📅 15 de Julio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**3 commits reales** de yany1509 — todos en el módulo de Facturas: ciclo completo de la feature "Ajustar saldo", desde el botón inicial solo para centavos hasta un diálogo de monto libre con confirmación explícita y badge renombrado en 3 pantallas.
+
+---
+
+### Área 1: Facturas — botón "Ajustar saldo" para centavos residuales (1 commit — yany1509, 16:35)
+
+- **`feat(facturas): boton "Ajustar saldo" para centavos residuales`** — En la tabla de Facturas (Obras Terminadas), cada oferta con `monto_pendiente` con decimales != 0 muestra un botón que llama al nuevo endpoint `/ajustar-saldo`: registra un pago de ajuste por los centavos exactos y refresca la fila.
+
+---
+
+### Área 2: Facturas — diálogo de confirmación antes de ajustar (1 commit — yany1509, 16:53)
+
+- **`fix(facturas): confirma antes de ajustar saldo por redondeo`** — El botón aplicaba el ajuste al primer clic sin posibilidad de cancelar. Ahora abre un `ConfirmEditDialog` que muestra el monto exacto a ajustar, la oferta afectada, si queda deuda real o la oferta pasa a pagada, y aclara que el ajuste queda registrado como pago auditable no reversible desde la interfaz.
+
+---
+
+### Área 3: Facturas — monto libre y label explícito "Ajuste de contabilidad" (1 commit — yany1509, 17:44)
+
+- **`feat(facturas): monto libre en el ajuste de saldo + label explicito`** — El botón "Ajustar saldo" ahora aparece en cualquier oferta con pendiente (no solo con centavos). Abre un nuevo `AjustarSaldoDialog` con input de monto editable — pre-llenado con el residuo de centavos si existe, o el pendiente completo si no — validado contra el total pendiente antes de confirmar. El tipo de pago "ajuste" se muestra explícitamente como "Ajuste de contabilidad" (badge ámbar) en las 3 pantallas donde aparece: Pagos Clientes (ambas vistas) y tabla de Obras Terminadas.
+
+---
+
+### Puede dar bateo
+
+1. **`/ajustar-saldo` endpoint sin confirmar en backend — botón fallará con 404 o 422 si no está implementado**: No hay evidencia en frontend de que el endpoint preexistiera; fue nombrado en el primer commit como nuevo.
+
+2. **Validación de monto solo en cliente — race condition de sobrepago**: Si llega otro pago entre que el usuario abre el diálogo y confirma, el ajuste puede superar el pendiente real. El backend debe validar que `monto_ajuste <= monto_pendiente_actual` en el momento del POST.
+
+3. **Monto libre sin aprobación secundaria para valores grandes**: Para ofertas con pendiente de $500 o más, el diálogo abre pre-llenado con el total. Un clic de confirmación cancela la deuda completa como "ajuste contable" sin ningún nivel de autorización adicional.
+
+4. **Badge "Ajuste de contabilidad" en 3 pantallas — riesgo de pantalla sin mapeo**: Si alguna de las 3 vistas no tiene el caso `'ajuste'` en su config de badges, mostrará el texto crudo del backend en lugar del badge ámbar.
+
+5. **Ciclo feat→fix→feat en 70 minutos — ventana sin confirmación en producción**: Entre el commit 16:35 (botón sin diálogo) y el 16:53 (fix con confirmación), cualquier usuario que cargó la tabla ajustó centavos con un solo clic sin posibilidad de cancelar.
+
+6. **Pre-relleno: sin centavos → total pendiente — riesgo de confusión para deudas redondas**: En ofertas con pendiente exacto (e.g., $200.00), el diálogo abre con $200 pre-llenados. El usuario puede confirmar sin notar que está cancelando el total, no solo un ajuste menor.
+
+7. **Sin mecanismo de reversa en UI — error de ajuste requiere intervención manual en BD**: El diálogo advierte que el ajuste no se puede deshacer desde la interfaz, pero no ofrece flujo alternativo ni contacto de soporte en el mismo contexto.
+
+---
+
 ## 📅 14 de Julio, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -250,58 +294,13 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 7 de Julio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**5 commits reales** de Fabian1820 — dos áreas principales: (1) nuevo flujo de "Establecer Costo" inteligente en Fichas de Costo con detección automática del estado del material; (2) ciclo de fixes en exports para mostrar el nombre real del material en lugar de la descripción; más (3) totales globales y nueva columna Descuento en Obras Terminadas.
-
----
-
-### Área 1: Fichas de Costo — acción "Establecer Costo" inteligente (2 commits — Fabian1820)
-
-- **`feat(fichas-costo): acción "Costo" inteligente (referencia / saldo inicial / ajuste)`** (19:22) — El costo del material sale del form genérico "Editar" y pasa a una nueva acción dedicada `EstablecerCostoDialog` que detecta el estado real del material automáticamente: sin stock ni kardex → costo de referencia; con stock sin kardex → saldo inicial; con kardex → ajuste de costo. Nuevos métodos `KardexCostoService.saldoInicial` y `ajusteCosto`.
-
-- **`feat(fichas-costo): el diálogo de costo avisa y maneja pendiente_costeo`** (19:43) — `KardexCostoService.mapKardex` mapea `pendiente_costeo`, `regularizada_por` y `tipo`. `EstablecerCostoDialog` detecta costeo pendiente y muestra aviso rojo. Si el ajuste devuelve `con_pendiente=true`, avisa que primero debe ponderarse/sincronizarse la compra.
-
----
-
-### Área 2: Exports — nombre real del material (2 commits — Fabian1820)
-
-- **`fix(exports): mostrar nombre del material en vez de la descripción`** (19:37) — Afecta vales, facturas, obras terminadas, solicitudes de venta y pagos. El nombre se enriquece desde el catálogo buscando por código, con fallback a `descripcion` y luego al código.
-
-- **`fix(exports): resolver nombre del material desde el catálogo en facturas emitidas`** (21:01) — Complemento al fix anterior para el Excel de facturas emitidas y PDF consolidado. Los ítems embebidos en facturas solo traen `descripcion` (sin `nombre`), por lo que el primer fix no era suficiente.
-
----
-
-### Área 3: Obras Terminadas — totales globales y columna Descuento (1 commit — Fabian1820)
-
-- **`feat(obras-terminadas): totales globales, columna Descuento y limpieza`** (21:23) — Barra de totales globales (cobrado / pendiente / facturado + descuentos) independiente de la paginación. Nueva columna "Descuento" con tooltip de desglose. Se elimina la columna "Total Mat." de la tabla y del export Excel.
-
----
-
-### Puede dar bateo
-
-1. **`EstablecerCostoDialog` — lógica de detección de estado frágil**: Si el backend devuelve campos nulos o hay race condition, el diálogo puede elegir el endpoint incorrecto.
-
-2. **`con_pendiente=true` — usuario bloqueado sin flujo alternativo en pantalla**: El diálogo muestra solo un aviso de texto sin enlace directo al flujo de costeo de compra pendiente.
-
-3. **`costoReadonly` en `MaterialForm` — costo inaccesible por flujos legacy**: Flujos de importación o scripts de seed que usaban el form para actualizar el costo quedan silenciosamente rotos.
-
-4. **Dos fixes separados para el mismo problema en 24 minutos — puede quedar algún export mostrando `descripcion` en lugar del nombre real**.
-
-5. **`getAllMaterials()` sin caché compartido — múltiples llamadas al catálogo por export**.
-
-6. **Totales globales en Obras Terminadas — dependencia de campo de backend sin confirmar**: Si el endpoint no devuelve los totales agregados, las tarjetas mostrarán cero o `undefined`.
-
-7. **Eliminación de columna "Total Mat." del Excel — puede romper importaciones externas con automatizaciones que consumían esa columna**.
-
-8. **Ciclo feat→fix en exports (19:37 → 21:01) — ventana de exports incorrectos en producción si hubo auto-deploy entre ambos commits**.
-
----
-
 #### Seguimientos vigentes
 
+- **`/ajustar-saldo` endpoint sin confirmar en backend — botón fallará si no está implementado (Jul 15)**.
+- **Validación de monto solo en cliente — race condition de sobrepago en ajuste de saldo (Jul 15)**.
+- **Monto libre en ajuste de saldo sin aprobación secundaria — riesgo de cancelar deuda grande por error (Jul 15)**.
+- **Badge "Ajuste de contabilidad" — pantalla sin mapeo del caso 'ajuste' mostrará texto crudo (Jul 15)**.
+- **Sin mecanismo de reversa en UI para ajuste de saldo aplicado por error (Jul 15)**.
 - **Modal "Generar factura a cliente" — endpoint de búsqueda con estado de pagos sin confirmar (Jul 14)**.
 - **`requiere_instalado=false` — advertencia solo en frontend, backend puede rechazar la factura igualmente (Jul 14)**.
 - **Deep-link `?cliente=...` — apertura del modal falla si el parámetro no se lee al montar (Jul 14)**.
@@ -439,4 +438,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
