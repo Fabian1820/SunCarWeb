@@ -27,6 +27,7 @@ import {
   DialogTitle,
   DialogDescription,
   ConfirmDeleteDialog,
+  ConfirmEditDialog,
 } from "@/components/shared/molecule/dialog";
 import { UploadComprobanteDialog } from "@/components/shared/molecule/upload-comprobante-dialog";
 import { downloadFile } from "@/lib/utils/download-file";
@@ -55,6 +56,8 @@ import {
   Battery,
   Sun,
   Globe,
+  Ban,
+  RotateCcw,
   type LucideIcon,
 } from "lucide-react";
 import { useOfertasPersonalizadas } from "@/hooks/use-ofertas-personalizadas";
@@ -123,7 +126,13 @@ function LeadInfoRow({
 interface LeadsTableProps {
   leads: Lead[];
   onEdit: (lead: Lead) => void;
-  onDelete: (id: string) => void;
+  onSetLeadStatus: (
+    id: string,
+    activo: boolean,
+  ) => Promise<
+    | { success: true }
+    | { success: false; error: { code: string; title: string; message: string; field?: string } }
+  >;
   onConvert: (lead: Lead, data: LeadConversionRequest) => Promise<void>;
   onGenerarCodigo: (leadId: string, equipoPropio?: boolean) => Promise<string>;
   onUploadComprobante: (
@@ -176,7 +185,7 @@ function breakTextAtLength(text: string, maxLength: number = 25): string {
 export function LeadsTable({
   leads,
   onEdit,
-  onDelete,
+  onSetLeadStatus,
   onConvert,
   onGenerarCodigo,
   onUploadComprobante,
@@ -223,8 +232,9 @@ export function LeadsTable({
   const { marcas, loading: loadingMarcas } = useMarcas();
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null);
+  const [isToggleStatusDialogOpen, setIsToggleStatusDialogOpen] = useState(false);
+  const [leadToToggleStatus, setLeadToToggleStatus] = useState<Lead | null>(null);
+  const [togglingStatus, setTogglingStatus] = useState(false);
   const [isConvertDialogOpen, setIsConvertDialogOpen] = useState(false);
   const [leadToConvert, setLeadToConvert] = useState<Lead | null>(null);
   const [conversionData, setConversionData] = useState<LeadConversionRequest>({
@@ -695,16 +705,35 @@ export function LeadsTable({
     }
   };
 
-  const handleDeleteClick = (lead: Lead) => {
-    setLeadToDelete(lead);
-    setIsDeleteDialogOpen(true);
+  const handleToggleStatusClick = (lead: Lead) => {
+    setLeadToToggleStatus(lead);
+    setIsToggleStatusDialogOpen(true);
   };
 
-  const handleDeleteConfirm = () => {
-    if (leadToDelete?.id) {
-      onDelete(leadToDelete.id);
-      setIsDeleteDialogOpen(false);
-      setLeadToDelete(null);
+  const handleToggleStatusConfirm = async () => {
+    if (!leadToToggleStatus?.id) return;
+    const activar = leadToToggleStatus.activo === false;
+    setTogglingStatus(true);
+    try {
+      const resultado = await onSetLeadStatus(leadToToggleStatus.id, activar);
+      if (resultado.success) {
+        toast({
+          title: "Éxito",
+          description: activar
+            ? "Lead reactivado correctamente"
+            : "Lead anulado correctamente",
+        });
+        setIsToggleStatusDialogOpen(false);
+        setLeadToToggleStatus(null);
+      } else {
+        toast({
+          title: resultado.error.title || "Error",
+          description: resultado.error.message,
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setTogglingStatus(false);
     }
   };
 
@@ -2608,7 +2637,10 @@ export function LeadsTable({
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {leads.map((lead) => (
-                <tr key={lead.id} className="hover:bg-gray-50">
+                <tr
+                  key={lead.id}
+                  className={`hover:bg-gray-50 ${lead.activo === false ? "opacity-60" : ""}`}
+                >
                   <td className="px-4 py-3min-w-[240px] max-w-[320px]">
                     <div>
                       <div className="text-sm font-semibold text-gray-900 break-words">
@@ -2655,6 +2687,11 @@ export function LeadsTable({
                   </td>
                   <td className="px-4 py-3min-w-[200px] max-w-[240px]">
                     <div className="w-full">
+                      {lead.activo === false && (
+                        <Badge className="bg-gray-200 text-gray-600 text-xs px-2 py-0.5 mb-1 inline-block">
+                          Anulado
+                        </Badge>
+                      )}
                       {(() => {
                         const estadoBadge = getEstadoBadge(lead.estado);
                         return (
@@ -2919,12 +2956,20 @@ export function LeadsTable({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDeleteClick(lead)}
-                        className="text-red-600 hover:text-red-800 h-7 w-7 p-0"
-                        title="Eliminar"
+                        onClick={() => handleToggleStatusClick(lead)}
+                        className={
+                          lead.activo === false
+                            ? "text-emerald-600 hover:text-emerald-800 h-7 w-7 p-0"
+                            : "text-red-600 hover:text-red-800 h-7 w-7 p-0"
+                        }
+                        title={lead.activo === false ? "Reactivar" : "Anular"}
                         disabled={disableActions}
                       >
-                        <Trash2 className="h-3 w-3" />
+                        {lead.activo === false ? (
+                          <RotateCcw className="h-3 w-3" />
+                        ) : (
+                          <Ban className="h-3 w-3" />
+                        )}
                       </Button>
                     </div>
                   </td>
@@ -4260,15 +4305,28 @@ export function LeadsTable({
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <ConfirmDeleteDialog
-        open={isDeleteDialogOpen}
-        onOpenChange={setIsDeleteDialogOpen}
-        title="Eliminar Lead"
-        message={`¿Estás seguro de que quieres eliminar el lead de ${leadToDelete?.nombre}? Esta acción no se puede deshacer.`}
-        onConfirm={handleDeleteConfirm}
-        confirmText="Eliminar Lead"
-      />
+      {/* Anular/Reactivar Confirmation Dialog */}
+      {leadToToggleStatus?.activo === false ? (
+        <ConfirmEditDialog
+          open={isToggleStatusDialogOpen}
+          onOpenChange={setIsToggleStatusDialogOpen}
+          title="Reactivar Lead"
+          message={`¿Reactivar el lead de ${leadToToggleStatus?.nombre}? Volverá a aparecer en el listado de leads activos.`}
+          onConfirm={handleToggleStatusConfirm}
+          confirmText="Reactivar Lead"
+          isLoading={togglingStatus}
+        />
+      ) : (
+        <ConfirmDeleteDialog
+          open={isToggleStatusDialogOpen}
+          onOpenChange={setIsToggleStatusDialogOpen}
+          title="Anular Lead"
+          message={`¿Estás seguro de que quieres anular el lead de ${leadToToggleStatus?.nombre}? Dejará de aparecer en el listado de leads activos, pero podrás reactivarlo luego.`}
+          onConfirm={handleToggleStatusConfirm}
+          confirmText="Anular Lead"
+          isLoading={togglingStatus}
+        />
+      )}
     </>
   );
 }

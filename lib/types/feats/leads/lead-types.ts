@@ -86,6 +86,7 @@ export interface Lead {
   prioridad?: "Ninguna" | "Urgente" | "Alta" | "Media" | "Baja";
   motivo_visita?: string; // ⚠️ CAMPO TEMPORAL: NO se guarda en lead. Se usa para crear visita automática.
   oferta_confeccion?: OfertaConfeccionResumen | null;
+  activo?: boolean; // false = lead anulado
 }
 
 export interface LeadResponse {

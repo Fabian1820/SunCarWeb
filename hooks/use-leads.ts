@@ -23,6 +23,8 @@ interface LeadFilters {
   fechaHasta: string;
   skip: number;
   limit: number;
+  /** Si es true, incluye leads anulados junto a los activos (por defecto solo se ven los activos). */
+  mostrarAnulados: boolean;
 }
 
 interface UseLeadsReturn {
@@ -51,6 +53,13 @@ interface UseLeadsReturn {
   createLead: (data: LeadCreateData) => Promise<boolean>;
   updateLead: (id: string, data: LeadUpdateData) => Promise<boolean>;
   deleteLead: (id: string) => Promise<boolean>;
+  setLeadStatus: (
+    id: string,
+    activo: boolean,
+  ) => Promise<
+    | { success: true }
+    | { success: false; error: { code: string; title: string; message: string; field?: string } }
+  >;
   convertLead: (id: string, data: LeadConversionRequest) => Promise<Cliente>;
   generarCodigoCliente: (id: string, equipoPropio?: boolean) => Promise<string>;
   uploadLeadComprobante: (
@@ -150,6 +159,7 @@ export function useLeads(): UseLeadsReturn {
     fechaHasta: "",
     skip: 0,
     limit: 20,
+    mostrarAnulados: false,
   });
 
   // Sincronizar searchTerm con filters y resetear paginación
@@ -206,6 +216,9 @@ export function useLeads(): UseLeadsReturn {
       estado: string;
       fuente: string;
       comercial: string;
+      fechaDesde?: string;
+      fechaHasta?: string;
+      activo?: boolean;
     }): Promise<Lead[]> => {
       const allLeads: Lead[] = [];
       const backendPageSize = 200;
@@ -218,6 +231,9 @@ export function useLeads(): UseLeadsReturn {
           estado: baseFilters.estado || undefined,
           fuente: baseFilters.fuente || undefined,
           comercial: baseFilters.comercial || undefined,
+          fechaDesde: baseFilters.fechaDesde || undefined,
+          fechaHasta: baseFilters.fechaHasta || undefined,
+          activo: baseFilters.activo,
           skip: currentSkip,
           limit: backendPageSize,
         });
@@ -301,8 +317,13 @@ export function useLeads(): UseLeadsReturn {
                 : "",
             fuente: effectiveFilters.fuente,
             comercial: effectiveFilters.comercial,
+            fechaDesde: effectiveFilters.fechaDesde,
+            fechaHasta: effectiveFilters.fechaHasta,
+            activo: effectiveFilters.mostrarAnulados ? undefined : true,
           });
 
+          // Filtro defensivo redundante: el backend ya filtra por fecha, pero se
+          // mantiene por si el filtro combina fechas con otros criterios.
           const filteredByDate = applyLeadDateRangeFilter(
             allBaseLeads,
             effectiveFilters.fechaDesde,
@@ -373,6 +394,7 @@ export function useLeads(): UseLeadsReturn {
           comercial: effectiveFilters.comercial || undefined,
           fechaDesde: effectiveFilters.fechaDesde || undefined,
           fechaHasta: effectiveFilters.fechaHasta || undefined,
+          activo: effectiveFilters.mostrarAnulados ? undefined : true,
           skip: effectiveFilters.skip,
           limit: effectiveFilters.limit,
         });
@@ -599,7 +621,8 @@ export function useLeads(): UseLeadsReturn {
           newFilters.municipio !== undefined ||
           newFilters.ofertas !== undefined ||
           newFilters.fechaDesde !== undefined ||
-          newFilters.fechaHasta !== undefined;
+          newFilters.fechaHasta !== undefined ||
+          newFilters.mostrarAnulados !== undefined;
         return {
           ...prev,
           ...newFilters,
@@ -721,6 +744,34 @@ export function useLeads(): UseLeadsReturn {
         );
         console.error("Error deleting lead:", err);
         return false;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [loadLeads],
+  );
+
+  const setLeadStatus = useCallback(
+    async (id: string, activo: boolean) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const resultado = await LeadService.updateLeadStatus(id, activo);
+        if (resultado.success) {
+          await loadLeads();
+        }
+        return resultado;
+      } catch (err) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Error al actualizar el estado del lead";
+        setError(message);
+        console.error("Error updating lead status:", err);
+        return {
+          success: false as const,
+          error: { code: "ERROR_DESCONOCIDO", title: "Error", message },
+        };
       } finally {
         setLoading(false);
       }
@@ -883,6 +934,7 @@ export function useLeads(): UseLeadsReturn {
     filters.ofertas,
     filters.fechaDesde,
     filters.fechaHasta,
+    filters.mostrarAnulados,
     filters.skip,
     filters.limit,
     debouncedSearchTerm,
@@ -917,6 +969,7 @@ export function useLeads(): UseLeadsReturn {
     createLead,
     updateLead,
     deleteLead,
+    setLeadStatus,
     convertLead,
     generarCodigoCliente,
     uploadLeadComprobante,

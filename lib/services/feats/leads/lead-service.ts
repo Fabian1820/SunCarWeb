@@ -35,6 +35,8 @@ export class LeadService {
       fechaHasta?: string;
       skip?: number;
       limit?: number;
+      /** true = solo activos, false = solo anulados, undefined = todos (activos + anulados) */
+      activo?: boolean;
     } = {},
   ): Promise<{ leads: Lead[]; total: number; skip: number; limit: number }> {
     console.log("Calling getLeads endpoint with params:", params);
@@ -58,6 +60,8 @@ export class LeadService {
       search.append("skip", params.skip.toString());
     if (params.limit !== undefined)
       search.append("limit", params.limit.toString());
+    if (params.activo !== undefined)
+      search.append("activo", params.activo.toString());
     const endpoint = `/leads/${search.toString() ? `?${search.toString()}` : ""}`;
     const response = await apiRequest<LeadResponse>(endpoint);
     console.log("LeadService.getLeads response:", response);
@@ -139,6 +143,45 @@ export class LeadService {
     );
     console.log("LeadService.deleteLead response:", response);
     return response.success === true;
+  }
+
+  static async updateLeadStatus(
+    leadId: string,
+    activo: boolean,
+  ): Promise<
+    | { success: true }
+    | {
+        success: false;
+        error: { code: string; title: string; message: string; field?: string };
+      }
+  > {
+    console.log("Calling updateLeadStatus with ID:", leadId, "activo:", activo);
+    const response = await apiRequest<{
+      success: boolean;
+      message?: string;
+      error?: {
+        code: string;
+        title: string;
+        message: string;
+        field?: string;
+      };
+    }>(`/leads/${leadId}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ activo }),
+    });
+    console.log("LeadService.updateLeadStatus response:", response);
+
+    if (response.success === false) {
+      return {
+        success: false,
+        error: response.error || {
+          code: "ERROR_DESCONOCIDO",
+          title: "Error",
+          message: response.message || "No se pudo actualizar el estado del lead",
+        },
+      };
+    }
+    return { success: true };
   }
 
   static async getLeadsByTelefono(telefono: string): Promise<Lead[]> {

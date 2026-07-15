@@ -83,7 +83,7 @@ export default function LeadsPage() {
     getAllFilteredLeadsForExport,
     createLead,
     updateLead,
-    deleteLead,
+    setLeadStatus,
     convertLead,
     generarCodigoCliente,
     uploadLeadComprobante,
@@ -177,22 +177,10 @@ export default function LeadsPage() {
     }
   };
 
-  const handleDeleteLead = async (leadId: string) => {
+  const handleSetLeadStatus = async (leadId: string, activo: boolean) => {
     setLoadingAction(true);
     try {
-      await deleteLead(leadId);
-      toast({
-        title: "Éxito",
-        description: "Lead eliminado correctamente",
-      });
-    } catch (error: unknown) {
-      toast({
-        title: "Error",
-        description:
-          "Error al eliminar lead: " +
-          (error instanceof Error ? error.message : "Error desconocido"),
-        variant: "destructive",
-      });
+      return await setLeadStatus(leadId, activo);
     } finally {
       setLoadingAction(false);
     }
@@ -563,6 +551,7 @@ export default function LeadsPage() {
                     ofertas: "",
                     fechaDesde: "",
                     fechaHasta: "",
+                    mostrarAnulados: false,
                   });
                 }}
                 className="text-gray-600 hover:text-gray-800 whitespace-nowrap"
@@ -861,6 +850,23 @@ export default function LeadsPage() {
                 />
               </div>
             </div>
+
+            {/* Ver anulados */}
+            <div className="flex items-center gap-2 mt-4">
+              <Checkbox
+                id="mostrar-anulados"
+                checked={filters.mostrarAnulados}
+                onCheckedChange={(checked) =>
+                  setFilters({ mostrarAnulados: checked === true })
+                }
+              />
+              <Label
+                htmlFor="mostrar-anulados"
+                className="text-sm text-gray-600 cursor-pointer"
+              >
+                Ver leads anulados
+              </Label>
+            </div>
           </CardContent>
         </Card>
 
@@ -881,7 +887,7 @@ export default function LeadsPage() {
               <LeadsTable
                 leads={leads}
                 onEdit={handleEditLead}
-                onDelete={handleDeleteLead}
+                onSetLeadStatus={handleSetLeadStatus}
                 onConvert={handleConvertLead}
                 onGenerarCodigo={handleGenerarCodigoCliente}
                 onUploadComprobante={handleUploadLeadComprobante}
