@@ -23,12 +23,14 @@ import type {
   PagoVenta,
   PagoVentaAgregados,
 } from "@/lib/types/feats/pagos-clientes-ventas/pago-cliente-venta-types";
+import { RegistrarDevolucionPagoVentaDialog } from "@/components/feats/pagos-clientes-ventas/registrar-devolucion-pago-venta-dialog";
 import {
   Search,
   RefreshCw,
   AlertCircle,
   ChevronDown,
   ChevronRight,
+  RotateCcw,
 } from "lucide-react";
 
 interface TodosPagosVentasTableProps {
@@ -165,6 +167,19 @@ export function TodosPagosVentasTable({
   const [gruposAbiertos, setGruposAbiertos] = useState<Set<string>>(
     new Set(),
   );
+  const [devolucionDialogOpen, setDevolucionDialogOpen] = useState(false);
+  const [pagoParaDevolucion, setPagoParaDevolucion] = useState<PagoVenta | null>(
+    null,
+  );
+
+  const handleOpenDevolucionDialog = (p: PagoVenta) => {
+    setPagoParaDevolucion(p);
+    setDevolucionDialogOpen(true);
+  };
+
+  const handleDevolucionSuccess = async () => {
+    onRefresh();
+  };
 
   const formatCurrency = (v: number, moneda = "USD") =>
     new Intl.NumberFormat("en-US", {
@@ -357,6 +372,18 @@ export function TodosPagosVentasTable({
           )}
         </TableCell>
         <TableCell className="text-sm">{p.recibido_por || "—"}</TableCell>
+        <TableCell className="text-sm">
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-amber-700 border-amber-300 hover:bg-amber-50"
+            onClick={() => handleOpenDevolucionDialog(p)}
+            title="Registrar devolución"
+          >
+            <RotateCcw className="h-3.5 w-3.5 mr-1" />
+            Devolución
+          </Button>
+        </TableCell>
       </TableRow>
     );
   };
@@ -373,6 +400,7 @@ export function TodosPagosVentasTable({
         <TableHead className="font-semibold">Monto / Pendiente (USD)</TableHead>
         <TableHead className="font-semibold">Pagos a plazos</TableHead>
         <TableHead className="font-semibold">Recibido por</TableHead>
+        <TableHead className="font-semibold">Acciones</TableHead>
       </TableRow>
     </TableHeader>
   );
@@ -520,6 +548,13 @@ export function TodosPagosVentasTable({
         </div>
       )}
       {footer}
+
+      <RegistrarDevolucionPagoVentaDialog
+        open={devolucionDialogOpen}
+        onOpenChange={setDevolucionDialogOpen}
+        pago={pagoParaDevolucion}
+        onSuccess={handleDevolucionSuccess}
+      />
     </div>
   );
 }

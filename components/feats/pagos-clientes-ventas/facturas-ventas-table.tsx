@@ -16,7 +16,7 @@ import type {
   FacturaClienteVenta,
   FacturaVentaAgregados,
 } from "@/lib/types/feats/pagos-clientes-ventas/pago-cliente-venta-types";
-import { Search, RefreshCw, AlertCircle, Trash2, Eye, FileDown, Receipt, Files, Loader2, FileSpreadsheet } from "lucide-react";
+import { Search, RefreshCw, AlertCircle, Trash2, Eye, FileDown, Receipt, Files, Loader2, FileSpreadsheet, Ban } from "lucide-react";
 
 interface FacturasVentasTableProps {
   facturas: FacturaClienteVenta[];
@@ -407,9 +407,26 @@ export function FacturasVentasTable({
             </TableHeader>
             <TableBody>
               {filtered.map((f) => (
-                <TableRow key={getFacturaId(f)} className="hover:bg-gray-50 transition-colors">
+                <TableRow
+                  key={getFacturaId(f)}
+                  className={`hover:bg-gray-50 transition-colors ${f.anulada ? "bg-gray-50/60 opacity-70" : ""}`}
+                >
                   <TableCell className="font-medium text-blue-700 text-sm">
-                    {f.numero_factura}
+                    <div className="flex items-center gap-2">
+                      <span className={f.anulada ? "line-through text-gray-500" : ""}>
+                        {f.numero_factura}
+                      </span>
+                      {f.anulada && (
+                        <Badge
+                          variant="destructive"
+                          className="gap-1 text-[10px]"
+                          title={f.motivo_anulacion || "Factura anulada"}
+                        >
+                          <Ban className="h-3 w-3" />
+                          Anulada
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="font-mono text-xs text-gray-600">
                     {getSolicitudesDisplay(f)}
