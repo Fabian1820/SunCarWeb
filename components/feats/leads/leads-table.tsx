@@ -300,7 +300,6 @@ export function LeadsTable({
 
   // Estados para asignar ofertas genéricas
   const [showOfertaFlowDialog, setShowOfertaFlowDialog] = useState(false);
-  const [showAsignarOfertaDialog, setShowAsignarOfertaDialog] = useState(false);
   const [leadForAsignarOferta, setLeadForAsignarOferta] = useState<Lead | null>(
     null,
   );
@@ -434,8 +433,11 @@ export function LeadsTable({
 
   useEffect(() => {
     if (!showOfertaFlowDialog) return;
-    if (tipoOfertaSeleccionada !== "personalizada") return;
-    if (accionPersonalizadaSeleccionada !== "duplicar") return;
+    const necesitaGenericas =
+      tipoOfertaSeleccionada === "generica" ||
+      (tipoOfertaSeleccionada === "personalizada" &&
+        accionPersonalizadaSeleccionada === "duplicar");
+    if (!necesitaGenericas) return;
     if (ofertasGenericasAprobadasCargadas || loadingOfertasGenericasAprobadas)
       return;
 
@@ -535,13 +537,15 @@ export function LeadsTable({
     }
 
     if (tipoOfertaSeleccionada === "generica") {
-      setShowOfertaFlowDialog(false);
-      setTipoOfertaSeleccionada("");
-      setAccionPersonalizadaSeleccionada("");
-      setOfertasGenericasAprobadas([]);
-      setOfertaGenericaParaDuplicarId("");
-      setOfertasGenericasAprobadasCargadas(false);
-      setShowAsignarOfertaDialog(true);
+      if (!ofertaGenericaParaDuplicarId) {
+        toast({
+          title: "Selecciona una oferta genérica",
+          description: "Escoge qué oferta aprobada deseas asignar al lead.",
+          variant: "destructive",
+        });
+        return;
+      }
+      await handleAsignarOferta(ofertaGenericaParaDuplicarId);
       return;
     }
 
@@ -607,7 +611,6 @@ export function LeadsTable({
       console.log("✅ Oferta asignada exitosamente");
       console.log("📝 Lead ID:", leadId);
 
-      closeAsignarOfertaDialog();
       closeOfertaFlowDialog();
 
       // Refrescar la lista para que el botón verde se actualice
@@ -618,11 +621,6 @@ export function LeadsTable({
         description: "El lead ahora tiene una oferta asignada",
       });
     }
-  };
-
-  const closeAsignarOfertaDialog = () => {
-    setShowAsignarOfertaDialog(false);
-    setLeadForAsignarOferta(null);
   };
 
   const closeVerOfertaDialog = () => {
@@ -3886,10 +3884,15 @@ export function LeadsTable({
               </div>
             )}
 
-            {tipoOfertaSeleccionada === "personalizada" &&
-              accionPersonalizadaSeleccionada === "duplicar" && (
+            {(tipoOfertaSeleccionada === "generica" ||
+              (tipoOfertaSeleccionada === "personalizada" &&
+                accionPersonalizadaSeleccionada === "duplicar")) && (
                 <div className="space-y-2 flex-1 min-h-0 flex flex-col">
-                  <Label>Selecciona la oferta genérica a duplicar</Label>
+                  <Label>
+                    {tipoOfertaSeleccionada === "generica"
+                      ? "Selecciona la oferta genérica a asignar"
+                      : "Selecciona la oferta genérica a duplicar"}
+                  </Label>
                   {loadingOfertasGenericasAprobadas ? (
                     <div className="flex items-center justify-center py-8">
                       <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
@@ -4163,25 +4166,6 @@ export function LeadsTable({
             );
           });
         }}
-      />
-
-      {/* Modal de asignar oferta genérica */}
-      <AsignarOfertaGenericaDialog
-        open={showAsignarOfertaDialog}
-        onOpenChange={(open) => {
-          setShowAsignarOfertaDialog(open);
-          if (!open) closeAsignarOfertaDialog();
-        }}
-        cliente={
-          leadForAsignarOferta
-            ? ({
-                nombre: leadForAsignarOferta.nombre,
-                numero: leadForAsignarOferta.id || "",
-              } as any)
-            : null
-        }
-        onAsignar={handleAsignarOferta}
-        fetchOfertasGenericas={fetchOfertasGenericasAprobadas}
       />
 
       {/* Modal de ver oferta del lead */}
