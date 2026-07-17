@@ -2,6 +2,56 @@
 
 ---
 
+## 📅 17 de Julio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**4 commits reales** de yany1509 — todos enfocados en flujos de pagos y devoluciones: (1) badge "Pendiente de selección" para ofertas ambiguas en Obras Terminadas; (2) botón de cancelar pago en Pagos Clientes; (3) botón de devolución de pagos de venta y badge "Anulada" en facturas; (4) motivo obligatorio en devoluciones de vale.
+
+---
+
+### Área 1: Obras Terminadas — badge "Pendiente de selección" para ofertas ambiguas (1 commit — yany1509, 20:30)
+
+- **`fix(obras-terminadas): badge de pendiente de seleccion para ofertas ambiguas`** — Refleja el nuevo campo `estado_factura_detalle` del backend: badge ámbar "Pendiente de selección" (distinto del gris "Sin factura") para ofertas con 2+ ofertas confirmadas sin facturar que ya están esperando que el área económica elija cuál facturar. Incluye el filtro correspondiente en la barra de la tabla.
+
+---
+
+### Área 2: Pagos Clientes — botón de cancelar pago (1 commit — yany1509, 20:31)
+
+- **`feat(pagos): boton de cancelar pago`** — Nuevo `CancelarPagoDialog` (motivo obligatorio) y botón en la tabla de Pagos Clientes que llama a `PATCH /pagos/{id}/cancelar`. La fila del pago cancelado queda tachada y en gris, con badge "Cancelado" y tooltip del motivo; se oculta el botón "Registrar devolución" si el pago ya está cancelado.
+
+---
+
+### Área 3: Ventas — devolución de pagos y badge "Anulada" en facturas (1 commit — yany1509, 20:31)
+
+- **`feat(ventas): boton de devolucion de pagos y badge de factura anulada`** — Nuevo `RegistrarDevolucionPagoVentaDialog` y botón "Devolución" en la tabla de Pagos Realizados de Solicitudes Ventas, que llama al nuevo endpoint de devoluciones de pagos de venta. Si la devolución termina anulando la factura vinculada (todos sus pagos devueltos), la tabla y el detalle de Facturas Emitidas muestran badge roja "Anulada" con el motivo y el monto devuelto acumulado.
+
+---
+
+### Área 4: Vales — motivo obligatorio en devoluciones (1 commit — yany1509, 20:44)
+
+- **`fix(vales): motivo obligatorio en devoluciones de vale`** — El campo "Comentario" era opcional (placeholder "Opcional") y se enviaba como `undefined` si quedaba vacío. Ahora es "Motivo de la devolución *", bloquea el envío (botón deshabilitado + toast) si está vacío, consistente con el backend.
+
+---
+
+### Puede dar bateo
+
+1. **`PATCH /pagos/{id}/cancelar` — endpoint nuevo sin confirmar en backend**: Si no está implementado, todos los intentos de cancelación fallarán con 404 sin mensaje claro al usuario.
+
+2. **Cancelar pago — estado solo visual si el backend no lo valida**: Si el backend no bloquea operaciones sobre pagos cancelados (vincularlos a facturas, contarlos en saldos), el estado "Cancelado" sería decorativo y los datos financieros quedarían inconsistentes.
+
+3. **Endpoint devolución de pagos de venta — sin confirmar en backend**: El nuevo `RegistrarDevolucionPagoVentaDialog` depende de un endpoint no documentado en el commit. Si no existe, el botón falla con 404 o 405.
+
+4. **Badge "Anulada" — lógica de anulación calculada en backend, posible desincronía**: La condición "todos los pagos devueltos = factura anulada" la determina el backend. Si otro pago llega entre la devolución y la recarga, la UI puede mostrar "Anulada" para una factura que el backend aún considera activa.
+
+5. **`estado_factura_detalle` campo nuevo — ausente en respuestas históricas**: El badge "Pendiente de selección" depende de este campo. Si el backend no lo devuelve en facturas antiguas o si el deploy aún no llegó a producción, el badge nunca aparece y el filtro siempre devuelve 0 resultados.
+
+6. **Filtro "Pendiente de selección" — posible filtrado solo en cliente**: Si el filtro opera solo sobre la página visible y no se envía como parámetro al backend, la paginación y los exports no reflejarán correctamente los resultados.
+
+7. **Fix motivo obligatorio en vales — devoluciones en vuelo antes del deploy**: Si un usuario abrió el diálogo de devolución de vale justo antes del deploy, al recargar encontrará el campo obligatorio en un flujo que ya inició sin motivo.
+
+---
+
 ## 📅 15 de Julio, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -222,80 +272,15 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 8 de Julio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**8 commits reales** de Fabian1820 y yany1509 — jornada densa con 6 áreas: (1) dos nuevos campos RRHH para MIPYME/TCP; (2) ciclo completo en Fichas de Costo con bloqueo inteligente por compra pendiente y ocultación del botón cuando stock = 0; (3) refactor masivo de exports eliminando lookups al catálogo (-160 líneas); (4) propagación del filtro "Factura cliente" al backend en Obras Terminadas; (5) selector "qué falta" en estado equipo instalado; (6) dashboard de costos de materiales entregados/pendientes en carrito de cliente.
-
----
-
-### Área 1: RRHH — campos pertenece_mipyme y pertenece_tcp (1 commit — yany1509)
-
-- **`feat(rrhh): agregar campos pertenece_mipyme y pertenece_tcp al trabajador`** (15:45) — Nuevos checkboxes al crear empleado, toggles al editar (pestaña Laboral) y badges en la tabla/detalle.
-
----
-
-### Área 2: Fichas de Costo — bloqueo inteligente y restricción por stock (2 commits — Fabian1820)
-
-- **`feat(fichas-costo): atajo a la ficha de compra pendiente + bloquear ajuste`** (14:23) — Cuando el material tiene una entrada pendiente de costeo, el diálogo deshabilita el botón Guardar y muestra un enlace "Ir a costear la compra" que navega a `/compras/{id}/ficha-costo`.
-
-- **`feat(fichas-costo): botón Costo solo con existencias + motivo + quita referencia`** (16:51) — El botón "Costo" solo aparece para materiales con `stock > 0`. El diálogo ahora pide un motivo/causa opcional registrado en el kardex. El form genérico de Editar material ya NO escribe el costo de referencia al catálogo.
-
----
-
-### Área 3: Exports — refactor global, nombre del material desde el backend (2 commits — Fabian1820)
-
-- **`refactor(exports): leer nombre del material desde el backend y quitar lookups al catálogo`** (15:59) — −160 líneas netas. Se mantiene fallback a `descripcion` por seguridad.
-
-- **`refactor(obras-terminadas): leer nombre del material del backend en el export`** (17:07) — El export lee `m.nombre` directamente, con fallback a `descripcion`. Se agrega el campo `nombre` al tipo `MaterialOferta`.
-
----
-
-### Área 4: Obras Terminadas — filtro de factura cliente propagado al backend (1 commit — Fabian1820)
-
-- **`feat(obras-terminadas): propagar filtro de factura cliente al backend`** (17:05) — El toggle "Factura cliente" se envía como parámetro `estado_factura` en la query al backend. Corrige que antes el filtro solo afectaba la página visible, sin impacto en paginación ni exports.
-
----
-
-### Área 5: Clientes — selector 'qué falta' en estado equipo instalado (1 commit — Fabian1820)
-
-- **`feat(clientes): selector 'qué falta' (aterramiento/otro) en estado equipo instalado`** (17:21) — Nuevo componente `FaltaInstalacionSelect` con tres opciones: "Aterramiento con pica", "Aterramiento con grapa", u "Otro" con texto libre. El campo `falta_instalacion` deja de ocultarse en estado instalado.
-
----
-
-### Área 6: Clientes — dashboard de costos de materiales entregados/pendientes (1 commit — Fabian1820)
-
-- **`feat(costos): mostrar costo de materiales entregados/pendientes en dashboard de cliente`** (17:25) — Gateados por el subpermiso ADITIVO `costos-materiales-cliente` (verificado con `hasExactPermission`). Fetch best-effort a `/entregas-materiales/cliente/{n}/costos`; si falla (p.ej. 403) devuelve `null` sin romper el dashboard. Muestra nota de "total parcial" cuando hay materiales sin costo en catálogo.
-
----
-
-### Puede dar bateo
-
-1. **`pertenece_mipyme`/`pertenece_tcp` — endpoint del backend sin confirmar en código visible**: Si el backend no acepta esos campos en `PUT /{ci}/rrhh`, los checkboxes enviarán datos ignorados silenciosamente.
-
-2. **Botón "Costo" oculto para `stock > 0` — borde con stock nulo o negativo**: Si el campo de stock devuelve `null`, `undefined` o un valor negativo, el botón se ocultará cuando no debería.
-
-3. **Carga de stock al abrir la ficha — múltiples llamadas al backend por material en fichas grandes**.
-
-4. **"Quita referencia" del costo — cambio de comportamiento sin mensaje de migración para usuarios con hábito anterior**.
-
-5. **Refactor exports (-160 líneas) — fallback a `descripcion` no cubre backends staging sin campo `nombre`**.
-
-6. **Filtro `estado_factura` propagado al backend — si el backend no implementó el parámetro, lo ignorará silenciosamente**.
-
-7. **`falta_instalacion` texto libre — comparaciones exactas en backend pueden no matchear valores históricos**.
-
-8. **`hasExactPermission('costos-materiales-cliente')` — ningún usuario lo tiene hasta asignación manual de SuperAdmin**.
-
-9. **Fetch best-effort `/entregas-materiales/cliente/{n}/costos` — 500 silenciado como null, dashboard incompleto sin indicador de error real**.
-
-10. **Merge por `id de oferta + material_codigo` — solapamiento posible con mismo código en dos ofertas del mismo cliente**.
-
----
-
 #### Seguimientos vigentes
 
+- **`PATCH /pagos/{id}/cancelar` — endpoint nuevo sin confirmar, cancelaciones fallarán con 404 (Jul 17)**.
+- **Cancelar pago — estado solo visual si backend no valida; datos financieros inconsistentes (Jul 17)**.
+- **Devolución de pagos de venta — nuevo endpoint sin confirmar en backend (Jul 17)**.
+- **Badge "Anulada" en facturas — desincronía si backend no actualiza estado en tiempo real (Jul 17)**.
+- **`estado_factura_detalle` campo nuevo — badge "Pendiente de selección" ausente en respuestas históricas (Jul 17)**.
+- **Filtro "Pendiente de selección" — posible filtrado solo en cliente sin soporte en backend (Jul 17)**.
+- **Fix motivo obligatorio en vales — devoluciones en vuelo antes del deploy pueden fallar (Jul 17)**.
 - **`/ajustar-saldo` endpoint sin confirmar en backend — botón fallará si no está implementado (Jul 15)**.
 - **Validación de monto solo en cliente — race condition de sobrepago en ajuste de saldo (Jul 15)**.
 - **Monto libre en ajuste de saldo sin aprobación secundaria — riesgo de cancelar deuda grande por error (Jul 15)**.
@@ -322,15 +307,6 @@ Sin cambios nuevos — sin riesgos nuevos.
 - **Columna "Origen del movimiento" — campos ausentes en movimientos históricos, datos incompletos silenciosos (Jul 10)**.
 - **`costos-materiales-cliente` en instalaciones — ningún usuario lo tiene hasta asignación manual de SuperAdmin (Jul 10)**.
 - **`creado_por` → `creado_por_ci` — reservas históricas con campo incorrecto muestran creador vacío (Jul 10)**.
-- **`pertenece_mipyme`/`pertenece_tcp` — confirmar aceptación en `PUT /{ci}/rrhh` (Jul 8)**.
-- **Botón "Costo" — condición `stock > 0` oculta acción para stock null/negativo sin aviso (Jul 8)**.
-- **Carga de stock en ficha para mostrar botón "Costo" — múltiples llamadas al backend por material (Jul 8)**.
-- **Refactor exports (-160 líneas) — fallback a descripción no cubre backends staging sin campo `nombre` (Jul 8)**.
-- **`estado_factura` en query obras terminadas — confirmar soporte en backend (Jul 8)**.
-- **`falta_instalacion` texto libre — comparaciones exactas en backend pueden no matchear históricos (Jul 8)**.
-- **`hasExactPermission('costos-materiales-cliente')` — ningún usuario lo tiene hasta asignación manual de SuperAdmin (Jul 8)**.
-- **Fetch `/entregas-materiales/cliente/{n}/costos` — error 500 silenciado como null, dashboard incompleto sin indicador (Jul 8)**.
-- **Merge por `id de oferta + material_codigo` — solapamiento posible con mismo código en dos ofertas del mismo cliente (Jul 8)**.
 - **Herencia `instalaciones` → 7 sub-permisos solo en runtime, no persistida en BD — migración necesaria si la lógica de prefijo cambia (Jul 5)**.
 - **Dos separadores de sub-permiso (`/` e `:`) — inconsistencia en el catálogo de permisos (Jul 5)**.
 - **`RouteGuard` con `string[]` — confirmar semántica OR vs AND en cada ruta (Jul 5)**.
@@ -438,4 +414,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
