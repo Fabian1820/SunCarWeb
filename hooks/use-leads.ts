@@ -220,38 +220,39 @@ export function useLeads(): UseLeadsReturn {
       fechaHasta?: string;
       activo?: boolean;
     }): Promise<Lead[]> => {
-      const allLeads: Lead[] = [];
       const backendPageSize = 200;
-      let currentSkip = 0;
-      let totalRegistros = 0;
-      let registrosRecibidos = 0;
+      const maxConcurrentPages = 5;
 
-      do {
-        const { leads: fetchedLeads, total } = await LeadService.getLeads({
+      const fetchPage = (skip: number) =>
+        LeadService.getLeads({
           estado: baseFilters.estado || undefined,
           fuente: baseFilters.fuente || undefined,
           comercial: baseFilters.comercial || undefined,
           fechaDesde: baseFilters.fechaDesde || undefined,
           fechaHasta: baseFilters.fechaHasta || undefined,
           activo: baseFilters.activo,
-          skip: currentSkip,
+          skip,
           limit: backendPageSize,
         });
 
-        if (currentSkip === 0) {
-          totalRegistros = total;
-        }
+      const primeraPagina = await fetchPage(0);
+      const total = primeraPagina.total;
+      const paginas: Lead[][] = [primeraPagina.leads];
 
-        allLeads.push(
-          ...fetchedLeads.filter((lead) => !isTemporaryCodegenLead(lead)),
-        );
-        registrosRecibidos += fetchedLeads.length;
-        currentSkip += backendPageSize;
+      const restanteSkips: number[] = [];
+      for (let skip = backendPageSize; skip < total; skip += backendPageSize) {
+        restanteSkips.push(skip);
+      }
 
-        if (fetchedLeads.length === 0) break;
-      } while (registrosRecibidos < totalRegistros);
+      for (let i = 0; i < restanteSkips.length; i += maxConcurrentPages) {
+        const lote = restanteSkips.slice(i, i + maxConcurrentPages);
+        const resultados = await Promise.all(lote.map(fetchPage));
+        resultados.forEach((r) => paginas.push(r.leads));
+      }
 
-      return allLeads;
+      return paginas
+        .flat()
+        .filter((lead) => !isTemporaryCodegenLead(lead));
     },
     [],
   );

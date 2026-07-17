@@ -404,31 +404,39 @@ export function LeadsTable({
     }
   }, [fetchOfertasGenericasAprobadas]);
 
-  // Cargar términos y condiciones al montar el componente
-  useEffect(() => {
-    const cargarTerminos = async () => {
-      try {
-        const { apiRequest } = await import("@/lib/api-config");
-        const result = await apiRequest<{
-          success: boolean;
-          data?: TerminosCondicionesPayload;
-        }>("/terminos-condiciones/activo", {
-          method: "GET",
-        });
+  // Términos y condiciones: solo se usan al exportar una oferta, así que se
+  // cargan de forma perezosa (la primera vez que se exporta) en vez de en
+  // cada montaje del componente.
+  const terminosCondicionesCargadosRef = useRef(false);
+  const terminosCondicionesLoadingRef = useRef(false);
 
-        if (result.success && result.data) {
-          console.log("✅ Términos y condiciones cargados");
-          setTerminosCondicionesPayload(result.data);
-        } else {
-          console.warn("⚠️ No se encontraron términos y condiciones activos");
-          setTerminosCondicionesPayload(null);
-        }
-      } catch (error) {
-        console.error("❌ Error cargando términos y condiciones:", error);
+  const ensureTerminosCondicionesCargados = useCallback(async () => {
+    if (terminosCondicionesCargadosRef.current) return;
+    if (terminosCondicionesLoadingRef.current) return;
+    terminosCondicionesLoadingRef.current = true;
+    try {
+      const { apiRequest } = await import("@/lib/api-config");
+      const result = await apiRequest<{
+        success: boolean;
+        data?: TerminosCondicionesPayload;
+      }>("/terminos-condiciones/activo", {
+        method: "GET",
+      });
+
+      if (result.success && result.data) {
+        console.log("✅ Términos y condiciones cargados");
+        setTerminosCondicionesPayload(result.data);
+      } else {
+        console.warn("⚠️ No se encontraron términos y condiciones activos");
         setTerminosCondicionesPayload(null);
       }
-    };
-    cargarTerminos();
+      terminosCondicionesCargadosRef.current = true;
+    } catch (error) {
+      console.error("❌ Error cargando términos y condiciones:", error);
+      setTerminosCondicionesPayload(null);
+    } finally {
+      terminosCondicionesLoadingRef.current = false;
+    }
   }, []);
 
   useEffect(() => {
@@ -2350,7 +2358,8 @@ export function LeadsTable({
     [leads, materials, marcas, terminosCondicionesPayload],
   );
 
-  const handleExportarOferta = (oferta: OfertaConfeccion) => {
+  const handleExportarOferta = async (oferta: OfertaConfeccion) => {
+    await ensureTerminosCondicionesCargados();
     setOfertaParaExportar(oferta);
     setMostrarDialogoExportar(true);
     // Cerrar el diálogo de detalles si está abierto
