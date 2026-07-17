@@ -64,6 +64,11 @@ export interface Pago {
   devoluciones?: DevolucionPago[];
   cantidad_devoluciones?: number;
   total_devuelto?: number;
+  // Cancelación (soft-cancel, el pago no se borra)
+  cancelado?: boolean;
+  motivo_cancelacion?: string | null;
+  cancelado_por_ci?: string | null;
+  fecha_cancelacion?: string | null;
 }
 
 export interface DevolucionPago {
@@ -457,6 +462,40 @@ export class PagoService {
       console.error("[PagoService] Error al eliminar pago:", error);
       throw new Error(
         error.response?.data?.message || "Error al eliminar pago",
+      );
+    }
+  }
+
+  /**
+   * Cancelar un pago (soft-cancel: no se elimina, queda marcado como
+   * cancelado con motivo). Revierte monto_pendiente, el depósito en wallet
+   * (si fue en efectivo) y cliente_listo_para_pagar si era el primer pago.
+   * Puede rechazar la cancelación (400) si la oferta ya está facturada o si
+   * el pago tiene una devolución/comisión Stripe asociada.
+   */
+  static async cancelarPago(
+    pagoId: string,
+    motivoCancelacion: string,
+  ): Promise<{ success: boolean; monto_pendiente_actualizado?: number }> {
+    try {
+      const response = await apiRequest<{
+        success: boolean;
+        message: string;
+        monto_pendiente_actualizado?: number;
+      }>(`/pagos/${pagoId}/cancelar`, {
+        method: "PATCH",
+        body: JSON.stringify({ motivo_cancelacion: motivoCancelacion }),
+      });
+      return {
+        success: response.success,
+        monto_pendiente_actualizado: response.monto_pendiente_actualizado,
+      };
+    } catch (error: any) {
+      console.error("[PagoService] Error al cancelar pago:", error);
+      throw new Error(
+        error.response?.data?.message ||
+          error.message ||
+          "Error al cancelar pago",
       );
     }
   }
