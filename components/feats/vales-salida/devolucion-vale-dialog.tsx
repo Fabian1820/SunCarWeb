@@ -283,6 +283,7 @@ export function DevolucionValeDialog({
     !loading &&
     !submitting &&
     responsableDevolucion.trim().length > 0 &&
+    comentario.trim().length > 0 &&
     materialesForm.length > 0 &&
     !tieneCantidadInvalida;
 
@@ -308,12 +309,21 @@ export function DevolucionValeDialog({
       return;
     }
 
+    if (!comentario.trim()) {
+      toast({
+        title: "Motivo requerido",
+        description: "Debe indicar el motivo de la devolucion.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setSubmitting(true);
     try {
       const nuevaDevolucion = await DevolucionValeService.createDevolucion({
         vale_id: valeId,
         responsable_devolucion: responsableDevolucion.trim(),
-        comentario: comentario.trim() || undefined,
+        comentario: comentario.trim(),
         materiales: materialesValidos.map((material) => ({
           material_id: material.material_id,
           cantidad: material.cantidad,
@@ -562,12 +572,15 @@ export function DevolucionValeDialog({
                     </button>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="comentario-devolucion">Comentario</Label>
+                    <Label htmlFor="comentario-devolucion">
+                      Motivo de la devolución{" "}
+                      <span className="text-red-600">*</span>
+                    </Label>
                     <Textarea
                       id="comentario-devolucion"
                       value={comentario}
                       onChange={(event) => setComentario(event.target.value)}
-                      placeholder="Opcional"
+                      placeholder="Describa por que se realiza la devolucion..."
                       disabled={submitting || valeBloqueado}
                       className="min-h-[80px]"
                     />
