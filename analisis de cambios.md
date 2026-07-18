@@ -2,6 +2,20 @@
 
 ---
 
+## 📅 18 de Julio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+Sin commits nuevos de código. Los cambios reales del 17 de Julio (4 commits de yany1509 en pagos, devoluciones y vales) fueron capturados y documentados en la entrada de ayer. El único commit nuevo es "Analisis diario Claude" (generado automáticamente).
+
+---
+
+### Puede dar bateo
+
+Sin cambios nuevos — sin riesgos nuevos.
+
+---
+
 ## 📅 17 de Julio, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -198,80 +212,6 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 10 de Julio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**11 commits reales** de Fabian1820 (7) y yany1509 (4) — jornada muy densa con 5 áreas: (1) ciclo completo en **Facturas Solar Carros** incluyendo todos los materiales de la oferta, selector de oferta múltiple y validación de stock/catálogo por cada material; (2) **nueva vista Facturas** en Obras Terminadas con export sin materiales; (3) fix de paginación de stock en Fichas de Costo (límite backend 500); (4) renombrado de copy "kardex" → "historial de costos"; (5) costos en Instalaciones con columna Entregado en Excel y nombre del creador en reservas.
-
----
-
-### Área 1: Facturas Solar Carros — ciclo completo de materiales (5 commits — yany1509, 9 Jul)
-
-- **`feat(facturas-solar-carros): incluir todos los materiales de la oferta al facturar instaladora`** (16:40) — Antes solo se guardaban inversor/batería/panel. Ahora se cargan y guardan todos, pero la tabla editable y el descuento de inventario siguen usando solo los principales. Los no principales se guardan con `categoria_principal="otro"` y precio/cantidad original sin re-escalar.
-
-- **`fix(facturas-solar-carros): usar una sola oferta confirmada (la más reciente) al facturar instaladora`** (16:55) — Antes se mezclaban materiales de todas las ofertas confirmadas. Ahora se elige una sola (prioridad: confirmada con componentes > confirmada > cualquiera), desempate por `fecha_creacion` más reciente.
-
-- **`feat(facturas-solar-carros): selector de oferta cuando el cliente tiene varias confirmadas`** (17:10) — Diálogo de selección cuando hay más de una oferta confirmada, ordenadas de más reciente a más antigua. Ofertas sin confirmar nunca se muestran.
-
-- **`feat(facturas-solar-carros): mostrar y validar todos los materiales de la oferta en instaladora`** (17:43) — La tabla "Concepto" muestra todos los materiales de la oferta, cada uno vinculado al catálogo de contabilidad con validación de existencia en stock. Bloquea el guardado si falta vínculo o stock. Precio objetivo escalado proporcionalmente entre todos los materiales.
-
-- **`feat(obras-terminadas): ordenar por fecha de instalación, exportar sin materiales y vista de Facturas`** (18:42) — Nuevo botón "Exportar Excel sin materiales". Nueva vista "Facturas" con listado de facturas de obras terminadas, filtros de fecha de facturación, estado y comercial; ver detalle, PDF por fila, PDF unificado y Excel.
-
----
-
-### Área 2: Fichas de Costo — fix paginación stock (1 commit — Fabian1820, 9 Jul)
-
-- **`fix(fichas-costo): paginar la carga de stock (el endpoint valida limit<=500)`** (19:40) — El módulo pedía `limit=2000` al backend que respondía 422. Ahora pagina de a 500 hasta traer todos (561 materiales = 2 páginas).
-
----
-
-### Área 3: Copy — "kardex" → "historial de costos" (1 commit — Fabian1820, 9 Jul)
-
-- **`copy(costos): "kardex" → "historial de costos" en todo el texto visible`** (20:31) — Cambio solo en copy visible. Las claves internas `kardex-costo` (permisos/rutas) no se modificaron para no romper accesos.
-
----
-
-### Área 4: Movimientos — origen en export Excel (1 commit — Fabian1820, 9 Jul)
-
-- **`feat(movimientos): columna "Origen del movimiento" en el export a Excel`** (20:37) — Deriva la etiqueta de `origen_captura`, `estado` y `origen` de la solicitud referenciada, campos ya presentes en la respuesta del backend que el export descartaba.
-
----
-
-### Área 5: Costos en Instalaciones + Reservas (2 commits — Fabian1820, 10 Jul)
-
-- **`feat(costos+export): costos en instalaciones y columna Entregado en Excel`** (15:27) — Hook compartido `hooks/use-costos-oferta.ts`. Instalaciones en Proceso y Nuevas muestran totales costo entregado/pendiente vía `/entregas-materiales/oferta/{id}/costos`, gateados por el subpermiso aditivo `costos-materiales-cliente`. Nueva columna "Entregado" en Excel (Si / No / Parcial con cantidad). Instalaciones Nuevas estrena botón export; helpers comunes en `export-instalaciones-shared.ts`.
-
-- **`feat(reservas): mostrar nombre del creador en detalle de reserva`** (17:46) — Agrega sección "Creado por" al diálogo de detalle usando `creado_por_nombre` resuelto por el backend, con CI como respaldo. Corrige el campo mal nombrado `creado_por` → `creado_por_ci`.
-
----
-
-### Puede dar bateo
-
-1. **Facturas Solar Carros — precio escalado nulo o incorrecto si algún material no tiene precio en el catálogo de contabilidad**: Si un material tiene `precio = null` o `0`, el cálculo proporcional puede producir precios erróneos o la factura puede guardarse con precios cero sin alerta visible.
-
-2. **Facturas Solar Carros — ventana de facturas incorrectas entre commits 16:40 y 16:55**: Si el auto-deploy estaba activo, hay facturas generadas en esa ventana que mezclan materiales de más de una oferta del cliente.
-
-3. **Selector de oferta — empate en `fecha_creacion` genera orden inestable**: Dos ofertas con exactamente la misma fecha de creación pueden mostrarse en orden distinto entre sesiones o recargas.
-
-4. **Bloqueo por stock en Facturas Solar Carros — stock leído al abrir, no en tiempo real**: Si otro usuario genera un vale de salida entre la apertura del diálogo y el guardado, el backend rechazará con 422 por stock insuficiente sin aviso temprano.
-
-5. **Vista "Facturas" en Obras Terminadas — endpoint sin confirmar en backend**: Si el backend aún no lo implementó, la vista cargará vacía o con 404 sin indicador de error.
-
-6. **Fix de paginación — snapshot inconsistente entre página 1 y página 2 de stock**: Con movimientos concurrentes entre las dos llamadas paginadas, la lista consolida stocks de dos instantes distintos.
-
-7. **Clave interna `kardex-costo` sin renombrar — "historial de costos" no encontrable en panel de permisos**: Un SuperAdmin que busque "historial de costos" no encontrará el módulo porque la clave técnica sigue siendo `kardex-costo`.
-
-8. **Columna "Origen del movimiento" — campos ausentes en movimientos históricos**: Movimientos creados antes de que el backend implementara esos campos mostrarán la columna vacía.
-
-9. **`costos-materiales-cliente` en Instalaciones — ningún usuario lo tiene hasta asignación manual de SuperAdmin**: El subpermiso aditivo no se hereda de `instalaciones` ni de ningún módulo padre.
-
-10. **`creado_por` → `creado_por_ci` — reservas históricas con campo original muestran creador vacío**.
-
-11. **Diálogo de entregas sigue duplicado en 3 archivos — regresiones silenciosas posibles**: El hook extrae la lógica de costos, pero el componente de diálogo en sí permanece duplicado.
-
----
-
 #### Seguimientos vigentes
 
 - **`PATCH /pagos/{id}/cancelar` — endpoint nuevo sin confirmar, cancelaciones fallarán con 404 (Jul 17)**.
@@ -414,4 +354,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
