@@ -21,6 +21,7 @@ import {
 } from "@/components/shared/atom/select";
 import { PrioritySelect } from "@/components/shared/molecule/priority-select";
 import { FaltaInstalacionSelect } from "@/components/shared/molecule/falta-instalacion-select";
+import { FuenteSelector } from "@/components/feats/leads/fuente-selector";
 import { Loader2, MapPin } from "lucide-react";
 import { FechaInstalacionDialog } from "@/components/shared/molecule/fecha-instalacion-dialog";
 import { compareStrings } from "@/lib/utils/string-utils";
@@ -79,78 +80,6 @@ export function EditClientDialog({
     useState<string>("");
   const [detectingCountry, setDetectingCountry] = useState(false);
   const [showMapModal, setShowMapModal] = useState(false);
-
-  // Estado para controlar si se está usando fuente personalizada
-  const fuentesBase = [
-    "Página Web",
-    "Instagram",
-    "Facebook",
-    "Directo",
-    "Mensaje de Whatsapp",
-    "Visita",
-  ];
-
-  // Cargar fuentes personalizadas desde localStorage y combinar con la fuente del cliente
-  const [fuentesDisponibles, setFuentesDisponibles] = useState<string[]>(() => {
-    try {
-      const stored = localStorage.getItem("fuentes_personalizadas");
-      let todasLasFuentes = [...fuentesBase];
-
-      if (stored) {
-        const personalizadas = JSON.parse(stored) as string[];
-        todasLasFuentes = [...new Set([...fuentesBase, ...personalizadas])];
-      }
-
-      // Si el cliente tiene una fuente que no está en la lista, agregarla
-      if (client.fuente && !todasLasFuentes.includes(client.fuente)) {
-        todasLasFuentes.push(client.fuente);
-      }
-
-      return todasLasFuentes;
-    } catch (error) {
-      console.error("Error al cargar fuentes personalizadas:", error);
-      // Si hay error, al menos incluir la fuente del cliente si existe
-      if (client.fuente && !fuentesBase.includes(client.fuente)) {
-        return [...fuentesBase, client.fuente];
-      }
-      return fuentesBase;
-    }
-  });
-
-  const [usandoFuentePersonalizada, setUsandoFuentePersonalizada] = useState(
-    () => {
-      // Si la fuente del cliente no está en las opciones base, usar input personalizado
-      return client.fuente ? !fuentesBase.includes(client.fuente) : false;
-    },
-  );
-
-  // Escuchar cambios en las fuentes desde otros componentes
-  useEffect(() => {
-    const handleFuentesUpdate = () => {
-      try {
-        const stored = localStorage.getItem("fuentes_personalizadas");
-        let todasLasFuentes = [...fuentesBase];
-
-        if (stored) {
-          const personalizadas = JSON.parse(stored) as string[];
-          todasLasFuentes = [...new Set([...fuentesBase, ...personalizadas])];
-        }
-
-        // Si el cliente tiene una fuente que no está en la lista, agregarla
-        if (client.fuente && !todasLasFuentes.includes(client.fuente)) {
-          todasLasFuentes.push(client.fuente);
-        }
-
-        setFuentesDisponibles(todasLasFuentes);
-      } catch (error) {
-        console.error("Error al actualizar fuentes:", error);
-      }
-    };
-
-    window.addEventListener("fuentes_updated", handleFuentesUpdate);
-    return () =>
-      window.removeEventListener("fuentes_updated", handleFuentesUpdate);
-  }, [client.fuente]);
 
   const [clientLatLng, setClientLatLng] = useState<{
     lat: string;
@@ -213,6 +142,7 @@ export function EditClientDialog({
     telefono_adicional: client.telefono_adicional || "",
     estado: normalizeEstado(client.estado || ""),
     fuente: client.fuente || "",
+    fuente_referencia: client.fuente_referencia || "",
     referencia: client.referencia || "",
     direccion: client.direccion || "",
     pais_contacto: client.pais_contacto || "",
@@ -272,6 +202,7 @@ export function EditClientDialog({
         telefono_adicional: client.telefono_adicional || "",
         estado: estadoNormalizado,
         fuente: client.fuente || "",
+        fuente_referencia: client.fuente_referencia || "",
         referencia: client.referencia || "",
         direccion: client.direccion || "",
         pais_contacto: client.pais_contacto || "",
@@ -290,21 +221,6 @@ export function EditClientDialog({
         tipo_persona: normalizeTipoPersona(client.tipo_persona || ""),
         es_trabajador_suncar: client.es_trabajador_suncar ?? false,
       });
-
-      // Actualizar el estado de fuente personalizada
-      const esFuentePersonalizada = client.fuente
-        ? !fuentesBase.includes(client.fuente)
-        : false;
-      setUsandoFuentePersonalizada(esFuentePersonalizada);
-
-      // Si es una fuente personalizada, agregarla a la lista si no está
-      if (
-        client.fuente &&
-        !fuentesBase.includes(client.fuente) &&
-        !fuentesDisponibles.includes(client.fuente)
-      ) {
-        setFuentesDisponibles((prev) => [...prev, client.fuente]);
-      }
 
       console.log("✅ FormData actualizado con estado:", estadoNormalizado);
 
@@ -612,547 +528,478 @@ export function EditClientDialog({
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
-          className="max-w-4xl max-h-[90vh] overflow-hidden"
+          className="max-w-xl max-h-[85vh] overflow-hidden p-0 gap-0 flex flex-col"
           onPointerDownOutside={(e) => { if (fechaInstalacionOpen) e.preventDefault(); }}
           onInteractOutside={(e) => { if (fechaInstalacionOpen) e.preventDefault(); }}
         >
-          <DialogHeader>
-            <DialogTitle>Editar Cliente - {client.nombre}</DialogTitle>
+          <DialogHeader className="shrink-0 border-b border-gray-100 px-5 py-4">
+            <DialogTitle className="text-base font-semibold text-gray-900">
+              Editar cliente · {client.nombre}
+            </DialogTitle>
           </DialogHeader>
 
           <form
             onSubmit={handleSubmit}
-            className="space-y-6 max-h-[80vh] overflow-y-auto pr-2 overflow-x-hidden"
+            className="flex flex-1 flex-col overflow-hidden"
           >
-            {/* Sección 1: Datos Personales */}
-            <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
-              <div className="pb-4 mb-4 border-b-2 border-gray-200">
-                <h3 className="text-xl font-bold text-gray-900">
-                  Datos Personales
-                </h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  Información básica del contacto
-                </p>
-              </div>
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="fecha_contacto">Fecha de Contacto</Label>
-                    <Input
-                      id="fecha_contacto"
-                      type="date"
-                      value={convertToDateInput(formData.fecha_contacto)}
-                      onChange={(e) =>
-                        handleInputChange("fecha_contacto", e.target.value)
-                      }
-                      className="text-gray-900"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="comercial">Comercial</Label>
-                    <Input
-                      id="comercial"
-                      value={formData.comercial}
-                      onChange={(e) =>
-                        handleInputChange("comercial", e.target.value)
-                      }
-                      className="text-gray-900 placeholder:text-gray-400"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="nombre">
-                      Nombre <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="nombre"
-                      value={formData.nombre}
-                      onChange={(e) =>
-                        handleInputChange("nombre", e.target.value)
-                      }
-                      className={`text-gray-900 placeholder:text-gray-400 ${errors.nombre ? "border-red-500" : ""}`}
-                    />
-                    {errors.nombre && (
-                      <p className="text-sm text-red-500 mt-1">
-                        {errors.nombre}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="referencia">Referencia</Label>
-                    <Input
-                      id="referencia"
-                      value={formData.referencia}
-                      onChange={(e) =>
-                        handleInputChange("referencia", e.target.value)
-                      }
-                      className="text-gray-900 placeholder:text-gray-400"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="numero">
-                      Código de cliente <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="numero"
-                      value={formData.numero}
-                      onChange={(e) =>
-                        handleInputChange("numero", e.target.value)
-                      }
-                      className={`text-gray-900 placeholder:text-gray-400 ${errors.numero ? "border-red-500" : ""}`}
-                    />
-                    {errors.numero && (
-                      <p className="text-sm text-red-500 mt-1">
-                        {errors.numero}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="carnet_identidad">
-                      {formData.tipo_persona === "Jurídica"
-                        ? "NIT Empresa"
-                        : "Carnet de identidad"}
-                    </Label>
-                    <Input
-                      id="carnet_identidad"
-                      value={formData.carnet_identidad || ""}
-                      onChange={(e) =>
-                        handleInputChange("carnet_identidad", e.target.value)
-                      }
-                      className="text-gray-900 placeholder:text-gray-400"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <Label htmlFor="estado">Estado</Label>
-                    <Select
-                      value={formData.estado}
-                      onValueChange={(value) =>
-                        handleInputChange("estado", value)
-                      }
-                    >
-                      <SelectTrigger id="estado" className="text-gray-900">
-                        <SelectValue placeholder="Seleccionar estado">
-                          {formData.estado || "Seleccionar estado"}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Equipo instalado con éxito">
-                          Equipo instalado con éxito
-                        </SelectItem>
-                        <SelectItem value="Esperando equipo">
-                          Esperando equipo
-                        </SelectItem>
-                        <SelectItem value="Pendiente de instalación">
-                          Pendiente de instalación
-                        </SelectItem>
-                        <SelectItem value="Instalación en Proceso">
-                          Instalación en Proceso
-                        </SelectItem>
-                        <SelectItem value="Pendiente de visita">
-                          Pendiente de visita
-                        </SelectItem>
-                        <SelectItem value="No interesado">
-                          No interesado
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {formData.estado === "Pendiente de visita" && (
-                    <div className="md:col-span-3">
-                      <Label htmlFor="motivo_visita">Motivo de Visita</Label>
-                      <Textarea
-                        id="motivo_visita"
-                        value={formData.motivo_visita || ""}
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              <div className="space-y-5">
+                {/* Contacto */}
+                <section>
+                  <h4 className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                    Contacto
+                  </h4>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="fecha_contacto">Fecha de Contacto</Label>
+                        <Input
+                          id="fecha_contacto"
+                          type="date"
+                          value={convertToDateInput(formData.fecha_contacto)}
+                          onChange={(e) =>
+                            handleInputChange("fecha_contacto", e.target.value)
+                          }
+                          className="text-gray-900"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="comercial">Comercial</Label>
+                        <Input
+                          id="comercial"
+                          value={formData.comercial}
+                          onChange={(e) =>
+                            handleInputChange("comercial", e.target.value)
+                          }
+                          className="text-gray-900 placeholder:text-gray-400"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="nombre">
+                          Nombre <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          id="nombre"
+                          value={formData.nombre}
+                          onChange={(e) =>
+                            handleInputChange("nombre", e.target.value)
+                          }
+                          className={`text-gray-900 placeholder:text-gray-400 ${errors.nombre ? "border-red-500" : ""}`}
+                        />
+                        {errors.nombre && (
+                          <p className="text-sm text-red-500 mt-1">
+                            {errors.nombre}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <Label htmlFor="referencia">Referencia</Label>
+                        <Input
+                          id="referencia"
+                          value={formData.referencia}
+                          onChange={(e) =>
+                            handleInputChange("referencia", e.target.value)
+                          }
+                          className="text-gray-900 placeholder:text-gray-400"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="telefono">
+                          Teléfono <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          id="telefono"
+                          value={formData.telefono}
+                          onChange={(e) => handleTelefonoChange(e.target.value)}
+                          placeholder="+53 5 1234567"
+                          className={`text-gray-900 placeholder:text-gray-400 ${errors.telefono ? "border-red-500" : ""}`}
+                        />
+                        {errors.telefono && (
+                          <p className="text-sm text-red-500 mt-1">
+                            {errors.telefono}
+                          </p>
+                        )}
+                        {detectingCountry && (
+                          <p className="text-sm text-blue-500 mt-1">
+                            Detectando país...
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <Label htmlFor="telefono_adicional">
+                          Teléfono Adicional
+                        </Label>
+                        <Input
+                          id="telefono_adicional"
+                          value={formData.telefono_adicional || ""}
+                          onChange={(e) =>
+                            handleInputChange("telefono_adicional", e.target.value)
+                          }
+                          placeholder="+53 5 1234567"
+                          className="text-gray-900 placeholder:text-gray-400"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="pais_contacto">País de contacto</Label>
+                      <Input
+                        id="pais_contacto"
+                        value={formData.pais_contacto || ""}
                         onChange={(e) =>
-                          handleInputChange("motivo_visita", e.target.value)
+                          handleInputChange("pais_contacto", e.target.value)
                         }
-                        placeholder="Ej: Primera evaluación técnica, revisar condiciones del sitio..."
-                        rows={3}
-                        className="text-gray-900"
+                        className="text-gray-900 placeholder:text-gray-400"
                       />
-                      {errors.motivo_visita && (
+                    </div>
+                  </div>
+                </section>
+
+                {/* Identificación */}
+                <section className="border-t border-gray-100 pt-5">
+                  <h4 className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                    Identificación
+                  </h4>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="numero">
+                          Código de cliente <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          id="numero"
+                          value={formData.numero}
+                          onChange={(e) =>
+                            handleInputChange("numero", e.target.value)
+                          }
+                          className={`text-gray-900 placeholder:text-gray-400 ${errors.numero ? "border-red-500" : ""}`}
+                        />
+                        {errors.numero && (
+                          <p className="text-sm text-red-500 mt-1">
+                            {errors.numero}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <Label htmlFor="carnet_identidad">
+                          {formData.tipo_persona === "Jurídica"
+                            ? "NIT Empresa"
+                            : "Carnet de identidad"}
+                        </Label>
+                        <Input
+                          id="carnet_identidad"
+                          value={formData.carnet_identidad || ""}
+                          onChange={(e) =>
+                            handleInputChange("carnet_identidad", e.target.value)
+                          }
+                          className="text-gray-900 placeholder:text-gray-400"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="tipo_persona">Tipo de Persona</Label>
+                      <Select
+                        value={formData.tipo_persona || ""}
+                        onValueChange={(value) =>
+                          handleInputChange("tipo_persona", value)
+                        }
+                      >
+                        <SelectTrigger
+                          id="tipo_persona"
+                          className="text-gray-900"
+                        >
+                          <SelectValue placeholder="Seleccionar tipo de persona" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Natural">Natural</SelectItem>
+                          <SelectItem value="Jurídica">Jurídica</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="es_trabajador_suncar-edit"
+                        checked={formData.es_trabajador_suncar ?? false}
+                        onCheckedChange={(checked) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            es_trabajador_suncar: checked === true,
+                          }))
+                        }
+                      />
+                      <Label htmlFor="es_trabajador_suncar-edit" className="cursor-pointer">
+                        Es trabajador de SunCar
+                      </Label>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Ubicación */}
+                <section className="border-t border-gray-100 pt-5">
+                  <h4 className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                    Ubicación
+                  </h4>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="direccion">
+                        Dirección <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="direccion"
+                        value={formData.direccion}
+                        onChange={(e) =>
+                          handleInputChange("direccion", e.target.value)
+                        }
+                        className={`text-gray-900 placeholder:text-gray-400 ${errors.direccion ? "border-red-500" : ""}`}
+                      />
+                      {errors.direccion && (
                         <p className="text-sm text-red-500 mt-1">
-                          {errors.motivo_visita}
+                          {errors.direccion}
                         </p>
                       )}
                     </div>
-                  )}
-                  <div>
-                    <Label htmlFor="fuente">Fuente</Label>
-                    {!usandoFuentePersonalizada ? (
-                      <Select
-                        value={formData.fuente}
-                        onValueChange={(value) => {
-                          if (value === "__custom__") {
-                            setUsandoFuentePersonalizada(true);
-                            handleInputChange("fuente", "");
-                          } else {
-                            handleInputChange("fuente", value);
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="provincia_montaje">Provincia</Label>
+                        <Select
+                          value={formData.provincia_montaje}
+                          onValueChange={handleProvinciaChange}
+                          disabled={loadingProvincias}
+                        >
+                          <SelectTrigger
+                            id="provincia_montaje"
+                            className="text-gray-900"
+                          >
+                            <SelectValue
+                              placeholder={
+                                loadingProvincias
+                                  ? "Cargando..."
+                                  : "Seleccionar provincia"
+                              }
+                            />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-[300px] overflow-y-auto">
+                            {provincias.map((provincia, index) => (
+                              <SelectItem
+                                key={`provincia-${provincia.codigo}-${index}`}
+                                value={provincia.nombre}
+                              >
+                                {provincia.nombre}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="municipio">Municipio</Label>
+                        <Select
+                          value={formData.municipio || ""}
+                          onValueChange={(value) =>
+                            handleInputChange("municipio", value)
                           }
+                          disabled={!selectedProvinciaCodigo || loadingMunicipios}
+                        >
+                          <SelectTrigger id="municipio" className="text-gray-900">
+                            <SelectValue
+                              placeholder={
+                                !selectedProvinciaCodigo
+                                  ? "Seleccione una provincia primero"
+                                  : loadingMunicipios
+                                    ? "Cargando..."
+                                    : "Seleccionar municipio"
+                              }
+                            />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-[300px] overflow-y-auto">
+                            {municipios.map((municipio, index) => (
+                              <SelectItem
+                                key={`municipio-${municipio.codigo}-${index}`}
+                                value={municipio.nombre}
+                              >
+                                {municipio.nombre}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Ubicación en el mapa</Label>
+                      <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                        <div className="flex gap-2 flex-1">
+                          <Input
+                            value={clientLatLng.lat}
+                            readOnly
+                            className="flex-1 sm:w-32 text-gray-600 bg-gray-50 text-xs sm:text-sm"
+                          />
+                          <Input
+                            value={clientLatLng.lng}
+                            readOnly
+                            className="flex-1 sm:w-32 text-gray-600 bg-gray-50 text-xs sm:text-sm"
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          className="bg-purple-600 hover:bg-purple-700 text-white shrink-0"
+                          size="sm"
+                          onClick={() => setShowMapModal(true)}
+                        >
+                          <MapPin className="h-4 w-4 sm:mr-1" />
+                          <span className="hidden sm:inline">
+                            Seleccionar en mapa
+                          </span>
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Origen y prioridad */}
+                <section className="border-t border-gray-100 pt-5">
+                  <h4 className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                    Origen y prioridad
+                  </h4>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FuenteSelector
+                        fuente={formData.fuente}
+                        fuenteReferencia={formData.fuente_referencia}
+                        onChange={(fuente, fuenteReferencia) => {
+                          handleInputChange("fuente", fuente);
+                          handleInputChange("fuente_referencia", fuenteReferencia);
                         }}
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <PrioritySelect
+                        value={formData.prioridad}
+                        onChange={(value) => handleInputChange("prioridad", value)}
+                      />
+                    </div>
+                  </div>
+                </section>
+
+                {/* Estado y seguimiento */}
+                <section className="border-t border-gray-100 pt-5">
+                  <h4 className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                    Estado y seguimiento
+                  </h4>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="estado">Estado</Label>
+                      <Select
+                        value={formData.estado}
+                        onValueChange={(value) =>
+                          handleInputChange("estado", value)
+                        }
                       >
-                        <SelectTrigger id="fuente" className="text-gray-900">
-                          <SelectValue placeholder="Seleccionar fuente" />
+                        <SelectTrigger id="estado" className="text-gray-900">
+                          <SelectValue placeholder="Seleccionar estado">
+                            {formData.estado || "Seleccionar estado"}
+                          </SelectValue>
                         </SelectTrigger>
-                        <SelectContent className="max-h-[300px] overflow-y-auto">
-                          {fuentesDisponibles.map((fuente) => (
-                            <SelectItem key={fuente} value={fuente}>
-                              {fuente}
-                            </SelectItem>
-                          ))}
-                          <SelectItem value="__custom__">
-                            ✏️ Otra (escribir manualmente)
+                        <SelectContent>
+                          <SelectItem value="Equipo instalado con éxito">
+                            Equipo instalado con éxito
+                          </SelectItem>
+                          <SelectItem value="Esperando equipo">
+                            Esperando equipo
+                          </SelectItem>
+                          <SelectItem value="Pendiente de instalación">
+                            Pendiente de instalación
+                          </SelectItem>
+                          <SelectItem value="Instalación en Proceso">
+                            Instalación en Proceso
+                          </SelectItem>
+                          <SelectItem value="Pendiente de visita">
+                            Pendiente de visita
+                          </SelectItem>
+                          <SelectItem value="No interesado">
+                            No interesado
                           </SelectItem>
                         </SelectContent>
                       </Select>
-                    ) : (
-                      <div className="space-y-2">
-                        <Input
-                          id="fuente-custom"
-                          type="text"
-                          value={formData.fuente}
+                    </div>
+
+                    {formData.estado === "Pendiente de visita" && (
+                      <div>
+                        <Label htmlFor="motivo_visita">Motivo de Visita</Label>
+                        <Textarea
+                          id="motivo_visita"
+                          value={formData.motivo_visita || ""}
                           onChange={(e) =>
-                            handleInputChange("fuente", e.target.value)
+                            handleInputChange("motivo_visita", e.target.value)
                           }
-                          placeholder="Escribe la fuente personalizada..."
-                          className="text-gray-900 placeholder:text-gray-400"
+                          placeholder="Ej: Primera evaluación técnica, revisar condiciones del sitio..."
+                          rows={3}
+                          className="text-gray-900"
                         />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            // Si hay una fuente personalizada escrita, agregarla a la lista
-                            if (
-                              formData.fuente &&
-                              formData.fuente.trim() !== "" &&
-                              !fuentesDisponibles.includes(formData.fuente)
-                            ) {
-                              const nuevasFuentes = [
-                                ...fuentesDisponibles,
-                                formData.fuente,
-                              ];
-                              setFuentesDisponibles(nuevasFuentes);
-                              // Guardar en localStorage solo las personalizadas (sin las base)
-                              const personalizadas = nuevasFuentes.filter(
-                                (f) => !fuentesBase.includes(f),
-                              );
-                              localStorage.setItem(
-                                "fuentes_personalizadas",
-                                JSON.stringify(personalizadas),
-                              );
-
-                              // Quitar de la lista de excluidas si estaba ahí
-                              try {
-                                const excluidas = JSON.parse(
-                                  localStorage.getItem("fuentes_excluidas") ||
-                                    "[]",
-                                ) as string[];
-                                const nuevasExcluidas = excluidas.filter(
-                                  (f) => f !== formData.fuente,
-                                );
-                                if (
-                                  nuevasExcluidas.length !== excluidas.length
-                                ) {
-                                  localStorage.setItem(
-                                    "fuentes_excluidas",
-                                    JSON.stringify(nuevasExcluidas),
-                                  );
-                                }
-                              } catch (error) {
-                                console.error(
-                                  "Error al actualizar fuentes excluidas:",
-                                  error,
-                                );
-                              }
-
-                              window.dispatchEvent(
-                                new CustomEvent("fuentes_updated"),
-                              );
-                            }
-                            setUsandoFuentePersonalizada(false);
-                          }}
-                          className="text-xs"
-                        >
-                          ← Volver a opciones predefinidas
-                        </Button>
+                        {errors.motivo_visita && (
+                          <p className="text-sm text-red-500 mt-1">
+                            {errors.motivo_visita}
+                          </p>
+                        )}
                       </div>
                     )}
-                  </div>
-                  <div>
-                    <Label htmlFor="tipo_persona">Tipo de Persona</Label>
-                    <Select
-                      value={formData.tipo_persona || ""}
-                      onValueChange={(value) =>
-                        handleInputChange("tipo_persona", value)
-                      }
-                    >
-                      <SelectTrigger
-                        id="tipo_persona"
-                        className="text-gray-900"
-                      >
-                        <SelectValue placeholder="Seleccionar tipo de persona" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Natural">Natural</SelectItem>
-                        <SelectItem value="Jurídica">Jurídica</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
 
-                {/* Trabajador de SunCar */}
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="es_trabajador_suncar-edit"
-                    checked={formData.es_trabajador_suncar ?? false}
-                    onCheckedChange={(checked) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        es_trabajador_suncar: checked === true,
-                      }))
-                    }
-                  />
-                  <Label htmlFor="es_trabajador_suncar-edit" className="cursor-pointer">
-                    Es trabajador de SunCar
-                  </Label>
-                </div>
+                    {formData.estado === "Instalación en Proceso" && (
+                      <div>
+                        <Label htmlFor="falta_instalacion">
+                          ¿Qué le falta a la instalación?
+                        </Label>
+                        <Textarea
+                          id="falta_instalacion"
+                          value={formData.falta_instalacion || ""}
+                          onChange={(e) =>
+                            handleInputChange("falta_instalacion", e.target.value)
+                          }
+                          rows={2}
+                          className="text-gray-900 placeholder:text-gray-400"
+                          placeholder="Describe qué le falta para completar la instalación..."
+                        />
+                      </div>
+                    )}
 
-                {/* Prioridad */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <PrioritySelect
-                    value={formData.prioridad}
-                    onChange={(value) => handleInputChange("prioridad", value)}
-                  />
-                </div>
-
-                {/* Campo condicional: Falta Instalación (texto libre en proceso) */}
-                {formData.estado === "Instalación en Proceso" && (
-                  <div>
-                    <Label htmlFor="falta_instalacion">
-                      ¿Qué le falta a la instalación?
-                    </Label>
-                    <Textarea
-                      id="falta_instalacion"
-                      value={formData.falta_instalacion || ""}
-                      onChange={(e) =>
-                        handleInputChange("falta_instalacion", e.target.value)
-                      }
-                      rows={2}
-                      className="text-gray-900 placeholder:text-gray-400"
-                      placeholder="Describe qué le falta para completar la instalación..."
-                    />
-                  </div>
-                )}
-
-                {/* Campo condicional: Qué falta (equipo instalado con éxito) */}
-                {compareStrings(
-                  formData.estado || "",
-                  "Equipo instalado con éxito"
-                ) && (
-                  <div>
-                    <Label htmlFor="falta_instalacion_instalado">
-                      ¿Queda algo pendiente?
-                    </Label>
-                    <FaltaInstalacionSelect
-                      id="falta_instalacion_instalado"
-                      value={formData.falta_instalacion}
-                      onChange={(v) =>
-                        handleInputChange("falta_instalacion", v)
-                      }
-                    />
-                  </div>
-                )}
-
-                <div>
-                  <Label htmlFor="direccion">
-                    Dirección <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="direccion"
-                    value={formData.direccion}
-                    onChange={(e) =>
-                      handleInputChange("direccion", e.target.value)
-                    }
-                    className={`text-gray-900 placeholder:text-gray-400 ${errors.direccion ? "border-red-500" : ""}`}
-                  />
-                  {errors.direccion && (
-                    <p className="text-sm text-red-500 mt-1">
-                      {errors.direccion}
-                    </p>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="provincia_montaje">Provincia</Label>
-                    <Select
-                      value={formData.provincia_montaje}
-                      onValueChange={handleProvinciaChange}
-                      disabled={loadingProvincias}
-                    >
-                      <SelectTrigger
-                        id="provincia_montaje"
-                        className="text-gray-900"
-                      >
-                        <SelectValue
-                          placeholder={
-                            loadingProvincias
-                              ? "Cargando..."
-                              : "Seleccionar provincia"
+                    {compareStrings(
+                      formData.estado || "",
+                      "Equipo instalado con éxito"
+                    ) && (
+                      <div>
+                        <Label htmlFor="falta_instalacion_instalado">
+                          ¿Queda algo pendiente?
+                        </Label>
+                        <FaltaInstalacionSelect
+                          id="falta_instalacion_instalado"
+                          value={formData.falta_instalacion}
+                          onChange={(v) =>
+                            handleInputChange("falta_instalacion", v)
                           }
                         />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-[300px] overflow-y-auto">
-                        {provincias.map((provincia, index) => (
-                          <SelectItem
-                            key={`provincia-${provincia.codigo}-${index}`}
-                            value={provincia.nombre}
-                          >
-                            {provincia.nombre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="municipio">Municipio</Label>
-                    <Select
-                      value={formData.municipio || ""}
-                      onValueChange={(value) =>
-                        handleInputChange("municipio", value)
-                      }
-                      disabled={!selectedProvinciaCodigo || loadingMunicipios}
-                    >
-                      <SelectTrigger id="municipio" className="text-gray-900">
-                        <SelectValue
-                          placeholder={
-                            !selectedProvinciaCodigo
-                              ? "Seleccione una provincia primero"
-                              : loadingMunicipios
-                                ? "Cargando..."
-                                : "Seleccionar municipio"
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-[300px] overflow-y-auto">
-                        {municipios.map((municipio, index) => (
-                          <SelectItem
-                            key={`municipio-${municipio.codigo}-${index}`}
-                            value={municipio.nombre}
-                          >
-                            {municipio.nombre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+                      </div>
+                    )}
 
-                <div>
-                  <Label>Ubicación en el mapa</Label>
-                  <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-                    <div className="flex gap-2 flex-1">
-                      <Input
-                        value={clientLatLng.lat}
-                        readOnly
-                        className="flex-1 sm:w-32 text-gray-600 bg-gray-50 text-xs sm:text-sm"
-                      />
-                      <Input
-                        value={clientLatLng.lng}
-                        readOnly
-                        className="flex-1 sm:w-32 text-gray-600 bg-gray-50 text-xs sm:text-sm"
+                    <div>
+                      <Label htmlFor="comentario">Comentario</Label>
+                      <Textarea
+                        id="comentario"
+                        value={formData.comentario || ""}
+                        onChange={(e) =>
+                          handleInputChange("comentario", e.target.value)
+                        }
+                        rows={3}
+                        className="text-gray-900 placeholder:text-gray-400"
                       />
                     </div>
-                    <Button
-                      type="button"
-                      className="bg-purple-600 hover:bg-purple-700 text-white shrink-0"
-                      size="sm"
-                      onClick={() => setShowMapModal(true)}
-                    >
-                      <MapPin className="h-4 w-4 sm:mr-1" />
-                      <span className="hidden sm:inline">
-                        Seleccionar en mapa
-                      </span>
-                    </Button>
                   </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="telefono">
-                      Teléfono <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="telefono"
-                      value={formData.telefono}
-                      onChange={(e) => handleTelefonoChange(e.target.value)}
-                      placeholder="+53 5 1234567"
-                      className={`text-gray-900 placeholder:text-gray-400 ${errors.telefono ? "border-red-500" : ""}`}
-                    />
-                    {errors.telefono && (
-                      <p className="text-sm text-red-500 mt-1">
-                        {errors.telefono}
-                      </p>
-                    )}
-                    {detectingCountry && (
-                      <p className="text-sm text-blue-500 mt-1">
-                        Detectando pais...
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="telefono_adicional">
-                      Teléfono Adicional
-                    </Label>
-                    <Input
-                      id="telefono_adicional"
-                      value={formData.telefono_adicional || ""}
-                      onChange={(e) =>
-                        handleInputChange("telefono_adicional", e.target.value)
-                      }
-                      placeholder="+53 5 1234567"
-                      className="text-gray-900 placeholder:text-gray-400"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="pais_contacto">País de contacto</Label>
-                  <Input
-                    id="pais_contacto"
-                    value={formData.pais_contacto || ""}
-                    onChange={(e) =>
-                      handleInputChange("pais_contacto", e.target.value)
-                    }
-                    className="text-gray-900 placeholder:text-gray-400"
-                  />
-                </div>
+                </section>
               </div>
             </div>
 
-            {/* Comentarios */}
-            <div className="space-y-2">
-              <Label htmlFor="comentario">Comentario</Label>
-              <Textarea
-                id="comentario"
-                value={formData.comentario || ""}
-                onChange={(e) =>
-                  handleInputChange("comentario", e.target.value)
-                }
-                rows={3}
-                className="text-gray-900 placeholder:text-gray-400"
-              />
-            </div>
-
             {/* Botones */}
-            <div className="flex justify-end gap-2 pt-4">
+            <div className="flex shrink-0 justify-end gap-2 border-t border-gray-100 px-5 py-3.5">
               <Button
                 type="button"
                 variant="outline"
@@ -1161,18 +1008,14 @@ export function EditClientDialog({
               >
                 Cancelar
               </Button>
-              <Button
-                type="submit"
-                className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white"
-                disabled={isLoading}
-              >
+              <Button type="submit" disabled={isLoading}>
                 {isLoading ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     Guardando...
                   </>
                 ) : (
-                  "Guardar Cambios"
+                  "Guardar cambios"
                 )}
               </Button>
             </div>

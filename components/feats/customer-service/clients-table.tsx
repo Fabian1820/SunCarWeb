@@ -4864,28 +4864,16 @@ export function ClientsTable({
                       // Normalizar el estado (trim y comparación)
                       const estadoNormalizado = estado.trim();
 
-                      // Mapeo exacto de estados como en leads
+                      // Estados válidos de Cliente (ver Select de estado en create/edit-client-dialog)
                       const estadosConfig: Record<string, string> = {
-                        // Estados de leads
                         "Esperando equipo":
                           "bg-amber-100 text-amber-800 hover:bg-amber-200",
                         "No interesado":
                           "bg-gray-200 text-gray-700 hover:bg-gray-300",
                         "Pendiente de instalación":
                           "bg-green-100 text-green-800 hover:bg-green-200",
-                        "Pendiente de presupuesto":
-                          "bg-purple-100 text-purple-800 hover:bg-purple-200",
                         "Pendiente de visita":
                           "bg-blue-100 text-blue-800 hover:bg-blue-200",
-                        "Pendiente de visitarnos":
-                          "bg-pink-100 text-pink-800 hover:bg-pink-200",
-                        Proximamente:
-                          "bg-cyan-100 text-cyan-800 hover:bg-cyan-200",
-                        "Revisando ofertas":
-                          "bg-indigo-100 text-indigo-800 hover:bg-indigo-200",
-                        "Sin respuesta":
-                          "bg-red-100 text-red-800 hover:bg-red-200",
-                        // Estados de clientes
                         "Equipo instalado con éxito":
                           "bg-emerald-100 text-emerald-800 hover:bg-emerald-200",
                         "Instalación en Proceso":
@@ -5333,6 +5321,27 @@ export function ClientsTable({
                                     <Camera className="h-5 w-5 text-violet-600" />
                                     <span className="text-xs text-gray-700 leading-tight text-center">
                                       Agregar foto
+                                    </span>
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() =>
+                                      handleViewClientLocation(client)
+                                    }
+                                    disabled={
+                                      client.latitud === undefined ||
+                                      client.latitud === null ||
+                                      client.longitud === undefined ||
+                                      client.longitud === null
+                                    }
+                                    className="h-auto flex-col items-center justify-center gap-1 py-3"
+                                    title="Ver ubicación en el mapa"
+                                  >
+                                    <MapPin className="h-5 w-5 text-purple-600" />
+                                    <span className="text-xs text-gray-700 leading-tight text-center">
+                                      Ver ubicación
                                     </span>
                                   </Button>
                                 </div>

@@ -1,25 +1,30 @@
 "use client"
 
+import type { ReactNode } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
 import { Button } from "@/components/shared/atom/button"
 import { Badge } from "@/components/shared/atom/badge"
-import { Label } from "@/components/shared/atom/label"
-import { 
-  Calendar, 
-  MapPin, 
-  Phone, 
-  CreditCard, 
-  UserCheck, 
-  Package, 
-  ListChecks, 
+import {
+  Calendar,
+  MapPin,
+  Phone,
+  CreditCard,
+  UserCheck,
+  ListChecks,
   PhoneForwarded,
   Edit,
   Download,
-  Navigation
+  Navigation,
+  Globe,
+  Zap,
+  Battery,
+  Sun,
+  type LucideIcon,
 } from "lucide-react"
 import type { Cliente, ClienteFoto } from "@/lib/api-types"
 import { downloadFile } from "@/lib/utils/download-file"
 import { compareStrings } from "@/lib/utils/string-utils"
+import { extraerComponentesDeOfertaConfeccion } from "@/lib/utils/oferta-confeccion-items"
 
 interface ClienteDetallesDialogProps {
   open: boolean
@@ -29,6 +34,55 @@ interface ClienteDetallesDialogProps {
   onDownloadComprobante?: (cliente: Cliente) => Promise<void>
   fotosCliente?: ClienteFoto[]
   loadingFotosCliente?: boolean
+}
+
+/** Fila compacta "etiqueta encima del valor", igual al patrón usado en el panel de detalle de Lead. */
+function ClienteInfoRow({
+  icon: Icon,
+  label,
+  value,
+  strong,
+}: {
+  icon?: LucideIcon
+  label: string
+  value?: ReactNode
+  strong?: boolean
+}) {
+  if (value === undefined || value === null || value === "") return null
+  return (
+    <div className="flex items-start gap-2.5">
+      {Icon && <Icon className="h-3.5 w-3.5 text-gray-400 mt-0.5 shrink-0" />}
+      <div className="min-w-0 flex-1">
+        <p className="text-xs text-gray-500">{label}</p>
+        <p className={`text-sm text-gray-900 break-words mt-0.5 ${strong ? "font-semibold" : "font-medium"}`}>
+          {value}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+/** Estados válidos de Cliente (ver Select de estado en create/edit-client-dialog). */
+function getEstadoBadge(estado?: string): { className: string; label: string } {
+  if (!estado) return { className: "bg-gray-100 text-gray-700", label: "Sin estado" }
+  const estadosConfig: Record<string, string> = {
+    "Esperando equipo": "bg-amber-100 text-amber-800",
+    "No interesado": "bg-gray-200 text-gray-700",
+    "Pendiente de instalación": "bg-green-100 text-green-800",
+    "Pendiente de visita": "bg-blue-100 text-blue-800",
+    "Equipo instalado con éxito": "bg-emerald-100 text-emerald-800",
+    "Instalación en Proceso": "bg-blue-100 text-blue-800",
+  }
+  return { className: estadosConfig[estado.trim()] || "bg-gray-100 text-gray-700", label: estado }
+}
+
+/** Mismo mapeo canónico de 5 colores que components/shared/atom/priority-dot.tsx */
+const PRIORIDAD_DOT_COLOR: Record<string, string> = {
+  Urgente: "bg-purple-500",
+  Alta: "bg-red-500",
+  Media: "bg-emerald-500",
+  Baja: "bg-blue-500",
+  Ninguna: "bg-gray-400",
 }
 
 export function ClienteDetallesDialog({
@@ -42,25 +96,26 @@ export function ClienteDetallesDialog({
 }: ClienteDetallesDialogProps) {
   if (!cliente) return null
 
-  const hasLocation = cliente.latitud !== undefined && cliente.latitud !== null && cliente.longitud !== undefined && cliente.longitud !== null
+  const hasLocation =
+    cliente.latitud !== undefined && cliente.latitud !== null && cliente.longitud !== undefined && cliente.longitud !== null
   const latNumber = hasLocation
-    ? (typeof cliente.latitud === 'number' ? cliente.latitud : parseFloat(cliente.latitud))
+    ? typeof cliente.latitud === "number"
+      ? cliente.latitud
+      : parseFloat(cliente.latitud as string)
     : null
   const lngNumber = hasLocation
-    ? (typeof cliente.longitud === 'number' ? cliente.longitud : parseFloat(cliente.longitud))
+    ? typeof cliente.longitud === "number"
+      ? cliente.longitud
+      : parseFloat(cliente.longitud as string)
     : null
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return null
-    // Si ya está en formato DD/MM/YYYY, devolverlo tal como está
-    if (dateString.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
-      return dateString
-    }
-    // Si está en formato ISO (YYYY-MM-DD), convertir a DD/MM/YYYY
+    if (dateString.match(/^\d{2}\/\d{2}\/\d{4}$/)) return dateString
     const date = new Date(dateString)
     if (!isNaN(date.getTime())) {
-      const day = date.getDate().toString().padStart(2, '0')
-      const month = (date.getMonth() + 1).toString().padStart(2, '0')
+      const day = date.getDate().toString().padStart(2, "0")
+      const month = (date.getMonth() + 1).toString().padStart(2, "0")
       const year = date.getFullYear()
       return `${day}/${month}/${year}`
     }
@@ -71,35 +126,29 @@ export function ClienteDetallesDialog({
     if (!tipoPersona) return null
     const normalized = tipoPersona.trim().toLowerCase()
     if (normalized === "natural") return "Natural"
-    if (normalized === "juridica" || normalized === "jurídica") {
-      return "Jurídica"
-    }
+    if (normalized === "juridica" || normalized === "jurídica") return "Jurídica"
     return tipoPersona
   }
 
   const tipoPersonaLabel = formatTipoPersona(cliente.tipo_persona)
-  const documentoLabel = tipoPersonaLabel === "Jurídica"
-    ? "NIT Empresa"
-    : "Carnet de Identidad"
+  const documentoLabel = tipoPersonaLabel === "Jurídica" ? "NIT Empresa" : "Carnet de Identidad"
 
   const handleDownloadComprobante = async () => {
     if (!cliente.comprobante_pago_url) return
-
     try {
       if (onDownloadComprobante) {
         await onDownloadComprobante(cliente)
         return
       }
-      await downloadFile(cliente.comprobante_pago_url, `comprobante-cliente-${cliente.nombre || cliente.id || 'archivo'}`)
+      await downloadFile(cliente.comprobante_pago_url, `comprobante-cliente-${cliente.nombre || cliente.id || "archivo"}`)
     } catch (error) {
-      console.error('Error downloading comprobante for cliente', cliente.id, error)
+      console.error("Error downloading comprobante for cliente", cliente.id, error)
     }
   }
 
   const fotos = fotosCliente ?? cliente.fotos ?? []
 
-  const isVideoUrl = (url: string) =>
-    /\.(mp4|webm|ogg|mov|m4v|avi|mkv|3gp)(\?|#|$)/i.test(url)
+  const isVideoUrl = (url: string) => /\.(mp4|webm|ogg|mov|m4v|avi|mkv|3gp)(\?|#|$)/i.test(url)
 
   const formatFechaArchivo = (value?: string) => {
     if (!value) return "Sin fecha"
@@ -116,464 +165,239 @@ export function ClienteDetallesDialog({
     }
   }
 
+  // Oferta: prioriza oferta_confeccion (real, vigente) sobre el legacy cliente.ofertas[]
+  const ofertaLegacy = (cliente.ofertas ?? []).find(
+    (o) => o.inversor_codigo || o.bateria_codigo || o.panel_codigo || o.elementos_personalizados,
+  )
+  const oc = cliente.oferta_confeccion
+  type Componente = { cantidad: number; descripcion: string }
+  let inv: Componente | null = null
+  let bats: Componente[] = []
+  let pan: Componente | null = null
+  let elementoPersonalizado: string | null = null
+
+  if (oc && oc.items?.length) {
+    ;({ inv, bats, pan } = extraerComponentesDeOfertaConfeccion(oc))
+  } else if (ofertaLegacy) {
+    if (ofertaLegacy.inversor_codigo && ofertaLegacy.inversor_cantidad > 0) {
+      inv = { cantidad: ofertaLegacy.inversor_cantidad, descripcion: ofertaLegacy.inversor_nombre || ofertaLegacy.inversor_codigo }
+    }
+    if (ofertaLegacy.bateria_codigo && ofertaLegacy.bateria_cantidad > 0) {
+      bats = [{ cantidad: ofertaLegacy.bateria_cantidad, descripcion: ofertaLegacy.bateria_nombre || ofertaLegacy.bateria_codigo }]
+    }
+    if (ofertaLegacy.panel_codigo && ofertaLegacy.panel_cantidad > 0) {
+      pan = { cantidad: ofertaLegacy.panel_cantidad, descripcion: ofertaLegacy.panel_nombre || ofertaLegacy.panel_codigo }
+    }
+    if (ofertaLegacy.elementos_personalizados) {
+      elementoPersonalizado = ofertaLegacy.elementos_personalizados
+    }
+  }
+  const hayOferta = Boolean(inv || bats.length > 0 || pan || elementoPersonalizado)
+
+  const costoOferta = ofertaLegacy?.costo_oferta || 0
+  const costoExtra = ofertaLegacy?.costo_extra || 0
+  const costoTransporte = ofertaLegacy?.costo_transporte || 0
+  const costoFinal = costoOferta + costoExtra + costoTransporte
+  const hayCostos = Boolean(ofertaLegacy) || Boolean(cliente.metodo_pago || cliente.moneda || cliente.comprobante_pago_url)
+
+  const estadoBadge = getEstadoBadge(cliente.estado)
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="border-b pb-4">
-          <DialogTitle className="text-xl font-semibold text-gray-900">
-            Información del Cliente
-          </DialogTitle>
+      <DialogContent className="max-w-md max-h-[85vh] overflow-hidden p-0 gap-0 flex flex-col">
+        <DialogHeader className="shrink-0 border-b border-gray-100 px-5 py-4 pr-10">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-base font-semibold text-emerald-700">
+              {cliente.nombre?.charAt(0)?.toUpperCase() || "?"}
+            </div>
+            <div className="min-w-0 flex-1">
+              <DialogTitle className="truncate text-base font-semibold text-gray-900">{cliente.nombre}</DialogTitle>
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                <Badge className={`${estadoBadge.className} px-2 py-0.5 text-xs`}>{estadoBadge.label}</Badge>
+                {cliente.prioridad && cliente.prioridad !== "Ninguna" && (
+                  <span className="inline-flex items-center gap-1.5 text-xs text-gray-500">
+                    <span className={`h-1.5 w-1.5 rounded-full ${PRIORIDAD_DOT_COLOR[cliente.prioridad] || "bg-gray-400"}`} />
+                    {cliente.prioridad}
+                  </span>
+                )}
+                {cliente.es_trabajador_suncar && (
+                  <Badge className="bg-violet-100 px-2 py-0.5 text-xs text-violet-700">Trabajador SunCar</Badge>
+                )}
+              </div>
+            </div>
+          </div>
         </DialogHeader>
 
-        <div className="space-y-6 pt-4">
-          {/* Sección 1: Datos Personales */}
-          <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
-            <div className="pb-4 mb-4 border-b-2 border-gray-200">
-              <h3 className="text-xl font-bold text-gray-900">Datos Personales</h3>
-              <p className="text-sm text-gray-500 mt-1">Información básica del contacto</p>
-            </div>
-            <div className="space-y-4">
-              {/* Fila 1: Nombre y Referencia */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-gray-700">Nombre</Label>
-                  <p className="text-gray-900 font-medium mt-1">{cliente.nombre}</p>
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          <div className="space-y-5">
+            {/* Identificación */}
+            <section>
+              <h4 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Identificación</h4>
+              <div className="space-y-2.5">
+                <ClienteInfoRow label="Código de cliente" value={`N° ${cliente.numero}`} />
+                <ClienteInfoRow icon={CreditCard} label={documentoLabel} value={cliente.carnet_identidad} />
+                <ClienteInfoRow label="Tipo de persona" value={tipoPersonaLabel} />
+              </div>
+            </section>
+
+            {/* Contacto */}
+            <section className="border-t border-gray-100 pt-5">
+              <h4 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Contacto</h4>
+              <div className="space-y-2.5">
+                <ClienteInfoRow icon={Phone} label="Teléfono" value={cliente.telefono} />
+                <ClienteInfoRow icon={PhoneForwarded} label="Teléfono adicional" value={cliente.telefono_adicional} />
+                <ClienteInfoRow icon={Globe} label="País de contacto" value={cliente.pais_contacto} />
+                <ClienteInfoRow label="Referencia" value={cliente.referencia} />
+              </div>
+            </section>
+
+            {/* Ubicación */}
+            {(cliente.direccion || cliente.provincia_montaje || cliente.municipio) && (
+              <section className="border-t border-gray-100 pt-5">
+                <h4 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Ubicación</h4>
+                <div className="space-y-2.5">
+                  <ClienteInfoRow icon={MapPin} label="Dirección" value={cliente.direccion} />
+                  <ClienteInfoRow label="Provincia" value={cliente.provincia_montaje} />
+                  <ClienteInfoRow label="Municipio" value={cliente.municipio} />
+                  {hasLocation && latNumber !== null && lngNumber !== null && !Number.isNaN(latNumber) && !Number.isNaN(lngNumber) && (
+                    <ClienteInfoRow
+                      icon={Navigation}
+                      label="Coordenadas GPS"
+                      value={`${latNumber.toFixed(6)}, ${lngNumber.toFixed(6)}`}
+                    />
+                  )}
                 </div>
-                {cliente.referencia && (
-                  <div>
-                    <Label className="text-gray-700">Referencia</Label>
-                    <p className="text-gray-900 mt-1">{cliente.referencia}</p>
-                  </div>
+              </section>
+            )}
+
+            {/* Seguimiento */}
+            <section className="border-t border-gray-100 pt-5">
+              <h4 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Seguimiento</h4>
+              <div className="space-y-2.5">
+                <ClienteInfoRow icon={Calendar} label="Fecha de contacto" value={formatDate(cliente.fecha_contacto)} />
+                <ClienteInfoRow label="Fuente" value={cliente.fuente} />
+                <ClienteInfoRow icon={UserCheck} label="Comercial asignado" value={cliente.comercial} />
+                {compareStrings(cliente.estado || "", "Pendiente de visita") && (
+                  <ClienteInfoRow label="Motivo de visita" value={cliente.motivo_visita} />
                 )}
               </div>
+            </section>
 
-              {/* Fila 2: Código y Documento */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-gray-700">Código de Cliente</Label>
-                  <p className="text-gray-900 font-medium mt-1">N° {cliente.numero}</p>
-                </div>
-                {cliente.carnet_identidad && (
-                  <div>
-                    <Label className="text-gray-700">{documentoLabel}</Label>
-                    <p className="text-gray-900 flex items-center gap-2 mt-1">
-                      <CreditCard className="h-4 w-4 text-gray-400" />
-                      {cliente.carnet_identidad}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Fila 3: Teléfono y Teléfono Adicional */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-gray-700">Teléfono</Label>
-                  <p className="text-gray-900 font-medium flex items-center gap-2 mt-1">
-                    <Phone className="h-4 w-4 text-gray-400" />
-                    {cliente.telefono || 'No registrado'}
-                  </p>
-                </div>
-                {cliente.telefono_adicional && (
-                  <div>
-                    <Label className="text-gray-700">Teléfono Adicional</Label>
-                    <p className="text-gray-900 flex items-center gap-2 mt-1">
-                      <PhoneForwarded className="h-4 w-4 text-gray-400" />
-                      {cliente.telefono_adicional}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Fila 4: Estado, Fuente, Tipo de Persona y Fecha de Contacto */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                {cliente.estado && (
-                  <div>
-                    <Label className="text-gray-700">Estado</Label>
-                    <div className="mt-1">
-                      <Badge className="bg-emerald-100 text-emerald-700 border-emerald-300 text-sm px-3 py-1">
-                        {cliente.estado}
-                      </Badge>
-                    </div>
-                  </div>
-                )}
-                {cliente.fuente && (
-                  <div>
-                    <Label className="text-gray-700">Fuente</Label>
-                    <p className="text-gray-900 mt-1">{cliente.fuente}</p>
-                  </div>
-                )}
-                {formatTipoPersona(cliente.tipo_persona) && (
-                  <div>
-                    <Label className="text-gray-700">Tipo de Persona</Label>
-                    <p className="text-gray-900 mt-1">
-                      {formatTipoPersona(cliente.tipo_persona)}
-                    </p>
-                  </div>
-                )}
-                {cliente.fecha_contacto && (
-                  <div>
-                    <Label className="text-gray-700">Fecha de Contacto</Label>
-                    <p className="text-gray-900 flex items-center gap-2 mt-1">
-                      <Calendar className="h-4 w-4 text-gray-400" />
-                      {formatDate(cliente.fecha_contacto)}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Fila 4.5: Prioridad */}
-              {cliente.prioridad && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <Label className="text-gray-700">Prioridad</Label>
-                    <div className="mt-1 flex items-center gap-2">
-                      <div className={`w-3 h-3 rounded-full ${
-                        cliente.prioridad === 'Alta' ? 'bg-red-500' :
-                        cliente.prioridad === 'Baja' ? 'bg-blue-500' :
-                        'bg-emerald-500'
-                      }`} />
-                      <span className="text-sm text-gray-900 font-medium">
-                        {cliente.prioridad}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Fila 4.5: Falta Instalación (Condicional) */}
-              {cliente.falta_instalacion &&
-                (compareStrings(cliente.estado || '', 'Instalación en Proceso') ||
-                  compareStrings(cliente.estado || '', 'Equipo instalado con éxito')) && (
-                <div>
-                  <Label className="text-gray-700">¿Qué le falta a la instalación?</Label>
-                  <p className="text-sm text-gray-700 bg-amber-50 p-3 rounded-md border border-amber-200 mt-1">
-                    {cliente.falta_instalacion}
-                  </p>
-                </div>
-              )}
-
-              {/* Fila 5: Dirección (ancho completo) */}
-              <div>
-                <Label className="text-gray-700">Dirección</Label>
-                <p className="text-gray-900 flex items-start gap-2 mt-1">
-                  <MapPin className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                  {cliente.direccion || 'Sin dirección'}
-                </p>
-              </div>
-
-              {/* Fila 6: Provincia, Municipio y País */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {cliente.provincia_montaje && (
-                  <div>
-                    <Label className="text-gray-700">Provincia</Label>
-                    <p className="text-gray-900 mt-1">{cliente.provincia_montaje}</p>
-                  </div>
-                )}
-                {cliente.municipio && (
-                  <div>
-                    <Label className="text-gray-700">Municipio</Label>
-                    <p className="text-gray-900 mt-1">{cliente.municipio}</p>
-                  </div>
-                )}
-                {cliente.pais_contacto && (
-                  <div>
-                    <Label className="text-gray-700">País de Contacto</Label>
-                    <p className="text-gray-900 mt-1">{cliente.pais_contacto}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Fila 7: Coordenadas GPS */}
-              {hasLocation && latNumber !== null && lngNumber !== null && !Number.isNaN(latNumber) && !Number.isNaN(lngNumber) && (
-                <div>
-                  <Label className="text-gray-700">Coordenadas GPS</Label>
-                  <p className="text-gray-900 flex items-center gap-2 mt-1">
-                    <Navigation className="h-4 w-4 text-gray-400" />
-                    {latNumber.toFixed(6)}, {lngNumber.toFixed(6)}
-                  </p>
-                </div>
-              )}
-
-              {/* Fila 8: Comercial */}
-              {cliente.comercial && (
-                <div>
-                  <Label className="text-gray-700">Comercial Asignado</Label>
-                  <p className="text-gray-900 flex items-center gap-2 mt-1">
-                    <UserCheck className="h-4 w-4 text-gray-400" />
-                    {cliente.comercial}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Sección 2: Fechas de Instalación */}
-          {(cliente.fecha_montaje || cliente.fecha_instalacion) && (
-            <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
-              <div className="pb-4 mb-4 border-b-2 border-gray-200">
-                <h3 className="text-xl font-bold text-gray-900">Fechas de Instalación</h3>
-                <p className="text-sm text-gray-500 mt-1">Inicio y fin de la instalación</p>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {cliente.fecha_montaje && (
-                  <div>
-                    <Label className="text-gray-700">Fecha de Inicio de Instalación</Label>
-                    <p className="text-gray-900 flex items-center gap-2 mt-1">
-                      <Calendar className="h-4 w-4 text-gray-400" />
-                      {formatDate(cliente.fecha_montaje)}
-                    </p>
-                  </div>
-                )}
-                {cliente.fecha_instalacion && (
-                  <div>
-                    <Label className="text-gray-700">Fecha de Fin de Instalación</Label>
-                    <p className="text-gray-900 flex items-center gap-2 mt-1">
-                      <Calendar className="h-4 w-4 text-gray-400" />
-                      {formatDate(cliente.fecha_instalacion)}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Sección 3: Oferta */}
-          {cliente.ofertas && cliente.ofertas.length > 0 && (
-            <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
-              <div className="pb-4 mb-4 border-b-2 border-gray-200">
-                <h3 className="text-xl font-bold text-gray-900">Oferta</h3>
-                <p className="text-sm text-gray-500 mt-1">Detalles de productos y cantidades</p>
-              </div>
-              <div className="space-y-4">
-                {cliente.ofertas.map((oferta, idx) => (
-                  <div key={idx} className="border rounded-lg p-4 bg-gray-50">
-                    {/* Productos en Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {/* Inversor */}
-                      {oferta.inversor_codigo && oferta.inversor_cantidad > 0 && (
-                        <div>
-                          <Label className="text-gray-700">Inversor</Label>
-                          <p className="text-gray-900 font-medium mt-1">
-                            {oferta.inversor_nombre || oferta.inversor_codigo}
-                          </p>
-                          <p className="text-sm text-gray-500">Cantidad: {oferta.inversor_cantidad}</p>
-                        </div>
-                      )}
-
-                      {/* Batería */}
-                      {oferta.bateria_codigo && oferta.bateria_cantidad > 0 && (
-                        <div>
-                          <Label className="text-gray-700">Batería</Label>
-                          <p className="text-gray-900 font-medium mt-1">
-                            {oferta.bateria_nombre || oferta.bateria_codigo}
-                          </p>
-                          <p className="text-sm text-gray-500">Cantidad: {oferta.bateria_cantidad}</p>
-                        </div>
-                      )}
-
-                      {/* Panel */}
-                      {oferta.panel_codigo && oferta.panel_cantidad > 0 && (
-                        <div>
-                          <Label className="text-gray-700">Panel</Label>
-                          <p className="text-gray-900 font-medium mt-1">
-                            {oferta.panel_nombre || oferta.panel_codigo}
-                          </p>
-                          <p className="text-sm text-gray-500">Cantidad: {oferta.panel_cantidad}</p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Estado de la Oferta */}
-                    {(oferta.aprobada || oferta.pagada) && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                        {oferta.aprobada && (
-                          <div className="flex items-center space-x-2 p-3 border rounded-md bg-white">
-                            <input
-                              type="checkbox"
-                              checked={true}
-                              disabled
-                              className="h-5 w-5 rounded border-gray-300 text-green-600"
-                            />
-                            <Label className="font-medium">Oferta Aprobada</Label>
-                          </div>
-                        )}
-                        {oferta.pagada && (
-                          <div className="flex items-center space-x-2 p-3 border rounded-md bg-white">
-                            <input
-                              type="checkbox"
-                              checked={true}
-                              disabled
-                              className="h-5 w-5 rounded border-gray-300 text-blue-600"
-                            />
-                            <Label className="font-medium">Oferta Pagada</Label>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Elementos Personalizados */}
-                    {oferta.elementos_personalizados && (
-                      <div className="mt-4">
-                        <Label className="text-gray-700">Elementos Personalizados (Comentario)</Label>
-                        <p className="text-sm text-gray-700 bg-white p-3 rounded-md border mt-1">
-                          {oferta.elementos_personalizados}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Sección 4: Costos y Pago */}
-          {cliente.ofertas && cliente.ofertas.length > 0 && (
-            <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
-              <div className="pb-4 mb-4 border-b-2 border-gray-200">
-                <h3 className="text-xl font-bold text-gray-900">Costos y Pago</h3>
-                <p className="text-sm text-gray-500 mt-1">Información financiera de la oferta</p>
-              </div>
-              <div className="space-y-4">
-                {cliente.ofertas.map((oferta, idx) => {
-                  const costoOferta = oferta.costo_oferta || 0
-                  const costoExtra = oferta.costo_extra || 0
-                  const costoTransporte = oferta.costo_transporte || 0
-                  const costoFinal = costoOferta + costoExtra + costoTransporte
-                  
-                  return (
-                  <div key={`costos-${idx}`}>
-                    {/* Costos - Primera fila */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Instalación */}
+            {(cliente.fecha_montaje || cliente.fecha_instalacion || cliente.falta_instalacion) && (
+              <section className="border-t border-gray-100 pt-5">
+                <h4 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Instalación</h4>
+                <div className="space-y-2.5">
+                  <ClienteInfoRow icon={Calendar} label="Fecha de inicio" value={formatDate(cliente.fecha_montaje)} />
+                  <ClienteInfoRow icon={Calendar} label="Fecha de fin" value={formatDate(cliente.fecha_instalacion)} />
+                  {cliente.falta_instalacion &&
+                    (compareStrings(cliente.estado || "", "Instalación en Proceso") ||
+                      compareStrings(cliente.estado || "", "Equipo instalado con éxito")) && (
                       <div>
-                        <Label className="text-gray-700">Costo de Oferta</Label>
-                        <p className="text-gray-900 font-semibold mt-1">
-                          ${costoOferta.toFixed(2)}
+                        <p className="text-xs text-gray-500">¿Qué le falta a la instalación?</p>
+                        <p className="mt-1 whitespace-pre-wrap break-words rounded-md bg-amber-50 p-3 text-sm text-gray-700 border border-amber-200">
+                          {cliente.falta_instalacion}
                         </p>
                       </div>
-                      {costoExtra > 0 && (
-                        <div>
-                          <Label className="text-gray-700">Costo Extra</Label>
-                          <p className="text-gray-900 font-semibold mt-1">
-                            ${costoExtra.toFixed(2)}
-                          </p>
-                        </div>
+                    )}
+                </div>
+              </section>
+            )}
+
+            {/* Oferta */}
+            {hayOferta && (
+              <section className="border-t border-gray-100 pt-5">
+                <h4 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Oferta</h4>
+                <div className="space-y-2.5">
+                  <ClienteInfoRow
+                    icon={Zap}
+                    label="Inversor"
+                    value={inv ? `${inv.descripcion} · Cant: ${inv.cantidad}` : undefined}
+                  />
+                  {bats.map((b, idx) => (
+                    <ClienteInfoRow
+                      key={`bat-${idx}`}
+                      icon={Battery}
+                      label="Batería"
+                      value={`${b.descripcion} · Cant: ${b.cantidad}`}
+                    />
+                  ))}
+                  <ClienteInfoRow
+                    icon={Sun}
+                    label="Paneles"
+                    value={pan ? `${pan.descripcion} · Cant: ${pan.cantidad}` : undefined}
+                  />
+                  {ofertaLegacy && (ofertaLegacy.aprobada || ofertaLegacy.pagada) && (
+                    <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                      {ofertaLegacy.aprobada && (
+                        <Badge className="bg-green-100 px-2 py-0.5 text-xs text-green-700">Oferta aprobada</Badge>
                       )}
+                      {ofertaLegacy.pagada && (
+                        <Badge className="bg-blue-100 px-2 py-0.5 text-xs text-blue-700">Oferta pagada</Badge>
+                      )}
+                    </div>
+                  )}
+                  <ClienteInfoRow label="Elementos personalizados" value={elementoPersonalizado} />
+                </div>
+              </section>
+            )}
+
+            {/* Costos y Pago */}
+            {hayCostos && (
+              <section className="border-t border-gray-100 pt-5">
+                <h4 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Costos y pago</h4>
+                <div className="space-y-2.5">
+                  {ofertaLegacy && (
+                    <>
+                      <ClienteInfoRow label="Costo de oferta" value={`$${costoOferta.toFixed(2)}`} />
+                      {costoExtra > 0 && <ClienteInfoRow label="Costo extra" value={`$${costoExtra.toFixed(2)}`} />}
                       {costoTransporte > 0 && (
-                        <div>
-                          <Label className="text-gray-700">Costo de Transporte</Label>
-                          <p className="text-gray-900 font-semibold mt-1">
-                            ${costoTransporte.toFixed(2)}
-                          </p>
-                        </div>
+                        <ClienteInfoRow label="Costo de transporte" value={`$${costoTransporte.toFixed(2)}`} />
                       )}
-                    </div>
-
-                    {/* Costo Final */}
-                    <div className="mt-4 p-4 bg-gray-50 rounded-lg border">
-                      <Label className="text-gray-700">Costo Final</Label>
-                      <p className="text-2xl font-bold text-gray-900 mt-1">
-                        ${costoFinal.toFixed(2)}
-                      </p>
-                    </div>
-
-                    {/* Razón del Costo Extra */}
-                    {oferta.razon_costo_extra && (
-                      <div className="mt-4">
-                        <Label className="text-gray-700">Razón del Costo Extra</Label>
-                        <p className="text-sm text-gray-700 bg-white p-3 rounded-md border mt-1">
-                          {oferta.razon_costo_extra}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                  )
-                })}
-
-                {/* Método de Pago y Moneda */}
-                {(cliente.metodo_pago || cliente.moneda) && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
-                    {cliente.metodo_pago && (
-                      <div>
-                        <Label className="text-gray-700">Método de Pago</Label>
-                        <p className="text-gray-900 font-medium mt-1">{cliente.metodo_pago}</p>
-                      </div>
-                    )}
-                    {cliente.moneda && (
-                      <div>
-                        <Label className="text-gray-700">Moneda</Label>
-                        <p className="text-gray-900 font-medium mt-1">{cliente.moneda}</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Comprobante de Pago */}
-                {cliente.comprobante_pago_url && (
-                  <div className="pt-4 border-t">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleDownloadComprobante}
-                      className="w-full md:w-auto"
-                    >
+                      <ClienteInfoRow strong label="Costo final" value={`$${costoFinal.toFixed(2)}`} />
+                    </>
+                  )}
+                  <ClienteInfoRow label="Método de pago" value={cliente.metodo_pago} />
+                  <ClienteInfoRow label="Moneda" value={cliente.moneda} />
+                  {cliente.comprobante_pago_url && (
+                    <Button type="button" variant="outline" size="sm" onClick={handleDownloadComprobante} className="mt-1 w-full">
                       <Download className="h-4 w-4 mr-2" />
-                      Descargar Comprobante
+                      Descargar comprobante
                     </Button>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+                  )}
+                </div>
+              </section>
+            )}
 
-          {/* Sección 5: Evidencias (Fotos/Videos) */}
-          <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
-            <div className="pb-4 mb-4 border-b-2 border-gray-200">
-              <h3 className="text-xl font-bold text-gray-900">Evidencias</h3>
-              <p className="text-sm text-gray-500 mt-1">Archivos subidos del cliente (instalación o avería)</p>
-            </div>
-
-            {loadingFotosCliente ? (
-              <p className="text-sm text-gray-500">Cargando archivos...</p>
-            ) : fotos.length === 0 ? (
-              <p className="text-sm text-gray-500">Este cliente no tiene archivos subidos.</p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {fotos.map((archivo, index) => (
-                  <div key={`${archivo.url}-${index}`} className="border rounded-lg p-3 bg-gray-50">
-                    <div className="w-full h-48 bg-black/5 rounded-md overflow-hidden mb-3">
-                      {isVideoUrl(archivo.url) ? (
-                        <video
-                          src={archivo.url}
-                          controls
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <img
-                          src={archivo.url}
-                          alt={`Evidencia ${index + 1}`}
-                          className="w-full h-full object-cover"
-                        />
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <Badge className="bg-blue-100 text-blue-700 border-blue-200">
+            {/* Evidencias */}
+            <section className="border-t border-gray-100 pt-5">
+              <h4 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Evidencias</h4>
+              {loadingFotosCliente && <p className="text-sm text-gray-500">Cargando archivos...</p>}
+              {!loadingFotosCliente && fotos.length === 0 && <p className="text-sm text-gray-500">Este cliente no tiene archivos subidos.</p>}
+              {!loadingFotosCliente && fotos.length > 0 && (
+                <div className="grid grid-cols-2 gap-2.5">
+                  {fotos.map((archivo, index) => (
+                    <div key={`${archivo.url}-${index}`} className="rounded-md border border-gray-100 p-2">
+                      <div className="mb-2 h-24 w-full overflow-hidden rounded bg-black/5">
+                        {isVideoUrl(archivo.url) ? (
+                          <video src={archivo.url} controls className="h-full w-full object-cover" />
+                        ) : (
+                          <img src={archivo.url} alt={`Evidencia ${index + 1}`} className="h-full w-full object-cover" />
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between gap-1">
+                        <Badge className="border-blue-200 bg-blue-100 px-1.5 py-0 text-[10px] text-blue-700">
                           {archivo.tipo === "instalacion" ? "Instalación" : "Avería"}
                         </Badge>
-                        <span className="text-xs text-gray-500">
-                          {formatFechaArchivo(archivo.fecha)}
-                        </span>
+                        <span className="text-[10px] text-gray-500">{formatFechaArchivo(archivo.fecha)}</span>
                       </div>
-
-                      <div className="flex gap-2">
+                      <div className="mt-2 flex gap-1.5">
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
                           onClick={() => window.open(archivo.url, "_blank")}
-                          className="flex-1"
+                          className="h-7 flex-1 px-1 text-xs"
                         >
                           Ver
                         </Button>
@@ -581,76 +405,66 @@ export function ClienteDetallesDialog({
                           type="button"
                           variant="outline"
                           size="sm"
-                          onClick={() => handleDownloadArchivo(archivo.url, index)}
-                          className="flex-1"
+                          onClick={() => void handleDownloadArchivo(archivo.url, index)}
+                          className="h-7 flex-1 px-1 text-xs"
                         >
                           Descargar
                         </Button>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+                  ))}
+                </div>
+              )}
+            </section>
 
-          {/* Sección 6: Comentarios (Condicional) */}
-          {cliente.comentario && (
-            <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
-              <div className="pb-4 mb-4 border-b-2 border-gray-200">
-                <h3 className="text-xl font-bold text-gray-900">Comentarios</h3>
-                <p className="text-sm text-gray-500 mt-1">Notas adicionales sobre el cliente</p>
-              </div>
-              <div className="space-y-4">
-                <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap break-words bg-gray-50 p-4 rounded-lg border">
+            {/* Comentarios */}
+            {cliente.comentario && (
+              <section className="border-t border-gray-100 pt-5">
+                <h4 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Comentarios</h4>
+                <p className="whitespace-pre-wrap break-words rounded-md bg-gray-50 p-3 text-sm leading-relaxed text-gray-700">
                   {cliente.comentario}
                 </p>
-              </div>
-            </div>
-          )}
-
-          {/* Sección 7: Elementos Personalizados (Condicional) */}
-          {cliente.elementos_personalizados && cliente.elementos_personalizados.length > 0 && (
-            <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
-              <div className="pb-4 mb-4 border-b-2 border-gray-200">
-                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <ListChecks className="h-5 w-5" />
-                  Elementos Personalizados
-                </h3>
-                <p className="text-sm text-gray-500 mt-1">Elementos adicionales del cliente</p>
-              </div>
-              <div className="space-y-2">
-                {cliente.elementos_personalizados.map((elemento, index) => (
-                  <div key={index} className="flex items-center justify-between border rounded-md px-4 py-3 bg-gray-50">
-                    <span className="text-sm text-gray-900">{elemento.descripcion}</span>
-                    <span className="text-sm font-medium text-gray-600 ml-4">
-                      Cant: {elemento.cantidad}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Botones */}
-          <div className="flex justify-end gap-2 pt-4 border-t">
-            {onEdit && (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  onEdit(cliente)
-                  onOpenChange(false)
-                }}
-                className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-              >
-                <Edit className="h-4 w-4 mr-2" />
-                Editar Cliente
-              </Button>
+              </section>
             )}
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cerrar
-            </Button>
+
+            {/* Elementos Personalizados */}
+            {cliente.elementos_personalizados && cliente.elementos_personalizados.length > 0 && (
+              <section className="border-t border-gray-100 pt-5">
+                <h4 className="mb-2.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                  <ListChecks className="h-3.5 w-3.5" />
+                  Elementos personalizados
+                </h4>
+                <div className="divide-y divide-gray-100">
+                  {cliente.elementos_personalizados.map((elemento, index) => (
+                    <div key={index} className="flex items-center justify-between py-2 text-sm">
+                      <span className="text-gray-900">{elemento.descripcion}</span>
+                      <span className="ml-4 font-medium text-gray-500">Cant: {elemento.cantidad}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
           </div>
+        </div>
+
+        <div className="flex shrink-0 justify-end gap-2 border-t border-gray-100 px-5 py-3.5">
+          {onEdit && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                onEdit(cliente)
+                onOpenChange(false)
+              }}
+              className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+            >
+              <Edit className="h-4 w-4 mr-2" />
+              Editar cliente
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+            Cerrar
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

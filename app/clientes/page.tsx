@@ -1020,9 +1020,11 @@ export default function ClientesPage() {
           open={isCreateClientDialogOpen}
           onOpenChange={setIsCreateClientDialogOpen}
         >
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Crear nuevo cliente</DialogTitle>
+          <DialogContent className="max-w-xl max-h-[85vh] overflow-hidden p-0 gap-0 flex flex-col">
+            <DialogHeader className="shrink-0 border-b border-gray-100 px-5 py-4">
+              <DialogTitle className="text-base font-semibold text-gray-900">
+                Crear nuevo cliente
+              </DialogTitle>
             </DialogHeader>
             <CreateClientDialog
               onSubmit={handleCreateClient}
