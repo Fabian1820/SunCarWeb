@@ -2,6 +2,54 @@
 
 ---
 
+## 📅 20 de Julio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**4 commits reales** de yany1509 — todos en el módulo de ventas/pagos/devoluciones: (1) fix para que superAdmin pueda editar y cancelar cobros; (2) reflejo de devoluciones en tabla de Pagos Realizados con badge y corrección de bug de conversión USD; (3) badge de devolución por pago individual en Facturas Emitidas; (4) filtro "Devoluciones" en ambas pestañas de /solicitudes-ventas.
+
+---
+
+### Área 1: Pagos — superAdmin puede editar y cancelar cobros (1 commit — yany1509, 12:11)
+
+- **`fix(pagos): superAdmin puede editar y cancelar cobros`** — `puedeEditarCobro` solo miraba una whitelist de 2 CIs hardcodeados, dejando fuera a cualquier superAdmin. Ahora también devuelve `true` para `user.is_superAdmin`, consistente con el resto de la app.
+
+---
+
+### Área 2: Ventas — reflejar devoluciones en Pagos Realizados (1 commit — yany1509, 15:57)
+
+- **`fix(ventas): reflejar devoluciones en la tabla de Pagos Realizados`** — Ninguna devolución se veía en la interfaz aunque el backend la procesara bien: "Pend:" mostraba un snapshot congelado desde la creación del pago. Ahora cada fila muestra badge "Devuelto: $X (total/parcial)" y el botón "Devolución" se reemplaza por "Ya devuelto" cuando el pago ya se devolvió al 100%. El diálogo de registrar devolución descuenta lo ya devuelto del máximo permitido. Corrección de bug: "Pend:" convertía por `tasa_cambio` un valor que ya venía en USD.
+
+---
+
+### Área 3: Ventas — devolución por pago individual en Facturas Emitidas (1 commit — yany1509, 16:53)
+
+- **`feat(ventas): mostrar devolucion por pago en Facturas Emitidas`** — Cada pago dentro de una factura ahora muestra badge "Devuelto: $X" cuando ese pago puntual tiene una devolución registrada — tanto en la tabla de Facturas Emitidas como en el diálogo de detalle. Antes solo se veía el total devuelto de toda la factura, sin saber a cuál pago pertenecía.
+
+---
+
+### Área 4: Ventas — filtro "Devoluciones" en Pagos y Facturas (1 commit — yany1509, 17:57)
+
+- **`feat(ventas): filtro "Devoluciones" en Pagos realizados y Facturas emitidas`** — Nuevo selector (Todos / Con devolución / Sin devolución) en ambas pestañas de /solicitudes-ventas, mismo patrón visual que los demás filtros de la barra.
+
+---
+
+### Puede dar bateo
+
+1. **Badge "Devuelto: $X" depende de campo `monto_devuelto` a nivel de pago individual en la respuesta del backend**: Si el backend solo devuelve el total devuelto a nivel de factura (no por pago individual), el badge nunca aparece silenciosamente y los usuarios no sabrán que existe una devolución en ese pago.
+
+2. **"Ya devuelto" — condición de 100% calculada con flotantes en frontend**: Si la comparación `monto_devuelto >= monto_pago` usa flotantes sin redondeo, casos borde (e.g., $99.999 devuelto vs $100.00 original) pueden dejar el botón mostrando "Devolución" en un pago ya completamente devuelto.
+
+3. **Filtro "Con devolución / Sin devolución" — riesgo de filtrado solo en cliente**: Si el filtro no se envía como parámetro al backend y opera solo sobre la página visible, la paginación y los exports no reflejarán resultados correctos en datasets que superen una página.
+
+4. **Bug de conversión USD en "Pend:" — el mismo patrón puede existir en otros módulos**: La corrección aplica a la tabla de Pagos Realizados de Ventas. Si el mismo error de doble conversión por `tasa_cambio` existe en Pagos Clientes, Vales u otros módulos con montos pendientes, esos siguen mostrando valores incorrectos.
+
+5. **`puedeEditarCobro` fix solo en frontend — endpoint sin validación de autorización en backend**: El fix expande el acceso a superAdmins en la UI, pero si el endpoint de edición/cancelación de cobros no valida el rol en el servidor, cualquier usuario autenticado podría llamarlo directamente ignorando el gating del frontend.
+
+6. **Diálogo de devolución descuenta lo ya devuelto calculado en frontend — desincronía posible**: El máximo permitido para una nueva devolución se calcula restando `monto_devuelto` del total. Si el backend no devuelve `monto_devuelto` actualizado tras cada operación, el diálogo puede permitir exceder el monto total devuelto posible sin error visible.
+
+---
+
 ## 📅 19 de Julio, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -214,6 +262,12 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 #### Seguimientos vigentes
 
+- **Badge "Devuelto: $X" por pago — campo `monto_devuelto` ausente en respuesta silencia el indicador (Jul 20)**.
+- **"Ya devuelto" — condición 100% calculada con flotantes, edge case puede dejar botón "Devolución" incorrecto (Jul 20)**.
+- **Filtro "Devoluciones" — riesgo de filtrado solo en cliente; paginación y exports incorrectos en datasets grandes (Jul 20)**.
+- **Fix conversión USD "Pend:" — bug análogo de doble conversión puede existir en otros módulos (Jul 20)**.
+- **`puedeEditarCobro` fix solo en frontend — endpoint sin validación de autorización en backend sigue expuesto (Jul 20)**.
+- **Diálogo devolución descuenta lo ya devuelto en frontend — desincronía si backend no devuelve `monto_devuelto` actualizado (Jul 20)**.
 - **`PATCH /pagos/{id}/cancelar` — endpoint nuevo sin confirmar, cancelaciones fallarán con 404 (Jul 17)**.
 - **Cancelar pago — estado solo visual si backend no valida; datos financieros inconsistentes (Jul 17)**.
 - **Devolución de pagos de venta — nuevo endpoint sin confirmar en backend (Jul 17)**.
@@ -276,7 +330,7 @@ Sin cambios nuevos — sin riesgos nuevos.
 - **Filtro potencia mín/máx sin validación `min > max` — resultados vacíos sin mensaje (Jun 23)**.
 - **Filtros potencia en paneles — unidad ambigua kW vs W en la UI (Jun 23)**.
 - **Filtros combinados tipo+potencia — confirmar soporte simultáneo en backend (Jun 23)**.
-- **Lista blanca de CIs de pagos hardcodeada en frontend — deploy requerido para cambios (Jun 23)**.
+- **Lista blanca de CIs de pagos hardcodeada en frontend — superAdmins ahora incluidos, pero 2 CIs específicos aún hardcodeados (Jun 23)**.
 - **Gating editar cobros solo en frontend — endpoint sin validación de autorización en backend (Jun 23)**.
 - **`historial_cambios` en tipo Pago — confirmar campo en respuesta del backend (Jun 23)**.
 - **Devolución en vales facturados — transición de estado en backend (Jun 19)**.
