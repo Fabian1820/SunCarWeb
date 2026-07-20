@@ -12,7 +12,7 @@ import {
 import { Badge } from "@/components/shared/atom/badge";
 import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/molecule/input";
-import { Loader2, FileText, RotateCcw, Search, Pencil } from "lucide-react";
+import { Loader2, FileText, RotateCcw, Search, Pencil, Ban } from "lucide-react";
 import type {
   OfertaConPagos,
   Pago,
@@ -20,6 +20,7 @@ import type {
 import { ExportComprobanteService } from "@/lib/services/feats/pagos/export-comprobante-service";
 import { getBaseACobrar } from "./todos-pagos-table";
 import { RegistrarDevolucionPagoDialog } from "./registrar-devolucion-pago-dialog";
+import { CancelarPagoDialog } from "./cancelar-pago-dialog";
 import { EditarPagoDialog } from "./editar-pago-dialog";
 import { useAuth } from "@/contexts/auth-context";
 import { puedeEditarCobro } from "@/lib/constants/pagos-permisos";
@@ -88,10 +89,13 @@ export function TodosPagosPlanosTable({
   showSearch = true,
 }: TodosPagosPlanosTableProps) {
   const { user } = useAuth();
-  const puedeEditar = puedeEditarCobro(user?.ci);
+  const puedeEditar = puedeEditarCobro(user?.ci, user?.is_superAdmin);
 
   const [devolucionDialogOpen, setDevolucionDialogOpen] = useState(false);
   const [pagoParaDevolucion, setPagoParaDevolucion] =
+    useState<PagoConOferta | null>(null);
+  const [cancelarDialogOpen, setCancelarDialogOpen] = useState(false);
+  const [pagoParaCancelar, setPagoParaCancelar] =
     useState<PagoConOferta | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [pagoParaEditar, setPagoParaEditar] = useState<PagoConOferta | null>(
@@ -332,6 +336,19 @@ export function TodosPagosPlanosTable({
     }
   };
 
+  const handleOpenCancelarDialog = (pago: PagoConOferta) => {
+    setPagoParaCancelar(pago);
+    setCancelarDialogOpen(true);
+  };
+
+  const handleCancelarSuccess = async () => {
+    setCancelarDialogOpen(false);
+    setPagoParaCancelar(null);
+    if (onPagoUpdated) {
+      await onPagoUpdated();
+    }
+  };
+
   const handleOpenEditDialog = (pago: PagoConOferta) => {
     setPagoParaEditar(pago);
     setEditDialogOpen(true);
@@ -405,9 +422,11 @@ export function TodosPagosPlanosTable({
             <TableRow
               key={pago.id}
               className={
-                isOfertaCancelada(pago.oferta.estado)
-                  ? "bg-red-50 hover:bg-red-100 border-red-200"
-                  : "hover:bg-gray-50"
+                pago.cancelado
+                  ? "bg-gray-50 hover:bg-gray-100 border-gray-200 opacity-70"
+                  : isOfertaCancelada(pago.oferta.estado)
+                    ? "bg-red-50 hover:bg-red-100 border-red-200"
+                    : "hover:bg-gray-50"
               }
             >
               <TableCell className="font-mono text-xs py-3">
@@ -417,8 +436,20 @@ export function TodosPagosPlanosTable({
                 {formatDate(pago.fecha)}
               </TableCell>
               <TableCell className="font-medium text-sm py-3">
-                {pago.oferta.numero_oferta}
-                {isOfertaCancelada(pago.oferta.estado) && (
+                <span className={pago.cancelado ? "line-through" : ""}>
+                  {pago.oferta.numero_oferta}
+                </span>
+                {pago.cancelado && (
+                  <div className="mt-1">
+                    <Badge
+                      className="bg-gray-200 text-gray-700"
+                      title={pago.motivo_cancelacion || undefined}
+                    >
+                      Cancelado
+                    </Badge>
+                  </div>
+                )}
+                {!pago.cancelado && isOfertaCancelada(pago.oferta.estado) && (
                   <div className="mt-1">
                     <Badge className="bg-red-100 text-red-700">
                       Devolucion
@@ -583,15 +614,28 @@ export function TodosPagosPlanosTable({
                       <Pencil className="h-4 w-4" />
                     </Button>
                   )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleOpenDevolucionDialog(pago)}
-                    className="h-8 w-8 p-0 text-amber-700 border-amber-300 hover:bg-amber-50"
-                    title="Registrar devolucion"
-                  >
-                    <RotateCcw className="h-4 w-4" />
-                  </Button>
+                  {!pago.cancelado && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleOpenDevolucionDialog(pago)}
+                      className="h-8 w-8 p-0 text-amber-700 border-amber-300 hover:bg-amber-50"
+                      title="Registrar devolucion"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {puedeEditar && !pago.cancelado && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleOpenCancelarDialog(pago)}
+                      className="h-8 w-8 p-0 text-red-700 border-red-300 hover:bg-red-50"
+                      title="Cancelar pago"
+                    >
+                      <Ban className="h-4 w-4" />
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
@@ -616,6 +660,15 @@ export function TodosPagosPlanosTable({
           pago={pagoParaDevolucion}
           codigoCliente={pagoParaDevolucion.contacto?.codigo || null}
           onSuccess={handleDevolucionSuccess}
+        />
+      )}
+
+      {pagoParaCancelar && (
+        <CancelarPagoDialog
+          open={cancelarDialogOpen}
+          onOpenChange={setCancelarDialogOpen}
+          pago={pagoParaCancelar}
+          onSuccess={handleCancelarSuccess}
         />
       )}
 

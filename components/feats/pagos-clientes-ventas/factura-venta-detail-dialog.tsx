@@ -6,6 +6,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/shared/molecule/dialog";
+import { Badge } from "@/components/shared/atom/badge";
+import { Ban } from "lucide-react";
 import type { FacturaVentaResumen } from "@/lib/types/feats/pagos-clientes-ventas/pago-cliente-venta-types";
 
 interface FacturaVentaDetailDialogProps {
@@ -36,10 +38,25 @@ export function FacturaVentaDetailDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Detalle de Factura {factura.numero_factura || "—"}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            Detalle de Factura {factura.numero_factura || "—"}
+            {factura.anulada && (
+              <Badge variant="destructive" className="gap-1 text-xs">
+                <Ban className="h-3 w-3" />
+                Anulada
+              </Badge>
+            )}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 text-sm">
+          {factura.anulada && (
+            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              <span className="font-semibold">Factura anulada.</span>{" "}
+              {factura.motivo_anulacion || "Todos los pagos vinculados fueron devueltos en su totalidad."}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             <div><span className="font-semibold">Número de factura:</span> {factura.numero_factura || "—"}</div>
             <div><span className="font-semibold">Fecha:</span> {factura.fecha || "—"}</div>
@@ -225,6 +242,11 @@ export function FacturaVentaDetailDialog({
             )}
           </div>
 
+          {Number(factura.total_devuelto || 0) > 0 && (
+            <div className="text-right text-sm text-amber-700">
+              Devuelto: {money(factura.total_devuelto)}
+            </div>
+          )}
           <div className="text-right font-semibold text-red-600">
             Monto pendiente: {money(factura.monto_pendiente)}
           </div>

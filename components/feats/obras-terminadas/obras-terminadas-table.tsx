@@ -1009,7 +1009,7 @@ export function ObrasTerminadasTable({
   const [searchTerm, setSearchTerm] = useState(serverFiltros.q ?? "")
   const [comercialFilter, setComercialFilter] = useState(serverFiltros.comercial ?? "todos")
   const [estadoPago, setEstadoPago] = useState<"todos" | "pagado" | "pendiente">("todos")
-  const [filtroFacturada, setFiltroFacturada] = useState<"todos" | "pagada" | "pendiente" | "sin_factura">("todos")
+  const [filtroFacturada, setFiltroFacturada] = useState<"todos" | "pagada" | "pendiente" | "sin_factura" | "pendiente_seleccion">("todos")
   const [filtroFechaCliente, setFiltroFechaCliente] = useState<DateFilterState>(initialDateFilter)
   const [filtroFechaEquipo, setFiltroFechaEquipo] = useState<DateFilterState>(initialDateFilter)
   const [showFilters, setShowFilters] = useState(true)
@@ -1186,10 +1186,11 @@ export function ObrasTerminadasTable({
                 <span className="text-xs font-semibold text-gray-500">Factura cliente</span>
                 <div className="flex gap-1 flex-wrap">
                   {([
-                    { v: "todos",       label: "Todos",           active: "bg-emerald-500 text-white border-emerald-500" },
-                    { v: "pagada",      label: "✓ Pagada",        active: "bg-emerald-600 text-white border-emerald-600" },
-                    { v: "pendiente",   label: "Con pendiente",   active: "bg-emerald-600 text-white border-emerald-600" },
-                    { v: "sin_factura", label: "Sin factura",     active: "bg-gray-500 text-white border-gray-500" },
+                    { v: "todos",               label: "Todos",                 active: "bg-emerald-500 text-white border-emerald-500" },
+                    { v: "pagada",              label: "✓ Pagada",              active: "bg-emerald-600 text-white border-emerald-600" },
+                    { v: "pendiente",           label: "Con pendiente",         active: "bg-emerald-600 text-white border-emerald-600" },
+                    { v: "pendiente_seleccion", label: "Pendiente de selección", active: "bg-amber-500 text-white border-amber-500" },
+                    { v: "sin_factura",         label: "Sin factura",           active: "bg-gray-500 text-white border-gray-500" },
                   ] as const).map(({ v, label, active }) => (
                     <button
                       key={v}
@@ -1324,6 +1325,17 @@ export function ObrasTerminadasTable({
                             </Badge>
                             {(() => {
                               if (!oferta.facturada || !oferta.numero_factura) {
+                                if (oferta.estado_factura_detalle === "pendiente_seleccion") {
+                                  return (
+                                    <span
+                                      className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700"
+                                      title="Este cliente tiene más de una oferta confirmada sin facturar — hay que elegir cuál facturar."
+                                    >
+                                      <AlertTriangle className="h-2.5 w-2.5" />
+                                      Pendiente de selección
+                                    </span>
+                                  )
+                                }
                                 return (
                                   <span className="inline-flex items-center gap-1 rounded-full border border-gray-300 bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-500">
                                     <Clock className="h-2.5 w-2.5" />

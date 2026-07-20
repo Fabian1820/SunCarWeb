@@ -157,7 +157,7 @@ export interface DevolucionValeMaterialPayload {
 export interface DevolucionValeCreateData {
   vale_id: string;
   responsable_devolucion: string;
-  comentario?: string;
+  comentario: string;
   materiales: DevolucionValeMaterialPayload[];
 }
 

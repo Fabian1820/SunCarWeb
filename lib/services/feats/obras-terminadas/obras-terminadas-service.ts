@@ -33,6 +33,9 @@ export interface ObraTerminada {
   facturada?: boolean | null;
   numero_factura?: string | null;
   fecha_facturacion?: string | null;
+  /** "facturada" | "pendiente_seleccion" (2+ ofertas confirmadas sin facturar,
+   * requiere elegir cuál) | "sin_factura" (sin esa ambigüedad activa). */
+  estado_factura_detalle?: "facturada" | "pendiente_seleccion" | "sin_factura" | null;
   /** Materiales de la oferta, embebidos directamente en el listado (igual que vales de salida). */
   materiales?: MaterialOferta[] | null;
 }
@@ -176,7 +179,7 @@ export interface ObrasTerminadasFiltros {
   comercial?: string;
   q?: string;
   estado_pago?: "todos" | "pagado" | "pendiente";
-  estado_factura?: "todos" | "facturada" | "pagada" | "pendiente" | "sin_factura";
+  estado_factura?: "todos" | "facturada" | "pagada" | "pendiente" | "sin_factura" | "pendiente_seleccion";
   es_trabajador_suncar?: boolean;
   requiere_instalado?: boolean;
   fecha_creacion_desde?: string;

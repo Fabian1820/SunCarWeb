@@ -34,6 +34,28 @@ export interface PagoVenta {
   fecha_actualizacion?: string | null;
 }
 
+export interface DevolucionPagoVentaCreateData {
+  pago_venta_id: string;
+  monto_devuelto: number;
+  fecha: string;
+  registrado_por?: string;
+  motivo_devolucion: string;
+  desglose_billetes?: Record<string, number>;
+}
+
+export interface DevolucionPagoVenta {
+  id: string;
+  pago_venta_id: string;
+  solicitud_venta_id: string;
+  monto_devuelto: number;
+  monto_devuelto_usd?: number | null;
+  fecha: string;
+  registrado_por: string;
+  motivo_devolucion: string;
+  desglose_billetes?: Record<string, number> | null;
+  fecha_creacion?: string;
+}
+
 export interface PagoVentaCreateData {
   solicitud_venta_id: string;
   monto: number;
@@ -104,6 +126,7 @@ export interface FacturaClienteVenta {
     fecha?: string;
   }>;
   total_pagado?: number;
+  total_devuelto?: number;
   monto_pendiente?: number;
   cliente?: string;
   cliente_nombre?: string;
@@ -114,6 +137,10 @@ export interface FacturaClienteVenta {
   emitida_por_nombre?: string | null;
   fecha_creacion?: string;
   fecha_actualizacion?: string | null;
+  anulada?: boolean;
+  motivo_anulacion?: string | null;
+  anulada_por_ci?: string | null;
+  anulada_en?: string | null;
 }
 
 export interface FacturaClienteVentaCreateData {
@@ -176,7 +203,12 @@ export interface FacturaVentaResumen {
   total_descuento_monto?: number;
   total_a_pagar?: number;
   total_pagado?: number;
+  total_devuelto?: number;
   monto_pendiente?: number;
+  anulada?: boolean;
+  motivo_anulacion?: string | null;
+  anulada_por_ci?: string | null;
+  anulada_en?: string | null;
 }
 
 // Alias de compatibilidad — retirar cuando todos los usos migren a PagoVenta

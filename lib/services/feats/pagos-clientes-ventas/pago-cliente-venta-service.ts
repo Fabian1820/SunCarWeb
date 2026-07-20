@@ -8,6 +8,8 @@ import type {
   PagoVentaCreateData,
   PagoVentaListParams,
   PagoVentaListResponse,
+  DevolucionPagoVentaCreateData,
+  DevolucionPagoVenta,
   FacturaClienteVenta,
   FacturaClienteVentaCreateData,
   FacturaVentaAgregados,
@@ -17,6 +19,7 @@ import type {
 } from "@/lib/types/feats/pagos-clientes-ventas/pago-cliente-venta-types";
 
 const BASE = "/pagos-ventas";
+const BASE_DEVOLUCIONES = "/devoluciones-pagos-ventas";
 const BASE_FACTURAS = "/facturas-ventas";
 const BASE_FACTURAS_LEGACY = "/facturas-clientes-ventas";
 const BASE_FACTURAS_OPERACIONES = "/operaciones/facturas-ventas";
@@ -174,6 +177,23 @@ export class PagoVentaService {
     });
     if (res?.error?.message) throw new Error(res.error.message);
     if (res?.detail) throw new Error(res.detail);
+  }
+
+  /**
+   * Registra una devolucion parcial o total sobre un pago de venta.
+   * Actualiza en cascada la solicitud (y su oferta_venta / factura vinculada
+   * si aplica) en el backend.
+   */
+  static async registrarDevolucion(
+    data: DevolucionPagoVentaCreateData,
+  ): Promise<DevolucionPagoVenta> {
+    const res: any = await apiRequest(`${BASE_DEVOLUCIONES}/`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    if (res?.error?.message) throw new Error(res.error.message);
+    if (res?.detail) throw new Error(res.detail);
+    return res?.data ?? res;
   }
 }
 
