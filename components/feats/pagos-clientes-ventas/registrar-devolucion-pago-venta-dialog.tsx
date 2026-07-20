@@ -56,6 +56,17 @@ export function RegistrarDevolucionPagoVentaDialog({
   const totalPago = useMemo(() => Number(pago?.monto || 0), [pago?.monto]);
   const monedaPago = pago?.moneda || "USD";
   const esEfectivo = pago?.metodo_pago === "efectivo";
+  const montoYaDevueltoUsd = Math.max(0, Number(pago?.monto_devuelto_usd) || 0);
+  const montoYaDevueltoOriginal = useMemo(() => {
+    if (montoYaDevueltoUsd <= 0) return 0;
+    if (monedaPago === "USD") return montoYaDevueltoUsd;
+    const tasa = Number(pago?.tasa_cambio);
+    return tasa > 0 ? montoYaDevueltoUsd / tasa : montoYaDevueltoUsd;
+  }, [montoYaDevueltoUsd, monedaPago, pago?.tasa_cambio]);
+  const disponibleParaDevolver = useMemo(
+    () => Math.max(0, Math.round((totalPago - montoYaDevueltoOriginal) * 100) / 100),
+    [totalPago, montoYaDevueltoOriginal],
+  );
 
   useEffect(() => {
     setLoading(false);
@@ -95,7 +106,7 @@ export function RegistrarDevolucionPagoVentaDialog({
   const handleToggleDevolverTodo = (checked: boolean) => {
     setDevolverTodo(checked);
     if (checked) {
-      setMontoDevolucion(totalPago.toFixed(2));
+      setMontoDevolucion(disponibleParaDevolver.toFixed(2));
       setError(null);
     }
   };
@@ -103,14 +114,19 @@ export function RegistrarDevolucionPagoVentaDialog({
   const handleSubmit = async () => {
     if (!pago?.id) return;
 
-    const monto = devolverTodo ? totalPago : parseAmount(montoDevolucion);
+    if (disponibleParaDevolver <= 0) {
+      setError("Este pago ya fue devuelto en su totalidad.");
+      return;
+    }
+
+    const monto = devolverTodo ? disponibleParaDevolver : parseAmount(montoDevolucion);
     if (!Number.isFinite(monto) || monto <= 0) {
       setError("El monto a devolver debe ser mayor que 0.");
       return;
     }
-    if (monto > totalPago) {
+    if (monto > disponibleParaDevolver) {
       setError(
-        `El monto a devolver no puede superar el total del pago (${formatCurrency(totalPago, monedaPago)}).`,
+        `El monto a devolver no puede superar lo disponible para este pago (${formatCurrency(disponibleParaDevolver, monedaPago)}).`,
       );
       return;
     }
@@ -188,6 +204,11 @@ export function RegistrarDevolucionPagoVentaDialog({
               <span className="font-semibold">Total del pago:</span>{" "}
               {formatCurrency(totalPago, monedaPago)} {monedaPago}
             </p>
+            {montoYaDevueltoUsd > 0 && (
+              <p className="mt-1 text-xs text-amber-700">
+                Ya devuelto: {formatCurrency(montoYaDevueltoOriginal, monedaPago)} {monedaPago} — disponible: {formatCurrency(disponibleParaDevolver, monedaPago)} {monedaPago}
+              </p>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -210,7 +231,7 @@ export function RegistrarDevolucionPagoVentaDialog({
               id="monto-devolucion-venta"
               type="number"
               min={0}
-              max={totalPago}
+              max={disponibleParaDevolver}
               step="0.01"
               value={montoDevolucion}
               disabled={loading || devolverTodo}
@@ -221,7 +242,7 @@ export function RegistrarDevolucionPagoVentaDialog({
               placeholder="0.00"
             />
             <p className="text-xs text-gray-500">
-              Máximo permitido: {formatCurrency(totalPago, monedaPago)}
+              Máximo permitido: {formatCurrency(disponibleParaDevolver, monedaPago)}
             </p>
           </div>
 

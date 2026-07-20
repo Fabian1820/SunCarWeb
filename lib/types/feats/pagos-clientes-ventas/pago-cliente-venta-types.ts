@@ -15,6 +15,7 @@ export interface PagoVenta {
   monto?: number;
   moneda?: "USD" | "CUP" | "EUR" | string;
   monto_pendiente_despues_pago?: number | null;
+  monto_devuelto_usd?: number | null;
   tasa_cambio?: number | null;
   monto_usd?: number | null;
   descuento_porcentaje?: number | null;
