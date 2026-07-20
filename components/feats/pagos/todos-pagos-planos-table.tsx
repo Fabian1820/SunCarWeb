@@ -89,7 +89,7 @@ export function TodosPagosPlanosTable({
   showSearch = true,
 }: TodosPagosPlanosTableProps) {
   const { user } = useAuth();
-  const puedeEditar = puedeEditarCobro(user?.ci);
+  const puedeEditar = puedeEditarCobro(user?.ci, user?.is_superAdmin);
 
   const [devolucionDialogOpen, setDevolucionDialogOpen] = useState(false);
   const [pagoParaDevolucion, setPagoParaDevolucion] =

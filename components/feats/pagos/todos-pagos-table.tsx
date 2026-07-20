@@ -219,7 +219,7 @@ export function TodosPagosTable({
 }: TodosPagosTableProps) {
   const { toast } = useToast();
   const { user } = useAuth();
-  const puedeEditar = puedeEditarCobro(user?.ci);
+  const puedeEditar = puedeEditarCobro(user?.ci, user?.is_superAdmin);
   const [expandedOfertas, setExpandedOfertas] = useState<Set<string>>(
     new Set(),
   );

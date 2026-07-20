@@ -11,9 +11,14 @@ export const CIS_AUTORIZADOS_EDITAR_COBRO: readonly string[] = [
 ];
 
 /**
- * Determina si un usuario (por su CI) puede editar cobros/pagos.
+ * Determina si un usuario (por su CI, o por ser superAdmin) puede editar
+ * cobros/pagos.
  */
-export function puedeEditarCobro(ci: string | null | undefined): boolean {
+export function puedeEditarCobro(
+  ci: string | null | undefined,
+  isSuperAdmin?: boolean,
+): boolean {
+  if (isSuperAdmin) return true;
   if (!ci) return false;
   return CIS_AUTORIZADOS_EDITAR_COBRO.includes(ci.trim());
 }
