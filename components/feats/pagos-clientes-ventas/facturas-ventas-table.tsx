@@ -484,6 +484,11 @@ export function FacturasVentasTable({
                                   ))}
                                 </div>
                               )}
+                              {Number(p.monto_devuelto_usd || 0) > 0 && (
+                                <div className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
+                                  Devuelto: {formatCurrency(p.monto_devuelto_usd)}
+                                </div>
+                              )}
                             </div>
                           );
                         })}

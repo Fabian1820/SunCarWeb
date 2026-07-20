@@ -113,6 +113,7 @@ export interface FacturaClienteVenta {
     monto?: number;
     moneda?: string;
     monto_usd?: number;
+    monto_devuelto_usd?: number;
     tasa_cambio?: number;
     metodo_pago?: string;
     recibido_por?: string;
@@ -182,6 +183,7 @@ export interface FacturaVentaResumenPago {
   monto?: number;
   moneda?: string;
   monto_usd?: number;
+  monto_devuelto_usd?: number;
   tasa_cambio?: number;
   metodo_pago?: string;
   recibido_por?: string;

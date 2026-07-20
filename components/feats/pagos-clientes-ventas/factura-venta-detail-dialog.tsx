@@ -215,6 +215,14 @@ export function FacturaVentaDetailDialog({
                           <span className="font-medium">{METODO_LABELS[metodo] || metodo}</span>
                         </div>
                       )}
+                      {Number(p.monto_devuelto_usd || 0) > 0 && (
+                        <div className="flex justify-between rounded bg-amber-50 px-2 py-1 -mx-1">
+                          <span className="font-semibold text-amber-800">Devuelto:</span>
+                          <span className="font-bold text-amber-800">
+                            {money(p.monto_devuelto_usd)} USD
+                          </span>
+                        </div>
+                      )}
                       {p.recibido_por && (
                         <div className="flex justify-between">
                           <span className="text-gray-500">Recibido por:</span>
