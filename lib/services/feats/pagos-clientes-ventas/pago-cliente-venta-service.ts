@@ -92,6 +92,8 @@ export class PagoVentaService {
     if (params.comercial) search.append("comercial", params.comercial);
     if (params.fecha_desde) search.append("fecha_desde", params.fecha_desde);
     if (params.fecha_hasta) search.append("fecha_hasta", params.fecha_hasta);
+    if (params.con_devolucion != null)
+      search.append("con_devolucion", String(params.con_devolucion));
     if (params.factura_venta_id)
       search.append("factura_venta_id", params.factura_venta_id);
     if (params.solicitud_venta_id)
@@ -266,6 +268,8 @@ export class FacturaClienteVentaService {
     if (params.fecha_desde) search.append("fecha_desde", params.fecha_desde);
     if (params.fecha_hasta) search.append("fecha_hasta", params.fecha_hasta);
     if (params.metodo_pago) search.append("metodo_pago", params.metodo_pago);
+    if (params.con_devolucion != null)
+      search.append("con_devolucion", String(params.con_devolucion));
 
     const qs = search.toString();
     const suffix = qs ? `?${qs}` : "";

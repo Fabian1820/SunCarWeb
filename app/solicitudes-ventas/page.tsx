@@ -166,6 +166,7 @@ const [exportingPagos, setExportingPagos]           = useState(false);
   const [f3Hasta, setF3Hasta]         = useState("");
   const [f3Periodo, setF3Periodo]     = useState("");
   const [f3Moneda, setF3Moneda]       = useState("");
+  const [f3ConDevolucion, setF3ConDevolucion] = useState("");
 
   const [f4Search, setF4Search]       = useState("");
   const [f4Estado, setF4Estado]       = useState("");
@@ -176,6 +177,7 @@ const [exportingPagos, setExportingPagos]           = useState(false);
   const [f4Periodo, setF4Periodo]     = useState("");
   const [f4Moneda, setF4Moneda]       = useState("");
   const [f4Metodo, setF4Metodo]       = useState("");
+  const [f4ConDevolucion, setF4ConDevolucion] = useState("");
 
   const getPeriodoRange = (periodo: string): { desde: string; hasta: string } => {
     const now = new Date();
@@ -294,8 +296,9 @@ const [exportingPagos, setExportingPagos]           = useState(false);
     metodo_pago: f3Metodo || undefined,
     moneda: f3Moneda || undefined,
     comercial: f3Comercial || undefined,
+    con_devolucion: f3ConDevolucion === "" ? undefined : f3ConDevolucion === "true",
     ...monthToRange(f3Mes, f3Desde, f3Hasta),
-  }), [f3Search, f3Metodo, f3Moneda, f3Comercial, f3Mes, f3Desde, f3Hasta]);
+  }), [f3Search, f3Metodo, f3Moneda, f3Comercial, f3ConDevolucion, f3Mes, f3Desde, f3Hasta]);
 
   const f4Params = useMemo(() => ({
     q: f4Search.trim() || undefined,
@@ -303,8 +306,9 @@ const [exportingPagos, setExportingPagos]           = useState(false);
     moneda: f4Moneda || undefined,
     comercial: f4Comercial || undefined,
     metodo_pago: f4Metodo || undefined,
+    con_devolucion: f4ConDevolucion === "" ? undefined : f4ConDevolucion === "true",
     ...monthToRange(f4Mes, f4Desde, f4Hasta),
-  }), [f4Search, f4Estado, f4Moneda, f4Comercial, f4Metodo, f4Mes, f4Desde, f4Hasta]);
+  }), [f4Search, f4Estado, f4Moneda, f4Comercial, f4Metodo, f4ConDevolucion, f4Mes, f4Desde, f4Hasta]);
 
   // El filtrado lo hace el backend; aquí solo paseamos lo cargado.
   const solicitudesDisplay = filteredSolicitudes;
@@ -1374,9 +1378,17 @@ const [exportingPagos, setExportingPagos]           = useState(false);
                     ))}
                   </SelectContent>
                 </Select>
-                {(f3Metodo || f3Comercial || f3Mes || f3Desde || f3Hasta || f3Periodo || f3Moneda) && (
+                <Select value={f3ConDevolucion || "all"} onValueChange={(v) => setF3ConDevolucion(v === "all" ? "" : v)}>
+                  <SelectTrigger className="h-8 w-40 text-xs"><SelectValue placeholder="Devoluciones" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="true">Con devolución</SelectItem>
+                    <SelectItem value="false">Sin devolución</SelectItem>
+                  </SelectContent>
+                </Select>
+                {(f3Metodo || f3Comercial || f3Mes || f3Desde || f3Hasta || f3Periodo || f3Moneda || f3ConDevolucion) && (
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-600"
-                    onClick={() => { setF3Metodo(""); setF3Comercial(""); setF3Mes(""); setF3Desde(""); setF3Hasta(""); setF3Periodo(""); setF3Moneda(""); }}>
+                    onClick={() => { setF3Metodo(""); setF3Comercial(""); setF3Mes(""); setF3Desde(""); setF3Hasta(""); setF3Periodo(""); setF3Moneda(""); setF3ConDevolucion(""); }}>
                     <FilterX className="h-4 w-4" />
                   </Button>
                 )}
@@ -1477,9 +1489,17 @@ const [exportingPagos, setExportingPagos]           = useState(false);
                     ))}
                   </SelectContent>
                 </Select>
-                {(f4Estado || f4Comercial || f4Mes || f4Desde || f4Hasta || f4Periodo || f4Moneda || f4Metodo) && (
+                <Select value={f4ConDevolucion || "all"} onValueChange={(v) => setF4ConDevolucion(v === "all" ? "" : v)}>
+                  <SelectTrigger className="h-8 w-40 text-xs"><SelectValue placeholder="Devoluciones" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="true">Con devolución</SelectItem>
+                    <SelectItem value="false">Sin devolución</SelectItem>
+                  </SelectContent>
+                </Select>
+                {(f4Estado || f4Comercial || f4Mes || f4Desde || f4Hasta || f4Periodo || f4Moneda || f4Metodo || f4ConDevolucion) && (
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-600"
-                    onClick={() => { setF4Estado(""); setF4Comercial(""); setF4Mes(""); setF4Desde(""); setF4Hasta(""); setF4Periodo(""); setF4Moneda(""); setF4Metodo(""); }}>
+                    onClick={() => { setF4Estado(""); setF4Comercial(""); setF4Mes(""); setF4Desde(""); setF4Hasta(""); setF4Periodo(""); setF4Moneda(""); setF4Metodo(""); setF4ConDevolucion(""); }}>
                     <FilterX className="h-4 w-4" />
                   </Button>
                 )}
