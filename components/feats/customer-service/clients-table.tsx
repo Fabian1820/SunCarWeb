@@ -26,6 +26,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  ConfirmDeleteDialog,
+  ConfirmEditDialog,
 } from "@/components/shared/molecule/dialog";
 import { Input } from "@/components/shared/molecule/input";
 import { Textarea } from "@/components/shared/molecule/textarea";
@@ -57,6 +59,8 @@ import {
   Zap,
   Battery,
   Sun,
+  Ban,
+  RotateCcw,
 } from "lucide-react";
 import { ClienteService } from "@/lib/api-services";
 import { apiRequest } from "@/lib/api-config";
@@ -99,6 +103,13 @@ interface ClientsTableProps {
   totalClients?: number;
   onEdit: (client: Cliente) => void;
   onDelete: (client: Cliente) => void;
+  onSetClienteStatus?: (
+    numero: string,
+    activo: boolean,
+  ) => Promise<
+    | { success: true }
+    | { success: false; error: { code: string; title: string; message: string; field?: string } }
+  >;
   onViewLocation: (client: Cliente) => void;
   onUploadFotos?: (
     client: Cliente,
@@ -121,6 +132,7 @@ interface ClientsTableProps {
     municipio: string[];
     ofertas: string;
     tiempo: string;
+    mostrarAnulados: boolean;
   }) => void;
   exportButtons?: React.ReactNode;
   initialSearchTerm?: string;
@@ -610,6 +622,7 @@ export function ClientsTable({
   clients,
   totalClients,
   onEdit,
+  onSetClienteStatus,
   onViewLocation,
   onUploadFotos,
   onUpdatePrioridad,
@@ -647,6 +660,9 @@ export function ClientsTable({
     lat: number;
     lng: number;
   } | null>(null);
+  const [isToggleStatusDialogOpen, setIsToggleStatusDialogOpen] = useState(false);
+  const [clienteToToggleStatus, setClienteToToggleStatus] = useState<Cliente | null>(null);
+  const [togglingStatus, setTogglingStatus] = useState(false);
   const [showClientDetails, setShowClientDetails] = useState(false);
   const [clientForDetails, setClientForDetails] = useState<Cliente | null>(
     null,
@@ -853,6 +869,7 @@ export function ClientsTable({
     municipio: [] as string[],
     ofertas: "",
     tiempo: "",
+    mostrarAnulados: false,
   });
 
   // Provincias / municipios para filtros
@@ -1031,6 +1048,7 @@ export function ClientsTable({
         municipio: filters.municipio,
         ofertas: filters.ofertas,
         tiempo: filters.tiempo,
+        mostrarAnulados: filters.mostrarAnulados,
       });
     }
   }, [debouncedSearchTerm, filters, onFiltersChange]);
@@ -1389,6 +1407,7 @@ export function ClientsTable({
       municipio: [],
       ofertas: "",
       tiempo: "",
+      mostrarAnulados: false,
     });
   };
 
@@ -1433,6 +1452,38 @@ export function ClientsTable({
         setClientLocation({ lat, lng });
         setShowClientLocation(true);
       }
+    }
+  };
+
+  const handleToggleClienteStatusClick = (client: Cliente) => {
+    setClienteToToggleStatus(client);
+    setIsToggleStatusDialogOpen(true);
+  };
+
+  const handleToggleClienteStatusConfirm = async () => {
+    if (!clienteToToggleStatus?.numero || !onSetClienteStatus) return;
+    const activar = clienteToToggleStatus.activo === false;
+    setTogglingStatus(true);
+    try {
+      const resultado = await onSetClienteStatus(clienteToToggleStatus.numero, activar);
+      if (resultado.success) {
+        toast({
+          title: "Éxito",
+          description: activar
+            ? "Cliente reactivado correctamente"
+            : "Cliente anulado correctamente",
+        });
+        setIsToggleStatusDialogOpen(false);
+        setClienteToToggleStatus(null);
+      } else {
+        toast({
+          title: resultado.error.title || "Error",
+          description: resultado.error.message,
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setTogglingStatus(false);
     }
   };
 
@@ -4449,6 +4500,15 @@ export function ClientsTable({
                 className="pl-10"
               />
             </div>
+            <label className="flex items-center gap-2 text-sm text-gray-700 whitespace-nowrap px-1">
+              <Checkbox
+                checked={filters.mostrarAnulados}
+                onCheckedChange={(checked) =>
+                  setFilters((prev) => ({ ...prev, mostrarAnulados: checked === true }))
+                }
+              />
+              Mostrar anulados
+            </label>
             <Button
               variant="outline"
               onClick={handleClearFilters}
@@ -4986,6 +5046,11 @@ export function ClientsTable({
                         </td>
                         <td className="px-4 py-3 align-top">
                           <div className="w-full">
+                            {client.activo === false && (
+                              <Badge className="bg-gray-200 text-gray-600 text-xs px-2 py-0.5 mb-1 inline-block">
+                                Anulado
+                              </Badge>
+                            )}
                             {client.estado && (
                               <Badge
                                 className={`${getEstadoColor(client.estado)} text-[13px] whitespace-normal break-words leading-tight inline-block px-2.5 py-1`}
@@ -5281,6 +5346,25 @@ export function ClientsTable({
                             >
                               <Edit className="h-3 w-3" />
                             </Button>
+                            {onSetClienteStatus && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleToggleClienteStatusClick(client)}
+                                className={
+                                  client.activo === false
+                                    ? "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 h-7 w-7 p-0"
+                                    : "text-red-600 hover:text-red-700 hover:bg-red-50 h-7 w-7 p-0"
+                                }
+                                title={client.activo === false ? "Reactivar" : "Anular"}
+                              >
+                                {client.activo === false ? (
+                                  <RotateCcw className="h-3 w-3" />
+                                ) : (
+                                  <Ban className="h-3 w-3" />
+                                )}
+                              </Button>
+                            )}
                             <Popover>
                               <PopoverTrigger asChild>
                                 <Button
@@ -5551,6 +5635,29 @@ export function ClientsTable({
         fotosCliente={fotosClientDetails}
         loadingFotosCliente={loadingFotosClientDetails}
       />
+
+      {/* Anular/Reactivar Confirmation Dialog */}
+      {clienteToToggleStatus?.activo === false ? (
+        <ConfirmEditDialog
+          open={isToggleStatusDialogOpen}
+          onOpenChange={setIsToggleStatusDialogOpen}
+          title="Reactivar Cliente"
+          message={`¿Reactivar al cliente ${clienteToToggleStatus?.nombre}? Volverá a aparecer en el listado de clientes activos.`}
+          onConfirm={handleToggleClienteStatusConfirm}
+          confirmText="Reactivar Cliente"
+          isLoading={togglingStatus}
+        />
+      ) : (
+        <ConfirmDeleteDialog
+          open={isToggleStatusDialogOpen}
+          onOpenChange={setIsToggleStatusDialogOpen}
+          title="Anular Cliente"
+          message={`¿Estás seguro de que quieres anular al cliente ${clienteToToggleStatus?.nombre}? Dejará de aparecer en el listado de clientes activos, pero podrás reactivarlo luego.`}
+          onConfirm={handleToggleClienteStatusConfirm}
+          confirmText="Anular Cliente"
+          isLoading={togglingStatus}
+        />
+      )}
 
       {/* Modal de gestión de averías */}
       {clientForAverias && (

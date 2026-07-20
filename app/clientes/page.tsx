@@ -45,6 +45,7 @@ type ClientesFilters = {
   municipio: string[];
   ofertas: string;
   tiempo: string;
+  mostrarAnulados: boolean;
   skip: number;
   limit: number;
 };
@@ -308,6 +309,7 @@ export default function ClientesPage() {
     municipio: [] as string[],
     ofertas: "",
     tiempo: "",
+    mostrarAnulados: false,
     skip: 0,
     limit: 20,
   });
@@ -333,7 +335,8 @@ export default function ClientesPage() {
           prev.provincia.join(",") !== newFilters.provincia.join(",") ||
           prev.municipio.join(",") !== newFilters.municipio.join(",") ||
           prev.ofertas !== newFilters.ofertas ||
-          prev.tiempo !== newFilters.tiempo;
+          prev.tiempo !== newFilters.tiempo ||
+          prev.mostrarAnulados !== newFilters.mostrarAnulados;
 
         if (!filtersChanged) return prev;
 
@@ -373,6 +376,7 @@ export default function ClientesPage() {
       municipio?: string;
       fechaDesde?: string;
       fechaHasta?: string;
+      activo?: boolean;
     }): Promise<Cliente[]> => {
       const cacheKey = JSON.stringify({
         q: baseParams.q || "",
@@ -383,6 +387,7 @@ export default function ClientesPage() {
         municipio: baseParams.municipio || "",
         fechaDesde: baseParams.fechaDesde || "",
         fechaHasta: baseParams.fechaHasta || "",
+        activo: baseParams.activo ?? null,
       });
       const cached = fetchAllCacheRef.current;
       if (
@@ -484,6 +489,7 @@ export default function ClientesPage() {
           municipio: serverMunicipio,
           fechaDesde: filters.fechaDesde || undefined,
           fechaHasta: filters.fechaHasta || undefined,
+          activo: filters.mostrarAnulados ? undefined : true,
         };
 
         if (hasLocalOnlyFilter) {
@@ -718,6 +724,15 @@ export default function ClientesPage() {
   const handleDeleteClient = (client: Cliente) => {
     setClientToDelete(client);
     setIsDeleteDialogOpen(true);
+  };
+
+  // Anular/reactivar cliente (soft-delete), mismo esquema que anular lead
+  const handleSetClienteStatus = async (numero: string, activo: boolean) => {
+    const resultado = await ClienteService.updateClienteStatus(numero, activo);
+    if (resultado.success && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("refreshClientsTable"));
+    }
+    return resultado;
   };
 
   const handleUploadClientComprobante = async (
@@ -989,6 +1004,7 @@ export default function ClientesPage() {
             totalClients={totalClients}
             onEdit={handleEditClient}
             onDelete={handleDeleteClient}
+            onSetClienteStatus={handleSetClienteStatus}
             onViewLocation={handleViewClientLocation}
             onUploadFotos={handleUploadClientFoto}
             onUpdatePrioridad={handleUpdateClientPrioridad}

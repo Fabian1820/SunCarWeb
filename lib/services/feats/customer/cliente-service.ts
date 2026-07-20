@@ -24,6 +24,7 @@ type ClienteListParams = {
   comercial?: string;
   fechaDesde?: string;
   fechaHasta?: string;
+  activo?: boolean;
 };
 
 export type ClienteFotoUploadPayload = {
@@ -112,6 +113,9 @@ export class ClienteService {
     if (params.fechaHasta) {
       search.append("fechaHasta", params.fechaHasta);
       search.append("fecha_hasta", params.fechaHasta);
+    }
+    if (params.activo !== undefined) {
+      search.append("activo", params.activo ? "true" : "false");
     }
 
     const endpoint = `/clientes/${search.toString() ? `?${search.toString()}` : ""}`;
@@ -370,6 +374,43 @@ export class ClienteService {
         method: "DELETE",
       },
     );
+  }
+
+  static async updateClienteStatus(
+    numero: string,
+    activo: boolean,
+  ): Promise<
+    | { success: true }
+    | {
+        success: false;
+        error: { code: string; title: string; message: string; field?: string };
+      }
+  > {
+    const response = await apiRequest<{
+      success: boolean;
+      message?: string;
+      error?: {
+        code: string;
+        title: string;
+        message: string;
+        field?: string;
+      };
+    }>(`/clientes/${encodeURIComponent(numero)}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ activo }),
+    });
+
+    if (response.success === false) {
+      return {
+        success: false,
+        error: response.error || {
+          code: "ERROR_DESCONOCIDO",
+          title: "Error",
+          message: response.message || "No se pudo actualizar el estado del cliente",
+        },
+      };
+    }
+    return { success: true };
   }
 
   static async getClientesConAverias(): Promise<Cliente[]> {

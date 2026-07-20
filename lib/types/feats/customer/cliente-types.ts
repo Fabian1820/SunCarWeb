@@ -50,6 +50,7 @@ export interface Cliente {
   tipo_persona?: string;
   oferta_confeccion?: OfertaConfeccionResumen | null;
   es_trabajador_suncar?: boolean;
+  activo?: boolean;
 }
 
 export interface ClienteResponse {
