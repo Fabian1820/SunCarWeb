@@ -110,6 +110,20 @@ export function TodosPagosVentasTable({
     const n = Number(p.monto_pendiente_despues_pago);
     return Number.isFinite(n) ? n : null;
   };
+  const getMontoDevueltoUsd = (p: PagoVenta): number => {
+    const n = Number(p.monto_devuelto_usd);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  };
+  const getMontoUsdPago = (p: PagoVenta): number => {
+    const usd = Number(p.monto_usd);
+    if (Number.isFinite(usd) && usd > 0) return usd;
+    return getMonto(p);
+  };
+  const isDevueltoCompleto = (p: PagoVenta): boolean => {
+    const devuelto = getMontoDevueltoUsd(p);
+    if (devuelto <= 0) return false;
+    return devuelto >= getMontoUsdPago(p) - 0.01;
+  };
   const getPlanPagos = (p: PagoVenta): PagoVenta["plan_pagos"] =>
     p.plan_pagos ?? p.pagos_programados ?? null;
   const getMaterialesTexto = (p: PagoVenta): string => {
@@ -296,6 +310,8 @@ export function TodosPagosVentasTable({
     const plan = getPlanPagos(p);
     const tienePlazos = Boolean(p.es_a_plazos);
     const planAbierto = planesAbiertos.has(rowKey);
+    const montoDevuelto = getMontoDevueltoUsd(p);
+    const devueltoCompleto = isDevueltoCompleto(p);
 
     return (
       <TableRow className="hover:bg-gray-50">
@@ -340,11 +356,15 @@ export function TodosPagosVentasTable({
             <div className="text-xs text-gray-500">Tasa: {Number(p.tasa_cambio).toFixed(2)}</div>
           )}
           <div className="text-xs text-red-600">
-            Pend: {pendiente != null ? formatCurrency(
-              moneda === "USD" ? pendiente : (Number(p.tasa_cambio) > 0 ? (moneda === "EUR" ? pendiente * Number(p.tasa_cambio) : pendiente / Number(p.tasa_cambio)) : pendiente),
-              "USD"
-            ) : "—"}
+            Pend: {pendiente != null ? formatCurrency(pendiente, "USD") : "—"}
           </div>
+          {montoDevuelto > 0 && (
+            <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">
+              <RotateCcw className="h-3 w-3" />
+              Devuelto: {formatCurrency(montoDevuelto, "USD")}
+              {devueltoCompleto ? " (total)" : " (parcial)"}
+            </div>
+          )}
         </TableCell>
         <TableCell className="text-sm min-w-[210px]">
           {!tienePlazos ? (
@@ -373,16 +393,20 @@ export function TodosPagosVentasTable({
         </TableCell>
         <TableCell className="text-sm">{p.recibido_por || "—"}</TableCell>
         <TableCell className="text-sm">
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-amber-700 border-amber-300 hover:bg-amber-50"
-            onClick={() => handleOpenDevolucionDialog(p)}
-            title="Registrar devolución"
-          >
-            <RotateCcw className="h-3.5 w-3.5 mr-1" />
-            Devolución
-          </Button>
+          {devueltoCompleto ? (
+            <span className="text-xs text-gray-400">Ya devuelto</span>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-amber-700 border-amber-300 hover:bg-amber-50"
+              onClick={() => handleOpenDevolucionDialog(p)}
+              title="Registrar devolución"
+            >
+              <RotateCcw className="h-3.5 w-3.5 mr-1" />
+              Devolución
+            </Button>
+          )}
         </TableCell>
       </TableRow>
     );
