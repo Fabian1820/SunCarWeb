@@ -230,13 +230,15 @@ export interface PagoVentaListParams {
   factura_venta_id?: string;
   solicitud_venta_id?: string;
   cliente_venta_id?: string;
+  /** true: solo pagos con alguna devolucion; false: solo pagos sin devolucion. */
+  con_devolucion?: boolean;
 }
 
 export interface FacturaVentaListParams {
   skip?: number;
   limit?: number;
   q?: string;
-  estado?: "pagada" | "pendiente" | "parcial" | string;
+  estado?: "pagada" | "pendiente" | "parcial" | "anulada" | string;
   moneda?: "USD" | "CUP" | "EUR" | string;
   comercial?: string;
   fecha_desde?: string;
@@ -247,6 +249,8 @@ export interface FacturaVentaListParams {
    * sobre la página cargada.
    */
   metodo_pago?: "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion" | "zelle" | string;
+  /** true: solo facturas con alguna devolucion; false: solo facturas sin devolucion. */
+  con_devolucion?: boolean;
 }
 
 export interface PagoVentaAgregados {
