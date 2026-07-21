@@ -2,6 +2,73 @@
 
 ---
 
+## 📅 21 de Julio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**7 commits reales** de Fabian1820 — todos dedicados a optimización de rendimiento de fotos/imágenes de materiales: ciclo completo de diagnóstico → fix → lazy load → gate por health check del backend, cubriendo PDF export y 15+ ubicaciones de la UI.
+
+---
+
+### Área 1: PDF export — caché + prefetch paralelo + downscale de fotos (1 commit — Fabian1820, 13:51)
+
+- **`perf(exportar-oferta): acelera la descarga del PDF con caché + prefetch paralelo + downscale de fotos`** — Las fotos se servían desde MinIO sin thumbnail (hasta 5 MB c/u) y se descargaban en serie dentro del loop de filas, re-descargando por cada variante. Solución: `imageCache` a nivel de módulo + dedup de requests en vuelo (`inflightImages`), prefetch en paralelo con `Promise.all`, downscale en canvas a 300px + JPEG 0.82 (pasa de ~2-5 MB a ~20-40 KB por foto). El logo (PNG con transparencia) se preserva sin downscale.
+
+---
+
+### Área 2: Instrumentación temporal (2 commits — Fabian1820, 14:57 y 15:15)
+
+- **`chore(exportar-oferta)`** — Dos commits de instrumentación con `performance.now()` para medir fases del PDF export y contar llamadas a `doc.getTextWidth`/`doc.splitTextToSize`. **Temporales, eliminados en commit posterior.** Diagnóstico confirmó: imágenes no eran el cuello (111 KB totales), sino 3 URLs de S3 con 502/CORS que hacían re-fetch de ~15s cada vez que el loop de materiales las encontraba sin caché negativo.
+
+---
+
+### Área 3: Caché negativo para URLs rotas (2 commits — Fabian1820, 15:24 y 15:42)
+
+- **`fix(exportar-oferta): cachea imágenes fallidas + timeout de fetch`** — `failedImages: Set<string>` como caché negativo: una URL que falla no se reintenta en el mismo pageview. AbortController con 6s de timeout para no esperar los 15s de MinIO en URLs rotas.
+- **`fix(exportar-oferta): quita timeout de 6s que estaba abortando fetches legítimos`** — Regresión inmediata: las conexiones Cuba/MinIO toman ~15s legítimamente, el AbortController abortaba fetches válidos y los metía en `failedImages` → 0 fotos en el PDF. Se elimina el AbortController y se mantiene el `failedImages` Set. Se añade guard para `AbortError`: si se aborta por cierre del diálogo, no se cachea en negativo.
+
+---
+
+### Área 4: Gate `foto_disponible` por health check del backend (1 commit — Fabian1820, 18:09)
+
+- **`feat(fotos-material): salta fotos marcadas como rotas por health check server-side`** — El backend persiste `foto_disponible` por material (via `POST /api/admin/verificar-fotos-materiales`). Semántica fail-open: `null`/`undefined` pasa; solo `foto_disponible === false` salta la descarga. Afecta: `material-types.ts` (nuevos campos opcionales `foto_disponible`, `foto_verificada_at`, `foto_size`), `clients-table.tsx`, `leads-table.tsx`, `confeccion-ofertas-view.tsx` y `gestionar-ofertas-venta-dialog.tsx`.
+
+---
+
+### Área 5: Lazy load en diálogo de detalles de oferta (1 commit — Fabian1820, 19:12)
+
+- **`perf(ver-oferta): lazy load + gate por foto_disponible en el diálogo de detalles`** — El diálogo de detalles de oferta (clientes-table, leads-table, planificación diaria, pendientes de visita del instalador) disparaba todos los fetches en paralelo al abrirse. Ahora: `<LazyImage>` (IntersectionObserver + rootMargin 120px) para foto de portada; gate `material.foto_disponible !== false` + `<LazyImage>` para materiales.
+
+---
+
+### Área 6: `<MaterialImage>` — gate + lazy load en 15 ubicaciones de la UI (1 commit — Fabian1820, 19:28)
+
+- **`perf(fotos-material): lazy load + gate foto_disponible en 15 sitios de la UI`** — Nuevo componente `<MaterialImage>` unificado (gate `foto_disponible === false` + `<LazyImage>`). Cubre: grid POS, tabla stock principal, movimientos, salida lote, solicitudes de transferencia (2 sitios), solicitudes-transferencia-table (2 sitios), catálogo web, stock mínimo, vales de salida (2 sitios), solicitudes de materiales (2 sitios), solicitudes de ventas, asignaciones materiales (2 sitios), confección de ofertas, ofertas confeccionadas (3 secciones). Añade `foto_disponible?: boolean | null` a `MaterialStockItem`.
+
+---
+
+### Puede dar bateo
+
+1. **Instrumentación temporal — verificar que no quedó en bundle de producción**: Los commits de `chore` añadieron logs de performance y se eliminaron en el fix posterior. Verificar que ningún `console.log` ni las interfaces `ImagePerfEntry`/`ExportPerfMetrics` quedaron en el bundle final.
+
+2. **Ciclo add/remove AbortController en 18 minutos — build intermedio en producción**: El AbortController (6s) fue añadido en 15:24 y eliminado en 15:42. Si Railway auto-deploy es activo, un build con el AbortController llegó a producción. Usuarios en esa ventana habrán tenido 0 fotos en sus PDFs exportados.
+
+3. **`foto_disponible` gate requiere que el health check del backend haya corrido**: Si `POST /api/admin/verificar-fotos-materiales` no se ejecutó o el backend no devuelve el campo, todos los materiales tendrán `foto_disponible: undefined`. El gate fail-open no filtrará nada y el beneficio de rendimiento se pierde, aunque el código sea correcto.
+
+4. **`failedImages` Set sin evición — fotos reparadas en S3 no se recargan sin reload**: Si una URL rota en S3 se repara (e.g., se resubio la imagen), el Set de negativos la sigue evitando durante el resto del pageview. El usuario necesita recargar la página para ver fotos recién reparadas.
+
+5. **Canvas downscale + JPEG para materiales con transparencia**: Las fotos de materiales procesadas con JPEG 0.82 en canvas pierden el canal alpha. Si algún material usa PNG con fondo transparente, aparecerá con fondo negro/blanco en el PDF. El logo está excluido explícitamente, pero los materiales no.
+
+6. **5 ubicaciones sin migrar a `<MaterialImage>` siguen con raw `<img>`**: `inventario/stockajes-minimos-section` (dropdown), `solicitud-material-detail-dialog`, `vale-salida-detail-dialog`, `compras/compra-form-dialog` y `fichas-costo/calc-porcentaje-dialog` no fueron migrados. Siguen disparando requests a MinIO para fotos conocidas rotas.
+
+7. **`imageCache` a nivel de módulo sin límite de tamaño**: En Next.js App Router, el módulo puede persistir entre navegaciones SPA sin recarga completa. El cache acumula indefinidamente. Para sesiones largas con muchos materiales distintos, el uso de memoria puede crecer sin control.
+
+8. **`IntersectionObserver` en SSR/prerender**: `<LazyImage>` usa `IntersectionObserver`, disponible solo en el cliente. Dependiendo de la implementación, puede tirar errores en prerender estático o SSR si no hay guard `typeof window !== 'undefined'`.
+
+9. **`foto_disponible?: boolean | null` en tipos — cobertura incompleta posible**: El campo se añade en `material-types.ts` a `BackendMaterial`, `MaterialItem`, `Material` y `MaterialStockItem`. Si algún tipo intermedio de conversión no fue actualizado, TypeScript puede inferir el campo como `undefined` en rutas no actualizadas y el gate `!== false` pasará silenciosamente aunque el backend devuelva `false`.
+
+---
+
 ## 📅 20 de Julio, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -82,11 +149,11 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ### Resumen de cambios (últimas 24h)
 
-**4 commits reales** de yany1509 — todos enfocados en flujos de pagos y devoluciones: (1) badge "Pendiente de selección" para ofertas ambiguas en Obras Terminadas; (2) botón de cancelar pago en Pagos Clientes; (3) botón de devolución de pagos de venta y badge "Anulada" en facturas; (4) motivo obligatorio en devoluciones de vale.
+**4 commits reales** de yany1509 — todos enfocados en flujos de pagos y devoluciones: (1) badge "Pendiente de selección" para ofertas amb iguas en Obras Terminadas; (2) botón de cancelar pago en Pagos Clientes; (3) botón de devolución de pagos de venta y badge "Anulada" en facturas; (4) motivo obligatorio en devoluciones de vale.
 
 ---
 
-### Área 1: Obras Terminadas — badge "Pendiente de selección" para ofertas ambiguas (1 commit — yany1509, 20:30)
+### Área 1: Obras Terminadas — badge "Pendiente de selección" para ofertas amb iguas (1 commit — yany1509, 20:30)
 
 - **`fix(obras-terminadas): badge de pendiente de seleccion para ofertas ambiguas`** — Refleja el nuevo campo `estado_factura_detalle` del backend: badge ámbar "Pendiente de selección" (distinto del gris "Sin factura") para ofertas con 2+ ofertas confirmadas sin facturar que ya están esperando que el área económica elija cuál facturar. Incluye el filtro correspondiente en la barra de la tabla.
 
@@ -218,50 +285,17 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 13 de Julio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**2 commits reales** de Fabian1820 y yany1509 — dos áreas: (1) diálogo de costo en Fichas de Costo mejorado para mostrar desglose por almacén y permitir ajuste específico o general; (2) checkbox `es_trabajador_suncar` en clientes y pestañas separadas en la vista de Facturas dentro de Obras Terminadas.
-
----
-
-### Área 1: Fichas de Costo — desglose por almacén y ajuste específico o general (1 commit — Fabian1820, 17:05)
-
-- **`feat(fichas-costo): diálogo de costo muestra costo por almacén + ajuste específico o general`** — Al abrir el diálogo de un material con costo, ahora muestra el desglose de costo por almacén con su existencia y explica que la ficha es el promedio de todos. Desde ahí se puede corregir el costo de un almacén específico (✎ por fila) o hacer un "Ajuste general" que iguala todos los almacenes, con aviso de que se pierden las diferencias. Los almacenes con compra sin costo se marcan "sin costo aún" y no son editables.
-
----
-
-### Área 2: Clientes — es_trabajador_suncar y pestañas Facturas en Obras Terminadas (1 commit — yany1509, 18:08)
-
-- **`feat(clientes): checkbox de trabajador de SunCar y pestañas separadas de facturas en obras terminadas`** — Agrega `es_trabajador_suncar` a los tipos y diálogos de crear/editar cliente. Divide la vista de Facturas dentro de Obras Terminadas en dos pestañas (clientes/trabajadores), cada una con su propio filtro server-side, carga perezosa y cache para no repetir la query al alternar entre pestañas ya visitadas.
-
----
-
-### Puede dar bateo
-
-1. **"Ajuste general" irreversible sin confirmación robusta — destruye diferencias por almacén**: Al ejecutar el ajuste general todos los almacenes quedan con el mismo costo y se pierden las diferencias históricas. El aviso existe pero puede ignorarse fácilmente en flujos rápidos; no hay un paso de confirmación explícita tipo "escribe el motivo" o doble-click.
-
-2. **Endpoint de ajuste por almacén específico (✎ por fila) sin confirmar en backend**: La acción de editar el costo de un almacén individual asume un endpoint dedicado. Si el backend solo expone el ajuste general, el flujo por fila fallará con un error no manejado y sin mensaje claro al usuario.
-
-3. **Desglose por almacén stale al abrir el diálogo con movimientos concurrentes**: El costo y existencia por almacén se leen al abrir el diálogo, no en tiempo real. En almacenes de alta rotación, el ajuste puede aplicarse sobre datos ya desactualizados sin que el usuario lo note.
-
-4. **"Sin costo aún" en almacenes con compra pendiente — bloqueado sin ruta de resolución directa**: El usuario ve la fila deshabilitada pero no hay enlace directo a la compra pendiente de costeo desde este diálogo.
-
-5. **Promedio "de todos" puede confundir si hay almacenes excluidos por sin-costo**: Si un almacén se excluye del promedio por estar sin costo aún, el valor mostrado en la ficha diferirá del cálculo manual que el usuario haría sumando las filas, sin nota explicativa.
-
-6. **`es_trabajador_suncar` — clientes históricos sin el campo, datos incompletos en filtros y conteos**: Los registros creados antes de este commit no tienen el campo y el backend los tratará como `false`. Conteos de "trabajadores SunCar" serán incorrectos hasta que se migre la base de datos.
-
-7. **Pestañas Facturas clientes/trabajadores — filtro `es_trabajador_suncar` en backend sin confirmar**: Si el backend no acepta ese parámetro en la query, ambas pestañas devolverán el mismo resultado sin ningún error visible.
-
-8. **Cache estático de pestañas — facturas nuevas no visibles sin recarga manual**: El cache que evita repetir la query al alternar pestañas no tiene invalidación automática. Facturas generadas mientras el usuario está en otra pestaña no aparecerán hasta recargar la página.
-
-9. **`es_trabajador_suncar` en edición de cliente — confirmar persistencia en `PUT /clientes/{id}`**: Si el backend no acepta y persiste el nuevo campo en el endpoint de edición, el checkbox siempre aparecerá desmarcado al reabrir el formulario.
-
----
-
 #### Seguimientos vigentes
 
+- **Instrumentación temporal de perf — verificar que no quedó en bundle de producción (Jul 21)**.
+- **Ciclo add/remove AbortController en 18 min — build intermedio puede haber llegado a prod con 0 fotos en PDF (Jul 21)**.
+- **`foto_disponible` gate sin health check ejecutado — fail-open pierde beneficio de rendimiento (Jul 21)**.
+- **`failedImages` Set sin evición — fotos reparadas en S3 no se recargan sin reload de página (Jul 21)**.
+- **Canvas downscale JPEG — materiales con transparencia perderán canal alpha en PDF (Jul 21)**.
+- **5 ubicaciones sin migrar a `<MaterialImage>` — siguen con raw `<img>` y sin gate (Jul 21)**.
+- **`imageCache` a nivel de módulo sin límite — acumula en navegación SPA larga (Jul 21)**.
+- **`IntersectionObserver` en SSR/prerender — posible error `window is not defined` (Jul 21)**.
+- **`foto_disponible` en tipos — gate puede pasarse silenciosamente en rutas no actualizadas (Jul 21)**.
 - **Badge "Devuelto: $X" por pago — campo `monto_devuelto` ausente en respuesta silencia el indicador (Jul 20)**.
 - **"Ya devuelto" — condición 100% calculada con flotantes, edge case puede dejar botón "Devolución" incorrecto (Jul 20)**.
 - **Filtro "Devoluciones" — riesgo de filtrado solo en cliente; paginación y exports incorrectos en datasets grandes (Jul 20)**.
@@ -408,4 +442,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
