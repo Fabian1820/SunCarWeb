@@ -286,24 +286,107 @@ export interface ExportOptions {
   }>;
 }
 
+interface CachedImage {
+  base64: string;
+  width: number;
+  height: number;
+}
+
+const imageCache = new Map<string, CachedImage>();
+const inflightImages = new Map<string, Promise<CachedImage | null>>();
+
+// Fotos de material: 14 mm en PDF ≈ 40 px @72dpi → 300 px es sobrado incluso al
+// hacer zoom. Reduce cada JPEG de ~2-5 MB a ~20-40 KB sin diferencia visible.
+const MATERIAL_PHOTO_MAX_PX = 300;
+const MATERIAL_PHOTO_JPEG_QUALITY = 0.82;
+
+async function loadImage(
+  url: string,
+  downscaleMaxPx?: number,
+): Promise<CachedImage | null> {
+  const cached = imageCache.get(url);
+  if (cached) return cached;
+  const inflight = inflightImages.get(url);
+  if (inflight) return inflight;
+
+  const task = (async () => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const originalBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = () =>
+          reject(new Error("No se pudo convertir la imagen a Base64"));
+        reader.readAsDataURL(blob);
+      });
+      const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () =>
+          reject(new Error("No se pudo cargar la imagen"));
+        img.src = originalBase64;
+      });
+
+      let base64 = originalBase64;
+      let width = image.width;
+      let height = image.height;
+
+      if (
+        downscaleMaxPx &&
+        (width > downscaleMaxPx || height > downscaleMaxPx)
+      ) {
+        const scale = Math.min(downscaleMaxPx / width, downscaleMaxPx / height);
+        const targetW = Math.max(1, Math.round(width * scale));
+        const targetH = Math.max(1, Math.round(height * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = targetW;
+        canvas.height = targetH;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(image, 0, 0, targetW, targetH);
+          base64 = canvas.toDataURL(
+            "image/jpeg",
+            MATERIAL_PHOTO_JPEG_QUALITY,
+          );
+          width = targetW;
+          height = targetH;
+        }
+      }
+
+      const result: CachedImage = { base64, width, height };
+      imageCache.set(url, result);
+      return result;
+    } catch (error) {
+      console.error("Error cargando imagen:", url, error);
+      return null;
+    } finally {
+      inflightImages.delete(url);
+    }
+  })();
+
+  inflightImages.set(url, task);
+  return task;
+}
+
+async function prefetchImages(
+  urls: Iterable<string | undefined | null>,
+  downscaleMaxPx?: number,
+): Promise<void> {
+  const unique = new Set<string>();
+  for (const u of urls) {
+    if (u) unique.add(u);
+  }
+  if (unique.size === 0) return;
+  await Promise.all(Array.from(unique).map((u) => loadImage(u, downscaleMaxPx)));
+}
+
 /**
- * Convierte una imagen a Base64
+ * Convierte una imagen a Base64 (compatibilidad; usa el caché de loadImage)
  */
 async function imageToBase64(url: string): Promise<string> {
-  try {
-    const response = await fetch(url);
-    const blob = await response.blob();
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = () =>
-        reject(new Error("No se pudo convertir la imagen a Base64"));
-      reader.readAsDataURL(blob);
-    });
-  } catch (error) {
-    console.error("Error convirtiendo imagen a base64:", error);
-    return "";
-  }
+  const img = await loadImage(url);
+  return img?.base64 ?? "";
 }
 
 /**
@@ -581,6 +664,19 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     descripcionSistema = subtitleLimpio.toUpperCase();
   }
 
+  // Pre-descarga en paralelo del logo + todas las fotos de materiales (dedup por URL,
+  // caché a nivel de módulo). Esto reemplaza N fetches seriales dentro del loop de filas
+  // por un único batch paralelo y elimina el segundo await new Image().onload por fila.
+  // Las fotos de materiales se downscalean a MATERIAL_PHOTO_MAX_PX antes de guardarse
+  // en el caché: reduce el peso del PDF (de cientos de MB a pocos MB) y acelera
+  // `doc.save()`. El logo se guarda sin downscale para preservar transparencia PNG.
+  await Promise.all([
+    logoUrl ? loadImage(logoUrl) : Promise.resolve(null),
+    incluirFotos && fotosMap
+      ? prefetchImages(fotosMap.values(), MATERIAL_PHOTO_MAX_PX)
+      : Promise.resolve(),
+  ]);
+
   // Calcular altura del encabezado basado en el contenido
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
@@ -800,28 +896,18 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
 
         if (fotoUrl) {
           try {
-            const fotoBase64 = await imageToBase64(fotoUrl);
-            if (fotoBase64) {
-              // Cargar la imagen para obtener dimensiones reales
-              const img = await new Promise<HTMLImageElement>(
-                (resolve, reject) => {
-                  const image = new Image();
-                  image.onload = () => resolve(image);
-                  image.onerror = () =>
-                    reject(
-                      new Error("No se pudo cargar la imagen del material"),
-                    );
-                  image.src = fotoBase64;
-                },
-              );
+            // Cache hit (prefetch previo): resuelve sin fetch ni onload.
+            const cached = await loadImage(fotoUrl, MATERIAL_PHOTO_MAX_PX);
+            if (cached) {
+              const { base64: fotoBase64, width: nativeWidth, height: nativeHeight } = cached;
 
               const containerSize = 14; // Aumentado de 13 a 14 para mejor visibilidad
               const padding = 1;
               const maxSize = containerSize - padding * 2;
 
               // Calcular dimensiones manteniendo aspect ratio real
-              let imgWidth = img.width;
-              let imgHeight = img.height;
+              let imgWidth = nativeWidth;
+              let imgHeight = nativeHeight;
 
               // Escalar para que quepa en el contenedor
               const scale = Math.min(maxSize / imgWidth, maxSize / imgHeight);
