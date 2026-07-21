@@ -6,6 +6,9 @@ const STRIPE_API_VERSION = '2024-12-18.acacia'
 const STRIPE_RATE = 0.0325
 const STRIPE_FIXED = 0.30
 
+// Pasarela de pago desactivada temporalmente — cuando se retome, poner en true.
+const PASARELA_ACTIVA = false
+
 interface GenerarLinkRequest {
   precio: number
   descripcion: string
@@ -19,6 +22,13 @@ interface GenerarLinkRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    if (!PASARELA_ACTIVA) {
+      return NextResponse.json(
+        { success: false, message: 'No estamos trabajando con ninguna pasarela de pago actualmente.' },
+        { status: 400 }
+      )
+    }
+
     const body: GenerarLinkRequest = await request.json()
     const { precio, descripcion, oferta_id, cliente_id, lead_id, solicitud_venta_id, moneda, sin_recargo } = body
 

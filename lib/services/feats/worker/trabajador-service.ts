@@ -3,6 +3,7 @@
 import { apiRequest } from '../../../api-config'
 import type { Trabajador as ApiTrabajador } from '../../../api-types'
 import type { BirthdaysResponse } from '../../../types/feats/trabajador/birthday-types'
+import type { DirectorioTelefonicoResponse, TrabajadorDirectorioItem } from '../../../types/feats/trabajador/directorio-types'
 import { ensureValidObjectId, normalizeOptionalObjectId } from '../../../utils/object-id'
 
 export interface TrabajadorRelacionesPayload {
@@ -56,6 +57,13 @@ export class TrabajadorService {
     if (Array.isArray(raw?.data)) return raw.data
     if (Array.isArray(raw?.trabajadores)) return raw.trabajadores
     return []
+  }
+
+  /** Búsqueda optimizada por nombre o cargo para el directorio telefónico. */
+  static async buscarDirectorio(query: string, limit = 20): Promise<TrabajadorDirectorioItem[]> {
+    const params = new URLSearchParams({ q: query, limit: String(limit) })
+    const response = await apiRequest<DirectorioTelefonicoResponse>(`/trabajadores/directorio?${params.toString()}`)
+    return response?.data ?? []
   }
 
   static async crearTrabajador(

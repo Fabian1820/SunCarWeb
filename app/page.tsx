@@ -54,6 +54,7 @@ import { WorkerAvatar } from "@/components/feats/worker/worker-avatar";
 import ContactosDashboard from "@/components/feats/contactos/contactos-dashboard";
 import { TicketManualDialog } from "@/components/feats/dashboard/ticket-manual-dialog";
 import { WeatherWidget } from "@/components/feats/dashboard/weather-widget";
+import { DirectorioTelefonicoCard } from "@/components/feats/dashboard/directorio-telefonico-card";
 import { Toaster } from "@/components/shared/molecule/toaster";
 import { useAuth } from "@/contexts/auth-context";
 import { UserMenu } from "@/components/auth/user-menu";
@@ -805,6 +806,9 @@ export default function Dashboard() {
                   </p>
                 )}
 
+
+                {/* Directorio telefónico */}
+                <DirectorioTelefonicoCard />
 
                 {/* Clima La Habana */}
                 <WeatherWidget />
