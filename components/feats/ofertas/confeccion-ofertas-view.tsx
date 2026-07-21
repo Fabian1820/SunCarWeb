@@ -2714,13 +2714,14 @@ export function ConfeccionOfertasView({
 
     const rows: any[] = [];
 
-    // Crear mapa de fotos de materiales
+    // Crear mapa de fotos de materiales. Salta las fotos marcadas como no
+    // disponibles por el health check server-side (foto_disponible === false).
     const fotosMap = new Map<string, string>();
     itemsFiltrados.forEach((item) => {
       const material = materials.find(
         (m) => m.codigo.toString() === item.materialCodigo,
       );
-      if (material?.foto) {
+      if (material?.foto && material.foto_disponible !== false) {
         fotosMap.set(item.materialCodigo, material.foto);
       }
     });
@@ -3324,13 +3325,14 @@ export function ConfeccionOfertasView({
 
     const rows: any[] = [];
 
-    // Crear mapa de fotos de materiales
+    // Crear mapa de fotos de materiales. Salta las fotos marcadas como no
+    // disponibles por el health check server-side (foto_disponible === false).
     const fotosMap = new Map<string, string>();
     itemsFiltrados.forEach((item) => {
       const material = materials.find(
         (m) => m.codigo.toString() === item.materialCodigo,
       );
-      if (material?.foto) {
+      if (material?.foto && material.foto_disponible !== false) {
         fotosMap.set(item.materialCodigo, material.foto);
       }
     });
@@ -3718,13 +3720,14 @@ export function ConfeccionOfertasView({
 
     const rows: any[] = [];
 
-    // Crear mapa de fotos de materiales
+    // Crear mapa de fotos de materiales. Salta las fotos marcadas como no
+    // disponibles por el health check server-side (foto_disponible === false).
     const fotosMap = new Map<string, string>();
     itemsFiltrados.forEach((item) => {
       const material = materials.find(
         (m) => m.codigo.toString() === item.materialCodigo,
       );
-      if (material?.foto) {
+      if (material?.foto && material.foto_disponible !== false) {
         fotosMap.set(item.materialCodigo, material.foto);
       }
     });

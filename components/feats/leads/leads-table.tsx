@@ -1373,13 +1373,14 @@ export function LeadsTable({
         }
       }
 
-      // Crear mapa de fotos
+      // Crear mapa de fotos. Salta las fotos marcadas como no disponibles por el
+      // health check server-side (foto_disponible === false).
       const fotosMap = new Map<string, string>();
       itemsOrdenados.forEach((item) => {
         const material = materials.find(
           (m) => m.codigo.toString() === item.material_codigo,
         );
-        if (material?.foto) {
+        if (material?.foto && material.foto_disponible !== false) {
           fotosMap.set(item.material_codigo?.toString(), material.foto);
         }
       });

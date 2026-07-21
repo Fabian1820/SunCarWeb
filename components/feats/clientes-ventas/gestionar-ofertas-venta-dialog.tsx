@@ -78,13 +78,14 @@ export function GestionarOfertasVentaDialog({
   const { toast } = useToast();
   const { materials } = useMaterials({ lite: true });
 
-  // Mapa código → { foto, nombre } para enriquecer el detalle de materiales
+  // Mapa código → { foto, nombre, foto_disponible } para enriquecer el detalle de materiales
   const materialesMap = useMemo(() => {
-    const map = new Map<string, { foto?: string; nombre?: string }>();
+    const map = new Map<string, { foto?: string; nombre?: string; foto_disponible?: boolean | null }>();
     materials.forEach((m) => {
       const codigo = m.codigo?.toString();
-      if (codigo) map.set(codigo, { foto: m.foto, nombre: m.nombre });
-      if (m.id) map.set(m.id, { foto: m.foto, nombre: m.nombre });
+      const entry = { foto: m.foto, nombre: m.nombre, foto_disponible: m.foto_disponible };
+      if (codigo) map.set(codigo, entry);
+      if (m.id) map.set(m.id, entry);
     });
     return map;
   }, [materials]);
@@ -182,14 +183,18 @@ export function GestionarOfertasVentaDialog({
             ...mat,
             descripcion: mat.descripcion || entry?.nombre || mat.codigo || mat.material_id,
             foto_url:    mat.foto_url    || entry?.foto   || undefined,
+            // Preservar el flag para saltar fotos rotas (health check server-side).
+            foto_disponible: (mat as { foto_disponible?: boolean | null }).foto_disponible ?? entry?.foto_disponible,
           };
         }),
       };
 
-      // Construir fotosMap desde los materiales ya enriquecidos
+      // Construir fotosMap desde los materiales ya enriquecidos. Salta las que
+      // el health check server-side marcó como no disponibles.
       const fotosMap = new Map<string, string>();
       enrichedOfertas.materiales.forEach((mat) => {
-        if (mat.foto_url) {
+        const disp = (mat as { foto_disponible?: boolean | null }).foto_disponible;
+        if (mat.foto_url && disp !== false) {
           fotosMap.set(mat.material_id, mat.foto_url);
           if (mat.codigo) fotosMap.set(mat.codigo, mat.foto_url);
         }
