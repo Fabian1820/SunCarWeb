@@ -300,9 +300,6 @@ const inflightImages = new Map<string, Promise<CachedImage | null>>();
 // hacer zoom. Reduce cada JPEG de ~2-5 MB a ~20-40 KB sin diferencia visible.
 const MATERIAL_PHOTO_MAX_PX = 300;
 const MATERIAL_PHOTO_JPEG_QUALITY = 0.82;
-// Timeout de fetch: si S3/MinIO no responde en este tiempo, se aborta y la URL
-// queda marcada como fallida para no volver a intentarla en este pageview.
-const IMAGE_FETCH_TIMEOUT_MS = 6000;
 
 async function loadImage(
   url: string,
@@ -310,21 +307,16 @@ async function loadImage(
 ): Promise<CachedImage | null> {
   const cached = imageCache.get(url);
   if (cached) return cached;
-  // Cache negativo: si esta URL ya falló, no reintentar dentro del mismo pageview.
-  // Sin esto, cada fila del loop de materiales que apunte a una URL rota dispara
-  // un nuevo fetch de ~timeout segundos → segundos por foto rota.
+  // Cache negativo: si esta URL ya falló con un error REAL (CORS, 4xx, 5xx,
+  // red rota), no reintentar en el mismo pageview. Los timeouts / abortos NO
+  // caen aquí — pueden ser transitorios y merecen otro intento.
   if (failedImages.has(url)) return null;
   const inflight = inflightImages.get(url);
   if (inflight) return inflight;
 
   const task = (async () => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(
-      () => controller.abort(),
-      IMAGE_FETCH_TIMEOUT_MS,
-    );
     try {
-      const response = await fetch(url, { signal: controller.signal });
+      const response = await fetch(url);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const blob = await response.blob();
       const originalBase64 = await new Promise<string>((resolve, reject) => {
@@ -372,11 +364,16 @@ async function loadImage(
       imageCache.set(url, result);
       return result;
     } catch (error) {
-      failedImages.add(url);
+      const err = error as { name?: string };
+      // Solo cachear en negativo si es un error real. AbortError podría ser
+      // transitorio y bloquearlo dejaría materiales sin foto en el resto
+      // del pageview aunque el servidor vuelva a estar disponible.
+      if (err?.name !== "AbortError") {
+        failedImages.add(url);
+      }
       console.error("Error cargando imagen:", url, error);
       return null;
     } finally {
-      clearTimeout(timeoutId);
       inflightImages.delete(url);
     }
   })();
