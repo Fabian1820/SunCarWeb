@@ -325,9 +325,46 @@ interface ExportPerfMetrics {
   renderEnd: number;
   saveStart: number;
   saveEnd: number;
+  phases: Array<{ name: string; ms: number }>;
+  lastPhaseMark: number;
+  getTextWidthCalls: number;
+  getTextWidthMs: number;
+  splitTextToSizeCalls: number;
+  splitTextToSizeMs: number;
 }
 
 let currentPerf: ExportPerfMetrics | null = null;
+
+function markPhase(name: string) {
+  if (!currentPerf) return;
+  const now = performance.now();
+  currentPerf.phases.push({ name, ms: now - currentPerf.lastPhaseMark });
+  currentPerf.lastPhaseMark = now;
+}
+
+function instrumentDoc(doc: any) {
+  if (!currentPerf) return;
+  const origGetTextWidth = doc.getTextWidth.bind(doc);
+  doc.getTextWidth = function (txt: string) {
+    const t0 = performance.now();
+    const r = origGetTextWidth(txt);
+    if (currentPerf) {
+      currentPerf.getTextWidthCalls++;
+      currentPerf.getTextWidthMs += performance.now() - t0;
+    }
+    return r;
+  };
+  const origSplit = doc.splitTextToSize.bind(doc);
+  doc.splitTextToSize = function (...args: any[]) {
+    const t0 = performance.now();
+    const r = origSplit(...args);
+    if (currentPerf) {
+      currentPerf.splitTextToSizeCalls++;
+      currentPerf.splitTextToSizeMs += performance.now() - t0;
+    }
+    return r;
+  };
+}
 
 const fmtMs = (ms: number) => `${ms.toFixed(1)}ms`;
 const fmtKB = (bytes: number) =>
@@ -626,6 +663,12 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     renderEnd: 0,
     saveStart: 0,
     saveEnd: 0,
+    phases: [],
+    lastPhaseMark: 0,
+    getTextWidthCalls: 0,
+    getTextWidthMs: 0,
+    splitTextToSizeCalls: 0,
+    splitTextToSizeMs: 0,
   };
 
   const {
@@ -661,6 +704,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     unit: "mm",
     format: "a4",
   });
+  instrumentDoc(doc);
 
   const pageWidth = doc.internal.pageSize.getWidth();
   let yPosition = 2; // Reducido de 5 a 2 - muy cerca del borde
@@ -762,6 +806,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
   ]);
   currentPerf.prefetchEnd = performance.now();
   currentPerf.renderStart = performance.now();
+  currentPerf.lastPhaseMark = currentPerf.renderStart;
 
   // Calcular altura del encabezado basado en el contenido
   doc.setFontSize(10);
@@ -812,6 +857,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
   }
 
   yPosition = headerHeight + 5;
+  markPhase("header");
 
   // ========== DATOS DEL CLIENTE / LEAD ==========
   // Determinar el nombre para "A la atención de"
@@ -892,6 +938,8 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
 
     yPosition += 8;
   }
+
+  markPhase("cliente");
 
   // Agrupar datos por sección/categoría
   const datosPorSeccion = new Map<string, any[]>();
@@ -1373,6 +1421,8 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
   );
   const transportacion = data.filter((row) => row.tipo === "Transportación");
   const contribuciones = data.filter((row) => row.tipo === "Contribucion");
+  markPhase("materiales");
+
   const descuentos = data.filter((row) => row.tipo === "Descuento");
   const totales = data.filter((row) => row.tipo === "TOTAL");
   const datosPago = data.filter((row) => row.seccion === "PAGO");
@@ -1609,6 +1659,8 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     }
   }
 
+  markPhase("subtotales/totales/descuentos/servicios");
+
   // ========== SECCIONES PERSONALIZADAS DE TIPO TEXTO (ANTES DE DETALLES DE PAGO) ==========
   if (
     options.seccionesPersonalizadas &&
@@ -1691,6 +1743,8 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       }
     }
   }
+
+  markPhase("secciones-texto");
 
   // ========== SECCIÓN DE PAGO - SOLO SI HAY TRANSFERENCIA ==========
   const tienePagoTransferencia = datosPago.some(
@@ -1877,6 +1931,8 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     }
   }
 
+  markPhase("pago");
+
   // ========== TÉRMINOS Y CONDICIONES ==========
   if (options.terminosCondiciones) {
     // Reducir espacio antes de la sección (de 15 a 5)
@@ -2048,6 +2104,8 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     });
   }
 
+  markPhase("terminos");
+
   // ========== PIE DE PÁGINA ==========
   const pageCount = (doc as any).internal.getNumberOfPages();
 
@@ -2116,6 +2174,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     );
   }
 
+  markPhase("footer");
   currentPerf.renderEnd = performance.now();
   currentPerf.saveStart = performance.now();
   doc.save(`${filename}.pdf`);
@@ -2156,6 +2215,23 @@ function logPerfSummary(filename: string) {
   • doc.save() (serial.): ${fmtMs(save)}
   ─────────────────────────
   TOTAL                 : ${fmtMs(total)}`,
+    "font-weight:bold",
+    "font-family:monospace;white-space:pre",
+  );
+  if (p.phases.length > 0) {
+    const subfases = p.phases
+      .map((ph) => `  • ${ph.name.padEnd(38)}: ${fmtMs(ph.ms)}`)
+      .join("\n");
+    console.log(
+      `%cSub-fases del render:%c\n${subfases}`,
+      "font-weight:bold",
+      "font-family:monospace;white-space:pre",
+    );
+  }
+  console.log(
+    `%cjsPDF internals:%c
+  • doc.getTextWidth()   : ${p.getTextWidthCalls} llamadas, ${fmtMs(p.getTextWidthMs)} total (${p.getTextWidthCalls > 0 ? (p.getTextWidthMs / p.getTextWidthCalls).toFixed(2) : 0}ms/call)
+  • doc.splitTextToSize(): ${p.splitTextToSizeCalls} llamadas, ${fmtMs(p.splitTextToSizeMs)} total (${p.splitTextToSizeCalls > 0 ? (p.splitTextToSizeMs / p.splitTextToSizeCalls).toFixed(2) : 0}ms/call)`,
     "font-weight:bold",
     "font-family:monospace;white-space:pre",
   );
