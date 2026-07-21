@@ -293,106 +293,40 @@ interface CachedImage {
 }
 
 const imageCache = new Map<string, CachedImage>();
+const failedImages = new Set<string>();
 const inflightImages = new Map<string, Promise<CachedImage | null>>();
 
 // Fotos de material: 14 mm en PDF ≈ 40 px @72dpi → 300 px es sobrado incluso al
 // hacer zoom. Reduce cada JPEG de ~2-5 MB a ~20-40 KB sin diferencia visible.
 const MATERIAL_PHOTO_MAX_PX = 300;
 const MATERIAL_PHOTO_JPEG_QUALITY = 0.82;
-
-// ========== INSTRUMENTACIÓN DE PERFORMANCE ==========
-interface ImagePerfEntry {
-  url: string;
-  fetchMs: number;
-  readerMs: number;
-  imgLoadMs: number;
-  downscaleMs: number;
-  totalMs: number;
-  originalBytes: number;
-  finalBytes: number;
-  origDims: string;
-  finalDims: string;
-  downscaled: boolean;
-}
-
-interface ExportPerfMetrics {
-  t0: number;
-  images: ImagePerfEntry[];
-  cacheHits: number;
-  prefetchStart: number;
-  prefetchEnd: number;
-  renderStart: number;
-  renderEnd: number;
-  saveStart: number;
-  saveEnd: number;
-  phases: Array<{ name: string; ms: number }>;
-  lastPhaseMark: number;
-  getTextWidthCalls: number;
-  getTextWidthMs: number;
-  splitTextToSizeCalls: number;
-  splitTextToSizeMs: number;
-}
-
-let currentPerf: ExportPerfMetrics | null = null;
-
-function markPhase(name: string) {
-  if (!currentPerf) return;
-  const now = performance.now();
-  currentPerf.phases.push({ name, ms: now - currentPerf.lastPhaseMark });
-  currentPerf.lastPhaseMark = now;
-}
-
-function instrumentDoc(doc: any) {
-  if (!currentPerf) return;
-  const origGetTextWidth = doc.getTextWidth.bind(doc);
-  doc.getTextWidth = function (txt: string) {
-    const t0 = performance.now();
-    const r = origGetTextWidth(txt);
-    if (currentPerf) {
-      currentPerf.getTextWidthCalls++;
-      currentPerf.getTextWidthMs += performance.now() - t0;
-    }
-    return r;
-  };
-  const origSplit = doc.splitTextToSize.bind(doc);
-  doc.splitTextToSize = function (...args: any[]) {
-    const t0 = performance.now();
-    const r = origSplit(...args);
-    if (currentPerf) {
-      currentPerf.splitTextToSizeCalls++;
-      currentPerf.splitTextToSizeMs += performance.now() - t0;
-    }
-    return r;
-  };
-}
-
-const fmtMs = (ms: number) => `${ms.toFixed(1)}ms`;
-const fmtKB = (bytes: number) =>
-  bytes >= 1024 * 1024
-    ? `${(bytes / (1024 * 1024)).toFixed(2)} MB`
-    : `${(bytes / 1024).toFixed(1)} KB`;
+// Timeout de fetch: si S3/MinIO no responde en este tiempo, se aborta y la URL
+// queda marcada como fallida para no volver a intentarla en este pageview.
+const IMAGE_FETCH_TIMEOUT_MS = 6000;
 
 async function loadImage(
   url: string,
   downscaleMaxPx?: number,
 ): Promise<CachedImage | null> {
   const cached = imageCache.get(url);
-  if (cached) {
-    if (currentPerf) currentPerf.cacheHits++;
-    return cached;
-  }
+  if (cached) return cached;
+  // Cache negativo: si esta URL ya falló, no reintentar dentro del mismo pageview.
+  // Sin esto, cada fila del loop de materiales que apunte a una URL rota dispara
+  // un nuevo fetch de ~timeout segundos → segundos por foto rota.
+  if (failedImages.has(url)) return null;
   const inflight = inflightImages.get(url);
   if (inflight) return inflight;
 
   const task = (async () => {
-    const tStart = performance.now();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(
+      () => controller.abort(),
+      IMAGE_FETCH_TIMEOUT_MS,
+    );
     try {
-      const tFetch0 = performance.now();
-      const response = await fetch(url);
+      const response = await fetch(url, { signal: controller.signal });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const blob = await response.blob();
-      const originalBytes = blob.size;
-      const tFetch1 = performance.now();
-
       const originalBase64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onloadend = () => resolve(reader.result as string);
@@ -400,8 +334,6 @@ async function loadImage(
           reject(new Error("No se pudo convertir la imagen a Base64"));
         reader.readAsDataURL(blob);
       });
-      const tReader = performance.now();
-
       const image = await new Promise<HTMLImageElement>((resolve, reject) => {
         const img = new Image();
         img.onload = () => resolve(img);
@@ -409,14 +341,10 @@ async function loadImage(
           reject(new Error("No se pudo cargar la imagen"));
         img.src = originalBase64;
       });
-      const tImgLoad = performance.now();
 
       let base64 = originalBase64;
       let width = image.width;
       let height = image.height;
-      const origW = width;
-      const origH = height;
-      let downscaled = false;
 
       if (
         downscaleMaxPx &&
@@ -437,37 +365,18 @@ async function loadImage(
           );
           width = targetW;
           height = targetH;
-          downscaled = true;
         }
       }
-      const tDownscale = performance.now();
 
       const result: CachedImage = { base64, width, height };
       imageCache.set(url, result);
-
-      if (currentPerf) {
-        // finalBytes: base64 pesa ~4/3 de los bytes reales; los descontamos.
-        const finalBytes = Math.round((base64.length - (base64.indexOf(",") + 1)) * 0.75);
-        currentPerf.images.push({
-          url,
-          fetchMs: tFetch1 - tFetch0,
-          readerMs: tReader - tFetch1,
-          imgLoadMs: tImgLoad - tReader,
-          downscaleMs: tDownscale - tImgLoad,
-          totalMs: tDownscale - tStart,
-          originalBytes,
-          finalBytes,
-          origDims: `${origW}x${origH}`,
-          finalDims: `${width}x${height}`,
-          downscaled,
-        });
-      }
-
       return result;
     } catch (error) {
+      failedImages.add(url);
       console.error("Error cargando imagen:", url, error);
       return null;
     } finally {
+      clearTimeout(timeoutId);
       inflightImages.delete(url);
     }
   })();
@@ -652,25 +561,6 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
  * Formato similar a la imagen de referencia con tabla de materiales por categoría
  */
 export async function exportToPDF(options: ExportOptions): Promise<void> {
-  // Instrumentación: inicializa acumuladores por-exportación.
-  currentPerf = {
-    t0: performance.now(),
-    images: [],
-    cacheHits: 0,
-    prefetchStart: 0,
-    prefetchEnd: 0,
-    renderStart: 0,
-    renderEnd: 0,
-    saveStart: 0,
-    saveEnd: 0,
-    phases: [],
-    lastPhaseMark: 0,
-    getTextWidthCalls: 0,
-    getTextWidthMs: 0,
-    splitTextToSizeCalls: 0,
-    splitTextToSizeMs: 0,
-  };
-
   const {
     title,
     subtitle,
@@ -704,7 +594,6 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     unit: "mm",
     format: "a4",
   });
-  instrumentDoc(doc);
 
   const pageWidth = doc.internal.pageSize.getWidth();
   let yPosition = 2; // Reducido de 5 a 2 - muy cerca del borde
@@ -797,16 +686,12 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
   // Las fotos de materiales se downscalean a MATERIAL_PHOTO_MAX_PX antes de guardarse
   // en el caché: reduce el peso del PDF (de cientos de MB a pocos MB) y acelera
   // `doc.save()`. El logo se guarda sin downscale para preservar transparencia PNG.
-  currentPerf.prefetchStart = performance.now();
   await Promise.all([
     logoUrl ? loadImage(logoUrl) : Promise.resolve(null),
     incluirFotos && fotosMap
       ? prefetchImages(fotosMap.values(), MATERIAL_PHOTO_MAX_PX)
       : Promise.resolve(),
   ]);
-  currentPerf.prefetchEnd = performance.now();
-  currentPerf.renderStart = performance.now();
-  currentPerf.lastPhaseMark = currentPerf.renderStart;
 
   // Calcular altura del encabezado basado en el contenido
   doc.setFontSize(10);
@@ -857,7 +742,6 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
   }
 
   yPosition = headerHeight + 5;
-  markPhase("header");
 
   // ========== DATOS DEL CLIENTE / LEAD ==========
   // Determinar el nombre para "A la atención de"
@@ -939,7 +823,6 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     yPosition += 8;
   }
 
-  markPhase("cliente");
 
   // Agrupar datos por sección/categoría
   const datosPorSeccion = new Map<string, any[]>();
@@ -1421,7 +1304,6 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
   );
   const transportacion = data.filter((row) => row.tipo === "Transportación");
   const contribuciones = data.filter((row) => row.tipo === "Contribucion");
-  markPhase("materiales");
 
   const descuentos = data.filter((row) => row.tipo === "Descuento");
   const totales = data.filter((row) => row.tipo === "TOTAL");
@@ -1659,7 +1541,6 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     }
   }
 
-  markPhase("subtotales/totales/descuentos/servicios");
 
   // ========== SECCIONES PERSONALIZADAS DE TIPO TEXTO (ANTES DE DETALLES DE PAGO) ==========
   if (
@@ -1744,7 +1625,6 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     }
   }
 
-  markPhase("secciones-texto");
 
   // ========== SECCIÓN DE PAGO - SOLO SI HAY TRANSFERENCIA ==========
   const tienePagoTransferencia = datosPago.some(
@@ -1931,7 +1811,6 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     }
   }
 
-  markPhase("pago");
 
   // ========== TÉRMINOS Y CONDICIONES ==========
   if (options.terminosCondiciones) {
@@ -2104,7 +1983,6 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     });
   }
 
-  markPhase("terminos");
 
   // ========== PIE DE PÁGINA ==========
   const pageCount = (doc as any).internal.getNumberOfPages();
@@ -2174,96 +2052,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     );
   }
 
-  markPhase("footer");
-  currentPerf.renderEnd = performance.now();
-  currentPerf.saveStart = performance.now();
   doc.save(`${filename}.pdf`);
-  currentPerf.saveEnd = performance.now();
-
-  logPerfSummary(filename);
-  currentPerf = null;
-}
-
-function logPerfSummary(filename: string) {
-  if (!currentPerf) return;
-  const p = currentPerf;
-  const total = p.saveEnd - p.t0;
-  const prefetch = p.prefetchEnd - p.prefetchStart;
-  const render = p.renderEnd - p.renderStart;
-  const save = p.saveEnd - p.saveStart;
-  const preRender = p.prefetchStart - p.t0;
-
-  const totalOrigBytes = p.images.reduce((s, i) => s + i.originalBytes, 0);
-  const totalFinalBytes = p.images.reduce((s, i) => s + i.finalBytes, 0);
-  const totalImgTime = p.images.reduce((s, i) => s + i.totalMs, 0);
-  const totalFetchTime = p.images.reduce((s, i) => s + i.fetchMs, 0);
-  const totalDownscaleTime = p.images.reduce((s, i) => s + i.downscaleMs, 0);
-
-  const slow = [...p.images]
-    .sort((a, b) => b.totalMs - a.totalMs)
-    .slice(0, 5);
-
-  console.group(
-    `%c📊 PDF export "${filename}" — total ${fmtMs(total)}`,
-    "color:#0a7; font-weight:bold",
-  );
-  console.log(
-    `%cFases (wall-clock):%c
-  • Pre-render (setup)   : ${fmtMs(preRender)}
-  • Prefetch imágenes   : ${fmtMs(prefetch)}  (${p.images.length} nuevas, ${p.cacheHits} cache hits)
-  • Render jsPDF (loop) : ${fmtMs(render)}
-  • doc.save() (serial.): ${fmtMs(save)}
-  ─────────────────────────
-  TOTAL                 : ${fmtMs(total)}`,
-    "font-weight:bold",
-    "font-family:monospace;white-space:pre",
-  );
-  if (p.phases.length > 0) {
-    const subfases = p.phases
-      .map((ph) => `  • ${ph.name.padEnd(38)}: ${fmtMs(ph.ms)}`)
-      .join("\n");
-    console.log(
-      `%cSub-fases del render:%c\n${subfases}`,
-      "font-weight:bold",
-      "font-family:monospace;white-space:pre",
-    );
-  }
-  console.log(
-    `%cjsPDF internals:%c
-  • doc.getTextWidth()   : ${p.getTextWidthCalls} llamadas, ${fmtMs(p.getTextWidthMs)} total (${p.getTextWidthCalls > 0 ? (p.getTextWidthMs / p.getTextWidthCalls).toFixed(2) : 0}ms/call)
-  • doc.splitTextToSize(): ${p.splitTextToSizeCalls} llamadas, ${fmtMs(p.splitTextToSizeMs)} total (${p.splitTextToSizeCalls > 0 ? (p.splitTextToSizeMs / p.splitTextToSizeCalls).toFixed(2) : 0}ms/call)`,
-    "font-weight:bold",
-    "font-family:monospace;white-space:pre",
-  );
-  if (p.images.length > 0) {
-    console.log(
-      `%cImágenes:%c
-  • Descargadas         : ${p.images.length}
-  • Bytes originales    : ${fmtKB(totalOrigBytes)}
-  • Bytes tras downscale: ${fmtKB(totalFinalBytes)}  (${((1 - totalFinalBytes / Math.max(1, totalOrigBytes)) * 100).toFixed(1)}% reducción)
-  • Suma CPU-por-imagen : ${fmtMs(totalImgTime)}  (fetch: ${fmtMs(totalFetchTime)}, downscale: ${fmtMs(totalDownscaleTime)})
-  • Concurrencia efect. : ${(totalImgTime / Math.max(1, prefetch)).toFixed(1)}x`,
-      "font-weight:bold",
-      "font-family:monospace;white-space:pre",
-    );
-    console.groupCollapsed("Top 5 imágenes más lentas");
-    console.table(
-      slow.map((i) => ({
-        url: i.url.split("/").slice(-1)[0]?.slice(0, 40) ?? i.url,
-        totalMs: +i.totalMs.toFixed(0),
-        fetchMs: +i.fetchMs.toFixed(0),
-        readerMs: +i.readerMs.toFixed(0),
-        imgLoadMs: +i.imgLoadMs.toFixed(0),
-        downscaleMs: +i.downscaleMs.toFixed(0),
-        origKB: +(i.originalBytes / 1024).toFixed(0),
-        finalKB: +(i.finalBytes / 1024).toFixed(0),
-        origDims: i.origDims,
-        finalDims: i.finalDims,
-      })),
-    );
-    console.groupEnd();
-  }
-  console.groupEnd();
 }
 
 /**
