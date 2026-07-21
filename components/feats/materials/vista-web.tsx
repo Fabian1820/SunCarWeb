@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { Button } from "@/components/shared/atom/button";
+import { MaterialImage } from "@/components/shared/molecule/material-image";
 import { Input } from "@/components/shared/molecule/input";
 import { Label } from "@/components/shared/atom/label";
 import { Badge } from "@/components/shared/atom/badge";
@@ -397,25 +398,14 @@ export function VistaWeb({
               >
                 <CardContent className="p-4">
                   {/* Photo */}
-                  <div className="w-full h-40 rounded-lg overflow-hidden bg-gray-100 mb-3 flex items-center justify-center">
-                    {material.foto ? (
-                      <img
-                        src={material.foto}
-                        alt={material.nombre || material.descripcion}
-                        className="w-full h-full object-contain p-2"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = "none";
-                          const fallback = (e.target as HTMLImageElement)
-                            .nextElementSibling as HTMLElement;
-                          if (fallback) fallback.style.display = "flex";
-                        }}
-                      />
-                    ) : null}
-                    <div
-                      className={`${material.foto ? "hidden" : "flex"} items-center justify-center w-full h-full`}
-                    >
-                      <Package className="h-12 w-12 text-gray-300" />
-                    </div>
+                  <div className="relative w-full h-40 rounded-lg overflow-hidden bg-gray-100 mb-3 flex items-center justify-center">
+                    <MaterialImage
+                      foto={material.foto}
+                      fotoDisponible={material.foto_disponible}
+                      alt={material.nombre || material.descripcion}
+                      imgClassName="w-full h-full object-contain p-2"
+                      fallback={<Package className="h-12 w-12 text-gray-300" />}
+                    />
                   </div>
 
                   {/* Name */}

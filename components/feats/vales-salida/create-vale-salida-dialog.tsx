@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "@/components/shared/molecule/dialog";
 import { Button } from "@/components/shared/atom/button";
+import { MaterialImage } from "@/components/shared/molecule/material-image";
 import { Input } from "@/components/shared/molecule/input";
 import { Label } from "@/components/shared/atom/label";
 import {
@@ -843,22 +844,14 @@ export function CreateValeSalidaDialog({
                         >
                           <td className="py-2 px-3">
                             <div className="flex items-center gap-2">
-                              {material.foto ? (
-                                <img
-                                  src={material.foto}
-                                  alt={material.nombre || material.descripcion}
-                                  className="h-8 w-8 rounded object-cover border border-gray-200 flex-shrink-0"
-                                  onError={(event) => {
-                                    (
-                                      event.target as HTMLImageElement
-                                    ).style.display = "none";
-                                  }}
-                                />
-                              ) : (
-                                <div className="h-8 w-8 rounded bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
-                                  <Package className="h-4 w-4 text-gray-400" />
-                                </div>
-                              )}
+                              <MaterialImage
+                                foto={material.foto}
+                                fotoDisponible={(material as { foto_disponible?: boolean | null }).foto_disponible}
+                                alt={material.nombre || material.descripcion}
+                                className="relative h-8 w-8 rounded object-cover border border-gray-200 flex-shrink-0 flex items-center justify-center bg-gray-100"
+                                imgClassName="h-8 w-8 rounded object-cover"
+                                fallback={<Package className="h-4 w-4 text-gray-400" />}
+                              />
                               <div>
                                 <div className="flex flex-wrap items-center gap-2">
                                   <p className="font-medium text-gray-900 leading-tight">
@@ -976,21 +969,14 @@ export function CreateValeSalidaDialog({
                       className="w-full text-left px-3 py-2 hover:bg-emerald-50 text-sm flex items-center gap-2"
                       onClick={() => handleAddMaterial(material)}
                     >
-                      {material.foto ? (
-                        <img
-                          src={material.foto}
-                          alt={material.nombre || material.descripcion}
-                          className="h-7 w-7 rounded object-cover border border-gray-200 flex-shrink-0"
-                          onError={(event) => {
-                            (event.target as HTMLImageElement).style.display =
-                              "none";
-                          }}
-                        />
-                      ) : (
-                        <div className="h-7 w-7 rounded bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
-                          <Package className="h-3 w-3 text-gray-400" />
-                        </div>
-                      )}
+                      <MaterialImage
+                        foto={material.foto}
+                        fotoDisponible={(material as { foto_disponible?: boolean | null }).foto_disponible}
+                        alt={material.nombre || material.descripcion}
+                        className="relative h-7 w-7 rounded object-cover border border-gray-200 flex-shrink-0 flex items-center justify-center bg-gray-100"
+                        imgClassName="h-7 w-7 rounded object-cover"
+                        fallback={<Package className="h-3 w-3 text-gray-400" />}
+                      />
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">
                           {material.nombre || material.descripcion}

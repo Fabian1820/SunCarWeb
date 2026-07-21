@@ -18,6 +18,7 @@ import { Badge } from "@/components/shared/atom/badge";
 import { Input } from "@/components/shared/atom/input";
 import { Label } from "@/components/shared/atom/label";
 import { Button } from "@/components/shared/atom/button";
+import { MaterialImage } from "@/components/shared/molecule/material-image";
 import { Card, CardContent } from "@/components/shared/molecule/card";
 import {
   Select,
@@ -9223,29 +9224,13 @@ export function ConfeccionOfertasView({
                           >
                             <CardContent className="p-3 flex flex-col h-full">
                               <div className="relative aspect-[4/3] bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg mb-3 flex items-center justify-center overflow-hidden border border-slate-200">
-                                {material.foto ? (
-                                  <>
-                                    <img
-                                      src={material.foto}
-                                      alt={material.descripcion}
-                                      className="w-full h-full object-contain p-2"
-                                      onError={(e) => {
-                                        const target =
-                                          e.target as HTMLImageElement;
-                                        target.style.display = "none";
-                                        const fallback =
-                                          target.nextElementSibling as HTMLElement;
-                                        if (fallback)
-                                          fallback.classList.remove("hidden");
-                                      }}
-                                    />
-                                    <div className="hidden w-full h-full items-center justify-center">
-                                      <Package className="h-12 w-12 text-slate-300" />
-                                    </div>
-                                  </>
-                                ) : (
-                                  <Package className="h-12 w-12 text-slate-300" />
-                                )}
+                                <MaterialImage
+                                  foto={material.foto}
+                                  fotoDisponible={material.foto_disponible}
+                                  alt={material.descripcion}
+                                  imgClassName="w-full h-full object-contain p-2"
+                                  fallback={<Package className="h-12 w-12 text-slate-300" />}
+                                />
                                 {selectedCount ? (
                                   <span className="absolute top-2 right-2 rounded-full bg-emerald-600 text-white text-xs font-bold px-2.5 py-1 shadow-lg border-2 border-white z-10">
                                     {selectedCount}

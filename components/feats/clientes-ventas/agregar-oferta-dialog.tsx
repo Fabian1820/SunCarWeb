@@ -9,6 +9,7 @@ import {
 } from "@/components/shared/molecule/dialog";
 import { Card, CardContent } from "@/components/shared/molecule/card";
 import { Button } from "@/components/shared/atom/button";
+import { MaterialImage } from "@/components/shared/molecule/material-image";
 import { Input } from "@/components/shared/molecule/input";
 import { Label } from "@/components/shared/atom/label";
 import { Badge } from "@/components/shared/atom/badge";
@@ -571,26 +572,13 @@ export function AgregarOfertaDialog({
                 <CardContent className="p-2 flex flex-col h-full">
                   {/* imagen */}
                   <div className="relative h-20 sm:h-16 bg-gradient-to-br from-slate-50 to-slate-100 rounded-md mb-1.5 flex items-center justify-center overflow-hidden border border-slate-200">
-                    {mat.foto ? (
-                      <>
-                        <img
-                          src={mat.foto}
-                          alt={mat.nombre ?? mat.descripcion}
-                          className="w-full h-full object-contain p-2"
-                          onError={(e) => {
-                            const t = e.target as HTMLImageElement;
-                            t.style.display = "none";
-                            const fb = t.nextElementSibling as HTMLElement;
-                            if (fb) fb.classList.remove("hidden");
-                          }}
-                        />
-                        <div className="hidden w-full h-full items-center justify-center">
-                          <Package className="h-5 w-5 text-slate-300" />
-                        </div>
-                      </>
-                    ) : (
-                      <Package className="h-5 w-5 text-slate-300" />
-                    )}
+                    <MaterialImage
+                      foto={mat.foto}
+                      fotoDisponible={(mat as { foto_disponible?: boolean | null }).foto_disponible}
+                      alt={mat.nombre ?? mat.descripcion}
+                      imgClassName="w-full h-full object-contain p-2"
+                      fallback={<Package className="h-5 w-5 text-slate-300" />}
+                    />
                     {enCarrito > 0 && (
                       <span className="absolute top-1.5 right-1.5 rounded-full bg-emerald-600 text-white text-xs font-bold px-2.5 py-1 shadow-lg border-2 border-white z-10">
                         {enCarrito}

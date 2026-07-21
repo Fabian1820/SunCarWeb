@@ -3,6 +3,7 @@
 import { Card, CardContent } from "@/components/shared/molecule/card";
 import { Badge } from "@/components/shared/atom/badge";
 import { Button } from "@/components/shared/atom/button";
+import { MaterialImage } from "@/components/shared/molecule/material-image";
 import {
   Dialog,
   DialogContent,
@@ -3010,15 +3011,13 @@ export function OfertasConfeccionadasView() {
                                       className="flex items-center gap-3 p-3"
                                     >
                                       <div className="h-12 w-12 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden">
-                                        {material?.foto ? (
-                                          <img
-                                            src={material.foto}
-                                            alt={item.descripcion}
-                                            className="w-full h-full object-contain"
-                                          />
-                                        ) : (
-                                          <Package className="h-6 w-6 text-slate-300" />
-                                        )}
+                                        <MaterialImage
+                                          foto={material?.foto}
+                                          fotoDisponible={(material as { foto_disponible?: boolean | null } | undefined)?.foto_disponible}
+                                          alt={item.descripcion}
+                                          imgClassName="w-full h-full object-contain"
+                                          fallback={<Package className="h-6 w-6 text-slate-300" />}
+                                        />
                                       </div>
                                       <div className="flex-1 min-w-0">
                                         <p className="text-sm font-semibold text-slate-900 line-clamp-1">
@@ -3146,15 +3145,13 @@ export function OfertasConfeccionadasView() {
                                 className="flex items-center gap-3 p-3"
                               >
                                 <div className="h-12 w-12 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden">
-                                  {material?.foto ? (
-                                    <img
-                                      src={material.foto}
-                                      alt={elem.descripcion}
-                                      className="w-full h-full object-contain"
-                                    />
-                                  ) : (
-                                    <Package className="h-6 w-6 text-slate-300" />
-                                  )}
+                                  <MaterialImage
+                                    foto={material?.foto}
+                                    fotoDisponible={(material as { foto_disponible?: boolean | null } | undefined)?.foto_disponible}
+                                    alt={elem.descripcion}
+                                    imgClassName="w-full h-full object-contain"
+                                    fallback={<Package className="h-6 w-6 text-slate-300" />}
+                                  />
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <p className="text-sm font-semibold text-slate-900 line-clamp-1">
@@ -3279,15 +3276,13 @@ export function OfertasConfeccionadasView() {
                                             className="flex items-center gap-3 p-3"
                                           >
                                             <div className="h-12 w-12 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden">
-                                              {material?.foto ? (
-                                                <img
-                                                  src={material.foto}
-                                                  alt={categoria}
-                                                  className="w-full h-full object-contain"
-                                                />
-                                              ) : (
-                                                <Package className="h-6 w-6 text-slate-300" />
-                                              )}
+                                              <MaterialImage
+                                                foto={material?.foto}
+                                                fotoDisponible={(material as { foto_disponible?: boolean | null } | undefined)?.foto_disponible}
+                                                alt={categoria}
+                                                imgClassName="w-full h-full object-contain"
+                                                fallback={<Package className="h-6 w-6 text-slate-300" />}
+                                              />
                                             </div>
                                             <div className="flex-1 min-w-0">
                                               <p className="text-sm font-semibold text-slate-900 line-clamp-1">

@@ -3,6 +3,7 @@
 import React from "react"
 import { Badge } from "@/components/shared/atom/badge"
 import { Button } from "@/components/shared/atom/button"
+import { MaterialImage } from "@/components/shared/molecule/material-image"
 import {
   Dialog,
   DialogContent,
@@ -186,6 +187,7 @@ export function MovimientosTable({ movimientos, materials = [], almacenes = [] }
                 codigoMostrar
               const descripcion = material?.descripcion || (embedded?.descripcion as string | undefined) || mov.material_descripcion
               const fotoMaterial = (material?.foto as string | undefined) || (embedded?.foto as string | undefined)
+              const fotoDisponibleMaterial = (material as { foto_disponible?: boolean | null } | undefined)?.foto_disponible
 
               return (
                 <tr key={mov.id || `${mov.material_codigo}-${index}`} className="border-b border-gray-100 hover:bg-gray-50">
@@ -206,12 +208,18 @@ export function MovimientosTable({ movimientos, materials = [], almacenes = [] }
                   </td>
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-3">
-                      {fotoMaterial ? (
+                      {fotoMaterial && fotoDisponibleMaterial !== false ? (
                         <div className="shrink-0 w-10 h-10 rounded-md overflow-hidden bg-gray-50 border border-gray-200">
-                          <img
-                            src={fotoMaterial}
+                          <MaterialImage
+                            foto={fotoMaterial}
+                            fotoDisponible={fotoDisponibleMaterial}
                             alt={nombreMaterial}
-                            className="w-full h-full object-contain p-0.5"
+                            imgClassName="w-full h-full object-contain p-0.5"
+                            fallback={
+                              <div className="w-full h-full flex items-center justify-center bg-amber-50">
+                                <Package className="h-4 w-4 text-amber-700" />
+                              </div>
+                            }
                           />
                         </div>
                       ) : (

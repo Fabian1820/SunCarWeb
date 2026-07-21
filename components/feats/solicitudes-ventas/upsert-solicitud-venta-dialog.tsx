@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "@/components/shared/molecule/dialog";
 import { Button } from "@/components/shared/atom/button";
+import { MaterialImage } from "@/components/shared/molecule/material-image";
 import { Input } from "@/components/shared/molecule/input";
 import { Label } from "@/components/shared/atom/label";
 import {
@@ -1826,18 +1827,14 @@ export function UpsertSolicitudVentaDialog({
                         {/* Nombre — ancho fijo con truncate */}
                         <td className="py-2 px-3 w-44">
                           <div className="flex items-center gap-2">
-                            {material.foto ? (
-                              <img
-                                src={material.foto}
-                                alt={material.nombre}
-                                className="h-7 w-7 flex-shrink-0 rounded object-cover border border-gray-200"
-                                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                              />
-                            ) : (
-                              <div className="h-7 w-7 flex-shrink-0 rounded bg-gray-100 border border-gray-200 flex items-center justify-center">
-                                <Package className="h-3.5 w-3.5 text-gray-400" />
-                              </div>
-                            )}
+                            <MaterialImage
+                              foto={material.foto}
+                              fotoDisponible={(material as { foto_disponible?: boolean | null }).foto_disponible}
+                              alt={material.nombre}
+                              className="relative h-7 w-7 flex-shrink-0 rounded border border-gray-200 flex items-center justify-center bg-gray-100"
+                              imgClassName="h-7 w-7 rounded object-cover"
+                              fallback={<Package className="h-3.5 w-3.5 text-gray-400" />}
+                            />
                             <div className="min-w-0 w-28">
                               <p className="font-medium text-gray-900 leading-tight truncate text-xs" title={material.nombre}>
                                 {material.nombre}

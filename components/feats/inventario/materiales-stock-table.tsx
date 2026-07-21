@@ -12,6 +12,7 @@ import {
   Pencil,
 } from "lucide-react"
 import { Button } from "@/components/shared/atom/button"
+import { MaterialImage } from "@/components/shared/molecule/material-image"
 import { SmartPagination } from "@/components/shared/molecule/smart-pagination"
 import {
   Tooltip,
@@ -390,12 +391,18 @@ export function MaterialesStockTable({
 
                       {/* Foto */}
                       <td className="py-3 px-2">
-                        {row.foto ? (
+                        {row.foto && row.foto_disponible !== false ? (
                           <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-gray-50 border border-gray-200">
-                            <img
-                              src={row.foto}
+                            <MaterialImage
+                              foto={row.foto}
+                              fotoDisponible={row.foto_disponible}
                               alt={nombre}
-                              className="w-full h-full object-contain p-1"
+                              imgClassName="w-full h-full object-contain p-1"
+                              fallback={
+                                <div className="w-full h-full flex items-center justify-center bg-amber-50">
+                                  <Package className="h-5 w-5 text-amber-700" />
+                                </div>
+                              }
                             />
                           </div>
                         ) : (

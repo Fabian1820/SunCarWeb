@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/shared/atom/button"
 import { Input } from "@/components/shared/molecule/input"
+import { MaterialImage } from "@/components/shared/molecule/material-image"
 import { Label } from "@/components/shared/atom/label"
 import { Textarea } from "@/components/shared/molecule/textarea"
 import {
@@ -448,20 +449,14 @@ export function SolicitudTransferenciaDialog({
                         >
                           <td className="py-2 px-3">
                             <div className="flex items-center gap-2">
-                              {mat.foto ? (
-                                <img
-                                  src={mat.foto}
-                                  alt={mat.nombre || mat.descripcion}
-                                  className="h-8 w-8 rounded object-cover border border-gray-200 flex-shrink-0"
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).style.display = "none"
-                                  }}
-                                />
-                              ) : (
-                                <div className="h-8 w-8 rounded bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
-                                  <Package className="h-4 w-4 text-gray-400" />
-                                </div>
-                              )}
+                              <MaterialImage
+                                foto={mat.foto}
+                                fotoDisponible={(mat as { foto_disponible?: boolean | null }).foto_disponible}
+                                alt={mat.nombre || mat.descripcion}
+                                className="relative h-8 w-8 rounded object-cover border border-gray-200 flex-shrink-0 flex items-center justify-center bg-gray-100"
+                                imgClassName="h-8 w-8 rounded object-cover"
+                                fallback={<Package className="h-4 w-4 text-gray-400" />}
+                              />
                               <div>
                                 <p className="font-medium leading-tight text-gray-900">
                                   {mat.nombre || mat.descripcion || mat.material_codigo}
@@ -538,20 +533,14 @@ export function SolicitudTransferenciaDialog({
                       className="w-full text-left px-3 py-2 hover:bg-amber-50 text-sm flex items-center gap-2"
                       onClick={() => handleAddMaterial(m)}
                     >
-                      {m.foto ? (
-                        <img
-                          src={m.foto}
-                          alt={m.nombre || m.descripcion}
-                          className="h-7 w-7 rounded object-cover border border-gray-200 flex-shrink-0"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = "none"
-                          }}
-                        />
-                      ) : (
-                        <div className="h-7 w-7 rounded bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
-                          <Package className="h-3 w-3 text-gray-400" />
-                        </div>
-                      )}
+                      <MaterialImage
+                        foto={m.foto}
+                        fotoDisponible={m.foto_disponible}
+                        alt={m.nombre || m.descripcion}
+                        className="relative h-7 w-7 rounded object-cover border border-gray-200 flex-shrink-0 flex items-center justify-center bg-gray-100"
+                        imgClassName="h-7 w-7 rounded object-cover"
+                        fallback={<Package className="h-3 w-3 text-gray-400" />}
+                      />
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">
                           {m.nombre || m.descripcion}
