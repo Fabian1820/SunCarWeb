@@ -6,10 +6,16 @@ const LAT = 23.1136
 const LON = -82.3666
 const TZ = "America/Havana"
 
+// Umbral de lluvia: por debajo de esto (mm/h) es traza y no lo contamos como
+// lluvia real. La probabilidad sola no basta — en Cuba es normal ver 40-70% de
+// probabilidad en tardes que terminan completamente secas.
+const MIN_LLUVIA_MM = 0.2
+
 type HourData = {
   hour: number
   temp: number
   precipProb: number
+  precip: number // precipitación pronosticada en mm/h (cantidad real de agua)
   code: number
   radiation: number // shortwave_radiation W/m²
 }
@@ -53,7 +59,11 @@ function buildRainSummary(hours: HourData[], fromHour = 6): RainSummary {
 
   for (const h of day) {
     const dec = decodeWMO(h.code)
-    const hasEvent = dec.isRain || dec.isThunder || h.precipProb >= 40
+    // Cuenta como lluvia solo si el modelo pronostica una cantidad apreciable
+    // de agua (mm), o si hay tormenta eléctrica con probabilidad alta. Ya no
+    // basta la probabilidad sola: era la causa de los falsos "lloverá de 4 a 8"
+    // en días que terminaban con un sol que raja las piedras.
+    const hasEvent = h.precip >= MIN_LLUVIA_MM || (dec.isThunder && h.precipProb >= 50)
     if (hasEvent) {
       if (!cur) cur = { from: h.hour, to: h.hour, isThunder: dec.isThunder }
       else { cur.to = h.hour; if (dec.isThunder) cur.isThunder = true }
@@ -92,22 +102,15 @@ type Condition = {
 function classifyConditions(hours: HourData[]): Condition {
   if (!hours.length) return { label: "Sin datos", emoji: "🤔", tone: "moderate" }
 
-  let score = 0
-  for (const h of hours) {
-    const dec = decodeWMO(h.code)
-    let s: number
-    if (dec.isThunder || dec.isRain) s = 0
-    else if (h.code === 0) s = 2
-    else if (h.code <= 3) s = 1
-    else s = 0
-    if (h.precipProb >= 50) s = Math.min(s, 0)
-    score += s
-  }
-  const avg = score / hours.length
+  // La radiación solar (W/m²) mide directamente cuánta energía llega a los
+  // paneles: ya incorpora nubes y ángulo del sol, así que es mucho más fiable
+  // que adivinar por el código del tiempo o la probabilidad de lluvia (un día
+  // con 50% de probabilidad pero 723 W/m² sigue siendo un solazo generando).
+  const avgRad = hours.reduce((sum, h) => sum + h.radiation, 0) / hours.length
 
-  if (avg >= 1.4) return { label: "Generando bien 😄",   emoji: "☀️", tone: "good" }
-  if (avg >= 0.7) return { label: "Generación regular 😐", emoji: "⛅", tone: "moderate" }
-  return                 { label: "Poco generando 😟",    emoji: "🌧️", tone: "bad" }
+  if (avgRad >= 500) return { label: "Generando bien 😄",    emoji: "☀️", tone: "good" }
+  if (avgRad >= 200) return { label: "Generación regular 😐", emoji: "⛅", tone: "moderate" }
+  return                    { label: "Poco generando 😟",    emoji: "🌥️", tone: "bad" }
 }
 
 export function WeatherWidget() {
@@ -129,7 +132,7 @@ export function WeatherWidget() {
 
       fetch(
         `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}` +
-        `&hourly=temperature_2m,precipitation_probability,weather_code,shortwave_radiation` +
+        `&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,shortwave_radiation` +
         `&timezone=${encodeURIComponent(TZ)}&forecast_days=1`,
         // no-store: evita que el navegador sirva una respuesta cacheada vieja
         // (era la causa de que "siempre dijera lo mismo").
@@ -143,6 +146,7 @@ export function WeatherWidget() {
               hour: new Date(t).getHours(),
               temp: Math.round(data.hourly.temperature_2m[i]),
               precipProb: data.hourly.precipitation_probability[i] ?? 0,
+              precip: data.hourly.precipitation[i] ?? 0,
               code: data.hourly.weather_code[i] ?? 0,
               radiation: data.hourly.shortwave_radiation[i] ?? 0,
             }))
