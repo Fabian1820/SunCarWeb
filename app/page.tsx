@@ -807,9 +807,6 @@ export default function Dashboard() {
                 )}
 
 
-                {/* Directorio telefónico */}
-                <DirectorioTelefonicoCard />
-
                 {/* Clima La Habana */}
                 <WeatherWidget />
 
@@ -881,6 +878,9 @@ export default function Dashboard() {
                     </div>
                   </section>
                 )}
+
+                {/* Directorio telefónico */}
+                <DirectorioTelefonicoCard />
               </div>
             ) : activeKey === "favorites" ? (
               /* ───────── Vista de favoritos ───────── */
