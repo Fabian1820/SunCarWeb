@@ -3,6 +3,7 @@
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/shared/atom/button";
+import { MaterialImage } from "@/components/shared/molecule/material-image";
 import { Label } from "@/components/shared/atom/label";
 import { Input } from "@/components/shared/molecule/input";
 import {
@@ -629,14 +630,13 @@ export function SalidaLoteForm({
                     <td className="py-2 px-3 text-sm text-gray-700">
                       <div className="flex items-center gap-2">
                         {item.material_foto ? (
-                          <div className="w-10 h-10 rounded-md overflow-hidden border border-gray-200 bg-white shrink-0">
-                            <img
-                              src={item.material_foto}
-                              alt={
-                                item.material_descripcion ||
-                                item.material_codigo
-                              }
-                              className="w-full h-full object-contain p-0.5"
+                          <div className="relative w-10 h-10 rounded-md overflow-hidden border border-gray-200 bg-white shrink-0">
+                            <MaterialImage
+                              foto={item.material_foto}
+                              fotoDisponible={(item as { material_foto_disponible?: boolean | null }).material_foto_disponible}
+                              alt={item.material_descripcion || item.material_codigo}
+                              imgClassName="w-full h-full object-contain p-0.5"
+                              fallback={<Package className="h-4 w-4 text-amber-700" />}
                             />
                           </div>
                         ) : (

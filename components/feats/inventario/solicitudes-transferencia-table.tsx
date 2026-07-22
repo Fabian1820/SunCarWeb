@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { Button } from "@/components/shared/atom/button"
+import { MaterialImage } from "@/components/shared/molecule/material-image"
 import { Input } from "@/components/shared/molecule/input"
 import { Textarea } from "@/components/shared/molecule/textarea"
 import {
@@ -337,20 +338,14 @@ export function SolicitudesTransferenciaTable({
                       <tr key={i} className="border-b border-black/5 last:border-0">
                         <td className="py-1 pr-2">
                           <div className="flex items-center gap-2">
-                            {mat?.foto ? (
-                              <img
-                                src={mat.foto}
-                                alt={nombre}
-                                className="h-8 w-8 rounded object-contain border border-gray-200 bg-white shrink-0 p-0.5"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display = "none"
-                                }}
-                              />
-                            ) : (
-                              <div className="h-8 w-8 rounded bg-gray-100 border border-gray-200 flex items-center justify-center shrink-0">
-                                <Package className="h-4 w-4 text-gray-400" />
-                              </div>
-                            )}
+                            <MaterialImage
+                              foto={mat?.foto}
+                              fotoDisponible={(mat as { foto_disponible?: boolean | null } | undefined)?.foto_disponible}
+                              alt={nombre}
+                              className="relative h-8 w-8 rounded border border-gray-200 bg-white shrink-0 flex items-center justify-center"
+                              imgClassName="h-8 w-8 rounded object-contain p-0.5"
+                              fallback={<Package className="h-4 w-4 text-gray-400" />}
+                            />
                             <div className="min-w-0">
                               <div className="truncate">{nombre}</div>
                               {codigoReal && (
@@ -630,18 +625,14 @@ export function SolicitudesTransferenciaTable({
                       key={f.material_id}
                       className="flex items-center gap-3 bg-white rounded-md p-2 border border-red-100"
                     >
-                      {f.foto ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={f.foto}
-                          alt={f.nombre || f.codigo}
-                          className="h-10 w-10 rounded object-cover flex-shrink-0 border"
-                        />
-                      ) : (
-                        <div className="h-10 w-10 rounded bg-gray-100 flex items-center justify-center flex-shrink-0">
-                          <Package className="h-5 w-5 text-gray-400" />
-                        </div>
-                      )}
+                      <MaterialImage
+                        foto={f.foto}
+                        fotoDisponible={(f as { foto_disponible?: boolean | null }).foto_disponible}
+                        alt={f.nombre || f.codigo}
+                        className="relative h-10 w-10 rounded border bg-gray-100 flex-shrink-0 flex items-center justify-center"
+                        imgClassName="h-10 w-10 rounded object-cover"
+                        fallback={<Package className="h-5 w-5 text-gray-400" />}
+                      />
                       <div className="min-w-0 flex-1">
                         <p className="font-medium text-gray-900 truncate">
                           {f.nombre || "(sin nombre)"}

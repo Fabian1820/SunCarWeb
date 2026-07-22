@@ -5,6 +5,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/shared/molecule/dialog"
 import { Button } from "@/components/shared/atom/button"
+import { MaterialImage } from "@/components/shared/molecule/material-image"
 import { Input } from "@/components/shared/atom/input"
 import { Label } from "@/components/shared/atom/label"
 import { Search, X, Loader2, Package } from "lucide-react"
@@ -364,18 +365,14 @@ export function AsignacionRecursosDialog({
               {materialSeleccionado ? (
                 <div className="flex items-center justify-between gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-md">
                   <div className="min-w-0 flex items-center gap-2">
-                    {materialSeleccionado.foto ? (
-                      <img
-                        src={materialSeleccionado.foto}
-                        alt={materialSeleccionado.nombre || materialSeleccionado.descripcion}
-                        className="h-9 w-9 rounded object-cover border border-gray-200 flex-shrink-0"
-                        onError={e => { (e.target as HTMLImageElement).style.display = "none" }}
-                      />
-                    ) : (
-                      <div className="h-9 w-9 rounded bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
-                        <Package className="h-3.5 w-3.5 text-gray-400" />
-                      </div>
-                    )}
+                    <MaterialImage
+                      foto={materialSeleccionado.foto}
+                      fotoDisponible={(materialSeleccionado as { foto_disponible?: boolean | null }).foto_disponible}
+                      alt={materialSeleccionado.nombre || materialSeleccionado.descripcion}
+                      className="relative h-9 w-9 rounded border border-gray-200 flex-shrink-0 flex items-center justify-center bg-gray-100"
+                      imgClassName="h-9 w-9 rounded object-cover"
+                      fallback={<Package className="h-3.5 w-3.5 text-gray-400" />}
+                    />
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-gray-900 truncate">
                         {materialSeleccionado.nombre || materialSeleccionado.descripcion}
@@ -423,18 +420,14 @@ export function AsignacionRecursosDialog({
                               setMaterialComboOpen(false)
                             }}
                           >
-                            {m.foto ? (
-                              <img
-                                src={m.foto}
-                                alt={m.nombre || m.descripcion}
-                                className="h-7 w-7 rounded object-cover border border-gray-200 flex-shrink-0"
-                                onError={e => { (e.target as HTMLImageElement).style.display = "none" }}
-                              />
-                            ) : (
-                              <div className="h-7 w-7 rounded bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
-                                <Package className="h-3 w-3 text-gray-400" />
-                              </div>
-                            )}
+                            <MaterialImage
+                              foto={m.foto}
+                              fotoDisponible={m.foto_disponible}
+                              alt={m.nombre || m.descripcion}
+                              className="relative h-7 w-7 rounded border border-gray-200 flex-shrink-0 flex items-center justify-center bg-gray-100"
+                              imgClassName="h-7 w-7 rounded object-cover"
+                              fallback={<Package className="h-3 w-3 text-gray-400" />}
+                            />
                             <div className="flex-1 min-w-0">
                               <p className="font-medium text-gray-900 truncate">
                                 {m.nombre || m.descripcion}

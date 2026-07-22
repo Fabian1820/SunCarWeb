@@ -12,6 +12,10 @@ export interface BackendMaterial {
   nombre?: string;
   marca_id?: string;
   foto?: string;
+  /** Health check server-side. null/undefined = no verificada; true = servible; false = 502/rota. */
+  foto_disponible?: boolean | null;
+  foto_verificada_at?: string | null;
+  foto_size?: number | null;
   potenciaKW?: number;
   habilitar_venta_web?: boolean;
   precio_por_cantidad?: Record<string, number> | null;
@@ -47,6 +51,10 @@ export interface MaterialItem {
   nombre?: string;
   marca_id?: string;
   foto?: string;
+  /** Health check server-side. null/undefined = no verificada; true = servible; false = 502/rota. */
+  foto_disponible?: boolean | null;
+  foto_verificada_at?: string | null;
+  foto_size?: number | null;
   potenciaKW?: number;
   habilitar_venta_web?: boolean;
   precio_por_cantidad?: Record<string, number> | null;
@@ -79,6 +87,10 @@ export interface Material {
   costo?: number;
   comentario?: string | null;
   foto?: string;
+  /** Health check server-side. null/undefined = no verificada; true = servible; false = 502/rota. */
+  foto_disponible?: boolean | null;
+  foto_verificada_at?: string | null;
+  foto_size?: number | null;
   nombre?: string;
   marca_id?: string;
   potenciaKW?: number;
@@ -135,6 +147,10 @@ export interface CreateMaterialRequest {
   nombre?: string;
   marca_id?: string;
   foto?: string;
+  /** Health check server-side. null/undefined = no verificada; true = servible; false = 502/rota. */
+  foto_disponible?: boolean | null;
+  foto_verificada_at?: string | null;
+  foto_size?: number | null;
   potenciaKW?: number;
   habilitar_venta_web?: boolean;
   precio_por_cantidad?: Record<string, number> | null;

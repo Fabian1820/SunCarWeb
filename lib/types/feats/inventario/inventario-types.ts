@@ -310,6 +310,8 @@ export interface MaterialStockItem {
   potencia_kw?: number;
   um?: string;
   foto?: string;
+  /** Health check server-side. Si el backend lo adjunta, el frontend salta las rotas. */
+  foto_disponible?: boolean | null;
   stockaje_minimo?: number | null;
   total: number;
   por_almacen: MaterialStockPorAlmacenItem[];

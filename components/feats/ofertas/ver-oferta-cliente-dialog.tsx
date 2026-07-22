@@ -24,6 +24,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { OfertaConfeccion } from "@/hooks/use-ofertas-confeccion";
 import { GenerarLinkPagoConfeccionButton } from "./generar-link-pago-confeccion-button";
 import { PagoService } from "@/lib/services/feats/pagos/pago-service";
+import { LazyImage } from "@/components/shared/atom/lazy-image";
 
 interface VerOfertaClienteDialogProps {
   open: boolean;
@@ -188,11 +189,13 @@ export function VerOfertaClienteDialog({
     onOpenChange(false);
   };
 
-  // Crear mapa de materiales para obtener fotos
+  // Crear mapa de materiales para obtener fotos. Preserva `foto_disponible`
+  // para que el render pueda saltar las fotos que el health check server-side
+  // marcó como rotas y evitar las descargas fallidas a MinIO.
   const materialesMap = useMemo(() => {
     const map = new Map<
       string,
-      { foto?: string; nombre?: string; descripcion?: string }
+      { foto?: string; nombre?: string; descripcion?: string; foto_disponible?: boolean | null }
     >();
     materials.forEach((material) => {
       const codigo = material.codigo?.toString();
@@ -201,6 +204,7 @@ export function VerOfertaClienteDialog({
         foto: material.foto,
         nombre: material.nombre,
         descripcion: material.descripcion,
+        foto_disponible: material.foto_disponible,
       });
     });
     return map;
@@ -525,10 +529,18 @@ export function VerOfertaClienteDialog({
                     <CardContent className="p-0">
                       <div className="relative h-52 bg-gradient-to-br from-slate-50 via-emerald-50 to-yellow-100 overflow-hidden">
                         {oferta.foto_portada ? (
-                          <img
+                          <LazyImage
                             src={oferta.foto_portada}
                             alt={oferta.nombre}
-                            className="w-full h-full object-contain"
+                            className="relative w-full h-full"
+                            imgClassName="w-full h-full object-contain"
+                            fallback={
+                              <div className="w-full h-full flex items-center justify-center">
+                                <div className="h-20 w-20 rounded-2xl bg-white/80 border border-emerald-100 flex items-center justify-center shadow-sm">
+                                  <Building2 className="h-10 w-10 text-emerald-400" />
+                                </div>
+                              </div>
+                            }
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
@@ -980,11 +992,16 @@ export function VerOfertaClienteDialog({
                                     className="flex items-center gap-3 p-3"
                                   >
                                     <div className="h-12 w-12 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden">
-                                      {material?.foto ? (
-                                        <img
+                                      {material?.foto &&
+                                      material.foto_disponible !== false ? (
+                                        <LazyImage
                                           src={material.foto}
                                           alt={item.descripcion}
-                                          className="w-full h-full object-contain"
+                                          className="relative w-full h-full flex items-center justify-center"
+                                          imgClassName="w-full h-full object-contain"
+                                          fallback={
+                                            <Package className="h-6 w-6 text-slate-300" />
+                                          }
                                         />
                                       ) : (
                                         <Package className="h-6 w-6 text-slate-300" />

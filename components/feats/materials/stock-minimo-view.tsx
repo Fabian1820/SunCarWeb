@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Package, ChevronDown, ChevronUp, AlertTriangle, Loader2, MapPin } from "lucide-react";
 import { Badge } from "@/components/shared/atom/badge";
 import { Button } from "@/components/shared/atom/button";
+import { MaterialImage } from "@/components/shared/molecule/material-image";
 import { InventarioService } from "@/lib/api-services";
 import type { AlmacenConMaterialesBajos, MaterialBajoMinimo } from "@/lib/types/feats/inventario/stock-minimo-types";
 
@@ -168,12 +169,14 @@ export function StockMinimoView() {
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex items-start space-x-3 flex-1">
-                              {material.foto ? (
+                              {material.foto && (material as { foto_disponible?: boolean | null }).foto_disponible !== false ? (
                                 <div className="relative w-14 h-14 rounded-lg overflow-hidden bg-gray-50 flex-shrink-0 border border-gray-200">
-                                  <img
-                                    src={material.foto}
+                                  <MaterialImage
+                                    foto={material.foto}
+                                    fotoDisponible={(material as { foto_disponible?: boolean | null }).foto_disponible}
                                     alt={material.nombre}
-                                    className="w-full h-full object-contain p-1"
+                                    imgClassName="w-full h-full object-contain p-1"
+                                    fallback={<Package className="h-4 w-4 text-amber-700" />}
                                   />
                                 </div>
                               ) : (
