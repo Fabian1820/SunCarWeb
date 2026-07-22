@@ -2,6 +2,32 @@
 
 ---
 
+## 📅 22 de Julio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**1 commit real** de yany1509 — fix en el módulo de facturas de solar/carros: el buscador de "cambiar material" ahora usa la categoría real del catálogo en lugar de un heurístico de texto con 3 buckets.
+
+---
+
+### Área 1: Facturas solar/carros — buscador de cambio de material usa categoría real (1 commit — yany1509, 19:41)
+
+- **`fix(facturas-solar-carros): el buscador de cambiar material respeta la categoria real`** — El selector "Cambiar por..." de cada material de la factura adivinaba la categoría con substrings del texto crudo del ítem (3 buckets: inversor/batería/panel). Cualquier material fuera de esos 3 (tornillería, tierra, cableado) caía en "panel" por defecto, mostrando materiales de la categoría equivocada. Ahora usa la categoría real del material vinculado del catálogo (el mismo campo que usan Existencias/Contabilidad). Se mantiene el bucket anterior como fallback para filas sin match en el catálogo. Verificado con datos reales de dev: TIERRA (sin materiales en contabilidad) muestra vacío correctamente; BATERÍAS (13 con `codigo_contabilidad`) arma bien sus opciones.
+
+---
+
+### Puede dar bateo
+
+1. **Fallback al heurístico anterior para filas sin match — comportamiento inconsistente sin indicador visual**: Cuando un material de la factura no tiene match en el catálogo, el selector vuelve silenciosamente al bucket de texto (inversor/batería/panel). El usuario no sabe si las opciones que ve son correctas o son el fallback incorrecto.
+
+2. **Catálogo local puede estar stale — categoría incorrecta si la sesión no se recargó**: La categoría real se toma del catálogo cargado en la sesión actual. Si el catálogo no se recargó y un material cambió de categoría en el backend, el selector mostrará la categoría anterior.
+
+3. **Mismo heurístico de texto puede existir en otros módulos — verificar cobertura**: La lógica de categorización por substring (inversor/batería/panel) era específica de este componente según el commit. Verificar si el mismo patrón se repite en confección de ofertas, solicitudes de materiales u otros módulos con selectores de material.
+
+4. **Categoría sin materiales en contabilidad muestra lista vacía sin mensaje**: Un usuario que intente cambiar un ítem de tierra o tornillería ve el selector "Cambiar por..." vacío sin ninguna explicación. Puede parecer un bug o error de carga.
+
+---
+
 ## 📅 21 de Julio, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -55,9 +81,9 @@
 
 3. **`foto_disponible` gate requiere que el health check del backend haya corrido**: Si `POST /api/admin/verificar-fotos-materiales` no se ejecutó o el backend no devuelve el campo, todos los materiales tendrán `foto_disponible: undefined`. El gate fail-open no filtrará nada y el beneficio de rendimiento se pierde, aunque el código sea correcto.
 
-4. **`failedImages` Set sin evición — fotos reparadas en S3 no se recargan sin reload**: Si una URL rota en S3 se repara (e.g., se resubio la imagen), el Set de negativos la sigue evitando durante el resto del pageview. El usuario necesita recargar la página para ver fotos recién reparadas.
+4. **`failedImages` Set sin evición — fotos reparadas en S3 no se recargan sin reload**: Si una URL rota en S3 se repara, el Set de negativos la sigue evitando durante el resto del pageview. El usuario necesita recargar la página para ver fotos recién reparadas.
 
-5. **Canvas downscale + JPEG para materiales con transparencia**: Las fotos de materiales procesadas con JPEG 0.82 en canvas pierden el canal alpha. Si algún material usa PNG con fondo transparente, aparecerá con fondo negro/blanco en el PDF. El logo está excluido explícitamente, pero los materiales no.
+5. **Canvas downscale + JPEG para materiales con transparencia**: Las fotos procesadas con JPEG 0.82 en canvas pierden el canal alpha. Si algún material usa PNG con fondo transparente, aparecerá con fondo negro/blanco en el PDF. El logo está excluido explícitamente, pero los materiales no.
 
 6. **5 ubicaciones sin migrar a `<MaterialImage>` siguen con raw `<img>`**: `inventario/stockajes-minimos-section` (dropdown), `solicitud-material-detail-dialog`, `vale-salida-detail-dialog`, `compras/compra-form-dialog` y `fichas-costo/calc-porcentaje-dialog` no fueron migrados. Siguen disparando requests a MinIO para fotos conocidas rotas.
 
@@ -149,11 +175,11 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ### Resumen de cambios (últimas 24h)
 
-**4 commits reales** de yany1509 — todos enfocados en flujos de pagos y devoluciones: (1) badge "Pendiente de selección" para ofertas amb iguas en Obras Terminadas; (2) botón de cancelar pago en Pagos Clientes; (3) botón de devolución de pagos de venta y badge "Anulada" en facturas; (4) motivo obligatorio en devoluciones de vale.
+**4 commits reales** de yany1509 — todos enfocados en flujos de pagos y devoluciones: (1) badge "Pendiente de selección" para ofertas ambiguas en Obras Terminadas; (2) botón de cancelar pago en Pagos Clientes; (3) botón de devolución de pagos de venta y badge "Anulada" en facturas; (4) motivo obligatorio en devoluciones de vale.
 
 ---
 
-### Área 1: Obras Terminadas — badge "Pendiente de selección" para ofertas amb iguas (1 commit — yany1509, 20:30)
+### Área 1: Obras Terminadas — badge "Pendiente de selección" para ofertas ambiguas (1 commit — yany1509, 20:30)
 
 - **`fix(obras-terminadas): badge de pendiente de seleccion para ofertas ambiguas`** — Refleja el nuevo campo `estado_factura_detalle` del backend: badge ámbar "Pendiente de selección" (distinto del gris "Sin factura") para ofertas con 2+ ofertas confirmadas sin facturar que ya están esperando que el área económica elija cuál facturar. Incluye el filtro correspondiente en la barra de la tabla.
 
@@ -239,54 +265,12 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 14 de Julio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**3 commits reales** de yany1509 — todos en el área de Facturas y Obras Terminadas: (1) nuevo modal "Generar factura a cliente" con soporte para clientes no instalados; (2) deep-link desde la campana de notificaciones al caso ambiguo de múltiples ofertas confirmadas sin facturar, más botón "Exportar Excel sin materiales" en la tabla de Facturas; (3) refactor del export sin materiales reduciendo las columnas a las relevantes para contabilidad.
-
----
-
-### Área 1: Obras Terminadas — modal "Generar factura a cliente" + clientes no instalados (1 commit — yany1509, 17:12)
-
-- **`feat(obras-terminadas): modal "Generar factura a cliente" + facturas de clientes no instalados`** — Nuevo diálogo para buscar un cliente, ver sus ofertas confirmadas con pagos/pendiente/estado, y facturar la que falte con un click. La vista de Facturas ahora puede listar ofertas facturadas de clientes que aún no están instalados (`requiere_instalado=false`), con advertencia al facturar si el cliente no está instalado todavía.
-
----
-
-### Área 2: Campana de notificaciones — deep-link factura ambigua + botón Excel sin materiales (1 commit — yany1509, 20:33)
-
-- **`feat(facturas): deep-link a factura ambigua + exportar Excel sin materiales`** — Nueva pestaña "Facturar" en el notification-bell (tipo `factura_multiple_ofertas`) que enlaza directo a `/facturas/obras-terminadas?cliente=...` con el modal "Generar factura a cliente" ya abierto y ese cliente precargado, para el caso de 2+ ofertas confirmadas sin facturar. Botón "Exportar Excel sin materiales" en la tabla de Facturas de Obras Terminadas.
-
----
-
-### Área 3: Export Excel sin materiales — columnas reducidas para contabilidad (1 commit — yany1509, 21:29)
-
-- **`feat(facturas): reduce columnas del Excel sin materiales en Facturas`** — El export "Exportar Excel sin materiales" de la vista de Facturas usa ahora un método dedicado (`exportarFacturasSinMateriales`) con solo las columnas relevantes para contabilidad: Cliente, Oferta, F. Eq. Instalado, Precio Oferta, N° Factura, Cobrado, Pendiente. El export sin materiales de la vista de Obras no cambia.
-
----
-
-### Puede dar bateo
-
-1. **Modal "Generar factura a cliente" — endpoint de búsqueda con estado de pagos sin confirmar**: El modal necesita un endpoint que devuelva las ofertas confirmadas del cliente junto con el estado de pagos/pendiente. Si el backend no lo implementó o devuelve una estructura diferente, el modal cargará vacío o fallará sin mensaje claro.
-
-2. **`requiere_instalado=false` — advertencia solo en frontend, backend puede rechazar la factura igualmente**: Si el backend valida que el cliente esté instalado antes de aceptar la factura, la advertencia del frontend sería solo estética y la operación fallaría con un 422 sin mensaje útil al usuario.
-
-3. **Deep-link `?cliente=...` — apertura automática del modal depende de lectura de URL al montar el componente**: Si el componente de Obras Terminadas no lee el parámetro de query al montar, el usuario llega a la vista sin contexto y sin modal abierto, sin ningún mensaje que explique qué pasó.
-
-4. **Notificación `factura_multiple_ofertas` persistente tras facturar por otra vía**: Si el usuario factura al cliente desde otro flujo, la notificación en la campana seguirá apareciendo. El deep-link abrirá el modal pero sin ofertas pendientes, sin mensaje de "ya facturado".
-
-5. **Ciclo de 3 commits en ~4h con auto-deploy — ventana de inestabilidad**: Los commits llegaron entre 17:12 y 21:29. Usuarios en esa ventana pudieron ver el modal sin el botón de export, o el export con columnas incorrectas antes del fix del commit 21:29.
-
-6. **`exportarFacturasSinMateriales` — columnas fijas vacías en facturas históricas sin los campos nuevos**: Si facturas antiguas no tienen `N° Factura` o `F. Eq. Instalado`, esas columnas aparecerán vacías en el Excel sin ninguna nota explicativa.
-
-7. **Campana notifica solo `factura_multiple_ofertas` (2+ ofertas) — 1 oferta confirmada sin facturar no genera notificación**: Clientes con exactamente una oferta confirmada sin facturar nunca aparecen en la campana. Puede haber backlog de facturas pendientes invisible para el equipo.
-
-8. **Búsqueda de cliente en modal — sin paginación ni límite visible**: Si el endpoint devuelve todos los clientes con su historial de ofertas y pagos, una base grande puede producir respuestas lentas o timeouts sin indicador de carga.
-
----
-
 #### Seguimientos vigentes
 
+- **Selector "Cambiar por..." en facturas-solar-carros — fallback heurístico en filas sin match en catálogo, comportamiento inconsistente sin indicador visual (Jul 22)**.
+- **Catálogo local stale — categoría real puede ser incorrecta si la sesión no se recargó después de actualizar el backend (Jul 22)**.
+- **Heurístico de categorización por substring puede existir en otros módulos — verificar cobertura (Jul 22)**.
+- **Categoría sin materiales en contabilidad muestra lista vacía sin mensaje explicativo al usuario (Jul 22)**.
 - **Instrumentación temporal de perf — verificar que no quedó en bundle de producción (Jul 21)**.
 - **Ciclo add/remove AbortController en 18 min — build intermedio puede haber llegado a prod con 0 fotos en PDF (Jul 21)**.
 - **`foto_disponible` gate sin health check ejecutado — fail-open pierde beneficio de rendimiento (Jul 21)**.
@@ -314,12 +298,6 @@ Sin cambios nuevos — sin riesgos nuevos.
 - **Monto libre en ajuste de saldo sin aprobación secundaria — riesgo de cancelar deuda grande por error (Jul 15)**.
 - **Badge "Ajuste de contabilidad" — pantalla sin mapeo del caso 'ajuste' mostrará texto crudo (Jul 15)**.
 - **Sin mecanismo de reversa en UI para ajuste de saldo aplicado por error (Jul 15)**.
-- **Modal "Generar factura a cliente" — endpoint de búsqueda con estado de pagos sin confirmar (Jul 14)**.
-- **`requiere_instalado=false` — advertencia solo en frontend, backend puede rechazar la factura igualmente (Jul 14)**.
-- **Deep-link `?cliente=...` — apertura del modal falla si el parámetro no se lee al montar (Jul 14)**.
-- **Notificación `factura_multiple_ofertas` persistente tras facturar por otra vía — modal abre sin ofertas pendientes (Jul 14)**.
-- **`exportarFacturasSinMateriales` — columnas fijas vacías en facturas históricas sin los campos nuevos (Jul 14)**.
-- **Campana notifica solo 2+ ofertas confirmadas sin facturar — 1 sola oferta pendiente nunca genera notificación (Jul 14)**.
 - **Fichas de Costo — "Ajuste general" irreversible destruye diferencias por almacén sin confirmación robusta (Jul 13)**.
 - **Fichas de Costo — endpoint de ajuste por almacén específico (✎) sin confirmar en backend (Jul 13)**.
 - **Fichas de Costo — desglose por almacén stale al abrir el diálogo con movimientos concurrentes (Jul 13)**.
@@ -442,4 +420,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
