@@ -427,6 +427,13 @@ export function ExportSelectionDialog({
     new Set(),
   );
 
+  // Opciones de contenido a incluir en la exportación (todas activas por defecto,
+  // igual que el comportamiento actual)
+  const [incluirTerminos, setIncluirTerminos] = useState(true);
+  const [incluirDescuento, setIncluirDescuento] = useState(true);
+  const [incluirTransferencia, setIncluirTransferencia] = useState(true);
+  const [incluirFotos, setIncluirFotos] = useState(true);
+
   // Actualizar selección cuando cambie la oferta
   useEffect(() => {
     if (!oferta) return;
@@ -546,6 +553,16 @@ export function ExportSelectionDialog({
       });
 
       const itemsFiltrados = items.filter((item) => {
+        // Descuento: respetar el checkbox "Incluir descuento"
+        if (item.seccion === "Descuento" && !incluirDescuento) {
+          return false;
+        }
+
+        // Datos de pago por transferencia ("tarjeta"): respetar su checkbox
+        if (item.seccion === "PAGO" && !incluirTransferencia) {
+          return false;
+        }
+
         // Si es un item de material, verificar si está seleccionado
         if (item.material_codigo) {
           const seleccionado = materialesSeleccionados.has(
@@ -620,34 +637,33 @@ export function ExportSelectionDialog({
         opcionesExportacion.exportOptionsClienteConPreciosTasaCambio?.columns,
     });
 
+    const aplicarOpcionesContenido = (opciones: any) => {
+      if (!opciones) return opciones;
+      return {
+        ...opciones,
+        data: filtrarItems(opciones.data || []),
+        terminosCondiciones: incluirTerminos
+          ? opciones.terminosCondiciones
+          : undefined,
+        incluirFotos: incluirFotos ? opciones.incluirFotos : false,
+      };
+    };
+
     return {
-      exportOptionsCompleto: {
-        ...opcionesExportacion.exportOptionsCompleto,
-        data: filtrarItems(
-          opcionesExportacion.exportOptionsCompleto?.data || [],
-        ),
-      },
-      exportOptionsSinPrecios: {
-        ...opcionesExportacion.exportOptionsSinPrecios,
-        data: filtrarItems(
-          opcionesExportacion.exportOptionsSinPrecios?.data || [],
-        ),
-      },
-      exportOptionsClienteConPrecios: {
-        ...opcionesExportacion.exportOptionsClienteConPrecios,
-        data: filtrarItems(
-          opcionesExportacion.exportOptionsClienteConPrecios?.data || [],
-        ),
-      },
+      exportOptionsCompleto: aplicarOpcionesContenido(
+        opcionesExportacion.exportOptionsCompleto,
+      ),
+      exportOptionsSinPrecios: aplicarOpcionesContenido(
+        opcionesExportacion.exportOptionsSinPrecios,
+      ),
+      exportOptionsClienteConPrecios: aplicarOpcionesContenido(
+        opcionesExportacion.exportOptionsClienteConPrecios,
+      ),
       exportOptionsClienteConPreciosTasaCambio:
         opcionesExportacion.exportOptionsClienteConPreciosTasaCambio
-          ? {
-              ...opcionesExportacion.exportOptionsClienteConPreciosTasaCambio,
-              data: filtrarItems(
-                opcionesExportacion.exportOptionsClienteConPreciosTasaCambio
-                  ?.data || [],
-              ),
-            }
+          ? aplicarOpcionesContenido(
+              opcionesExportacion.exportOptionsClienteConPreciosTasaCambio,
+            )
           : undefined,
     };
   }, [
@@ -655,6 +671,10 @@ export function ExportSelectionDialog({
     materialesSeleccionados,
     seccionesEspecialesSeleccionadas,
     oferta,
+    incluirTerminos,
+    incluirDescuento,
+    incluirTransferencia,
+    incluirFotos,
   ]);
 
   // Debug: verificar que los términos se están pasando
@@ -948,6 +968,53 @@ export function ExportSelectionDialog({
               )}
             </div>
           </ScrollArea>
+
+          <Separator />
+
+          {/* Opciones de contenido a incluir */}
+          <div className="space-y-2">
+            <div className="text-sm font-semibold text-slate-700">
+              Contenido a incluir en la exportación:
+            </div>
+            <div className="flex flex-wrap gap-x-6 gap-y-2">
+              <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                <Checkbox
+                  checked={incluirTerminos}
+                  onCheckedChange={(checked) =>
+                    setIncluirTerminos(checked === true)
+                  }
+                />
+                Texto legal (términos y condiciones)
+              </label>
+              <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                <Checkbox
+                  checked={incluirDescuento}
+                  onCheckedChange={(checked) =>
+                    setIncluirDescuento(checked === true)
+                  }
+                />
+                Descuento
+              </label>
+              <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                <Checkbox
+                  checked={incluirTransferencia}
+                  onCheckedChange={(checked) =>
+                    setIncluirTransferencia(checked === true)
+                  }
+                />
+                Datos de pago por transferencia
+              </label>
+              <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                <Checkbox
+                  checked={incluirFotos}
+                  onCheckedChange={(checked) =>
+                    setIncluirFotos(checked === true)
+                  }
+                />
+                Fotos
+              </label>
+            </div>
+          </div>
 
           <Separator />
 

@@ -6498,22 +6498,6 @@ export function ConfeccionOfertasView({
                         <Search className="h-3.5 w-3.5" />
                         Lead
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTipoContacto("lead_sin_agregar");
-                          setClienteId("");
-                          setLeadId("");
-                        }}
-                        className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-medium rounded transition-all ${
-                          tipoContacto === "lead_sin_agregar"
-                            ? "bg-white text-slate-900 shadow-sm"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                        Nuevo
-                      </button>
                     </div>
 
                     {/* Selector de Cliente */}
@@ -7740,6 +7724,10 @@ export function ConfeccionOfertasView({
                       Tiene Compensación
                     </label>
                   </div>
+                  <p className="text-xs text-emerald-700">
+                    Se resta al cliente por un fallo o un trabajo mal hecho
+                    (ej. retraso en la instalación, error del servicio).
+                  </p>
 
                   {tieneCompensacion && (
                     <div className="space-y-2 pl-6">
@@ -7858,6 +7846,11 @@ export function ConfeccionOfertasView({
                       Tiene Monto Asumido por Empresa
                     </label>
                   </div>
+                  <p className="text-xs text-blue-700">
+                    La empresa decide absorberlo por una razón externa, no
+                    por un fallo del servicio (ej. descuento VIP aprobado por
+                    gerencia).
+                  </p>
 
                   {tieneAsumidoPorEmpresa && (
                     <div className="space-y-2 pl-6">

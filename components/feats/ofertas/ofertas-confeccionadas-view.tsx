@@ -9,8 +9,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
-  DialogFooter,
 } from "@/components/shared/molecule/dialog";
 import { Input } from "@/components/shared/atom/input";
 import {
@@ -60,7 +58,6 @@ import {
   Search,
   Download,
   Edit,
-  Trash2,
   Copy,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -119,10 +116,6 @@ export function OfertasConfeccionadasView() {
   // Contador que cambia cada vez que se abre el diálogo de edición,
   // para forzar un remount completo de ConfeccionOfertasView
   const [editarDialogKey, setEditarDialogKey] = useState(0);
-  const [mostrarDialogoEliminar, setMostrarDialogoEliminar] = useState(false);
-  const [ofertaParaEliminar, setOfertaParaEliminar] =
-    useState<OfertaListadoItem | null>(null);
-  const [eliminandoOferta, setEliminandoOferta] = useState(false);
   const [terminosCondicionesPayload, setTerminosCondicionesPayload] =
     useState<TerminosCondicionesPayload | null>(null);
 
@@ -2012,11 +2005,6 @@ export function OfertasConfeccionadasView() {
     router.push(`/ofertas-gestion/duplicar?id=${oferta.id}`);
   };
 
-  const abrirDialogoEliminar = (oferta: OfertaListadoItem) => {
-    setOfertaParaEliminar(oferta);
-    setMostrarDialogoEliminar(true);
-  };
-
   const abrirDetalle = async (oferta: OfertaListadoItem) => {
     setDetalleAbierto(true);
     setOfertaSeleccionada(null);
@@ -2024,28 +2012,6 @@ export function OfertasConfeccionadasView() {
     if (completa) {
       setOfertaSeleccionada(completa);
     }
-  };
-
-  const confirmarEliminar = async () => {
-    if (!ofertaParaEliminar) return;
-    setEliminandoOferta(true);
-    try {
-      await apiRequest(`/ofertas/confeccion/${ofertaParaEliminar.id}`, {
-        method: "DELETE",
-      });
-      setMostrarDialogoEliminar(false);
-      setOfertaParaEliminar(null);
-      refetch();
-    } catch (error) {
-      console.error("Error eliminando oferta:", error);
-    } finally {
-      setEliminandoOferta(false);
-    }
-  };
-
-  const cancelarEliminar = () => {
-    setMostrarDialogoEliminar(false);
-    setOfertaParaEliminar(null);
   };
 
   return (
@@ -2057,7 +2023,7 @@ export function OfertasConfeccionadasView() {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input
-                  placeholder="Buscar por nombre o cliente..."
+                  placeholder="Buscar por nombre, cliente o número de oferta..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
@@ -2341,15 +2307,6 @@ export function OfertasConfeccionadasView() {
                               disabled={loadingDetalle}
                             >
                               <Edit className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                              onClick={() => abrirDialogoEliminar(oferta)}
-                              title="Eliminar oferta"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                             <Button
                               variant="outline"
@@ -3339,76 +3296,6 @@ export function OfertasConfeccionadasView() {
         }}
       />
 
-      {/* Diálogo de Confirmación de Eliminación */}
-      <Dialog
-        open={mostrarDialogoEliminar}
-        onOpenChange={setMostrarDialogoEliminar}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-red-600">
-              <Trash2 className="h-5 w-5" />
-              ¿Eliminar oferta?
-            </DialogTitle>
-            <DialogDescription asChild>
-              <div className="pt-4 space-y-3">
-                <p className="text-slate-700">
-                  Estás a punto de eliminar la oferta:
-                </p>
-                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
-                  <p className="font-semibold text-slate-900">
-                    {ofertaParaEliminar?.nombre}
-                  </p>
-                  <p className="text-sm text-slate-600 mt-1">
-                    {ofertaParaEliminar?.numero_oferta ||
-                      ofertaParaEliminar?.id}
-                  </p>
-                </div>
-                <p className="text-slate-600 text-sm">
-                  Esta acción no se puede deshacer. La oferta será eliminada y
-                  se limpiará la referencia en el cliente o lead asociado.
-                </p>
-                {ofertaParaEliminar?.estado === "reservada" && (
-                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                    <p className="text-sm text-amber-800">
-                      <span className="font-semibold">⚠️ Advertencia:</span>{" "}
-                      Esta oferta tiene estado "Reservada". Verifica que no
-                      tenga materiales reservados antes de eliminar.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              variant="outline"
-              onClick={cancelarEliminar}
-              disabled={eliminandoOferta}
-            >
-              Cancelar
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={confirmarEliminar}
-              disabled={eliminandoOferta}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              {eliminandoOferta ? (
-                <>
-                  <Loader className="mr-2 h-4 w-4 animate-spin" />
-                  Eliminando...
-                </>
-              ) : (
-                <>
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Eliminar oferta
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
