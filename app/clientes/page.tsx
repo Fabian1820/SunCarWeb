@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/shared/atom/button";
 import {
@@ -10,18 +10,35 @@ import {
   DialogTitle,
   ConfirmDeleteDialog,
 } from "@/components/shared/molecule/dialog";
-import { User } from "lucide-react";
+import { User, Search, ChevronDown } from "lucide-react";
 import { ClienteService } from "@/lib/api-services";
 import { ClientsTable } from "@/components/feats/customer-service/clients-table";
 import { PageLoader } from "@/components/shared/atom/page-loader";
+import { Loader } from "@/components/shared/atom/loader";
 import { useToast } from "@/hooks/use-toast";
 import { useFuentesSync } from "@/hooks/use-fuentes-sync";
 import { Toaster } from "@/components/shared/molecule/toaster";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { CreateClientDialog } from "@/components/feats/cliente/create-client-dialog";
-import { FuentesManager } from "@/components/shared/molecule/fuentes-manager";
 import { ExportButtons } from "@/components/shared/molecule/export-buttons";
 import { SmartPagination } from "@/components/shared/molecule/smart-pagination";
+import { Card, CardContent } from "@/components/shared/molecule/card";
+import { Input } from "@/components/shared/molecule/input";
+import { Label } from "@/components/shared/atom/label";
+import { Checkbox } from "@/components/shared/molecule/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/shared/atom/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/shared/molecule/popover";
+import { apiRequest } from "@/lib/api-config";
 import type {
   Cliente,
   ClienteCreateData,
@@ -58,6 +75,52 @@ const TIEMPO_RANGES: Record<string, (dias: number) => boolean> = {
   "1mes": (d) => d >= 20 && d <= 30,
   ">1mes": (d) => d > 30,
 };
+
+const TIEMPO_LABELS: Record<string, string> = {
+  "1_5": "Entre 1 y 5 días",
+  "5_10": "Entre 5 y 10 días",
+  "10_15": "Entre 10 y 15 días",
+  "15_20": "Entre 15 y 20 días",
+  "1mes": "1 mes",
+  ">1mes": "Más de 1 mes",
+};
+
+const OFERTAS_FILTER_OPTIONS = [
+  { value: "todas", label: "Todas las ofertas" },
+  { value: "con_ofertas", label: "Con ofertas" },
+  { value: "sin_ofertas", label: "Sin ofertas" },
+  { value: "con_confirmadas", label: "Con ofertas confirmadas" },
+  { value: "mas_1_confirmada", label: "Con más de 1 confirmada" },
+  { value: "sin_confirmadas", label: "Sin ofertas confirmadas" },
+];
+
+const CLIENT_ESTADOS = [
+  "Equipo instalado con éxito",
+  "Esperando equipo",
+  "Pendiente de instalación",
+  "Instalación en Proceso",
+  "Pendiente de visita",
+  "Pendiente de visitarnos",
+  "No interesado",
+];
+
+const LEAD_FUENTES = [
+  "Página Web",
+  "Instagram",
+  "Facebook",
+  "Directo",
+  "Mensaje de Whatsapp",
+  "Visita",
+];
+
+const LEAD_COMERCIALES = [
+  "Enelido Alexander Calero Perez",
+  "Yanet Clara Rodríguez Quintana",
+  "Dashel Pinillos Zubiaur",
+  "Gretel María Mojena Almenares",
+];
+
+const COMERCIALES_LEADS_CACHE_KEY = "leadsComercialesAllCache";
 
 const getTotalConfirmadasCliente = (client: Cliente): number => {
   if (typeof client.oferta_confeccion?.total_confirmadas === "number") {
@@ -313,43 +376,193 @@ export default function ClientesPage() {
     skip: 0,
     limit: 20,
   });
-  const handleFiltersChange = useCallback(
-    (newFilters: Omit<ClientesFilters, "skip" | "limit">) => {
-      const normalizedEstado = Array.from(
-        new Set(newFilters.estado.map((value) => value.trim()).filter(Boolean)),
-      );
-      setAppliedFilters((prev) => {
-        const isSameEstado =
-          normalizedEstado.length === prev.estado.length &&
-          normalizedEstado.every(
-            (value, index) => value === prev.estado[index],
-          );
-        const filtersChanged =
-          prev.searchTerm !== newFilters.searchTerm ||
-          !isSameEstado ||
-          prev.fuente !== newFilters.fuente ||
-          prev.comercial !== newFilters.comercial ||
-          prev.fechaDesde !== newFilters.fechaDesde ||
-          prev.fechaHasta !== newFilters.fechaHasta ||
-          prev.mes !== newFilters.mes ||
-          prev.provincia.join(",") !== newFilters.provincia.join(",") ||
-          prev.municipio.join(",") !== newFilters.municipio.join(",") ||
-          prev.ofertas !== newFilters.ofertas ||
-          prev.tiempo !== newFilters.tiempo ||
-          prev.mostrarAnulados !== newFilters.mostrarAnulados;
-
-        if (!filtersChanged) return prev;
-
-        return {
-          ...prev,
-          ...newFilters,
-          estado: normalizedEstado,
-          skip: 0,
-        };
-      });
+  const updateFilters = useCallback(
+    (patch: Partial<Omit<ClientesFilters, "skip" | "limit">>) => {
+      setAppliedFilters((prev) => ({ ...prev, ...patch, skip: 0 }));
     },
     [],
   );
+
+  // Buscador con debounce (mismo esquema que Leads)
+  const [searchInput, setSearchInput] = useState(buscarParam);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      updateFilters({ searchTerm: searchInput });
+    }, 400);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput]);
+
+  // Provincias / municipios para filtros
+  const [provinciasList, setProvinciasList] = useState<
+    Array<{ codigo: string; nombre: string }>
+  >([]);
+  const [municipiosList, setMunicipiosList] = useState<
+    Array<{ codigo: string; nombre: string }>
+  >([]);
+  const [comercialesExtra, setComercialesExtra] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelado = false;
+    (async () => {
+      try {
+        const response = await apiRequest<{
+          success: boolean;
+          data: Array<{ codigo: string; nombre: string }>;
+        }>("/provincias/", { method: "GET" });
+        if (!cancelado && response.success && response.data) {
+          setProvinciasList(response.data);
+        }
+      } catch (error) {
+        console.error("Error cargando provincias:", error);
+      }
+    })();
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (appliedFilters.provincia.length === 0) {
+      setMunicipiosList([]);
+      return;
+    }
+    const codigos = appliedFilters.provincia
+      .map((nombre) => provinciasList.find((p) => p.nombre === nombre)?.codigo)
+      .filter(Boolean) as string[];
+    if (codigos.length === 0) {
+      setMunicipiosList([]);
+      return;
+    }
+    let cancelado = false;
+    (async () => {
+      try {
+        const resultados = await Promise.all(
+          codigos.map((codigo) =>
+            apiRequest<{ success: boolean; data: Array<{ codigo: string; nombre: string }> }>(
+              `/provincias/provincia/${codigo}/municipios`,
+              { method: "GET" },
+            ),
+          ),
+        );
+        if (cancelado) return;
+        const combined = new Map<string, { codigo: string; nombre: string }>();
+        for (const r of resultados) {
+          if (r?.success && Array.isArray(r.data)) {
+            for (const m of r.data) combined.set(m.nombre, m);
+          }
+        }
+        setMunicipiosList(
+          [...combined.values()].sort((a, b) =>
+            a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }),
+          ),
+        );
+      } catch (error) {
+        console.error("Error cargando municipios:", error);
+      }
+    })();
+    return () => {
+      cancelado = true;
+    };
+  }, [appliedFilters.provincia, provinciasList]);
+
+  // Cargar comerciales lazy: solo desde caché al inicio; el endpoint se invoca cuando el usuario abre el dropdown
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const cached = sessionStorage.getItem(COMERCIALES_LEADS_CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached) as string[];
+        if (Array.isArray(parsed)) setComercialesExtra(parsed);
+      }
+    } catch {}
+  }, []);
+
+  const comercialesFetchedRef = useRef(false);
+  const ensureComercialesCargados = useCallback(async () => {
+    if (comercialesFetchedRef.current) return;
+    comercialesFetchedRef.current = true;
+    try {
+      const response = await apiRequest<{
+        success: boolean;
+        data: { leads?: Array<{ comercial?: string }> };
+      }>("/leads/?skip=0&limit=500", { method: "GET" });
+      const leads = response?.data?.leads ?? [];
+      const set = new Set<string>();
+      for (const lead of leads) {
+        if (lead.comercial && lead.comercial.trim())
+          set.add(lead.comercial.trim());
+      }
+      const list = Array.from(set);
+      setComercialesExtra(list);
+      try {
+        sessionStorage.setItem(
+          COMERCIALES_LEADS_CACHE_KEY,
+          JSON.stringify(list),
+        );
+      } catch {}
+    } catch (error) {
+      console.warn("No se pudo cargar comerciales de leads:", error);
+      comercialesFetchedRef.current = false;
+    }
+  }, []);
+
+  const availableEstados = CLIENT_ESTADOS;
+  const availableFuentes = LEAD_FUENTES;
+  const availableComerciales = useMemo(() => {
+    const set = new Set<string>();
+    LEAD_COMERCIALES.forEach((c) => set.add(c));
+    comercialesExtra.forEach((c) => set.add(c));
+    clients.forEach((c) => {
+      if (c.comercial && c.comercial.trim()) set.add(c.comercial.trim());
+    });
+    return Array.from(set).sort((a, b) =>
+      a.localeCompare(b, "es", { sensitivity: "base" }),
+    );
+  }, [comercialesExtra, clients]);
+
+  const toggleEstado = (estado: string) => {
+    setAppliedFilters((prev) => {
+      const next = prev.estado.includes(estado)
+        ? prev.estado.filter((value) => value !== estado)
+        : [...prev.estado, estado];
+      return { ...prev, estado: next, skip: 0 };
+    });
+  };
+
+  const hasActiveFilters = Boolean(
+    searchInput.trim() ||
+      appliedFilters.estado.length > 0 ||
+      appliedFilters.fuente ||
+      appliedFilters.comercial ||
+      appliedFilters.fechaDesde ||
+      appliedFilters.fechaHasta ||
+      appliedFilters.mes ||
+      appliedFilters.provincia.length > 0 ||
+      appliedFilters.municipio.length > 0 ||
+      appliedFilters.ofertas ||
+      appliedFilters.tiempo,
+  );
+
+  const handleClearFilters = () => {
+    setSearchInput("");
+    setAppliedFilters((prev) => ({
+      ...prev,
+      searchTerm: "",
+      estado: [],
+      fuente: "",
+      comercial: "",
+      fechaDesde: "",
+      fechaHasta: "",
+      mes: "",
+      provincia: [],
+      municipio: [],
+      ofertas: "",
+      tiempo: "",
+      mostrarAnulados: false,
+      skip: 0,
+    }));
+  };
 
   const setPage = useCallback(
     (page: number) => {
@@ -992,37 +1205,382 @@ export default function ClientesPage() {
         badge={{ text: "Servicio", className: "bg-emerald-100 text-emerald-800" }}
         className="bg-white shadow-sm border-b border-emerald-100"
         actions={
-          <div className="flex items-center gap-2">
-            <FuentesManager />
-          </div>
+          totalClients > 0 ? (
+            <ExportButtons
+              getExportOptions={getExportOptions}
+              baseFilename="clientes"
+              variant="compact"
+            />
+          ) : undefined
         }
       />
       <main className="content-with-fixed-header max-w-[96rem] mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
         <div className="space-y-4">
-          <ClientsTable
-            clients={clients}
-            totalClients={totalClients}
-            onEdit={handleEditClient}
-            onDelete={handleDeleteClient}
-            onSetClienteStatus={handleSetClienteStatus}
-            onViewLocation={handleViewClientLocation}
-            onUploadFotos={handleUploadClientFoto}
-            onUpdatePrioridad={handleUpdateClientPrioridad}
-            loading={loading || initialLoading}
-            onFiltersChange={handleFiltersChange}
-            initialSearchTerm={buscarParam}
-            autoOpenEditarOfertaClienteNumero={editarOfertaClienteParam || undefined}
-            autoOpenCrearOfertaClienteNumero={crearOfertaClienteParam || undefined}
-            exportButtons={
-              totalClients > 0 ? (
-                <ExportButtons
-                  getExportOptions={getExportOptions}
-                  baseFilename="clientes"
-                  variant="compact"
+          {/* Búsqueda y filtros */}
+          <Card className="border-l-4 border-l-emerald-600">
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex gap-3 mb-4 flex-col sm:flex-row">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="search-client"
+                    placeholder="Buscar por cualquier dato..."
+                    value={searchInput}
+                    onChange={(event) => setSearchInput(event.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <label className="flex items-center gap-2 text-sm text-gray-700 whitespace-nowrap px-1">
+                  <Checkbox
+                    checked={appliedFilters.mostrarAnulados}
+                    onCheckedChange={(checked) =>
+                      updateFilters({ mostrarAnulados: checked === true })
+                    }
+                  />
+                  Mostrar anulados
+                </label>
+                <Button
+                  variant="outline"
+                  onClick={handleClearFilters}
+                  className="text-gray-600 hover:text-gray-800 whitespace-nowrap"
+                  disabled={!hasActiveFilters}
+                >
+                  Limpiar Filtros
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full justify-between">
+                        <span className="truncate">
+                          {appliedFilters.estado.length > 0
+                            ? `${appliedFilters.estado.length} estado${appliedFilters.estado.length > 1 ? "s" : ""}`
+                            : "Todos los estados"}
+                        </span>
+                        <ChevronDown className="h-4 w-4 text-gray-400" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="start" className="w-72">
+                      <div className="flex items-center justify-between mb-2">
+                        <Label className="text-sm text-gray-700">Estado</Label>
+                        {appliedFilters.estado.length > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            onClick={() => updateFilters({ estado: [] })}
+                          >
+                            Limpiar
+                          </Button>
+                        )}
+                      </div>
+                      <div className="space-y-2 max-h-52 overflow-y-auto">
+                        {availableEstados.map((estado) => (
+                          <label
+                            key={estado}
+                            className="flex items-center gap-2 text-sm text-gray-700"
+                          >
+                            <Checkbox
+                              checked={appliedFilters.estado.includes(estado)}
+                              onCheckedChange={() => toggleEstado(estado)}
+                            />
+                            <span>{estado}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                <div>
+                  <Select
+                    value={appliedFilters.fuente || "todas"}
+                    onValueChange={(value) =>
+                      updateFilters({ fuente: value === "todas" ? "" : value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Todas las fuentes" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todas">Todas las fuentes</SelectItem>
+                      {availableFuentes.map((fuente) => (
+                        <SelectItem key={fuente} value={fuente}>
+                          {fuente}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Select
+                    value={appliedFilters.comercial || "todos"}
+                    onValueChange={(value) =>
+                      updateFilters({ comercial: value === "todos" ? "" : value })
+                    }
+                    onOpenChange={(open) => {
+                      if (open) void ensureComercialesCargados();
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Todos los comerciales" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos los comerciales</SelectItem>
+                      {availableComerciales.map((comercial) => (
+                        <SelectItem key={comercial} value={comercial}>
+                          {comercial}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Input
+                    type="date"
+                    value={appliedFilters.fechaDesde}
+                    onChange={(event) =>
+                      updateFilters({ fechaDesde: event.target.value })
+                    }
+                    placeholder="Fecha desde"
+                  />
+                </div>
+
+                <div>
+                  <Input
+                    type="date"
+                    value={appliedFilters.fechaHasta}
+                    onChange={(event) =>
+                      updateFilters({ fechaHasta: event.target.value })
+                    }
+                    placeholder="Fecha hasta"
+                  />
+                </div>
+
+                <div>
+                  <Select
+                    value={appliedFilters.mes || "todos"}
+                    onValueChange={(value) =>
+                      updateFilters({ mes: value === "todos" ? "" : value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Todos los meses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos los meses</SelectItem>
+                      <SelectItem value="1">Enero</SelectItem>
+                      <SelectItem value="2">Febrero</SelectItem>
+                      <SelectItem value="3">Marzo</SelectItem>
+                      <SelectItem value="4">Abril</SelectItem>
+                      <SelectItem value="5">Mayo</SelectItem>
+                      <SelectItem value="6">Junio</SelectItem>
+                      <SelectItem value="7">Julio</SelectItem>
+                      <SelectItem value="8">Agosto</SelectItem>
+                      <SelectItem value="9">Septiembre</SelectItem>
+                      <SelectItem value="10">Octubre</SelectItem>
+                      <SelectItem value="11">Noviembre</SelectItem>
+                      <SelectItem value="12">Diciembre</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full justify-between">
+                        <span className="truncate">
+                          {appliedFilters.provincia.length > 0
+                            ? `${appliedFilters.provincia.length} provincia${appliedFilters.provincia.length > 1 ? "s" : ""}`
+                            : "Todas las provincias"}
+                        </span>
+                        <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="start" className="w-72">
+                      <div className="flex items-center justify-between mb-2">
+                        <Label className="text-sm text-gray-700">Provincia</Label>
+                        {appliedFilters.provincia.length > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            onClick={() =>
+                              updateFilters({ provincia: [], municipio: [] })
+                            }
+                          >
+                            Limpiar
+                          </Button>
+                        )}
+                      </div>
+                      <div className="space-y-2 max-h-52 overflow-y-auto">
+                        {provinciasList.map((p) => (
+                          <label
+                            key={p.codigo}
+                            className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer"
+                          >
+                            <Checkbox
+                              checked={appliedFilters.provincia.includes(p.nombre)}
+                              onCheckedChange={() => {
+                                setAppliedFilters((prev) => {
+                                  const next = prev.provincia.includes(p.nombre)
+                                    ? prev.provincia.filter((x) => x !== p.nombre)
+                                    : [...prev.provincia, p.nombre];
+                                  return {
+                                    ...prev,
+                                    provincia: next,
+                                    municipio: [],
+                                    skip: 0,
+                                  };
+                                });
+                              }}
+                            />
+                            <span>{p.nombre}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                <div>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-between"
+                        disabled={appliedFilters.provincia.length === 0}
+                      >
+                        <span className="truncate">
+                          {appliedFilters.municipio.length > 0
+                            ? `${appliedFilters.municipio.length} municipio${appliedFilters.municipio.length > 1 ? "s" : ""}`
+                            : appliedFilters.provincia.length > 0
+                              ? "Todos los municipios"
+                              : "Selecciona provincia"}
+                        </span>
+                        <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="start" className="w-72">
+                      <div className="flex items-center justify-between mb-2">
+                        <Label className="text-sm text-gray-700">Municipio</Label>
+                        {appliedFilters.municipio.length > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            onClick={() => updateFilters({ municipio: [] })}
+                          >
+                            Limpiar
+                          </Button>
+                        )}
+                      </div>
+                      <div className="space-y-2 max-h-52 overflow-y-auto">
+                        {municipiosList.map((m) => (
+                          <label
+                            key={m.codigo}
+                            className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer"
+                          >
+                            <Checkbox
+                              checked={appliedFilters.municipio.includes(m.nombre)}
+                              onCheckedChange={() => {
+                                setAppliedFilters((prev) => {
+                                  const next = prev.municipio.includes(m.nombre)
+                                    ? prev.municipio.filter((x) => x !== m.nombre)
+                                    : [...prev.municipio, m.nombre];
+                                  return { ...prev, municipio: next, skip: 0 };
+                                });
+                              }}
+                            />
+                            <span>{m.nombre}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                <div>
+                  <Select
+                    value={appliedFilters.ofertas || "todas"}
+                    onValueChange={(value) =>
+                      updateFilters({ ofertas: value === "todas" ? "" : value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Todas las ofertas" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {OFERTAS_FILTER_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Select
+                    value={appliedFilters.tiempo || "todos"}
+                    onValueChange={(value) =>
+                      updateFilters({ tiempo: value === "todos" ? "" : value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Tiempo desde creación" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Cualquier tiempo</SelectItem>
+                      {Object.entries(TIEMPO_LABELS).map(([key, label]) => (
+                        <SelectItem key={key} value={key}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Tabla de clientes */}
+          <div className="relative min-h-[16rem]">
+            {loading && clients.length > 0 && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/80 backdrop-blur-sm">
+                <Loader label="Aplicando filtros..." />
+              </div>
+            )}
+
+            {loading && clients.length === 0 ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader label="Cargando clientes..." />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-sm text-gray-500">
+                  {totalClients} {totalClients === 1 ? "cliente" : "clientes"}
+                </p>
+                <ClientsTable
+                  clients={clients}
+                  totalClients={totalClients}
+                  onEdit={handleEditClient}
+                  onDelete={handleDeleteClient}
+                  onSetClienteStatus={handleSetClienteStatus}
+                  onViewLocation={handleViewClientLocation}
+                  onUploadFotos={handleUploadClientFoto}
+                  onUpdatePrioridad={handleUpdateClientPrioridad}
+                  loading={loading || initialLoading}
+                  autoOpenEditarOfertaClienteNumero={editarOfertaClienteParam || undefined}
+                  autoOpenCrearOfertaClienteNumero={crearOfertaClienteParam || undefined}
                 />
-              ) : undefined
-            }
-          />
+              </div>
+            )}
+          </div>
           {totalClients > appliedFilters.limit && appliedFilters.limit > 0 && (
             <SmartPagination
               currentPage={page}

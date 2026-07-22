@@ -36,7 +36,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/shared/molecule/popover";
-import { Checkbox } from "@/components/shared/molecule/checkbox";
 import {
   FileCheck,
   Camera,
@@ -49,8 +48,6 @@ import {
   Trash2,
   ListChecks,
   Plus,
-  Search,
-  ChevronDown,
   AlertTriangle,
   Loader2,
   MoreHorizontal,
@@ -120,53 +117,9 @@ interface ClientsTableProps {
     prioridad: "Ninguna" | "Urgente" | "Alta" | "Media" | "Baja",
   ) => Promise<void>;
   loading?: boolean;
-  onFiltersChange?: (filters: {
-    searchTerm: string;
-    estado: string[];
-    fuente: string;
-    comercial: string;
-    fechaDesde: string;
-    fechaHasta: string;
-    mes: string;
-    provincia: string[];
-    municipio: string[];
-    ofertas: string;
-    tiempo: string;
-    mostrarAnulados: boolean;
-  }) => void;
-  exportButtons?: React.ReactNode;
-  initialSearchTerm?: string;
   autoOpenEditarOfertaClienteNumero?: string;
   autoOpenCrearOfertaClienteNumero?: string;
 }
-
-const CLIENT_ESTADOS = [
-  "Equipo instalado con éxito",
-  "Esperando equipo",
-  "Pendiente de instalación",
-  "Instalación en Proceso",
-  "Pendiente de visita",
-  "Pendiente de visitarnos",
-  "No interesado",
-];
-
-const LEAD_FUENTES = [
-  "Página Web",
-  "Instagram",
-  "Facebook",
-  "Directo",
-  "Mensaje de Whatsapp",
-  "Visita",
-];
-
-const LEAD_COMERCIALES = [
-  "Enelido Alexander Calero Perez",
-  "Yanet Clara Rodríguez Quintana",
-  "Dashel Pinillos Zubiaur",
-  "Gretel María Mojena Almenares",
-];
-
-const COMERCIALES_LEADS_CACHE_KEY = "leadsComercialesAllCache";
 
 const parseClienteFecha = (value?: string): Date | null => {
   if (!value) return null;
@@ -232,56 +185,6 @@ const getAtrasoBucket = (
   if (dias >= 15) return { bucket: "medio", dias };
   if (dias >= 10) return { bucket: "leve", dias };
   return { bucket: null, dias };
-};
-
-const TIEMPO_BUCKETS: Record<string, (dias: number) => boolean> = {
-  "1_5": (d) => d >= 1 && d < 5,
-  "5_10": (d) => d >= 5 && d < 10,
-  "10_15": (d) => d >= 10 && d < 15,
-  "15_20": (d) => d >= 15 && d < 20,
-  "1mes": (d) => d >= 20 && d <= 30,
-  ">1mes": (d) => d > 30,
-};
-
-const TIEMPO_LABELS: Record<string, string> = {
-  "1_5": "Entre 1 y 5 días",
-  "5_10": "Entre 5 y 10 días",
-  "10_15": "Entre 10 y 15 días",
-  "15_20": "Entre 15 y 20 días",
-  "1mes": "1 mes",
-  ">1mes": "Más de 1 mes",
-};
-
-const OFERTAS_FILTER_OPTIONS = [
-  { value: "todas", label: "Todas las ofertas" },
-  { value: "con_ofertas", label: "Con ofertas" },
-  { value: "sin_ofertas", label: "Sin ofertas" },
-  { value: "con_confirmadas", label: "Con ofertas confirmadas" },
-  { value: "mas_1_confirmada", label: "Con más de 1 confirmada" },
-  { value: "sin_confirmadas", label: "Sin ofertas confirmadas" },
-];
-
-const getTotalConfirmadasCliente = (client: Cliente): number => {
-  // 1. Nuevo campo tipado oferta_confeccion (total sobre todas las confecciones del cliente)
-  if (typeof client.oferta_confeccion?.total_confirmadas === "number") {
-    return client.oferta_confeccion.total_confirmadas;
-  }
-  // 2. Fallback: ofertas_confeccion_resumen (array dinámico del backend)
-  const raw = client as Cliente & Record<string, unknown>;
-  const resumen = raw.ofertas_confeccion_resumen;
-  if (Array.isArray(resumen)) {
-    let total = 0;
-    for (const r of resumen) {
-      const tc = (r as Record<string, unknown>)?.total_confirmadas;
-      if (typeof tc === "number") total += tc;
-    }
-    if (total > 0) return total;
-  }
-  // 3. Fallback: ofertas embebidas con aprobada=true
-  if (Array.isArray(client.ofertas)) {
-    return client.ofertas.filter((o: any) => o?.aprobada === true).length;
-  }
-  return 0;
 };
 
 const getTieneOfertasCliente = (client: Cliente): boolean => {
@@ -627,9 +530,6 @@ export function ClientsTable({
   onUploadFotos,
   onUpdatePrioridad,
   loading = false,
-  onFiltersChange,
-  exportButtons,
-  initialSearchTerm = "",
   autoOpenEditarOfertaClienteNumero,
   autoOpenCrearOfertaClienteNumero,
 }: ClientsTableProps) {
@@ -856,136 +756,6 @@ export function ClientsTable({
   const [terminosCondicionesPayload, setTerminosCondicionesPayload] =
     useState<TerminosCondicionesPayload | null>(null);
 
-  const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
-  const [filters, setFilters] = useState({
-    estado: [] as string[],
-    fuente: "",
-    comercial: "",
-    fechaDesde: "",
-    fechaHasta: "",
-    mes: "",
-    provincia: [] as string[],
-    municipio: [] as string[],
-    ofertas: "",
-    tiempo: "",
-    mostrarAnulados: false,
-  });
-
-  // Provincias / municipios para filtros
-  const [provinciasList, setProvinciasList] = useState<
-    Array<{ codigo: string; nombre: string }>
-  >([]);
-  const [municipiosList, setMunicipiosList] = useState<
-    Array<{ codigo: string; nombre: string }>
-  >([]);
-  const [comercialesExtra, setComercialesExtra] = useState<string[]>([]);
-
-  useEffect(() => {
-    let cancelado = false;
-    (async () => {
-      try {
-        const response = await apiRequest<{
-          success: boolean;
-          data: Array<{ codigo: string; nombre: string }>;
-        }>("/provincias/", { method: "GET" });
-        if (!cancelado && response.success && response.data) {
-          setProvinciasList(response.data);
-        }
-      } catch (error) {
-        console.error("Error cargando provincias:", error);
-      }
-    })();
-    return () => {
-      cancelado = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (filters.provincia.length === 0) {
-      setMunicipiosList([]);
-      return;
-    }
-    const codigos = filters.provincia
-      .map((nombre) => provinciasList.find((p) => p.nombre === nombre)?.codigo)
-      .filter(Boolean) as string[];
-    if (codigos.length === 0) {
-      setMunicipiosList([]);
-      return;
-    }
-    let cancelado = false;
-    (async () => {
-      try {
-        const resultados = await Promise.all(
-          codigos.map((codigo) =>
-            apiRequest<{ success: boolean; data: Array<{ codigo: string; nombre: string }> }>(
-              `/provincias/provincia/${codigo}/municipios`,
-              { method: "GET" },
-            ),
-          ),
-        );
-        if (cancelado) return;
-        const combined = new Map<string, { codigo: string; nombre: string }>();
-        for (const r of resultados) {
-          if (r?.success && Array.isArray(r.data)) {
-            for (const m of r.data) combined.set(m.nombre, m);
-          }
-        }
-        setMunicipiosList(
-          [...combined.values()].sort((a, b) =>
-            a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }),
-          ),
-        );
-      } catch (error) {
-        console.error("Error cargando municipios:", error);
-      }
-    })();
-    return () => {
-      cancelado = true;
-    };
-  }, [filters.provincia, provinciasList]);
-
-  // Cargar comerciales lazy: solo desde caché al inicio; el endpoint se invoca cuando el usuario abre el dropdown
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const cached = sessionStorage.getItem(COMERCIALES_LEADS_CACHE_KEY);
-      if (cached) {
-        const parsed = JSON.parse(cached) as string[];
-        if (Array.isArray(parsed)) setComercialesExtra(parsed);
-      }
-    } catch {}
-  }, []);
-
-  const comercialesFetchedRef = useRef(false);
-  const ensureComercialesCargados = useCallback(async () => {
-    if (comercialesFetchedRef.current) return;
-    comercialesFetchedRef.current = true;
-    try {
-      const response = await apiRequest<{
-        success: boolean;
-        data: { leads?: Array<{ comercial?: string }> };
-      }>("/leads/?skip=0&limit=500", { method: "GET" });
-      const leads = response?.data?.leads ?? [];
-      const set = new Set<string>();
-      for (const lead of leads) {
-        if (lead.comercial && lead.comercial.trim())
-          set.add(lead.comercial.trim());
-      }
-      const list = Array.from(set);
-      setComercialesExtra(list);
-      try {
-        sessionStorage.setItem(
-          COMERCIALES_LEADS_CACHE_KEY,
-          JSON.stringify(list),
-        );
-      } catch {}
-    } catch (error) {
-      console.warn("No se pudo cargar comerciales de leads:", error);
-      comercialesFetchedRef.current = false;
-    }
-  }, []);
-
   const ofertasDelCliente = useMemo(() => {
     if (!clientForOfertas) return [];
     // Usar solo el ID de MongoDB para filtrar ofertas
@@ -1002,59 +772,11 @@ export function ClientsTable({
     [ofertasGenericasAprobadas, ofertaGenericaParaDuplicarId],
   );
 
-  const availableEstados = CLIENT_ESTADOS;
-  const availableFuentes = LEAD_FUENTES;
-  const availableComerciales = useMemo(() => {
-    const set = new Set<string>();
-    LEAD_COMERCIALES.forEach((c) => set.add(c));
-    comercialesExtra.forEach((c) => set.add(c));
-    clients.forEach((c) => {
-      if (c.comercial && c.comercial.trim()) set.add(c.comercial.trim());
-    });
-    return Array.from(set).sort((a, b) =>
-      a.localeCompare(b, "es", { sensitivity: "base" }),
-    );
-  }, [comercialesExtra, clients]);
 
-  const toggleEstado = (estado: string) => {
-    setFilters((prev) => {
-      const next = prev.estado.includes(estado)
-        ? prev.estado.filter((value) => value !== estado)
-        : [...prev.estado, estado];
-      return { ...prev, estado: next };
-    });
-  };
-
-  // Debounce del searchTerm para evitar llamadas al backend por cada tecla
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm);
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
-
-  // Notificar al padre cuando cambien los filtros
-  useEffect(() => {
-    if (onFiltersChange) {
-      onFiltersChange({
-        searchTerm: debouncedSearchTerm,
-        estado: filters.estado,
-        fuente: filters.fuente,
-        comercial: filters.comercial,
-        fechaDesde: filters.fechaDesde,
-        fechaHasta: filters.fechaHasta,
-        mes: filters.mes,
-        provincia: filters.provincia,
-        municipio: filters.municipio,
-        ofertas: filters.ofertas,
-        tiempo: filters.tiempo,
-        mostrarAnulados: filters.mostrarAnulados,
-      });
-    }
-  }, [debouncedSearchTerm, filters, onFiltersChange]);
-
+  // Nota: clients ya viene filtrado por el padre (app/clientes/page.tsx), que es
+  // dueño de la barra de búsqueda y los filtros (mismo esquema que Leads).
   const sortedClients = useMemo(() => {
-    const ordered = [...clients].sort((a, b) => {
+    return [...clients].sort((a, b) => {
       const tailA = getClientTailSortNumber(a);
       const tailB = getClientTailSortNumber(b);
       if (tailA !== tailB) return tailB - tailA;
@@ -1063,50 +785,7 @@ export function ClientsTable({
       const codeB = getClientSortCode(b);
       return codeB.localeCompare(codeA, "es", { sensitivity: "base" });
     });
-
-    return ordered.filter((client) => {
-      if (filters.provincia.length > 0) {
-        if (!filters.provincia.includes((client.provincia_montaje || "").trim()))
-          return false;
-      }
-      if (filters.municipio.length > 0) {
-        if (!filters.municipio.includes((client.municipio || "").trim())) return false;
-      }
-      if (filters.ofertas) {
-        const tieneOfertas = getTieneOfertasCliente(client);
-        if (filters.ofertas === "con_ofertas" && !tieneOfertas) return false;
-        if (filters.ofertas === "sin_ofertas" && tieneOfertas) return false;
-        if (
-          filters.ofertas === "con_confirmadas" &&
-          getTotalConfirmadasCliente(client) <= 0
-        )
-          return false;
-        if (
-          filters.ofertas === "mas_1_confirmada" &&
-          getTotalConfirmadasCliente(client) <= 1
-        )
-          return false;
-        if (
-          filters.ofertas === "sin_confirmadas" &&
-          getTotalConfirmadasCliente(client) > 0
-        )
-          return false;
-      }
-      if (filters.tiempo) {
-        const dias = getClienteDiasDesdeCreacion(client);
-        if (dias === null) return false;
-        const matcher = TIEMPO_BUCKETS[filters.tiempo];
-        if (!matcher || !matcher(dias)) return false;
-      }
-      return true;
-    });
-  }, [
-    clients,
-    filters.provincia,
-    filters.municipio,
-    filters.ofertas,
-    filters.tiempo,
-  ]);
+  }, [clients]);
 
   useEffect(() => {
     if (!cargaSetOfertasTerminada) return;
@@ -1380,36 +1059,6 @@ export function ClientsTable({
     };
   }, [cargarClientesConOfertas]);
 
-  const hasActiveFilters =
-    searchTerm.trim() ||
-    filters.estado.length > 0 ||
-    filters.fuente ||
-    filters.comercial ||
-    filters.fechaDesde ||
-    filters.fechaHasta ||
-    filters.mes ||
-    filters.provincia.length > 0 ||
-    filters.municipio.length > 0 ||
-    filters.ofertas ||
-    filters.tiempo;
-
-  const handleClearFilters = () => {
-    setSearchTerm("");
-    setDebouncedSearchTerm("");
-    setFilters({
-      estado: [],
-      fuente: "",
-      comercial: "",
-      fechaDesde: "",
-      fechaHasta: "",
-      mes: "",
-      provincia: [],
-      municipio: [],
-      ofertas: "",
-      tiempo: "",
-      mostrarAnulados: false,
-    });
-  };
 
   const handlePrioridadChange = async (
     clientId: string,
@@ -4489,391 +4138,7 @@ export function ClientsTable({
 
   return (
     <>
-      <Card className="mb-6 border-l-4 border-l-emerald-600">
-        <CardContent className="p-4 sm:p-6">
-          <div className="flex gap-3 mb-4 flex-col sm:flex-row">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                id="search-client"
-                placeholder="Buscar por cualquier dato..."
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <label className="flex items-center gap-2 text-sm text-gray-700 whitespace-nowrap px-1">
-              <Checkbox
-                checked={filters.mostrarAnulados}
-                onCheckedChange={(checked) =>
-                  setFilters((prev) => ({ ...prev, mostrarAnulados: checked === true }))
-                }
-              />
-              Mostrar anulados
-            </label>
-            <Button
-              variant="outline"
-              onClick={handleClearFilters}
-              className="text-gray-600 hover:text-gray-800 whitespace-nowrap"
-              disabled={!hasActiveFilters}
-            >
-              Limpiar Filtros
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            <div>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between">
-                    <span className="truncate">
-                      {filters.estado.length > 0
-                        ? `${filters.estado.length} estado${filters.estado.length > 1 ? "s" : ""}`
-                        : "Todos los estados"}
-                    </span>
-                    <ChevronDown className="h-4 w-4 text-gray-400" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-72">
-                  <div className="flex items-center justify-between mb-2">
-                    <Label className="text-sm text-gray-700">Estado</Label>
-                    {filters.estado.length > 0 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-xs"
-                        onClick={() =>
-                          setFilters((prev) => ({ ...prev, estado: [] }))
-                        }
-                      >
-                        Limpiar
-                      </Button>
-                    )}
-                  </div>
-                  <div className="space-y-2 max-h-52 overflow-y-auto">
-                    {availableEstados.map((estado) => (
-                      <label
-                        key={estado}
-                        className="flex items-center gap-2 text-sm text-gray-700"
-                      >
-                        <Checkbox
-                          checked={filters.estado.includes(estado)}
-                          onCheckedChange={() => toggleEstado(estado)}
-                        />
-                        <span>{estado}</span>
-                      </label>
-                    ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <div>
-              <Select
-                value={filters.fuente || "todas"}
-                onValueChange={(value) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    fuente: value === "todas" ? "" : value,
-                  }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Todas las fuentes" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todas">Todas las fuentes</SelectItem>
-                  {availableFuentes.map((fuente) => (
-                    <SelectItem key={fuente} value={fuente}>
-                      {fuente}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Select
-                value={filters.comercial || "todos"}
-                onValueChange={(value) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    comercial: value === "todos" ? "" : value,
-                  }))
-                }
-                onOpenChange={(open) => {
-                  if (open) void ensureComercialesCargados();
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Todos los comerciales" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos los comerciales</SelectItem>
-                  {availableComerciales.map((comercial) => (
-                    <SelectItem key={comercial} value={comercial}>
-                      {comercial}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Input
-                type="date"
-                value={filters.fechaDesde}
-                onChange={(event) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    fechaDesde: event.target.value,
-                  }))
-                }
-                placeholder="Fecha desde"
-              />
-            </div>
-
-            <div>
-              <Input
-                type="date"
-                value={filters.fechaHasta}
-                onChange={(event) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    fechaHasta: event.target.value,
-                  }))
-                }
-                placeholder="Fecha hasta"
-              />
-            </div>
-
-            <div>
-              <Select
-                value={filters.mes || "todos"}
-                onValueChange={(value) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    mes: value === "todos" ? "" : value,
-                  }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Todos los meses" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos los meses</SelectItem>
-                  <SelectItem value="1">Enero</SelectItem>
-                  <SelectItem value="2">Febrero</SelectItem>
-                  <SelectItem value="3">Marzo</SelectItem>
-                  <SelectItem value="4">Abril</SelectItem>
-                  <SelectItem value="5">Mayo</SelectItem>
-                  <SelectItem value="6">Junio</SelectItem>
-                  <SelectItem value="7">Julio</SelectItem>
-                  <SelectItem value="8">Agosto</SelectItem>
-                  <SelectItem value="9">Septiembre</SelectItem>
-                  <SelectItem value="10">Octubre</SelectItem>
-                  <SelectItem value="11">Noviembre</SelectItem>
-                  <SelectItem value="12">Diciembre</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between">
-                    <span className="truncate">
-                      {filters.provincia.length > 0
-                        ? `${filters.provincia.length} provincia${filters.provincia.length > 1 ? "s" : ""}`
-                        : "Todas las provincias"}
-                    </span>
-                    <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-72">
-                  <div className="flex items-center justify-between mb-2">
-                    <Label className="text-sm text-gray-700">Provincia</Label>
-                    {filters.provincia.length > 0 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-xs"
-                        onClick={() =>
-                          setFilters((prev) => ({ ...prev, provincia: [], municipio: [] }))
-                        }
-                      >
-                        Limpiar
-                      </Button>
-                    )}
-                  </div>
-                  <div className="space-y-2 max-h-52 overflow-y-auto">
-                    {provinciasList.map((p) => (
-                      <label
-                        key={p.codigo}
-                        className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer"
-                      >
-                        <Checkbox
-                          checked={filters.provincia.includes(p.nombre)}
-                          onCheckedChange={() => {
-                            setFilters((prev) => {
-                              const next = prev.provincia.includes(p.nombre)
-                                ? prev.provincia.filter((x) => x !== p.nombre)
-                                : [...prev.provincia, p.nombre];
-                              return { ...prev, provincia: next, municipio: [] };
-                            });
-                          }}
-                        />
-                        <span>{p.nombre}</span>
-                      </label>
-                    ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <div>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-between"
-                    disabled={filters.provincia.length === 0}
-                  >
-                    <span className="truncate">
-                      {filters.municipio.length > 0
-                        ? `${filters.municipio.length} municipio${filters.municipio.length > 1 ? "s" : ""}`
-                        : filters.provincia.length > 0
-                          ? "Todos los municipios"
-                          : "Selecciona provincia"}
-                    </span>
-                    <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-72">
-                  <div className="flex items-center justify-between mb-2">
-                    <Label className="text-sm text-gray-700">Municipio</Label>
-                    {filters.municipio.length > 0 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-xs"
-                        onClick={() =>
-                          setFilters((prev) => ({ ...prev, municipio: [] }))
-                        }
-                      >
-                        Limpiar
-                      </Button>
-                    )}
-                  </div>
-                  <div className="space-y-2 max-h-52 overflow-y-auto">
-                    {municipiosList.map((m) => (
-                      <label
-                        key={m.codigo}
-                        className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer"
-                      >
-                        <Checkbox
-                          checked={filters.municipio.includes(m.nombre)}
-                          onCheckedChange={() => {
-                            setFilters((prev) => {
-                              const next = prev.municipio.includes(m.nombre)
-                                ? prev.municipio.filter((x) => x !== m.nombre)
-                                : [...prev.municipio, m.nombre];
-                              return { ...prev, municipio: next };
-                            });
-                          }}
-                        />
-                        <span>{m.nombre}</span>
-                      </label>
-                    ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <div>
-              <Select
-                value={filters.ofertas || "todas"}
-                onValueChange={(value) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    ofertas: value === "todas" ? "" : value,
-                  }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Todas las ofertas" />
-                </SelectTrigger>
-                <SelectContent>
-                  {OFERTAS_FILTER_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Select
-                value={filters.tiempo || "todos"}
-                onValueChange={(value) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    tiempo: value === "todos" ? "" : value,
-                  }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Tiempo desde creación" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Cualquier tiempo</SelectItem>
-                  {Object.entries(TIEMPO_LABELS).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {(filters.fechaDesde ||
-            filters.fechaHasta ||
-            filters.mes ||
-            filters.provincia.length > 0 ||
-            filters.municipio.length > 0 ||
-            filters.ofertas ||
-            filters.tiempo) &&
-            typeof totalClients === "number" && (
-              <div className="mt-4 text-sm text-gray-700">
-                Total de clientes filtrados:{" "}
-                <span className="font-semibold text-emerald-600">
-                  {totalClients}
-                </span>
-              </div>
-            )}
-        </CardContent>
-      </Card>
-
-      <Card className="border-l-4 border-l-emerald-600">
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
-            <div>
-              <CardTitle>Clientes</CardTitle>
-              <CardDescription>
-                Mostrando {sortedClients.length} cliente
-                {sortedClients.length === 1 ? "" : "s"}
-              </CardDescription>
-            </div>
-
-            {/* Botones de exportación */}
-            {exportButtons && sortedClients.length > 0 && (
-              <div className="flex-shrink-0">{exportButtons}</div>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="relative min-h-[16rem]">
+      <div className="relative min-h-[16rem]">
           {loading && sortedClients.length > 0 && (
             <div className="absolute inset-0 z-10 flex items-center justify-center rounded-b-lg bg-white/80 backdrop-blur-sm">
               <Loader label="Aplicando filtros..." />
@@ -4895,6 +4160,7 @@ export function ClientsTable({
               </p>
             </div>
           ) : (
+            <div className="overflow-hidden border border-gray-200 rounded-lg">
             <div className="overflow-x-auto">
               <table className="w-full table-fixed divide-y divide-gray-200 min-w-[640px]">
                 <thead>
@@ -4921,31 +4187,24 @@ export function ClientsTable({
                     // Determinar el color del estado (igual que en leads-table)
                     const getEstadoColor = (estado: string | undefined) => {
                       if (!estado)
-                        return "bg-gray-100 text-gray-700 hover:bg-gray-200";
+                        return "text-gray-600 bg-transparent border-transparent hover:bg-transparent";
 
                       // Normalizar el estado (trim y comparación)
                       const estadoNormalizado = estado.trim();
 
                       // Estados válidos de Cliente (ver Select de estado en create/edit-client-dialog)
                       const estadosConfig: Record<string, string> = {
-                        "Esperando equipo":
-                          "bg-amber-100 text-amber-800 hover:bg-amber-200",
-                        "No interesado":
-                          "bg-gray-200 text-gray-700 hover:bg-gray-300",
-                        "Pendiente de instalación":
-                          "bg-green-100 text-green-800 hover:bg-green-200",
-                        "Pendiente de visita":
-                          "bg-blue-100 text-blue-800 hover:bg-blue-200",
-                        "Equipo instalado con éxito":
-                          "bg-emerald-100 text-emerald-800 hover:bg-emerald-200",
-                        "Instalación en Proceso":
-                          "bg-blue-100 text-blue-800 hover:bg-blue-200",
+                        "Esperando equipo": "text-amber-600",
+                        "No interesado": "text-slate-500",
+                        "Pendiente de instalación": "text-green-600",
+                        "Pendiente de visita": "text-blue-600",
+                        "Equipo instalado con éxito": "text-emerald-600",
+                        "Instalación en Proceso": "text-blue-600",
                       };
 
-                      return (
-                        estadosConfig[estadoNormalizado] ||
-                        "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                      );
+                      const textColor =
+                        estadosConfig[estadoNormalizado] || "text-gray-600";
+                      return `${textColor} bg-transparent border-transparent hover:bg-transparent`;
                     };
 
                     const atraso = getAtrasoBucket(client);
@@ -5253,83 +4512,6 @@ export function ClientsTable({
                                 </Button>
                               );
                             })()}
-                            {(() => {
-                              const numeroCliente = normalizeClienteNumero(
-                                client.numero,
-                              );
-                              const consultandoServicio =
-                                consultandoEquiposEnServicioNumero ===
-                                numeroCliente;
-                              const tieneServicio = getServicioStatus(client);
-
-                              return (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    void handleOpenEquiposEnServicioDialog(
-                                      client,
-                                    );
-                                  }}
-                                  disabled={consultandoServicio}
-                                  className={
-                                    tieneServicio
-                                      ? "h-7 w-7 p-0 text-purple-700 hover:text-purple-800 hover:bg-purple-50"
-                                      : "h-7 w-7 p-0 text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                                  }
-                                  title="Equipos en servicio"
-                                >
-                                  {consultandoServicio ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                  ) : (
-                                    <Zap className="h-3 w-3" />
-                                  )}
-                                </Button>
-                              );
-                            })()}
-                            {(() => {
-                              const numeroCliente = normalizeClienteNumero(
-                                client.numero,
-                              );
-                              const consultandoEquipo =
-                                consultandoEquipoEntregadoNumero ===
-                                numeroCliente;
-                              const equipoEntregado =
-                                getEquipoEntregadoStatus(client);
-
-                              return (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    void handleOpenEquipoEntregadoDialog(
-                                      client,
-                                    );
-                                  }}
-                                  disabled={consultandoEquipo}
-                                  className={
-                                    equipoEntregado
-                                      ? "h-7 w-7 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-                                      : "h-7 w-7 p-0 text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                                  }
-                                  title={
-                                    equipoEntregado
-                                      ? "Ver equipos entregados"
-                                      : "Ver estado de equipo entregado"
-                                  }
-                                >
-                                  {consultandoEquipo ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                  ) : (
-                                    <Truck className="h-3 w-3" />
-                                  )}
-                                </Button>
-                              );
-                            })()}
                             <Button
                               variant="ghost"
                               size="sm"
@@ -5430,6 +4612,83 @@ export function ClientsTable({
                                       Ver ubicación
                                     </span>
                                   </Button>
+                                  {(() => {
+                                    const numeroCliente = normalizeClienteNumero(
+                                      client.numero,
+                                    );
+                                    const consultandoServicio =
+                                      consultandoEquiposEnServicioNumero ===
+                                      numeroCliente;
+                                    const tieneServicio = getServicioStatus(client);
+
+                                    return (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() =>
+                                          void handleOpenEquiposEnServicioDialog(
+                                            client,
+                                          )
+                                        }
+                                        disabled={consultandoServicio}
+                                        className="h-auto flex-col items-center justify-center gap-1 py-3"
+                                        title="Equipos en servicio"
+                                      >
+                                        {consultandoServicio ? (
+                                          <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                                        ) : (
+                                          <Zap
+                                            className={`h-5 w-5 ${tieneServicio ? "text-purple-700" : "text-gray-400"}`}
+                                          />
+                                        )}
+                                        <span className="text-xs text-gray-700 leading-tight text-center">
+                                          Equipos en servicio
+                                        </span>
+                                      </Button>
+                                    );
+                                  })()}
+                                  {(() => {
+                                    const numeroCliente = normalizeClienteNumero(
+                                      client.numero,
+                                    );
+                                    const consultandoEquipo =
+                                      consultandoEquipoEntregadoNumero ===
+                                      numeroCliente;
+                                    const equipoEntregado =
+                                      getEquipoEntregadoStatus(client);
+
+                                    return (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() =>
+                                          void handleOpenEquipoEntregadoDialog(
+                                            client,
+                                          )
+                                        }
+                                        disabled={consultandoEquipo}
+                                        className="h-auto flex-col items-center justify-center gap-1 py-3"
+                                        title={
+                                          equipoEntregado
+                                            ? "Ver equipos entregados"
+                                            : "Ver estado de equipo entregado"
+                                        }
+                                      >
+                                        {consultandoEquipo ? (
+                                          <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                                        ) : (
+                                          <Truck
+                                            className={`h-5 w-5 ${equipoEntregado ? "text-emerald-600" : "text-gray-400"}`}
+                                          />
+                                        )}
+                                        <span className="text-xs text-gray-700 leading-tight text-center">
+                                          Equipo entregado
+                                        </span>
+                                      </Button>
+                                    );
+                                  })()}
                                 </div>
                               </PopoverContent>
                             </Popover>
@@ -5441,9 +4700,9 @@ export function ClientsTable({
                 </tbody>
               </table>
             </div>
+            </div>
           )}
-        </CardContent>
-      </Card>
+      </div>
 
       {/* Ofertas personalizadas */}
       <Dialog
@@ -5654,7 +4913,7 @@ export function ClientsTable({
           open={isToggleStatusDialogOpen}
           onOpenChange={setIsToggleStatusDialogOpen}
           title="Anular Cliente"
-          message={`¿Estás seguro de que quieres anular al cliente ${clienteToToggleStatus?.nombre}? Dejará de aparecer en el listado de clientes activos, pero podrás reactivarlo luego.`}
+          message={`¿Estás seguro de que quieres anular al cliente ${clienteToToggleStatus?.nombre}? Pasará a estado "No interesado", se cancelarán todas sus ofertas de confección vinculadas (liberando las reservas de materiales que tuvieran) y dejará de aparecer en el listado de clientes activos. Podrás reactivarlo luego, pero eso no revertirá las ofertas ya canceladas.`}
           onConfirm={handleToggleClienteStatusConfirm}
           confirmText="Anular Cliente"
           isLoading={togglingStatus}

@@ -884,6 +884,9 @@ export default function LeadsPage() {
             </div>
           ) : (
             <div className="space-y-4">
+              <p className="text-sm text-gray-500">
+                {totalLeads} {totalLeads === 1 ? "lead" : "leads"}
+              </p>
               <LeadsTable
                 leads={leads}
                 onEdit={handleEditLead}

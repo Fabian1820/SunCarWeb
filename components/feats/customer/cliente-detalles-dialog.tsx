@@ -19,12 +19,15 @@ import {
   Zap,
   Battery,
   Sun,
+  Radio,
+  Copy,
   type LucideIcon,
 } from "lucide-react"
 import type { Cliente, ClienteFoto } from "@/lib/api-types"
 import { downloadFile } from "@/lib/utils/download-file"
 import { compareStrings } from "@/lib/utils/string-utils"
 import { extraerComponentesDeOfertaConfeccion } from "@/lib/utils/oferta-confeccion-items"
+import { useToast } from "@/hooks/use-toast"
 
 interface ClienteDetallesDialogProps {
   open: boolean
@@ -64,16 +67,17 @@ function ClienteInfoRow({
 
 /** Estados válidos de Cliente (ver Select de estado en create/edit-client-dialog). */
 function getEstadoBadge(estado?: string): { className: string; label: string } {
-  if (!estado) return { className: "bg-gray-100 text-gray-700", label: "Sin estado" }
+  if (!estado) return { className: "text-gray-600 bg-transparent border-transparent hover:bg-transparent", label: "Sin estado" }
   const estadosConfig: Record<string, string> = {
-    "Esperando equipo": "bg-amber-100 text-amber-800",
-    "No interesado": "bg-gray-200 text-gray-700",
-    "Pendiente de instalación": "bg-green-100 text-green-800",
-    "Pendiente de visita": "bg-blue-100 text-blue-800",
-    "Equipo instalado con éxito": "bg-emerald-100 text-emerald-800",
-    "Instalación en Proceso": "bg-blue-100 text-blue-800",
+    "Esperando equipo": "text-amber-600",
+    "No interesado": "text-slate-500",
+    "Pendiente de instalación": "text-green-600",
+    "Pendiente de visita": "text-blue-600",
+    "Equipo instalado con éxito": "text-emerald-600",
+    "Instalación en Proceso": "text-blue-600",
   }
-  return { className: estadosConfig[estado.trim()] || "bg-gray-100 text-gray-700", label: estado }
+  const textColor = estadosConfig[estado.trim()] || "text-gray-600"
+  return { className: `${textColor} bg-transparent border-transparent hover:bg-transparent`, label: estado }
 }
 
 /** Mismo mapeo canónico de 5 colores que components/shared/atom/priority-dot.tsx */
@@ -94,6 +98,8 @@ export function ClienteDetallesDialog({
   fotosCliente,
   loadingFotosCliente = false,
 }: ClienteDetallesDialogProps) {
+  const { toast } = useToast()
+
   if (!cliente) return null
 
   const hasLocation =
@@ -202,29 +208,59 @@ export function ClienteDetallesDialog({
 
   const estadoBadge = getEstadoBadge(cliente.estado)
 
+  const handleCopyDatosPrincipales = async () => {
+    const lineas = [
+      cliente.nombre && `Nombre: ${cliente.nombre}`,
+      cliente.direccion && `Dirección: ${cliente.direccion}`,
+      cliente.provincia_montaje && `Provincia: ${cliente.provincia_montaje}`,
+      cliente.municipio && `Municipio: ${cliente.municipio}`,
+      cliente.telefono && `Teléfono: ${cliente.telefono}`,
+    ].filter(Boolean)
+    try {
+      await navigator.clipboard.writeText(lineas.join("\n"))
+      toast({ title: "Datos copiados", description: "Se copiaron los datos principales del cliente." })
+    } catch (error) {
+      console.error("Error al copiar datos del cliente", error)
+      toast({ title: "No se pudo copiar", variant: "destructive" })
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[85vh] overflow-hidden p-0 gap-0 flex flex-col">
         <DialogHeader className="shrink-0 border-b border-gray-100 px-5 py-4 pr-10">
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-base font-semibold text-emerald-700">
-              {cliente.nombre?.charAt(0)?.toUpperCase() || "?"}
-            </div>
-            <div className="min-w-0 flex-1">
-              <DialogTitle className="truncate text-base font-semibold text-gray-900">{cliente.nombre}</DialogTitle>
-              <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-                <Badge className={`${estadoBadge.className} px-2 py-0.5 text-xs`}>{estadoBadge.label}</Badge>
-                {cliente.prioridad && cliente.prioridad !== "Ninguna" && (
-                  <span className="inline-flex items-center gap-1.5 text-xs text-gray-500">
-                    <span className={`h-1.5 w-1.5 rounded-full ${PRIORIDAD_DOT_COLOR[cliente.prioridad] || "bg-gray-400"}`} />
-                    {cliente.prioridad}
-                  </span>
-                )}
-                {cliente.es_trabajador_suncar && (
-                  <Badge className="bg-violet-100 px-2 py-0.5 text-xs text-violet-700">Trabajador SunCar</Badge>
-                )}
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex min-w-0 flex-1 items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-base font-semibold text-emerald-700">
+                {cliente.nombre?.charAt(0)?.toUpperCase() || "?"}
+              </div>
+              <div className="min-w-0 flex-1">
+                <DialogTitle className="truncate text-base font-semibold text-gray-900">{cliente.nombre}</DialogTitle>
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <Badge className={`${estadoBadge.className} px-2 py-0.5 text-xs`}>{estadoBadge.label}</Badge>
+                  {cliente.prioridad && cliente.prioridad !== "Ninguna" && (
+                    <span className="inline-flex items-center gap-1.5 text-xs text-gray-500">
+                      <span className={`h-1.5 w-1.5 rounded-full ${PRIORIDAD_DOT_COLOR[cliente.prioridad] || "bg-gray-400"}`} />
+                      {cliente.prioridad}
+                    </span>
+                  )}
+                  {cliente.es_trabajador_suncar && (
+                    <Badge className="bg-violet-100 px-2 py-0.5 text-xs text-violet-700">Trabajador SunCar</Badge>
+                  )}
+                </div>
               </div>
             </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleCopyDatosPrincipales}
+              className="h-7 shrink-0 gap-1.5 px-2 text-xs text-gray-600 hover:text-gray-900"
+              title="Copiar datos principales (nombre, dirección, provincia, municipio, teléfono)"
+            >
+              <Copy className="h-3.5 w-3.5" />
+              Copiar
+            </Button>
           </div>
         </DialogHeader>
 
@@ -275,7 +311,7 @@ export function ClienteDetallesDialog({
               <h4 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Seguimiento</h4>
               <div className="space-y-2.5">
                 <ClienteInfoRow icon={Calendar} label="Fecha de contacto" value={formatDate(cliente.fecha_contacto)} />
-                <ClienteInfoRow label="Fuente" value={cliente.fuente} />
+                <ClienteInfoRow icon={Radio} label="Fuente" value={cliente.fuente} />
                 <ClienteInfoRow icon={UserCheck} label="Comercial asignado" value={cliente.comercial} />
                 {compareStrings(cliente.estado || "", "Pendiente de visita") && (
                   <ClienteInfoRow label="Motivo de visita" value={cliente.motivo_visita} />

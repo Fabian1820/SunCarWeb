@@ -2650,26 +2650,37 @@ export function LeadsTable({
                   className={`hover:bg-gray-50 ${lead.activo === false ? "opacity-60" : ""}`}
                 >
                   <td className="px-4 py-3min-w-[240px] max-w-[320px]">
-                    <div>
-                      <div className="text-sm font-semibold text-gray-900 break-words">
-                        {lead.nombre}
+                    <div className="flex items-start gap-2">
+                      <div className="pt-1">
+                        <PriorityDot
+                          prioridad={lead.prioridad}
+                          onChange={(prioridad) =>
+                            lead.id && handlePrioridadChange(lead.id, prioridad)
+                          }
+                          disabled={disableActions || !onUpdatePrioridad}
+                        />
                       </div>
-                      <div className="text-sm text-gray-500 break-words whitespace-pre-line">
-                        {breakTextAtLength(
-                          lead.direccion || "Sin dirección",
-                          32,
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-gray-900 break-words">
+                          {lead.nombre}
+                        </div>
+                        <div className="text-sm text-gray-500 break-words whitespace-pre-line">
+                          {breakTextAtLength(
+                            lead.direccion || "Sin dirección",
+                            32,
+                          )}
+                        </div>
+                        {(lead.municipio || lead.provincia_montaje) && (
+                          <div className="text-[13px] text-gray-500 flex items-center mt-1">
+                            <MapPin className="h-3.5 w-3.5 mr-1 text-gray-400 flex-shrink-0" />
+                            <span className="truncate">
+                              {[lead.municipio, lead.provincia_montaje]
+                                .filter(Boolean)
+                                .join(", ")}
+                            </span>
+                          </div>
                         )}
                       </div>
-                      {(lead.municipio || lead.provincia_montaje) && (
-                        <div className="text-[13px] text-gray-500 flex items-center mt-1">
-                          <MapPin className="h-3.5 w-3.5 mr-1 text-gray-400 flex-shrink-0" />
-                          <span className="truncate">
-                            {[lead.municipio, lead.provincia_montaje]
-                              .filter(Boolean)
-                              .join(", ")}
-                          </span>
-                        </div>
-                      )}
                     </div>
                   </td>
                   <td className="px-4 py-3whitespace-nowrap min-w-[100px] max-w-[130px]">
@@ -2876,15 +2887,6 @@ export function LeadsTable({
                   </td>
                   <td className="px-4 py-3whitespace-nowrap text-right text-sm font-medium min-w-[120px] w-[120px]">
                     <div className="flex items-center justify-end space-x-1">
-                      <div className="flex items-center h-7 w-7 justify-center">
-                        <PriorityDot
-                          prioridad={lead.prioridad}
-                          onChange={(prioridad) =>
-                            lead.id && handlePrioridadChange(lead.id, prioridad)
-                          }
-                          disabled={disableActions || !onUpdatePrioridad}
-                        />
-                      </div>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -4315,7 +4317,7 @@ export function LeadsTable({
           open={isToggleStatusDialogOpen}
           onOpenChange={setIsToggleStatusDialogOpen}
           title="Anular Lead"
-          message={`¿Estás seguro de que quieres anular el lead de ${leadToToggleStatus?.nombre}? Dejará de aparecer en el listado de leads activos, pero podrás reactivarlo luego.`}
+          message={`¿Estás seguro de que quieres anular el lead de ${leadToToggleStatus?.nombre}? Pasará a estado "No interesado", se cancelarán todas sus ofertas de confección vinculadas (liberando las reservas de materiales que tuvieran) y dejará de aparecer en el listado de leads activos. Podrás reactivarlo luego, pero eso no revertirá las ofertas ya canceladas.`}
           onConfirm={handleToggleStatusConfirm}
           confirmText="Anular Lead"
           isLoading={togglingStatus}
