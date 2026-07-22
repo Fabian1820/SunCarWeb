@@ -69,6 +69,12 @@ interface OfertaFacturaData {
 interface EditableConceptMaterial extends FacturaValeItem {
   rowId: string;
   categoriaKey: "inversor" | "bateria" | "panel";
+  // Categoria real del material vinculado del catalogo (ej. "BATERÍAS",
+  // "CABLES LHA", "PEQUEÑO MATERIAL"), mas especifica que categoriaKey.
+  // Se usa para el buscador de "Cambiar por..." asi se muestran todos los
+  // materiales de existencias/contabilidad de esa misma categoria, no solo
+  // los de las 3 categorias principales.
+  categoriaReal?: string;
   codigoContabilidad: string;
   cantidadExistente: number;
   precioContabilidad: number;
@@ -1208,7 +1214,13 @@ function FacturasSolarCarrosPageContent() {
 
     const mapped = baseMateriales.map((item, index) => {
       const catalogMatch = pickCatalogMaterialForItem(item, catalogMateriales);
-      const category = detectCategory(item);
+      // Preferir la categoria real del material vinculado del catalogo (usa
+      // su campo `categoria` ademas de codigo/descripcion) en vez de
+      // adivinarla solo con el texto crudo del item de la factura, que no
+      // siempre contiene palabras como "inversor"/"panel"/"bateria".
+      const category = catalogMatch
+        ? detectCategoryFromMaterial(catalogMatch)
+        : detectCategory(item);
       const resolvedMaterialId =
         String(catalogMatch?.id || "").trim() ||
         (isLikelyPersistentId(String(item.material_id || ""))
@@ -1222,6 +1234,7 @@ function FacturasSolarCarrosPageContent() {
         categoriaKey: (category === "inversor" || category === "bateria" || category === "panel"
           ? category
           : "panel") as "inversor" | "bateria" | "panel",
+        categoriaReal: catalogMatch?.categoria || undefined,
         codigoContabilidad: String(catalogMatch?.codigo_contabilidad || ""),
         cantidadExistente: parseNumero(catalogMatch?.cantidad_contabilidad),
         precioContabilidad: parseNumero(catalogMatch?.precio_contabilidad),
@@ -1861,6 +1874,41 @@ function FacturasSolarCarrosPageContent() {
     };
   }, [materialesCatalogPorCategoria]);
 
+  // Bucket por la categoria REAL del catalogo (ej. "BATERÍAS", "CABLES LHA",
+  // "PEQUEÑO MATERIAL"), mas fina que los 3 buckets de arriba. Se usa para
+  // que el buscador de "Cambiar por..." muestre todos los materiales de
+  // existencias/contabilidad de la misma categoria del material original,
+  // no solo cuando cae en inversor/bateria/panel.
+  const materialOptionsPorCategoriaReal = useMemo(() => {
+    const out: Record<string, { value: string; label: string }[]> = {};
+    const porCategoria: Record<string, Material[]> = {};
+
+    (catalogMateriales || []).forEach((material) => {
+      const cat = material.categoria || "";
+      if (!cat) return;
+      if (!porCategoria[cat]) porCategoria[cat] = [];
+      porCategoria[cat].push(material);
+    });
+
+    Object.entries(porCategoria).forEach(([cat, materiales]) => {
+      out[cat] = materiales
+        .filter((m) => String(m.codigo_contabilidad || "").trim().length > 0)
+        .sort((a, b) =>
+          String(a.codigo_contabilidad || "").localeCompare(
+            String(b.codigo_contabilidad || ""),
+            "es",
+            { numeric: true, sensitivity: "base" },
+          ),
+        )
+        .map((m) => ({
+          value: String(m.id || ""),
+          label: `[${String(m.codigo_contabilidad)}] ${String(m.codigo || "-")} - ${String(m.nombre || m.descripcion || "Material")}`,
+        }));
+    });
+
+    return out;
+  }, [catalogMateriales]);
+
   const materialesContabilidadOptions = useMemo(
     () =>
       (catalogMateriales || [])
@@ -1906,6 +1954,7 @@ function FacturasSolarCarrosPageContent() {
             detectCategoryFromMaterial(found) === "otro"
               ? item.categoriaKey
               : (detectCategoryFromMaterial(found) as "inversor" | "bateria" | "panel"),
+          categoriaReal: found.categoria || item.categoriaReal,
         };
       }),
     );
@@ -1935,6 +1984,7 @@ function FacturasSolarCarrosPageContent() {
         {
           rowId: `extra-${Date.now()}-${String(found.id || Math.random())}`,
           categoriaKey,
+          categoriaReal: found.categoria || undefined,
           material_id: String(found.id || ""),
           codigo: String(found.codigo || ""),
           descripcion: String(found.nombre || found.descripcion || "Material"),
@@ -3008,7 +3058,12 @@ function FacturasSolarCarrosPageContent() {
                             </td>
                             <td className="px-2 py-1.5 space-y-1 min-w-[330px]">
                               <SearchableSelect
-                                options={materialOptionsPorCategoria[item.categoriaKey] || []}
+                                options={
+                                  (item.categoriaReal &&
+                                    materialOptionsPorCategoriaReal[item.categoriaReal]) ||
+                                  materialOptionsPorCategoria[item.categoriaKey] ||
+                                  []
+                                }
                                 value={replaceSelectionByRow[item.rowId] || ""}
                                 onValueChange={(value) => {
                                   setReplaceSelectionByRow((prev) => ({ ...prev, [item.rowId]: value }));
