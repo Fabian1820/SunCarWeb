@@ -1296,6 +1296,34 @@ export function ConfeccionOfertasView({
     }));
   }, [almacenId, stock, materials, reservadoOtrasPorCodigo]);
 
+  // Codigos compatibles sugeridos segun lo que ya esta en la oferta: si el
+  // paso activo es BATERIAS, se sugieren las compatibles con el/los
+  // inversor(es) ya agregados (y viceversa).
+  const codigosCompatiblesSugeridos = useMemo(() => {
+    if (!activeStep) return new Set<string>();
+    const seccionContraria =
+      activeStep.id === "BATERIAS"
+        ? "INVERSORES"
+        : activeStep.id === "INVERSORES"
+          ? "BATERIAS"
+          : null;
+    if (!seccionContraria) return new Set<string>();
+
+    const codigosContrarios = new Set(
+      items
+        .filter((item) => item.seccion === seccionContraria)
+        .map((item) => String(item.materialCodigo)),
+    );
+    const compatibles = new Set<string>();
+    codigosContrarios.forEach((codigo) => {
+      const material = materials.find(
+        (m) => String(m.codigo) === codigo,
+      );
+      (material?.compatibles || []).forEach((c) => compatibles.add(String(c)));
+    });
+    return compatibles;
+  }, [activeStep, items, materials]);
+
   const materialesFiltrados = useMemo(() => {
     if (!activeStep) return materialesConStock;
 
@@ -1319,8 +1347,18 @@ export function ConfeccionOfertasView({
       });
     }
 
+    // Sugerir primero los materiales compatibles con lo ya agregado
+    if (codigosCompatiblesSugeridos.size > 0) {
+      filtered = [...filtered].sort((a, b) => {
+        const aCompat = codigosCompatiblesSugeridos.has(String(a.codigo));
+        const bCompat = codigosCompatiblesSugeridos.has(String(b.codigo));
+        if (aCompat === bCompat) return 0;
+        return aCompat ? -1 : 1;
+      });
+    }
+
     return filtered;
-  }, [materialesConStock, activeStep, searchQuery]);
+  }, [materialesConStock, activeStep, searchQuery, codigosCompatiblesSugeridos]);
 
   const esCategoriaPrincipalReserva = (categoria: string) => {
     const normalized = normalizeText(categoria);
@@ -9200,6 +9238,10 @@ export function ConfeccionOfertasView({
                           : `${activeStep?.id ?? ""}:${material.codigo?.toString() ?? ""}`;
                         const selectedCount =
                           cantidadesPorMaterial.get(key) ?? 0;
+                        const esCompatibleSugerido =
+                          codigosCompatiblesSugeridos.has(
+                            String(material.codigo),
+                          );
                         return (
                           <Card
                             key={`${material.codigo}-${material.categoria}`}
@@ -9229,6 +9271,11 @@ export function ConfeccionOfertasView({
                                     {selectedCount}
                                   </span>
                                 ) : null}
+                                {esCompatibleSugerido && (
+                                  <span className="absolute top-2 left-2 rounded-full bg-blue-600 text-white text-[10px] font-semibold px-2 py-1 shadow-lg border-2 border-white z-10">
+                                    ✓ Compatible
+                                  </span>
+                                )}
                               </div>
 
                               {/* Badge de stock disponible - Movido fuera de la imagen */}

@@ -86,6 +86,7 @@ export function MaterialForm({
     foto: null,
     potenciaKW: initialData?.potenciaKW ?? undefined,
     numero_serie: initialData?.numero_serie ?? null,
+    compatibles: initialData?.compatibles ?? [],
   });
 
   const [fotoFile, setFotoFile] = useState<File | null>(null);
@@ -113,6 +114,18 @@ export function MaterialForm({
   const [localCategories, setLocalCategories] = useState(existingCategories);
   const [localUnits, setLocalUnits] = useState(existingUnits);
   const [isNewCategory, setIsNewCategory] = useState(false);
+
+  // Compatibilidad inversor <-> bateria: lista de la categoria contraria
+  // para elegir con cuales es compatible el material actual.
+  const [materialesCategoriaContraria, setMaterialesCategoriaContraria] =
+    useState<Material[]>([]);
+  const [loadingCompatibles, setLoadingCompatibles] = useState(false);
+  const CATEGORIA_CONTRARIA_COMPATIBILIDAD: Record<string, string> = {
+    INVERSORES: "BATERÍAS",
+    "BATERÍAS": "INVERSORES",
+  };
+  const categoriaContrariaCompatibilidad =
+    CATEGORIA_CONTRARIA_COMPATIBILIDAD[formData.categoria];
 
   // Campos opcionales para web
   const [habilitarVentaWeb, setHabilitarVentaWeb] = useState(
@@ -155,6 +168,7 @@ export function MaterialForm({
       foto: null,
       potenciaKW: initialData.potenciaKW ?? undefined,
       numero_serie: initialData.numero_serie ?? null,
+      compatibles: initialData.compatibles ?? [],
     });
     setFotoUrl(initialData.foto || null);
     setFotoFile(null);
@@ -181,6 +195,30 @@ export function MaterialForm({
   useEffect(() => {
     setLocalUnits(existingUnits);
   }, [existingUnits]);
+
+  // Cargar los materiales de la categoria contraria (inversor <-> bateria)
+  // para poder elegir con cuales es compatible el material actual.
+  useEffect(() => {
+    if (!categoriaContrariaCompatibilidad) {
+      setMaterialesCategoriaContraria([]);
+      return;
+    }
+    let cancelado = false;
+    setLoadingCompatibles(true);
+    MaterialService.getMaterialsByCategory(categoriaContrariaCompatibilidad)
+      .then((materiales) => {
+        if (!cancelado) setMaterialesCategoriaContraria(materiales || []);
+      })
+      .catch(() => {
+        if (!cancelado) setMaterialesCategoriaContraria([]);
+      })
+      .finally(() => {
+        if (!cancelado) setLoadingCompatibles(false);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [categoriaContrariaCompatibilidad]);
 
   // Categorías que requieren marca y potencia
   const categoriasEspeciales = ["BATERÍAS", "INVERSORES", "PANELES"];
@@ -333,6 +371,9 @@ export function MaterialForm({
             marca_id: formData.marca_id,
             potenciaKW: formData.potenciaKW,
           }),
+          ...(categoriaContrariaCompatibilidad && {
+            compatibles: formData.compatibles || [],
+          }),
           // Campos opcionales de inventario
           numero_serie: formData.numero_serie?.trim() || null,
           // Campos opcionales para web
@@ -366,6 +407,7 @@ export function MaterialForm({
             foto: null,
             potenciaKW: undefined,
             numero_serie: null,
+            compatibles: [],
           });
           setFotoFile(null);
 
@@ -538,6 +580,10 @@ export function MaterialForm({
                       marca_id: undefined,
                       potenciaKW: undefined,
                     }),
+                    // Limpiar compatibilidad si cambia a una categoría que no es inversor/bateria
+                    ...(!CATEGORIA_CONTRARIA_COMPATIBILIDAD[value] && {
+                      compatibles: [],
+                    }),
                   });
                   // Detectar si es una categoría existente o nueva
                   setIsNewCategory(!localCategories.includes(value));
@@ -705,6 +751,64 @@ export function MaterialForm({
                   </Select>
                 </div>
               </div>
+
+              {categoriaContrariaCompatibilidad && (
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                    Compatible con (
+                    {categoriaContrariaCompatibilidad === "BATERÍAS"
+                      ? "baterías"
+                      : "inversores"}
+                    )
+                  </Label>
+                  <div className="max-h-48 overflow-y-auto rounded-md border border-amber-200 bg-white p-2 space-y-1">
+                    {loadingCompatibles ? (
+                      <p className="text-sm text-gray-500 px-1 py-2">
+                        Cargando...
+                      </p>
+                    ) : materialesCategoriaContraria.length === 0 ? (
+                      <p className="text-sm text-gray-500 px-1 py-2">
+                        No hay materiales en esta categoría todavía.
+                      </p>
+                    ) : (
+                      materialesCategoriaContraria.map((material) => {
+                        const checked = (formData.compatibles || []).includes(
+                          material.codigo,
+                        );
+                        return (
+                          <label
+                            key={material.id}
+                            className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer px-1 py-1 rounded hover:bg-amber-50"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => {
+                                setFormData((prev) => {
+                                  const actuales = prev.compatibles || [];
+                                  const next = checked
+                                    ? actuales.filter(
+                                        (c) => c !== material.codigo,
+                                      )
+                                    : [...actuales, material.codigo];
+                                  return { ...prev, compatibles: next };
+                                });
+                              }}
+                              disabled={isSubmitting || uploadingFoto}
+                            />
+                            <span>
+                              {material.nombre || material.descripcion}{" "}
+                              <span className="text-gray-400">
+                                ({material.codigo})
+                              </span>
+                            </span>
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

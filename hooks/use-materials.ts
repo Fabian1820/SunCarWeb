@@ -472,6 +472,7 @@ export function useMaterials(options?: {
           numero_serie: material.numero_serie ?? null,
           stockaje_minimo: material.stockaje_minimo ?? null,
           producto_id: productoId,
+          compatibles: material.compatibles,
         } as Material;
 
         const exists = s.materials.some(
@@ -627,6 +628,10 @@ export function useMaterials(options?: {
               payload.stockaje_minimo !== undefined
                 ? payload.stockaje_minimo
                 : m.stockaje_minimo,
+            compatibles:
+              payload.compatibles !== undefined
+                ? payload.compatibles
+                : m.compatibles,
           } as Material;
         });
         const catalogs = s.catalogs.map((c) =>

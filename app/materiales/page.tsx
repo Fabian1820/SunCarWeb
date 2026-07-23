@@ -125,6 +125,7 @@ export default function MaterialesPage() {
     const comentario = (material as any).comentario;
     const ficha_tecnica_url = (material as any).ficha_tecnica_url;
     const numero_serie = (material as any).numero_serie;
+    const compatibles = (material as any).compatibles;
 
     const materialData = {
       codigo: String(codigo),
@@ -140,6 +141,7 @@ export default function MaterialesPage() {
       especificaciones: especificaciones || null,
       ficha_tecnica_url: ficha_tecnica_url || null,
       numero_serie: numero_serie?.trim() || null,
+      ...(compatibles && compatibles.length > 0 && { compatibles }),
     };
 
     try {
@@ -205,6 +207,7 @@ export default function MaterialesPage() {
     const comentario = (updatedMaterial as any).comentario;
     const ficha_tecnica_url = (updatedMaterial as any).ficha_tecnica_url;
     const numero_serie = (updatedMaterial as any).numero_serie;
+    const compatibles = (updatedMaterial as any).compatibles;
 
     const materialCodigo = String(editingMaterial?.codigo || codigo);
     const categoriaOriginal = editingMaterial?.categoria;
@@ -257,6 +260,7 @@ export default function MaterialesPage() {
             especificaciones,
             ficha_tecnica_url: ficha_tecnica_url || null,
             numero_serie: numero_serie?.trim() || null,
+            ...(compatibles !== undefined && { compatibles }),
           },
           categoria,
         );
@@ -296,6 +300,7 @@ export default function MaterialesPage() {
             especificaciones,
             ficha_tecnica_url: ficha_tecnica_url || null,
             numero_serie: numero_serie?.trim() || null,
+            ...(compatibles !== undefined && { compatibles }),
           },
           categoria,
         );

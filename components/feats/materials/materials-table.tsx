@@ -195,6 +195,25 @@ export function MaterialsTable({
                       ) : (
                         <span className="text-sm text-gray-400">-</span>
                       )}
+                      {(material.categoria === "INVERSORES" ||
+                        material.categoria === "BATERÍAS") &&
+                        (material.compatibles?.length ?? 0) > 0 && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <p className="text-xs text-emerald-600 mt-0.5 cursor-help">
+                                🔗 Compatible con {material.compatibles!.length}{" "}
+                                {material.categoria === "INVERSORES"
+                                  ? "batería(s)"
+                                  : "inversor(es)"}
+                              </p>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="max-w-xs">
+                                {material.compatibles!.join(", ")}
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
                     </td>
 
                     {/* UM */}

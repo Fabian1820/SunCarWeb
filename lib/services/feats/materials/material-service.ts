@@ -296,6 +296,7 @@ export class MaterialService {
       ficha_tecnica_url?: string | null;
       numero_serie?: string | null;
       stockaje_minimo?: number | null;
+      compatibles?: string[];
     },
   ): Promise<boolean> {
     console.log("[MaterialService] Agregando material a producto:", {
@@ -413,6 +414,7 @@ export class MaterialService {
       ficha_tecnica_url?: string | null;
       numero_serie?: string | null;
       stockaje_minimo?: number | null;
+      compatibles?: string[];
     },
   ): Promise<boolean> {
     console.log("[MaterialService] Editando material:", {

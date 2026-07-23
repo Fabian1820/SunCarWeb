@@ -26,6 +26,8 @@ export interface BackendMaterial {
   codigo_contabilidad?: string;
   cantidad_contabilidad?: number;
   precio_contabilidad?: number;
+  /** Codigos de materiales compatibles de la categoria contraria (inversores <-> baterias). */
+  compatibles?: string[];
 }
 
 export interface BackendCatalogoProductos {
@@ -65,6 +67,8 @@ export interface MaterialItem {
   codigo_contabilidad?: string;
   cantidad_contabilidad?: number;
   precio_contabilidad?: number;
+  /** Codigos de materiales compatibles de la categoria contraria (inversores <-> baterias). */
+  compatibles?: string[];
 }
 
 export interface MaterialCategory {
@@ -104,6 +108,8 @@ export interface Material {
   codigo_contabilidad?: string;
   cantidad_contabilidad?: number;
   precio_contabilidad?: number;
+  /** Codigos de materiales compatibles de la categoria contraria (inversores <-> baterias). */
+  compatibles?: string[];
 }
 
 export interface MaterialFormData {
@@ -122,6 +128,8 @@ export interface MaterialFormData {
   ficha_tecnica?: File | null;
   numero_serie?: string | null;
   stockaje_minimo?: number | null;
+  /** Codigos de materiales compatibles de la categoria contraria (inversores <-> baterias). */
+  compatibles?: string[];
 }
 
 export interface MaterialFilters {
@@ -158,6 +166,8 @@ export interface CreateMaterialRequest {
   ficha_tecnica_url?: string | null;
   numero_serie?: string | null;
   stockaje_minimo?: number | null;
+  /** Codigos de materiales compatibles de la categoria contraria (inversores <-> baterias). */
+  compatibles?: string[];
 }
 
 export interface UpdateCategoryRequest {
@@ -200,6 +210,7 @@ export function transformBackendToFrontend(
         codigo_contabilidad: material.codigo_contabilidad,
         cantidad_contabilidad: material.cantidad_contabilidad,
         precio_contabilidad: material.precio_contabilidad,
+        compatibles: material.compatibles,
       });
     });
   });
@@ -240,6 +251,7 @@ export function flattenMaterials(categories: MaterialCategory[]): Material[] {
         codigo_contabilidad: material.codigo_contabilidad,
         cantidad_contabilidad: material.cantidad_contabilidad,
         precio_contabilidad: material.precio_contabilidad,
+        compatibles: material.compatibles,
       });
     });
   });
