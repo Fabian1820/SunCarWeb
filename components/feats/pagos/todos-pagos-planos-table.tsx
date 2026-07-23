@@ -166,7 +166,7 @@ export function TodosPagosPlanosTable({
 
     const totalPagadoAnteriormente = pagosOrdenadosOferta
       .slice(0, indicePago)
-      .reduce((sum, p) => sum + getMontoAplicadoUsd(p), 0);
+      .reduce((sum, p) => sum + (p.cancelado ? 0 : getMontoAplicadoUsd(p)), 0);
 
     const totalPagadoConEste =
       totalPagadoAnteriormente +
