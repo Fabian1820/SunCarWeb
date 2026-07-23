@@ -161,7 +161,7 @@ export const getBaseACobrar = (oferta: OfertaConPagos): number => {
 export const calcularPendienteOferta = (oferta: OfertaConPagos): number => {
   if (isOfertaCancelada(oferta.estado || "")) return 0;
   const totalAplicado = oferta.pagos.reduce(
-    (sum, p) => sum + getMontoAplicadoUsd(p),
+    (sum, p) => sum + (p.cancelado ? 0 : getMontoAplicadoUsd(p)),
     0,
   );
   const pendienteCrudo = getBaseACobrar(oferta) - totalAplicado;
@@ -370,7 +370,7 @@ export function TodosPagosTable({
 
     const totalPagadoAnteriormente = pagosOrdenados
       .slice(0, indicePago)
-      .reduce((sum, p) => sum + getMontoAplicadoUsd(p), 0);
+      .reduce((sum, p) => sum + (p.cancelado ? 0 : getMontoAplicadoUsd(p)), 0);
 
     const totalPagadoConEste =
       totalPagadoAnteriormente +
