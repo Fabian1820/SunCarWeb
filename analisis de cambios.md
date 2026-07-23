@@ -2,6 +2,38 @@
 
 ---
 
+## 📅 23 de Julio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**2 commits reales** de yany1509 — ambos en el módulo de Pagos: corrección del cálculo de totales excluyendo pagos cancelados, y marcación visual de esos pagos en el Detalle de Cobros. Son follow-ups directos al botón "Cancelar pago" introducido el 17 de Julio.
+
+---
+
+### Área 1: Pagos — totales excluyen pagos cancelados (1 commit — yany1509, 17:23)
+
+- **`fix(pagos): no cuenta pagos cancelados al calcular total pagado/pendiente`** — El cálculo local de "pendiente" y de "pagado hasta este pago" en el Detalle de Cobros sumaba todos los pagos de la oferta sin revisar el campo `cancelado`. Un pago duplicado cancelado seguía restándose del pendiente aunque el backend ya no lo contara como dinero recibido.
+
+---
+
+### Área 2: Pagos — marcación visual de cancelados en Detalle de Cobros (1 commit — yany1509, 17:55)
+
+- **`fix(pagos): marca visualmente los pagos cancelados en el detalle de cobros`** — La tarjeta de cada pago dentro de "Detalle de Cobros" no distinguía un pago cancelado de uno activo — se veían idénticos aunque el total ya no lo contara. Ahora se le pone la insignia "Cancelado", el monto se tacha, la tarjeta se atenúa, y el contador del encabezado cuenta todos los pagos mostrados (no solo los activos) para que cuadre con lo que se ve en pantalla.
+
+---
+
+### Puede dar bateo
+
+1. **Cálculo de "pendiente" solo en frontend — desincronía con totales del backend**: El fix filtra pagos cancelados en lógica local. Si el backend devuelve algún campo de saldo calculado (`saldo_pendiente`, `total_pagado`), esos siguen viniendo del servidor y pueden no alinearse con el fix del frontend.
+
+2. **`cancelado` falsy/undefined para pagos históricos — filtro no los excluye**: El filtro `!p.cancelado` pasa cuando el campo es `undefined`. Pagos creados antes de que existiera el campo `cancelado` no se excluirán del cálculo si el backend no los rellena con `false` explícitamente.
+
+3. **Contador de encabezado ahora muestra todos los pagos (activos + cancelados)**: El contador pasó de contar solo activos a contar todos los visibles. Un usuario que asociaba el número con "pagos válidos" verá un número inflado que incluye cancelados, lo cual puede generar confusión.
+
+4. **Par de fixes en menos de 35 minutos — posible build intermedio en producción**: Si Railway auto-deploy está activo, el commit de las 17:23 hizo deploy antes del de las 17:55. En esa ventana, los totales estaban corregidos pero las tarjetas aún no mostraban el badge "Cancelado" ni el tachado.
+
+---
+
 ## 📅 22 de Julio, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -221,52 +253,12 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 15 de Julio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**3 commits reales** de yany1509 — todos en el módulo de Facturas: ciclo completo de la feature "Ajustar saldo", desde el botón inicial solo para centavos hasta un diálogo de monto libre con confirmación explícita y badge renombrado en 3 pantallas.
-
----
-
-### Área 1: Facturas — botón "Ajustar saldo" para centavos residuales (1 commit — yany1509, 16:35)
-
-- **`feat(facturas): boton "Ajustar saldo" para centavos residuales`** — En la tabla de Facturas (Obras Terminadas), cada oferta con `monto_pendiente` con decimales != 0 muestra un botón que llama al nuevo endpoint `/ajustar-saldo`: registra un pago de ajuste por los centavos exactos y refresca la fila.
-
----
-
-### Área 2: Facturas — diálogo de confirmación antes de ajustar (1 commit — yany1509, 16:53)
-
-- **`fix(facturas): confirma antes de ajustar saldo por redondeo`** — El botón aplicaba el ajuste al primer clic sin posibilidad de cancelar. Ahora abre un `ConfirmEditDialog` que muestra el monto exacto a ajustar, la oferta afectada, si queda deuda real o la oferta pasa a pagada, y aclara que el ajuste queda registrado como pago auditable no reversible desde la interfaz.
-
----
-
-### Área 3: Facturas — monto libre y label explícito "Ajuste de contabilidad" (1 commit — yany1509, 17:44)
-
-- **`feat(facturas): monto libre en el ajuste de saldo + label explicito`** — El botón "Ajustar saldo" ahora aparece en cualquier oferta con pendiente (no solo con centavos). Abre un nuevo `AjustarSaldoDialog` con input de monto editable — pre-llenado con el residuo de centavos si existe, o el pendiente completo si no — validado contra el total pendiente antes de confirmar. El tipo de pago "ajuste" se muestra explícitamente como "Ajuste de contabilidad" (badge ámbar) en las 3 pantallas donde aparece: Pagos Clientes (ambas vistas) y tabla de Obras Terminadas.
-
----
-
-### Puede dar bateo
-
-1. **`/ajustar-saldo` endpoint sin confirmar en backend — botón fallará con 404 o 422 si no está implementado**: No hay evidencia en frontend de que el endpoint preexistiera; fue nombrado en el primer commit como nuevo.
-
-2. **Validación de monto solo en cliente — race condition de sobrepago**: Si llega otro pago entre que el usuario abre el diálogo y confirma, el ajuste puede superar el pendiente real. El backend debe validar que `monto_ajuste <= monto_pendiente_actual` en el momento del POST.
-
-3. **Monto libre sin aprobación secundaria para valores grandes**: Para ofertas con pendiente de $500 o más, el diálogo abre pre-llenado con el total. Un clic de confirmación cancela la deuda completa como "ajuste contable" sin ningún nivel de autorización adicional.
-
-4. **Badge "Ajuste de contabilidad" en 3 pantallas — riesgo de pantalla sin mapeo**: Si alguna de las 3 vistas no tiene el caso `'ajuste'` en su config de badges, mostrará el texto crudo del backend en lugar del badge ámbar.
-
-5. **Ciclo feat→fix→feat en 70 minutos — ventana sin confirmación en producción**: Entre el commit 16:35 (botón sin diálogo) y el 16:53 (fix con confirmación), cualquier usuario que cargó la tabla ajustó centavos con un solo clic sin posibilidad de cancelar.
-
-6. **Pre-relleno: sin centavos → total pendiente — riesgo de confusión para deudas redondas**: En ofertas con pendiente exacto (e.g., $200.00), el diálogo abre con $200 pre-llenados. El usuario puede confirmar sin notar que está cancelando el total, no solo un ajuste menor.
-
-7. **Sin mecanismo de reversa en UI — error de ajuste requiere intervención manual en BD**: El diálogo advierte que el ajuste no se puede deshacer desde la interfaz, pero no ofrece flujo alternativo ni contacto de soporte en el mismo contexto.
-
----
-
 #### Seguimientos vigentes
 
+- **Cálculo "pendiente" en Detalle de Cobros solo en frontend — desincronía con totales del backend si devuelve saldo_pendiente calculado (Jul 23)**.
+- **`cancelado` falsy/undefined en pagos históricos — filtro !p.cancelado no los excluye del cálculo (Jul 23)**.
+- **Contador de encabezado ahora incluye cancelados — usuarios esperando "pagos válidos" verán número inflado (Jul 23)**.
+- **Par de fixes de pagos en < 35 min — posible build intermedio con totales corregidos pero sin badge visual (Jul 23)**.
 - **Selector "Cambiar por..." en facturas-solar-carros — fallback heurístico en filas sin match en catálogo, comportamiento inconsistente sin indicador visual (Jul 22)**.
 - **Catálogo local stale — categoría real puede ser incorrecta si la sesión no se recargó después de actualizar el backend (Jul 22)**.
 - **Heurístico de categorización por substring puede existir en otros módulos — verificar cobertura (Jul 22)**.
@@ -420,4 +412,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
