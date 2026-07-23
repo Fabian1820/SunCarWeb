@@ -372,9 +372,10 @@ export function TodosPagosTable({
       .slice(0, indicePago)
       .reduce((sum, p) => sum + (p.cancelado ? 0 : getMontoAplicadoUsd(p)), 0);
 
+    const pagoActual = pagosOrdenados[indicePago];
     const totalPagadoConEste =
       totalPagadoAnteriormente +
-      getMontoAplicadoUsd(pagosOrdenados[indicePago]);
+      (pagoActual.cancelado ? 0 : getMontoAplicadoUsd(pagoActual));
 
     const pendienteCrudo = getBaseACobrar(oferta) - totalPagadoConEste;
     const pendienteNormalizado =
@@ -786,7 +787,7 @@ export function TodosPagosTable({
                                 : "h-1 w-1 rounded-full bg-blue-600"
                             }
                           ></span>
-                          Detalle de Cobros ({oferta.cantidad_pagos})
+                          Detalle de Cobros ({oferta.pagos.length})
                         </h4>
                         <div className="space-y-2">
                           {/* Ordenar pagos por fecha (más antiguos primero) */}
@@ -799,9 +800,11 @@ export function TodosPagosTable({
                                 <div
                                   key={pago.id}
                                   className={
-                                    isOfertaCancelada(oferta.estado || "")
-                                      ? "bg-red-50 rounded border border-red-200 p-2 shadow-sm"
-                                      : "bg-white rounded border border-gray-200 p-2 shadow-sm"
+                                    pago.cancelado
+                                      ? "bg-gray-50 rounded border border-gray-200 p-2 shadow-sm opacity-70"
+                                      : isOfertaCancelada(oferta.estado || "")
+                                        ? "bg-red-50 rounded border border-red-200 p-2 shadow-sm"
+                                        : "bg-white rounded border border-gray-200 p-2 shadow-sm"
                                   }
                                 >
                                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -812,6 +815,17 @@ export function TodosPagosTable({
                                           #{index + 1}
                                         </span>
                                         {getTipoPagoBadge(pago.tipo_pago)}
+                                        {pago.cancelado && (
+                                          <Badge
+                                            className="bg-gray-200 text-gray-700"
+                                            title={
+                                              pago.motivo_cancelacion ||
+                                              undefined
+                                            }
+                                          >
+                                            Cancelado
+                                          </Badge>
+                                        )}
                                       </div>
                                       <div>
                                         <span className="text-xs text-gray-500 block">
@@ -825,7 +839,13 @@ export function TodosPagosTable({
                                         <span className="text-xs text-gray-500 block">
                                           Monto Cobrado
                                         </span>
-                                        <span className="text-sm font-semibold text-green-700">
+                                        <span
+                                          className={
+                                            pago.cancelado
+                                              ? "text-sm font-semibold text-gray-500 line-through"
+                                              : "text-sm font-semibold text-green-700"
+                                          }
+                                        >
                                           {formatCurrency(pago.monto)}{" "}
                                           {pago.moneda}
                                         </span>
