@@ -168,9 +168,10 @@ export function TodosPagosPlanosTable({
       .slice(0, indicePago)
       .reduce((sum, p) => sum + (p.cancelado ? 0 : getMontoAplicadoUsd(p)), 0);
 
+    const pagoActualOferta = pagosOrdenadosOferta[indicePago];
     const totalPagadoConEste =
       totalPagadoAnteriormente +
-      getMontoAplicadoUsd(pagosOrdenadosOferta[indicePago]);
+      (pagoActualOferta.cancelado ? 0 : getMontoAplicadoUsd(pagoActualOferta));
 
     const pendienteCrudo = getBaseACobrar(oferta) - totalPagadoConEste;
     const pendienteNormalizado =
