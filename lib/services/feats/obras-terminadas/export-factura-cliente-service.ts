@@ -66,12 +66,20 @@ const sortPagos = (pagos: PagoObra[]) =>
     return toMs(a.fecha_creacion) - toMs(b.fecha_creacion);
   });
 
+export interface RenderFacturaOptions {
+  /** Incluye la tabla de materiales. Por defecto true. */
+  incluirMateriales?: boolean;
+  /** Incluye la fila "Comercial" en los detalles del cliente. Por defecto true. */
+  incluirComercial?: boolean;
+}
+
 export class ExportFacturaClienteService {
   private static renderFactura(
     doc: jsPDF,
     factura: FacturaClienteObra,
     obra: ObraTerminada,
     logo: string | null,
+    opts?: RenderFacturaOptions,
   ): void {
     const W = 210;
     const ml = 20;
@@ -131,7 +139,9 @@ export class ExportFacturaClienteService {
 
     detalle("Cliente",         obra.cliente_nombre || "—");
     detalle("CI",              obra.carnet_identidad || "—");
-    detalle("Comercial",       obra.comercial || "—");
+    if (opts?.incluirComercial !== false) {
+      detalle("Comercial",     obra.comercial || "—");
+    }
     detalle("Fecha factura",   fmtDate(factura.fecha_facturacion || obra.fecha_equipo_instalado));
     if (factura.nombre_completo) {
       detalle("Oferta",        factura.nombre_completo);
@@ -143,7 +153,7 @@ export class ExportFacturaClienteService {
 
     // ── Materiales ─────────────────────────────────────────────────────────────
     const materiales = factura.materiales ?? [];
-    if (materiales.length > 0) {
+    if (materiales.length > 0 && opts?.incluirMateriales !== false) {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(7);
       doc.setTextColor(107, 114, 128);
@@ -323,12 +333,22 @@ export class ExportFacturaClienteService {
     doc.text(`${EMPRESA.nombreLargo}  ·  ${EMPRESA.direccion}`, W / 2, 291, { align: "center" });
   }
 
-  static async exportarPDF(factura: FacturaClienteObra, obra: ObraTerminada): Promise<void> {
+  static async exportarPDF(
+    factura: FacturaClienteObra,
+    obra: ObraTerminada,
+    opts?: RenderFacturaOptions,
+  ): Promise<void> {
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
     const logo = await resolveLogo();
-    this.renderFactura(doc, factura, obra, logo);
+    this.renderFactura(doc, factura, obra, logo, opts);
     const nombre = factura.numero_factura || factura.numero_oferta || factura.nombre || "factura_cliente";
-    doc.save(`Factura_Cliente_${nombre}.pdf`);
+    const sufijo = opts?.incluirMateriales === false || opts?.incluirComercial === false ? "_resumen" : "";
+    doc.save(`Factura_Cliente_${nombre}${sufijo}.pdf`);
+  }
+
+  /** Exporta la factura sin la tabla de materiales ni el nombre del comercial. */
+  static async exportarPDFResumen(factura: FacturaClienteObra, obra: ObraTerminada): Promise<void> {
+    await this.exportarPDF(factura, obra, { incluirMateriales: false, incluirComercial: false });
   }
 
   static async exportarMultiplesPDF(

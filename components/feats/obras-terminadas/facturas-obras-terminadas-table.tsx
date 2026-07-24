@@ -24,6 +24,7 @@ import {
   AlertCircle,
   Eye,
   FileDown,
+  FileText,
   Loader2,
   Coins,
 } from "lucide-react"
@@ -113,6 +114,7 @@ export function FacturasObrasTerminadasTable({
   const [exportingExcel, setExportingExcel] = useState(false)
   const [exportingExcelSinMateriales, setExportingExcelSinMateriales] = useState(false)
   const [exportingRowId, setExportingRowId] = useState<string | null>(null)
+  const [exportingResumenRowId, setExportingResumenRowId] = useState<string | null>(null)
   const [ajustandoRowId, setAjustandoRowId] = useState<string | null>(null)
   const [confirmAjusteObra, setConfirmAjusteObra] = useState<ObraTerminada | null>(null)
   const [detalleLoadingId, setDetalleLoadingId] = useState<string | null>(null)
@@ -165,6 +167,19 @@ export function FacturasObrasTerminadasTable({
       }
     } finally {
       setExportingRowId(null)
+    }
+  }
+
+  const handleExportarPdfResumen = async (obra: ObraTerminada) => {
+    const key = rowKey(obra)
+    setExportingResumenRowId(key)
+    try {
+      const facturas = await getFacturaDetalle(obra)
+      if (facturas[0]) {
+        await ExportFacturaClienteService.exportarPDFResumen(facturas[0], obra)
+      }
+    } finally {
+      setExportingResumenRowId(null)
     }
   }
 
@@ -322,6 +337,7 @@ export function FacturasObrasTerminadasTable({
               {filtered.map((o) => {
                 const key = rowKey(o)
                 const isExportingRow = exportingRowId === key
+                const isExportingResumenRow = exportingResumenRowId === key
                 const isLoadingDetalle = detalleLoadingId === key
                 const isAjustandoRow = ajustandoRowId === key
                 const pendiente = o.monto_pendiente ?? 0
@@ -370,6 +386,16 @@ export function FacturasObrasTerminadasTable({
                           title="Exportar PDF"
                         >
                           {isExportingRow ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-slate-600 hover:text-slate-800 hover:bg-slate-100"
+                          onClick={() => void handleExportarPdfResumen(o)}
+                          disabled={isExportingResumenRow}
+                          title="Exportar PDF sin materiales ni comercial"
+                        >
+                          {isExportingResumenRow ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
                         </Button>
                         {mostrarAjustarSaldo && (
                           <Button
