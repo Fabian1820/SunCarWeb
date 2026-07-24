@@ -205,9 +205,15 @@ export function MaterialForm({
     }
     let cancelado = false;
     setLoadingCompatibles(true);
-    MaterialService.getMaterialsByCategory(categoriaContrariaCompatibilidad)
+    // getMaterialsByCategory espera un producto_id (ObjectId), no el nombre de
+    // la categoria; usamos el catalogo completo y filtramos por categoria.
+    MaterialService.getAllMaterials()
       .then((materiales) => {
-        if (!cancelado) setMaterialesCategoriaContraria(materiales || []);
+        if (cancelado) return;
+        const filtrados = (materiales || []).filter(
+          (m) => m.categoria === categoriaContrariaCompatibilidad,
+        );
+        setMaterialesCategoriaContraria(filtrados);
       })
       .catch(() => {
         if (!cancelado) setMaterialesCategoriaContraria([]);
