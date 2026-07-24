@@ -2,6 +2,40 @@
 
 ---
 
+## 📅 24 de Julio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**2 commits reales** de yany1509 — ambos en el módulo de Obras Terminadas: nuevos botones de exportación PDF de facturas omitiendo la tabla de materiales y la fila "Comercial". El primero agrega un botón por fila; el segundo agrega exportación masiva de todas las facturas listadas en un único PDF.
+
+---
+
+### Área 1: Obras Terminadas — botón PDF de factura sin materiales ni comercial (1 commit — yany1509, 15:03)
+
+- **`feat(obras-terminadas): boton exportar PDF de factura sin materiales ni comercial`** — Agrega `ExportFacturaClienteService.exportarPDFResumen`, que reutiliza `renderFactura` con nuevas opciones (`incluirMateriales`/`incluirComercial`) para omitir la tabla de materiales y la fila "Comercial". Nuevo botón por fila en la tabla de Facturas de Obras Terminadas, junto al de "Exportar PDF" existente.
+
+---
+
+### Área 2: Obras Terminadas — exportación masiva PDF sin materiales ni comercial (1 commit — yany1509, 15:37)
+
+- **`feat(obras-terminadas): boton para exportar todas las facturas en PDF sin materiales ni comercial`** — Complementa el botón por fila con una variante masiva: junta todas las facturas listadas en un único PDF (una por página), igual que "Exportar todas (PDF)" pero omitiendo materiales y comercial.
+
+---
+
+### Puede dar bateo
+
+1. **`renderFactura` con nuevas opciones — edge cases sin cobertura en todos los tipos de factura**: Si algún tipo de factura depende de `materiales` para calcular subtotales o totales mostrados en otras secciones del PDF, omitirlos puede producir totales incorrectos o campos vacíos inesperados.
+
+2. **PDF masivo sin cota máxima de facturas — posible bloqueo del navegador**: El botón "Exportar todas" concatena todas las facturas listadas sin límite. En listas largas (>50 facturas), la generación en el navegador puede agotar memoria o tiempo de espera sin feedback de progreso al usuario.
+
+3. **Dos commits en 34 minutos — posible build intermedio en producción**: Si Railway auto-deploy está activo, el primer commit (botón por fila) hizo deploy antes del segundo (masivo). En esa ventana existía el botón individual pero no el masivo.
+
+4. **`incluirComercial: false` — fila omitida puede desplazar el layout del PDF**: Si la fila "Comercial" ocupa espacio reservado en el template, omitirla puede dejar espacio vacío o correrse el diseño dependiendo de cómo `renderFactura` maneje la ausencia.
+
+5. **Sin tests de regresión sobre el flujo original "Exportar PDF"**: Los cambios en `renderFactura` para soportar las nuevas opciones pueden introducir regresiones en el flujo original (con materiales y comercial incluidos) si los valores por defecto de las nuevas opciones no están correctamente configurados.
+
+---
+
 ## 📅 23 de Julio, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -255,6 +289,11 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 #### Seguimientos vigentes
 
+- **`renderFactura` con `incluirMateriales: false` — edge cases sin cobertura, totales en PDF pueden ser incorrectos (Jul 24)**.
+- **PDF masivo obras-terminadas sin cota máxima — puede bloquear navegador en listas largas (Jul 24)**.
+- **Dos commits obras-terminadas en 34 min — build intermedio posible en prod con botón masivo ausente (Jul 24)**.
+- **`incluirComercial: false` — fila omitida puede desplazar layout del PDF (Jul 24)**.
+- **Sin tests de regresión sobre flujo PDF original "Exportar PDF" tras refactor de `renderFactura` (Jul 24)**.
 - **Cálculo "pendiente" en Detalle de Cobros solo en frontend — desincronía con totales del backend si devuelve saldo_pendiente calculado (Jul 23)**.
 - **`cancelado` falsy/undefined en pagos históricos — filtro !p.cancelado no los excluye del cálculo (Jul 23)**.
 - **Contador de encabezado ahora incluye cancelados — usuarios esperando "pagos válidos" verán número inflado (Jul 23)**.
