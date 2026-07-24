@@ -354,14 +354,27 @@ export class ExportFacturaClienteService {
   static async exportarMultiplesPDF(
     items: { factura: FacturaClienteObra; obra: ObraTerminada }[],
     nombreArchivo?: string,
+    opts?: RenderFacturaOptions,
   ): Promise<void> {
     if (items.length === 0) return;
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
     const logo = await resolveLogo();
     items.forEach(({ factura, obra }, idx) => {
       if (idx > 0) doc.addPage();
-      this.renderFactura(doc, factura, obra, logo);
+      this.renderFactura(doc, factura, obra, logo, opts);
     });
     doc.save(nombreArchivo || `Facturas_Cliente_${new Date().toISOString().slice(0, 10)}.pdf`);
+  }
+
+  /** Exporta varias facturas en un único PDF (una por página), sin materiales ni comercial. */
+  static async exportarMultiplesPDFResumen(
+    items: { factura: FacturaClienteObra; obra: ObraTerminada }[],
+    nombreArchivo?: string,
+  ): Promise<void> {
+    await this.exportarMultiplesPDF(
+      items,
+      nombreArchivo,
+      { incluirMateriales: false, incluirComercial: false },
+    );
   }
 }
