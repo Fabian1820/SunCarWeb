@@ -169,6 +169,8 @@ export default function ObrasTerminadasPage() {
   const [fHasta, setFHasta] = useState("")
   const [exportingAllFacturasClientes, setExportingAllFacturasClientes] = useState(false)
   const [exportingAllFacturasTrabajadores, setExportingAllFacturasTrabajadores] = useState(false)
+  const [exportingAllResumenFacturasClientes, setExportingAllResumenFacturasClientes] = useState(false)
+  const [exportingAllResumenFacturasTrabajadores, setExportingAllResumenFacturasTrabajadores] = useState(false)
   const [exportingExcelFacturasClientes, setExportingExcelFacturasClientes] = useState(false)
   const [exportingExcelFacturasTrabajadores, setExportingExcelFacturasTrabajadores] = useState(false)
   const [exportingExcelSinMatFacturasClientes, setExportingExcelSinMatFacturasClientes] = useState(false)
@@ -232,6 +234,7 @@ export default function ObrasTerminadasPage() {
   const handleExportarTodasPDFFacturas = useCallback(async (
     obrasListadas: typeof facturasClientesHook.ofertasConPagos,
     setExporting: (v: boolean) => void,
+    sinMaterialesSinComercial = false,
   ) => {
     setExporting(true)
     try {
@@ -249,7 +252,11 @@ export default function ObrasTerminadasPage() {
       ).filter((r): r is { obra: typeof obrasListadas[0]; factura: Awaited<ReturnType<typeof ObrasTerminadasService.getFacturasCliente>>[0] } => r !== null)
 
       if (results.length) {
-        await ExportFacturaClienteService.exportarMultiplesPDF(results)
+        if (sinMaterialesSinComercial) {
+          await ExportFacturaClienteService.exportarMultiplesPDFResumen(results)
+        } else {
+          await ExportFacturaClienteService.exportarMultiplesPDF(results)
+        }
       }
     } finally {
       setExporting(false)
@@ -615,6 +622,7 @@ export default function ObrasTerminadasPage() {
                     error={null}
                     onRefresh={() => facturasClientesHook.fetchData(filtrosClientesFacturas, facturasClientesHook.page)}
                     onExportarTodas={(obras) => handleExportarTodasPDFFacturas(obras, setExportingAllFacturasClientes)}
+                    onExportarTodasSinMaterialesSinComercial={(obras) => handleExportarTodasPDFFacturas(obras, setExportingAllResumenFacturasClientes, true)}
                     onExportarExcel={() => handleExportarExcelFacturas(filtrosClientesFacturas, setExportingExcelFacturasClientes)}
                     onExportarExcelSinMateriales={() => handleExportarExcelFacturas(filtrosClientesFacturas, setExportingExcelSinMatFacturasClientes, true)}
                     onAjustarSaldo={(obra, monto) => handleAjustarSaldo(obra, monto, () => facturasClientesHook.fetchData(filtrosClientesFacturas, facturasClientesHook.page))}
@@ -663,6 +671,7 @@ export default function ObrasTerminadasPage() {
                     error={null}
                     onRefresh={() => facturasTrabajadoresHook.fetchData(filtrosTrabajadoresFacturas, facturasTrabajadoresHook.page)}
                     onExportarTodas={(obras) => handleExportarTodasPDFFacturas(obras, setExportingAllFacturasTrabajadores)}
+                    onExportarTodasSinMaterialesSinComercial={(obras) => handleExportarTodasPDFFacturas(obras, setExportingAllResumenFacturasTrabajadores, true)}
                     onExportarExcel={() => handleExportarExcelFacturas(filtrosTrabajadoresFacturas, setExportingExcelFacturasTrabajadores)}
                     onExportarExcelSinMateriales={() => handleExportarExcelFacturas(filtrosTrabajadoresFacturas, setExportingExcelSinMatFacturasTrabajadores, true)}
                     onAjustarSaldo={(obra, monto) => handleAjustarSaldo(obra, monto, () => facturasTrabajadoresHook.fetchData(filtrosTrabajadoresFacturas, facturasTrabajadoresHook.page))}

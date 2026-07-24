@@ -44,6 +44,8 @@ interface FacturasObrasTerminadasTableProps {
   onRefresh: () => void
   /** Exporta todas las facturas listadas (respetando filtros) en un único PDF, una por página. */
   onExportarTodas?: (obras: ObraTerminada[]) => Promise<void> | void
+  /** Igual que onExportarTodas pero sin materiales ni comercial. */
+  onExportarTodasSinMaterialesSinComercial?: (obras: ObraTerminada[]) => Promise<void> | void
   onExportarExcel?: () => Promise<void> | void
   /** Igual que onExportarExcel pero sin las columnas de materiales. */
   onExportarExcelSinMateriales?: () => Promise<void> | void
@@ -92,6 +94,7 @@ export function FacturasObrasTerminadasTable({
   error,
   onRefresh,
   onExportarTodas,
+  onExportarTodasSinMaterialesSinComercial,
   onExportarExcel,
   onExportarExcelSinMateriales,
   onAjustarSaldo,
@@ -111,6 +114,7 @@ export function FacturasObrasTerminadasTable({
   }
 
   const [exportingAll, setExportingAll] = useState(false)
+  const [exportingAllResumen, setExportingAllResumen] = useState(false)
   const [exportingExcel, setExportingExcel] = useState(false)
   const [exportingExcelSinMateriales, setExportingExcelSinMateriales] = useState(false)
   const [exportingRowId, setExportingRowId] = useState<string | null>(null)
@@ -230,6 +234,27 @@ export function FacturasObrasTerminadasTable({
           >
             {exportingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
             <span className="hidden sm:inline">{exportingAll ? "Generando..." : "Exportar todas (PDF)"}</span>
+          </Button>
+        )}
+        {onExportarTodasSinMaterialesSinComercial && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 text-slate-700 border-slate-300 hover:bg-slate-50"
+            disabled={exportingAllResumen || filtered.length === 0}
+            title="Exportar todas las facturas listadas en un único PDF, sin materiales ni comercial, una por página"
+            onClick={async () => {
+              if (filtered.length === 0) return
+              setExportingAllResumen(true)
+              try {
+                await onExportarTodasSinMaterialesSinComercial(filtered)
+              } finally {
+                setExportingAllResumen(false)
+              }
+            }}
+          >
+            {exportingAllResumen ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+            <span className="hidden sm:inline">{exportingAllResumen ? "Generando..." : "Exportar todas sin materiales/comercial"}</span>
           </Button>
         )}
         {onExportarExcel && (
