@@ -70,18 +70,34 @@ export async function POST(request: NextRequest) {
       api_access_token: CHATWOOT_PLATFORM_API_TOKEN,
       'Content-Type': 'application/json',
     }
+    const adminHeaders = {
+      api_access_token: CHATWOOT_ADMIN_ACCESS_TOKEN,
+      'Content-Type': 'application/json',
+    }
     const email = `${ci}@suncar.internal`
+    const needsInboxSetup = chatwootRole === 'agent'
 
-    const userRes = await fetch(`${CHATWOOT_BASE_URL}/platform/api/v1/users`, {
-      method: 'POST',
-      headers: chatwootHeaders,
-      body: JSON.stringify({
-        name: nombre,
-        email,
-        password: randomPassword(),
-        ...(fotoPerfil ? { avatar_url: fotoPerfil } : {}),
+    // `POST users` is idempotent (Chatwoot finds-or-creates by email), so
+    // this is safe to run on every login. The inbox list doesn't depend on
+    // the user, so kick it off in parallel instead of waiting on user
+    // creation first — cuts one full round-trip off the critical path.
+    const [userRes, inboxesRes] = await Promise.all([
+      fetch(`${CHATWOOT_BASE_URL}/platform/api/v1/users`, {
+        method: 'POST',
+        headers: chatwootHeaders,
+        body: JSON.stringify({
+          name: nombre,
+          email,
+          password: randomPassword(),
+          ...(fotoPerfil ? { avatar_url: fotoPerfil } : {}),
+        }),
       }),
-    })
+      needsInboxSetup
+        ? fetch(`${CHATWOOT_BASE_URL}/api/v1/accounts/${CHATWOOT_ACCOUNT_ID}/inboxes`, {
+            headers: adminHeaders,
+          })
+        : Promise.resolve(null),
+    ])
     if (!userRes.ok) {
       console.error('Chatwoot platform user create failed:', await userRes.text())
       return NextResponse.json(
@@ -91,22 +107,6 @@ export async function POST(request: NextRequest) {
     }
     const chatwootUser = await userRes.json()
 
-    const accountUserRes = await fetch(
-      `${CHATWOOT_BASE_URL}/platform/api/v1/accounts/${CHATWOOT_ACCOUNT_ID}/account_users`,
-      {
-        method: 'POST',
-        headers: chatwootHeaders,
-        body: JSON.stringify({ user_id: chatwootUser.id, role: chatwootRole }),
-      }
-    )
-    if (!accountUserRes.ok) {
-      console.error('Chatwoot account_user create failed:', await accountUserRes.text())
-      return NextResponse.json(
-        { success: false, message: 'No se pudo dar acceso a la cuenta de Chatwoot' },
-        { status: 502 }
-      )
-    }
-
     // Un agente (a diferencia de un administrador) solo ve conversaciones de
     // las inboxes a las que pertenece explícitamente. Como Suncar quiere que
     // cualquier agente vea y pueda tomar TODAS las conversaciones de WhatsApp
@@ -114,35 +114,54 @@ export async function POST(request: NextRequest) {
     // miembro de todas las inboxes existentes. Esto usa el token personal de
     // un administrador porque la Platform API no expone inbox_members.
     // `inbox_members#create` es aditivo: solo agrega, nunca quita a otros.
-    if (chatwootRole === 'agent') {
-      const adminHeaders = {
-        api_access_token: CHATWOOT_ADMIN_ACCESS_TOKEN,
-        'Content-Type': 'application/json',
-      }
-      const inboxesRes = await fetch(
-        `${CHATWOOT_BASE_URL}/api/v1/accounts/${CHATWOOT_ACCOUNT_ID}/inboxes`,
-        { headers: adminHeaders }
+    const setupAccountAccess = async () => {
+      const accountUserRes = await fetch(
+        `${CHATWOOT_BASE_URL}/platform/api/v1/accounts/${CHATWOOT_ACCOUNT_ID}/account_users`,
+        {
+          method: 'POST',
+          headers: chatwootHeaders,
+          body: JSON.stringify({ user_id: chatwootUser.id, role: chatwootRole }),
+        }
       )
-      if (inboxesRes.ok) {
-        const { payload: inboxes } = await inboxesRes.json()
-        await Promise.all(
-          (inboxes ?? []).map((inbox: { id: number }) =>
-            fetch(`${CHATWOOT_BASE_URL}/api/v1/accounts/${CHATWOOT_ACCOUNT_ID}/inbox_members`, {
-              method: 'POST',
-              headers: adminHeaders,
-              body: JSON.stringify({ inbox_id: inbox.id, user_ids: [chatwootUser.id] }),
-            })
-          )
-        )
-      } else {
-        console.error('No se pudo listar inboxes de Chatwoot:', await inboxesRes.text())
+      if (!accountUserRes.ok) {
+        console.error('Chatwoot account_user create failed:', await accountUserRes.text())
+        return { success: false, message: 'No se pudo dar acceso a la cuenta de Chatwoot' } as const
       }
+
+      if (needsInboxSetup && inboxesRes) {
+        if (inboxesRes.ok) {
+          const { payload: inboxes } = await inboxesRes.json()
+          await Promise.all(
+            (inboxes ?? []).map((inbox: { id: number }) =>
+              fetch(`${CHATWOOT_BASE_URL}/api/v1/accounts/${CHATWOOT_ACCOUNT_ID}/inbox_members`, {
+                method: 'POST',
+                headers: adminHeaders,
+                body: JSON.stringify({ inbox_id: inbox.id, user_ids: [chatwootUser.id] }),
+              })
+            )
+          )
+        } else {
+          console.error('No se pudo listar inboxes de Chatwoot:', await inboxesRes.text())
+        }
+      }
+      return { success: true } as const
     }
 
-    const loginRes = await fetch(
-      `${CHATWOOT_BASE_URL}/platform/api/v1/users/${chatwootUser.id}/login`,
-      { headers: chatwootHeaders }
-    )
+    // The login link doesn't depend on account/inbox membership being set up
+    // (it's a user-level SSO token), so generate it in parallel with the
+    // account access setup instead of waiting for that to finish first.
+    const [accessResult, loginRes] = await Promise.all([
+      setupAccountAccess(),
+      fetch(`${CHATWOOT_BASE_URL}/platform/api/v1/users/${chatwootUser.id}/login`, {
+        headers: chatwootHeaders,
+      }),
+    ])
+    if (!accessResult.success) {
+      return NextResponse.json(
+        { success: false, message: accessResult.message },
+        { status: 502 }
+      )
+    }
     if (!loginRes.ok) {
       console.error('Chatwoot login link failed:', await loginRes.text())
       return NextResponse.json(
