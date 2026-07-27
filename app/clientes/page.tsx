@@ -17,6 +17,7 @@ import { PageLoader } from "@/components/shared/atom/page-loader";
 import { Loader } from "@/components/shared/atom/loader";
 import { useToast } from "@/hooks/use-toast";
 import { useFuentesSync } from "@/hooks/use-fuentes-sync";
+import { useMaterials } from "@/hooks/use-materials";
 import { Toaster } from "@/components/shared/molecule/toaster";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { CreateClientDialog } from "@/components/feats/cliente/create-client-dialog";
@@ -64,6 +65,7 @@ type ClientesFilters = {
   tiempo: string;
   mostrarAnulados: boolean;
   categoriaComponente: string;
+  materialCodigo: string;
   skip: number;
   limit: number;
 };
@@ -360,6 +362,9 @@ export default function ClientesPage() {
   // Sincronizar fuentes de clientes con localStorage
   useFuentesSync([], clients, !initialLoading);
 
+  // Materiales para el selector de "componente principal" especifico (inversor/bateria/panel exacto)
+  const { materials: allMaterials } = useMaterials();
+
   // Estado para capturar los filtros aplicados desde ClientsTable
   const [appliedFilters, setAppliedFilters] = useState<ClientesFilters>({
     searchTerm: buscarParam,
@@ -375,6 +380,7 @@ export default function ClientesPage() {
     tiempo: "",
     mostrarAnulados: false,
     categoriaComponente: "",
+    materialCodigo: "",
     skip: 0,
     limit: 20,
   });
@@ -384,6 +390,13 @@ export default function ClientesPage() {
     },
     [],
   );
+
+  const materialesDeCategoriaSeleccionada = useMemo(() => {
+    if (!appliedFilters.categoriaComponente) return [];
+    return allMaterials
+      .filter((m) => m.categoria === appliedFilters.categoriaComponente)
+      .sort((a, b) => (a.descripcion || "").localeCompare(b.descripcion || ""));
+  }, [allMaterials, appliedFilters.categoriaComponente]);
 
   // Buscador con debounce (mismo esquema que Leads)
   const [searchInput, setSearchInput] = useState(buscarParam);
@@ -563,6 +576,7 @@ export default function ClientesPage() {
       tiempo: "",
       mostrarAnulados: false,
       categoriaComponente: "",
+      materialCodigo: "",
       skip: 0,
     }));
   };
@@ -594,6 +608,7 @@ export default function ClientesPage() {
       fechaHasta?: string;
       activo?: boolean;
       categoriaComponente?: "INVERSORES" | "BATERÍAS" | "PANELES" | "";
+      materialCodigo?: string;
     }): Promise<Cliente[]> => {
       const cacheKey = JSON.stringify({
         q: baseParams.q || "",
@@ -603,6 +618,7 @@ export default function ClientesPage() {
         provincia: baseParams.provincia || "",
         municipio: baseParams.municipio || "",
         categoriaComponente: baseParams.categoriaComponente || "",
+        materialCodigo: baseParams.materialCodigo || "",
         fechaDesde: baseParams.fechaDesde || "",
         fechaHasta: baseParams.fechaHasta || "",
         activo: baseParams.activo ?? null,
@@ -714,6 +730,7 @@ export default function ClientesPage() {
               | "BATERÍAS"
               | "PANELES"
               | "") || undefined,
+          materialCodigo: filters.materialCodigo || undefined,
         };
 
         if (hasLocalOnlyFilter) {
@@ -1562,6 +1579,7 @@ export default function ClientesPage() {
                     onValueChange={(value) =>
                       updateFilters({
                         categoriaComponente: value === "todos" ? "" : value,
+                        materialCodigo: "",
                       })
                     }
                   >
@@ -1578,6 +1596,33 @@ export default function ClientesPage() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {appliedFilters.categoriaComponente && (
+                  <div>
+                    <Select
+                      value={appliedFilters.materialCodigo || "todos"}
+                      onValueChange={(value) =>
+                        updateFilters({
+                          materialCodigo: value === "todos" ? "" : value,
+                        })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona el modelo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="todos">
+                          Cualquier modelo
+                        </SelectItem>
+                        {materialesDeCategoriaSeleccionada.map((m) => (
+                          <SelectItem key={m.codigo} value={m.codigo}>
+                            {m.descripcion || m.nombre || m.codigo}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
