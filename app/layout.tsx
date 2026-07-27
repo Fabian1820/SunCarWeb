@@ -12,6 +12,7 @@ import { PersonalMessageOverlay } from "@/components/shared/molecule/personal-me
 import { Toaster } from "@/components/shared/molecule/toaster"
 import { FixedHeaderWatcher } from "@/components/shared/atom/fixed-header-watcher"
 import { NotificationBell } from "@/components/shared/organism/notification-bell"
+import { SolicitudDesarrolloButton } from "@/components/shared/organism/solicitud-desarrollo-button"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -97,6 +98,7 @@ export default function RootLayout({
             {children}
             <PersonalMessageOverlay />
             <NotificationBell />
+            <SolicitudDesarrolloButton />
           </AuthGuard>
         </AuthProvider>
         <PWAInstallPrompt />
