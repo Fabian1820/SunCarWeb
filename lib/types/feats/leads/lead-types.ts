@@ -58,6 +58,12 @@ export interface OfertaConfeccionResumen {
     panel_seleccionado?: string | null;
   };
   items: ItemOfertaConfeccionResumen[];
+  /** Solo presente cuando total_confirmadas > 1: una entrada por cada oferta confirmada. */
+  confirmadas_detalle?: {
+    id: string;
+    numero_oferta?: string | null;
+    estado_instalacion?: string | null;
+  }[] | null;
 }
 
 export interface Lead {

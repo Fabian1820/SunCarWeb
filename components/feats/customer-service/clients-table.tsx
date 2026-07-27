@@ -64,6 +64,7 @@ import { apiRequest } from "@/lib/api-config";
 import { compareStrings } from "@/lib/utils/string-utils";
 import MapPicker from "@/components/shared/organism/MapPickerNoSSR";
 import { ClienteDetallesDialog } from "@/components/feats/customer/cliente-detalles-dialog";
+import { EstadoInstalacionMultipleDialog } from "@/components/feats/customer-service/estado-instalacion-multiple-dialog";
 import { useOfertasPersonalizadas } from "@/hooks/use-ofertas-personalizadas";
 import { OfertasPersonalizadasTable } from "@/components/feats/ofertas-personalizadas/ofertas-personalizadas-table";
 import { CreateOfertaDialog } from "@/components/feats/ofertas-personalizadas/create-oferta-dialog";
@@ -576,6 +577,8 @@ export function ClientsTable({
   const [clientForOfertas, setClientForOfertas] = useState<Cliente | null>(
     null,
   );
+  const [clienteParaEstadosMultiples, setClienteParaEstadosMultiples] =
+    useState<Cliente | null>(null);
   const [isCreateOfertaOpen, setIsCreateOfertaOpen] = useState(false);
   const autoOpenCrearOfertaTriggeredRef = useRef(false);
   useEffect(() => {
@@ -4400,6 +4403,16 @@ export function ClientsTable({
                                     >
                                       {totalConfirmadas} confirmada{totalConfirmadas === 1 ? "" : "s"}
                                     </span>
+                                    {totalConfirmadas > 1 && oc?.confirmadas_detalle && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setClienteParaEstadosMultiples(client)}
+                                        className="inline-flex items-center rounded bg-blue-100 px-2 py-0.5 text-[13px] font-medium text-blue-700 hover:bg-blue-200"
+                                        title="Fijar el estado de instalación de cada oferta confirmada"
+                                      >
+                                        Fijar estados
+                                      </button>
+                                    )}
                                   </div>
                                 )}
                                 <div className="space-y-1 text-[14px]">
@@ -4895,6 +4908,15 @@ export function ClientsTable({
         cliente={clientForDetails}
         fotosCliente={fotosClientDetails}
         loadingFotosCliente={loadingFotosClientDetails}
+      />
+
+      {/* Fijar estado de instalación por oferta, para clientes con 2+ confirmadas */}
+      <EstadoInstalacionMultipleDialog
+        clienteNombre={clienteParaEstadosMultiples?.nombre ?? null}
+        ofertas={clienteParaEstadosMultiples?.oferta_confeccion?.confirmadas_detalle ?? null}
+        onOpenChange={(open) => {
+          if (!open) setClienteParaEstadosMultiples(null);
+        }}
       />
 
       {/* Anular/Reactivar Confirmation Dialog */}
