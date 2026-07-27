@@ -3082,57 +3082,6 @@ export function OfertasConfeccionadasView() {
                     </CardContent>
                   </Card>
 
-                  {(ofertaSeleccionada.elementos_personalizados || []).length >
-                    0 && (
-                    <Card className="border-slate-200">
-                      <CardContent className="p-4 space-y-3">
-                        <div className="text-sm text-slate-500">
-                          Elementos personalizados
-                        </div>
-                        <div className="divide-y divide-slate-100 rounded-lg border border-slate-100 bg-white">
-                          {(
-                            ofertaSeleccionada.elementos_personalizados || []
-                          ).map((elem, idx) => {
-                            const material = materialesMap.get(
-                              elem.material_codigo?.toString(),
-                            );
-                            return (
-                              <div
-                                key={`${elem.material_codigo}-${idx}`}
-                                className="flex items-center gap-3 p-3"
-                              >
-                                <div className="h-12 w-12 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden">
-                                  <MaterialImage
-                                    foto={material?.foto}
-                                    fotoDisponible={(material as { foto_disponible?: boolean | null } | undefined)?.foto_disponible}
-                                    alt={elem.descripcion}
-                                    imgClassName="w-full h-full object-contain"
-                                    fallback={<Package className="h-6 w-6 text-slate-300" />}
-                                  />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-semibold text-slate-900 line-clamp-1">
-                                    {elem.descripcion}
-                                  </p>
-                                  <p className="text-xs text-slate-500">
-                                    {elem.categoria}
-                                  </p>
-                                </div>
-                                <div className="text-right">
-                                  <p className="text-sm font-semibold text-slate-900">
-                                    {elem.cantidad} u
-                                  </p>
-                                  <p className="text-xs text-slate-500">
-                                    {formatCurrency(elem.precio)}
-                                  </p>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
 
                   {(ofertaSeleccionada.secciones_personalizadas || []).length >
                     0 && (

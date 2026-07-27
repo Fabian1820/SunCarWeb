@@ -523,10 +523,10 @@ export default function LeadsPage() {
         )}
 
         {/* Search and Filters */}
-        <Card className="mb-8 border-l-4 border-l-green-600">
-          <CardContent className="p-4 sm:p-6">
-            {/* Primera fila: Búsqueda y botón limpiar */}
-            <div className="flex flex-col sm:flex-row gap-3 mb-4">
+        <Card className="mb-6 border-l-4 border-l-green-600">
+          <CardContent className="p-3 sm:p-4">
+            {/* Primera fila: Búsqueda, ver anulados y botón limpiar */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-3">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
@@ -537,8 +537,24 @@ export default function LeadsPage() {
                   className="pl-10"
                 />
               </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Checkbox
+                  id="mostrar-anulados"
+                  checked={filters.mostrarAnulados}
+                  onCheckedChange={(checked) =>
+                    setFilters({ mostrarAnulados: checked === true })
+                  }
+                />
+                <Label
+                  htmlFor="mostrar-anulados"
+                  className="text-sm text-gray-600 cursor-pointer whitespace-nowrap"
+                >
+                  Ver anulados
+                </Label>
+              </div>
               <Button
                 variant="outline"
+                size="sm"
                 onClick={() => {
                   setSearchTerm("");
                   setFilters({
@@ -560,8 +576,8 @@ export default function LeadsPage() {
               </Button>
             </div>
 
-            {/* Segunda fila: Todos los filtros en una sola fila con buen espaciado */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Todos los filtros, compactos y agrupados por tipo */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
               {/* Filtro por Estado (multi-select) */}
               <div>
                 {(() => {
@@ -850,23 +866,6 @@ export default function LeadsPage() {
                 />
               </div>
             </div>
-
-            {/* Ver anulados */}
-            <div className="flex items-center gap-2 mt-4">
-              <Checkbox
-                id="mostrar-anulados"
-                checked={filters.mostrarAnulados}
-                onCheckedChange={(checked) =>
-                  setFilters({ mostrarAnulados: checked === true })
-                }
-              />
-              <Label
-                htmlFor="mostrar-anulados"
-                className="text-sm text-gray-600 cursor-pointer"
-              >
-                Ver leads anulados
-              </Label>
-            </div>
           </CardContent>
         </Card>
 
@@ -883,8 +882,8 @@ export default function LeadsPage() {
               <Loader label="Cargando leads..." />
             </div>
           ) : (
-            <div className="space-y-4">
-              <p className="text-sm text-gray-500">
+            <div className="space-y-2">
+              <p className="text-xs text-gray-500">
                 {totalLeads} {totalLeads === 1 ? "lead" : "leads"}
               </p>
               <LeadsTable

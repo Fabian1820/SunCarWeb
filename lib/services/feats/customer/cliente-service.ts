@@ -25,6 +25,7 @@ type ClienteListParams = {
   fechaDesde?: string;
   fechaHasta?: string;
   activo?: boolean;
+  categoriaComponente?: "INVERSORES" | "BATERÍAS" | "PANELES" | "";
 };
 
 export type ClienteFotoUploadPayload = {
@@ -116,6 +117,9 @@ export class ClienteService {
     }
     if (params.activo !== undefined) {
       search.append("activo", params.activo ? "true" : "false");
+    }
+    if (params.categoriaComponente) {
+      search.append("categoriaComponente", params.categoriaComponente);
     }
 
     const endpoint = `/clientes/${search.toString() ? `?${search.toString()}` : ""}`;

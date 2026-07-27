@@ -244,6 +244,7 @@ export function LeadsTable({
     Record<string, string>
   >({});
   const [conversionLoading, setConversionLoading] = useState(false);
+  const [previewingCodigo, setPreviewingCodigo] = useState(false);
   const [isComprobanteDialogOpen, setIsComprobanteDialogOpen] = useState(false);
   const [leadForComprobante, setLeadForComprobante] = useState<Lead | null>(
     null,
@@ -837,7 +838,7 @@ export function LeadsTable({
     setConversionErrors({ general: errorMessage });
   };
 
-  const handleSeleccionEquipoPropio = (esEquipoPropio: boolean) => {
+  const handleSeleccionEquipoPropio = async (esEquipoPropio: boolean) => {
     setConversionData((prev) => ({
       ...prev,
       numero: "",
@@ -849,6 +850,24 @@ export function LeadsTable({
         const { general: _general, ...rest } = prev;
         return rest;
       });
+    }
+
+    if (!leadToConvert?.id) return;
+
+    setPreviewingCodigo(true);
+    try {
+      const codigoGenerado = await onGenerarCodigo(
+        leadToConvert.id,
+        esEquipoPropio ? true : undefined,
+      );
+      setConversionData((prev) => ({
+        ...prev,
+        numero: codigoGenerado,
+      }));
+    } catch {
+      // El error real (si lo hay) se mostrará al confirmar; aquí solo es una vista previa.
+    } finally {
+      setPreviewingCodigo(false);
     }
   };
 
@@ -2451,10 +2470,12 @@ export function LeadsTable({
         throw new Error("El lead no tiene ID válido");
       }
 
-      const codigoGenerado = await onGenerarCodigo(
-        leadToConvert.id,
-        conversionData.equipo_propio ? true : undefined,
-      );
+      const codigoGenerado =
+        conversionData.numero ||
+        (await onGenerarCodigo(
+          leadToConvert.id,
+          conversionData.equipo_propio ? true : undefined,
+        ));
 
       const formatoEsperado = conversionData.equipo_propio
         ? /^P\d{9}$/
@@ -3542,21 +3563,27 @@ export function LeadsTable({
                       htmlFor="numero_cliente"
                       className="text-xs sm:text-sm"
                     >
-                      Código de cliente (generado automáticamente)
+                      Código de cliente (se creará con este número)
                     </Label>
                     <Input
                       id="numero_cliente"
-                      value={conversionData.numero}
+                      value={
+                        previewingCodigo
+                          ? "Generando..."
+                          : conversionData.numero
+                      }
                       disabled
-                      className="bg-gray-100 cursor-not-allowed"
-                      placeholder="Se generará al confirmar la conversión"
+                      className="bg-gray-100 cursor-not-allowed font-mono font-semibold"
+                      placeholder="Elige si el equipo es propio para ver el código"
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      {conversionData.numero
-                        ? conversionData.equipo_propio
-                          ? 'Código con prefijo "P" para equipo propio del cliente'
-                          : "Código generado según marca de inversor, provincia y municipio"
-                        : "El código se generará cuando confirmes la conversión"}
+                      {previewingCodigo
+                        ? "Calculando el próximo código disponible..."
+                        : conversionData.numero
+                          ? conversionData.equipo_propio
+                            ? 'Código con prefijo "P" para equipo propio del cliente'
+                            : "Código generado según marca de inversor, provincia y municipio"
+                          : "El código se mostrará al elegir si el equipo es propio"}
                     </p>
                   </div>
 

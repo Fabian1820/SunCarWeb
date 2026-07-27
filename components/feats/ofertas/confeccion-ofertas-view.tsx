@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Package,
   Search,
@@ -18,6 +18,7 @@ import { Badge } from "@/components/shared/atom/badge";
 import { Input } from "@/components/shared/atom/input";
 import { Label } from "@/components/shared/atom/label";
 import { Button } from "@/components/shared/atom/button";
+import { Checkbox } from "@/components/shared/molecule/checkbox";
 import { MaterialImage } from "@/components/shared/molecule/material-image";
 import { Card, CardContent } from "@/components/shared/molecule/card";
 import {
@@ -2211,6 +2212,13 @@ export function ConfeccionOfertasView({
     return map;
   }, [marcas]);
 
+  // Si está marcado, el nombre de la oferta se antepone con "Ampliación de "
+  const [esAmpliacion, setEsAmpliacion] = useState(false);
+  const aplicarPrefijoAmpliacion = useCallback(
+    (nombre: string) => (esAmpliacion ? `Ampliación de ${nombre}` : nombre),
+    [esAmpliacion],
+  );
+
   // Generar nombre automático de la oferta (formato compacto para UI)
   const nombreAutomatico = useMemo(() => {
     const componentes: string[] = [];
@@ -2346,6 +2354,11 @@ export function ConfeccionOfertasView({
     materials,
     activeStep?.label,
   ]);
+
+  const nombreAutomaticoMostrado = useMemo(
+    () => aplicarPrefijoAmpliacion(nombreAutomatico),
+    [aplicarPrefijoAmpliacion, nombreAutomatico],
+  );
 
   // Generar nombre completo para exportaciones (formato largo con marcas)
   const nombreCompletoParaExportar = useMemo(() => {
@@ -2528,6 +2541,11 @@ export function ConfeccionOfertasView({
     marcasMap,
     activeStep?.label,
   ]);
+
+  const nombreCompletoParaExportarMostrado = useMemo(
+    () => aplicarPrefijoAmpliacion(nombreCompletoParaExportar),
+    [aplicarPrefijoAmpliacion, nombreCompletoParaExportar],
+  );
 
   const formatCurrency = (value: number) => {
     return `${new Intl.NumberFormat("es-ES", {
@@ -2736,9 +2754,9 @@ export function ConfeccionOfertasView({
   const nombreCompletoExportable = useMemo(
     () =>
       limpiarNombreSinPaneles(
-        nombreCompletoBackend || nombreCompletoParaExportar,
+        nombreCompletoBackend || nombreCompletoParaExportarMostrado,
       ),
-    [nombreCompletoBackend, nombreCompletoParaExportar],
+    [nombreCompletoBackend, nombreCompletoParaExportarMostrado],
   );
 
   const exportOptionsCompleto = useMemo(() => {
@@ -3107,7 +3125,7 @@ export function ConfeccionOfertasView({
           : undefined,
       ofertaData: {
         numero_oferta: ofertaId,
-        nombre_oferta: nombreAutomatico, // Nombre corto para UI
+        nombre_oferta: nombreAutomaticoMostrado, // Nombre corto para UI
         tipo_oferta: ofertaGenerica ? "Genérica" : "Personalizada",
         estado: obtenerLabelEstadoOferta(estadoOferta),
       },
@@ -3580,7 +3598,7 @@ export function ConfeccionOfertasView({
           : undefined,
       ofertaData: {
         numero_oferta: ofertaId,
-        nombre_oferta: nombreAutomatico, // Nombre corto para UI
+        nombre_oferta: nombreAutomaticoMostrado, // Nombre corto para UI
         tipo_oferta: ofertaGenerica ? "Genérica" : "Personalizada",
         estado: obtenerLabelEstadoOferta(estadoOferta),
       },
@@ -4027,7 +4045,7 @@ export function ConfeccionOfertasView({
           : undefined,
       ofertaData: {
         numero_oferta: ofertaId,
-        nombre_oferta: nombreAutomatico, // Nombre corto para UI
+        nombre_oferta: nombreAutomaticoMostrado, // Nombre corto para UI
         tipo_oferta: ofertaGenerica ? "Genérica" : "Personalizada",
         estado: obtenerLabelEstadoOferta(estadoOferta),
       },
@@ -5638,8 +5656,8 @@ export function ConfeccionOfertasView({
         };
 
         // Agregar nombres de la oferta
-        ofertaData.nombre_oferta = nombreAutomatico; // Nombre corto para mostrar en UI
-        ofertaData.nombre_completo = nombreCompletoParaExportar; // Nombre completo para exportaciones
+        ofertaData.nombre_oferta = nombreAutomaticoMostrado; // Nombre corto para mostrar en UI
+        ofertaData.nombre_completo = nombreCompletoParaExportarMostrado; // Nombre completo para exportaciones
 
         // Agregar datos de margen y precios
         ofertaData.margen_comercial = margenComercial;
@@ -6212,8 +6230,21 @@ export function ConfeccionOfertasView({
                     </div>
                     {items.length > 0 && (
                       <p className="text-sm text-slate-600 mt-1 line-clamp-2">
-                        {nombreAutomatico}
+                        {nombreAutomaticoMostrado}
                       </p>
+                    )}
+                    {!ofertaCreada && (
+                      <label className="flex items-center gap-1.5 mt-1.5 cursor-pointer w-fit">
+                        <Checkbox
+                          checked={esAmpliacion}
+                          onCheckedChange={(checked) =>
+                            setEsAmpliacion(checked === true)
+                          }
+                        />
+                        <span className="text-xs text-slate-600">
+                          Es ampliación
+                        </span>
+                      </label>
                     )}
                     {ofertaCreada && ofertaId && (
                       <p className="text-xs text-emerald-700 mt-1">
@@ -8852,7 +8883,7 @@ export function ConfeccionOfertasView({
                             ID: {ofertaId}
                           </p>
                           <p className="text-xs text-emerald-700">
-                            {nombreAutomatico}
+                            {nombreAutomaticoMostrado}
                           </p>
                         </div>
                       </div>

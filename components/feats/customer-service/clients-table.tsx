@@ -4196,8 +4196,8 @@ export function ClientsTable({
                       const estadosConfig: Record<string, string> = {
                         "Esperando equipo": "text-amber-600",
                         "No interesado": "text-slate-500",
-                        "Pendiente de instalación": "text-green-600",
-                        "Pendiente de visita": "text-blue-600",
+                        "Pendiente de instalación": "text-orange-600",
+                        "Pendiente de visita": "text-pink-600",
                         "Equipo instalado con éxito": "text-emerald-600",
                         "Instalación en Proceso": "text-blue-600",
                       };

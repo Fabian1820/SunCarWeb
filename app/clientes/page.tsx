@@ -63,6 +63,7 @@ type ClientesFilters = {
   ofertas: string;
   tiempo: string;
   mostrarAnulados: boolean;
+  categoriaComponente: string;
   skip: number;
   limit: number;
 };
@@ -373,6 +374,7 @@ export default function ClientesPage() {
     ofertas: "",
     tiempo: "",
     mostrarAnulados: false,
+    categoriaComponente: "",
     skip: 0,
     limit: 20,
   });
@@ -560,6 +562,7 @@ export default function ClientesPage() {
       ofertas: "",
       tiempo: "",
       mostrarAnulados: false,
+      categoriaComponente: "",
       skip: 0,
     }));
   };
@@ -590,6 +593,7 @@ export default function ClientesPage() {
       fechaDesde?: string;
       fechaHasta?: string;
       activo?: boolean;
+      categoriaComponente?: "INVERSORES" | "BATERÍAS" | "PANELES" | "";
     }): Promise<Cliente[]> => {
       const cacheKey = JSON.stringify({
         q: baseParams.q || "",
@@ -598,6 +602,7 @@ export default function ClientesPage() {
         comercial: baseParams.comercial || "",
         provincia: baseParams.provincia || "",
         municipio: baseParams.municipio || "",
+        categoriaComponente: baseParams.categoriaComponente || "",
         fechaDesde: baseParams.fechaDesde || "",
         fechaHasta: baseParams.fechaHasta || "",
         activo: baseParams.activo ?? null,
@@ -703,6 +708,12 @@ export default function ClientesPage() {
           fechaDesde: filters.fechaDesde || undefined,
           fechaHasta: filters.fechaHasta || undefined,
           activo: filters.mostrarAnulados ? undefined : true,
+          categoriaComponente:
+            (filters.categoriaComponente as
+              | "INVERSORES"
+              | "BATERÍAS"
+              | "PANELES"
+              | "") || undefined,
         };
 
         if (hasLocalOnlyFilter) {
@@ -1544,6 +1555,29 @@ export default function ClientesPage() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div>
+                  <Select
+                    value={appliedFilters.categoriaComponente || "todos"}
+                    onValueChange={(value) =>
+                      updateFilters({
+                        categoriaComponente: value === "todos" ? "" : value,
+                      })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Componente principal" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">
+                        Cualquier componente
+                      </SelectItem>
+                      <SelectItem value="INVERSORES">Inversor</SelectItem>
+                      <SelectItem value="BATERÍAS">Batería</SelectItem>
+                      <SelectItem value="PANELES">Paneles</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -1561,8 +1595,8 @@ export default function ClientesPage() {
                 <Loader label="Cargando clientes..." />
               </div>
             ) : (
-              <div className="space-y-4">
-                <p className="text-sm text-gray-500">
+              <div className="space-y-2">
+                <p className="text-xs text-gray-500">
                   {totalClients} {totalClients === 1 ? "cliente" : "clientes"}
                 </p>
                 <ClientsTable
