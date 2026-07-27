@@ -2508,6 +2508,12 @@ export function LeadsTable({
       string,
       { bg: string; text: string; hover: string; label: string }
     > = {
+      Nuevo: {
+        bg: "bg-cyan-100",
+        text: "text-cyan-700",
+        hover: "hover:bg-cyan-200",
+        label: "Nuevo",
+      },
       "Esperando equipo": {
         bg: "bg-amber-100",
         text: "text-amber-600",

@@ -222,6 +222,7 @@ export function EditLeadDialog({
   });
 
   const estadosDisponibles = [
+    "Nuevo",
     "Esperando equipo",
     "No interesado",
     "Pendiente de instalación",

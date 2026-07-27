@@ -252,6 +252,7 @@ export function CreateLeadDialog({
   }, [selectedProvinciaCodigo]);
 
   const estadosDisponibles = [
+    "Nuevo",
     "Esperando equipo",
     "No interesado",
     "Pendiente de instalación",

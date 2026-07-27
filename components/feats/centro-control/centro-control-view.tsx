@@ -85,7 +85,7 @@ const CUBA_PROVINCIAS_ORDEN = [
 ]
 
 const ESTADOS_VALIDOS_LEAD = new Set([
-  "Esperando equipo", "No interesado", "Pendiente de instalación",
+  "Nuevo", "Esperando equipo", "No interesado", "Pendiente de instalación",
   "Pendiente de presupuesto", "Pendiente de visita", "Pendiente de visitarnos",
   "Proximamente", "Revisando ofertas", "Sin respuesta",
 ])
