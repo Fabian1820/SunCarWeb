@@ -29,6 +29,15 @@ interface OfertaConfirmadaDetalle {
   id: string
   numero_oferta?: string | null
   estado_instalacion?: string | null
+  nombre_automatico?: string | null
+  fecha_confirmada?: string | null
+}
+
+const formatearFecha = (fecha?: string | null) => {
+  if (!fecha) return null
+  const d = new Date(fecha)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" })
 }
 
 interface EstadoInstalacionMultipleDialogProps {
@@ -76,7 +85,9 @@ export function EstadoInstalacionMultipleDialog({
         </p>
 
         <div className="space-y-3 max-h-80 overflow-y-auto">
-          {(ofertas || []).map((o) => (
+          {(ofertas || []).map((o) => {
+            const fecha = formatearFecha(o.fecha_confirmada)
+            return (
             <div
               key={o.id}
               className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 p-3"
@@ -85,6 +96,13 @@ export function EstadoInstalacionMultipleDialog({
                 <p className="text-sm font-semibold text-slate-900 truncate">
                   {o.numero_oferta || o.id}
                 </p>
+                {(o.nombre_automatico || fecha) && (
+                  <p className="text-xs text-slate-500 truncate">
+                    {o.nombre_automatico}
+                    {o.nombre_automatico && fecha ? " · " : ""}
+                    {fecha ? `Confirmada ${fecha}` : ""}
+                  </p>
+                )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {guardandoId === o.id && (
@@ -108,7 +126,8 @@ export function EstadoInstalacionMultipleDialog({
                 </Select>
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
 
         <DialogFooter>

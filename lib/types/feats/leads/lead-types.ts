@@ -63,6 +63,8 @@ export interface OfertaConfeccionResumen {
     id: string;
     numero_oferta?: string | null;
     estado_instalacion?: string | null;
+    nombre_automatico?: string | null;
+    fecha_confirmada?: string | null;
   }[] | null;
 }
 
