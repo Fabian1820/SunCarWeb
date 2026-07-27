@@ -9,6 +9,8 @@ interface UseEquiposComercialesReturn {
   equipos: EquipoComercial[];
   loading: boolean;
   error: string | null;
+  mostrarInactivos: boolean;
+  setMostrarInactivos: (valor: boolean) => void;
   loadEquipos: () => Promise<void>;
   createEquipo: (
     nombre: string,
@@ -21,7 +23,8 @@ interface UseEquiposComercialesReturn {
     integrantes: string[],
     jefeCi?: string | null,
   ) => Promise<boolean>;
-  deleteEquipo: (id: string) => Promise<boolean>;
+  desactivarEquipo: (id: string) => Promise<boolean>;
+  activarEquipo: (id: string) => Promise<boolean>;
   clearError: () => void;
   jefesGenerales: JefesGenerales;
   loadingJefesGenerales: boolean;
@@ -40,6 +43,7 @@ export function useEquiposComerciales(): UseEquiposComercialesReturn {
   const [equipos, setEquipos] = useState<EquipoComercial[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mostrarInactivos, setMostrarInactivos] = useState(false);
   const [jefesGenerales, setJefesGenerales] = useState<JefesGenerales>(
     JEFES_GENERALES_VACIO,
   );
@@ -49,7 +53,7 @@ export function useEquiposComerciales(): UseEquiposComercialesReturn {
     setLoading(true);
     setError(null);
     try {
-      const data = await EquipoComercialService.getEquipos();
+      const data = await EquipoComercialService.getEquipos(mostrarInactivos);
       setEquipos(data);
     } catch (err) {
       setError(
@@ -58,7 +62,7 @@ export function useEquiposComerciales(): UseEquiposComercialesReturn {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [mostrarInactivos]);
 
   const loadJefesGenerales = useCallback(async () => {
     setLoadingJefesGenerales(true);
@@ -130,17 +134,37 @@ export function useEquiposComerciales(): UseEquiposComercialesReturn {
     [loadEquipos],
   );
 
-  const deleteEquipo = useCallback(
+  const desactivarEquipo = useCallback(
     async (id: string): Promise<boolean> => {
       setLoading(true);
       setError(null);
       try {
-        await EquipoComercialService.deleteEquipo(id);
+        await EquipoComercialService.desactivarEquipo(id);
         await loadEquipos();
         return true;
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : "Error al eliminar el equipo",
+          err instanceof Error ? err.message : "Error al desactivar el equipo",
+        );
+        return false;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [loadEquipos],
+  );
+
+  const activarEquipo = useCallback(
+    async (id: string): Promise<boolean> => {
+      setLoading(true);
+      setError(null);
+      try {
+        await EquipoComercialService.activarEquipo(id);
+        await loadEquipos();
+        return true;
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Error al activar el equipo",
         );
         return false;
       } finally {
@@ -177,17 +201,23 @@ export function useEquiposComerciales(): UseEquiposComercialesReturn {
 
   useEffect(() => {
     loadEquipos();
+  }, [loadEquipos]);
+
+  useEffect(() => {
     loadJefesGenerales();
-  }, [loadEquipos, loadJefesGenerales]);
+  }, [loadJefesGenerales]);
 
   return {
     equipos,
     loading,
     error,
+    mostrarInactivos,
+    setMostrarInactivos,
     loadEquipos,
     createEquipo,
     updateEquipo,
-    deleteEquipo,
+    desactivarEquipo,
+    activarEquipo,
     clearError,
     jefesGenerales,
     loadingJefesGenerales,

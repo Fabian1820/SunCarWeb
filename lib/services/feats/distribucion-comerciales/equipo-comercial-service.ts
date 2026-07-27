@@ -16,11 +16,11 @@ export const EquipoComercialService = {
     return response.data || [];
   },
 
-  async getEquipos(): Promise<EquipoComercial[]> {
+  async getEquipos(incluirInactivos = false): Promise<EquipoComercial[]> {
     const response = await apiRequest<{
       success: boolean;
       data: EquipoComercial[];
-    }>(`${BASE}/`);
+    }>(`${BASE}/?incluirInactivos=${incluirInactivos}`);
     return response.data || [];
   },
 
@@ -61,10 +61,19 @@ export const EquipoComercialService = {
     return response.success === true;
   },
 
-  async deleteEquipo(id: string): Promise<boolean> {
-    const response = await apiRequest<{ success: boolean }>(`${BASE}/${id}`, {
-      method: "DELETE",
-    });
+  async desactivarEquipo(id: string): Promise<boolean> {
+    const response = await apiRequest<{ success: boolean }>(
+      `${BASE}/${id}/desactivar`,
+      { method: "PATCH" },
+    );
+    return response.success === true;
+  },
+
+  async activarEquipo(id: string): Promise<boolean> {
+    const response = await apiRequest<{ success: boolean }>(
+      `${BASE}/${id}/activar`,
+      { method: "PATCH" },
+    );
     return response.success === true;
   },
 
