@@ -7,6 +7,14 @@ import { Button } from "@/components/shared/atom/button";
 import { Badge } from "@/components/shared/atom/badge";
 import { Switch } from "@/components/shared/molecule/switch";
 import { ConfirmDeleteDialog } from "@/components/shared/molecule/dialog";
+import { Card, CardContent } from "@/components/shared/molecule/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/shared/atom/select";
 import {
   Table,
   TableBody,
@@ -15,7 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/shared/molecule/table";
-import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, Crown, Users } from "lucide-react";
 import { useComercialesDistribucion } from "@/hooks/use-comerciales-distribucion";
 import { useEquiposComerciales } from "@/hooks/use-equipos-comerciales";
 import { EquipoFormDialog } from "@/components/feats/distribucion-comerciales/equipo-form-dialog";
@@ -35,6 +43,9 @@ function DistribucionComercialesContent() {
     createEquipo,
     updateEquipo,
     deleteEquipo,
+    jefesGenerales,
+    loadingJefesGenerales,
+    setJefeGeneral,
   } = useEquiposComerciales();
   const { toast } = useToast();
 
@@ -66,10 +77,11 @@ function DistribucionComercialesContent() {
   const handleSubmitEquipo = async (
     nombre: string,
     integrantes: string[],
+    jefeCi: string | null,
   ): Promise<boolean> => {
     const ok = equipoEditando
-      ? await updateEquipo(equipoEditando.id, nombre, integrantes)
-      : await createEquipo(nombre, integrantes);
+      ? await updateEquipo(equipoEditando.id, nombre, integrantes, jefeCi)
+      : await createEquipo(nombre, integrantes, jefeCi);
     if (ok) {
       toast({
         title: "Éxito",
@@ -106,6 +118,20 @@ function DistribucionComercialesContent() {
     setEquipoAEliminar(null);
   };
 
+  const handleSetJefeGeneral = async (
+    rol: "comercial_general" | "instaladora",
+    ci: string,
+  ) => {
+    const ok = await setJefeGeneral(rol, ci === "ninguno" ? null : ci);
+    if (!ok) {
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el jefe",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
@@ -127,53 +153,147 @@ function DistribucionComercialesContent() {
       />
 
       <main className="content-with-fixed-header max-w-[96rem] mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-8">
-        {/* Equipos */}
+        {/* Liderazgo Comercial */}
         <section className="bg-white rounded-lg border shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Equipos</h2>
+          <div className="flex items-center gap-2 mb-1">
+            <Crown className="h-5 w-5 text-amber-500" />
+            <h2 className="text-lg font-semibold text-gray-900">
+              Liderazgo Comercial
+            </h2>
+          </div>
+          <p className="text-sm text-gray-500 mb-4">
+            Define quién lidera cada área. Los cambios se guardan al instante.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-1.5 block">
+                Jefe Comercial General
+              </label>
+              <Select
+                value={jefesGenerales.jefe_comercial_general?.CI || "ninguno"}
+                onValueChange={(value) =>
+                  handleSetJefeGeneral("comercial_general", value)
+                }
+                disabled={loadingJefesGenerales}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Sin asignar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ninguno">Sin asignar</SelectItem>
+                  {comerciales.map((c) => (
+                    <SelectItem key={c.CI} value={c.CI}>
+                      {c.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-1.5 block">
+                Jefe de Instaladora
+              </label>
+              <Select
+                value={jefesGenerales.jefe_instaladora?.CI || "ninguno"}
+                onValueChange={(value) =>
+                  handleSetJefeGeneral("instaladora", value)
+                }
+                disabled={loadingJefesGenerales}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Sin asignar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ninguno">Sin asignar</SelectItem>
+                  {comercialesInstaladora.map((c) => (
+                    <SelectItem key={c.CI} value={c.CI}>
+                      {c.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </section>
+
+        {/* Equipos */}
+        <section>
+          <div className="flex items-center gap-2 mb-4">
+            <Users className="h-5 w-5 text-emerald-600" />
+            <h2 className="text-lg font-semibold text-gray-900">Equipos</h2>
+          </div>
           {loadingEquipos ? (
             <div className="flex justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
             </div>
           ) : equipos.length === 0 ? (
-            <p className="text-sm text-gray-500">
-              Todavía no hay equipos creados.
-            </p>
+            <div className="bg-white rounded-lg border shadow-sm p-8 text-center">
+              <p className="text-sm text-gray-500">
+                Todavía no hay equipos creados.
+              </p>
+            </div>
           ) : (
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {equipos.map((equipo) => (
-                <div
-                  key={equipo.id}
-                  className="flex items-center justify-between border rounded-md px-4 py-3"
-                >
-                  <div>
-                    <p className="font-medium text-gray-900">{equipo.nombre}</p>
-                    <p className="text-sm text-gray-500">
-                      {equipo.integrantes.length === 0
-                        ? "Sin integrantes"
-                        : equipo.integrantes.map((i) => i.nombre).join(", ")}
-                    </p>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setEquipoEditando(equipo);
-                        setIsFormOpen(true);
-                      }}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-red-600 hover:text-red-800"
-                      onClick={() => setEquipoAEliminar(equipo)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
+                <Card key={equipo.id} className="border shadow-sm">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                      <h3 className="font-semibold text-gray-900">
+                        {equipo.nombre}
+                      </h3>
+                      <div className="flex gap-0.5 shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={() => {
+                            setEquipoEditando(equipo);
+                            setIsFormOpen(true);
+                          }}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-red-600 hover:text-red-800"
+                          onClick={() => setEquipoAEliminar(equipo)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {equipo.jefe && (
+                      <div className="flex items-center gap-1.5 mb-2 text-sm">
+                        <Crown className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                        <span className="font-medium text-gray-900">
+                          {equipo.jefe.nombre}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          (jefe de equipo)
+                        </span>
+                      </div>
+                    )}
+
+                    {equipo.integrantes.length === 0 ? (
+                      <p className="text-sm text-gray-400">Sin integrantes</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {equipo.integrantes
+                          .filter((i) => i.CI !== equipo.jefe?.CI)
+                          .map((i) => (
+                            <span
+                              key={i.CI}
+                              className="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700"
+                            >
+                              {i.nombre}
+                            </span>
+                          ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               ))}
             </div>
           )}
@@ -200,7 +320,21 @@ function DistribucionComercialesContent() {
                 {comercialesInstaladora.map((c) => (
                   <TableRow key={c.CI}>
                     <TableCell className="font-medium text-gray-900">
-                      {c.nombre}
+                      <span className="flex items-center gap-1.5">
+                        {c.nombre}
+                        {jefesGenerales.jefe_instaladora?.CI === c.CI && (
+                          <Crown
+                            className="h-3.5 w-3.5 text-amber-500"
+                            aria-label="Jefe de Instaladora"
+                          />
+                        )}
+                        {jefesGenerales.jefe_comercial_general?.CI === c.CI && (
+                          <Crown
+                            className="h-3.5 w-3.5 text-purple-500"
+                            aria-label="Jefe Comercial General"
+                          />
+                        )}
+                      </span>
                     </TableCell>
                     <TableCell>
                       {c.equipo_nombre ? (
@@ -245,7 +379,15 @@ function DistribucionComercialesContent() {
                 {comercialesVentas.map((c) => (
                   <TableRow key={c.CI}>
                     <TableCell className="font-medium text-gray-900">
-                      {c.nombre}
+                      <span className="flex items-center gap-1.5">
+                        {c.nombre}
+                        {jefesGenerales.jefe_comercial_general?.CI === c.CI && (
+                          <Crown
+                            className="h-3.5 w-3.5 text-purple-500"
+                            aria-label="Jefe Comercial General"
+                          />
+                        )}
+                      </span>
                     </TableCell>
                     <TableCell>
                       <Switch

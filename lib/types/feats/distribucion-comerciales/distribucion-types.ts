@@ -18,4 +18,10 @@ export interface EquipoComercial {
   nombre: string;
   activo: boolean;
   integrantes: IntegranteEquipoComercial[];
+  jefe: IntegranteEquipoComercial | null;
+}
+
+export interface JefesGenerales {
+  jefe_comercial_general: IntegranteEquipoComercial | null;
+  jefe_instaladora: IntegranteEquipoComercial | null;
 }

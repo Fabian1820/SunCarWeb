@@ -12,7 +12,14 @@ import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/molecule/input";
 import { Label } from "@/components/shared/atom/label";
 import { Checkbox } from "@/components/shared/molecule/checkbox";
-import { Loader2 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/shared/atom/select";
+import { Loader2, Crown } from "lucide-react";
 import type {
   ComercialDistribucion,
   EquipoComercial,
@@ -24,7 +31,11 @@ interface EquipoFormDialogProps {
   equipo: EquipoComercial | null; // null = crear, con valor = editar
   comerciales: ComercialDistribucion[];
   isLoading?: boolean;
-  onSubmit: (nombre: string, integrantes: string[]) => Promise<boolean>;
+  onSubmit: (
+    nombre: string,
+    integrantes: string[],
+    jefeCi: string | null,
+  ) => Promise<boolean>;
 }
 
 export function EquipoFormDialog({
@@ -37,6 +48,7 @@ export function EquipoFormDialog({
 }: EquipoFormDialogProps) {
   const [nombre, setNombre] = useState("");
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set());
+  const [jefeCi, setJefeCi] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -44,6 +56,7 @@ export function EquipoFormDialog({
       setSeleccionados(
         new Set((equipo?.integrantes || []).map((i) => i.CI)),
       );
+      setJefeCi(equipo?.jefe?.CI || null);
     }
   }, [open, equipo]);
 
@@ -58,6 +71,7 @@ export function EquipoFormDialog({
       const next = new Set(prev);
       if (next.has(ci)) {
         next.delete(ci);
+        if (jefeCi === ci) setJefeCi(null);
       } else {
         next.add(ci);
       }
@@ -67,9 +81,13 @@ export function EquipoFormDialog({
 
   const handleSubmit = async () => {
     if (!nombre.trim() || seleccionados.size === 0) return;
-    const ok = await onSubmit(nombre.trim(), Array.from(seleccionados));
+    const ok = await onSubmit(nombre.trim(), Array.from(seleccionados), jefeCi);
     if (ok) onOpenChange(false);
   };
+
+  const integrantesSeleccionados = comerciales.filter((c) =>
+    seleccionados.has(c.CI),
+  );
 
   const puedeGuardar = nombre.trim() !== "" && seleccionados.size > 0;
 
@@ -128,6 +146,35 @@ export function EquipoFormDialog({
                 );
               })}
             </div>
+          </div>
+
+          <div>
+            <Label className="flex items-center gap-1.5">
+              <Crown className="h-3.5 w-3.5 text-amber-500" />
+              Jefe de equipo
+            </Label>
+            <p className="text-xs text-gray-500 mb-2">
+              Opcional. Debe ser uno de los comerciales seleccionados arriba.
+            </p>
+            <Select
+              value={jefeCi || "ninguno"}
+              onValueChange={(value) =>
+                setJefeCi(value === "ninguno" ? null : value)
+              }
+              disabled={integrantesSeleccionados.length === 0}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Sin jefe asignado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ninguno">Sin jefe asignado</SelectItem>
+                {integrantesSeleccionados.map((c) => (
+                  <SelectItem key={c.CI} value={c.CI}>
+                    {c.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
