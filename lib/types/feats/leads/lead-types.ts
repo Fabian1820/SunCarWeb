@@ -65,6 +65,9 @@ export interface OfertaConfeccionResumen {
     estado_instalacion?: string | null;
     nombre_automatico?: string | null;
     fecha_confirmada?: string | null;
+    foto_portada?: string | null;
+    precio_final?: number | null;
+    moneda_pago?: string | null;
   }[] | null;
 }
 
