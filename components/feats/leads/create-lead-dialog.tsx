@@ -253,15 +253,13 @@ export function CreateLeadDialog({
 
   const estadosDisponibles = [
     "Nuevo",
-    "Esperando equipo",
-    "No interesado",
-    "Pendiente de instalación",
+    "Revisando ofertas",
     "Pendiente de presupuesto",
     "Pendiente de visita",
-    "Pendiente de visitarnos",
+    "Pendiente de pago",
+    "Esperando equipo",
     "Proximamente",
-    "Revisando ofertas",
-    "Sin respuesta",
+    "No interesado",
   ];
 
   const [errors, setErrors] = useState<Record<string, string>>({});
