@@ -245,6 +245,8 @@ export function LeadsTable({
   >({});
   const [conversionLoading, setConversionLoading] = useState(false);
   const [previewingCodigo, setPreviewingCodigo] = useState(false);
+  const [mostrarSeleccionManualEquipo, setMostrarSeleccionManualEquipo] =
+    useState(false);
   const [isComprobanteDialogOpen, setIsComprobanteDialogOpen] = useState(false);
   const [leadForComprobante, setLeadForComprobante] = useState<Lead | null>(
     null,
@@ -778,16 +780,31 @@ export function LeadsTable({
 
   const openConvertDialog = (lead: Lead) => {
     console.log("🔵 openConvertDialog called for lead:", lead.id);
+    const tieneOfertaConfirmada = Boolean(lead.oferta_confeccion?.hay_confirmada);
     setLeadToConvert(lead);
     setConversionErrors({});
     setConversionLoading(false);
+    setMostrarSeleccionManualEquipo(false);
     setConversionData({
       numero: "",
       carnet_identidad: "",
       estado: "Pendiente de instalación",
-      equipo_propio: undefined,
+      // Si ya hay una oferta confirmada, se usa automáticamente sin preguntar.
+      equipo_propio: tieneOfertaConfirmada ? false : undefined,
     });
     setIsConvertDialogOpen(true);
+
+    if (tieneOfertaConfirmada && lead.id) {
+      setPreviewingCodigo(true);
+      onGenerarCodigo(lead.id, undefined)
+        .then((codigoGenerado) => {
+          setConversionData((prev) => ({ ...prev, numero: codigoGenerado }));
+        })
+        .catch(() => {
+          // El error real (si lo hay) se mostrará al confirmar.
+        })
+        .finally(() => setPreviewingCodigo(false));
+    }
   };
 
   const closeConvertDialog = () => {
@@ -873,6 +890,9 @@ export function LeadsTable({
 
   const leadTieneOfertaConfeccionada = Boolean(
     leadToConvert && leadTieneOferta(leadToConvert),
+  );
+  const leadTieneOfertaConfirmada = Boolean(
+    leadToConvert?.oferta_confeccion?.hay_confirmada,
   );
 
   const handleComprobanteDialogOpenChange = (open: boolean) => {
@@ -3510,6 +3530,21 @@ export function LeadsTable({
                 )}
 
                 <div className="space-y-3">
+                  {leadTieneOfertaConfirmada && !mostrarSeleccionManualEquipo ? (
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex items-center justify-between gap-3">
+                      <p className="text-xs text-emerald-800">
+                        Este lead tiene una oferta confirmada. Se usará
+                        automáticamente para generar el código de cliente.
+                      </p>
+                      <button
+                        type="button"
+                        className="text-xs font-medium text-emerald-700 underline underline-offset-2 shrink-0"
+                        onClick={() => setMostrarSeleccionManualEquipo(true)}
+                      >
+                        ¿Es equipo propio?
+                      </button>
+                    </div>
+                  ) : (
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                     <Label className="text-sm font-semibold text-amber-900 mb-3 block">
                       ¿El equipo es propio del cliente?
@@ -3563,6 +3598,7 @@ export function LeadsTable({
                       )}
                     </div>
                   </div>
+                  )}
 
                   <div>
                     <Label
