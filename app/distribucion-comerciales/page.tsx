@@ -8,7 +8,6 @@ import { Badge } from "@/components/shared/atom/badge";
 import { Switch } from "@/components/shared/molecule/switch";
 import { Checkbox } from "@/components/shared/molecule/checkbox";
 import { ConfirmDeleteDialog } from "@/components/shared/molecule/dialog";
-import { Card, CardContent } from "@/components/shared/molecule/card";
 import {
   Select,
   SelectContent,
@@ -171,21 +170,19 @@ function DistribucionComercialesContent() {
       />
 
       <main className="content-with-fixed-header max-w-[96rem] mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Jerarquia del Departamento Comercial */}
-          <section className="bg-white rounded-lg border shadow-sm p-6">
+          <section className="bg-white rounded-lg border shadow-sm p-6 flex flex-col h-full">
             <h2 className="text-lg font-semibold text-gray-900 mb-1">
               Departamento Comercial
             </h2>
-            <p className="text-sm text-gray-500 mb-6">
-              Jerarquía del departamento. Los cambios de jefatura se guardan
-              al instante.
+            <p className="text-sm text-gray-500 mb-5">
+              Jerarquía del departamento. Los cambios se guardan al instante.
             </p>
 
-            <div className="flex flex-col items-center gap-1">
-              {/* Nivel 1: Jefe de Instaladora */}
-              <div className="w-full max-w-xs">
-                <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 text-center mb-1.5">
+            <div className="grid grid-cols-2 gap-3 mb-5">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1.5">
                   Jefe de Instaladora
                 </label>
                 <Select
@@ -209,11 +206,8 @@ function DistribucionComercialesContent() {
                 </Select>
               </div>
 
-              <div className="h-4 w-px bg-gray-200 my-1" />
-
-              {/* Nivel 2: Jefe Comercial General */}
-              <div className="w-full max-w-xs">
-                <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 text-center mb-1.5">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1.5">
                   Jefe Comercial General
                 </label>
                 <Select
@@ -236,25 +230,53 @@ function DistribucionComercialesContent() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
 
-              <div className="h-4 w-px bg-gray-200 my-1" />
-
-              {/* Nivel 3: Jefes de equipo */}
-              <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <div className="border-t border-gray-100 pt-4 flex-1">
+              <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2.5">
                 Jefes de Equipo
-              </span>
-
-              <div className="h-4 w-px bg-gray-200 my-1" />
-
-              {/* Nivel 4: Integrantes */}
-              <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Integrantes
-              </span>
+              </label>
+              {equipos.filter((e) => e.activo).length === 0 ? (
+                <p className="text-sm text-gray-400">
+                  Todavía no hay equipos creados.
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Equipo</TableHead>
+                      <TableHead>Jefe</TableHead>
+                      <TableHead className="text-right">Integrantes</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {equipos
+                      .filter((e) => e.activo)
+                      .map((equipo) => (
+                        <TableRow key={equipo.id}>
+                          <TableCell className="font-medium text-gray-900">
+                            {equipo.nombre}
+                          </TableCell>
+                          <TableCell>
+                            {equipo.jefe ? (
+                              equipo.jefe.nombre
+                            ) : (
+                              <span className="text-gray-400">Sin asignar</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right text-gray-600">
+                            {equipo.integrantes.length}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                  </TableBody>
+                </Table>
+              )}
             </div>
           </section>
 
           {/* Equipos */}
-          <section className="bg-white rounded-lg border shadow-sm p-6">
+          <section className="bg-white rounded-lg border shadow-sm p-6 flex flex-col h-full">
             <div className="flex items-center justify-between gap-2 mb-4">
               <h2 className="text-lg font-semibold text-gray-900">Equipos</h2>
               <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
@@ -278,93 +300,99 @@ function DistribucionComercialesContent() {
                 </p>
               </div>
             ) : (
-              <div className="space-y-3 max-h-[28rem] overflow-y-auto pr-1">
-                {equipos.map((equipo) => (
-                  <Card
-                    key={equipo.id}
-                    className={`border shadow-sm ${!equipo.activo ? "opacity-60 bg-gray-50" : ""}`}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between gap-2 mb-3">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-gray-900">
+              <div className="flex-1 overflow-y-auto -mx-2">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Equipo</TableHead>
+                      <TableHead>Jefe</TableHead>
+                      <TableHead>Integrantes</TableHead>
+                      <TableHead className="text-right">Acciones</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {equipos.map((equipo) => (
+                      <TableRow
+                        key={equipo.id}
+                        className={!equipo.activo ? "opacity-60" : ""}
+                      >
+                        <TableCell className="font-medium text-gray-900 align-top">
+                          <div className="flex items-center gap-2">
                             {equipo.nombre}
-                          </h3>
-                          {!equipo.activo && (
-                            <Badge className="bg-gray-200 text-gray-600 text-xs">
-                              Inactivo
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex gap-0.5 shrink-0">
-                          {equipo.activo ? (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 w-7 p-0"
-                                onClick={() => {
-                                  setEquipoEditando(equipo);
-                                  setIsFormOpen(true);
-                                }}
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 w-7 p-0 text-red-600 hover:text-red-800"
-                                onClick={() => setEquipoADesactivar(equipo)}
-                              >
-                                <Ban className="h-3.5 w-3.5" />
-                              </Button>
-                            </>
+                            {!equipo.activo && (
+                              <Badge className="bg-gray-200 text-gray-600 text-[10px]">
+                                Inactivo
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="align-top">
+                          {equipo.jefe ? (
+                            equipo.jefe.nombre
                           ) : (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0 text-emerald-600 hover:text-emerald-800"
-                              onClick={() => handleReactivar(equipo)}
-                            >
-                              <RotateCcw className="h-3.5 w-3.5" />
-                            </Button>
+                            <span className="text-gray-400">Sin asignar</span>
                           )}
-                        </div>
-                      </div>
-
-                      {equipo.jefe && (
-                        <div className="mb-2 text-sm">
-                          <span className="font-medium text-gray-900">
-                            {equipo.jefe.nombre}
-                          </span>
-                          <span className="text-xs text-gray-500">
-                            {" "}
-                            (jefe de equipo)
-                          </span>
-                        </div>
-                      )}
-
-                      {equipo.integrantes.length === 0 ? (
-                        <p className="text-sm text-gray-400">
-                          Sin integrantes
-                        </p>
-                      ) : (
-                        <div className="flex flex-wrap gap-1">
-                          {equipo.integrantes
-                            .filter((i) => i.CI !== equipo.jefe?.CI)
-                            .map((i) => (
-                              <span
-                                key={i.CI}
-                                className="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700"
+                        </TableCell>
+                        <TableCell className="align-top">
+                          {equipo.integrantes.length === 0 ? (
+                            <span className="text-gray-400">
+                              Sin integrantes
+                            </span>
+                          ) : (
+                            <div className="flex flex-wrap gap-1 max-w-xs">
+                              {equipo.integrantes
+                                .filter((i) => i.CI !== equipo.jefe?.CI)
+                                .map((i) => (
+                                  <span
+                                    key={i.CI}
+                                    className="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700"
+                                  >
+                                    {i.nombre}
+                                  </span>
+                                ))}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right align-top">
+                          <div className="flex justify-end gap-0.5">
+                            {equipo.activo ? (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 w-7 p-0"
+                                  onClick={() => {
+                                    setEquipoEditando(equipo);
+                                    setIsFormOpen(true);
+                                  }}
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 w-7 p-0 text-red-600 hover:text-red-800"
+                                  onClick={() => setEquipoADesactivar(equipo)}
+                                >
+                                  <Ban className="h-3.5 w-3.5" />
+                                </Button>
+                              </>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-emerald-600 hover:text-emerald-800"
+                                onClick={() => handleReactivar(equipo)}
                               >
-                                {i.nombre}
-                              </span>
-                            ))}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
+                                <RotateCcw className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
             )}
           </section>
