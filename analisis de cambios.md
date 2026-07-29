@@ -2,6 +2,20 @@
 
 ---
 
+## 📅 29 de Julio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+Sin commits nuevos de código. El único commit en las últimas 24h es "Analisis diario Claude" (generado automáticamente). No hay cambios en producción.
+
+---
+
+### Puede dar bateo
+
+Sin cambios nuevos — sin riesgos nuevos.
+
+---
+
 ## 📅 28 de Julio, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -150,73 +164,6 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 21 de Julio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**7 commits reales** de Fabian1820 — todos dedicados a optimización de rendimiento de fotos/imágenes de materiales: ciclo completo de diagnóstico → fix → lazy load → gate por health check del backend, cubriendo PDF export y 15+ ubicaciones de la UI.
-
----
-
-### Área 1: PDF export — caché + prefetch paralelo + downscale de fotos (1 commit — Fabian1820, 13:51)
-
-- **`perf(exportar-oferta): acelera la descarga del PDF con caché + prefetch paralelo + downscale de fotos`** — Las fotos se servían desde MinIO sin thumbnail (hasta 5 MB c/u) y se descargaban en serie dentro del loop de filas, re-descargando por cada variante. Solución: `imageCache` a nivel de módulo + dedup de requests en vuelo (`inflightImages`), prefetch en paralelo con `Promise.all`, downscale en canvas a 300px + JPEG 0.82 (pasa de ~2-5 MB a ~20-40 KB por foto). El logo (PNG con transparencia) se preserva sin downscale.
-
----
-
-### Área 2: Instrumentación temporal (2 commits — Fabian1820, 14:57 y 15:15)
-
-- **`chore(exportar-oferta)`** — Dos commits de instrumentación con `performance.now()` para medir fases del PDF export y contar llamadas a `doc.getTextWidth`/`doc.splitTextToSize`. **Temporales, eliminados en commit posterior.** Diagnóstico confirmó: imágenes no eran el cuello (111 KB totales), sino 3 URLs de S3 con 502/CORS que hacían re-fetch de ~15s cada vez que el loop de materiales las encontraba sin caché negativo.
-
----
-
-### Área 3: Caché negativo para URLs rotas (2 commits — Fabian1820, 15:24 y 15:42)
-
-- **`fix(exportar-oferta): cachea imágenes fallidas + timeout de fetch`** — `failedImages: Set<string>` como caché negativo: una URL que falla no se reintenta en el mismo pageview. AbortController con 6s de timeout para no esperar los 15s de MinIO en URLs rotas.
-- **`fix(exportar-oferta): quita timeout de 6s que estaba abortando fetches legítimos`** — Regresión inmediata: las conexiones Cuba/MinIO toman ~15s legítimamente, el AbortController abortaba fetches válidos y los metía en `failedImages` → 0 fotos en el PDF. Se elimina el AbortController y se mantiene el `failedImages` Set. Se añade guard para `AbortError`: si se aborta por cierre del diálogo, no se cachea en negativo.
-
----
-
-### Área 4: Gate `foto_disponible` por health check del backend (1 commit — Fabian1820, 18:09)
-
-- **`feat(fotos-material): salta fotos marcadas como rotas por health check server-side`** — El backend persiste `foto_disponible` por material (via `POST /api/admin/verificar-fotos-materiales`). Semántica fail-open: `null`/`undefined` pasa; solo `foto_disponible === false` salta la descarga. Afecta: `material-types.ts` (nuevos campos opcionales `foto_disponible`, `foto_verificada_at`, `foto_size`), `clients-table.tsx`, `leads-table.tsx`, `confeccion-ofertas-view.tsx` y `gestionar-ofertas-venta-dialog.tsx`.
-
----
-
-### Área 5: Lazy load en diálogo de detalles de oferta (1 commit — Fabian1820, 19:12)
-
-- **`perf(ver-oferta): lazy load + gate por foto_disponible en el diálogo de detalles`** — El diálogo de detalles de oferta (clientes-table, leads-table, planificación diaria, pendientes de visita del instalador) disparaba todos los fetches en paralelo al abrirse. Ahora: `<LazyImage>` (IntersectionObserver + rootMargin 120px) para foto de portada; gate `material.foto_disponible !== false` + `<LazyImage>` para materiales.
-
----
-
-### Área 6: `<MaterialImage>` — gate + lazy load en 15 ubicaciones de la UI (1 commit — Fabian1820, 19:28)
-
-- **`perf(fotos-material): lazy load + gate foto_disponible en 15 sitios de la UI`** — Nuevo componente `<MaterialImage>` unificado (gate `foto_disponible === false` + `<LazyImage>`). Cubre: grid POS, tabla stock principal, movimientos, salida lote, solicitudes de transferencia (2 sitios), solicitudes-transferencia-table (2 sitios), catálogo web, stock mínimo, vales de salida (2 sitios), solicitudes de materiales (2 sitios), solicitudes de ventas, asignaciones materiales (2 sitios), confección de ofertas, ofertas confeccionadas (3 secciones). Añade `foto_disponible?: boolean | null` a `MaterialStockItem`.
-
----
-
-### Puede dar bateo
-
-1. **Instrumentación temporal — verificar que no quedó en bundle de producción**: Los commits de `chore` añadieron logs de performance y se eliminaron en el fix posterior. Verificar que ningún `console.log` ni las interfaces `ImagePerfEntry`/`ExportPerfMetrics` quedaron en el bundle final.
-
-2. **Ciclo add/remove AbortController en 18 minutos — build intermedio en producción**: El AbortController (6s) fue añadido en 15:24 y eliminado en 15:42. Si Railway auto-deploy es activo, un build con el AbortController llegó a producción. Usuarios en esa ventana habrán tenido 0 fotos en sus PDFs exportados.
-
-3. **`foto_disponible` gate requiere que el health check del backend haya corrido**: Si `POST /api/admin/verificar-fotos-materiales` no se ejecutó o el backend no devuelve el campo, todos los materiales tendrán `foto_disponible: undefined`. El gate fail-open no filtrará nada y el beneficio de rendimiento se pierde, aunque el código sea correcto.
-
-4. **`failedImages` Set sin evición — fotos reparadas en S3 no se recargan sin reload**: Si una URL rota en S3 se repara, el Set de negativos la sigue evitando durante el resto del pageview. El usuario necesita recargar la página para ver fotos recién reparadas.
-
-5. **Canvas downscale + JPEG para materiales con transparencia**: Las fotos procesadas con JPEG 0.82 en canvas pierden el canal alpha. Si algún material usa PNG con fondo transparente, aparecerá con fondo negro/blanco en el PDF. El logo está excluido explícitamente, pero los materiales no.
-
-6. **5 ubicaciones sin migrar a `<MaterialImage>` siguen con raw `<img>`**: `inventario/stockajes-minimos-section` (dropdown), `solicitud-material-detail-dialog`, `vale-salida-detail-dialog`, `compras/compra-form-dialog` y `fichas-costo/calc-porcentaje-dialog` no fueron migrados. Siguen disparando requests a MinIO para fotos conocidas rotas.
-
-7. **`imageCache` a nivel de módulo sin límite de tamaño**: En Next.js App Router, el módulo puede persistir entre navegaciones SPA sin recarga completa. El cache acumula indefinidamente. Para sesiones largas con muchos materiales distintos, el uso de memoria puede crecer sin control.
-
-8. **`IntersectionObserver` en SSR/prerender**: `<LazyImage>` usa `IntersectionObserver`, disponible solo en el cliente. Dependiendo de la implementación, puede tirar errores en prerender estático o SSR si no hay guard `typeof window !== 'undefined'`.
-
-9. **`foto_disponible?: boolean | null` en tipos — cobertura incompleta posible**: El campo se añade en `material-types.ts` a `BackendMaterial`, `MaterialItem`, `Material` y `MaterialStockItem`. Si algún tipo intermedio de conversión no fue actualizado, TypeScript puede inferir el campo como `undefined` en rutas no actualizadas y el gate `!== false` pasará silenciosamente aunque el backend devuelva `false`.
-
----
-
 #### Seguimientos vigentes
 
 - **`renderFactura` con `incluirMateriales: false` — edge cases sin cobertura, totales en PDF pueden ser incorrectos (Jul 24)**.
@@ -232,15 +179,6 @@ Sin cambios nuevos — sin riesgos nuevos.
 - **Catálogo local stale — categoría real puede ser incorrecta si la sesión no se recargó después de actualizar el backend (Jul 22)**.
 - **Heurístico de categorización por substring puede existir en otros módulos — verificar cobertura (Jul 22)**.
 - **Categoría sin materiales en contabilidad muestra lista vacía sin mensaje explicativo al usuario (Jul 22)**.
-- **Instrumentación temporal de perf — verificar que no quedó en bundle de producción (Jul 21)**.
-- **Ciclo add/remove AbortController en 18 min — build intermedio puede haber llegado a prod con 0 fotos en PDF (Jul 21)**.
-- **`foto_disponible` gate sin health check ejecutado — fail-open pierde beneficio de rendimiento (Jul 21)**.
-- **`failedImages` Set sin evición — fotos reparadas en S3 no se recargan sin reload de página (Jul 21)**.
-- **Canvas downscale JPEG — materiales con transparencia perderán canal alpha en PDF (Jul 21)**.
-- **5 ubicaciones sin migrar a `<MaterialImage>` — siguen con raw `<img>` y sin gate (Jul 21)**.
-- **`imageCache` a nivel de módulo sin límite — acumula en navegación SPA larga (Jul 21)**.
-- **`IntersectionObserver` en SSR/prerender — posible error `window is not defined` (Jul 21)**.
-- **`foto_disponible` en tipos — gate puede pasarse silenciosamente en rutas no actualizadas (Jul 21)**.
 - **`PATCH /pagos/{id}/cancelar` — endpoint nuevo sin confirmar, cancelaciones fallarán con 404 (Jul 17)**.
 - **Cancelar pago — estado solo visual si backend no valida; datos financieros inconsistentes (Jul 17)**.
 - **Devolución de pagos de venta — nuevo endpoint sin confirmar en backend (Jul 17)**.
@@ -375,4 +313,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 29 de Julio al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
