@@ -441,7 +441,6 @@ export default function LeadsPage() {
   );
   if (initialLoading && !hasPendingOfertaDeepLink)
     return <PageLoader moduleName="Leads" text="Cargando leads..." />;
-  if (error) return <div>Error: {error}</div>;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
