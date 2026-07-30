@@ -677,6 +677,8 @@ export function ClientsTable({
   const [loadingListoPagoDialog, setLoadingListoPagoDialog] = useState(false);
   const [ofertaListoPagoSeleccionada, setOfertaListoPagoSeleccionada] =
     useState<OfertaConfeccion | null>(null);
+  const [ofertasConfirmadasListoPago, setOfertasConfirmadasListoPago] =
+    useState<OfertaConfeccion[]>([]);
   const [tieneOfertaAsignadaListoPago, setTieneOfertaAsignadaListoPago] =
     useState(false);
   const [tieneOfertaConfirmadaListoPago, setTieneOfertaConfirmadaListoPago] =
@@ -2357,6 +2359,7 @@ export function ClientsTable({
     setUpdatingClienteListoParaPagarNumero(numeroCliente);
     setLoadingListoPagoDialog(true);
     setOfertaListoPagoSeleccionada(null);
+    setOfertasConfirmadasListoPago([]);
     setTieneOfertaAsignadaListoPago(false);
     setTieneOfertaConfirmadaListoPago(false);
     setComentarioContabilidadListoPago("");
@@ -2377,6 +2380,11 @@ export function ClientsTable({
         Array.isArray(ofertasCliente) &&
         ofertasCliente.length > 0;
       setTieneOfertaAsignadaListoPago(tieneOfertaAsignada);
+
+      const ofertasConfirmadas = ofertasCliente.filter(
+        (item) => item.estado === "confirmada_por_cliente",
+      );
+      setOfertasConfirmadasListoPago(ofertasConfirmadas);
 
       const ofertaConfirmada = resolveOfertaConfirmadaCliente(ofertasCliente, {
         oferta_id_confirmada: estadoResult.oferta_id_confirmada,
@@ -4247,8 +4255,16 @@ export function ClientsTable({
                               />
                             </div>
                             <div className="min-w-0">
-                              <p className="font-semibold text-gray-900 text-sm mb-0.5 truncate">
-                                {client.nombre}
+                              <p className="font-semibold text-gray-900 text-sm mb-0.5 truncate flex items-center gap-1.5">
+                                <span className="truncate">{client.nombre}</span>
+                                {client.es_trabajador_suncar && (
+                                  <span
+                                    className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-semibold px-1.5 py-0.5 shrink-0"
+                                    title="Cliente trabajador de SunCar"
+                                  >
+                                    Trabajador
+                                  </span>
+                                )}
                               </p>
                               <p className="text-[13px] text-gray-500 truncate">
                                 {client.numero}
@@ -4543,25 +4559,76 @@ export function ClientsTable({
                             >
                               <Edit className="h-3 w-3" />
                             </Button>
-                            {onSetClienteStatus && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleToggleClienteStatusClick(client)}
-                                className={
-                                  client.activo === false
-                                    ? "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 h-7 w-7 p-0"
-                                    : "text-red-600 hover:text-red-700 hover:bg-red-50 h-7 w-7 p-0"
-                                }
-                                title={client.activo === false ? "Reactivar" : "Anular"}
-                              >
-                                {client.activo === false ? (
-                                  <RotateCcw className="h-3 w-3" />
-                                ) : (
-                                  <Ban className="h-3 w-3" />
-                                )}
-                              </Button>
-                            )}
+                            {(() => {
+                              const numeroCliente = normalizeClienteNumero(
+                                client.numero,
+                              );
+                              const consultandoEquipo =
+                                consultandoEquipoEntregadoNumero === numeroCliente;
+                              const equipoEntregado =
+                                getEquipoEntregadoStatus(client);
+                              return (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    void handleOpenEquipoEntregadoDialog(client)
+                                  }
+                                  disabled={consultandoEquipo}
+                                  className="h-7 w-7 p-0"
+                                  title={
+                                    equipoEntregado
+                                      ? "Ver equipos entregados"
+                                      : "Registrar entrega de equipo"
+                                  }
+                                >
+                                  {consultandoEquipo ? (
+                                    <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
+                                  ) : (
+                                    <Truck
+                                      className={`h-3 w-3 ${
+                                        equipoEntregado
+                                          ? "text-emerald-600"
+                                          : "text-gray-400"
+                                      }`}
+                                    />
+                                  )}
+                                </Button>
+                              );
+                            })()}
+                            {(() => {
+                              const numeroCliente = normalizeClienteNumero(
+                                client.numero,
+                              );
+                              const consultandoServicio =
+                                consultandoEquiposEnServicioNumero ===
+                                numeroCliente;
+                              const tieneServicio = getServicioStatus(client);
+                              return (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    void handleOpenEquiposEnServicioDialog(client)
+                                  }
+                                  disabled={consultandoServicio}
+                                  className="h-7 w-7 p-0"
+                                  title="Equipos en servicio"
+                                >
+                                  {consultandoServicio ? (
+                                    <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
+                                  ) : (
+                                    <Zap
+                                      className={`h-3 w-3 ${
+                                        tieneServicio
+                                          ? "text-purple-700"
+                                          : "text-gray-400"
+                                      }`}
+                                    />
+                                  )}
+                                </Button>
+                              );
+                            })()}
                             <Popover>
                               <PopoverTrigger asChild>
                                 <Button
@@ -4575,19 +4642,33 @@ export function ClientsTable({
                               </PopoverTrigger>
                               <PopoverContent align="end" className="w-56 p-3">
                                 <div className="grid grid-cols-2 gap-3">
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => openAveriasCliente(client)}
-                                    className="h-auto flex-col items-center justify-center gap-1 py-3"
-                                    title={getAveriaStatus(client).title}
-                                  >
-                                    <AlertTriangle className="h-5 w-5 text-amber-600" />
-                                    <span className="text-xs text-gray-700 leading-tight text-center">
-                                      Avería
-                                    </span>
-                                  </Button>
+                                  {onSetClienteStatus && (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() =>
+                                        handleToggleClienteStatusClick(client)
+                                      }
+                                      className="h-auto flex-col items-center justify-center gap-1 py-3"
+                                      title={
+                                        client.activo === false
+                                          ? "Reactivar cliente"
+                                          : "Anular cliente"
+                                      }
+                                    >
+                                      {client.activo === false ? (
+                                        <RotateCcw className="h-5 w-5 text-emerald-600" />
+                                      ) : (
+                                        <Ban className="h-5 w-5 text-red-600" />
+                                      )}
+                                      <span className="text-xs text-gray-700 leading-tight text-center">
+                                        {client.activo === false
+                                          ? "Reactivar"
+                                          : "Anular"}
+                                      </span>
+                                    </Button>
+                                  )}
                                   <Button
                                     type="button"
                                     variant="ghost"
@@ -4625,83 +4706,6 @@ export function ClientsTable({
                                       Ver ubicación
                                     </span>
                                   </Button>
-                                  {(() => {
-                                    const numeroCliente = normalizeClienteNumero(
-                                      client.numero,
-                                    );
-                                    const consultandoServicio =
-                                      consultandoEquiposEnServicioNumero ===
-                                      numeroCliente;
-                                    const tieneServicio = getServicioStatus(client);
-
-                                    return (
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() =>
-                                          void handleOpenEquiposEnServicioDialog(
-                                            client,
-                                          )
-                                        }
-                                        disabled={consultandoServicio}
-                                        className="h-auto flex-col items-center justify-center gap-1 py-3"
-                                        title="Equipos en servicio"
-                                      >
-                                        {consultandoServicio ? (
-                                          <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
-                                        ) : (
-                                          <Zap
-                                            className={`h-5 w-5 ${tieneServicio ? "text-purple-700" : "text-gray-400"}`}
-                                          />
-                                        )}
-                                        <span className="text-xs text-gray-700 leading-tight text-center">
-                                          Equipos en servicio
-                                        </span>
-                                      </Button>
-                                    );
-                                  })()}
-                                  {(() => {
-                                    const numeroCliente = normalizeClienteNumero(
-                                      client.numero,
-                                    );
-                                    const consultandoEquipo =
-                                      consultandoEquipoEntregadoNumero ===
-                                      numeroCliente;
-                                    const equipoEntregado =
-                                      getEquipoEntregadoStatus(client);
-
-                                    return (
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() =>
-                                          void handleOpenEquipoEntregadoDialog(
-                                            client,
-                                          )
-                                        }
-                                        disabled={consultandoEquipo}
-                                        className="h-auto flex-col items-center justify-center gap-1 py-3"
-                                        title={
-                                          equipoEntregado
-                                            ? "Ver equipos entregados"
-                                            : "Ver estado de equipo entregado"
-                                        }
-                                      >
-                                        {consultandoEquipo ? (
-                                          <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
-                                        ) : (
-                                          <Truck
-                                            className={`h-5 w-5 ${equipoEntregado ? "text-emerald-600" : "text-gray-400"}`}
-                                          />
-                                        )}
-                                        <span className="text-xs text-gray-700 leading-tight text-center">
-                                          Equipo entregado
-                                        </span>
-                                      </Button>
-                                    );
-                                  })()}
                                 </div>
                               </PopoverContent>
                             </Popover>
@@ -5288,6 +5292,55 @@ export function ClientsTable({
                   </Badge>
                 </div>
               </div>
+
+              {ofertasConfirmadasListoPago.length > 1 && (
+                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 space-y-2">
+                  <p className="text-sm font-medium text-amber-900">
+                    Este cliente tiene {ofertasConfirmadasListoPago.length} ofertas
+                    confirmadas. Elige cuál va a pagar:
+                  </p>
+                  <div className="space-y-1.5">
+                    {ofertasConfirmadasListoPago.map((oferta) => {
+                      const activa =
+                        ofertaListoPagoSeleccionada?.id === oferta.id;
+                      return (
+                        <button
+                          key={oferta.id}
+                          type="button"
+                          onClick={() => {
+                            setOfertaListoPagoSeleccionada(oferta);
+                            setComentarioContabilidadListoPago(
+                              oferta.comentario_contabilidad || "",
+                            );
+                          }}
+                          className={`w-full text-left rounded-md border px-3 py-2 transition-colors ${
+                            activa
+                              ? "border-amber-500 bg-white ring-1 ring-amber-200"
+                              : "border-amber-200 bg-white/70 hover:bg-white"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-semibold text-slate-800">
+                              {oferta.numero_oferta || oferta.id}
+                            </span>
+                            <span className="text-xs text-slate-600">
+                              {formatOfertaMoney(oferta.precio_final)}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-600 mt-0.5 line-clamp-1">
+                            {oferta.nombre}
+                          </p>
+                          {oferta.cliente_listo_para_pagar && (
+                            <p className="text-[11px] text-emerald-700 mt-0.5 font-medium">
+                              Ya marcada como lista para pagar
+                            </p>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               <div className="rounded-md border border-slate-200 p-3 space-y-2">
                 <p className="text-sm font-medium text-slate-800">

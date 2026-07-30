@@ -14,8 +14,8 @@ type ClienteListParams = {
   nombre?: string;
   telefono?: string;
   direccion?: string;
-  provincia?: string;
-  municipio?: string;
+  provincia?: string | string[];
+  municipio?: string | string[];
   referencia?: string;
   skip?: number;
   limit?: number;
@@ -27,6 +27,17 @@ type ClienteListParams = {
   activo?: boolean;
   categoriaComponente?: "INVERSORES" | "BATERÍAS" | "PANELES" | "";
   materialCodigo?: string;
+  esTrabajadorSuncar?: boolean;
+  ofertas_filtro?: "con_ofertas" | "sin_ofertas" | "confirmadas" | "pendientes";
+};
+
+export type EquipoEnOferta = {
+  categoria: string;
+  material_codigo: string;
+  nombre?: string | null;
+  marca?: string | null;
+  modelo?: string | null;
+  cantidad_clientes: number;
 };
 
 export type ClienteFotoUploadPayload = {
@@ -76,6 +87,22 @@ export class ClienteService {
     }
   }
 
+  /**
+   * Modelos presentes en ofertas confirmadas por clientes. Se usa como
+   * fuente del selector "equipo" del módulo Clientes.
+   */
+  static async getEquiposEnOfertas(): Promise<EquipoEnOferta[]> {
+    try {
+      const res = await apiRequest<{ success: boolean; data: EquipoEnOferta[] }>(
+        "/clientes/equipos-en-ofertas",
+      );
+      return res?.data ?? [];
+    } catch (error) {
+      console.error("[ClienteService] Error al obtener equipos-en-ofertas:", error);
+      return [];
+    }
+  }
+
   static async getClientes(params: ClienteListParams = {}): Promise<{
     clients: Cliente[];
     total: number;
@@ -83,13 +110,21 @@ export class ClienteService {
     limit: number;
   }> {
     const search = new URLSearchParams();
+    const appendMulti = (name: string, value?: string | string[]) => {
+      if (value === undefined || value === null) return;
+      if (Array.isArray(value)) {
+        value.filter(Boolean).forEach((v) => search.append(name, v));
+      } else if (value) {
+        search.append(name, value);
+      }
+    };
     if (params.q) search.append("q", params.q);
     if (params.numero) search.append("numero", params.numero);
     if (params.nombre) search.append("nombre", params.nombre);
     if (params.telefono) search.append("telefono", params.telefono);
     if (params.direccion) search.append("direccion", params.direccion);
-    if (params.provincia) search.append("provincia", params.provincia);
-    if (params.municipio) search.append("municipio", params.municipio);
+    appendMulti("provincia", params.provincia);
+    appendMulti("municipio", params.municipio);
     if (params.referencia) search.append("referencia", params.referencia);
     const estados = Array.isArray(params.estado)
       ? params.estado
@@ -97,25 +132,14 @@ export class ClienteService {
         ? [params.estado]
         : [];
     estados.forEach((estado) => search.append("estado", estado));
-    if (estados.length > 0) {
-      const estadosCsv = estados.join(",");
-      search.append("estados", estadosCsv);
-      search.append("estado_csv", estadosCsv);
-    }
     if (params.fuente) search.append("fuente", params.fuente);
     if (params.skip !== undefined)
       search.append("skip", params.skip.toString());
     if (params.limit !== undefined)
       search.append("limit", params.limit.toString());
     if (params.comercial) search.append("comercial", params.comercial);
-    if (params.fechaDesde) {
-      search.append("fechaDesde", params.fechaDesde);
-      search.append("fecha_desde", params.fechaDesde);
-    }
-    if (params.fechaHasta) {
-      search.append("fechaHasta", params.fechaHasta);
-      search.append("fecha_hasta", params.fechaHasta);
-    }
+    if (params.fechaDesde) search.append("fechaDesde", params.fechaDesde);
+    if (params.fechaHasta) search.append("fechaHasta", params.fechaHasta);
     if (params.activo !== undefined) {
       search.append("activo", params.activo ? "true" : "false");
     }
@@ -124,6 +148,15 @@ export class ClienteService {
     }
     if (params.materialCodigo) {
       search.append("materialCodigo", params.materialCodigo);
+    }
+    if (params.esTrabajadorSuncar !== undefined) {
+      search.append(
+        "esTrabajadorSuncar",
+        params.esTrabajadorSuncar ? "true" : "false",
+      );
+    }
+    if (params.ofertas_filtro) {
+      search.append("ofertas_filtro", params.ofertas_filtro);
     }
 
     const endpoint = `/clientes/${search.toString() ? `?${search.toString()}` : ""}`;

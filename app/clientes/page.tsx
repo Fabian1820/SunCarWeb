@@ -18,6 +18,7 @@ import { Loader } from "@/components/shared/atom/loader";
 import { useToast } from "@/hooks/use-toast";
 import { useFuentesSync } from "@/hooks/use-fuentes-sync";
 import { useMaterials } from "@/hooks/use-materials";
+import { useEquiposEnOfertas } from "@/hooks/use-equipos-en-ofertas";
 import { Toaster } from "@/components/shared/molecule/toaster";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { CreateClientDialog } from "@/components/feats/cliente/create-client-dialog";
@@ -78,6 +79,98 @@ const TIEMPO_RANGES: Record<string, (dias: number) => boolean> = {
   "1mes": (d) => d >= 20 && d <= 30,
   ">1mes": (d) => d > 30,
 };
+
+/**
+ * "Tiempo desde creación" traducido a un rango real de fecha_creacion,
+ * para que el backend lo pueda filtrar directamente en vez de descargar
+ * todo y filtrar en JS. Devuelve fechas ISO (YYYY-MM-DD) o undefined.
+ */
+function tiempoARangoFecha(tiempo: string): {
+  fechaDesde?: string;
+  fechaHasta?: string;
+} {
+  const rangos: Record<string, { minDias: number; maxDias?: number }> = {
+    "1_5": { minDias: 1, maxDias: 5 },
+    "5_10": { minDias: 5, maxDias: 10 },
+    "10_15": { minDias: 10, maxDias: 15 },
+    "15_20": { minDias: 15, maxDias: 20 },
+    "1mes": { minDias: 20, maxDias: 30 },
+    ">1mes": { minDias: 30, maxDias: undefined },
+  };
+  const rango = rangos[tiempo];
+  if (!rango) return {};
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  const iso = (date: Date) => date.toISOString().slice(0, 10);
+  const desdeDate =
+    rango.maxDias !== undefined
+      ? new Date(hoy.getTime() - rango.maxDias * 24 * 60 * 60 * 1000)
+      : undefined;
+  const hastaDate = new Date(hoy.getTime() - rango.minDias * 24 * 60 * 60 * 1000);
+  return {
+    fechaDesde: desdeDate ? iso(desdeDate) : undefined,
+    fechaHasta: iso(hastaDate),
+  };
+}
+
+function mapOfertasFiltroBackend(
+  ofertas: string,
+): "con_ofertas" | "sin_ofertas" | "confirmadas" | "pendientes" | undefined {
+  switch (ofertas) {
+    case "con_ofertas":
+      return "con_ofertas";
+    case "sin_ofertas":
+      return "sin_ofertas";
+    case "con_confirmadas":
+      return "confirmadas";
+    case "sin_confirmadas":
+      return "pendientes";
+    default:
+      // "mas_1_confirmada" no lo cubre el backend — se filtra en JS.
+      return undefined;
+  }
+}
+
+/**
+ * Traduce los filtros de la UI al querystring del endpoint /clientes/.
+ * `tiempo` se convierte en rango fechaDesde/fechaHasta; `ofertas` se
+ * mapea a `ofertas_filtro` cuando el backend lo soporta.
+ */
+function buildBackendClientParams(filters: ClientesFilters) {
+  const searchValue = filters.searchTerm.trim();
+  const normalizedEstado = Array.from(
+    new Set(filters.estado.map((v) => v.trim()).filter(Boolean)),
+  );
+
+  let fechaDesde = filters.fechaDesde || undefined;
+  let fechaHasta = filters.fechaHasta || undefined;
+  if (filters.tiempo) {
+    const rango = tiempoARangoFecha(filters.tiempo);
+    // El tiempo domina sobre el rango manual si ambos están puestos.
+    fechaDesde = rango.fechaDesde ?? fechaDesde;
+    fechaHasta = rango.fechaHasta ?? fechaHasta;
+  }
+
+  return {
+    q: searchValue || undefined,
+    estado: normalizedEstado.length > 0 ? normalizedEstado : undefined,
+    fuente: filters.fuente || undefined,
+    comercial: filters.comercial || undefined,
+    provincia: filters.provincia.length ? filters.provincia : undefined,
+    municipio: filters.municipio.length ? filters.municipio : undefined,
+    fechaDesde,
+    fechaHasta,
+    activo: filters.mostrarAnulados ? undefined : true,
+    categoriaComponente:
+      (filters.categoriaComponente as
+        | "INVERSORES"
+        | "BATERÍAS"
+        | "PANELES"
+        | "") || undefined,
+    materialCodigo: filters.materialCodigo || undefined,
+    ofertas_filtro: mapOfertasFiltroBackend(filters.ofertas),
+  };
+}
 
 const TIEMPO_LABELS: Record<string, string> = {
   "1_5": "Entre 1 y 5 días",
@@ -391,12 +484,21 @@ export default function ClientesPage() {
     [],
   );
 
+  const { porCategoria: equiposPorCategoria } = useEquiposEnOfertas();
+
   const materialesDeCategoriaSeleccionada = useMemo(() => {
     if (!appliedFilters.categoriaComponente) return [];
-    return allMaterials
-      .filter((m) => m.categoria === appliedFilters.categoriaComponente)
-      .sort((a, b) => (a.descripcion || "").localeCompare(b.descripcion || ""));
-  }, [allMaterials, appliedFilters.categoriaComponente]);
+    const equipos = equiposPorCategoria.get(appliedFilters.categoriaComponente) ?? [];
+    return equipos
+      .map((eq) => ({
+        codigo: eq.material_codigo,
+        descripcion:
+          eq.nombre ||
+          [eq.marca, eq.modelo].filter(Boolean).join(" ") ||
+          eq.material_codigo,
+      }))
+      .sort((a, b) => a.descripcion.localeCompare(b.descripcion));
+  }, [equiposPorCategoria, appliedFilters.categoriaComponente]);
 
   // Buscador con debounce (mismo esquema que Leads)
   const [searchInput, setSearchInput] = useState(buscarParam);
@@ -602,13 +704,15 @@ export default function ClientesPage() {
       estado?: string[];
       fuente?: string;
       comercial?: string;
-      provincia?: string;
-      municipio?: string;
+      provincia?: string[];
+      municipio?: string[];
       fechaDesde?: string;
       fechaHasta?: string;
       activo?: boolean;
       categoriaComponente?: "INVERSORES" | "BATERÍAS" | "PANELES" | "";
       materialCodigo?: string;
+      esTrabajadorSuncar?: boolean;
+      ofertas_filtro?: "con_ofertas" | "sin_ofertas" | "confirmadas" | "pendientes";
     }): Promise<Cliente[]> => {
       const cacheKey = JSON.stringify({
         q: baseParams.q || "",
@@ -698,57 +802,34 @@ export default function ClientesPage() {
       setLoading(true);
       try {
         const filters = { ...appliedFilters, ...overrideFilters };
-        const searchValue = filters.searchTerm.trim();
-        const normalizedEstado = Array.from(
-          new Set(filters.estado.map((value) => value.trim()).filter(Boolean)),
-        );
-        // El backend soporta server-side: q, estado, fuente, comercial, provincia (1 valor), municipio (1 valor), fechaDesde, fechaHasta
-        // Múltiples provincias/municipios y mes/ofertas/tiempo se filtran localmente
-        const multiProvincia = filters.provincia.length > 1;
-        const multiMunicipio = filters.municipio.length > 1;
-        const hasLocalOnlyFilter = Boolean(
-          filters.mes || filters.ofertas || filters.tiempo || multiProvincia || multiMunicipio,
+        const baseParams = buildBackendClientParams(filters);
+        // Backend soporta todo salvo `mes` (poco frecuente) y
+        // `ofertas === "mas_1_confirmada"` (requiere agregación sobre el
+        // total de confirmadas). Sólo esos dos siguen siendo locales.
+        const necesitaFiltroLocal = Boolean(
+          filters.mes || filters.ofertas === "mas_1_confirmada",
         );
 
-        // Pasar al backend solo si hay exactamente 1 valor (compatibilidad API)
-        const serverProvincia = filters.provincia.length === 1 ? filters.provincia[0] : undefined;
-        const serverMunicipio = filters.municipio.length === 1 ? filters.municipio[0] : undefined;
-
-        const baseParams = {
-          q: searchValue || undefined,
-          estado: normalizedEstado.length > 0 ? normalizedEstado : undefined,
-          fuente: filters.fuente || undefined,
-          comercial: filters.comercial || undefined,
-          provincia: serverProvincia,
-          municipio: serverMunicipio,
-          fechaDesde: filters.fechaDesde || undefined,
-          fechaHasta: filters.fechaHasta || undefined,
-          activo: filters.mostrarAnulados ? undefined : true,
-          categoriaComponente:
-            (filters.categoriaComponente as
-              | "INVERSORES"
-              | "BATERÍAS"
-              | "PANELES"
-              | "") || undefined,
-          materialCodigo: filters.materialCodigo || undefined,
-        };
-
-        if (hasLocalOnlyFilter) {
+        if (necesitaFiltroLocal) {
           const all = await fetchAllClientsByBaseFilters(baseParams);
-          // Provincias/municipios extra (>1) se filtran localmente; si hay 1 ya lo aplicó el backend
-          const localProvincia = multiProvincia ? filters.provincia : [];
-          const localMunicipio = multiMunicipio ? filters.municipio : [];
-          const filtered = all.filter((client) =>
-            matchesClientLocalFilters(client, {
-              fechaDesde: "",
-              fechaHasta: "",
-              mes: filters.mes,
-              provincia: localProvincia,
-              municipio: localMunicipio,
-              ofertas: filters.ofertas,
-              tiempo: filters.tiempo,
-            }),
-          );
+          const filtered = all.filter((client) => {
+            if (filters.mes) {
+              const parsed =
+                parseClientDate(client.fecha_creacion) ??
+                parseClientDate(client.created_at);
+              if (!parsed) return false;
+              const month = Number.parseInt(filters.mes, 10);
+              if (
+                Number.isFinite(month) &&
+                parsed.getMonth() + 1 !== month
+              )
+                return false;
+            }
+            if (filters.ofertas === "mas_1_confirmada") {
+              if (getTotalConfirmadasCliente(client) <= 1) return false;
+            }
+            return true;
+          });
           const sorted = sortClientsByCodigo(filtered);
           const page = sorted.slice(
             filters.skip,
@@ -786,41 +867,24 @@ export default function ClientesPage() {
   const getAllFilteredClientsForExport = useCallback(async (): Promise<
     Cliente[]
   > => {
-    const searchValue = appliedFilters.searchTerm.trim();
-    const normalizedEstado = Array.from(
-      new Set(
-        appliedFilters.estado.map((value) => value.trim()).filter(Boolean),
-      ),
-    );
+    const baseParams = buildBackendClientParams(appliedFilters);
+    const result = await fetchAllClientsByBaseFilters(baseParams);
 
-    const exportProvincia = appliedFilters.provincia.length === 1 ? appliedFilters.provincia[0] : undefined;
-    const exportMunicipio = appliedFilters.municipio.length === 1 ? appliedFilters.municipio[0] : undefined;
-
-    const result = await fetchAllClientsByBaseFilters({
-      q: searchValue || undefined,
-      estado: normalizedEstado.length > 0 ? normalizedEstado : undefined,
-      fuente: appliedFilters.fuente || undefined,
-      comercial: appliedFilters.comercial || undefined,
-      provincia: exportProvincia,
-      municipio: exportMunicipio,
-      fechaDesde: appliedFilters.fechaDesde || undefined,
-      fechaHasta: appliedFilters.fechaHasta || undefined,
+    const filtered = result.filter((client) => {
+      if (appliedFilters.mes) {
+        const parsed =
+          parseClientDate(client.fecha_creacion) ??
+          parseClientDate(client.created_at);
+        if (!parsed) return false;
+        const month = Number.parseInt(appliedFilters.mes, 10);
+        if (Number.isFinite(month) && parsed.getMonth() + 1 !== month)
+          return false;
+      }
+      if (appliedFilters.ofertas === "mas_1_confirmada") {
+        if (getTotalConfirmadasCliente(client) <= 1) return false;
+      }
+      return true;
     });
-
-    const localProvinciaExport = appliedFilters.provincia.length > 1 ? appliedFilters.provincia : [];
-    const localMunicipioExport = appliedFilters.municipio.length > 1 ? appliedFilters.municipio : [];
-
-    const filtered = result.filter((client) =>
-      matchesClientLocalFilters(client, {
-        fechaDesde: "",
-        fechaHasta: "",
-        mes: appliedFilters.mes,
-        provincia: localProvinciaExport,
-        municipio: localMunicipioExport,
-        ofertas: appliedFilters.ofertas,
-        tiempo: appliedFilters.tiempo,
-      }),
-    );
 
     return sortClientsByCodigo(filtered);
   }, [appliedFilters, fetchAllClientsByBaseFilters]);
@@ -1616,7 +1680,7 @@ export default function ClientesPage() {
                         </SelectItem>
                         {materialesDeCategoriaSeleccionada.map((m) => (
                           <SelectItem key={m.codigo} value={m.codigo}>
-                            {m.descripcion || m.nombre || m.codigo}
+                            {m.descripcion}
                           </SelectItem>
                         ))}
                       </SelectContent>
