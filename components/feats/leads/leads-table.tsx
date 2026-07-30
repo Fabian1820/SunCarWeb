@@ -58,6 +58,8 @@ import {
   Globe,
   Ban,
   RotateCcw,
+  CheckCircle2,
+  XCircle,
   type LucideIcon,
 } from "lucide-react";
 import { useOfertasPersonalizadas } from "@/hooks/use-ofertas-personalizadas";
@@ -180,6 +182,27 @@ function breakTextAtLength(text: string, maxLength: number = 25): string {
   }
 
   return result || text;
+}
+
+// Acepta ISO ("2026-07-30..."), DD/MM/YYYY, o strings ya legibles y
+// devuelve DD/MM/YYYY. Si no se puede parsear, devuelve el string tal cual.
+function formatearFechaContacto(fechaStr?: string | null): string {
+  if (!fechaStr) return "—";
+  const soloFecha = fechaStr.trim();
+  if (!soloFecha) return "—";
+  const matchDMY = soloFecha.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (matchDMY) {
+    const [, d, m, y] = matchDMY;
+    return `${d.padStart(2, "0")}/${m.padStart(2, "0")}/${y}`;
+  }
+  const parsed = new Date(soloFecha);
+  if (!Number.isNaN(parsed.getTime())) {
+    const d = String(parsed.getDate()).padStart(2, "0");
+    const m = String(parsed.getMonth() + 1).padStart(2, "0");
+    const y = parsed.getFullYear();
+    return `${d}/${m}/${y}`;
+  }
+  return soloFecha;
 }
 
 export function LeadsTable({
@@ -894,6 +917,45 @@ export function LeadsTable({
   const leadTieneOfertaConfirmada = Boolean(
     leadToConvert?.oferta_confeccion?.hay_confirmada,
   );
+
+  const convertChecks = useMemo(() => {
+    const lead = leadToConvert;
+    const tieneProvinciaMunicipio = Boolean(
+      lead?.provincia_montaje?.trim() && lead?.municipio?.trim(),
+    );
+    const tieneDireccion = Boolean(lead?.direccion?.trim());
+    const tieneOfertaConfirmada = Boolean(
+      lead?.oferta_confeccion?.hay_confirmada,
+    );
+    return [
+      {
+        key: "provincia-municipio",
+        label: "Provincia y municipio de montaje",
+        ok: tieneProvinciaMunicipio,
+        hint: tieneProvinciaMunicipio
+          ? undefined
+          : "Edita el lead y completa provincia y municipio.",
+      },
+      {
+        key: "direccion",
+        label: "Dirección de instalación",
+        ok: tieneDireccion,
+        hint: tieneDireccion
+          ? undefined
+          : "Edita el lead y agrega la dirección de instalación.",
+      },
+      {
+        key: "oferta-confirmada",
+        label: "Al menos una oferta confirmada por el cliente",
+        ok: tieneOfertaConfirmada,
+        hint: tieneOfertaConfirmada
+          ? undefined
+          : "Crea o confirma una oferta antes de convertir el lead.",
+      },
+    ];
+  }, [leadToConvert]);
+
+  const convertChecksOk = convertChecks.every((c) => c.ok);
 
   const handleComprobanteDialogOpenChange = (open: boolean) => {
     setIsComprobanteDialogOpen(open);
@@ -2679,6 +2741,12 @@ export function LeadsTable({
                 <th className="px-4 py-3 text-left text-[13px] font-semibold text-gray-500 uppercase tracking-wider min-w-[100px]">
                   Contacto
                 </th>
+                <th className="px-4 py-3 text-left text-[13px] font-semibold text-gray-500 uppercase tracking-wider min-w-[110px]">
+                  Fecha contacto
+                </th>
+                <th className="px-4 py-3 text-left text-[13px] font-semibold text-gray-500 uppercase tracking-wider min-w-[120px]">
+                  Fuente
+                </th>
                 <th className="px-4 py-3 text-left text-[13px] font-semibold text-gray-500 uppercase tracking-wider min-w-[200px] max-w-[240px]">
                   Estado
                 </th>
@@ -2749,6 +2817,18 @@ export function LeadsTable({
                         <MapPin className="h-4 w-4 mr-1 text-gray-400" />
                         <span className="truncate">{lead.pais_contacto}</span>
                       </div>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap min-w-[110px] text-sm text-gray-700">
+                    {formatearFechaContacto(lead.fecha_contacto)}
+                  </td>
+                  <td className="px-4 py-3 min-w-[120px] max-w-[180px] text-sm text-gray-700">
+                    {lead.fuente ? (
+                      <span className="inline-block max-w-full truncate">
+                        {lead.fuente}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">—</span>
                     )}
                   </td>
                   <td className="px-4 py-3min-w-[200px] max-w-[240px]">
@@ -3474,6 +3554,53 @@ export function LeadsTable({
                   . Los datos del lead se copiarán automáticamente.
                 </div>
 
+                {/* Checklist de precondiciones para convertir */}
+                <div
+                  className={`rounded-lg border p-4 ${
+                    convertChecksOk
+                      ? "bg-emerald-50 border-emerald-200"
+                      : "bg-amber-50 border-amber-200"
+                  }`}
+                >
+                  <p
+                    className={`text-xs font-semibold mb-2 ${
+                      convertChecksOk ? "text-emerald-800" : "text-amber-900"
+                    }`}
+                  >
+                    {convertChecksOk
+                      ? "Todo listo para convertir"
+                      : "Faltan datos para poder convertir"}
+                  </p>
+                  <ul className="space-y-1.5">
+                    {convertChecks.map((c) => (
+                      <li
+                        key={c.key}
+                        className="flex items-start gap-2 text-xs"
+                      >
+                        {c.ok ? (
+                          <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                        )}
+                        <div>
+                          <p
+                            className={
+                              c.ok ? "text-emerald-900" : "text-amber-900"
+                            }
+                          >
+                            {c.label}
+                          </p>
+                          {!c.ok && c.hint && (
+                            <p className="text-[11px] text-amber-700 mt-0.5">
+                              {c.hint}
+                            </p>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
                 {conversionErrors.general && (
                   <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
                     <div className="text-xs sm:text-sm text-red-700 mb-2">
@@ -3713,9 +3840,14 @@ export function LeadsTable({
                 </Button>
                 <Button
                   type="button"
-                  className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white"
+                  className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white disabled:opacity-40 disabled:cursor-not-allowed"
                   onClick={handleConfirmConversion}
-                  disabled={conversionLoading}
+                  disabled={conversionLoading || !convertChecksOk}
+                  title={
+                    !convertChecksOk
+                      ? "Completa los datos marcados arriba para poder convertir"
+                      : undefined
+                  }
                 >
                   {conversionLoading ? (
                     <>
