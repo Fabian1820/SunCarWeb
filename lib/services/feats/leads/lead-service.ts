@@ -29,8 +29,12 @@ export class LeadService {
       telefono?: string;
       direccion?: string;
       comercial?: string;
-      estado?: string;
+      estado?: string | string[];
       fuente?: string;
+      provincia?: string | string[];
+      municipio?: string | string[];
+      prioridad?: string | string[];
+      ofertas_filtro?: "con_ofertas" | "sin_ofertas" | "confirmadas" | "pendientes";
       fechaDesde?: string;
       fechaHasta?: string;
       skip?: number;
@@ -41,13 +45,26 @@ export class LeadService {
   ): Promise<{ leads: Lead[]; total: number; skip: number; limit: number }> {
     console.log("Calling getLeads endpoint with params:", params);
     const search = new URLSearchParams();
+    const appendMulti = (name: string, value?: string | string[]) => {
+      if (value === undefined || value === null) return;
+      if (Array.isArray(value)) {
+        value.filter(Boolean).forEach((v) => search.append(name, v));
+      } else if (value) {
+        search.append(name, value);
+      }
+    };
     if (params.q) search.append("q", params.q);
     if (params.nombre) search.append("nombre", params.nombre);
     if (params.telefono) search.append("telefono", params.telefono);
     if (params.direccion) search.append("direccion", params.direccion);
     if (params.comercial) search.append("comercial", params.comercial);
-    if (params.estado) search.append("estado", params.estado);
+    appendMulti("estado", params.estado);
     if (params.fuente) search.append("fuente", params.fuente);
+    appendMulti("provincia", params.provincia);
+    appendMulti("municipio", params.municipio);
+    appendMulti("prioridad", params.prioridad);
+    if (params.ofertas_filtro)
+      search.append("ofertas_filtro", params.ofertas_filtro);
     if (params.fechaDesde) {
       search.append("fechaDesde", params.fechaDesde);
       search.append("fecha_desde", params.fechaDesde);

@@ -213,9 +213,14 @@ export function useLeads(): UseLeadsReturn {
 
   const fetchAllLeadsByBaseFilters = useCallback(
     async (baseFilters: {
-      estado: string;
-      fuente: string;
-      comercial: string;
+      q?: string;
+      estado?: string | string[];
+      fuente?: string;
+      comercial?: string;
+      provincia?: string[];
+      municipio?: string[];
+      prioridad?: string[];
+      ofertas_filtro?: OfertasFilter;
       fechaDesde?: string;
       fechaHasta?: string;
       activo?: boolean;
@@ -225,9 +230,24 @@ export function useLeads(): UseLeadsReturn {
 
       const fetchPage = (skip: number) =>
         LeadService.getLeads({
-          estado: baseFilters.estado || undefined,
+          q: baseFilters.q || undefined,
+          estado: Array.isArray(baseFilters.estado)
+            ? baseFilters.estado.length
+              ? baseFilters.estado
+              : undefined
+            : baseFilters.estado || undefined,
           fuente: baseFilters.fuente || undefined,
           comercial: baseFilters.comercial || undefined,
+          provincia: baseFilters.provincia?.length
+            ? baseFilters.provincia
+            : undefined,
+          municipio: baseFilters.municipio?.length
+            ? baseFilters.municipio
+            : undefined,
+          prioridad: baseFilters.prioridad?.length
+            ? baseFilters.prioridad
+            : undefined,
+          ofertas_filtro: baseFilters.ofertas_filtro || undefined,
           fechaDesde: baseFilters.fechaDesde || undefined,
           fechaHasta: baseFilters.fechaHasta || undefined,
           activo: baseFilters.activo,
@@ -298,87 +318,9 @@ export function useLeads(): UseLeadsReturn {
         const effectiveSearchTerm = (
           overrideFilters?.searchTerm ?? debouncedSearchTerm
         ).trim();
-        const hasDateFilters = Boolean(
-          effectiveFilters.fechaDesde || effectiveFilters.fechaHasta,
-        );
         const estadosSeleccionados = Array.isArray(effectiveFilters.estado)
           ? effectiveFilters.estado.filter(Boolean)
           : [];
-        const hasClientFilters =
-          effectiveFilters.provincia.length > 0 ||
-          effectiveFilters.municipio.length > 0 ||
-          Boolean(effectiveFilters.ofertas) ||
-          estadosSeleccionados.length > 1;
-
-        if (hasDateFilters || hasClientFilters) {
-          const allBaseLeads = await fetchAllLeadsByBaseFilters({
-            estado:
-              estadosSeleccionados.length === 1
-                ? estadosSeleccionados[0]
-                : "",
-            fuente: effectiveFilters.fuente,
-            comercial: effectiveFilters.comercial,
-            fechaDesde: effectiveFilters.fechaDesde,
-            fechaHasta: effectiveFilters.fechaHasta,
-            activo: effectiveFilters.mostrarAnulados ? undefined : true,
-          });
-
-          // Filtro defensivo redundante: el backend ya filtra por fecha, pero se
-          // mantiene por si el filtro combina fechas con otros criterios.
-          const filteredByDate = applyLeadDateRangeFilter(
-            allBaseLeads,
-            effectiveFilters.fechaDesde,
-            effectiveFilters.fechaHasta,
-          );
-
-          const filteredByLocation = filteredByDate.filter((lead) => {
-            if (
-              estadosSeleccionados.length > 1 &&
-              !estadosSeleccionados.includes((lead.estado || "").trim())
-            ) {
-              return false;
-            }
-            if (
-              effectiveFilters.provincia.length > 0 &&
-              !effectiveFilters.provincia.includes((lead.provincia_montaje || "").trim())
-            ) {
-              return false;
-            }
-            if (
-              effectiveFilters.municipio.length > 0 &&
-              !effectiveFilters.municipio.includes((lead.municipio || "").trim())
-            ) {
-              return false;
-            }
-            return matchesOfertasFilter(lead, effectiveFilters.ofertas);
-          });
-
-          const filteredBySearch = effectiveSearchTerm
-            ? filteredByLocation.filter((lead) =>
-                buildLeadSearchText(lead).includes(
-                  normalizeSearchValue(effectiveSearchTerm),
-                ),
-              )
-            : filteredByLocation;
-
-          const total = filteredBySearch.length;
-          const skip = effectiveFilters.skip ?? 0;
-          const limit = effectiveFilters.limit ?? 20;
-          const end = limit > 0 ? skip + limit : undefined;
-          const paged = filteredBySearch.slice(skip, end);
-
-          setLeads(paged);
-          setTotalLeads(total);
-
-          if (
-            overrideFilters?.skip !== undefined ||
-            overrideFilters?.limit !== undefined
-          ) {
-            setFiltersState((prev) => ({ ...prev, skip, limit }));
-          }
-
-          return;
-        }
 
         const {
           leads: fetchedLeads,
@@ -387,12 +329,16 @@ export function useLeads(): UseLeadsReturn {
           limit,
         } = await LeadService.getLeads({
           q: effectiveSearchTerm || undefined,
-          estado:
-            estadosSeleccionados.length === 1
-              ? estadosSeleccionados[0]
-              : undefined,
+          estado: estadosSeleccionados.length ? estadosSeleccionados : undefined,
           fuente: effectiveFilters.fuente || undefined,
           comercial: effectiveFilters.comercial || undefined,
+          provincia: effectiveFilters.provincia.length
+            ? effectiveFilters.provincia
+            : undefined,
+          municipio: effectiveFilters.municipio.length
+            ? effectiveFilters.municipio
+            : undefined,
+          ofertas_filtro: effectiveFilters.ofertas || undefined,
           fechaDesde: effectiveFilters.fechaDesde || undefined,
           fechaHasta: effectiveFilters.fechaHasta || undefined,
           activo: effectiveFilters.mostrarAnulados ? undefined : true,
@@ -419,14 +365,7 @@ export function useLeads(): UseLeadsReturn {
         setInitialLoading(false);
       }
     },
-    [
-      filters,
-      debouncedSearchTerm,
-      fetchAllLeadsByBaseFilters,
-      buildLeadSearchText,
-      normalizeSearchValue,
-      matchesOfertasFilter,
-    ],
+    [filters, debouncedSearchTerm],
   );
 
   // Obtener fuentes únicas de los leads existentes
@@ -867,59 +806,30 @@ export function useLeads(): UseLeadsReturn {
     Lead[]
   > => {
     const estadosSel = (filters.estado || []).filter(Boolean);
-    const allBaseLeads = await fetchAllLeadsByBaseFilters({
-      estado: estadosSel.length === 1 ? estadosSel[0] : "",
+    return fetchAllLeadsByBaseFilters({
+      q: filters.searchTerm?.trim() || undefined,
+      estado: estadosSel.length ? estadosSel : undefined,
       fuente: filters.fuente,
       comercial: filters.comercial,
+      provincia: filters.provincia,
+      municipio: filters.municipio,
+      ofertas_filtro: filters.ofertas || undefined,
+      fechaDesde: filters.fechaDesde,
+      fechaHasta: filters.fechaHasta,
+      activo: filters.mostrarAnulados ? undefined : true,
     });
-
-    const allDateFilteredLeads = applyLeadDateRangeFilter(
-      allBaseLeads,
-      filters.fechaDesde,
-      filters.fechaHasta,
-    );
-
-    const allLocationFiltered = allDateFilteredLeads.filter((lead) => {
-      if (
-        estadosSel.length > 1 &&
-        !estadosSel.includes((lead.estado || "").trim())
-      )
-        return false;
-      if (
-        filters.provincia.length > 0 &&
-        !filters.provincia.includes((lead.provincia_montaje || "").trim())
-      )
-        return false;
-      if (
-        filters.municipio.length > 0 &&
-        !filters.municipio.includes((lead.municipio || "").trim())
-      )
-        return false;
-      return matchesOfertasFilter(lead, filters.ofertas);
-    });
-
-    const effectiveSearchTerm = normalizeSearchValue(filters.searchTerm.trim());
-    if (!effectiveSearchTerm) {
-      return allLocationFiltered;
-    }
-
-    return allLocationFiltered.filter((lead) =>
-      buildLeadSearchText(lead).includes(effectiveSearchTerm),
-    );
   }, [
-    buildLeadSearchText,
     fetchAllLeadsByBaseFilters,
     filters.comercial,
     filters.estado,
     filters.fechaDesde,
     filters.fechaHasta,
     filters.fuente,
-    filters.provincia,
+    filters.mostrarAnulados,
     filters.municipio,
     filters.ofertas,
+    filters.provincia,
     filters.searchTerm,
-    normalizeSearchValue,
-    matchesOfertasFilter,
   ]);
 
   // Cargar leads al montar y cuando cambien filtros (incluyendo búsqueda)
