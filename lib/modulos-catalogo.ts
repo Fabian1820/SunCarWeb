@@ -35,6 +35,7 @@ import {
   CreditCard,
   HardHat,
   MessageCircle,
+  Inbox,
 } from "lucide-react"
 
 /**
@@ -235,6 +236,16 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-emerald-800",
     href: "/informe-direccion",
     grupo: "area-direccion",
+  },
+  {
+    key: "peticiones",
+    label: "Peticiones",
+    descripcion: "Revisa y responde las peticiones de los usuarios al equipo de desarrollo.",
+    icon: Inbox,
+    iconClass: "text-indigo-600",
+    href: "/peticiones",
+    grupo: "area-direccion",
+    superAdminOnly: true,
   },
   {
     key: "suncar-whatsapp",

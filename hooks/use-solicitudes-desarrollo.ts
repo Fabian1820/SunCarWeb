@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { SolicitudDesarrolloService } from "@/lib/services/feats/solicitudes-desarrollo/solicitud-desarrollo-service";
 import type {
   CategoriaSolicitud,
+  ResolucionSolicitud,
   SolicitudDesarrollo,
 } from "@/lib/types/feats/solicitudes-desarrollo/solicitud-desarrollo-types";
 
@@ -56,9 +57,9 @@ export function useSolicitudesDesarrollo(habilitado: boolean) {
     [cargarSolicitudes, cargarConteo],
   );
 
-  const responder = useCallback(
-    async (id: string, respuesta: string) => {
-      const ok = await SolicitudDesarrolloService.responder(id, respuesta);
+  const resolver = useCallback(
+    async (id: string, estado: ResolucionSolicitud, comentario: string) => {
+      const ok = await SolicitudDesarrolloService.resolver(id, estado, comentario);
       if (ok) {
         await cargarSolicitudes();
         await cargarConteo();
@@ -66,6 +67,15 @@ export function useSolicitudesDesarrollo(habilitado: boolean) {
       return ok;
     },
     [cargarSolicitudes, cargarConteo],
+  );
+
+  const marcarTerminada = useCallback(
+    async (id: string, terminada: boolean) => {
+      const ok = await SolicitudDesarrolloService.marcarTerminada(id, terminada);
+      if (ok) await cargarSolicitudes();
+      return ok;
+    },
+    [cargarSolicitudes],
   );
 
   const marcarVistas = useCallback(async () => {
@@ -81,7 +91,8 @@ export function useSolicitudesDesarrollo(habilitado: boolean) {
     cargadasAlMenosUnaVez: cargadasRef.current,
     cargarSolicitudes,
     crearSolicitud,
-    responder,
+    resolver,
+    marcarTerminada,
     marcarVistas,
   };
 }

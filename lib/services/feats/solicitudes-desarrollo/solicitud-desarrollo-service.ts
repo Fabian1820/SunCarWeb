@@ -1,6 +1,7 @@
 import { apiRequest } from "@/lib/api-config";
 import type {
   CategoriaSolicitud,
+  ResolucionSolicitud,
   SolicitudDesarrollo,
 } from "@/lib/types/feats/solicitudes-desarrollo/solicitud-desarrollo-types";
 
@@ -58,18 +59,38 @@ export const SolicitudDesarrolloService = {
     }
   },
 
-  async responder(id: string, respuesta: string): Promise<boolean> {
+  async resolver(
+    id: string,
+    estado: ResolucionSolicitud,
+    comentario: string,
+  ): Promise<boolean> {
     try {
       const response = await apiRequest<{ success: boolean }>(
-        `${BASE}/${id}/responder`,
+        `${BASE}/${id}/resolver`,
         {
           method: "PATCH",
-          body: JSON.stringify({ respuesta }),
+          body: JSON.stringify({ estado, comentario }),
         },
       );
       return response.success === true;
     } catch (error) {
-      console.error("[SolicitudDesarrolloService] Error al responder:", error);
+      console.error("[SolicitudDesarrolloService] Error al resolver:", error);
+      return false;
+    }
+  },
+
+  async marcarTerminada(id: string, terminada: boolean): Promise<boolean> {
+    try {
+      const response = await apiRequest<{ success: boolean }>(
+        `${BASE}/${id}/terminada`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ terminada }),
+        },
+      );
+      return response.success === true;
+    } catch (error) {
+      console.error("[SolicitudDesarrolloService] Error al marcar terminada:", error);
       return false;
     }
   },
