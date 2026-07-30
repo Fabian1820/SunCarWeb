@@ -303,14 +303,15 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
   },
   {
     // El permission key se mantiene como `reportes-comercial` para preservar
-    // asignaciones existentes; el label/href ahora apuntan directamente al
-    // submódulo "Resultados por Comercial" (los otros submódulos quedan ocultos).
+    // asignaciones existentes; el módulo ahora funciona como "Evaluaciones de
+    // Comercial" con sus 3 secciones (WhatsApp, Ofertas, Actitud/Documentación)
+    // y firma en PDF.
     key: "reportes-comercial",
-    label: "Resultados por Comercial",
-    descripcion: "Ofertas cerradas con pagos y márgenes por comercial.",
+    label: "Evaluaciones de Comercial",
+    descripcion: "Evaluación mensual firmable por sección: WhatsApp, ofertas y actitud/documentación.",
     icon: BarChart3,
     iconClass: "text-emerald-600",
-    href: "/reportes-comercial/resultados-comercial",
+    href: "/evaluaciones-comerciales",
     grupo: "comercial-instaladora",
   },
   {
