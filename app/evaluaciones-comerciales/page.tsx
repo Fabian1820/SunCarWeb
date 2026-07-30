@@ -436,38 +436,127 @@ function TabWhatsapp({ datos }: { datos: WhatsappDatos | null }) {
 }
 
 function TabOfertas({ datos }: { datos: OfertasDatos | null }) {
-  if (!datos) {
+  if (!datos || datos.razon) {
     return (
       <Card>
         <CardContent className="py-8 text-sm text-muted-foreground">
-          Sin datos.
-        </CardContent>
-      </Card>
-    );
-  }
-  if (datos.razon) {
-    return (
-      <Card>
-        <CardContent className="py-8 text-sm text-muted-foreground">
-          {datos.razon}
+          {datos?.razon ?? "Sin datos."}
         </CardContent>
       </Card>
     );
   }
   return (
-    <Card>
-      <CardContent className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-6 text-sm">
-        <Mini label="Ofertas creadas" val={datos.creadas} />
-        <Mini label="Confirmadas sin pagos" val={datos.confirmadas_sin_pagos} />
-        <Mini
-          label="Confirmadas con anticipo"
-          val={datos.confirmadas_con_anticipo}
-        />
-        <Mini label="Obras terminadas" val={datos.obras_terminadas} />
-        <Mini label="Monto vendido" val={fmtMoney(datos.monto_vendido)} raw />
-        <Mini label="Monto cobrado" val={fmtMoney(datos.monto_cobrado)} raw />
-      </CardContent>
-    </Card>
+    <div className="space-y-4">
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm">Captación</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+          <Mini label="Leads captados" val={datos.leads_captados} />
+          <Mini label="Clientes captados" val={datos.clientes_captados} />
+          <Mini
+            label="% conversión lead → cliente"
+            val={
+              datos.conversion_pct != null ? `${datos.conversion_pct}%` : "—"
+            }
+            raw
+          />
+        </CardContent>
+      </Card>
+
+      {datos.ofertas && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">
+              Ofertas de confección creadas en el periodo
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <BloqueOfertasTabla
+              rows={[
+                {
+                  label: "Ofertas creadas",
+                  b: datos.ofertas.creadas,
+                },
+                {
+                  label: "De esas, confirmadas",
+                  b: datos.ofertas.confirmadas,
+                },
+                {
+                  label: "De esas, con al menos un pago",
+                  b: datos.ofertas.confirmadas_con_pago,
+                },
+              ]}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {datos.obras_terminadas && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">
+              Obras terminadas en el periodo
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <BloqueOfertasTabla
+              rows={[
+                {
+                  label: "Obras terminadas",
+                  b: datos.obras_terminadas,
+                },
+              ]}
+            />
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function BloqueOfertasTabla({
+  rows,
+}: {
+  rows: { label: string; b: import("@/lib/types/feats/evaluaciones-comerciales/evaluaciones-comerciales-types").BloqueMonetario }[];
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left text-xs text-muted-foreground border-b">
+            <th className="py-2 pr-3">Concepto</th>
+            <th className="py-2 px-3 text-right">Cantidad</th>
+            <th className="py-2 px-3 text-right">Monto total</th>
+            <th className="py-2 px-3 text-right">Margen agregado</th>
+            <th className="py-2 px-3 text-right">Descuento</th>
+            <th className="py-2 pl-3 text-right">Compensación</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.label} className="border-b last:border-0">
+              <td className="py-2 pr-3">{r.label}</td>
+              <td className="py-2 px-3 text-right font-semibold">
+                {r.b.cantidad}
+              </td>
+              <td className="py-2 px-3 text-right">
+                {fmtMoney(r.b.monto_total)}
+              </td>
+              <td className="py-2 px-3 text-right">
+                {fmtMoney(r.b.margen_agregado)}
+              </td>
+              <td className="py-2 px-3 text-right">
+                {fmtMoney(r.b.descuento)}
+              </td>
+              <td className="py-2 pl-3 text-right">
+                {fmtMoney(r.b.compensacion)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

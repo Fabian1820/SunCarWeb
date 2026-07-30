@@ -81,12 +81,23 @@ export type WhatsappDatos = {
   } | null;
 };
 
+export type BloqueMonetario = {
+  cantidad: number;
+  monto_total: number;
+  margen_agregado: number;
+  descuento: number;
+  compensacion: number;
+};
+
 export type OfertasDatos = {
-  creadas: number;
-  confirmadas_sin_pagos: number;
-  confirmadas_con_anticipo: number;
-  obras_terminadas: number;
-  monto_vendido: number;
-  monto_cobrado: number;
   razon?: string | null;
+  leads_captados?: number;
+  clientes_captados?: number;
+  conversion_pct?: number;
+  ofertas?: {
+    creadas: BloqueMonetario;
+    confirmadas: BloqueMonetario;
+    confirmadas_con_pago: BloqueMonetario;
+  };
+  obras_terminadas?: BloqueMonetario;
 };

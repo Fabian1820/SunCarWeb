@@ -185,13 +185,93 @@ export function generarEvaluacionPdf(
     y += 10;
   } else {
     y = tabla(doc, y, ["Métrica", "Valor"], [
-      ["Ofertas creadas", String(ofertas.creadas)],
-      ["Confirmadas sin pagos", String(ofertas.confirmadas_sin_pagos)],
-      ["Confirmadas con anticipo pagado", String(ofertas.confirmadas_con_anticipo)],
-      ["Obras terminadas", String(ofertas.obras_terminadas)],
-      ["Monto vendido (confirmadas)", fmtMoney(ofertas.monto_vendido)],
-      ["Monto cobrado", fmtMoney(ofertas.monto_cobrado)],
+      ["Leads captados", String(ofertas.leads_captados ?? "—")],
+      ["Clientes captados", String(ofertas.clientes_captados ?? "—")],
+      ["% conversión lead → cliente", ofertas.conversion_pct != null ? `${ofertas.conversion_pct}%` : "—"],
     ]);
+
+    if (ofertas.ofertas) {
+      y = ensureSpace(doc, y, 40);
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...C.ink);
+      doc.text("Ofertas de confección creadas en el periodo", 14, y);
+      y += 4;
+      autoTable(doc, {
+        startY: y,
+        margin: { left: 14, right: 14 },
+        head: [[
+          "Concepto",
+          "Cant.",
+          "Monto total",
+          "Margen agregado",
+          "Descuento",
+          "Compensación",
+        ]],
+        body: [
+          ["Ofertas creadas", String(ofertas.ofertas.creadas.cantidad),
+            fmtMoney(ofertas.ofertas.creadas.monto_total),
+            fmtMoney(ofertas.ofertas.creadas.margen_agregado),
+            fmtMoney(ofertas.ofertas.creadas.descuento),
+            fmtMoney(ofertas.ofertas.creadas.compensacion)],
+          ["De esas, confirmadas", String(ofertas.ofertas.confirmadas.cantidad),
+            fmtMoney(ofertas.ofertas.confirmadas.monto_total),
+            fmtMoney(ofertas.ofertas.confirmadas.margen_agregado),
+            fmtMoney(ofertas.ofertas.confirmadas.descuento),
+            fmtMoney(ofertas.ofertas.confirmadas.compensacion)],
+          ["De esas, con al menos un pago", String(ofertas.ofertas.confirmadas_con_pago.cantidad),
+            fmtMoney(ofertas.ofertas.confirmadas_con_pago.monto_total),
+            fmtMoney(ofertas.ofertas.confirmadas_con_pago.margen_agregado),
+            fmtMoney(ofertas.ofertas.confirmadas_con_pago.descuento),
+            fmtMoney(ofertas.ofertas.confirmadas_con_pago.compensacion)],
+        ],
+        styles: { fontSize: 8, textColor: C.ink },
+        headStyles: { fillColor: C.verdeClaro, textColor: C.ink, fontStyle: "bold" },
+        columnStyles: {
+          1: { halign: "right" }, 2: { halign: "right" }, 3: { halign: "right" },
+          4: { halign: "right" }, 5: { halign: "right" },
+        },
+      });
+      // @ts-expect-error autoTable augments doc at runtime
+      y = doc.lastAutoTable.finalY + 6;
+    }
+
+    if (ofertas.obras_terminadas) {
+      y = ensureSpace(doc, y, 30);
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...C.ink);
+      doc.text("Obras terminadas en el periodo", 14, y);
+      y += 4;
+      autoTable(doc, {
+        startY: y,
+        margin: { left: 14, right: 14 },
+        head: [[
+          "Concepto",
+          "Cant.",
+          "Monto total",
+          "Margen agregado",
+          "Descuento",
+          "Compensación",
+        ]],
+        body: [[
+          "Obras terminadas",
+          String(ofertas.obras_terminadas.cantidad),
+          fmtMoney(ofertas.obras_terminadas.monto_total),
+          fmtMoney(ofertas.obras_terminadas.margen_agregado),
+          fmtMoney(ofertas.obras_terminadas.descuento),
+          fmtMoney(ofertas.obras_terminadas.compensacion),
+        ]],
+        styles: { fontSize: 8, textColor: C.ink },
+        headStyles: { fillColor: C.verdeClaro, textColor: C.ink, fontStyle: "bold" },
+        columnStyles: {
+          1: { halign: "right" }, 2: { halign: "right" }, 3: { halign: "right" },
+          4: { halign: "right" }, 5: { halign: "right" },
+        },
+      });
+      // @ts-expect-error autoTable augments doc at runtime
+      y = doc.lastAutoTable.finalY + 8;
+    }
   }
 
   // ────────── Actitud ──────────
