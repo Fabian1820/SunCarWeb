@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { Card, CardContent } from "@/components/shared/molecule/card"
-import { Package, Settings } from "lucide-react"
+import { Package, Send, Settings } from "lucide-react"
 import { useEffect, useState } from "react"
 import { InventarioService } from "@/lib/api-services"
 import type { Almacen } from "@/lib/inventario-types"
@@ -53,17 +53,30 @@ export default function AlmacenesSuncarPage() {
       <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <div className="space-y-6">
           {/* Módulo de Gestión de Almacenes */}
-          {hasPermission('inventario') && (
+          {(hasPermission('inventario') || hasPermission('solicitudes-envio')) && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <Link href="/inventario/almacenes">
-                <Card className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer hover:-translate-y-2 bg-white/90 backdrop-blur-sm">
-                  <CardContent className="p-6 flex flex-col items-center justify-center text-center">
-                    <Settings className="h-10 w-10 text-blue-600 mb-3" />
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Gestión de Almacenes</h3>
-                    <p className="text-sm text-gray-600">Crear y administrar almacenes</p>
-                  </CardContent>
-                </Card>
-              </Link>
+              {hasPermission('inventario') && (
+                <Link href="/inventario/almacenes">
+                  <Card className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer hover:-translate-y-2 bg-white/90 backdrop-blur-sm">
+                    <CardContent className="p-6 flex flex-col items-center justify-center text-center">
+                      <Settings className="h-10 w-10 text-blue-600 mb-3" />
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Gestión de Almacenes</h3>
+                      <p className="text-sm text-gray-600">Crear y administrar almacenes</p>
+                    </CardContent>
+                  </Card>
+                </Link>
+              )}
+              {hasPermission('solicitudes-envio') && (
+                <Link href="/solicitudes-envio">
+                  <Card className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer hover:-translate-y-2 bg-white/90 backdrop-blur-sm">
+                    <CardContent className="p-6 flex flex-col items-center justify-center text-center">
+                      <Send className="h-10 w-10 text-amber-600 mb-3" />
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Solicitudes de Envío</h3>
+                      <p className="text-sm text-gray-600">Pedidos a la compradora internacional</p>
+                    </CardContent>
+                  </Card>
+                </Link>
+              )}
             </div>
           )}
 
