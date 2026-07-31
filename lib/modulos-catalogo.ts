@@ -35,6 +35,7 @@ import {
   HardHat,
   MessageCircle,
   Inbox,
+  Gauge,
 } from "lucide-react"
 
 /**
@@ -521,6 +522,15 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     icon: PackageSearch,
     iconClass: "text-teal-600",
     href: "/instalaciones/solicitudes-materiales",
+    grupo: "operaciones",
+  },
+  {
+    key: "equipos-felicity",
+    label: "Equipos Felicity",
+    descripcion: "Monitoreo y administración en vivo de inversores y baterías FSolar.",
+    icon: Gauge,
+    iconClass: "text-teal-600",
+    href: "/equipos-felicity",
     grupo: "operaciones",
   },
 

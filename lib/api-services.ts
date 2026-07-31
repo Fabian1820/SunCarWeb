@@ -41,3 +41,4 @@ export { SolicitudEntradaAlmacenService } from "./services/feats/solicitudes-ent
 export { KardexCostoService } from "./services/feats/kardex-costo/kardex-costo-service";
 export { AsignacionService } from "./services/feats/asignaciones/asignacion-service";
 export { FuenteService, TrabajadorOpcionesService } from "./services/feats/fuentes/fuente-service";
+export { EquiposFelicityService } from "./services/feats/equipos-felicity/equipos-felicity-service";
