@@ -92,6 +92,7 @@ import {
 } from "@/hooks/use-ofertas-confeccion";
 import { apiRequest } from "@/lib/api-config";
 import { useToast } from "@/hooks/use-toast";
+import { useComercialEquipoMap } from "@/hooks/use-comercial-equipo-map";
 import type { Lead, LeadConversionRequest, LeadFoto } from "@/lib/api-types";
 import { extraerComponentesDeOfertaConfeccion } from "@/lib/utils/oferta-confeccion-items";
 
@@ -222,6 +223,7 @@ export function LeadsTable({
   autoOpenEditarOfertaLeadId,
 }: LeadsTableProps) {
   const { toast } = useToast();
+  const { nombreEquipo } = useComercialEquipoMap();
   const {
     ofertas,
     loading: ofertasLoading,
@@ -2854,6 +2856,15 @@ export function LeadsTable({
                           <span className="truncate">{lead.comercial}</span>
                         </div>
                       )}
+                      {(() => {
+                        const equipo = nombreEquipo(lead.comercial);
+                        if (!equipo) return null;
+                        return (
+                          <div className="text-[11px] text-gray-400 mt-0.5 truncate">
+                            {equipo}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </td>
                   <td className="px-4 py-3min-w-[220px] max-w-[280px]">

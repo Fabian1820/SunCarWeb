@@ -223,7 +223,7 @@ export function useLeads(): UseLeadsReturn {
       q?: string;
       estado?: string | string[];
       fuente?: string;
-      comercial?: string;
+      comercial?: string | string[];
       provincia?: string[];
       municipio?: string[];
       prioridad?: string[];
@@ -329,6 +329,12 @@ export function useLeads(): UseLeadsReturn {
           ? effectiveFilters.estado.filter(Boolean)
           : [];
 
+        const comercialEfectivo = effectiveFilters.comercial
+          ? effectiveFilters.comercial
+          : effectiveFilters.equipoComerciales.length
+            ? effectiveFilters.equipoComerciales
+            : undefined;
+
         const {
           leads: fetchedLeads,
           total,
@@ -338,7 +344,7 @@ export function useLeads(): UseLeadsReturn {
           q: effectiveSearchTerm || undefined,
           estado: estadosSeleccionados.length ? estadosSeleccionados : undefined,
           fuente: effectiveFilters.fuente || undefined,
-          comercial: effectiveFilters.comercial || undefined,
+          comercial: comercialEfectivo,
           provincia: effectiveFilters.provincia.length
             ? effectiveFilters.provincia
             : undefined,
@@ -813,11 +819,16 @@ export function useLeads(): UseLeadsReturn {
     Lead[]
   > => {
     const estadosSel = (filters.estado || []).filter(Boolean);
+    const comercialEfectivo = filters.comercial
+      ? filters.comercial
+      : filters.equipoComerciales.length
+        ? filters.equipoComerciales
+        : undefined;
     return fetchAllLeadsByBaseFilters({
       q: filters.searchTerm?.trim() || undefined,
       estado: estadosSel.length ? estadosSel : undefined,
       fuente: filters.fuente,
-      comercial: filters.comercial,
+      comercial: comercialEfectivo,
       provincia: filters.provincia,
       municipio: filters.municipio,
       ofertas_filtro: filters.ofertas || undefined,
@@ -828,6 +839,7 @@ export function useLeads(): UseLeadsReturn {
   }, [
     fetchAllLeadsByBaseFilters,
     filters.comercial,
+    filters.equipoComerciales,
     filters.estado,
     filters.fechaDesde,
     filters.fechaHasta,
@@ -847,6 +859,7 @@ export function useLeads(): UseLeadsReturn {
     filters.estado,
     filters.fuente,
     filters.comercial,
+    filters.equipoComerciales,
     filters.provincia,
     filters.municipio,
     filters.ofertas,

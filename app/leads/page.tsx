@@ -38,6 +38,7 @@ import { SmartPagination } from "@/components/shared/molecule/smart-pagination";
 import { CreateLeadDialog } from "@/components/feats/leads/create-lead-dialog";
 import { EditLeadDialog } from "@/components/feats/leads/edit-lead-dialog";
 import { ExportButtons } from "@/components/shared/molecule/export-buttons";
+import { useComercialEquipoMap } from "@/hooks/use-comercial-equipo-map";
 import { useLeads } from "@/hooks/use-leads";
 import { useFuentesSync } from "@/hooks/use-fuentes-sync";
 import { LeadService, FuenteService } from "@/lib/api-services";
@@ -89,6 +90,9 @@ export default function LeadsPage() {
     uploadLeadComprobante,
     clearError,
   } = useLeads();
+
+  const { equipos: equiposComerciales, nombreEquipo, comercialesDeEquipo } =
+    useComercialEquipoMap();
 
   // Sincronizar fuentes de leads con localStorage
   useFuentesSync(leads, [], !loading);
@@ -561,6 +565,7 @@ export default function LeadsPage() {
                     estado: [],
                     fuente: "",
                     comercial: "",
+                    equipoComerciales: [],
                     provincia: [],
                     municipio: [],
                     ofertas: "",
@@ -691,6 +696,39 @@ export default function LeadsPage() {
                     {availableComerciales.map((comercial) => (
                       <SelectItem key={comercial} value={comercial}>
                         {comercial}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Filtro por Equipo (B2B / B2C) */}
+              <div>
+                <Select
+                  value={
+                    filters.equipoComerciales.length > 0
+                      ? equiposComerciales.find((e) =>
+                          comercialesDeEquipo(e.id).every((c) =>
+                            filters.equipoComerciales.includes(c),
+                          ),
+                        )?.id || "todos"
+                      : "todos"
+                  }
+                  onValueChange={(value) =>
+                    setFilters({
+                      equipoComerciales:
+                        value === "todos" ? [] : comercialesDeEquipo(value),
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos los equipos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos los equipos</SelectItem>
+                    {equiposComerciales.map((equipo) => (
+                      <SelectItem key={equipo.id} value={equipo.id}>
+                        {equipo.nombre}
                       </SelectItem>
                     ))}
                   </SelectContent>
