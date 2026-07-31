@@ -55,6 +55,8 @@ import ContactosDashboard from "@/components/feats/contactos/contactos-dashboard
 import { TicketManualDialog } from "@/components/feats/dashboard/ticket-manual-dialog";
 import { WeatherWidget } from "@/components/feats/dashboard/weather-widget";
 import { DirectorioTelefonicoCard } from "@/components/feats/dashboard/directorio-telefonico-card";
+import { EstadoOficinaSidebar } from "@/components/feats/equipos-felicity/estado-oficina-sidebar";
+import { ConfigurarEquipoOficinaButton } from "@/components/feats/equipos-felicity/configurar-equipo-oficina-button";
 import { Toaster } from "@/components/shared/molecule/toaster";
 import { useAuth } from "@/contexts/auth-context";
 import { UserMenu } from "@/components/auth/user-menu";
@@ -622,6 +624,7 @@ export default function Dashboard() {
 
         {/* Navegación */}
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+          <EstadoOficinaSidebar />
           {navItem("home", "Inicio", Home)}
           {navItem("favorites", "Favoritos", Star, {
             count: favoriteModules.length,
@@ -881,6 +884,9 @@ export default function Dashboard() {
 
                 {/* Directorio telefónico */}
                 <DirectorioTelefonicoCard />
+
+                {/* Solo superAdmin: define el equipo Felicity que representa la oficina */}
+                <ConfigurarEquipoOficinaButton />
               </div>
             ) : activeKey === "favorites" ? (
               /* ───────── Vista de favoritos ───────── */

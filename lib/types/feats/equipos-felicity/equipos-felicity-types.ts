@@ -198,6 +198,33 @@ export interface OperacionCatalogoItem {
   reversible: boolean;
 }
 
+// --------------------------------------------------------- equipo de oficina
+
+export type TipoEstadoOficina = "buena" | "mala" | "normal";
+
+export interface EquipoOficinaConfig {
+  dispositivo_sn: string;
+  usuario_suncar_dueno: string;
+  cuenta: string;
+  alias?: string | null;
+  planta_nombre?: string | null;
+  configurado_por_ci: string;
+  configurado_por_nombre?: string | null;
+  configurado_en: string;
+}
+
+export interface EstadoOficina {
+  configurado: boolean;
+  dispositivo_sn?: string | null;
+  alias?: string | null;
+  planta_nombre?: string | null;
+  momento?: string | null;
+  hay_red?: boolean | null;
+  soc?: number | null;
+  tipo?: TipoEstadoOficina | null;
+  texto: string;
+}
+
 // ---------------------------------------------------------------- respuestas
 
 export interface ApiEnvelope<T> {
