@@ -2,6 +2,20 @@
 
 ---
 
+## 📅 31 de Julio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+Sin commits nuevos de código. El único commit en las últimas 24h es "Analisis diario Claude" (generado automáticamente). No hay cambios en producción.
+
+---
+
+### Puede dar bateo
+
+Sin cambios nuevos — sin riesgos nuevos.
+
+---
+
 ## 📅 30 de Julio, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -103,38 +117,6 @@ Sin cambios nuevos — sin riesgos nuevos.
 4. **`incluirComercial: false` — fila omitida puede desplazar el layout del PDF**: Si la fila "Comercial" ocupa espacio reservado en el template, omitirla puede dejar espacio vacío o correrse el diseño dependiendo de cómo `renderFactura` maneje la ausencia.
 
 5. **Sin tests de regresión sobre el flujo original "Exportar PDF"**: Los cambios en `renderFactura` para soportar las nuevas opciones pueden introducir regresiones en el flujo original (con materiales y comercial incluidos) si los valores por defecto de las nuevas opciones no están correctamente configurados.
-
----
-
-## 📅 23 de Julio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**2 commits reales** de yany1509 — ambos en el módulo de Pagos: corrección del cálculo de totales excluyendo pagos cancelados, y marcación visual de esos pagos en el Detalle de Cobros. Son follow-ups directos al botón "Cancelar pago" introducido el 17 de Julio.
-
----
-
-### Área 1: Pagos — totales excluyen pagos cancelados (1 commit — yany1509, 17:23)
-
-- **`fix(pagos): no cuenta pagos cancelados al calcular total pagado/pendiente`** — El cálculo local de "pendiente" y de "pagado hasta este pago" en el Detalle de Cobros sumaba todos los pagos de la oferta sin revisar el campo `cancelado`. Un pago duplicado cancelado seguía restándose del pendiente aunque el backend ya no lo contara como dinero recibido.
-
----
-
-### Área 2: Pagos — marcación visual de cancelados en Detalle de Cobros (1 commit — yany1509, 17:55)
-
-- **`fix(pagos): marca visualmente los pagos cancelados en el detalle de cobros`** — La tarjeta de cada pago dentro de "Detalle de Cobros" no distinguía un pago cancelado de uno activo — se veían idénticos aunque el total ya no lo contara. Ahora se le pone la insignia "Cancelado", el monto se tacha, la tarjeta se atenúa, y el contador del encabezado cuenta todos los pagos mostrados (no solo los activos) para que cuadre con lo que se ve en pantalla.
-
----
-
-### Puede dar bateo
-
-1. **Cálculo de "pendiente" solo en frontend — desincronía con totales del backend**: El fix filtra pagos cancelados en lógica local. Si el backend devuelve algún campo de saldo calculado (`saldo_pendiente`, `total_pagado`), esos siguen viniendo del servidor y pueden no alinearse con el fix del frontend.
-
-2. **`cancelado` falsy/undefined para pagos históricos — filtro no los excluye**: El filtro `!p.cancelado` pasa cuando el campo es `undefined`. Pagos creados antes de que existiera el campo `cancelado` no se excluirán del cálculo si el backend no los rellena con `false` explícitamente.
-
-3. **Contador de encabezado ahora muestra todos los pagos (activos + cancelados)**: El contador pasó de contar solo activos a contar todos los visibles. Un usuario que asociaba el número con "pagos válidos" verá un número inflado que incluye cancelados, lo cual puede generar confusión.
-
-4. **Par de fixes en menos de 35 minutos — posible build intermedio en producción**: Si Railway auto-deploy está activo, el commit de las 17:23 hizo deploy antes del de las 17:55. En esa ventana, los totales estaban corregidos pero las tarjetas aún no mostraban el badge "Cancelado" ni el tachado.
 
 ---
 
@@ -283,4 +265,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
