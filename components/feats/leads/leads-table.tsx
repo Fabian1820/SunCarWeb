@@ -93,6 +93,11 @@ import {
 import { apiRequest } from "@/lib/api-config";
 import { useToast } from "@/hooks/use-toast";
 import { useComercialEquipoMap } from "@/hooks/use-comercial-equipo-map";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/shared/molecule/popover";
 import type { Lead, LeadConversionRequest, LeadFoto } from "@/lib/api-types";
 import { extraerComponentesDeOfertaConfeccion } from "@/lib/utils/oferta-confeccion-items";
 
@@ -3683,58 +3688,74 @@ export function LeadsTable({
                       </button>
                     </div>
                   ) : (
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                    <Label className="text-sm font-semibold text-amber-900 mb-3 block">
-                      ¿El equipo es propio del cliente?
-                    </Label>
-                    <p className="text-xs text-amber-700 mb-3">
-                      {leadTieneOfertaConfeccionada
-                        ? "Este lead tiene oferta confeccionada. Elige si usar equipo propio o generar código con la oferta."
-                        : "Este lead no tiene una oferta confeccionada detectada. Puedes marcar equipo propio o crear una oferta antes de convertir."}
-                    </p>
-                    <div className="flex flex-col gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className={`w-full ${
-                          conversionData.equipo_propio === true
-                            ? "bg-amber-100 border-amber-500 border-2"
-                            : "border-amber-300"
-                        } hover:bg-amber-100`}
-                        onClick={() => handleSeleccionEquipoPropio(true)}
-                      >
-                        {conversionData.equipo_propio === true && "✓ "}Sí, es
-                        equipo propio
-                      </Button>
-                      {leadTieneOfertaConfeccionada && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className={`w-full ${
-                            conversionData.equipo_propio === false
-                              ? "bg-amber-100 border-amber-500 border-2"
-                              : "border-amber-300"
-                          } hover:bg-amber-100`}
-                          onClick={() => handleSeleccionEquipoPropio(false)}
-                        >
-                          {conversionData.equipo_propio === false && "✓ "}No,
-                          usar oferta confeccionada
-                        </Button>
-                      )}
-                      {!leadTieneOfertaConfeccionada && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="w-full border-amber-300 hover:bg-amber-100"
-                          onClick={() => {
-                            closeConvertDialog();
-                            openAsignarOfertaDialog(leadToConvert);
-                          }}
-                        >
-                          Crear oferta confeccionada
-                        </Button>
-                      )}
+                  <div className="rounded-lg border border-gray-200 bg-white p-3 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-800">
+                        {conversionData.equipo_propio === true
+                          ? "Equipo propio del cliente"
+                          : conversionData.equipo_propio === false
+                            ? "Se usará la oferta confeccionada"
+                            : "Falta indicar si el equipo es propio"}
+                      </p>
+                      <p className="text-xs text-gray-500 truncate">
+                        {leadTieneOfertaConfeccionada
+                          ? "Elige equipo propio o usar la oferta confeccionada."
+                          : "Este lead no tiene oferta confeccionada."}
+                      </p>
                     </div>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="shrink-0"
+                        >
+                          Configurar
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent align="end" className="w-64 p-1.5">
+                        <div className="space-y-0.5">
+                          <button
+                            type="button"
+                            onClick={() => handleSeleccionEquipoPropio(true)}
+                            className={`w-full text-left rounded-md px-3 py-2 text-sm transition-colors ${
+                              conversionData.equipo_propio === true
+                                ? "bg-emerald-50 text-emerald-800 font-medium"
+                                : "hover:bg-gray-50 text-gray-700"
+                            }`}
+                          >
+                            {conversionData.equipo_propio === true && "✓ "}
+                            Sí, es equipo propio
+                          </button>
+                          {leadTieneOfertaConfeccionada ? (
+                            <button
+                              type="button"
+                              onClick={() => handleSeleccionEquipoPropio(false)}
+                              className={`w-full text-left rounded-md px-3 py-2 text-sm transition-colors ${
+                                conversionData.equipo_propio === false
+                                  ? "bg-emerald-50 text-emerald-800 font-medium"
+                                  : "hover:bg-gray-50 text-gray-700"
+                              }`}
+                            >
+                              {conversionData.equipo_propio === false && "✓ "}
+                              No, usar oferta confeccionada
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                closeConvertDialog();
+                                openAsignarOfertaDialog(leadToConvert);
+                              }}
+                              className="w-full text-left rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                            >
+                              Crear oferta confeccionada
+                            </button>
+                          )}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   )}
 
