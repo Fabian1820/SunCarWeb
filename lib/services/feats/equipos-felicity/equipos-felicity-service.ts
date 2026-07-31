@@ -3,6 +3,8 @@ import type {
   ComandoResponse,
   CuentaResponse,
   DispositivoFelicity,
+  EquipoOficinaConfig,
+  EstadoOficina,
   EstadoRapido,
   EstadosRapidosListResponse,
   LecturaFelicity,
@@ -196,6 +198,27 @@ export const EquiposFelicityService = {
     return apiRequest<ItemResponse<Record<string, unknown>>>(
       `${BASE}/dispositivos/${encodeURIComponent(sn)}/comandos/${encodeURIComponent(comandoExternoId)}/estado`,
     );
+  },
+
+  // ------------------------------------------------------- equipo de oficina
+
+  async obtenerEquipoOficina(): Promise<ItemResponse<EquipoOficinaConfig> & { configurado: boolean }> {
+    return apiRequest<ItemResponse<EquipoOficinaConfig> & { configurado: boolean }>(
+      `${BASE}/equipo-oficina`,
+    );
+  },
+
+  async configurarEquipoOficina(
+    sn: string,
+  ): Promise<ItemResponse<EquipoOficinaConfig> & { configurado: boolean }> {
+    return apiRequest<ItemResponse<EquipoOficinaConfig> & { configurado: boolean }>(
+      `${BASE}/equipo-oficina`,
+      { method: "PUT", body: JSON.stringify({ sn }) },
+    );
+  },
+
+  async estadoEquipoOficina(): Promise<ItemResponse<EstadoOficina>> {
+    return apiRequest<ItemResponse<EstadoOficina>>(`${BASE}/equipo-oficina/estado`);
   },
 };
 

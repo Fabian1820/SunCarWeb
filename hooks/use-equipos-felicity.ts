@@ -4,6 +4,8 @@ import type {
   ComandoFelicity,
   CuentaFelicity,
   DispositivoFelicity,
+  EquipoOficinaConfig,
+  EstadoOficina,
   EstadoRapido,
   OperacionCatalogoItem,
   OperacionFelicity,
@@ -276,4 +278,75 @@ export function useOperacionSobreDispositivo(sn: string) {
   );
 
   return { previsualizando, ejecutando, previsualizar, ejecutar };
+}
+
+// --------------------------------------------------------- equipo de oficina
+
+const REFRESCO_OFICINA_MS = 60_000;
+
+/** Estado eléctrico del equipo de oficina, para el indicador de la barra lateral. */
+export function useEstadoEquipoOficina() {
+  const [estado, setEstado] = useState<EstadoOficina | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const cargar = useCallback(async () => {
+    try {
+      const res = await EquiposFelicityService.estadoEquipoOficina();
+      setEstado(res.data ?? null);
+    } catch {
+      // Indicador best-effort: un fallo de red no debe mostrarle un error a todo el sistema.
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    cargar();
+    const id = setInterval(cargar, REFRESCO_OFICINA_MS);
+    return () => clearInterval(id);
+  }, [cargar]);
+
+  return { estado, loading };
+}
+
+/** Lectura y edición de la configuración del equipo de oficina (solo superAdmin la edita). */
+export function useConfiguracionEquipoOficina() {
+  const [config, setConfig] = useState<EquipoOficinaConfig | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const cargar = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await EquiposFelicityService.obtenerEquipoOficina();
+      setConfig(res.data ?? null);
+    } catch (err) {
+      setError(extraerError(err, "No se pudo consultar el equipo de oficina configurado"));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const guardar = useCallback(async (sn: string) => {
+    setGuardando(true);
+    setError(null);
+    try {
+      const res = await EquiposFelicityService.configurarEquipoOficina(sn);
+      if (res.success) {
+        setConfig(res.data ?? null);
+        return true;
+      }
+      setError(res.message || "No se pudo configurar el equipo de oficina");
+      return false;
+    } catch (err) {
+      setError(extraerError(err, "No se pudo configurar el equipo de oficina"));
+      return false;
+    } finally {
+      setGuardando(false);
+    }
+  }, []);
+
+  return { config, loading, guardando, error, cargar, guardar };
 }
