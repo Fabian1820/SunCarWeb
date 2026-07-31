@@ -79,6 +79,7 @@ import { ConfeccionOfertasView } from "@/components/feats/ofertas/confeccion-ofe
 import { useOfertasConfeccion } from "@/hooks/use-ofertas-confeccion";
 import { useMaterials } from "@/hooks/use-materials";
 import { useMarcas } from "@/hooks/use-marcas";
+import { useComercialEquipoMap } from "@/hooks/use-comercial-equipo-map";
 import {
   buildTerminosCondicionesHtml,
   type TerminosCondicionesPayload,
@@ -557,6 +558,7 @@ export function ClientsTable({
   } = useOfertasConfeccion();
   const { materials } = useMaterials();
   const { marcas } = useMarcas();
+  const { nombreEquipo } = useComercialEquipoMap();
   const [showClientLocation, setShowClientLocation] = useState(false);
   const [clientLocation, setClientLocation] = useState<{
     lat: number;
@@ -4293,6 +4295,15 @@ export function ClientsTable({
                                 {client.comercial}
                               </div>
                             )}
+                            {(() => {
+                              const equipo = nombreEquipo(client.comercial);
+                              if (!equipo) return null;
+                              return (
+                                <div className="text-[11px] text-gray-400 mt-0.5 truncate">
+                                  {equipo}
+                                </div>
+                              );
+                            })()}
                             {client.fuente && (
                               <div className="text-[13px] text-gray-500 mt-0.5 truncate">
                                 <span className="text-gray-400">Fuente:</span>{" "}

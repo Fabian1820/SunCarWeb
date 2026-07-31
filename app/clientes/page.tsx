@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useFuentesSync } from "@/hooks/use-fuentes-sync";
 import { useMaterials } from "@/hooks/use-materials";
 import { useEquiposEnOfertas } from "@/hooks/use-equipos-en-ofertas";
+import { useComercialEquipoMap } from "@/hooks/use-comercial-equipo-map";
 import { Toaster } from "@/components/shared/molecule/toaster";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { CreateClientDialog } from "@/components/feats/cliente/create-client-dialog";
@@ -57,6 +58,8 @@ type ClientesFilters = {
   estado: string[];
   fuente: string;
   comercial: string;
+  /** Nombres de los comerciales del equipo (B2B/B2C) elegido en el filtro "Equipo". */
+  equipoComerciales: string[];
   fechaDesde: string;
   fechaHasta: string;
   mes: string;
@@ -151,11 +154,17 @@ function buildBackendClientParams(filters: ClientesFilters) {
     fechaHasta = rango.fechaHasta ?? fechaHasta;
   }
 
+  const comercialEfectivo = filters.comercial
+    ? filters.comercial
+    : filters.equipoComerciales.length
+      ? filters.equipoComerciales
+      : undefined;
+
   return {
     q: searchValue || undefined,
     estado: normalizedEstado.length > 0 ? normalizedEstado : undefined,
     fuente: filters.fuente || undefined,
-    comercial: filters.comercial || undefined,
+    comercial: comercialEfectivo,
     provincia: filters.provincia.length ? filters.provincia : undefined,
     municipio: filters.municipio.length ? filters.municipio : undefined,
     fechaDesde,
@@ -457,6 +466,11 @@ export default function ClientesPage() {
 
   // Materiales para el selector de "componente principal" especifico (inversor/bateria/panel exacto)
   const { materials: allMaterials } = useMaterials();
+  const {
+    equipos: equiposComerciales,
+    nombreEquipo,
+    comercialesDeEquipo,
+  } = useComercialEquipoMap();
 
   // Estado para capturar los filtros aplicados desde ClientsTable
   const [appliedFilters, setAppliedFilters] = useState<ClientesFilters>({
@@ -464,6 +478,7 @@ export default function ClientesPage() {
     estado: [] as string[],
     fuente: "",
     comercial: "",
+    equipoComerciales: [] as string[],
     fechaDesde: "",
     fechaHasta: "",
     mes: "",
@@ -669,6 +684,7 @@ export default function ClientesPage() {
       estado: [],
       fuente: "",
       comercial: "",
+      equipoComerciales: [],
       fechaDesde: "",
       fechaHasta: "",
       mes: "",
@@ -703,7 +719,7 @@ export default function ClientesPage() {
       q?: string;
       estado?: string[];
       fuente?: string;
-      comercial?: string;
+      comercial?: string | string[];
       provincia?: string[];
       municipio?: string[];
       fechaDesde?: string;
@@ -1425,6 +1441,38 @@ export default function ClientesPage() {
                       {availableComerciales.map((comercial) => (
                         <SelectItem key={comercial} value={comercial}>
                           {comercial}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Select
+                    value={
+                      appliedFilters.equipoComerciales.length > 0
+                        ? equiposComerciales.find((e) =>
+                            comercialesDeEquipo(e.id).every((c) =>
+                              appliedFilters.equipoComerciales.includes(c),
+                            ),
+                          )?.id || "todos"
+                        : "todos"
+                    }
+                    onValueChange={(value) =>
+                      updateFilters({
+                        equipoComerciales:
+                          value === "todos" ? [] : comercialesDeEquipo(value),
+                      })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Todos los equipos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos los equipos</SelectItem>
+                      {equiposComerciales.map((equipo) => (
+                        <SelectItem key={equipo.id} value={equipo.id}>
+                          {equipo.nombre}
                         </SelectItem>
                       ))}
                     </SelectContent>
