@@ -219,7 +219,7 @@ export function generarEvaluacionPdf(
             fmtMoney(ofertas.ofertas.confirmadas.margen_agregado),
             fmtMoney(ofertas.ofertas.confirmadas.descuento),
             fmtMoney(ofertas.ofertas.confirmadas.compensacion)],
-          ["De esas, con al menos un pago", String(ofertas.ofertas.confirmadas_con_pago.cantidad),
+          ["De esas, con anticipo pagado en el periodo", String(ofertas.ofertas.confirmadas_con_pago.cantidad),
             fmtMoney(ofertas.ofertas.confirmadas_con_pago.monto_total),
             fmtMoney(ofertas.ofertas.confirmadas_con_pago.margen_agregado),
             fmtMoney(ofertas.ofertas.confirmadas_con_pago.descuento),

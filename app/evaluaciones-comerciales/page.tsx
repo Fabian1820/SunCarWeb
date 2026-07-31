@@ -483,7 +483,7 @@ function TabOfertas({ datos }: { datos: OfertasDatos | null }) {
                   b: datos.ofertas.confirmadas,
                 },
                 {
-                  label: "De esas, con al menos un pago",
+                  label: "De esas, con anticipo pagado en el periodo",
                   b: datos.ofertas.confirmadas_con_pago,
                 },
               ]}

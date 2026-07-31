@@ -151,22 +151,35 @@ function ReferenciaCombobox({
   const [query, setQuery] = useState("")
   const [opciones, setOpciones] = useState<Opcion[]>([])
   const [loading, setLoading] = useState(false)
-  const cargado = useRef(false)
+  const trabajadoresCargadosRef = useRef(false)
 
-  // Trabajadores: endpoint ligero, carga única
+  // Al cambiar el tipo de referencia (p.ej. Trabajador → Otro cliente),
+  // hay que limpiar las opciones que quedaron del tipo anterior y resetear
+  // el cache de trabajadores; si no, el buscador termina filtrando contra
+  // datos del otro tipo y aparenta no funcionar.
   useEffect(() => {
-    if (tipo !== "trabajador" || cargado.current) return
-    cargado.current = true
+    setOpciones([])
+    setQuery("")
+    trabajadoresCargadosRef.current = false
+  }, [tipo])
+
+  // Trabajadores: endpoint ligero, carga única por sesión de tipo.
+  useEffect(() => {
+    if (tipo !== "trabajador" || trabajadoresCargadosRef.current) return
+    trabajadoresCargadosRef.current = true
+    let activo = true
     setLoading(true)
     TrabajadorOpcionesService.getOpciones()
       .then((data) => {
+        if (!activo) return
         setOpciones((data || []).map((t) => ({ value: t.nombre, label: t.nombre })))
       })
-      .catch(() => setOpciones([]))
-      .finally(() => setLoading(false))
+      .catch(() => activo && setOpciones([]))
+      .finally(() => activo && setLoading(false))
+    return () => { activo = false }
   }, [tipo])
 
-  // Clientes: búsqueda async con debounce
+  // Clientes: búsqueda async con debounce.
   useEffect(() => {
     if (tipo !== "cliente") return
     let activo = true
