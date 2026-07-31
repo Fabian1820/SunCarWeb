@@ -16,6 +16,10 @@ export const OFERTAS_CONFECCION_ENDPOINTS = {
   ESTADO_OFERTA_CLIENTE: (numero: string) =>
     `${API_BASE}/cliente/${numero}/estado-oferta`,
 
+  // Ofertas confirmadas del cliente con monto_pendiente (liviano, para "Listo para pagar")
+  OFERTAS_CONFIRMADAS_PARA_PAGO: (numero: string) =>
+    `${API_BASE}/cliente/${numero}/confirmadas-para-pago`,
+
   // Listar leads con ofertas
   LEADS_CON_OFERTAS: `${API_BASE}/leads-con-ofertas`,
 

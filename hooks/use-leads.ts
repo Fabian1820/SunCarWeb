@@ -16,6 +16,12 @@ interface LeadFilters {
   estado: string[];
   fuente: string;
   comercial: string;
+  /**
+   * Nombres de los comerciales que integran el equipo (B2B/B2C) seleccionado
+   * en el filtro "Equipo". Se resuelve en la página (vía useComercialEquipoMap)
+   * y se manda como lista al backend. Vacío = sin filtro de equipo.
+   */
+  equipoComerciales: string[];
   provincia: string[];
   municipio: string[];
   ofertas: OfertasFilter;
@@ -152,6 +158,7 @@ export function useLeads(): UseLeadsReturn {
     estado: [],
     fuente: "",
     comercial: "",
+    equipoComerciales: [],
     provincia: [],
     municipio: [],
     ofertas: "",

@@ -551,6 +551,7 @@ export function ClientsTable({
     obtenerNumerosClientesConOfertas,
     obtenerOfertaPorCliente,
     obtenerEstadoOfertaCliente,
+    obtenerOfertasConfirmadasParaPago,
     eliminarOferta,
     refetch: refetchOfertas,
   } = useOfertasConfeccion();
@@ -2315,34 +2316,6 @@ export function ClientsTable({
     }
   };
 
-  const resolveOfertaConfirmadaCliente = (
-    ofertasCliente: OfertaConfeccion[],
-    estadoResult: {
-      oferta_id_confirmada: string | null;
-      numero_oferta_confirmada: string | null;
-      codigo_oferta_confirmada: string | null;
-    },
-  ) =>
-    (estadoResult.oferta_id_confirmada
-      ? ofertasCliente.find(
-          (item) => item.id === estadoResult.oferta_id_confirmada,
-        )
-      : undefined) ??
-    (estadoResult.numero_oferta_confirmada
-      ? ofertasCliente.find(
-          (item) =>
-            item.numero_oferta === estadoResult.numero_oferta_confirmada,
-        )
-      : undefined) ??
-    (estadoResult.codigo_oferta_confirmada
-      ? ofertasCliente.find(
-          (item) =>
-            item.numero_oferta === estadoResult.codigo_oferta_confirmada ||
-            item.id === estadoResult.codigo_oferta_confirmada,
-        )
-      : undefined) ??
-    ofertasCliente.find((item) => item.estado === "confirmada_por_cliente");
-
   const handleOpenListoPagoDialog = async (client: Cliente) => {
     const numeroCliente = normalizeClienteNumero(client.numero);
     if (!numeroCliente) {
@@ -2365,52 +2338,29 @@ export function ClientsTable({
     setComentarioContabilidadListoPago("");
 
     try {
-      const [estadoResult, result] = await Promise.all([
-        obtenerEstadoOfertaCliente(numeroCliente),
-        obtenerOfertaPorCliente(numeroCliente),
-      ]);
-      const ofertasCliente = result.ofertas?.length
-        ? result.ofertas
-        : result.oferta
-          ? [result.oferta]
-          : [];
+      const { success, ofertas } =
+        await obtenerOfertasConfirmadasParaPago(numeroCliente);
 
-      const tieneOfertaAsignada =
-        result.success &&
-        Array.isArray(ofertasCliente) &&
-        ofertasCliente.length > 0;
-      setTieneOfertaAsignadaListoPago(tieneOfertaAsignada);
-
-      const ofertasConfirmadas = ofertasCliente.filter(
-        (item) => item.estado === "confirmada_por_cliente",
-      );
+      const ofertasConfirmadas = (ofertas || []) as OfertaConfeccion[];
       setOfertasConfirmadasListoPago(ofertasConfirmadas);
 
-      const ofertaConfirmada = resolveOfertaConfirmadaCliente(ofertasCliente, {
-        oferta_id_confirmada: estadoResult.oferta_id_confirmada,
-        numero_oferta_confirmada: estadoResult.numero_oferta_confirmada,
-        codigo_oferta_confirmada: estadoResult.codigo_oferta_confirmada,
-      });
-
-      const tieneConfirmada =
-        !estadoResult.error &&
-        Boolean(estadoResult.tiene_oferta_confirmada_por_cliente) &&
-        Boolean(ofertaConfirmada);
+      const tieneConfirmada = success && ofertasConfirmadas.length > 0;
+      setTieneOfertaAsignadaListoPago(tieneConfirmada);
       setTieneOfertaConfirmadaListoPago(tieneConfirmada);
 
-      const ofertaPreview = ofertaConfirmada ?? ofertasCliente[0] ?? null;
+      const ofertaPreview = ofertasConfirmadas[0] ?? null;
       setOfertaListoPagoSeleccionada(ofertaPreview);
       setComentarioContabilidadListoPago(
-        ofertaConfirmada?.comentario_contabilidad || "",
+        ofertaPreview?.comentario_contabilidad || "",
       );
       setClienteListoParaPagarMap((prev) => ({
         ...prev,
-        [numeroCliente]: ofertasCliente.some((item) =>
+        [numeroCliente]: ofertasConfirmadas.some((item) =>
           Boolean(item.cliente_listo_para_pagar),
         ),
       }));
 
-      if (estadoResult.error) {
+      if (!success) {
         toast({
           title: "Aviso",
           description:

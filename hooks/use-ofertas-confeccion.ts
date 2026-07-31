@@ -869,6 +869,51 @@ export function useOfertasConfeccion(options?: { autoLoad?: boolean }) {
     [],
   );
 
+  const obtenerOfertasConfirmadasParaPago = useCallback(
+    async (
+      clienteNumero: string,
+    ): Promise<{
+      success: boolean;
+      ofertas: Array<{
+        id: string;
+        numero_oferta?: string | null;
+        nombre?: string | null;
+        estado?: string | null;
+        precio_final?: number | null;
+        monto_pendiente?: number | null;
+        cliente_listo_para_pagar?: boolean;
+        comentario_contabilidad?: string | null;
+        fecha_confirmada?: string | null;
+      }>;
+    }> => {
+      try {
+        const numeroNormalizado = normalizeClienteNumero(clienteNumero);
+        if (!numeroNormalizado) {
+          return { success: false, ofertas: [] };
+        }
+        const url = buildApiUrl(
+          OFERTAS_CONFECCION_ENDPOINTS.OFERTAS_CONFIRMADAS_PARA_PAGO(
+            encodeURIComponent(numeroNormalizado),
+          ),
+        );
+        const response = await fetch(url, {
+          method: "GET",
+          headers: getCommonHeaders(),
+        });
+        if (!response.ok) {
+          return { success: false, ofertas: [] };
+        }
+        const data = await response.json();
+        const ofertas = Array.isArray(data?.data) ? data.data : [];
+        return { success: true, ofertas };
+      } catch (error) {
+        console.error("💥 Error en obtenerOfertasConfirmadasParaPago:", error);
+        return { success: false, ofertas: [] };
+      }
+    },
+    [],
+  );
+
   const asignarOfertaALead = useCallback(
     async (ofertaGenericaId: string, leadId: string) => {
       try {
@@ -968,6 +1013,7 @@ export function useOfertasConfeccion(options?: { autoLoad?: boolean }) {
     obtenerNumerosClientesConOfertas,
     obtenerOfertaPorCliente,
     obtenerEstadoOfertaCliente,
+    obtenerOfertasConfirmadasParaPago,
     obtenerIdsLeadsConOfertas,
     obtenerOfertaPorLead,
     asignarOfertaALead,

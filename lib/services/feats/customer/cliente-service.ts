@@ -21,7 +21,7 @@ type ClienteListParams = {
   limit?: number;
   estado?: string | string[];
   fuente?: string;
-  comercial?: string;
+  comercial?: string | string[];
   fechaDesde?: string;
   fechaHasta?: string;
   activo?: boolean;
@@ -137,7 +137,7 @@ export class ClienteService {
       search.append("skip", params.skip.toString());
     if (params.limit !== undefined)
       search.append("limit", params.limit.toString());
-    if (params.comercial) search.append("comercial", params.comercial);
+    appendMulti("comercial", params.comercial);
     if (params.fechaDesde) search.append("fechaDesde", params.fechaDesde);
     if (params.fechaHasta) search.append("fechaHasta", params.fechaHasta);
     if (params.activo !== undefined) {

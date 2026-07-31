@@ -28,7 +28,7 @@ export class LeadService {
       nombre?: string;
       telefono?: string;
       direccion?: string;
-      comercial?: string;
+      comercial?: string | string[];
       estado?: string | string[];
       fuente?: string;
       provincia?: string | string[];
@@ -57,7 +57,7 @@ export class LeadService {
     if (params.nombre) search.append("nombre", params.nombre);
     if (params.telefono) search.append("telefono", params.telefono);
     if (params.direccion) search.append("direccion", params.direccion);
-    if (params.comercial) search.append("comercial", params.comercial);
+    appendMulti("comercial", params.comercial);
     appendMulti("estado", params.estado);
     if (params.fuente) search.append("fuente", params.fuente);
     appendMulti("provincia", params.provincia);
