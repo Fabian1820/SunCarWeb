@@ -8,11 +8,7 @@ import { PWAInstallPrompt } from "@/components/shared/molecule/pwa-install-promp
 import { OfflineIndicator } from "@/components/shared/molecule/offline-indicator"
 import { BackendStatusBanner } from "@/components/shared/molecule/backend-status-banner"
 import { ValidationErrorOverlay } from "@/components/shared/molecule/validation-error-overlay"
-import { PersonalMessageOverlay } from "@/components/shared/molecule/personal-message-overlay"
 import { Toaster } from "@/components/shared/molecule/toaster"
-import { FixedHeaderWatcher } from "@/components/shared/atom/fixed-header-watcher"
-import { NotificationBell } from "@/components/shared/organism/notification-bell"
-import { SolicitudDesarrolloButton } from "@/components/shared/organism/solicitud-desarrollo-button"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -93,13 +89,7 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <AuthProvider>
-          <AuthGuard>
-            <FixedHeaderWatcher />
-            {children}
-            <PersonalMessageOverlay />
-            <NotificationBell />
-            <SolicitudDesarrolloButton />
-          </AuthGuard>
+          <AuthGuard>{children}</AuthGuard>
         </AuthProvider>
         <PWAInstallPrompt />
         <OfflineIndicator />

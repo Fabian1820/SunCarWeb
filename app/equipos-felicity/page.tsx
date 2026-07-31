@@ -26,6 +26,7 @@ import {
   Search,
   Signal,
   Unplug,
+  UploadCloud,
   Wifi,
   WifiOff,
   Zap,
@@ -133,32 +134,40 @@ function EquiposFelicityContent() {
             : "Monitoreo y administración de inversores y baterías FSolar"
         }
         actions={
-          vinculada ? (
-            <>
-              <Button variant="outline" size="sm" onClick={() => cargar(true)} disabled={refrescando}>
-                {refrescando ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin sm:mr-1.5" />
-                ) : (
-                  <RefreshCw className="h-3.5 w-3.5 sm:mr-1.5" />
-                )}
-                <span className="hidden sm:inline">Refrescar</span>
+          <>
+            <Link href="/equipos-felicity/actualizaciones">
+              <Button variant="outline" size="sm">
+                <UploadCloud className="h-3.5 w-3.5 sm:mr-1.5" />
+                <span className="hidden sm:inline">Actualizaciones</span>
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleDesvincular}
-                disabled={desvinculando}
-                className="text-rose-600 border-rose-200 hover:bg-rose-50"
-              >
-                {desvinculando ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin sm:mr-1.5" />
-                ) : (
-                  <Unplug className="h-3.5 w-3.5 sm:mr-1.5" />
-                )}
-                <span className="hidden sm:inline">Desvincular</span>
-              </Button>
-            </>
-          ) : undefined
+            </Link>
+            {vinculada ? (
+              <>
+                <Button variant="outline" size="sm" onClick={() => cargar(true)} disabled={refrescando}>
+                  {refrescando ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin sm:mr-1.5" />
+                  ) : (
+                    <RefreshCw className="h-3.5 w-3.5 sm:mr-1.5" />
+                  )}
+                  <span className="hidden sm:inline">Refrescar</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDesvincular}
+                  disabled={desvinculando}
+                  className="text-rose-600 border-rose-200 hover:bg-rose-50"
+                >
+                  {desvinculando ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin sm:mr-1.5" />
+                  ) : (
+                    <Unplug className="h-3.5 w-3.5 sm:mr-1.5" />
+                  )}
+                  <span className="hidden sm:inline">Desvincular</span>
+                </Button>
+              </>
+            ) : null}
+          </>
         }
       />
 
