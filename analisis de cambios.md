@@ -2,6 +2,20 @@
 
 ---
 
+## 📅 1 de Agosto, 2026
+
+### Resumen de cambios (últimas 24h)
+
+Sin commits nuevos de código. El único commit en las últimas 24h es "Analisis diario Claude" (generado automáticamente). No hay cambios en producción.
+
+---
+
+### Puede dar bateo
+
+Sin cambios nuevos — sin riesgos nuevos.
+
+---
+
 ## 📅 31 de Julio, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -83,40 +97,6 @@ Sin commits nuevos de código. El único commit en las últimas 24h es "Analisis
 ### Puede dar bateo
 
 Sin cambios nuevos — sin riesgos nuevos.
-
----
-
-## 📅 24 de Julio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**2 commits reales** de yany1509 — ambos en el módulo de Obras Terminadas: nuevos botones de exportación PDF de facturas omitiendo la tabla de materiales y la fila "Comercial". El primero agrega un botón por fila; el segundo agrega exportación masiva de todas las facturas listadas en un único PDF.
-
----
-
-### Área 1: Obras Terminadas — botón PDF de factura sin materiales ni comercial (1 commit — yany1509, 15:03)
-
-- **`feat(obras-terminadas): boton exportar PDF de factura sin materiales ni comercial`** — Agrega `ExportFacturaClienteService.exportarPDFResumen`, que reutiliza `renderFactura` con nuevas opciones (`incluirMateriales`/`incluirComercial`) para omitir la tabla de materiales y la fila "Comercial". Nuevo botón por fila en la tabla de Facturas de Obras Terminadas, junto al de "Exportar PDF" existente.
-
----
-
-### Área 2: Obras Terminadas — exportación masiva PDF sin materiales ni comercial (1 commit — yany1509, 15:37)
-
-- **`feat(obras-terminadas): boton para exportar todas las facturas en PDF sin materiales ni comercial`** — Complementa el botón por fila con una variante masiva: junta todas las facturas listadas en un único PDF (una por página), igual que "Exportar todas (PDF)" pero omitiendo materiales y comercial.
-
----
-
-### Puede dar bateo
-
-1. **`renderFactura` con nuevas opciones — edge cases sin cobertura en todos los tipos de factura**: Si algún tipo de factura depende de `materiales` para calcular subtotales o totales mostrados en otras secciones del PDF, omitirlos puede producir totales incorrectos o campos vacíos inesperados.
-
-2. **PDF masivo sin cota máxima de facturas — posible bloqueo del navegador**: El botón "Exportar todas" concatena todas las facturas listadas sin límite. En listas largas (>50 facturas), la generación en el navegador puede agotar memoria o tiempo de espera sin feedback de progreso al usuario.
-
-3. **Dos commits en 34 minutos — posible build intermedio en producción**: Si Railway auto-deploy está activo, el primer commit (botón por fila) hizo deploy antes del segundo (masivo). En esa ventana existía el botón individual pero no el masivo.
-
-4. **`incluirComercial: false` — fila omitida puede desplazar el layout del PDF**: Si la fila "Comercial" ocupa espacio reservado en el template, omitirla puede dejar espacio vacío o correrse el diseño dependiendo de cómo `renderFactura` maneje la ausencia.
-
-5. **Sin tests de regresión sobre el flujo original "Exportar PDF"**: Los cambios en `renderFactura` para soportar las nuevas opciones pueden introducir regresiones en el flujo original (con materiales y comercial incluidos) si los valores por defecto de las nuevas opciones no están correctamente configurados.
 
 ---
 
@@ -265,4 +245,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
