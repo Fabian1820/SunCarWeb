@@ -59,6 +59,9 @@ export function AsignacionRecursosDialog({
   const [materialSeleccionado, setMaterialSeleccionado] = useState<Material | null>(null)
   const [materialComboOpen, setMaterialComboOpen] = useState(false)
   const [loadingMateriales, setLoadingMateriales] = useState(false)
+  // Un fallo del endpoint de materiales no debe disfrazarse de "Sin resultados":
+  // sin distinguirlos, un 401/500 se lee como "ese material no existe".
+  const [materialError, setMaterialError] = useState(false)
   const materialComboRef = useRef<HTMLDivElement>(null)
 
   // Shared state
@@ -82,6 +85,7 @@ export function AsignacionRecursosDialog({
     setMaterialResults([])
     setMaterialSeleccionado(null)
     setMaterialComboOpen(false)
+    setMaterialError(false)
     // Creación: "cantidad a asignar" (default 1).
     // Edición: "unidades a retirar". En modoEliminar arrancamos con TODAS; en
     // modoEditar arrancamos con 0 (nada para retirar) y el usuario tipea.
@@ -132,6 +136,7 @@ export function AsignacionRecursosDialog({
     const term = materialBusqueda.trim()
     if (!term) {
       setMaterialResults([])
+      setMaterialError(false)
       return
     }
     const handler = setTimeout(async () => {
@@ -141,8 +146,10 @@ export function AsignacionRecursosDialog({
         // materiales sin costo antes de intentar asignarlos.
         const results = await MaterialService.searchMaterialesConCosto(term, 15)
         setMaterialResults(results)
+        setMaterialError(false)
       } catch {
         setMaterialResults([])
+        setMaterialError(true)
       } finally {
         setLoadingMateriales(false)
       }
@@ -223,6 +230,34 @@ export function AsignacionRecursosDialog({
         : !!materialSeleccionado && cantidadValida && cantidadNum >= 1)
       && (!sinCosto || permitirCostoCero)
       && !fechaFutura
+
+  // ── Por qué está deshabilitado el botón ────────────────────────────────────
+  // Sin esto el botón se apaga en silencio y el motivo más común (escribir en el
+  // buscador sin llegar a elegir una fila) es invisible: el input queda con texto
+  // y parece un campo lleno.
+  const itemLabel = itemTipo === 'medio_basico' ? 'medio básico' : 'material'
+  const itemSeleccionado = itemTipo === 'medio_basico' ? medioSeleccionado : materialSeleccionado
+  const busquedaEscrita = (itemTipo === 'medio_basico' ? medioBusqueda : materialBusqueda).trim() !== ""
+
+  const motivoBloqueo: string | null = (() => {
+    if (canSave || loading) return null
+    if (isEdit) {
+      if (!cantidadValida) return "Indica cuántas unidades retirar."
+      if (retiroExcedeStock) return `No puedes retirar más de ${cantidadOriginal} unidad${cantidadOriginal === 1 ? "" : "es"}.`
+      if (!motivoOk) return "Selecciona el motivo del cambio de cantidad."
+      if (!hayAlgoQueGuardar) return "Todavía no hay cambios para guardar."
+      return null
+    }
+    if (!itemSeleccionado) {
+      return busquedaEscrita
+        ? `Escribiste un nombre pero aún no elegiste el ${itemLabel}: haz clic en una fila de la lista de resultados.`
+        : `Selecciona un ${itemLabel} para asignar.`
+    }
+    if (!cantidadValida || cantidadNum < 1) return "La cantidad debe ser 1 o más."
+    if (sinCosto && !permitirCostoCero) return `Este ${itemLabel} no tiene costo: marca “Permitir costo cero” para continuar.`
+    if (fechaFutura) return "La fecha de asignación no puede ser futura."
+    return null
+  })()
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -407,6 +442,10 @@ export function AsignacionRecursosDialog({
                         <p className="px-3 py-4 text-center text-sm text-gray-400">Escribe para buscar materiales</p>
                       ) : loadingMateriales ? (
                         <p className="px-3 py-4 text-center text-sm text-gray-400">Buscando...</p>
+                      ) : materialError ? (
+                        <p className="px-3 py-4 text-center text-sm text-red-600">
+                          No se pudo buscar materiales. Revisa tu conexión e intenta de nuevo.
+                        </p>
                       ) : materialResults.length === 0 ? (
                         <p className="px-3 py-4 text-center text-sm text-gray-400">Sin resultados</p>
                       ) : (
@@ -576,6 +615,10 @@ export function AsignacionRecursosDialog({
                 />
               </div>
             </div>
+          )}
+
+          {motivoBloqueo && (
+            <p className="text-xs text-amber-700 text-right pt-1">{motivoBloqueo}</p>
           )}
 
           <div className="flex justify-end gap-2 pt-1">
