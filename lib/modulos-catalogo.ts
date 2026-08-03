@@ -604,6 +604,15 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     grupo: "area-direccion",
     alwaysVisible: true,
   },
+  {
+    key: "informe-direccion",
+    label: "Informe de Dirección",
+    descripcion: "Genera un informe comparativo de desempeño entre dos periodos cualesquiera.",
+    icon: BarChart3,
+    iconClass: "text-emerald-800",
+    href: "/informe-direccion",
+    grupo: "area-direccion",
+  },
 
   // ───────── Marketing ─────────
   {
