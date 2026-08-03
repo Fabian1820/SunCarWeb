@@ -51,8 +51,13 @@ const formatMaterialNombre = (m: MaterialFactura): string => {
     codigo ||
     m.material_id ||
     "";
-  const codigoSuffix = codigo && codigo !== nombre ? ` [${codigo}]` : "";
-  return `${nombre}${codigoSuffix}`.trim();
+  // El código va en su propia columna (ver `getMaterialCodigo`), no anexado aquí.
+  return nombre.trim();
+};
+
+const getMaterialCodigo = (m: MaterialFactura): string => {
+  if (typeof m === "string") return "";
+  return (m.material_codigo || m.codigo || "").trim();
 };
 
 const getMaterialCantidad = (m: MaterialFactura): number | "" => {
@@ -137,6 +142,7 @@ export class ExportFacturasExcelService {
       "Fecha",
       "Cantidad materiales",
       "Material",
+      "Código",
       "Cantidad",
       "Total sin descuento (USD)",
       "Descuento (USD)",
@@ -148,10 +154,12 @@ export class ExportFacturasExcelService {
     ];
 
     const materialCol = headerOrder.indexOf("Material");
+    const codigoCol = headerOrder.indexOf("Código");
     const cantidadCol = headerOrder.indexOf("Cantidad");
+    // Material/Código/Cantidad varían por fila física: no se fusionan.
     const mergeColumnIndexes = headerOrder
       .map((_, i) => i)
-      .filter((i) => i !== materialCol && i !== cantidadCol);
+      .filter((i) => i !== materialCol && i !== codigoCol && i !== cantidadCol);
 
     const aoa: unknown[][] = [headerOrder];
     const merges: XLSX.Range[] = [];
@@ -163,6 +171,8 @@ export class ExportFacturasExcelService {
         lista.length > 0
           ? lista.map((m) => formatMaterialNombre(m))
           : [""];
+      const codigos =
+        lista.length > 0 ? lista.map((m) => getMaterialCodigo(m)) : [""];
       const cantidades =
         lista.length > 0
           ? lista.map((m) => getMaterialCantidad(m))
@@ -177,6 +187,7 @@ export class ExportFacturasExcelService {
           i === 0 ? base["Fecha"] : "",
           i === 0 ? base["Cantidad materiales"] : "",
           materiales[i] ?? "",
+          codigos[i] ?? "",
           cantidades[i] ?? "",
           i === 0 ? base["Total sin descuento (USD)"] : "",
           i === 0 ? base["Descuento (USD)"] : "",
@@ -210,6 +221,7 @@ export class ExportFacturasExcelService {
       { wch: 12 }, // Fecha
       { wch: 12 }, // Cantidad materiales
       { wch: 36 }, // Material
+      { wch: 16 }, // Código
       { wch: 10 }, // Cantidad
       { wch: 22 }, // Total sin descuento
       { wch: 16 }, // Descuento
