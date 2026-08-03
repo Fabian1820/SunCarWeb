@@ -4,6 +4,7 @@ import { useState } from "react";
 import { RouteGuard } from "@/components/auth/route-guard";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { Button } from "@/components/shared/atom/button";
+import { Checkbox } from "@/components/shared/molecule/checkbox";
 import { Label } from "@/components/shared/atom/label";
 import { MonthPicker } from "@/components/shared/molecule/month-picker";
 import {
@@ -16,7 +17,20 @@ import { Toaster } from "@/components/shared/molecule/toaster";
 import { useToast } from "@/hooks/use-toast";
 import { FileDown, Loader2 } from "lucide-react";
 import { InformeDireccionService } from "@/lib/services/feats/informe-direccion/informe-direccion-service";
-import { generarInformeDireccionPdf } from "@/lib/services/feats/informe-direccion/export-informe-direccion-service";
+import {
+  generarInformeDireccionPdf,
+  SECCIONES_INFORME_DIRECCION_DEFAULT,
+  SECCIONES_INFORME_DIRECCION_LABELS,
+  type SeccionInformeDireccionKey,
+  type SeccionesInformeDireccion,
+} from "@/lib/services/feats/informe-direccion/export-informe-direccion-service";
+
+const ORDEN_SECCIONES: SeccionInformeDireccionKey[] = [
+  "instaladoraGeneral",
+  "comercialInstaladora",
+  "ventas",
+  "comercialVentas",
+];
 
 function primerYUltimoDiaDeMes(mesInput: string): { desde: string; hasta: string } | null {
   if (!mesInput) return null;
@@ -35,6 +49,13 @@ function InformeDireccionContent() {
   const [mesA, setMesA] = useState("");
   const [mesB, setMesB] = useState("");
   const [generando, setGenerando] = useState(false);
+  const [secciones, setSecciones] = useState<SeccionesInformeDireccion>(SECCIONES_INFORME_DIRECCION_DEFAULT);
+
+  const ningunaSeccionSeleccionada = ORDEN_SECCIONES.every((k) => !secciones[k]);
+
+  const toggleSeccion = (key: SeccionInformeDireccionKey, checked: boolean) => {
+    setSecciones((prev) => ({ ...prev, [key]: checked }));
+  };
 
   const handleGenerar = async () => {
     const rangoA = primerYUltimoDiaDeMes(mesA);
@@ -43,6 +64,14 @@ function InformeDireccionContent() {
       toast({
         title: "Faltan meses",
         description: "Selecciona los dos meses que quieres comparar.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (ningunaSeccionSeleccionada) {
+      toast({
+        title: "Faltan secciones",
+        description: "Selecciona al menos una sección para incluir en el informe.",
         variant: "destructive",
       });
       return;
@@ -56,7 +85,7 @@ function InformeDireccionContent() {
         periodoBDesde: rangoB.desde,
         periodoBHasta: rangoB.hasta,
       });
-      generarInformeDireccionPdf(informe);
+      generarInformeDireccionPdf(informe, secciones);
       toast({ title: "Informe generado", description: "El PDF se descargó correctamente." });
     } catch (error) {
       console.error("[InformeDireccion] Error al generar informe:", error);
@@ -93,13 +122,29 @@ function InformeDireccionContent() {
             </div>
           </div>
 
-          <p className="text-sm text-muted-foreground">
-            El informe incluye Instaladora General, Comercial de Instaladora, Ventas y
-            Comercial de Ventas para ambos periodos, calculados en el momento a partir de
-            la base de datos.
-          </p>
+          <div className="space-y-2">
+            <Label>Secciones a incluir</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {ORDEN_SECCIONES.map((key) => (
+                <div key={key} className="flex items-center gap-2">
+                  <Checkbox
+                    id={`seccion-${key}`}
+                    checked={secciones[key]}
+                    onCheckedChange={(checked) => toggleSeccion(key, checked === true)}
+                  />
+                  <Label htmlFor={`seccion-${key}`} className="font-normal cursor-pointer">
+                    {SECCIONES_INFORME_DIRECCION_LABELS[key]}
+                  </Label>
+                </div>
+              ))}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Cada sección seleccionada se calcula para ambos periodos, en el momento, a
+              partir de la base de datos.
+            </p>
+          </div>
 
-          <Button onClick={handleGenerar} disabled={generando || !mesA || !mesB}>
+          <Button onClick={handleGenerar} disabled={generando || !mesA || !mesB || ningunaSeccionSeleccionada}>
             {generando ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

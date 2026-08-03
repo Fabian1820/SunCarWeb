@@ -62,10 +62,10 @@ function instaladoraGeneralFilas(a: InstaladoraGeneral, b: InstaladoraGeneral): 
     ["Clientes nuevos (total)", String(a.clientes_nuevos_total), String(b.clientes_nuevos_total)],
     ["  de los cuales, trabajadores SunCar", String(a.clientes_nuevos_trabajadores), String(b.clientes_nuevos_trabajadores)],
     ["  de los cuales, clientes reales", String(a.clientes_nuevos_reales), String(b.clientes_nuevos_reales)],
-    ["% conversión lead→cliente (reales)", `${a.conversion_pct}%`, `${b.conversion_pct}%`],
+    ["% conversión lead -> cliente (reales)", `${a.conversion_pct}%`, `${b.conversion_pct}%`],
     ["Instalaciones completadas", String(a.instalaciones_completadas), String(b.instalaciones_completadas)],
     [
-      "Días promedio confirmación→instalación",
+      "Días promedio confirmación -> instalación",
       a.dias_promedio_confirmacion_instalacion?.toString() ?? "—",
       b.dias_promedio_confirmacion_instalacion?.toString() ?? "—",
     ],
@@ -196,7 +196,32 @@ function ensureSpace(doc: jsPDF, y: number, needed: number): number {
   return y;
 }
 
-export function generarInformeDireccionPdf(informe: InformeComparativo): void {
+export type SeccionInformeDireccionKey =
+  | "instaladoraGeneral"
+  | "comercialInstaladora"
+  | "ventas"
+  | "comercialVentas";
+
+export type SeccionesInformeDireccion = Record<SeccionInformeDireccionKey, boolean>;
+
+export const SECCIONES_INFORME_DIRECCION_DEFAULT: SeccionesInformeDireccion = {
+  instaladoraGeneral: true,
+  comercialInstaladora: true,
+  ventas: true,
+  comercialVentas: true,
+};
+
+export const SECCIONES_INFORME_DIRECCION_LABELS: Record<SeccionInformeDireccionKey, string> = {
+  instaladoraGeneral: "Instaladora General",
+  comercialInstaladora: "Comercial de Instaladora (individual)",
+  ventas: "Ventas (solicitudes de venta)",
+  comercialVentas: "Comercial de Ventas (individual)",
+};
+
+export function generarInformeDireccionPdf(
+  informe: InformeComparativo,
+  secciones: SeccionesInformeDireccion = SECCIONES_INFORME_DIRECCION_DEFAULT,
+): void {
   const { periodo_a, periodo_b } = informe;
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
@@ -218,25 +243,34 @@ export function generarInformeDireccionPdf(informe: InformeComparativo): void {
   let y = 68;
   const labelA = "Periodo A";
   const labelB = "Periodo B";
+  let n = 1;
 
-  y = seccion(doc, "1. Instaladora General", y);
-  y = tablaMetricas(doc, y, instaladoraGeneralFilas(periodo_a.instaladora_general, periodo_b.instaladora_general), labelA, labelB);
+  if (secciones.instaladoraGeneral) {
+    y = seccion(doc, `${n++}. Instaladora General`, y);
+    y = tablaMetricas(doc, y, instaladoraGeneralFilas(periodo_a.instaladora_general, periodo_b.instaladora_general), labelA, labelB);
+  }
 
-  y = ensureSpace(doc, y, 60);
-  y = seccion(doc, "2. Comercial de Instaladora (individual)", y);
-  y = tablaComercialInstaladora(doc, y, `Periodo A (${labelPeriodo(periodo_a)})`, periodo_a.comercial_instaladora);
-  y = ensureSpace(doc, y, 60);
-  y = tablaComercialInstaladora(doc, y, `Periodo B (${labelPeriodo(periodo_b)})`, periodo_b.comercial_instaladora);
+  if (secciones.comercialInstaladora) {
+    y = ensureSpace(doc, y, 60);
+    y = seccion(doc, `${n++}. Comercial de Instaladora (individual)`, y);
+    y = tablaComercialInstaladora(doc, y, `Periodo A (${labelPeriodo(periodo_a)})`, periodo_a.comercial_instaladora);
+    y = ensureSpace(doc, y, 60);
+    y = tablaComercialInstaladora(doc, y, `Periodo B (${labelPeriodo(periodo_b)})`, periodo_b.comercial_instaladora);
+  }
 
-  y = ensureSpace(doc, y, 60);
-  y = seccion(doc, "3. Ventas (solicitudes de venta — almacén/tienda)", y);
-  y = tablaMetricas(doc, y, ventasFilas(periodo_a.ventas, periodo_b.ventas), labelA, labelB);
+  if (secciones.ventas) {
+    y = ensureSpace(doc, y, 60);
+    y = seccion(doc, `${n++}. Ventas (solicitudes de venta — almacén/tienda)`, y);
+    y = tablaMetricas(doc, y, ventasFilas(periodo_a.ventas, periodo_b.ventas), labelA, labelB);
+  }
 
-  y = ensureSpace(doc, y, 60);
-  y = seccion(doc, "4. Comercial de Ventas (individual)", y);
-  y = tablaComercialVentas(doc, y, `Periodo A (${labelPeriodo(periodo_a)})`, periodo_a.comercial_ventas);
-  y = ensureSpace(doc, y, 60);
-  y = tablaComercialVentas(doc, y, `Periodo B (${labelPeriodo(periodo_b)})`, periodo_b.comercial_ventas);
+  if (secciones.comercialVentas) {
+    y = ensureSpace(doc, y, 60);
+    y = seccion(doc, `${n++}. Comercial de Ventas (individual)`, y);
+    y = tablaComercialVentas(doc, y, `Periodo A (${labelPeriodo(periodo_a)})`, periodo_a.comercial_ventas);
+    y = ensureSpace(doc, y, 60);
+    y = tablaComercialVentas(doc, y, `Periodo B (${labelPeriodo(periodo_b)})`, periodo_b.comercial_ventas);
+  }
 
   const pageCount = doc.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
