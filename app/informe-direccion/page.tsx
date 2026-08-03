@@ -4,8 +4,8 @@ import { useState } from "react";
 import { RouteGuard } from "@/components/auth/route-guard";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { Button } from "@/components/shared/atom/button";
-import { Input } from "@/components/shared/atom/input";
 import { Label } from "@/components/shared/atom/label";
+import { MonthPicker } from "@/components/shared/molecule/month-picker";
 import {
   Card,
   CardContent,
@@ -85,21 +85,11 @@ function InformeDireccionContent() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="mes-a">Periodo A</Label>
-              <Input
-                id="mes-a"
-                type="month"
-                value={mesA}
-                onChange={(e) => setMesA(e.target.value)}
-              />
+              <MonthPicker id="mes-a" value={mesA} onChange={setMesA} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="mes-b">Periodo B</Label>
-              <Input
-                id="mes-b"
-                type="month"
-                value={mesB}
-                onChange={(e) => setMesB(e.target.value)}
-              />
+              <MonthPicker id="mes-b" value={mesB} onChange={setMesB} />
             </div>
           </div>
 

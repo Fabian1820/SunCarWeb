@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { RouteGuard } from "@/components/auth/route-guard";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { Button } from "@/components/shared/atom/button";
-import { Input } from "@/components/shared/atom/input";
 import { Label } from "@/components/shared/atom/label";
+import { MonthPicker } from "@/components/shared/molecule/month-picker";
 import { Textarea } from "@/components/shared/molecule/textarea";
 import { Badge } from "@/components/shared/atom/badge";
 import {
@@ -218,12 +218,7 @@ function EvaluacionesContent() {
           <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
             <div className="space-y-1.5">
               <Label htmlFor="mes">Mes evaluado</Label>
-              <Input
-                id="mes"
-                type="month"
-                value={mes}
-                onChange={(e) => setMes(e.target.value)}
-              />
+              <MonthPicker id="mes" value={mes} onChange={setMes} />
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label>Comercial</Label>
