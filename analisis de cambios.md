@@ -2,122 +2,7 @@
 
 ---
 
-## 📅 21 de Julio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**7 commits reales** de Fabian1820 — todos dedicados a optimización de rendimiento de fotos/imágenes de materiales: ciclo completo de diagnóstico → fix → lazy load → gate por health check del backend, cubriendo PDF export y 15+ ubicaciones de la UI.
-
----
-
-### Área 1: PDF export — caché + prefetch paralelo + downscale de fotos (1 commit — Fabian1820, 13:51)
-
-- **`perf(exportar-oferta): acelera la descarga del PDF con caché + prefetch paralelo + downscale de fotos`** — Las fotos se servían desde MinIO sin thumbnail (hasta 5 MB c/u) y se descargaban en serie dentro del loop de filas, re-descargando por cada variante. Solución: `imageCache` a nivel de módulo + dedup de requests en vuelo (`inflightImages`), prefetch en paralelo con `Promise.all`, downscale en canvas a 300px + JPEG 0.82 (pasa de ~2-5 MB a ~20-40 KB por foto). El logo (PNG con transparencia) se preserva sin downscale.
-
----
-
-### Área 2: Instrumentación temporal (2 commits — Fabian1820, 14:57 y 15:15)
-
-- **`chore(exportar-oferta)`** — Dos commits de instrumentación con `performance.now()` para medir fases del PDF export y contar llamadas a `doc.getTextWidth`/`doc.splitTextToSize`. **Temporales, eliminados en commit posterior.** Diagnóstico confirmó: imágenes no eran el cuello (111 KB totales), sino 3 URLs de S3 con 502/CORS que hacían re-fetch de ~15s cada vez que el loop de materiales las encontraba sin caché negativo.
-
----
-
-### Área 3: Caché negativo para URLs rotas (2 commits — Fabian1820, 15:24 y 15:42)
-
-- **`fix(exportar-oferta): cachea imágenes fallidas + timeout de fetch`** — `failedImages: Set<string>` como caché negativo: una URL que falla no se reintenta en el mismo pageview. AbortController con 6s de timeout para no esperar los 15s de MinIO en URLs rotas.
-- **`fix(exportar-oferta): quita timeout de 6s que estaba abortando fetches legítimos`** — Regresión inmediata: las conexiones Cuba/MinIO toman ~15s legítimamente, el AbortController abortaba fetches válidos y los metía en `failedImages` → 0 fotos en el PDF. Se elimina el AbortController y se mantiene el `failedImages` Set. Se añade guard para `AbortError`: si se aborta por cierre del diálogo, no se cachea en negativo.
-
----
-
-### Área 4: Gate `foto_disponible` por health check del backend (1 commit — Fabian1820, 18:09)
-
-- **`feat(fotos-material): salta fotos marcadas como rotas por health check server-side`** — El backend persiste `foto_disponible` por material (via `POST /api/admin/verificar-fotos-materiales`). Semántica fail-open: `null`/`undefined` pasa; solo `foto_disponible === false` salta la descarga. Afecta: `material-types.ts` (nuevos campos opcionales `foto_disponible`, `foto_verificada_at`, `foto_size`), `clients-table.tsx`, `leads-table.tsx`, `confeccion-ofertas-view.tsx` y `gestionar-ofertas-venta-dialog.tsx`.
-
----
-
-### Área 5: Lazy load en diálogo de detalles de oferta (1 commit — Fabian1820, 19:12)
-
-- **`perf(ver-oferta): lazy load + gate por foto_disponible en el diálogo de detalles`** — El diálogo de detalles de oferta (clientes-table, leads-table, planificación diaria, pendientes de visita del instalador) disparaba todos los fetches en paralelo al abrirse. Ahora: `<LazyImage>` (IntersectionObserver + rootMargin 120px) para foto de portada; gate `material.foto_disponible !== false` + `<LazyImage>` para materiales.
-
----
-
-### Área 6: `<MaterialImage>` — gate + lazy load en 15 ubicaciones de la UI (1 commit — Fabian1820, 19:28)
-
-- **`perf(fotos-material): lazy load + gate foto_disponible en 15 sitios de la UI`** — Nuevo componente `<MaterialImage>` unificado (gate `foto_disponible === false` + `<LazyImage>`). Cubre: grid POS, tabla stock principal, movimientos, salida lote, solicitudes de transferencia (2 sitios), solicitudes-transferencia-table (2 sitios), catálogo web, stock mínimo, vales de salida (2 sitios), solicitudes de materiales (2 sitios), solicitudes de ventas, asignaciones materiales (2 sitios), confección de ofertas, ofertas confeccionadas (3 secciones). Añade `foto_disponible?: boolean | null` a `MaterialStockItem`.
-
----
-
-### Puede dar bateo
-
-1. **Instrumentación temporal — verificar que no quedó en bundle de producción**: Los commits de `chore` añadieron logs de performance y se eliminaron en el fix posterior. Verificar que ningún `console.log` ni las interfaces `ImagePerfEntry`/`ExportPerfMetrics` quedaron en el bundle final.
-
-2. **Ciclo add/remove AbortController en 18 minutos — build intermedio en producción**: El AbortController (6s) fue añadido en 15:24 y eliminado en 15:42. Si Railway auto-deploy es activo, un build con el AbortController llegó a producción. Usuarios en esa ventana habrán tenido 0 fotos en sus PDFs exportados.
-
-3. **`foto_disponible` gate requiere que el health check del backend haya corrido**: Si `POST /api/admin/verificar-fotos-materiales` no se ejecutó o el backend no devuelve el campo, todos los materiales tendrán `foto_disponible: undefined`. El gate fail-open no filtrará nada y el beneficio de rendimiento se pierde, aunque el código sea correcto.
-
-4. **`failedImages` Set sin evición — fotos reparadas en S3 no se recargan sin reload**: Si una URL rota en S3 se repara (e.g., se resubio la imagen), el Set de negativos la sigue evitando durante el resto del pageview. El usuario necesita recargar la página para ver fotos recién reparadas.
-
-5. **Canvas downscale + JPEG para materiales con transparencia**: Las fotos de materiales procesadas con JPEG 0.82 en canvas pierden el canal alpha. Si algún material usa PNG con fondo transparente, aparecerá con fondo negro/blanco en el PDF. El logo está excluido explícitamente, pero los materiales no.
-
-6. **5 ubicaciones sin migrar a `<MaterialImage>` siguen con raw `<img>`**: `inventario/stockajes-minimos-section` (dropdown), `solicitud-material-detail-dialog`, `vale-salida-detail-dialog`, `compras/compra-form-dialog` y `fichas-costo/calc-porcentaje-dialog` no fueron migrados. Siguen disparando requests a MinIO para fotos conocidas rotas.
-
-7. **`imageCache` a nivel de módulo sin límite de tamaño**: En Next.js App Router, el módulo puede persistir entre navegaciones SPA sin recarga completa. El cache acumula indefinidamente. Para sesiones largas con muchos materiales distintos, el uso de memoria puede crecer sin control.
-
-8. **`IntersectionObserver` en SSR/prerender**: `<LazyImage>` usa `IntersectionObserver`, disponible solo en el cliente. Dependiendo de la implementación, puede tirar errores en prerender estático o SSR si no hay guard `typeof window !== 'undefined'`.
-
-9. **`foto_disponible?: boolean | null` en tipos — cobertura incompleta posible**: El campo se añade en `material-types.ts` a `BackendMaterial`, `MaterialItem`, `Material` y `MaterialStockItem`. Si algún tipo intermedio de conversión no fue actualizado, TypeScript puede inferir el campo como `undefined` en rutas no actualizadas y el gate `!== false` pasará silenciosamente aunque el backend devuelva `false`.
-
----
-
-## 📅 20 de Julio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**4 commits reales** de yany1509 — todos en el módulo de ventas/pagos/devoluciones: (1) fix para que superAdmin pueda editar y cancelar cobros; (2) reflejo de devoluciones en tabla de Pagos Realizados con badge y corrección de bug de conversión USD; (3) badge de devolución por pago individual en Facturas Emitidas; (4) filtro "Devoluciones" en ambas pestañas de /solicitudes-ventas.
-
----
-
-### Área 1: Pagos — superAdmin puede editar y cancelar cobros (1 commit — yany1509, 12:11)
-
-- **`fix(pagos): superAdmin puede editar y cancelar cobros`** — `puedeEditarCobro` solo miraba una whitelist de 2 CIs hardcodeados, dejando fuera a cualquier superAdmin. Ahora también devuelve `true` para `user.is_superAdmin`, consistente con el resto de la app.
-
----
-
-### Área 2: Ventas — reflejar devoluciones en Pagos Realizados (1 commit — yany1509, 15:57)
-
-- **`fix(ventas): reflejar devoluciones en la tabla de Pagos Realizados`** — Ninguna devolución se veía en la interfaz aunque el backend la procesara bien: "Pend:" mostraba un snapshot congelado desde la creación del pago. Ahora cada fila muestra badge "Devuelto: $X (total/parcial)" y el botón "Devolución" se reemplaza por "Ya devuelto" cuando el pago ya se devolvió al 100%. El diálogo de registrar devolución descuenta lo ya devuelto del máximo permitido. Corrección de bug: "Pend:" convertía por `tasa_cambio` un valor que ya venía en USD.
-
----
-
-### Área 3: Ventas — devolución por pago individual en Facturas Emitidas (1 commit — yany1509, 16:53)
-
-- **`feat(ventas): mostrar devolucion por pago en Facturas Emitidas`** — Cada pago dentro de una factura ahora muestra badge "Devuelto: $X" cuando ese pago puntual tiene una devolución registrada — tanto en la tabla de Facturas Emitidas como en el diálogo de detalle. Antes solo se veía el total devuelto de toda la factura, sin saber a cuál pago pertenecía.
-
----
-
-### Área 4: Ventas — filtro "Devoluciones" en Pagos y Facturas (1 commit — yany1509, 17:57)
-
-- **`feat(ventas): filtro "Devoluciones" en Pagos realizados y Facturas emitidas`** — Nuevo selector (Todos / Con devolución / Sin devolución) en ambas pestañas de /solicitudes-ventas, mismo patrón visual que los demás filtros de la barra.
-
----
-
-### Puede dar bateo
-
-1. **Badge "Devuelto: $X" depende de campo `monto_devuelto` a nivel de pago individual en la respuesta del backend**: Si el backend solo devuelve el total devuelto a nivel de factura (no por pago individual), el badge nunca aparece silenciosamente y los usuarios no sabrán que existe una devolución en ese pago.
-
-2. **"Ya devuelto" — condición de 100% calculada con flotantes en frontend**: Si la comparación `monto_devuelto >= monto_pago` usa flotantes sin redondeo, casos borde (e.g., $99.999 devuelto vs $100.00 original) pueden dejar el botón mostrando "Devolución" en un pago ya completamente devuelto.
-
-3. **Filtro "Con devolución / Sin devolución" — riesgo de filtrado solo en cliente**: Si el filtro no se envía como parámetro al backend y opera solo sobre la página visible, la paginación y los exports no reflejarán resultados correctos en datasets que superen una página.
-
-4. **Bug de conversión USD en "Pend:" — el mismo patrón puede existir en otros módulos**: La corrección aplica a la tabla de Pagos Realizados de Ventas. Si el mismo error de doble conversión por `tasa_cambio` existe en Pagos Clientes, Vales u otros módulos con montos pendientes, esos siguen mostrando valores incorrectos.
-
-5. **`puedeEditarCobro` fix solo en frontend — endpoint sin validación de autorización en backend**: El fix expande el acceso a superAdmins en la UI, pero si el endpoint de edición/cancelación de cobros no valida el rol en el servidor, cualquier usuario autenticado podría llamarlo directamente ignorando el gating del frontend.
-
-6. **Diálogo de devolución descuenta lo ya devuelto calculado en frontend — desincronía posible**: El máximo permitido para una nueva devolución se calcula restando `monto_devuelto` del total. Si el backend no devuelve `monto_devuelto` actualizado tras cada operación, el diálogo puede permitir exceder el monto total devuelto posible sin error visible.
-
----
-
-## 📅 19 de Julio, 2026
+## 📅 2 de Agosto, 2026
 
 ### Resumen de cambios (últimas 24h)
 
@@ -131,11 +16,11 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 18 de Julio, 2026
+## 📅 1 de Agosto, 2026
 
 ### Resumen de cambios (últimas 24h)
 
-Sin commits nuevos de código. Los cambios reales del 17 de Julio (4 commits de yany1509 en pagos, devoluciones y vales) fueron capturados y documentados en la entrada de ayer. El único commit nuevo es "Analisis diario Claude" (generado automáticamente).
+Sin commits nuevos de código. El único commit en las últimas 24h es "Analisis diario Claude" (generado automáticamente). No hay cambios en producción.
 
 ---
 
@@ -145,163 +30,87 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 17 de Julio, 2026
+## 📅 31 de Julio, 2026
 
 ### Resumen de cambios (últimas 24h)
 
-**4 commits reales** de yany1509 — todos enfocados en flujos de pagos y devoluciones: (1) badge "Pendiente de selección" para ofertas amb iguas en Obras Terminadas; (2) botón de cancelar pago en Pagos Clientes; (3) botón de devolución de pagos de venta y badge "Anulada" en facturas; (4) motivo obligatorio en devoluciones de vale.
-
----
-
-### Área 1: Obras Terminadas — badge "Pendiente de selección" para ofertas amb iguas (1 commit — yany1509, 20:30)
-
-- **`fix(obras-terminadas): badge de pendiente de seleccion para ofertas ambiguas`** — Refleja el nuevo campo `estado_factura_detalle` del backend: badge ámbar "Pendiente de selección" (distinto del gris "Sin factura") para ofertas con 2+ ofertas confirmadas sin facturar que ya están esperando que el área económica elija cuál facturar. Incluye el filtro correspondiente en la barra de la tabla.
-
----
-
-### Área 2: Pagos Clientes — botón de cancelar pago (1 commit — yany1509, 20:31)
-
-- **`feat(pagos): boton de cancelar pago`** — Nuevo `CancelarPagoDialog` (motivo obligatorio) y botón en la tabla de Pagos Clientes que llama a `PATCH /pagos/{id}/cancelar`. La fila del pago cancelado queda tachada y en gris, con badge "Cancelado" y tooltip del motivo; se oculta el botón "Registrar devolución" si el pago ya está cancelado.
-
----
-
-### Área 3: Ventas — devolución de pagos y badge "Anulada" en facturas (1 commit — yany1509, 20:31)
-
-- **`feat(ventas): boton de devolucion de pagos y badge de factura anulada`** — Nuevo `RegistrarDevolucionPagoVentaDialog` y botón "Devolución" en la tabla de Pagos Realizados de Solicitudes Ventas, que llama al nuevo endpoint de devoluciones de pagos de venta. Si la devolución termina anulando la factura vinculada (todos sus pagos devueltos), la tabla y el detalle de Facturas Emitidas muestran badge roja "Anulada" con el motivo y el monto devuelto acumulado.
-
----
-
-### Área 4: Vales — motivo obligatorio en devoluciones (1 commit — yany1509, 20:44)
-
-- **`fix(vales): motivo obligatorio en devoluciones de vale`** — El campo "Comentario" era opcional (placeholder "Opcional") y se enviaba como `undefined` si quedaba vacío. Ahora es "Motivo de la devolución *", bloquea el envío (botón deshabilitado + toast) si está vacío, consistente con el backend.
+Sin commits nuevos de código. El único commit en las últimas 24h es "Analisis diario Claude" (generado automáticamente). No hay cambios en producción.
 
 ---
 
 ### Puede dar bateo
 
-1. **`PATCH /pagos/{id}/cancelar` — endpoint nuevo sin confirmar en backend**: Si no está implementado, todos los intentos de cancelación fallarán con 404 sin mensaje claro al usuario.
-
-2. **Cancelar pago — estado solo visual si el backend no lo valida**: Si el backend no bloquea operaciones sobre pagos cancelados (vincularlos a facturas, contarlos en saldos), el estado "Cancelado" sería decorativo y los datos financieros quedarían inconsistentes.
-
-3. **Endpoint devolución de pagos de venta — sin confirmar en backend**: El nuevo `RegistrarDevolucionPagoVentaDialog` depende de un endpoint no documentado en el commit. Si no existe, el botón falla con 404 o 405.
-
-4. **Badge "Anulada" — lógica de anulación calculada en backend, posible desincronía**: La condición "todos los pagos devueltos = factura anulada" la determina el backend. Si otro pago llega entre la devolución y la recarga, la UI puede mostrar "Anulada" para una factura que el backend aún considera activa.
-
-5. **`estado_factura_detalle` campo nuevo — ausente en respuestas históricas**: El badge "Pendiente de selección" depende de este campo. Si el backend no lo devuelve en facturas antiguas o si el deploy aún no llegó a producción, el badge nunca aparece y el filtro siempre devuelve 0 resultados.
-
-6. **Filtro "Pendiente de selección" — posible filtrado solo en cliente**: Si el filtro opera solo sobre la página visible y no se envía como parámetro al backend, la paginación y los exports no reflejarán correctamente los resultados.
-
-7. **Fix motivo obligatorio en vales — devoluciones en vuelo antes del deploy**: Si un usuario abrió el diálogo de devolución de vale justo antes del deploy, al recargar encontrará el campo obligatorio en un flujo que ya inició sin motivo.
+Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 15 de Julio, 2026
+## 📅 30 de Julio, 2026
 
 ### Resumen de cambios (últimas 24h)
 
-**3 commits reales** de yany1509 — todos en el módulo de Facturas: ciclo completo de la feature "Ajustar saldo", desde el botón inicial solo para centavos hasta un diálogo de monto libre con confirmación explícita y badge renombrado en 3 pantallas.
-
----
-
-### Área 1: Facturas — botón "Ajustar saldo" para centavos residuales (1 commit — yany1509, 16:35)
-
-- **`feat(facturas): boton "Ajustar saldo" para centavos residuales`** — En la tabla de Facturas (Obras Terminadas), cada oferta con `monto_pendiente` con decimales != 0 muestra un botón que llama al nuevo endpoint `/ajustar-saldo`: registra un pago de ajuste por los centavos exactos y refresca la fila.
-
----
-
-### Área 2: Facturas — diálogo de confirmación antes de ajustar (1 commit — yany1509, 16:53)
-
-- **`fix(facturas): confirma antes de ajustar saldo por redondeo`** — El botón aplicaba el ajuste al primer clic sin posibilidad de cancelar. Ahora abre un `ConfirmEditDialog` que muestra el monto exacto a ajustar, la oferta afectada, si queda deuda real o la oferta pasa a pagada, y aclara que el ajuste queda registrado como pago auditable no reversible desde la interfaz.
-
----
-
-### Área 3: Facturas — monto libre y label explícito "Ajuste de contabilidad" (1 commit — yany1509, 17:44)
-
-- **`feat(facturas): monto libre en el ajuste de saldo + label explicito`** — El botón "Ajustar saldo" ahora aparece en cualquier oferta con pendiente (no solo con centavos). Abre un nuevo `AjustarSaldoDialog` con input de monto editable — pre-llenado con el residuo de centavos si existe, o el pendiente completo si no — validado contra el total pendiente antes de confirmar. El tipo de pago "ajuste" se muestra explícitamente como "Ajuste de contabilidad" (badge ámbar) en las 3 pantallas donde aparece: Pagos Clientes (ambas vistas) y tabla de Obras Terminadas.
+Sin commits nuevos de código. El único commit en las últimas 24h es "Analisis diario Claude" (generado automáticamente). No hay cambios en producción.
 
 ---
 
 ### Puede dar bateo
 
-1. **`/ajustar-saldo` endpoint sin confirmar en backend — botón fallará con 404 o 422 si no está implementado**: No hay evidencia en frontend de que el endpoint preexistiera; fue nombrado en el primer commit como nuevo.
-
-2. **Validación de monto solo en cliente — race condition de sobrepago**: Si llega otro pago entre que el usuario abre el diálogo y confirma, el ajuste puede superar el pendiente real. El backend debe validar que `monto_ajuste <= monto_pendiente_actual` en el momento del POST.
-
-3. **Monto libre sin aprobación secundaria para valores grandes**: Para ofertas con pendiente de $500 o más, el diálogo abre pre-llenado con el total. Un clic de confirmación cancela la deuda completa como "ajuste contable" sin ningún nivel de autorización adicional.
-
-4. **Badge "Ajuste de contabilidad" en 3 pantallas — riesgo de pantalla sin mapeo**: Si alguna de las 3 vistas no tiene el caso `'ajuste'` en su config de badges, mostrará el texto crudo del backend en lugar del badge ámbar.
-
-5. **Ciclo feat→fix→feat en 70 minutos — ventana sin confirmación en producción**: Entre el commit 16:35 (botón sin diálogo) y el 16:53 (fix con confirmación), cualquier usuario que cargó la tabla ajustó centavos con un solo clic sin posibilidad de cancelar.
-
-6. **Pre-relleno: sin centavos → total pendiente — riesgo de confusión para deudas redondas**: En ofertas con pendiente exacto (e.g., $200.00), el diálogo abre con $200 pre-llenados. El usuario puede confirmar sin notar que está cancelando el total, no solo un ajuste menor.
-
-7. **Sin mecanismo de reversa en UI — error de ajuste requiere intervención manual en BD**: El diálogo advierte que el ajuste no se puede deshacer desde la interfaz, pero no ofrece flujo alternativo ni contacto de soporte en el mismo contexto.
+Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 14 de Julio, 2026
+## 📅 28 de Julio, 2026
 
 ### Resumen de cambios (últimas 24h)
 
-**3 commits reales** de yany1509 — todos en el área de Facturas y Obras Terminadas: (1) nuevo modal "Generar factura a cliente" con soporte para clientes no instalados; (2) deep-link desde la campana de notificaciones al caso ambiguo de múltiples ofertas confirmadas sin facturar, más botón "Exportar Excel sin materiales" en la tabla de Facturas; (3) refactor del export sin materiales reduciendo las columnas a las relevantes para contabilidad.
-
----
-
-### Área 1: Obras Terminadas — modal "Generar factura a cliente" + clientes no instalados (1 commit — yany1509, 17:12)
-
-- **`feat(obras-terminadas): modal "Generar factura a cliente" + facturas de clientes no instalados`** — Nuevo diálogo para buscar un cliente, ver sus ofertas confirmadas con pagos/pendiente/estado, y facturar la que falte con un click. La vista de Facturas ahora puede listar ofertas facturadas de clientes que aún no están instalados (`requiere_instalado=false`), con advertencia al facturar si el cliente no está instalado todavía.
-
----
-
-### Área 2: Campana de notificaciones — deep-link factura ambigua + botón Excel sin materiales (1 commit — yany1509, 20:33)
-
-- **`feat(facturas): deep-link a factura ambigua + exportar Excel sin materiales`** — Nueva pestaña "Facturar" en el notification-bell (tipo `factura_multiple_ofertas`) que enlaza directo a `/facturas/obras-terminadas?cliente=...` con el modal "Generar factura a cliente" ya abierto y ese cliente precargado, para el caso de 2+ ofertas confirmadas sin facturar. Botón "Exportar Excel sin materiales" en la tabla de Facturas de Obras Terminadas.
-
----
-
-### Área 3: Export Excel sin materiales — columnas reducidas para contabilidad (1 commit — yany1509, 21:29)
-
-- **`feat(facturas): reduce columnas del Excel sin materiales en Facturas`** — El export "Exportar Excel sin materiales" de la vista de Facturas usa ahora un método dedicado (`exportarFacturasSinMateriales`) con solo las columnas relevantes para contabilidad: Cliente, Oferta, F. Eq. Instalado, Precio Oferta, N° Factura, Cobrado, Pendiente. El export sin materiales de la vista de Obras no cambia.
+Sin commits nuevos de código. El único commit en las últimas 24h es "Analisis diario Claude" (generado automáticamente). No hay cambios en producción.
 
 ---
 
 ### Puede dar bateo
 
-1. **Modal "Generar factura a cliente" — endpoint de búsqueda con estado de pagos sin confirmar**: El modal necesita un endpoint que devuelva las ofertas confirmadas del cliente junto con el estado de pagos/pendiente. Si el backend no lo implementó o devuelve una estructura diferente, el modal cargará vacío o fallará sin mensaje claro.
+Sin cambios nuevos — sin riesgos nuevos.
 
-2. **`requiere_instalado=false` — advertencia solo en frontend, backend puede rechazar la factura igualmente**: Si el backend valida que el cliente esté instalado antes de aceptar la factura, la advertencia del frontend sería solo estética y la operación fallaría con un 422 sin mensaje útil al usuario.
+---
 
-3. **Deep-link `?cliente=...` — apertura automática del modal depende de lectura de URL al montar el componente**: Si el componente de Obras Terminadas no lee el parámetro de query al montar, el usuario llega a la vista sin contexto y sin modal abierto, sin ningún mensaje que explique qué pasó.
+## 📅 27 de Julio, 2026
 
-4. **Notificación `factura_multiple_ofertas` persistente tras facturar por otra vía**: Si el usuario factura al cliente desde otro flujo, la notificación en la campana seguirá apareciendo. El deep-link abrirá el modal pero sin ofertas pendientes, sin mensaje de "ya facturado".
+### Resumen de cambios (últimas 24h)
 
-5. **Ciclo de 3 commits en ~4h con auto-deploy — ventana de inestabilidad**: Los commits llegaron entre 17:12 y 21:29. Usuarios en esa ventana pudieron ver el modal sin el botón de export, o el export con columnas incorrectas antes del fix del commit 21:29.
+Sin commits nuevos de código. El único commit en las últimas 24h es "Analisis diario Claude" (generado automáticamente). No hay cambios en producción.
 
-6. **`exportarFacturasSinMateriales` — columnas fijas vacías en facturas históricas sin los campos nuevos**: Si facturas antiguas no tienen `N° Factura` o `F. Eq. Instalado`, esas columnas aparecerán vacías en el Excel sin ninguna nota explicativa.
+---
 
-7. **Campana notifica solo `factura_multiple_ofertas` (2+ ofertas) — 1 oferta confirmada sin facturar no genera notificación**: Clientes con exactamente una oferta confirmada sin facturar nunca aparecen en la campana. Puede haber backlog de facturas pendientes invisible para el equipo.
+### Puede dar bateo
 
-8. **Búsqueda de cliente en modal — sin paginación ni límite visible**: Si el endpoint devuelve todos los clientes con su historial de ofertas y pagos, una base grande puede producir respuestas lentas o timeouts sin indicador de carga.
+Sin cambios nuevos — sin riesgos nuevos.
+
+---
+
+## 📅 26 de Julio, 2026
+
+### Resumen de cambios (últimas 24h)
+
+Sin commits nuevos de código. El único commit en las últimas 24h es "Analisis diario Claude" (generado automáticamente). No hay cambios en producción.
+
+---
+
+### Puede dar bateo
+
+Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
 #### Seguimientos vigentes
 
-- **Instrumentación temporal de perf — verificar que no quedó en bundle de producción (Jul 21)**.
-- **Ciclo add/remove AbortController en 18 min — build intermedio puede haber llegado a prod con 0 fotos en PDF (Jul 21)**.
-- **`foto_disponible` gate sin health check ejecutado — fail-open pierde beneficio de rendimiento (Jul 21)**.
-- **`failedImages` Set sin evición — fotos reparadas en S3 no se recargan sin reload de página (Jul 21)**.
-- **Canvas downscale JPEG — materiales con transparencia perderán canal alpha en PDF (Jul 21)**.
-- **5 ubicaciones sin migrar a `<MaterialImage>` — siguen con raw `<img>` y sin gate (Jul 21)**.
-- **`imageCache` a nivel de módulo sin límite — acumula en navegación SPA larga (Jul 21)**.
-- **`IntersectionObserver` en SSR/prerender — posible error `window is not defined` (Jul 21)**.
-- **`foto_disponible` en tipos — gate puede pasarse silenciosamente en rutas no actualizadas (Jul 21)**.
-- **Badge "Devuelto: $X" por pago — campo `monto_devuelto` ausente en respuesta silencia el indicador (Jul 20)**.
-- **"Ya devuelto" — condición 100% calculada con flotantes, edge case puede dejar botón "Devolución" incorrecto (Jul 20)**.
-- **Filtro "Devoluciones" — riesgo de filtrado solo en cliente; paginación y exports incorrectos en datasets grandes (Jul 20)**.
-- **Fix conversión USD "Pend:" — bug análogo de doble conversión puede existir en otros módulos (Jul 20)**.
-- **`puedeEditarCobro` fix solo en frontend — endpoint sin validación de autorización en backend sigue expuesto (Jul 20)**.
-- **Diálogo devolución descuenta lo ya devuelto en frontend — desincronía si backend no devuelve `monto_devuelto` actualizado (Jul 20)**.
+- **`renderFactura` con `incluirMateriales: false` — edge cases sin cobertura, totales en PDF pueden ser incorrectos (Jul 24)**.
+- **PDF masivo obras-terminadas sin cota máxima — puede bloquear navegador en listas largas (Jul 24)**.
+- **Dos commits obras-terminadas en 34 min — build intermedio posible en prod con botón masivo ausente (Jul 24)**.
+- **`incluirComercial: false` — fila omitida puede desplazar layout del PDF (Jul 24)**.
+- **Sin tests de regresión sobre flujo PDF original "Exportar PDF" tras refactor de `renderFactura` (Jul 24)**.
+- **Cálculo "pendiente" en Detalle de Cobros solo en frontend — desincronía con totales del backend si devuelve saldo_pendiente calculado (Jul 23)**.
+- **`cancelado` falsy/undefined en pagos históricos — filtro !p.cancelado no los excluye del cálculo (Jul 23)**.
+- **Contador de encabezado ahora incluye cancelados — usuarios esperando "pagos válidos" verán número inflado (Jul 23)**.
+- **Par de fixes de pagos en < 35 min — posible build intermedio con totales corregidos pero sin badge visual (Jul 23)**.
 - **`PATCH /pagos/{id}/cancelar` — endpoint nuevo sin confirmar, cancelaciones fallarán con 404 (Jul 17)**.
 - **Cancelar pago — estado solo visual si backend no valida; datos financieros inconsistentes (Jul 17)**.
 - **Devolución de pagos de venta — nuevo endpoint sin confirmar en backend (Jul 17)**.
@@ -314,12 +123,6 @@ Sin cambios nuevos — sin riesgos nuevos.
 - **Monto libre en ajuste de saldo sin aprobación secundaria — riesgo de cancelar deuda grande por error (Jul 15)**.
 - **Badge "Ajuste de contabilidad" — pantalla sin mapeo del caso 'ajuste' mostrará texto crudo (Jul 15)**.
 - **Sin mecanismo de reversa en UI para ajuste de saldo aplicado por error (Jul 15)**.
-- **Modal "Generar factura a cliente" — endpoint de búsqueda con estado de pagos sin confirmar (Jul 14)**.
-- **`requiere_instalado=false` — advertencia solo en frontend, backend puede rechazar la factura igualmente (Jul 14)**.
-- **Deep-link `?cliente=...` — apertura del modal falla si el parámetro no se lee al montar (Jul 14)**.
-- **Notificación `factura_multiple_ofertas` persistente tras facturar por otra vía — modal abre sin ofertas pendientes (Jul 14)**.
-- **`exportarFacturasSinMateriales` — columnas fijas vacías en facturas históricas sin los campos nuevos (Jul 14)**.
-- **Campana notifica solo 2+ ofertas confirmadas sin facturar — 1 sola oferta pendiente nunca genera notificación (Jul 14)**.
 - **Fichas de Costo — "Ajuste general" irreversible destruye diferencias por almacén sin confirmación robusta (Jul 13)**.
 - **Fichas de Costo — endpoint de ajuste por almacén específico (✎) sin confirmar en backend (Jul 13)**.
 - **Fichas de Costo — desglose por almacén stale al abrir el diálogo con movimientos concurrentes (Jul 13)**.
@@ -442,4 +245,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
