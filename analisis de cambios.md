@@ -2,6 +2,70 @@
 
 ---
 
+## 📅 3 de Agosto, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**6 commits reales** — 4 de yany1509 y 2 de Fabian1820. Día activo centrado en el módulo **informe-direccion**: nuevo módulo comparativo cherry-pickeado desde dev, fix de PDF, sistema de sub-permisos por sección, y actualización del catálogo de módulos. Además dos fixes de UX/export: explicación del botón "Asignar" deshabilitado en asignaciones, y separación del código de material en su propia columna en el Excel de facturas emitidas.
+
+---
+
+### Área 1: Informe dirección — nuevo módulo comparativo a producción (1 commit — yany1509, 17:14)
+
+- **`feat(informe-direccion): agrega módulo de informe comparativo a producción`** — Cherry-pick aislado desde la rama dev: página + MonthPicker + servicios que consumen el nuevo endpoint de KPIs comparativos. El commit describe el cherry-pick como "sin dependencias de otras features en curso en dev".
+
+---
+
+### Área 2: Informe dirección — fix texto espaciado en PDF + selector de secciones (1 commit — yany1509, 17:39)
+
+- **`fix(informe-direccion): corrige texto espaciado en PDF + selector de secciones`** — El carácter "→" no está en WinAnsiEncoding (fuentes estándar de jsPDF), lo que rompía el cálculo de ancho de autoTable y espaciaba cada letra en esas filas. Se reemplaza por "->". De paso, se agrega un checklist para elegir qué secciones incluir en el PDF exportado.
+
+---
+
+### Área 3: Facturas emitidas — código de material en columna propia (1 commit — Fabian1820, 17:52)
+
+- **`fix(facturas-emitidas): código del material en columna propia, sin corchetes`** — El Excel apilaba el código al final del nombre entre corchetes ("INVERSOR FELICITY ON GRID 8KW [10001]"), dejando el dato inutilizable para filtrar o cruzar. Ahora el nombre va solo en "Material" y el código en su propia columna "Código" al lado. Material/Código/Cantidad quedan fuera del merge vertical porque varían por fila física; el resto de columnas se sigue fusionando por factura.
+
+---
+
+### Área 4: Asignaciones — explicar por qué el botón "Asignar" está deshabilitado (1 commit — Fabian1820, 17:52)
+
+- **`fix(asignaciones): explica por qué el botón "Asignar" está deshabilitado`** — El botón se apagaba en silencio; los motivos más frecuentes eran invisibles: escribir en el buscador sin hacer clic en una fila (input con texto pero sin material seleccionado) o material con costo 0 (330 de 609 del catálogo) sin marcar "Permitir costo cero". Ahora se muestra el motivo concreto bajo el botón, tanto en creación como en edición. Además la búsqueda de materiales deja de disfrazar un fallo de red/permisos como "Sin resultados".
+
+---
+
+### Área 5: Informe dirección — sub-permisos por sección (1 commit — yany1509, 19:51)
+
+- **`feat(informe-direccion): sub-permisos por sección del informe`** — Permite dar acceso completo al módulo (todas las secciones) o solo a secciones específicas vía sub-permisos `informe-direccion/<seccion>`, igual que el patrón ya usado en `solicitudes-envio/clientes`. La página solo muestra y deja seleccionar las secciones que el trabajador tiene asignadas.
+
+---
+
+### Área 6: Informe dirección — sub-permisos al catálogo de módulos (1 commit — yany1509, 19:55)
+
+- **`feat(informe-direccion): agrega sub-permisos al catálogo de módulos`** — Completa el commit anterior (2a441e70): el catálogo de módulos se había quedado sin commitear. Sin este commit, el panel de permisos no mostraba los nuevos sub-permisos aunque el RouteGuard ya los chequeaba.
+
+---
+
+### Puede dar bateo
+
+1. **Cherry-pick de informe-direccion desde dev — posible arrastre de dependencias incompletas**: Un cherry-pick "aislado" puede traer imports de tipos, constantes o componentes que solo existen en dev. Si la build de producción no falla en tiempo de compilación (TypeScript errors ignorados en next.config.mjs), el módulo puede romperse en runtime silenciosamente.
+
+2. **Endpoint de KPIs comparativos sin confirmar en backend de producción**: El módulo consume un "nuevo endpoint de KPIs comparativos". Si ese endpoint no está deployado en el backend de producción (`api.suncarsrl.com`), el módulo cargará con error de red inmediatamente al abrir, visible para todos los usuarios con permiso.
+
+3. **Sub-permisos informe-direccion — usuarios con permiso padre sin sub-permisos quedarán sin acceso a secciones**: El patrón de sub-permisos implica que usuarios que ya tenían acceso completo a `informe-direccion` necesitan que se les asignen los sub-permisos de cada sección. Sin migración de datos en backend, verán el módulo en el menú pero ninguna sección dentro.
+
+4. **Ventana de 4 minutos entre commits 5 y 6 (19:51 y 19:55) — build intermedio con RouteGuard sin catálogo**: Si Railway auto-deploy está activo, el commit de sub-permisos en RouteGuard (19:51) hizo deploy antes que el de catálogo (19:55). Durante esos ~4 minutos el RouteGuard chequeaba sub-permisos que el panel de permisos no mostraba, impidiendo asignarlos a nuevos usuarios en ese intervalo.
+
+5. **Selector de secciones en PDF — omisión de secciones del medio puede romper paginación o índice**: El checklist para elegir secciones no documenta qué pasa con la numeración de páginas, el índice o las referencias cruzadas si se omiten secciones intermedias del informe.
+
+6. **`fix(facturas-emitidas)` — Excel con nueva columna "Código" rompe importaciones por posición**: Si hay scripts, macros o flujos que procesan el Excel exportado leyendo por índice de columna (col A, B, C), la inserción de la columna "Código" desplaza todo el layout y rompe esas importaciones silenciosamente.
+
+7. **Merge vertical de columnas por factura — confirmar que los índices de merge no son posicionales**: Si la lógica de merge en `export-service.ts` hardcodea índices de columna en lugar de nombres, el reordenamiento puede aplicar merge a columnas incorrectas en el nuevo layout.
+
+8. **330/609 materiales con costo 0 — UX mejorado pero problema de datos de fondo**: El fix explica el bloqueo correctamente, pero más de la mitad del catálogo sin costo puede causar facturas y costeos incorrectos en otros módulos que no tengan la misma guardia de "costo cero".
+
+---
+
 ## 📅 2 de Agosto, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -86,22 +150,13 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 26 de Julio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-Sin commits nuevos de código. El único commit en las últimas 24h es "Analisis diario Claude" (generado automáticamente). No hay cambios en producción.
-
----
-
-### Puede dar bateo
-
-Sin cambios nuevos — sin riesgos nuevos.
-
----
-
 #### Seguimientos vigentes
 
+- **Endpoint de KPIs comparativos sin confirmar en backend de producción — informe-direccion fallará en runtime si no está deployado (Ago 3)**.
+- **Sub-permisos informe-direccion — usuarios con permiso padre necesitan sub-permisos asignados o quedarán sin acceso a secciones (Ago 3)**.
+- **Cherry-pick informe-direccion desde dev — posible arrastre de dependencias que rompen en runtime aunque no en build (Ago 3)**.
+- **Excel facturas-emitidas — nueva columna "Código" rompe importaciones que leen por posición de columna (Ago 3)**.
+- **330/609 materiales con costo 0 — costeos y facturas en otros módulos pueden ser incorrectos (Ago 3)**.
 - **`renderFactura` con `incluirMateriales: false` — edge cases sin cobertura, totales en PDF pueden ser incorrectos (Jul 24)**.
 - **PDF masivo obras-terminadas sin cota máxima — puede bloquear navegador en listas largas (Jul 24)**.
 - **Dos commits obras-terminadas en 34 min — build intermedio posible en prod con botón masivo ausente (Jul 24)**.
@@ -245,4 +300,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
