@@ -612,6 +612,28 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-emerald-800",
     href: "/informe-direccion",
     grupo: "area-direccion",
+    subPermisos: [
+      {
+        key: "informe-direccion/instaladora-general",
+        label: "Instaladora General",
+        descripcion: "Permite incluir la sección Instaladora General en el informe exportado.",
+      },
+      {
+        key: "informe-direccion/comercial-instaladora",
+        label: "Comercial de Instaladora (individual)",
+        descripcion: "Permite incluir la sección Comercial de Instaladora en el informe exportado.",
+      },
+      {
+        key: "informe-direccion/ventas",
+        label: "Ventas (solicitudes de venta)",
+        descripcion: "Permite incluir la sección Ventas en el informe exportado.",
+      },
+      {
+        key: "informe-direccion/comercial-ventas",
+        label: "Comercial de Ventas (individual)",
+        descripcion: "Permite incluir la sección Comercial de Ventas en el informe exportado.",
+      },
+    ],
   },
 
   // ───────── Marketing ─────────
