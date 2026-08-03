@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { RouteGuard } from "@/components/auth/route-guard";
+import { useAuth } from "@/contexts/auth-context";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { Button } from "@/components/shared/atom/button";
 import { Checkbox } from "@/components/shared/molecule/checkbox";
@@ -25,12 +26,22 @@ import {
   type SeccionesInformeDireccion,
 } from "@/lib/services/feats/informe-direccion/export-informe-direccion-service";
 
+const MODULE = "informe-direccion";
+
 const ORDEN_SECCIONES: SeccionInformeDireccionKey[] = [
   "instaladoraGeneral",
   "comercialInstaladora",
   "ventas",
   "comercialVentas",
 ];
+
+// Slug del sub-permiso (informe-direccion/<slug>) para cada sección.
+const SUBPERMISO_SECCION: Record<SeccionInformeDireccionKey, string> = {
+  instaladoraGeneral: "instaladora-general",
+  comercialInstaladora: "comercial-instaladora",
+  ventas: "ventas",
+  comercialVentas: "comercial-ventas",
+};
 
 function primerYUltimoDiaDeMes(mesInput: string): { desde: string; hasta: string } | null {
   if (!mesInput) return null;
@@ -46,10 +57,21 @@ function primerYUltimoDiaDeMes(mesInput: string): { desde: string; hasta: string
 
 function InformeDireccionContent() {
   const { toast } = useToast();
+  const { hasSubPermission } = useAuth();
   const [mesA, setMesA] = useState("");
   const [mesB, setMesB] = useState("");
   const [generando, setGenerando] = useState(false);
-  const [secciones, setSecciones] = useState<SeccionesInformeDireccion>(SECCIONES_INFORME_DIRECCION_DEFAULT);
+
+  const seccionesAccesibles = useMemo(
+    () => ORDEN_SECCIONES.filter((k) => hasSubPermission(MODULE, SUBPERMISO_SECCION[k])),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  const [secciones, setSecciones] = useState<SeccionesInformeDireccion>(() => ({
+    ...SECCIONES_INFORME_DIRECCION_DEFAULT,
+    ...Object.fromEntries(ORDEN_SECCIONES.map((k) => [k, seccionesAccesibles.includes(k)])),
+  }));
 
   const ningunaSeccionSeleccionada = ORDEN_SECCIONES.every((k) => !secciones[k]);
 
@@ -125,7 +147,7 @@ function InformeDireccionContent() {
           <div className="space-y-2">
             <Label>Secciones a incluir</Label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {ORDEN_SECCIONES.map((key) => (
+              {seccionesAccesibles.map((key) => (
                 <div key={key} className="flex items-center gap-2">
                   <Checkbox
                     id={`seccion-${key}`}
