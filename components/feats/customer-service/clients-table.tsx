@@ -89,6 +89,7 @@ import type {
 } from "@/lib/types/feats/ofertas-personalizadas/oferta-personalizada-types";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
+import { useComercialEquipoMap } from "@/hooks/use-comercial-equipo-map";
 import type { Cliente, ClienteFoto } from "@/lib/api-types";
 import { extraerComponentesDeOfertaConfeccion } from "@/lib/utils/oferta-confeccion-items";
 
@@ -114,6 +115,7 @@ interface ClientsTableProps {
     estado: string[];
     fuente: string;
     comercial: string;
+    equipoComerciales: string[];
     fechaDesde: string;
     fechaHasta: string;
     mes: string;
@@ -809,6 +811,7 @@ export function ClientsTable({
     estado: [] as string[],
     fuente: "",
     comercial: "",
+    equipoComerciales: [] as string[],
     fechaDesde: "",
     fechaHasta: "",
     mes: "",
@@ -817,6 +820,12 @@ export function ClientsTable({
     ofertas: "",
     tiempo: "",
   });
+  const {
+    equipos: equiposComerciales,
+    nombreEquipo,
+    comercialesDeEquipo,
+  } = useComercialEquipoMap();
+  const [equipoSeleccionado, setEquipoSeleccionado] = useState<string>("todos");
 
   // Provincias / municipios para filtros
   const [provinciasList, setProvinciasList] = useState<
@@ -987,6 +996,7 @@ export function ClientsTable({
         estado: filters.estado,
         fuente: filters.fuente,
         comercial: filters.comercial,
+        equipoComerciales: filters.equipoComerciales,
         fechaDesde: filters.fechaDesde,
         fechaHasta: filters.fechaHasta,
         mes: filters.mes,
@@ -1330,6 +1340,7 @@ export function ClientsTable({
     filters.estado.length > 0 ||
     filters.fuente ||
     filters.comercial ||
+    filters.equipoComerciales.length > 0 ||
     filters.fechaDesde ||
     filters.fechaHasta ||
     filters.mes ||
@@ -1345,6 +1356,7 @@ export function ClientsTable({
       estado: [],
       fuente: "",
       comercial: "",
+      equipoComerciales: [],
       fechaDesde: "",
       fechaHasta: "",
       mes: "",
@@ -1353,6 +1365,7 @@ export function ClientsTable({
       ofertas: "",
       tiempo: "",
     });
+    setEquipoSeleccionado("todos");
   };
 
   const handlePrioridadChange = async (
@@ -4495,6 +4508,32 @@ export function ClientsTable({
             </div>
 
             <div>
+              <Select
+                value={equipoSeleccionado}
+                onValueChange={(value) => {
+                  setEquipoSeleccionado(value);
+                  setFilters((prev) => ({
+                    ...prev,
+                    equipoComerciales:
+                      value === "todos" ? [] : comercialesDeEquipo(value),
+                  }));
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Todos los equipos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos los equipos</SelectItem>
+                  {equiposComerciales.map((equipo) => (
+                    <SelectItem key={equipo.id} value={equipo.id}>
+                      {equipo.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
               <Input
                 type="date"
                 value={filters.fechaDesde}
@@ -4945,6 +4984,11 @@ export function ClientsTable({
                             {client.comercial && (
                               <div className="text-[13px] text-gray-600 mt-1.5 truncate">
                                 {client.comercial}
+                              </div>
+                            )}
+                            {nombreEquipo(client.comercial) && (
+                              <div className="text-xs text-gray-400 truncate">
+                                {nombreEquipo(client.comercial)}
                               </div>
                             )}
                             {client.fuente && (

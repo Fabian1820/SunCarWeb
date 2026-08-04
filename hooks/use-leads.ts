@@ -16,6 +16,7 @@ interface LeadFilters {
   estado: string[];
   fuente: string;
   comercial: string;
+  equipoComerciales: string[];
   provincia: string[];
   municipio: string[];
   ofertas: OfertasFilter;
@@ -143,6 +144,7 @@ export function useLeads(): UseLeadsReturn {
     estado: [],
     fuente: "",
     comercial: "",
+    equipoComerciales: [],
     provincia: [],
     municipio: [],
     ofertas: "",
@@ -205,7 +207,7 @@ export function useLeads(): UseLeadsReturn {
     async (baseFilters: {
       estado: string;
       fuente: string;
-      comercial: string;
+      comercial: string | string[];
     }): Promise<Lead[]> => {
       const allLeads: Lead[] = [];
       const backendPageSize = 200;
@@ -278,6 +280,8 @@ export function useLeads(): UseLeadsReturn {
       setError(null);
       try {
         const effectiveFilters = { ...filters, ...overrideFilters };
+        const comercialEfectivo: string | string[] =
+          effectiveFilters.comercial || effectiveFilters.equipoComerciales;
         const effectiveSearchTerm = (
           overrideFilters?.searchTerm ?? debouncedSearchTerm
         ).trim();
@@ -300,7 +304,7 @@ export function useLeads(): UseLeadsReturn {
                 ? estadosSeleccionados[0]
                 : "",
             fuente: effectiveFilters.fuente,
-            comercial: effectiveFilters.comercial,
+            comercial: comercialEfectivo,
           });
 
           const filteredByDate = applyLeadDateRangeFilter(
@@ -370,7 +374,7 @@ export function useLeads(): UseLeadsReturn {
               ? estadosSeleccionados[0]
               : undefined,
           fuente: effectiveFilters.fuente || undefined,
-          comercial: effectiveFilters.comercial || undefined,
+          comercial: comercialEfectivo || undefined,
           fechaDesde: effectiveFilters.fechaDesde || undefined,
           fechaHasta: effectiveFilters.fechaHasta || undefined,
           skip: effectiveFilters.skip,
@@ -595,6 +599,7 @@ export function useLeads(): UseLeadsReturn {
           newFilters.estado !== undefined ||
           newFilters.fuente !== undefined ||
           newFilters.comercial !== undefined ||
+          newFilters.equipoComerciales !== undefined ||
           newFilters.provincia !== undefined ||
           newFilters.municipio !== undefined ||
           newFilters.ofertas !== undefined ||
@@ -818,7 +823,7 @@ export function useLeads(): UseLeadsReturn {
     const allBaseLeads = await fetchAllLeadsByBaseFilters({
       estado: estadosSel.length === 1 ? estadosSel[0] : "",
       fuente: filters.fuente,
-      comercial: filters.comercial,
+      comercial: filters.comercial || filters.equipoComerciales,
     });
 
     const allDateFilteredLeads = applyLeadDateRangeFilter(
@@ -858,6 +863,7 @@ export function useLeads(): UseLeadsReturn {
     buildLeadSearchText,
     fetchAllLeadsByBaseFilters,
     filters.comercial,
+    filters.equipoComerciales,
     filters.estado,
     filters.fechaDesde,
     filters.fechaHasta,
@@ -878,6 +884,7 @@ export function useLeads(): UseLeadsReturn {
     filters.estado,
     filters.fuente,
     filters.comercial,
+    filters.equipoComerciales,
     filters.provincia,
     filters.municipio,
     filters.ofertas,

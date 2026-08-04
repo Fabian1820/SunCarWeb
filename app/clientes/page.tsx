@@ -38,6 +38,7 @@ type ClientesFilters = {
   estado: string[];
   fuente: string;
   comercial: string;
+  equipoComerciales: string[];
   fechaDesde: string;
   fechaHasta: string;
   mes: string;
@@ -297,6 +298,7 @@ export default function ClientesPage() {
     estado: [] as string[],
     fuente: "",
     comercial: "",
+    equipoComerciales: [] as string[],
     fechaDesde: "",
     fechaHasta: "",
     mes: "",
@@ -323,6 +325,7 @@ export default function ClientesPage() {
           !isSameEstado ||
           prev.fuente !== newFilters.fuente ||
           prev.comercial !== newFilters.comercial ||
+          prev.equipoComerciales.join(",") !== newFilters.equipoComerciales.join(",") ||
           prev.fechaDesde !== newFilters.fechaDesde ||
           prev.fechaHasta !== newFilters.fechaHasta ||
           prev.mes !== newFilters.mes ||
@@ -364,7 +367,7 @@ export default function ClientesPage() {
       q?: string;
       estado?: string[];
       fuente?: string;
-      comercial?: string;
+      comercial?: string | string[];
       provincia?: string;
       municipio?: string;
       fechaDesde?: string;
@@ -470,12 +473,14 @@ export default function ClientesPage() {
         // Pasar al backend solo si hay exactamente 1 valor (compatibilidad API)
         const serverProvincia = filters.provincia.length === 1 ? filters.provincia[0] : undefined;
         const serverMunicipio = filters.municipio.length === 1 ? filters.municipio[0] : undefined;
+        const comercialEfectivo: string | string[] =
+          filters.comercial || filters.equipoComerciales;
 
         const baseParams = {
           q: searchValue || undefined,
           estado: normalizedEstado.length > 0 ? normalizedEstado : undefined,
           fuente: filters.fuente || undefined,
-          comercial: filters.comercial || undefined,
+          comercial: comercialEfectivo || undefined,
           provincia: serverProvincia,
           municipio: serverMunicipio,
           fechaDesde: filters.fechaDesde || undefined,
@@ -544,12 +549,14 @@ export default function ClientesPage() {
 
     const exportProvincia = appliedFilters.provincia.length === 1 ? appliedFilters.provincia[0] : undefined;
     const exportMunicipio = appliedFilters.municipio.length === 1 ? appliedFilters.municipio[0] : undefined;
+    const comercialEfectivoExport: string | string[] =
+      appliedFilters.comercial || appliedFilters.equipoComerciales;
 
     const result = await fetchAllClientsByBaseFilters({
       q: searchValue || undefined,
       estado: normalizedEstado.length > 0 ? normalizedEstado : undefined,
       fuente: appliedFilters.fuente || undefined,
-      comercial: appliedFilters.comercial || undefined,
+      comercial: comercialEfectivoExport || undefined,
       provincia: exportProvincia,
       municipio: exportMunicipio,
       fechaDesde: appliedFilters.fechaDesde || undefined,
@@ -600,6 +607,7 @@ export default function ClientesPage() {
     appliedFilters.estado,
     appliedFilters.fuente,
     appliedFilters.comercial,
+    appliedFilters.equipoComerciales,
     appliedFilters.fechaDesde,
     appliedFilters.fechaHasta,
     appliedFilters.mes,

@@ -21,6 +21,15 @@ type LeadFotosResponse = {
   fotos?: LeadFoto[];
 };
 
+function appendMulti(search: URLSearchParams, key: string, value?: string | string[]) {
+  if (!value) return;
+  if (Array.isArray(value)) {
+    for (const v of value) if (v) search.append(key, v);
+  } else {
+    search.append(key, value);
+  }
+}
+
 export class LeadService {
   static async getLeads(
     params: {
@@ -28,7 +37,7 @@ export class LeadService {
       nombre?: string;
       telefono?: string;
       direccion?: string;
-      comercial?: string;
+      comercial?: string | string[];
       estado?: string;
       fuente?: string;
       fechaDesde?: string;
@@ -43,7 +52,7 @@ export class LeadService {
     if (params.nombre) search.append("nombre", params.nombre);
     if (params.telefono) search.append("telefono", params.telefono);
     if (params.direccion) search.append("direccion", params.direccion);
-    if (params.comercial) search.append("comercial", params.comercial);
+    appendMulti(search, "comercial", params.comercial);
     if (params.estado) search.append("estado", params.estado);
     if (params.fuente) search.append("fuente", params.fuente);
     if (params.fechaDesde) {

@@ -39,6 +39,7 @@ import { EditLeadDialog } from "@/components/feats/leads/edit-lead-dialog";
 import { ExportButtons } from "@/components/shared/molecule/export-buttons";
 import { FuentesManager } from "@/components/shared/molecule/fuentes-manager";
 import { useLeads } from "@/hooks/use-leads";
+import { useComercialEquipoMap } from "@/hooks/use-comercial-equipo-map";
 import { useFuentesSync } from "@/hooks/use-fuentes-sync";
 import { LeadService } from "@/lib/api-services";
 import { Loader } from "@/components/shared/atom/loader";
@@ -85,6 +86,13 @@ export default function LeadsPage() {
     uploadLeadComprobante,
     clearError,
   } = useLeads();
+
+  const {
+    equipos: equiposComerciales,
+    nombreEquipo,
+    comercialesDeEquipo,
+  } = useComercialEquipoMap();
+  const [equipoSeleccionado, setEquipoSeleccionado] = useState<string>("todos");
 
   // Sincronizar fuentes de leads con localStorage
   useFuentesSync(leads, [], !loading);
@@ -504,11 +512,13 @@ export default function LeadsPage() {
                 variant="outline"
                 onClick={() => {
                   setSearchTerm("");
+                  setEquipoSeleccionado("todos");
                   setFilters({
                     searchTerm: "",
                     estado: [],
                     fuente: "",
                     comercial: "",
+                    equipoComerciales: [],
                     provincia: [],
                     municipio: [],
                     ofertas: "",
@@ -640,6 +650,32 @@ export default function LeadsPage() {
                     {availableComerciales.map((comercial) => (
                       <SelectItem key={comercial} value={comercial}>
                         {comercial}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Filtro por Equipo (BTB/BTC) */}
+              <div>
+                <Select
+                  value={equipoSeleccionado}
+                  onValueChange={(value) => {
+                    setEquipoSeleccionado(value);
+                    setFilters({
+                      equipoComerciales:
+                        value === "todos" ? [] : comercialesDeEquipo(value),
+                    });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos los equipos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos los equipos</SelectItem>
+                    {equiposComerciales.map((equipo) => (
+                      <SelectItem key={equipo.id} value={equipo.id}>
+                        {equipo.nombre}
                       </SelectItem>
                     ))}
                   </SelectContent>

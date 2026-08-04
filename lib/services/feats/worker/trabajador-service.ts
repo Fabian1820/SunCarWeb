@@ -216,6 +216,14 @@ export class TrabajadorService {
     return this.actualizarEstadoTrabajador(ci, true)
   }
 
+  static async actualizarApoyoInstaladora(ci: string, esApoyoInstaladora: boolean): Promise<boolean> {
+    const response = await apiRequest<{ success?: boolean }>(`/trabajadores/${ci}/rrhh`, {
+      method: 'PUT',
+      body: JSON.stringify({ es_apoyo_instaladora: esApoyoInstaladora }),
+    })
+    return response.success !== false
+  }
+
   static async actualizarTrabajador(ci: string, payload: ActualizarTrabajadorPayload): Promise<boolean> {
     const sedeId = ensureValidObjectId(payload.sede_id, 'sede_id')
     const departamentoId = ensureValidObjectId(payload.departamento_id, 'departamento_id')
