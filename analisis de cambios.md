@@ -2,6 +2,34 @@
 
 ---
 
+## 📅 4 de Agosto, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**1 commit real** — yany1509. Cherry-pick desde dev: nuevo módulo **Distribución de Comerciales** (página, diálogo, hooks y servicio) más filtro/columna de equipo comercial en las tablas de Leads y Clientes, apoyado en el endpoint `comercial-multivalor` descrito como ya en producción.
+
+---
+
+### Área 1: Distribución de Comerciales — nuevo módulo + filtro en Leads y Clientes (1 commit — yany1509, 12:17)
+
+- **`feat(distribucion-comerciales): agrega modulo y filtro de equipo BTB/BTC en Leads y Clientes`** — Cherry-pick aislado desde dev. Incluye: página de Distribución de Comerciales, diálogo de asignación, hooks dedicados y servicio. Además agrega un filtro y columna de "equipo comercial" (BTB/BTC) en las tablas de Leads y Clientes, consumiendo el endpoint de `comercial-multivalor` que ya estaba deployado en producción.
+
+---
+
+### Puede dar bateo
+
+1. **Módulo distribucion-comerciales sin permisos asignados — ningún usuario lo verá hasta que SuperAdmin lo configure**: El nuevo módulo no está en la lista de permisos de ningún trabajador. Necesita ser creado en el panel de módulos y asignado manualmente; hasta entonces es invisible para todos salvo SuperAdmin.
+
+2. **Cherry-pick desde dev — posible arrastre de dependencias no presentes en main**: Igual que con informe-direccion (Ago 3), un cherry-pick "aislado" puede traer imports de tipos, constantes o componentes que solo existen en la rama dev. Con TypeScript errors ignorados en `next.config.mjs`, el módulo puede fallar en runtime sin error de build.
+
+3. **Endpoint `comercial-multivalor` "ya en producción" sin verificar respuesta actual**: El commit asume que el endpoint está listo. Si la forma de la respuesta cambió desde que se escribió el código en dev, o si el campo `equipo_comercial` tiene un nombre distinto en el JSON del backend, la columna aparecerá vacía o causará un error de renderizado silencioso.
+
+4. **Filtro equipo_comercial en Leads y Clientes — dos tablas afectadas por un único commit**: Cualquier bug en la lógica del filtro (p.ej., comparación incorrecta de valores BTB vs BTC) afecta simultáneamente ambas vistas. No hay aislamiento entre módulos.
+
+5. **Diálogo de asignación sin confirmar endpoint de escritura**: El módulo incluye un diálogo para asignar equipo comercial. Si el endpoint `PATCH` correspondiente no existe o espera un formato diferente, las asignaciones fallarán silenciosamente o con error 404/422.
+
+---
+
 ## 📅 3 de Agosto, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -136,22 +164,12 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 27 de Julio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-Sin commits nuevos de código. El único commit en las últimas 24h es "Analisis diario Claude" (generado automáticamente). No hay cambios en producción.
-
----
-
-### Puede dar bateo
-
-Sin cambios nuevos — sin riesgos nuevos.
-
----
-
 #### Seguimientos vigentes
 
+- **Módulo distribucion-comerciales sin permisos asignados — invisible para todos hasta configuración en panel (Ago 4)**.
+- **Cherry-pick distribucion-comerciales desde dev — posible arrastre de dependencias que rompen en runtime (Ago 4)**.
+- **Filtro equipo_comercial en Leads/Clientes — confirmar que el campo llega desde el backend en ambas listas (Ago 4)**.
+- **Diálogo de asignación distribucion-comerciales — endpoint PATCH sin confirmar en backend (Ago 4)**.
 - **Endpoint de KPIs comparativos sin confirmar en backend de producción — informe-direccion fallará en runtime si no está deployado (Ago 3)**.
 - **Sub-permisos informe-direccion — usuarios con permiso padre necesitan sub-permisos asignados o quedarán sin acceso a secciones (Ago 3)**.
 - **Cherry-pick informe-direccion desde dev — posible arrastre de dependencias que rompen en runtime aunque no en build (Ago 3)**.
@@ -300,4 +318,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
