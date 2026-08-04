@@ -40,18 +40,33 @@ type Opcion = { value: string; label: string }
 export function FuenteSelector({ fuente, fuenteReferencia, onChange }: FuenteSelectorProps) {
   const [fuentes, setFuentes] = useState<Fuente[]>([])
   const [loadingFuentes, setLoadingFuentes] = useState(false)
+  const [fuentesError, setFuentesError] = useState<string | null>(null)
 
   useEffect(() => {
     let activo = true
     setLoadingFuentes(true)
+    setFuentesError(null)
     FuenteService.getFuentes(true)
       .then((data) => { if (activo) setFuentes(data) })
-      .catch(() => { if (activo) setFuentes([]) })
+      .catch((err) => {
+        if (!activo) return
+        console.error("FuenteSelector: fallo al cargar fuentes", err)
+        setFuentes([])
+        setFuentesError(
+          err instanceof Error ? err.message : "No se pudieron cargar las fuentes"
+        )
+      })
       .finally(() => { if (activo) setLoadingFuentes(false) })
     return () => { activo = false }
   }, [])
 
   const fuenteActual = fuentes.find((f) => f.nombre === fuente)
+  const tipoRef = fuenteActual?.tipo_referencia
+  const referenciaValida =
+    fuenteActual?.requiere_referencia &&
+    (tipoRef === "sucursal" || tipoRef === "trabajador" || tipoRef === "cliente")
+  const referenciaMalConfigurada =
+    fuenteActual?.requiere_referencia && !referenciaValida
 
   return (
     <div className="space-y-3">
@@ -72,24 +87,33 @@ export function FuenteSelector({ fuente, fuenteReferencia, onChange }: FuenteSel
             ))}
           </SelectContent>
         </Select>
+        {fuentesError && (
+          <p className="text-xs text-red-600 mt-1">{fuentesError}</p>
+        )}
       </div>
 
-      {fuenteActual?.requiere_referencia && (
+      {referenciaValida && (
         <div className="space-y-1">
-          <Label>{etiquetaReferencia(fuenteActual.tipo_referencia)}</Label>
-          {fuenteActual.tipo_referencia === "sucursal" ? (
+          <Label>{etiquetaReferencia(tipoRef)}</Label>
+          {tipoRef === "sucursal" ? (
             <SucursalSelect
               value={fuenteReferencia || ""}
               onChange={(v) => onChange(fuente, v)}
             />
           ) : (
             <ReferenciaCombobox
-              tipo={fuenteActual.tipo_referencia!}
+              tipo={tipoRef as "trabajador" | "cliente"}
               value={fuenteReferencia || ""}
               onChange={(v) => onChange(fuente, v)}
             />
           )}
         </div>
+      )}
+      {referenciaMalConfigurada && (
+        <p className="text-xs text-amber-600">
+          Esta fuente requiere referencia pero no tiene un tipo válido configurado
+          (revisar en Gestionar Fuentes).
+        </p>
       )}
     </div>
   )
@@ -151,6 +175,7 @@ function ReferenciaCombobox({
   const [query, setQuery] = useState("")
   const [opciones, setOpciones] = useState<Opcion[]>([])
   const [loading, setLoading] = useState(false)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const trabajadoresCargadosRef = useRef(false)
 
   // Al cambiar el tipo de referencia (p.ej. Trabajador → Otro cliente),
@@ -160,6 +185,7 @@ function ReferenciaCombobox({
   useEffect(() => {
     setOpciones([])
     setQuery("")
+    setFetchError(null)
     trabajadoresCargadosRef.current = false
   }, [tipo])
 
@@ -169,12 +195,24 @@ function ReferenciaCombobox({
     trabajadoresCargadosRef.current = true
     let activo = true
     setLoading(true)
+    setFetchError(null)
     TrabajadorOpcionesService.getOpciones()
       .then((data) => {
         if (!activo) return
         setOpciones((data || []).map((t) => ({ value: t.nombre, label: t.nombre })))
       })
-      .catch(() => activo && setOpciones([]))
+      .catch((err) => {
+        if (!activo) return
+        console.error("ReferenciaCombobox: fallo al cargar trabajadores", err)
+        setOpciones([])
+        setFetchError(
+          err instanceof Error
+            ? err.message
+            : "No se pudieron cargar los trabajadores",
+        )
+        // Permitir reintento en un próximo abrir
+        trabajadoresCargadosRef.current = false
+      })
       .finally(() => activo && setLoading(false))
     return () => { activo = false }
   }, [tipo])
@@ -184,6 +222,7 @@ function ReferenciaCombobox({
     if (tipo !== "cliente") return
     let activo = true
     setLoading(true)
+    setFetchError(null)
     const t = setTimeout(async () => {
       try {
         const res = await ClienteService.getClientes({ q: query.trim() || undefined, limit: 20 })
@@ -194,8 +233,13 @@ function ReferenciaCombobox({
             label: `${c.nombre} (${c.numero})`,
           }))
         )
-      } catch {
-        if (activo) setOpciones([])
+      } catch (err) {
+        if (!activo) return
+        console.error("ReferenciaCombobox: fallo al buscar clientes", err)
+        setOpciones([])
+        setFetchError(
+          err instanceof Error ? err.message : "No se pudieron cargar los clientes",
+        )
       } finally {
         if (activo) setLoading(false)
       }
@@ -228,6 +272,10 @@ function ReferenciaCombobox({
             {loading ? (
               <div className="flex items-center justify-center py-6 text-sm text-gray-500">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Cargando...
+              </div>
+            ) : fetchError ? (
+              <div className="px-3 py-4 text-sm text-red-600">
+                Error: {fetchError}
               </div>
             ) : (
               <>

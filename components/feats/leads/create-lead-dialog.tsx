@@ -774,7 +774,7 @@ export function CreateLeadDialog({
                   <SelectContent className="max-h-[300px] overflow-y-auto">
                     {estadosDisponibles.map((estado) => (
                       <SelectItem key={estado} value={estado}>
-                        {estado}
+                        {estado === "Proximamente" ? "Próximamente" : estado}
                       </SelectItem>
                     ))}
                   </SelectContent>

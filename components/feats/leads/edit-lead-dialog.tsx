@@ -25,6 +25,8 @@ import { MaterialSearchSelector } from "@/components/feats/materials/material-se
 import type { Lead, LeadUpdateData } from "@/lib/api-types";
 import { useAuth } from "@/contexts/auth-context";
 import { API_BASE_URL, apiRequest } from "@/lib/api-config";
+import { useComercialesList } from "@/hooks/use-comerciales-list";
+import { useComercialEquipoMap } from "@/hooks/use-comercial-equipo-map";
 
 interface Provincia {
   codigo: string;
@@ -67,6 +69,8 @@ export function EditLeadDialog({
   isLoading,
 }: EditLeadDialogProps) {
   const { user } = useAuth();
+  const { comerciales: comercialesList } = useComercialesList();
+  const { nombreEquipo } = useComercialEquipoMap();
 
   const [provincias, setProvincias] = useState<Provincia[]>([]);
   const [municipios, setMunicipios] = useState<Municipio[]>([]);
@@ -930,14 +934,48 @@ export function EditLeadDialog({
                     </div>
                     <div>
                       <Label htmlFor="comercial">Comercial</Label>
-                      <Input
-                        id="comercial"
-                        value={formData.comercial}
-                        onChange={(e) =>
-                          handleInputChange("comercial", e.target.value)
+                      <Select
+                        value={formData.comercial || undefined}
+                        onValueChange={(value) =>
+                          handleInputChange("comercial", value)
                         }
-                        className="text-gray-900 placeholder:text-gray-400"
-                      />
+                      >
+                        <SelectTrigger
+                          id="comercial"
+                          className="text-gray-900"
+                        >
+                          <SelectValue placeholder="Seleccionar comercial" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[300px] overflow-y-auto">
+                          {(() => {
+                            const opciones = Array.from(
+                              new Set(
+                                [formData.comercial, ...comercialesList].filter(
+                                  (n): n is string =>
+                                    Boolean(n && n.trim()),
+                                ),
+                              ),
+                            ).sort((a, b) =>
+                              a.localeCompare(b, "es", {
+                                sensitivity: "base",
+                              }),
+                            );
+                            return opciones.map((nombre) => (
+                              <SelectItem key={nombre} value={nombre}>
+                                {nombre}
+                              </SelectItem>
+                            ));
+                          })()}
+                        </SelectContent>
+                      </Select>
+                      {nombreEquipo(formData.comercial) && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Equipo:{" "}
+                          <span className="font-medium text-gray-700">
+                            {nombreEquipo(formData.comercial)}
+                          </span>
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div>
@@ -959,7 +997,7 @@ export function EditLeadDialog({
                       <SelectContent className="max-h-[300px] overflow-y-auto">
                         {estadosDisponibles.map((estado) => (
                           <SelectItem key={estado} value={estado}>
-                            {estado}
+                            {estado === "Proximamente" ? "Próximamente" : estado}
                           </SelectItem>
                         ))}
                       </SelectContent>

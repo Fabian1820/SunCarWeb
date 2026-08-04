@@ -301,12 +301,13 @@ export default function LeadsPage() {
 
   const handleConvertLead = async (lead: Lead, data: LeadConversionRequest) => {
     if (!lead.id) {
+      const msg = "No se puede convertir un lead sin identificador.";
       toast({
         title: "Error",
-        description: "No se puede convertir un lead sin identificador.",
+        description: msg,
         variant: "destructive",
       });
-      return;
+      throw new Error(msg);
     }
 
     setLoadingAction(true);
@@ -317,14 +318,13 @@ export default function LeadsPage() {
         description: `Se creó el cliente ${cliente.numero || "sin número asignado"} a partir del lead.`,
       });
     } catch (e) {
+      // Re-lanzamos para que el diálogo de convertir muestre el error inline
+      // en su propio banner (el usuario no ve el toast si el diálogo está
+      // cubriendo la parte superior de la pantalla).
       console.error("Error converting lead:", e);
-      toast({
-        title: "Error",
-        description:
-          "No se pudo convertir el lead: " +
-          (e instanceof Error ? e.message : "Error desconocido"),
-        variant: "destructive",
-      });
+      throw e instanceof Error
+        ? e
+        : new Error(typeof e === "string" ? e : "Error desconocido");
     } finally {
       setLoadingAction(false);
     }
@@ -645,7 +645,7 @@ export default function LeadsPage() {
                                 checked={seleccionados.includes(estado)}
                                 onCheckedChange={() => toggleEstado(estado)}
                               />
-                              <span>{estado}</span>
+                              <span>{estado === "Proximamente" ? "Próximamente" : estado}</span>
                             </label>
                           ))}
                         </div>
