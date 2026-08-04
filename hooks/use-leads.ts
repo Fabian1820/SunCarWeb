@@ -741,10 +741,12 @@ export function useLeads(): UseLeadsReturn {
         await loadLeads();
         return cliente;
       } catch (err) {
+        // No seteamos setError aquí: el error se muestra dentro del diálogo
+        // de conversión (banner inline). Poblar el banner superior de la
+        // página solo confunde porque queda oculto detrás del modal.
+        console.error("Error converting lead:", err);
         const message =
           err instanceof Error ? err.message : "Error al convertir el lead";
-        setError(message);
-        console.error("Error converting lead:", err);
         throw err instanceof Error ? err : new Error(message);
       } finally {
         setLoading(false);
@@ -760,12 +762,13 @@ export function useLeads(): UseLeadsReturn {
         const codigo = await LeadService.generarCodigoCliente(id, equipoPropio);
         return codigo;
       } catch (err) {
+        // Idem: el error se muestra dentro del flujo de conversión, no en
+        // el banner superior de la página (queda oculto por el modal).
+        console.error("Error generating client code:", err);
         const message =
           err instanceof Error
             ? err.message
             : "Error al generar el código de cliente";
-        setError(message);
-        console.error("Error generating client code:", err);
         throw err instanceof Error ? err : new Error(message);
       }
     },

@@ -60,6 +60,7 @@ import {
   RotateCcw,
   CheckCircle2,
   XCircle,
+  MoreHorizontal,
   type LucideIcon,
 } from "lucide-react";
 import { useOfertasPersonalizadas } from "@/hooks/use-ofertas-personalizadas";
@@ -387,6 +388,11 @@ export function LeadsTable({
     );
   }, []);
 
+  // Refresco de ofertas del lead abierto en Ver Lead (evita snapshots stale)
+  const [detailOfertasFrescas, setDetailOfertasFrescas] = useState<
+    OfertaConfeccion[] | null
+  >(null);
+
   // Estados para editar/eliminar/exportar ofertas
   const [mostrarDialogoEditar, setMostrarDialogoEditar] = useState(false);
   const [ofertaParaEditar, setOfertaParaEditar] =
@@ -686,14 +692,28 @@ export function LeadsTable({
     setSelectedLead(lead);
     setIsDetailDialogOpen(true);
     setLoadingFotosLeadDetails(true);
+    setDetailOfertasFrescas(null);
 
     try {
       if (!lead.id) {
         setFotosLeadDetails([]);
         return;
       }
-      const fotos = await LeadService.getFotosLead(lead.id);
+      // Refrescar ofertas de confección del lead en paralelo con las fotos
+      // para no depender del snapshot embebido (que puede tener estado stale).
+      const [fotos, ofertaLive] = await Promise.all([
+        LeadService.getFotosLead(lead.id),
+        obtenerOfertaPorLead(lead.id).catch(() => null),
+      ]);
       setFotosLeadDetails(fotos);
+      if (ofertaLive && ofertaLive.success) {
+        const ofertas = ofertaLive.ofertas?.length
+          ? ofertaLive.ofertas
+          : ofertaLive.oferta
+            ? [ofertaLive.oferta]
+            : [];
+        setDetailOfertasFrescas(ofertas);
+      }
     } catch (error) {
       console.error("Error cargando fotos del lead:", error);
       toast({
@@ -3028,7 +3048,7 @@ export function LeadsTable({
                       })()}
                     </div>
                   </td>
-                  <td className="px-4 py-3whitespace-nowrap text-right text-sm font-medium min-w-[120px] w-[120px]">
+                  <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex items-center justify-end space-x-1">
                       <Button
                         variant="ghost"
@@ -3077,16 +3097,6 @@ export function LeadsTable({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => openUploadFotosDialog(lead)}
-                        className="text-violet-600 hover:text-violet-800 h-7 w-7 p-0"
-                        title="Agregar foto o video"
-                        disabled={disableActions || !onUploadFotos}
-                      >
-                        <Camera className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
                         onClick={() => {
                           void openDetailDialog(lead);
                         }}
@@ -3096,34 +3106,65 @@ export function LeadsTable({
                       >
                         <Eye className="h-3 w-3" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onEdit(lead)}
-                        className="text-emerald-600 hover:text-emerald-800 h-7 w-7 p-0"
-                        title="Editar"
-                        disabled={disableActions}
-                      >
-                        <Edit className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleToggleStatusClick(lead)}
-                        className={
-                          lead.activo === false
-                            ? "text-emerald-600 hover:text-emerald-800 h-7 w-7 p-0"
-                            : "text-red-600 hover:text-red-800 h-7 w-7 p-0"
-                        }
-                        title={lead.activo === false ? "Reactivar" : "Anular"}
-                        disabled={disableActions}
-                      >
-                        {lead.activo === false ? (
-                          <RotateCcw className="h-3 w-3" />
-                        ) : (
-                          <Ban className="h-3 w-3" />
-                        )}
-                      </Button>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-gray-600 hover:text-gray-700 hover:bg-gray-50 h-7 w-7 p-0"
+                            title="Más acciones"
+                            disabled={disableActions}
+                          >
+                            <MoreHorizontal className="h-3 w-3" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent align="end" className="w-56 p-3">
+                          <div className="grid grid-cols-2 gap-3">
+                            <Button
+                              variant="ghost"
+                              onClick={() => onEdit(lead)}
+                              className="h-auto flex-col items-center justify-center gap-1 py-3"
+                              title="Editar"
+                              disabled={disableActions}
+                            >
+                              <Edit className="h-5 w-5 text-emerald-600" />
+                              <span className="text-xs text-gray-700 leading-tight text-center">
+                                Editar
+                              </span>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              onClick={() => openUploadFotosDialog(lead)}
+                              className="h-auto flex-col items-center justify-center gap-1 py-3"
+                              title="Agregar foto o video"
+                              disabled={disableActions || !onUploadFotos}
+                            >
+                              <Camera className="h-5 w-5 text-violet-600" />
+                              <span className="text-xs text-gray-700 leading-tight text-center">
+                                Agregar foto
+                              </span>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              onClick={() => handleToggleStatusClick(lead)}
+                              className="h-auto flex-col items-center justify-center gap-1 py-3"
+                              title={
+                                lead.activo === false ? "Reactivar" : "Anular"
+                              }
+                              disabled={disableActions}
+                            >
+                              {lead.activo === false ? (
+                                <RotateCcw className="h-5 w-5 text-emerald-600" />
+                              ) : (
+                                <Ban className="h-5 w-5 text-red-600" />
+                              )}
+                              <span className="text-xs text-gray-700 leading-tight text-center">
+                                {lead.activo === false ? "Reactivar" : "Anular"}
+                              </span>
+                            </Button>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                   </td>
                 </tr>
@@ -3310,20 +3351,45 @@ export function LeadsTable({
                                   : undefined
                               }
                             />
-                            {(oferta.aprobada || oferta.pagada) && (
-                              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                                {oferta.aprobada && (
-                                  <Badge className="bg-green-100 px-2 py-0.5 text-xs text-green-700">
-                                    Oferta aprobada
+                            {(() => {
+                              // Preferimos el estado real de la oferta confeccionada
+                              // (traído en vivo al abrir el diálogo). Si no está
+                              // disponible, caemos al snapshot embebido.
+                              const ofertaLive = detailOfertasFrescas?.[idx];
+                              const estadoLive = ofertaLive?.estado;
+                              const label = estadoLive
+                                ? estadoLive.replace(/_/g, " ")
+                                : oferta.aprobada
+                                  ? "Oferta aprobada"
+                                  : oferta.pagada
+                                    ? "Oferta pagada"
+                                    : null;
+                              const badgeClass = estadoLive
+                                ? estadoLive === "confirmada_por_cliente"
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : estadoLive === "enviada_a_cliente"
+                                    ? "bg-blue-100 text-blue-700"
+                                    : estadoLive === "aprobada_para_enviar"
+                                      ? "bg-green-100 text-green-700"
+                                      : estadoLive === "reservada"
+                                        ? "bg-purple-100 text-purple-700"
+                                        : estadoLive === "rechazada" ||
+                                            estadoLive === "cancelada"
+                                          ? "bg-red-100 text-red-700"
+                                          : "bg-gray-100 text-gray-700"
+                                : oferta.pagada
+                                  ? "bg-blue-100 text-blue-700"
+                                  : "bg-green-100 text-green-700";
+                              return label ? (
+                                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                                  <Badge
+                                    className={`px-2 py-0.5 text-xs capitalize ${badgeClass}`}
+                                  >
+                                    {label}
                                   </Badge>
-                                )}
-                                {oferta.pagada && (
-                                  <Badge className="bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
-                                    Oferta pagada
-                                  </Badge>
-                                )}
-                              </div>
-                            )}
+                                </div>
+                              ) : null;
+                            })()}
                             {oferta.elementos_personalizados && (
                               <LeadInfoRow
                                 label="Elementos personalizados"
