@@ -3106,6 +3106,16 @@ export function LeadsTable({
                       >
                         <Eye className="h-3 w-3" />
                       </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onEdit(lead)}
+                        className="text-emerald-600 hover:text-emerald-800 h-7 w-7 p-0"
+                        title="Editar"
+                        disabled={disableActions}
+                      >
+                        <Edit className="h-3 w-3" />
+                      </Button>
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button
@@ -3120,18 +3130,6 @@ export function LeadsTable({
                         </PopoverTrigger>
                         <PopoverContent align="end" className="w-56 p-3">
                           <div className="grid grid-cols-2 gap-3">
-                            <Button
-                              variant="ghost"
-                              onClick={() => onEdit(lead)}
-                              className="h-auto flex-col items-center justify-center gap-1 py-3"
-                              title="Editar"
-                              disabled={disableActions}
-                            >
-                              <Edit className="h-5 w-5 text-emerald-600" />
-                              <span className="text-xs text-gray-700 leading-tight text-center">
-                                Editar
-                              </span>
-                            </Button>
                             <Button
                               variant="ghost"
                               onClick={() => openUploadFotosDialog(lead)}
