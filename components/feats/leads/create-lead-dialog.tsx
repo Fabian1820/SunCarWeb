@@ -17,6 +17,11 @@ import { Loader2 } from "lucide-react";
 import type { LeadCreateData } from "@/lib/api-types";
 import { useAuth } from "@/contexts/auth-context";
 import { API_BASE_URL, apiRequest } from "@/lib/api-config";
+import {
+  sanitizarTelefono,
+  esTelefonoValido,
+  TELEFONO_ERROR_MSG,
+} from "@/lib/utils/telefono";
 
 interface Provincia {
   codigo: string;
@@ -262,16 +267,9 @@ export function CreateLeadDialog({
   const handleInputChange = (field: keyof LeadCreateData, value: string) => {
     let processedValue = value;
 
-    // Validación especial para teléfono adicional: remover caracteres no permitidos
-    if (field === "telefono_adicional") {
-      // Remover caracteres como : y otros caracteres especiales no permitidos en teléfonos
-      // Permitir solo: dígitos, +, espacios, guiones y paréntesis
-      processedValue = value.replace(/[^0-9+\s\-()]/g, "");
-      
-      // Si se removieron caracteres, mostrar advertencia
-      if (processedValue !== value) {
-        console.warn("⚠️ Se removieron caracteres no permitidos del teléfono adicional");
-      }
+    // Teléfono / teléfono adicional: solo dígitos y un "+" opcional al inicio
+    if (field === "telefono" || field === "telefono_adicional") {
+      processedValue = sanitizarTelefono(value);
     }
 
     // Convertir fecha de input date (YYYY-MM-DD) a formato DD/MM/YYYY
@@ -495,6 +493,11 @@ export function CreateLeadDialog({
     }
     if (!formData.telefono.trim()) {
       newErrors.telefono = "El teléfono es obligatorio";
+    } else if (!esTelefonoValido(formData.telefono)) {
+      newErrors.telefono = TELEFONO_ERROR_MSG;
+    }
+    if (!esTelefonoValido(formData.telefono_adicional)) {
+      newErrors.telefono_adicional = TELEFONO_ERROR_MSG;
     }
     if (!formData.estado.trim()) {
       newErrors.estado = "El estado es obligatorio";
@@ -582,7 +585,7 @@ export function CreateLeadDialog({
                 id="telefono"
                 value={formData.telefono}
                 onChange={(e) => handleTelefonoChange(e.target.value)}
-                placeholder="+53 5 1234567"
+                placeholder="+5351234567"
                 className={`text-gray-900 placeholder:text-gray-400 ${errors.telefono ? "border-red-500" : ""}`}
               />
               {errors.telefono && (
@@ -600,9 +603,14 @@ export function CreateLeadDialog({
                 onChange={(e) =>
                   handleInputChange("telefono_adicional", e.target.value)
                 }
-                placeholder="+53 5 1234567"
-                className="text-gray-900 placeholder:text-gray-400"
+                placeholder="+5351234567"
+                className={`text-gray-900 placeholder:text-gray-400 ${errors.telefono_adicional ? "border-red-500" : ""}`}
               />
+              {errors.telefono_adicional && (
+                <p className="text-sm text-red-500 mt-1">
+                  {errors.telefono_adicional}
+                </p>
+              )}
             </div>
           </div>
           {formData.telefono_adicional && (

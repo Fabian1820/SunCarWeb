@@ -28,6 +28,11 @@ import type { Cliente, ClienteUpdateData } from "@/lib/api-types";
 import { useAuth } from "@/contexts/auth-context";
 import { API_BASE_URL, apiRequest } from "@/lib/api-config";
 import MapPicker from "@/components/shared/organism/MapPickerNoSSR";
+import {
+  sanitizarTelefono,
+  esTelefonoValido,
+  TELEFONO_ERROR_MSG,
+} from "@/lib/utils/telefono";
 
 interface Provincia {
   codigo: string;
@@ -412,6 +417,11 @@ export function EditClientDialog({
       processedValue = convertFromDateInput(value);
     }
 
+    // Teléfono / teléfono adicional: solo dígitos y un "+" opcional al inicio
+    if (field === "telefono" || field === "telefono_adicional") {
+      processedValue = sanitizarTelefono(value);
+    }
+
     setFormData((prev) => {
       const nextData = {
         ...prev,
@@ -538,6 +548,11 @@ export function EditClientDialog({
     }
     if (!formData.telefono.trim()) {
       newErrors.telefono = "El teléfono es obligatorio";
+    } else if (!esTelefonoValido(formData.telefono)) {
+      newErrors.telefono = TELEFONO_ERROR_MSG;
+    }
+    if (!esTelefonoValido(formData.telefono_adicional)) {
+      newErrors.telefono_adicional = TELEFONO_ERROR_MSG;
     }
     if (!formData.direccion.trim()) {
       newErrors.direccion = "La dirección es obligatoria";
@@ -1094,7 +1109,7 @@ export function EditClientDialog({
                       id="telefono"
                       value={formData.telefono}
                       onChange={(e) => handleTelefonoChange(e.target.value)}
-                      placeholder="+53 5 1234567"
+                      placeholder="+5351234567"
                       className={`text-gray-900 placeholder:text-gray-400 ${errors.telefono ? "border-red-500" : ""}`}
                     />
                     {errors.telefono && (
@@ -1118,9 +1133,14 @@ export function EditClientDialog({
                       onChange={(e) =>
                         handleInputChange("telefono_adicional", e.target.value)
                       }
-                      placeholder="+53 5 1234567"
-                      className="text-gray-900 placeholder:text-gray-400"
+                      placeholder="+5351234567"
+                      className={`text-gray-900 placeholder:text-gray-400 ${errors.telefono_adicional ? "border-red-500" : ""}`}
                     />
+                    {errors.telefono_adicional && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {errors.telefono_adicional}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div>
