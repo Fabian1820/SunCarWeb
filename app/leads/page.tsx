@@ -58,6 +58,41 @@ import { extraerComponentesDeOfertaConfeccion } from "@/lib/utils/oferta-confecc
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { GestionarFuentesDialog } from "@/components/feats/leads/gestionar-fuentes-dialog";
 
+type FechaPreset = "" | "hoy" | "semana" | "mes" | "personalizado";
+
+const formatFechaInput = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+/** Calcula {desde, hasta} (formato YYYY-MM-DD, el que espera <input type="date">)
+ * para cada preset. "Esta semana"/"Este mes" van desde el inicio del periodo
+ * hasta hoy (no tiene sentido incluir fechas futuras). */
+const getRangoFechaPreset = (
+  preset: FechaPreset,
+): { desde: string; hasta: string } => {
+  const hoy = new Date();
+  const hastaStr = formatFechaInput(hoy);
+
+  if (preset === "hoy") {
+    return { desde: hastaStr, hasta: hastaStr };
+  }
+  if (preset === "semana") {
+    const diaSemana = hoy.getDay(); // 0 = domingo ... 6 = sábado
+    const diasDesdeElLunes = diaSemana === 0 ? 6 : diaSemana - 1;
+    const lunes = new Date(hoy);
+    lunes.setDate(hoy.getDate() - diasDesdeElLunes);
+    return { desde: formatFechaInput(lunes), hasta: hastaStr };
+  }
+  if (preset === "mes") {
+    const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    return { desde: formatFechaInput(primerDiaMes), hasta: hastaStr };
+  }
+  return { desde: "", hasta: "" };
+};
+
 export default function LeadsPage() {
   const searchParams = useSearchParams();
   const crearOfertaLeadIdParam = searchParams.get("crear_oferta_lead") ?? "";
@@ -103,6 +138,17 @@ export default function LeadsPage() {
       .then((data) => setFuentesDisponibles(data.map((f) => f.nombre)))
       .catch(() => setFuentesDisponibles([]));
   }, []);
+
+  const [fechaPreset, setFechaPreset] = useState<FechaPreset>("");
+  const handleFechaPresetChange = (preset: FechaPreset) => {
+    setFechaPreset(preset);
+    if (preset === "" || preset === "personalizado") {
+      setFilters({ fechaDesde: "", fechaHasta: "" });
+    } else {
+      const { desde, hasta } = getRangoFechaPreset(preset);
+      setFilters({ fechaDesde: desde, fechaHasta: hasta });
+    }
+  };
 
   const [isCreateLeadDialogOpen, setIsCreateLeadDialogOpen] = useState(false);
   const [isEditLeadDialogOpen, setIsEditLeadDialogOpen] = useState(false);
@@ -560,6 +606,7 @@ export default function LeadsPage() {
                 size="sm"
                 onClick={() => {
                   setSearchTerm("");
+                  setFechaPreset("");
                   setFilters({
                     searchTerm: "",
                     estado: [],
@@ -884,25 +931,55 @@ export default function LeadsPage() {
                 </Select>
               </div>
 
-              {/* Filtro Fecha Desde */}
+              {/* Filtro Fecha (presets + rango personalizado) */}
               <div>
-                <Input
-                  type="date"
-                  value={filters.fechaDesde}
-                  onChange={(e) => setFilters({ fechaDesde: e.target.value })}
-                  placeholder="Fecha desde"
-                />
+                <Select
+                  value={fechaPreset || "todas"}
+                  onValueChange={(value) =>
+                    handleFechaPresetChange(
+                      (value === "todas" ? "" : value) as FechaPreset,
+                    )
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Fecha" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todas">Todas las fechas</SelectItem>
+                    <SelectItem value="hoy">Hoy</SelectItem>
+                    <SelectItem value="semana">Esta semana</SelectItem>
+                    <SelectItem value="mes">Este mes</SelectItem>
+                    <SelectItem value="personalizado">
+                      Definir rango
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
-              {/* Filtro Fecha Hasta */}
-              <div>
-                <Input
-                  type="date"
-                  value={filters.fechaHasta}
-                  onChange={(e) => setFilters({ fechaHasta: e.target.value })}
-                  placeholder="Fecha hasta"
-                />
-              </div>
+              {fechaPreset === "personalizado" && (
+                <>
+                  <div>
+                    <Input
+                      type="date"
+                      value={filters.fechaDesde}
+                      onChange={(e) =>
+                        setFilters({ fechaDesde: e.target.value })
+                      }
+                      placeholder="Fecha inicio"
+                    />
+                  </div>
+                  <div>
+                    <Input
+                      type="date"
+                      value={filters.fechaHasta}
+                      onChange={(e) =>
+                        setFilters({ fechaHasta: e.target.value })
+                      }
+                      placeholder="Fecha fin"
+                    />
+                  </div>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>
