@@ -259,6 +259,12 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
         label: "Comercial de Ventas (individual)",
         descripcion: "Permite incluir la sección Comercial de Ventas en el informe exportado.",
       },
+      {
+        key: "informe-direccion/cobros-pendientes",
+        label: "Cobros pendientes",
+        descripcion:
+          "Permite generar el informe de clientes con obra terminada que aún tienen saldo por cobrar.",
+      },
     ],
   },
   {
