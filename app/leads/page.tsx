@@ -878,7 +878,7 @@ export default function LeadsPage() {
                       Con ofertas confirmadas
                     </SelectItem>
                     <SelectItem value="pendientes">
-                      Con ofertas, sin confirmar
+                      Sin confirmadas
                     </SelectItem>
                   </SelectContent>
                 </Select>
