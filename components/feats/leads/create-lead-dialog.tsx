@@ -149,6 +149,7 @@ export function CreateLeadDialog({
     nombre: "",
     telefono: "",
     telefono_adicional: "",
+    telefono_adicional_nombre: "",
     estado: "",
     fuente: "",
     referencia: "",
@@ -474,6 +475,11 @@ export function CreateLeadDialog({
       cleaned.motivo_visita = cleaned.motivo_visita.trim();
     }
 
+    // El nombre del teléfono adicional no tiene sentido sin el número.
+    if (!cleaned.telefono_adicional) {
+      delete cleaned.telefono_adicional_nombre;
+    }
+
     return cleaned as unknown as LeadCreateData;
   };
 
@@ -599,6 +605,25 @@ export function CreateLeadDialog({
               />
             </div>
           </div>
+          {formData.telefono_adicional && (
+            <div>
+              <Label htmlFor="telefono_adicional_nombre">
+                ¿De quién es ese teléfono?
+              </Label>
+              <Input
+                id="telefono_adicional_nombre"
+                value={formData.telefono_adicional_nombre || ""}
+                onChange={(e) =>
+                  handleInputChange(
+                    "telefono_adicional_nombre",
+                    e.target.value,
+                  )
+                }
+                placeholder="Ej: esposo, hijo, vecino..."
+                className="text-gray-900 placeholder:text-gray-400"
+              />
+            </div>
+          )}
           {/* 3. Estado y Fuente */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>

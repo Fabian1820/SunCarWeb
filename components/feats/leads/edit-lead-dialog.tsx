@@ -203,6 +203,7 @@ export function EditLeadDialog({
     nombre: lead.nombre || "",
     telefono: lead.telefono || "",
     telefono_adicional: lead.telefono_adicional || "",
+    telefono_adicional_nombre: lead.telefono_adicional_nombre || "",
     estado: lead.estado || "",
     fuente: lead.fuente || "",
     referencia: lead.referencia || "",
@@ -244,6 +245,7 @@ export function EditLeadDialog({
         nombre: lead.nombre || "",
         telefono: lead.telefono || "",
         telefono_adicional: lead.telefono_adicional || "",
+        telefono_adicional_nombre: lead.telefono_adicional_nombre || "",
         estado: lead.estado || "",
         fuente: lead.fuente || "",
         referencia: lead.referencia || "",
@@ -640,6 +642,11 @@ export function EditLeadDialog({
         leadData.motivo_visita = leadData.motivo_visita.trim();
       }
 
+      // El nombre del teléfono adicional no tiene sentido sin el número.
+      if (!leadData.telefono_adicional) {
+        delete (leadData as Record<string, unknown>).telefono_adicional_nombre;
+      }
+
       await onSubmit(leadData as LeadUpdateData);
       onOpenChange(false);
     } catch (error) {
@@ -766,6 +773,26 @@ export function EditLeadDialog({
                   />
                 </div>
               </div>
+
+              {formData.telefono_adicional && (
+                <div>
+                  <Label htmlFor="telefono_adicional_nombre">
+                    ¿De quién es ese teléfono?
+                  </Label>
+                  <Input
+                    id="telefono_adicional_nombre"
+                    value={formData.telefono_adicional_nombre || ""}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "telefono_adicional_nombre",
+                        e.target.value,
+                      )
+                    }
+                    placeholder="Ej: esposo, hijo, vecino..."
+                    className="text-gray-900 placeholder:text-gray-400"
+                  />
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>

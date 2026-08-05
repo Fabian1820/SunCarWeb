@@ -2550,6 +2550,8 @@ export function LeadsTable({
                         <PhoneForwarded className="h-4 w-4 mr-1 text-gray-400" />
                         <span className="truncate">
                           {lead.telefono_adicional}
+                          {lead.telefono_adicional_nombre &&
+                            ` (${lead.telefono_adicional_nombre})`}
                         </span>
                       </div>
                     )}
@@ -2856,6 +2858,8 @@ export function LeadsTable({
                         <p className="text-gray-900 flex items-center gap-2 mt-1">
                           <PhoneForwarded className="h-4 w-4 text-gray-400" />
                           {selectedLead.telefono_adicional}
+                          {selectedLead.telefono_adicional_nombre &&
+                            ` (${selectedLead.telefono_adicional_nombre})`}
                         </p>
                       </div>
                     )}

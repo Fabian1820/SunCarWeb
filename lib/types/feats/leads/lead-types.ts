@@ -66,6 +66,7 @@ export interface Lead {
   nombre: string;
   telefono: string;
   telefono_adicional?: string;
+  telefono_adicional_nombre?: string;
   estado: string;
   fuente?: string;
   referencia?: string;
@@ -101,6 +102,7 @@ export interface LeadCreateData {
   telefono: string;
   estado: string;
   telefono_adicional?: string;
+  telefono_adicional_nombre?: string;
   fuente?: string;
   referencia?: string;
   direccion?: string;
@@ -123,6 +125,7 @@ export interface LeadUpdateData {
   nombre?: string;
   telefono?: string;
   telefono_adicional?: string;
+  telefono_adicional_nombre?: string;
   estado?: string;
   fuente?: string;
   referencia?: string;
