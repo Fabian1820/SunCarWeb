@@ -37,6 +37,7 @@ import {
   MessageCircle,
   Inbox,
   Gauge,
+  HelpCircle,
 } from "lucide-react"
 
 /**
@@ -287,6 +288,16 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
         aditivo: true,
       },
     ],
+  },
+  {
+    key: "preguntas-frecuentes",
+    label: "Preguntas Frecuentes",
+    descripcion: "Preguntas y respuestas oficiales que usa el asistente de WhatsApp para responder a los clientes.",
+    icon: HelpCircle,
+    iconClass: "text-emerald-600",
+    href: "/preguntas-frecuentes",
+    grupo: "resultados-empresa",
+    alwaysVisible: true,
   },
 
   // ───────── Comercial Instaladora ─────────
