@@ -229,6 +229,69 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-emerald-600",
     href: "/leads",
     grupo: "comercial-instaladora",
+    subPermisos: [
+      // Scope: qué leads ve el usuario. Ambos son ADITIVOS: el permiso base
+      // `leads` sólo permite ver los propios (comercial == usuario). Con
+      // `leads/equipo` ve los de su equipo (BTB/BTC); con `leads/todos`
+      // los ve todos (jefes generales, admin).
+      {
+        key: "leads/equipo",
+        label: "Ver leads del equipo (BTB/BTC)",
+        descripcion:
+          "Además de los propios, ver leads asignados a comerciales del mismo equipo.",
+        aditivo: true,
+      },
+      {
+        key: "leads/todos",
+        label: "Ver todos los leads",
+        descripcion:
+          "Ver los leads de toda la empresa, sin restricción por comercial ni equipo.",
+        aditivo: true,
+      },
+      // Capacidades operativas. Son ADITIVAS: el módulo base `leads` solo da
+      // acceso de VER (listado + detalle). Cada una se otorga aparte, para
+      // poder darle a alguien solo consulta sin que también pueda
+      // crear/editar/anular/convertir/subir archivos.
+      {
+        key: "leads/crear",
+        label: "Crear leads",
+        descripcion: "Registrar nuevos leads.",
+        aditivo: true,
+      },
+      {
+        key: "leads/editar",
+        label: "Editar leads",
+        descripcion: "Modificar datos de un lead existente.",
+        aditivo: true,
+      },
+      {
+        key: "leads/anular",
+        label: "Anular / reactivar leads",
+        descripcion: "Marcar leads como anulados o reactivarlos.",
+        aditivo: true,
+      },
+      {
+        key: "leads/convertir",
+        label: "Convertir a cliente",
+        descripcion: "Convertir un lead en cliente registrado.",
+        aditivo: true,
+      },
+      {
+        key: "leads/fotos",
+        label: "Subir fotos y comprobantes",
+        descripcion: "Adjuntar fotos, videos y comprobantes de pago al lead.",
+        aditivo: true,
+      },
+      // Exportar es ADITIVO: hace público un dataset sensible; no debería
+      // heredarse por defecto.
+      {
+        key: "leads/exportar",
+        label: "Exportar listado",
+        descripcion:
+          "Descargar el listado de leads filtrado (Excel/CSV). No se hereda del módulo padre.",
+        aditivo: true,
+      },
+    ],
   },
   {
     key: "clientes",

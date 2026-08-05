@@ -76,6 +76,7 @@ import { seleccionarOfertaConfirmada, normalizeOfertaConfeccion } from "@/hooks/
 import { apiRequest } from "@/lib/api-config";
 import { useToast } from "@/hooks/use-toast";
 import { useComercialEquipoMap } from "@/hooks/use-comercial-equipo-map";
+import { useAuth } from "@/contexts/auth-context";
 import type { Lead, LeadConversionRequest, LeadFoto } from "@/lib/api-types";
 import { extraerComponentesDeOfertaConfeccion } from "@/lib/utils/oferta-confeccion-items";
 
@@ -147,6 +148,10 @@ export function LeadsTable({
   onRefreshLeads,
 }: LeadsTableProps) {
   const { toast } = useToast();
+  const { hasExactPermission } = useAuth();
+  const canEditarLead = hasExactPermission("leads/editar");
+  const canConvertirLead = hasExactPermission("leads/convertir");
+  const canSubirFotosLead = hasExactPermission("leads/fotos");
   const { nombreEquipo } = useComercialEquipoMap();
   const {
     ofertas,
@@ -2717,26 +2722,30 @@ export function LeadsTable({
                           className={`h-3 w-3 ${consultandoOfertaLead === lead.id ? "animate-pulse" : ""}`}
                         />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openConvertDialog(lead)}
-                        className="text-emerald-600 hover:text-emerald-800 h-7 w-7 p-0"
-                        title="Convertir a cliente"
-                        disabled={disableActions || loading}
-                      >
-                        <UserPlus className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openUploadFotosDialog(lead)}
-                        className="text-violet-600 hover:text-violet-800 h-7 w-7 p-0"
-                        title="Agregar foto o video"
-                        disabled={disableActions || !onUploadFotos}
-                      >
-                        <Camera className="h-3 w-3" />
-                      </Button>
+                      {canConvertirLead && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openConvertDialog(lead)}
+                          className="text-emerald-600 hover:text-emerald-800 h-7 w-7 p-0"
+                          title="Convertir a cliente"
+                          disabled={disableActions || loading}
+                        >
+                          <UserPlus className="h-3 w-3" />
+                        </Button>
+                      )}
+                      {canSubirFotosLead && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openUploadFotosDialog(lead)}
+                          className="text-violet-600 hover:text-violet-800 h-7 w-7 p-0"
+                          title="Agregar foto o video"
+                          disabled={disableActions || !onUploadFotos}
+                        >
+                          <Camera className="h-3 w-3" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
@@ -2749,16 +2758,18 @@ export function LeadsTable({
                       >
                         <Eye className="h-3 w-3" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onEdit(lead)}
-                        className="text-emerald-600 hover:text-emerald-800 h-7 w-7 p-0"
-                        title="Editar"
-                        disabled={disableActions}
-                      >
-                        <Edit className="h-3 w-3" />
-                      </Button>
+                      {canEditarLead && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onEdit(lead)}
+                          className="text-emerald-600 hover:text-emerald-800 h-7 w-7 p-0"
+                          title="Editar"
+                          disabled={disableActions}
+                        >
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
@@ -3409,8 +3420,9 @@ export function LeadsTable({
                         </Button>
                       </div>
                     )}
-                    {(conversionErrors.general.includes("provincia") ||
-                      conversionErrors.general.includes("municipio")) && (
+                    {canEditarLead &&
+                      (conversionErrors.general.includes("provincia") ||
+                        conversionErrors.general.includes("municipio")) && (
                       <Button
                         type="button"
                         variant="outline"
