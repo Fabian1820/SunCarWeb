@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Check, ChevronsUpDown, Loader2 } from "lucide-react"
 
 import { Label } from "@/components/shared/atom/label"
 import {
@@ -11,21 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/shared/atom/select"
-import { Button } from "@/components/shared/atom/button"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/shared/molecule/popover"
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/shared/molecule/command"
-import { cn } from "@/lib/utils"
+import { SearchableSelect } from "@/components/shared/molecule/searchable-select"
 import { FuenteService, TrabajadorOpcionesService, SedeService, ClienteService } from "@/lib/api-services"
 import type { Fuente } from "@/lib/types/feats/fuentes/fuente-types"
 
@@ -160,8 +145,16 @@ function SucursalSelect({ value, onChange }: { value: string; onChange: (v: stri
   )
 }
 
-/** Trabajadores: endpoint ligero /trabajadores/opciones (solo id+nombre) */
-/** Clientes: búsqueda async con debounce, limit 20 */
+/**
+ * Trabajadores: endpoint ligero /trabajadores/opciones (id+nombre, carga completa).
+ * Clientes: GET /clientes/ sin filtros (carga completa), igual que en Crear Oferta
+ * (ClienteSearchSelector / ClienteSelectorField) — evitamos la búsqueda server-side
+ * con debounce + limit 20 que se perdía resultados y aparentaba no funcionar.
+ *
+ * Reutiliza SearchableSelect (mismo componente probado en Asistencia y otros
+ * módulos): carga el listado completo una sola vez y filtra en el cliente con
+ * cmdk, sin depender de un `q` server-side ni de un input controlado.
+ */
 function ReferenciaCombobox({
   tipo,
   value,
@@ -171,132 +164,69 @@ function ReferenciaCombobox({
   value: string
   onChange: (v: string) => void
 }) {
-  const [open, setOpen] = useState(false)
-  const [query, setQuery] = useState("")
   const [opciones, setOpciones] = useState<Opcion[]>([])
   const [loading, setLoading] = useState(false)
   const [fetchError, setFetchError] = useState<string | null>(null)
-  const trabajadoresCargadosRef = useRef(false)
+  const cargadoRef = useRef<"trabajador" | "cliente" | null>(null)
 
-  // Al cambiar el tipo de referencia (p.ej. Trabajador → Otro cliente),
-  // hay que limpiar las opciones que quedaron del tipo anterior y resetear
-  // el cache de trabajadores; si no, el buscador termina filtrando contra
-  // datos del otro tipo y aparenta no funcionar.
   useEffect(() => {
-    setOpciones([])
-    setQuery("")
-    setFetchError(null)
-    trabajadoresCargadosRef.current = false
-  }, [tipo])
-
-  // Trabajadores: endpoint ligero, carga única por sesión de tipo.
-  useEffect(() => {
-    if (tipo !== "trabajador" || trabajadoresCargadosRef.current) return
-    trabajadoresCargadosRef.current = true
+    if (cargadoRef.current === tipo) return
     let activo = true
     setLoading(true)
     setFetchError(null)
-    TrabajadorOpcionesService.getOpciones()
-      .then((data) => {
+    setOpciones([])
+
+    const cargar = async () => {
+      try {
+        if (tipo === "trabajador") {
+          const data = await TrabajadorOpcionesService.getOpciones()
+          if (!activo) return
+          setOpciones((data || []).map((t) => ({ value: t.nombre, label: t.nombre })))
+        } else {
+          const res = await ClienteService.getClientes()
+          if (!activo) return
+          setOpciones(
+            (res.clients || []).map((c) => ({
+              value: `${c.nombre} (${c.numero})`,
+              label: `${c.nombre} (${c.numero})`,
+            })),
+          )
+        }
+        cargadoRef.current = tipo
+      } catch (err) {
         if (!activo) return
-        setOpciones((data || []).map((t) => ({ value: t.nombre, label: t.nombre })))
-      })
-      .catch((err) => {
-        if (!activo) return
-        console.error("ReferenciaCombobox: fallo al cargar trabajadores", err)
+        console.error(`ReferenciaCombobox: fallo al cargar ${tipo}s`, err)
         setOpciones([])
         setFetchError(
           err instanceof Error
             ? err.message
-            : "No se pudieron cargar los trabajadores",
-        )
-        // Permitir reintento en un próximo abrir
-        trabajadoresCargadosRef.current = false
-      })
-      .finally(() => activo && setLoading(false))
-    return () => { activo = false }
-  }, [tipo])
-
-  // Clientes: búsqueda async con debounce.
-  useEffect(() => {
-    if (tipo !== "cliente") return
-    let activo = true
-    setLoading(true)
-    setFetchError(null)
-    const t = setTimeout(async () => {
-      try {
-        const res = await ClienteService.getClientes({ q: query.trim() || undefined, limit: 20 })
-        if (!activo) return
-        setOpciones(
-          (res.clients || []).map((c) => ({
-            value: `${c.nombre} (${c.numero})`,
-            label: `${c.nombre} (${c.numero})`,
-          }))
-        )
-      } catch (err) {
-        if (!activo) return
-        console.error("ReferenciaCombobox: fallo al buscar clientes", err)
-        setOpciones([])
-        setFetchError(
-          err instanceof Error ? err.message : "No se pudieron cargar los clientes",
+            : tipo === "trabajador"
+              ? "No se pudieron cargar los trabajadores"
+              : "No se pudieron cargar los clientes",
         )
       } finally {
         if (activo) setLoading(false)
       }
-    }, 300)
-    return () => { activo = false; clearTimeout(t) }
-  }, [tipo, query])
+    }
+    void cargar()
+    return () => { activo = false }
+  }, [tipo])
 
   const placeholder = tipo === "trabajador" ? "Buscar trabajador..." : "Buscar cliente..."
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className="w-full justify-between font-normal text-gray-900"
-        >
-          <span className={cn("truncate", !value && "text-gray-400")}>
-            {value || placeholder}
-          </span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command shouldFilter={tipo === "trabajador"}>
-          <CommandInput placeholder={placeholder} value={query} onValueChange={setQuery} />
-          <CommandList>
-            {loading ? (
-              <div className="flex items-center justify-center py-6 text-sm text-gray-500">
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Cargando...
-              </div>
-            ) : fetchError ? (
-              <div className="px-3 py-4 text-sm text-red-600">
-                Error: {fetchError}
-              </div>
-            ) : (
-              <>
-                <CommandEmpty>Sin resultados</CommandEmpty>
-                <CommandGroup>
-                  {opciones.map((o) => (
-                    <CommandItem
-                      key={o.value}
-                      value={o.value}
-                      onSelect={() => { onChange(o.value); setOpen(false) }}
-                    >
-                      <Check className={cn("mr-2 h-4 w-4", value === o.value ? "opacity-100" : "opacity-0")} />
-                      {o.label}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </>
-            )}
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+    <div className="space-y-1">
+      <SearchableSelect
+        options={opciones}
+        value={value}
+        onValueChange={onChange}
+        placeholder={loading ? "Cargando..." : placeholder}
+        searchPlaceholder={placeholder}
+        disabled={loading}
+      />
+      {fetchError && (
+        <p className="text-xs text-red-600">Error: {fetchError}</p>
+      )}
+    </div>
   )
 }
