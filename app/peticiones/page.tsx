@@ -216,7 +216,7 @@ function PeticionesContent() {
         subtitle="Peticiones enviadas al equipo de desarrollo."
       />
 
-      <div className="container mx-auto px-4 py-6 space-y-4">
+      <div className="content-with-fixed-header container mx-auto px-4 py-6 space-y-4">
         {/* Filtros: chips de estado + select categoría */}
         <div className="flex flex-wrap gap-2 items-center justify-between">
           <div className="flex flex-wrap gap-2">

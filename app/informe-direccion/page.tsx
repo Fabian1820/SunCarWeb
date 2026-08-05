@@ -324,16 +324,18 @@ function InformeDireccionContent() {
   const puedeCobrosPendientes = hasSubPermission(MODULE, "cobros-pendientes");
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="min-h-screen bg-gray-50">
       <ModuleHeader
         title="Informe de Dirección"
         subtitle="Informes de dirección generados en el momento a partir de la base de datos."
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start max-w-6xl">
-        <ReporteComparativoDesempeno />
-        {puedeCobrosPendientes && <ReporteCobrosPendientes />}
-      </div>
+      <main className="content-with-fixed-header max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+          <ReporteComparativoDesempeno />
+          {puedeCobrosPendientes && <ReporteCobrosPendientes />}
+        </div>
+      </main>
 
       <Toaster />
     </div>
