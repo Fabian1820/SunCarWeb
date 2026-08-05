@@ -10,9 +10,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/shared/atom/select"
-import { SearchableSelect } from "@/components/shared/molecule/searchable-select"
-import { FuenteService, TrabajadorOpcionesService, SedeService, ClienteService } from "@/lib/api-services"
+import { TrabajadorSearchSelector } from "@/components/feats/worker/trabajador-search-selector"
+import { ClienteSearchSelector } from "@/components/feats/cliente/cliente-search-selector"
+import {
+  FuenteService,
+  TrabajadorService,
+  SedeService,
+  ClienteService,
+} from "@/lib/api-services"
 import type { Fuente } from "@/lib/types/feats/fuentes/fuente-types"
+import type { Trabajador } from "@/lib/api-types"
+import type { Cliente } from "@/lib/types/feats/customer/cliente-types"
 
 interface FuenteSelectorProps {
   fuente: string
@@ -78,16 +86,19 @@ export function FuenteSelector({ fuente, fuenteReferencia, onChange }: FuenteSel
       </div>
 
       {referenciaValida && (
-        <div className="space-y-1">
-          <Label>{etiquetaReferencia(tipoRef)}</Label>
+        <div>
           {tipoRef === "sucursal" ? (
-            <SucursalSelect
-              value={fuenteReferencia || ""}
-              onChange={(v) => onChange(fuente, v)}
-            />
+            <>
+              <Label>{etiquetaReferencia(tipoRef)}</Label>
+              <SucursalSelect
+                value={fuenteReferencia || ""}
+                onChange={(v) => onChange(fuente, v)}
+              />
+            </>
           ) : (
-            <ReferenciaCombobox
+            <ReferenciaSelector
               tipo={tipoRef as "trabajador" | "cliente"}
+              label={etiquetaReferencia(tipoRef)}
               value={fuenteReferencia || ""}
               onChange={(v) => onChange(fuente, v)}
             />
@@ -146,25 +157,31 @@ function SucursalSelect({ value, onChange }: { value: string; onChange: (v: stri
 }
 
 /**
- * Trabajadores: endpoint ligero /trabajadores/opciones (id+nombre, carga completa).
- * Clientes: GET /clientes/ sin filtros (carga completa), igual que en Crear Oferta
- * (ClienteSearchSelector / ClienteSelectorField) — evitamos la búsqueda server-side
- * con debounce + limit 20 que se perdía resultados y aparentaba no funcionar.
+ * Trabajadores y clientes: reutiliza TrabajadorSearchSelector / ClienteSearchSelector,
+ * los MISMOS componentes que usa el módulo de Ofertas (crear oferta confeccionada) para
+ * elegir el cliente/lead. Son un <Input> + panel flotante en un <div> absoluto normal,
+ * SIN Popover/Portal de Radix — evita los problemas de clicks que no abren nada cuando
+ * el picker vive dentro de un Dialog largo con scroll (que sí rompía el combobox basado
+ * en cmdk+Popover usado antes acá).
  *
- * Reutiliza SearchableSelect (mismo componente probado en Asistencia y otros
- * módulos): carga el listado completo una sola vez y filtra en el cliente con
- * cmdk, sin depender de un `q` server-side ni de un input controlado.
+ * fuenteReferencia se sigue guardando como texto legible ("nombre" para trabajador,
+ * "nombre (numero)" para cliente) para no romper la regla de prioridad automática que
+ * lee ese campo en edit-lead-dialog.tsx — por eso este componente traduce id/CI <-> texto
+ * en ambas direcciones.
  */
-function ReferenciaCombobox({
+function ReferenciaSelector({
   tipo,
+  label,
   value,
   onChange,
 }: {
   tipo: "trabajador" | "cliente"
+  label: string
   value: string
   onChange: (v: string) => void
 }) {
-  const [opciones, setOpciones] = useState<Opcion[]>([])
+  const [trabajadores, setTrabajadores] = useState<Trabajador[]>([])
+  const [clientes, setClientes] = useState<Cliente[]>([])
   const [loading, setLoading] = useState(false)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const cargadoRef = useRef<"trabajador" | "cliente" | null>(null)
@@ -174,29 +191,22 @@ function ReferenciaCombobox({
     let activo = true
     setLoading(true)
     setFetchError(null)
-    setOpciones([])
 
     const cargar = async () => {
       try {
         if (tipo === "trabajador") {
-          const data = await TrabajadorOpcionesService.getOpciones()
+          const data = await TrabajadorService.getAllTrabajadores()
           if (!activo) return
-          setOpciones((data || []).map((t) => ({ value: t.nombre, label: t.nombre })))
+          setTrabajadores(data || [])
         } else {
           const res = await ClienteService.getClientes()
           if (!activo) return
-          setOpciones(
-            (res.clients || []).map((c) => ({
-              value: `${c.nombre} (${c.numero})`,
-              label: `${c.nombre} (${c.numero})`,
-            })),
-          )
+          setClientes(res.clients || [])
         }
         cargadoRef.current = tipo
       } catch (err) {
         if (!activo) return
-        console.error(`ReferenciaCombobox: fallo al cargar ${tipo}s`, err)
-        setOpciones([])
+        console.error(`ReferenciaSelector: fallo al cargar ${tipo}s`, err)
         setFetchError(
           err instanceof Error
             ? err.message
@@ -212,17 +222,41 @@ function ReferenciaCombobox({
     return () => { activo = false }
   }, [tipo])
 
-  const placeholder = tipo === "trabajador" ? "Buscar trabajador..." : "Buscar cliente..."
+  if (tipo === "trabajador") {
+    const seleccionado = trabajadores.find((t) => t.nombre === value)
+    return (
+      <div className="space-y-1">
+        <TrabajadorSearchSelector
+          label={label}
+          trabajadores={trabajadores}
+          value={seleccionado?.CI || ""}
+          onChange={(ci) => {
+            const t = trabajadores.find((x) => x.CI === ci)
+            onChange(t ? t.nombre : "")
+          }}
+          placeholder="Buscar trabajador..."
+          loading={loading}
+        />
+        {fetchError && (
+          <p className="text-xs text-red-600">Error: {fetchError}</p>
+        )}
+      </div>
+    )
+  }
 
+  const seleccionado = clientes.find((c) => `${c.nombre} (${c.numero})` === value)
   return (
     <div className="space-y-1">
-      <SearchableSelect
-        options={opciones}
-        value={value}
-        onValueChange={onChange}
-        placeholder={loading ? "Cargando..." : placeholder}
-        searchPlaceholder={placeholder}
-        disabled={loading}
+      <ClienteSearchSelector
+        label={label}
+        clients={clientes}
+        value={seleccionado?.id || seleccionado?.numero || ""}
+        onChange={(id) => {
+          const c = clientes.find((x) => (x.id || x.numero) === id)
+          onChange(c ? `${c.nombre} (${c.numero})` : "")
+        }}
+        placeholder="Buscar cliente..."
+        loading={loading}
       />
       {fetchError && (
         <p className="text-xs text-red-600">Error: {fetchError}</p>
