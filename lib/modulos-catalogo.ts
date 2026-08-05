@@ -317,33 +317,39 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
           "Ver los leads de toda la empresa, sin restricción por comercial ni equipo.",
         aditivo: true,
       },
-      // Capacidades operativas. Son SUBSET: quien tiene el módulo `leads` las
-      // hereda automáticamente. Se quitan aparte para bloquear a un usuario
-      // que solo debe consultar.
+      // Capacidades operativas. Son ADITIVAS: el módulo base `leads` solo da
+      // acceso de VER (listado + detalle). Cada una se otorga aparte, para
+      // poder darle a alguien solo consulta sin que también pueda
+      // crear/editar/anular/convertir/subir archivos.
       {
         key: "leads/crear",
         label: "Crear leads",
         descripcion: "Registrar nuevos leads.",
+        aditivo: true,
       },
       {
         key: "leads/editar",
         label: "Editar leads",
         descripcion: "Modificar datos de un lead existente.",
+        aditivo: true,
       },
       {
         key: "leads/anular",
         label: "Anular / reactivar leads",
         descripcion: "Marcar leads como anulados o reactivarlos.",
+        aditivo: true,
       },
       {
         key: "leads/convertir",
         label: "Convertir a cliente",
         descripcion: "Convertir un lead en cliente registrado.",
+        aditivo: true,
       },
       {
         key: "leads/fotos",
         label: "Subir fotos y comprobantes",
         descripcion: "Adjuntar fotos, videos y comprobantes de pago al lead.",
+        aditivo: true,
       },
       // Exportar es ADITIVO: hace público un dataset sensible; no debería
       // heredarse por defecto.

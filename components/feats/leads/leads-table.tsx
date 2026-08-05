@@ -33,6 +33,7 @@ import { UploadComprobanteDialog } from "@/components/shared/molecule/upload-com
 import { downloadFile } from "@/lib/utils/download-file";
 import { LeadService } from "@/lib/api-services";
 import MapPicker from "@/components/shared/organism/MapPickerNoSSR";
+import { useAuth } from "@/contexts/auth-context";
 import {
   Camera,
   Edit,
@@ -229,6 +230,11 @@ export function LeadsTable({
   autoOpenEditarOfertaLeadId,
 }: LeadsTableProps) {
   const { toast } = useToast();
+  const { hasExactPermission } = useAuth();
+  const canEditarLead = hasExactPermission("leads/editar");
+  const canAnularLead = hasExactPermission("leads/anular");
+  const canConvertirLead = hasExactPermission("leads/convertir");
+  const canSubirFotosLead = hasExactPermission("leads/fotos");
   const { nombreEquipo } = useComercialEquipoMap();
   const {
     ofertas,
@@ -3084,16 +3090,18 @@ export function LeadsTable({
                           className={`h-3 w-3 ${consultandoOfertaLead === lead.id ? "animate-pulse" : ""}`}
                         />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openConvertDialog(lead)}
-                        className="text-emerald-600 hover:text-emerald-800 h-7 w-7 p-0"
-                        title="Convertir a cliente"
-                        disabled={disableActions || loading}
-                      >
-                        <UserPlus className="h-3 w-3" />
-                      </Button>
+                      {canConvertirLead && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openConvertDialog(lead)}
+                          className="text-emerald-600 hover:text-emerald-800 h-7 w-7 p-0"
+                          title="Convertir a cliente"
+                          disabled={disableActions || loading}
+                        >
+                          <UserPlus className="h-3 w-3" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
@@ -3106,63 +3114,75 @@ export function LeadsTable({
                       >
                         <Eye className="h-3 w-3" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onEdit(lead)}
-                        className="text-emerald-600 hover:text-emerald-800 h-7 w-7 p-0"
-                        title="Editar"
-                        disabled={disableActions}
-                      >
-                        <Edit className="h-3 w-3" />
-                      </Button>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-gray-600 hover:text-gray-700 hover:bg-gray-50 h-7 w-7 p-0"
-                            title="Más acciones"
-                            disabled={disableActions}
-                          >
-                            <MoreHorizontal className="h-3 w-3" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent align="end" className="w-56 p-3">
-                          <div className="grid grid-cols-2 gap-3">
+                      {canEditarLead && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onEdit(lead)}
+                          className="text-emerald-600 hover:text-emerald-800 h-7 w-7 p-0"
+                          title="Editar"
+                          disabled={disableActions}
+                        >
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                      )}
+                      {(canSubirFotosLead || canAnularLead) && (
+                        <Popover>
+                          <PopoverTrigger asChild>
                             <Button
                               variant="ghost"
-                              onClick={() => openUploadFotosDialog(lead)}
-                              className="h-auto flex-col items-center justify-center gap-1 py-3"
-                              title="Agregar foto o video"
-                              disabled={disableActions || !onUploadFotos}
-                            >
-                              <Camera className="h-5 w-5 text-violet-600" />
-                              <span className="text-xs text-gray-700 leading-tight text-center">
-                                Agregar foto
-                              </span>
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              onClick={() => handleToggleStatusClick(lead)}
-                              className="h-auto flex-col items-center justify-center gap-1 py-3"
-                              title={
-                                lead.activo === false ? "Reactivar" : "Anular"
-                              }
+                              size="sm"
+                              className="text-gray-600 hover:text-gray-700 hover:bg-gray-50 h-7 w-7 p-0"
+                              title="Más acciones"
                               disabled={disableActions}
                             >
-                              {lead.activo === false ? (
-                                <RotateCcw className="h-5 w-5 text-emerald-600" />
-                              ) : (
-                                <Ban className="h-5 w-5 text-red-600" />
-                              )}
-                              <span className="text-xs text-gray-700 leading-tight text-center">
-                                {lead.activo === false ? "Reactivar" : "Anular"}
-                              </span>
+                              <MoreHorizontal className="h-3 w-3" />
                             </Button>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
+                          </PopoverTrigger>
+                          <PopoverContent align="end" className="w-56 p-3">
+                            <div className="grid grid-cols-2 gap-3">
+                              {canSubirFotosLead && (
+                                <Button
+                                  variant="ghost"
+                                  onClick={() => openUploadFotosDialog(lead)}
+                                  className="h-auto flex-col items-center justify-center gap-1 py-3"
+                                  title="Agregar foto o video"
+                                  disabled={disableActions || !onUploadFotos}
+                                >
+                                  <Camera className="h-5 w-5 text-violet-600" />
+                                  <span className="text-xs text-gray-700 leading-tight text-center">
+                                    Agregar foto
+                                  </span>
+                                </Button>
+                              )}
+                              {canAnularLead && (
+                                <Button
+                                  variant="ghost"
+                                  onClick={() => handleToggleStatusClick(lead)}
+                                  className="h-auto flex-col items-center justify-center gap-1 py-3"
+                                  title={
+                                    lead.activo === false
+                                      ? "Reactivar"
+                                      : "Anular"
+                                  }
+                                  disabled={disableActions}
+                                >
+                                  {lead.activo === false ? (
+                                    <RotateCcw className="h-5 w-5 text-emerald-600" />
+                                  ) : (
+                                    <Ban className="h-5 w-5 text-red-600" />
+                                  )}
+                                  <span className="text-xs text-gray-700 leading-tight text-center">
+                                    {lead.activo === false
+                                      ? "Reactivar"
+                                      : "Anular"}
+                                  </span>
+                                </Button>
+                              )}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -3716,8 +3736,9 @@ export function LeadsTable({
                         </Button>
                       </div>
                     )}
-                    {(conversionErrors.general.includes("provincia") ||
-                      conversionErrors.general.includes("municipio")) && (
+                    {canEditarLead &&
+                      (conversionErrors.general.includes("provincia") ||
+                        conversionErrors.general.includes("municipio")) && (
                       <Button
                         type="button"
                         variant="outline"

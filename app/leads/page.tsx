@@ -57,6 +57,7 @@ import { downloadFile } from "@/lib/utils/download-file";
 import { extraerComponentesDeOfertaConfeccion } from "@/lib/utils/oferta-confeccion-items";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { GestionarFuentesDialog } from "@/components/feats/leads/gestionar-fuentes-dialog";
+import { useAuth } from "@/contexts/auth-context";
 
 type FechaPreset = "" | "hoy" | "semana" | "mes" | "personalizado";
 
@@ -94,6 +95,9 @@ const getRangoFechaPreset = (
 };
 
 export default function LeadsPage() {
+  const { hasExactPermission } = useAuth();
+  const canCrearLead = hasExactPermission("leads/crear");
+  const canExportarLeads = hasExactPermission("leads/exportar");
   const searchParams = useSearchParams();
   const crearOfertaLeadIdParam = searchParams.get("crear_oferta_lead") ?? "";
   const editarOfertaLeadIdParam = searchParams.get("editar_oferta_lead") ?? "";
@@ -501,7 +505,7 @@ export default function LeadsPage() {
         badge={{ text: "Ventas", className: "bg-green-100 text-green-800" }}
         actions={
           <div className="flex items-center gap-2">
-            {leads.length > 0 && (
+            {leads.length > 0 && canExportarLeads && (
               <ExportButtons
                 getExportOptions={getExportOptions}
                 baseFilename="leads"
@@ -517,6 +521,7 @@ export default function LeadsPage() {
             >
               Gestionar fuentes
             </Button>
+            {canCrearLead && (
             <Dialog
               open={isCreateLeadDialogOpen}
               onOpenChange={setIsCreateLeadDialogOpen}
@@ -547,6 +552,7 @@ export default function LeadsPage() {
                 />
               </DialogContent>
             </Dialog>
+            )}
           </div>
         }
       />
