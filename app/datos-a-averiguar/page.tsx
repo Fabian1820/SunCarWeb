@@ -100,7 +100,7 @@ export default function DatosAAveriguarPage() {
         }
       />
 
-      <div className="max-w-5xl mx-auto p-4 sm:p-6">
+      <div className="content-with-fixed-header max-w-5xl mx-auto p-4 sm:p-6">
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
