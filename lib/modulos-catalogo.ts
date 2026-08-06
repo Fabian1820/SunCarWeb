@@ -37,6 +37,7 @@ import {
   Inbox,
   Gauge,
   HelpCircle,
+  ClipboardList,
 } from "lucide-react"
 
 /**
@@ -273,6 +274,16 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     icon: HelpCircle,
     iconClass: "text-emerald-600",
     href: "/preguntas-frecuentes",
+    grupo: "resultados-empresa",
+    alwaysVisible: true,
+  },
+  {
+    key: "datos-a-averiguar",
+    label: "Datos a Averiguar",
+    descripcion: "Lo que el asistente de WhatsApp debe averiguarle al cliente para recomendar mejor y adelantarle trabajo al comercial.",
+    icon: ClipboardList,
+    iconClass: "text-emerald-600",
+    href: "/datos-a-averiguar",
     grupo: "resultados-empresa",
     alwaysVisible: true,
   },
