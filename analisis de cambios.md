@@ -2,6 +2,36 @@
 
 ---
 
+## 📅 6 de Agosto, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**1 commit real** — yany1509. Cherry-pick desde dev del nuevo informe **"Cobros pendientes de obras terminadas"** integrado al hub de `informe-direccion`, con fix de layout incluido y nuevo sub-permiso.
+
+---
+
+### Área 1: Informe dirección — informe de cobros pendientes de obras terminadas (1 commit — yany1509, 17:13)
+
+- **`feat(informe-direccion): informe de cobros pendientes de obras terminadas`** — La página `informe-direccion` pasa a ser un hub de tarjetas con nombre propio para cada informe: "Comparativo de desempeño" (ya existía; su título era la instrucción "Elegir los dos periodos a comparar" y ahora es el nombre del informe, con la instrucción en la descripción) y "Cobros pendientes" (nuevo): clientes con instalación ya terminada que aún tienen saldo por cobrar. Sin cambios de backend: reutiliza `GET /obras-terminadas/datos` con `requiere_instalado=true` + `estado_pago=pendiente`, paginando de 500 en 500. PDF A4 apaisado con resumen y detalle por obra, 10 columnas: #, Cliente, Cod. cliente, Oferta (nombre largo), Cod. oferta, Instalado el, Comercial, Precio final, Pagado, Pendiente — anchos fijos sumando los 269mm útiles. Incluye fix de layout `content-with-fixed-header` para que el contenido no quede tapado por el header fijo. Nuevo sub-permiso `informe-direccion/cobros-pendientes` ya creado en colección módulos de dev y producción; al no ser aditivo, quien ya tiene `informe-direccion` lo ve automáticamente. TSC: 392 errores verificados (mismo conteo antes y después del cambio, 10 más que en commits previos de Ago 5 que tenían 382).
+
+---
+
+### Puede dar bateo
+
+1. **Sub-permiso `informe-direccion/cobros-pendientes` no aditivo — datos financieros (precio final, pendiente) visibles a todos los usuarios con `informe-direccion` sin asignación explícita**: Al declararse como "no aditivo", cualquier trabajador con acceso al módulo verá el informe de cobros pendientes automáticamente. Esto puede exponer información financiera sensible a usuarios que solo deberían tener acceso al comparativo de desempeño.
+
+2. **Paginación sin cota máxima total — 500 en 500 puede disparar múltiples requests en listas grandes**: Si hay cientos o miles de obras terminadas con cobro pendiente, el cliente hace múltiples fetches de 500 registros antes de tener los datos completos. Sin una cota máxima total, el tiempo de carga del PDF puede ser muy alto o causar timeout del navegador.
+
+3. **TSC incrementó de 382 a 392 — 10 nuevos errores TypeScript con este cherry-pick**: Aunque el commit confirma que el conteo es el mismo antes y después en esta rama, el número subió 10 respecto a los commits del día anterior. Puede indicar que el cherry-pick arrastró código con tipos no declarados que en runtime fallen silenciosamente.
+
+4. **Anchos fijos de columnas en PDF (269mm) — nombre largo de oferta puede desbordar o truncarse**: El campo "Oferta (nombre largo)" (`nombre_completo`) puede ser muy extenso. Con ancho fijo, el texto puede truncarse sin indicación visual o romper el layout de la fila en el PDF generado.
+
+5. **Hub de tarjetas — navegación directa a secciones existentes puede romperse**: La página `informe-direccion` cambió de estructura (de carga directa a hub de tarjetas). Cualquier bookmark, enlace profundo o script que apuntara directamente al contenido interno puede dejar de funcionar o mostrar una experiencia incorrecta.
+
+6. **Filtros `requiere_instalado=true + estado_pago=pendiente` — confirmar nombres exactos en backend de producción**: El commit dice "verificado contra la API de producción en vivo". Pero si el backend actualiza los nombres de parámetros, el informe retornará silenciosamente todos los registros (sin filtrar) o vacío, sin error explícito al usuario.
+
+---
+
 ## 📅 5 de Agosto, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -196,6 +226,10 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 #### Seguimientos vigentes
 
+- **Sub-permiso `informe-direccion/cobros-pendientes` no aditivo — datos financieros (precio final, pendiente) visibles a todos los usuarios con `informe-direccion` sin asignación explícita (Ago 6)**.
+- **Paginación 500 en 500 en cobros-pendientes sin cota total — puede causar timeout en listas largas (Ago 6)**.
+- **TSC incrementó 10 errores con cherry-pick informe-direccion cobros-pendientes — confirmar que no son regresiones de tipo silenciosas (Ago 6)**.
+- **PDF cobros-pendientes columna "Oferta (nombre largo)" con ancho fijo — puede truncarse en facturas con ofertas complejas (Ago 6)**.
 - **Botón "Eliminar" leads (hard delete) sin gatear con permisos — visible para todos los usuarios con acceso a leads (Ago 5)**.
 - **Backfill de sub-permisos leads — confirmar ejecución exitosa para los 26 trabajadores en producción (Ago 5)**.
 - **Filtros de fecha por preset calculados en cliente — desfase timezone con backend puede afectar filtros de día borde (Ago 5)**.
