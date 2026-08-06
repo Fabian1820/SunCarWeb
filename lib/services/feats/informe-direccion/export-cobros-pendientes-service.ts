@@ -130,8 +130,9 @@ export function generarCobrosPendientesPdf(filas: ObraTerminada[]): void {
       [
         "#",
         "Cliente",
-        "Código",
+        "Cód. cliente",
         "Oferta",
+        "Cód. oferta",
         "Instalado el",
         "Comercial",
         "Precio final",
@@ -141,8 +142,11 @@ export function generarCobrosPendientesPdf(filas: ObraTerminada[]): void {
     ],
     body: ordenadas.map((f, i) => [
       String(i + 1),
-      f.nombre_completo || f.cliente_nombre || "—",
+      // Ojo: el nombre del cliente es `cliente_nombre`. `nombre_completo` es el
+      // nombre descriptivo largo de la OFERTA, no del cliente.
+      f.cliente_nombre || "—",
       f.cliente_numero || "—",
+      f.nombre_completo || "—",
       f.numero_oferta || "—",
       fmtFecha(f.fecha_equipo_instalado),
       f.comercial || "—",
@@ -150,17 +154,27 @@ export function generarCobrosPendientesPdf(filas: ObraTerminada[]): void {
       fmtMoney(Number(f.total_pagado ?? 0)),
       fmtMoney(Number(f.monto_pendiente ?? 0)),
     ]),
-    styles: { fontSize: 8, textColor: C.ink, cellPadding: 1.8 },
+    styles: {
+      fontSize: 7,
+      textColor: C.ink,
+      cellPadding: 1.5,
+      overflow: "linebreak",
+      valign: "middle",
+    },
     headStyles: { fillColor: C.verdeClaro, textColor: C.ink, fontStyle: "bold" },
     alternateRowStyles: { fillColor: [248, 250, 249] },
+    // Anchos fijos: suman los 269 mm utiles de un A4 apaisado con margenes de 14.
     columnStyles: {
-      0: { cellWidth: 10, halign: "right" },
-      2: { cellWidth: 24 },
-      3: { cellWidth: 30 },
-      4: { cellWidth: 22, halign: "center" },
-      6: { halign: "right" },
-      7: { halign: "right" },
-      8: { halign: "right", fontStyle: "bold", textColor: C.rojo },
+      0: { cellWidth: 7, halign: "right" },
+      1: { cellWidth: 40 },
+      2: { cellWidth: 22 },
+      3: { cellWidth: 62 },
+      4: { cellWidth: 28 },
+      5: { cellWidth: 18, halign: "center" },
+      6: { cellWidth: 32 },
+      7: { cellWidth: 20, halign: "right" },
+      8: { cellWidth: 19, halign: "right" },
+      9: { cellWidth: 21, halign: "right", fontStyle: "bold", textColor: C.rojo },
     },
   });
 
