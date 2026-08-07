@@ -16,6 +16,11 @@ interface LeadFilters {
   estado: string[];
   fuente: string;
   comercial: string;
+  /**
+   * Nombres de los comerciales que integran el equipo (B2B/B2C) seleccionado
+   * en el filtro "Equipo". Se resuelve en la página (vía useComercialEquipoMap)
+   * y se manda como lista al backend. Vacío = sin filtro de equipo.
+   */
   equipoComerciales: string[];
   provincia: string[];
   municipio: string[];
@@ -24,6 +29,8 @@ interface LeadFilters {
   fechaHasta: string;
   skip: number;
   limit: number;
+  /** Si es true, incluye leads anulados junto a los activos (por defecto solo se ven los activos). */
+  mostrarAnulados: boolean;
 }
 
 interface UseLeadsReturn {
@@ -52,6 +59,13 @@ interface UseLeadsReturn {
   createLead: (data: LeadCreateData) => Promise<boolean>;
   updateLead: (id: string, data: LeadUpdateData) => Promise<boolean>;
   deleteLead: (id: string) => Promise<boolean>;
+  setLeadStatus: (
+    id: string,
+    activo: boolean,
+  ) => Promise<
+    | { success: true }
+    | { success: false; error: { code: string; title: string; message: string; field?: string } }
+  >;
   convertLead: (id: string, data: LeadConversionRequest) => Promise<Cliente>;
   generarCodigoCliente: (id: string, equipoPropio?: boolean) => Promise<string>;
   uploadLeadComprobante: (
@@ -152,6 +166,7 @@ export function useLeads(): UseLeadsReturn {
     fechaHasta: "",
     skip: 0,
     limit: 20,
+    mostrarAnulados: false,
   });
 
   // Sincronizar searchTerm con filters y resetear paginación
@@ -205,39 +220,66 @@ export function useLeads(): UseLeadsReturn {
 
   const fetchAllLeadsByBaseFilters = useCallback(
     async (baseFilters: {
-      estado: string;
-      fuente: string;
-      comercial: string | string[];
+      q?: string;
+      estado?: string | string[];
+      fuente?: string;
+      comercial?: string | string[];
+      provincia?: string[];
+      municipio?: string[];
+      prioridad?: string[];
+      ofertas_filtro?: OfertasFilter;
+      fechaDesde?: string;
+      fechaHasta?: string;
+      activo?: boolean;
     }): Promise<Lead[]> => {
-      const allLeads: Lead[] = [];
       const backendPageSize = 200;
-      let currentSkip = 0;
-      let totalRegistros = 0;
-      let registrosRecibidos = 0;
+      const maxConcurrentPages = 5;
 
-      do {
-        const { leads: fetchedLeads, total } = await LeadService.getLeads({
-          estado: baseFilters.estado || undefined,
+      const fetchPage = (skip: number) =>
+        LeadService.getLeads({
+          q: baseFilters.q || undefined,
+          estado: Array.isArray(baseFilters.estado)
+            ? baseFilters.estado.length
+              ? baseFilters.estado
+              : undefined
+            : baseFilters.estado || undefined,
           fuente: baseFilters.fuente || undefined,
           comercial: baseFilters.comercial || undefined,
-          skip: currentSkip,
+          provincia: baseFilters.provincia?.length
+            ? baseFilters.provincia
+            : undefined,
+          municipio: baseFilters.municipio?.length
+            ? baseFilters.municipio
+            : undefined,
+          prioridad: baseFilters.prioridad?.length
+            ? baseFilters.prioridad
+            : undefined,
+          ofertas_filtro: baseFilters.ofertas_filtro || undefined,
+          fechaDesde: baseFilters.fechaDesde || undefined,
+          fechaHasta: baseFilters.fechaHasta || undefined,
+          activo: baseFilters.activo,
+          skip,
           limit: backendPageSize,
         });
 
-        if (currentSkip === 0) {
-          totalRegistros = total;
-        }
+      const primeraPagina = await fetchPage(0);
+      const total = primeraPagina.total;
+      const paginas: Lead[][] = [primeraPagina.leads];
 
-        allLeads.push(
-          ...fetchedLeads.filter((lead) => !isTemporaryCodegenLead(lead)),
-        );
-        registrosRecibidos += fetchedLeads.length;
-        currentSkip += backendPageSize;
+      const restanteSkips: number[] = [];
+      for (let skip = backendPageSize; skip < total; skip += backendPageSize) {
+        restanteSkips.push(skip);
+      }
 
-        if (fetchedLeads.length === 0) break;
-      } while (registrosRecibidos < totalRegistros);
+      for (let i = 0; i < restanteSkips.length; i += maxConcurrentPages) {
+        const lote = restanteSkips.slice(i, i + maxConcurrentPages);
+        const resultados = await Promise.all(lote.map(fetchPage));
+        resultados.forEach((r) => paginas.push(r.leads));
+      }
 
-      return allLeads;
+      return paginas
+        .flat()
+        .filter((lead) => !isTemporaryCodegenLead(lead));
     },
     [],
   );
@@ -280,87 +322,18 @@ export function useLeads(): UseLeadsReturn {
       setError(null);
       try {
         const effectiveFilters = { ...filters, ...overrideFilters };
-        const comercialEfectivo: string | string[] =
-          effectiveFilters.comercial || effectiveFilters.equipoComerciales;
         const effectiveSearchTerm = (
           overrideFilters?.searchTerm ?? debouncedSearchTerm
         ).trim();
-        const hasDateFilters = Boolean(
-          effectiveFilters.fechaDesde || effectiveFilters.fechaHasta,
-        );
         const estadosSeleccionados = Array.isArray(effectiveFilters.estado)
           ? effectiveFilters.estado.filter(Boolean)
           : [];
-        const hasClientFilters =
-          effectiveFilters.provincia.length > 0 ||
-          effectiveFilters.municipio.length > 0 ||
-          Boolean(effectiveFilters.ofertas) ||
-          estadosSeleccionados.length > 1;
 
-        if (hasDateFilters || hasClientFilters) {
-          const allBaseLeads = await fetchAllLeadsByBaseFilters({
-            estado:
-              estadosSeleccionados.length === 1
-                ? estadosSeleccionados[0]
-                : "",
-            fuente: effectiveFilters.fuente,
-            comercial: comercialEfectivo,
-          });
-
-          const filteredByDate = applyLeadDateRangeFilter(
-            allBaseLeads,
-            effectiveFilters.fechaDesde,
-            effectiveFilters.fechaHasta,
-          );
-
-          const filteredByLocation = filteredByDate.filter((lead) => {
-            if (
-              estadosSeleccionados.length > 1 &&
-              !estadosSeleccionados.includes((lead.estado || "").trim())
-            ) {
-              return false;
-            }
-            if (
-              effectiveFilters.provincia.length > 0 &&
-              !effectiveFilters.provincia.includes((lead.provincia_montaje || "").trim())
-            ) {
-              return false;
-            }
-            if (
-              effectiveFilters.municipio.length > 0 &&
-              !effectiveFilters.municipio.includes((lead.municipio || "").trim())
-            ) {
-              return false;
-            }
-            return matchesOfertasFilter(lead, effectiveFilters.ofertas);
-          });
-
-          const filteredBySearch = effectiveSearchTerm
-            ? filteredByLocation.filter((lead) =>
-                buildLeadSearchText(lead).includes(
-                  normalizeSearchValue(effectiveSearchTerm),
-                ),
-              )
-            : filteredByLocation;
-
-          const total = filteredBySearch.length;
-          const skip = effectiveFilters.skip ?? 0;
-          const limit = effectiveFilters.limit ?? 20;
-          const end = limit > 0 ? skip + limit : undefined;
-          const paged = filteredBySearch.slice(skip, end);
-
-          setLeads(paged);
-          setTotalLeads(total);
-
-          if (
-            overrideFilters?.skip !== undefined ||
-            overrideFilters?.limit !== undefined
-          ) {
-            setFiltersState((prev) => ({ ...prev, skip, limit }));
-          }
-
-          return;
-        }
+        const comercialEfectivo = effectiveFilters.comercial
+          ? effectiveFilters.comercial
+          : effectiveFilters.equipoComerciales.length
+            ? effectiveFilters.equipoComerciales
+            : undefined;
 
         const {
           leads: fetchedLeads,
@@ -369,14 +342,19 @@ export function useLeads(): UseLeadsReturn {
           limit,
         } = await LeadService.getLeads({
           q: effectiveSearchTerm || undefined,
-          estado:
-            estadosSeleccionados.length === 1
-              ? estadosSeleccionados[0]
-              : undefined,
+          estado: estadosSeleccionados.length ? estadosSeleccionados : undefined,
           fuente: effectiveFilters.fuente || undefined,
-          comercial: comercialEfectivo || undefined,
+          comercial: comercialEfectivo,
+          provincia: effectiveFilters.provincia.length
+            ? effectiveFilters.provincia
+            : undefined,
+          municipio: effectiveFilters.municipio.length
+            ? effectiveFilters.municipio
+            : undefined,
+          ofertas_filtro: effectiveFilters.ofertas || undefined,
           fechaDesde: effectiveFilters.fechaDesde || undefined,
           fechaHasta: effectiveFilters.fechaHasta || undefined,
+          activo: effectiveFilters.mostrarAnulados ? undefined : true,
           skip: effectiveFilters.skip,
           limit: effectiveFilters.limit,
         });
@@ -400,14 +378,7 @@ export function useLeads(): UseLeadsReturn {
         setInitialLoading(false);
       }
     },
-    [
-      filters,
-      debouncedSearchTerm,
-      fetchAllLeadsByBaseFilters,
-      buildLeadSearchText,
-      normalizeSearchValue,
-      matchesOfertasFilter,
-    ],
+    [filters, debouncedSearchTerm],
   );
 
   // Obtener fuentes únicas de los leads existentes
@@ -599,12 +570,12 @@ export function useLeads(): UseLeadsReturn {
           newFilters.estado !== undefined ||
           newFilters.fuente !== undefined ||
           newFilters.comercial !== undefined ||
-          newFilters.equipoComerciales !== undefined ||
           newFilters.provincia !== undefined ||
           newFilters.municipio !== undefined ||
           newFilters.ofertas !== undefined ||
           newFilters.fechaDesde !== undefined ||
-          newFilters.fechaHasta !== undefined;
+          newFilters.fechaHasta !== undefined ||
+          newFilters.mostrarAnulados !== undefined;
         return {
           ...prev,
           ...newFilters,
@@ -733,6 +704,34 @@ export function useLeads(): UseLeadsReturn {
     [loadLeads],
   );
 
+  const setLeadStatus = useCallback(
+    async (id: string, activo: boolean) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const resultado = await LeadService.updateLeadStatus(id, activo);
+        if (resultado.success) {
+          await loadLeads();
+        }
+        return resultado;
+      } catch (err) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Error al actualizar el estado del lead";
+        setError(message);
+        console.error("Error updating lead status:", err);
+        return {
+          success: false as const,
+          error: { code: "ERROR_DESCONOCIDO", title: "Error", message },
+        };
+      } finally {
+        setLoading(false);
+      }
+    },
+    [loadLeads],
+  );
+
   const convertLead = useCallback(
     async (id: string, data: LeadConversionRequest): Promise<Cliente> => {
       setLoading(true);
@@ -742,10 +741,12 @@ export function useLeads(): UseLeadsReturn {
         await loadLeads();
         return cliente;
       } catch (err) {
+        // No seteamos setError aquí: el error se muestra dentro del diálogo
+        // de conversión (banner inline). Poblar el banner superior de la
+        // página solo confunde porque queda oculto detrás del modal.
+        console.error("Error converting lead:", err);
         const message =
           err instanceof Error ? err.message : "Error al convertir el lead";
-        setError(message);
-        console.error("Error converting lead:", err);
         throw err instanceof Error ? err : new Error(message);
       } finally {
         setLoading(false);
@@ -761,12 +762,13 @@ export function useLeads(): UseLeadsReturn {
         const codigo = await LeadService.generarCodigoCliente(id, equipoPropio);
         return codigo;
       } catch (err) {
+        // Idem: el error se muestra dentro del flujo de conversión, no en
+        // el banner superior de la página (queda oculto por el modal).
+        console.error("Error generating client code:", err);
         const message =
           err instanceof Error
             ? err.message
             : "Error al generar el código de cliente";
-        setError(message);
-        console.error("Error generating client code:", err);
         throw err instanceof Error ? err : new Error(message);
       }
     },
@@ -820,47 +822,24 @@ export function useLeads(): UseLeadsReturn {
     Lead[]
   > => {
     const estadosSel = (filters.estado || []).filter(Boolean);
-    const allBaseLeads = await fetchAllLeadsByBaseFilters({
-      estado: estadosSel.length === 1 ? estadosSel[0] : "",
+    const comercialEfectivo = filters.comercial
+      ? filters.comercial
+      : filters.equipoComerciales.length
+        ? filters.equipoComerciales
+        : undefined;
+    return fetchAllLeadsByBaseFilters({
+      q: filters.searchTerm?.trim() || undefined,
+      estado: estadosSel.length ? estadosSel : undefined,
       fuente: filters.fuente,
-      comercial: filters.comercial || filters.equipoComerciales,
+      comercial: comercialEfectivo,
+      provincia: filters.provincia,
+      municipio: filters.municipio,
+      ofertas_filtro: filters.ofertas || undefined,
+      fechaDesde: filters.fechaDesde,
+      fechaHasta: filters.fechaHasta,
+      activo: filters.mostrarAnulados ? undefined : true,
     });
-
-    const allDateFilteredLeads = applyLeadDateRangeFilter(
-      allBaseLeads,
-      filters.fechaDesde,
-      filters.fechaHasta,
-    );
-
-    const allLocationFiltered = allDateFilteredLeads.filter((lead) => {
-      if (
-        estadosSel.length > 1 &&
-        !estadosSel.includes((lead.estado || "").trim())
-      )
-        return false;
-      if (
-        filters.provincia.length > 0 &&
-        !filters.provincia.includes((lead.provincia_montaje || "").trim())
-      )
-        return false;
-      if (
-        filters.municipio.length > 0 &&
-        !filters.municipio.includes((lead.municipio || "").trim())
-      )
-        return false;
-      return matchesOfertasFilter(lead, filters.ofertas);
-    });
-
-    const effectiveSearchTerm = normalizeSearchValue(filters.searchTerm.trim());
-    if (!effectiveSearchTerm) {
-      return allLocationFiltered;
-    }
-
-    return allLocationFiltered.filter((lead) =>
-      buildLeadSearchText(lead).includes(effectiveSearchTerm),
-    );
   }, [
-    buildLeadSearchText,
     fetchAllLeadsByBaseFilters,
     filters.comercial,
     filters.equipoComerciales,
@@ -868,12 +847,11 @@ export function useLeads(): UseLeadsReturn {
     filters.fechaDesde,
     filters.fechaHasta,
     filters.fuente,
-    filters.provincia,
+    filters.mostrarAnulados,
     filters.municipio,
     filters.ofertas,
+    filters.provincia,
     filters.searchTerm,
-    normalizeSearchValue,
-    matchesOfertasFilter,
   ]);
 
   // Cargar leads al montar y cuando cambien filtros (incluyendo búsqueda)
@@ -890,6 +868,7 @@ export function useLeads(): UseLeadsReturn {
     filters.ofertas,
     filters.fechaDesde,
     filters.fechaHasta,
+    filters.mostrarAnulados,
     filters.skip,
     filters.limit,
     debouncedSearchTerm,
@@ -924,6 +903,7 @@ export function useLeads(): UseLeadsReturn {
     createLead,
     updateLead,
     deleteLead,
+    setLeadStatus,
     convertLead,
     generarCodigoCliente,
     uploadLeadComprobante,

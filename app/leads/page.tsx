@@ -119,7 +119,7 @@ export default function LeadsPage() {
     getAllFilteredLeadsForExport,
     createLead,
     updateLead,
-    deleteLead,
+    setLeadStatus,
     convertLead,
     generarCodigoCliente,
     uploadLeadComprobante,
@@ -223,22 +223,12 @@ export default function LeadsPage() {
     }
   };
 
-  const handleDeleteLead = async (leadId: string) => {
+  // El diálogo de la tabla es quien muestra el toast de éxito/error: aquí
+  // solo se propaga el resultado y se controla el spinner de la página.
+  const handleSetLeadStatus = async (leadId: string, activo: boolean) => {
     setLoadingAction(true);
     try {
-      await deleteLead(leadId);
-      toast({
-        title: "Éxito",
-        description: "Lead eliminado correctamente",
-      });
-    } catch (error: unknown) {
-      toast({
-        title: "Error",
-        description:
-          "Error al eliminar lead: " +
-          (error instanceof Error ? error.message : "Error desconocido"),
-        variant: "destructive",
-      });
+      return await setLeadStatus(leadId, activo);
     } finally {
       setLoadingAction(false);
     }
@@ -922,6 +912,20 @@ export default function LeadsPage() {
                   </div>
                 </>
               )}
+
+              <div className="flex items-center">
+                <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                    checked={filters.mostrarAnulados}
+                    onChange={(e) =>
+                      setFilters({ mostrarAnulados: e.target.checked })
+                    }
+                  />
+                  Mostrar anulados
+                </label>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -969,7 +973,7 @@ export default function LeadsPage() {
                 <LeadsTable
                   leads={leads}
                   onEdit={handleEditLead}
-                  onDelete={handleDeleteLead}
+                  onSetLeadStatus={handleSetLeadStatus}
                   onConvert={handleConvertLead}
                   onGenerarCodigo={handleGenerarCodigoCliente}
                   onUploadComprobante={handleUploadLeadComprobante}

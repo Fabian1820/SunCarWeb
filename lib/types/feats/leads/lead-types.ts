@@ -58,6 +58,17 @@ export interface OfertaConfeccionResumen {
     panel_seleccionado?: string | null;
   };
   items: ItemOfertaConfeccionResumen[];
+  /** Solo presente cuando total_confirmadas > 1: una entrada por cada oferta confirmada. */
+  confirmadas_detalle?: {
+    id: string;
+    numero_oferta?: string | null;
+    estado_instalacion?: string | null;
+    nombre_automatico?: string | null;
+    fecha_confirmada?: string | null;
+    foto_portada?: string | null;
+    precio_final?: number | null;
+    moneda_pago?: string | null;
+  }[] | null;
 }
 
 export interface Lead {
@@ -69,6 +80,7 @@ export interface Lead {
   telefono_adicional_nombre?: string;
   estado: string;
   fuente?: string;
+  fuente_referencia?: string;
   referencia?: string;
   direccion?: string;
   pais_contacto?: string;
@@ -85,6 +97,7 @@ export interface Lead {
   prioridad?: "Alta" | "Media" | "Baja";
   motivo_visita?: string; // ⚠️ CAMPO TEMPORAL: NO se guarda en lead. Se usa para crear visita automática.
   oferta_confeccion?: OfertaConfeccionResumen | null;
+  activo?: boolean; // false = lead anulado
 }
 
 export interface LeadResponse {
@@ -104,6 +117,7 @@ export interface LeadCreateData {
   telefono_adicional?: string;
   telefono_adicional_nombre?: string;
   fuente?: string;
+  fuente_referencia?: string;
   referencia?: string;
   direccion?: string;
   pais_contacto?: string;
@@ -128,6 +142,7 @@ export interface LeadUpdateData {
   telefono_adicional_nombre?: string;
   estado?: string;
   fuente?: string;
+  fuente_referencia?: string;
   referencia?: string;
   direccion?: string;
   pais_contacto?: string;
@@ -156,6 +171,7 @@ export interface LeadConversionRequest {
   moneda?: string;
   estado?: string;
   fuente?: string;
+  fuente_referencia?: string;
   municipio?: string;
   equipo_propio?: boolean;
 }

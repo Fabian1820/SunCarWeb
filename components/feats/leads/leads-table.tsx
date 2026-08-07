@@ -19,7 +19,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  ConfirmDeleteDialog,
 } from "@/components/shared/molecule/dialog";
 import { UploadComprobanteDialog } from "@/components/shared/molecule/upload-comprobante-dialog";
 import { downloadFile } from "@/lib/utils/download-file";
@@ -28,6 +27,8 @@ import MapPicker from "@/components/shared/organism/MapPickerNoSSR";
 import {
   Camera,
   Edit,
+  Ban,
+  RotateCcw,
   Trash2,
   Phone,
   PhoneForwarded,
@@ -85,7 +86,13 @@ const CODIGO_BATERIA_ESPECIAL_NOMBRE = "FLS48100SCG01";
 interface LeadsTableProps {
   leads: Lead[];
   onEdit: (lead: Lead) => void;
-  onDelete: (id: string) => void;
+  onSetLeadStatus: (
+    id: string,
+    activo: boolean,
+  ) => Promise<
+    | { success: true }
+    | { success: false; error: { code: string; title: string; message: string; field?: string } }
+  >;
   onConvert: (lead: Lead, data: LeadConversionRequest) => Promise<void>;
   onGenerarCodigo: (leadId: string, equipoPropio?: boolean) => Promise<string>;
   onUploadComprobante: (
@@ -136,7 +143,7 @@ function breakTextAtLength(text: string, maxLength: number = 25): string {
 export function LeadsTable({
   leads,
   onEdit,
-  onDelete,
+  onSetLeadStatus,
   onConvert,
   onGenerarCodigo,
   onUploadComprobante,
@@ -186,8 +193,12 @@ export function LeadsTable({
   const { marcas, loading: loadingMarcas } = useMarcas();
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null);
+  const [isToggleStatusDialogOpen, setIsToggleStatusDialogOpen] =
+    useState(false);
+  const [leadToToggleStatus, setLeadToToggleStatus] = useState<Lead | null>(
+    null,
+  );
+  const [togglingStatus, setTogglingStatus] = useState(false);
   const [isConvertDialogOpen, setIsConvertDialogOpen] = useState(false);
   const [leadToConvert, setLeadToConvert] = useState<Lead | null>(null);
   const [conversionData, setConversionData] = useState<LeadConversionRequest>({
@@ -629,16 +640,37 @@ export function LeadsTable({
     }
   };
 
-  const handleDeleteClick = (lead: Lead) => {
-    setLeadToDelete(lead);
-    setIsDeleteDialogOpen(true);
+  const handleToggleStatusClick = (lead: Lead) => {
+    setLeadToToggleStatus(lead);
+    setIsToggleStatusDialogOpen(true);
   };
 
-  const handleDeleteConfirm = () => {
-    if (leadToDelete?.id) {
-      onDelete(leadToDelete.id);
-      setIsDeleteDialogOpen(false);
-      setLeadToDelete(null);
+  const handleToggleStatusConfirm = async () => {
+    if (!leadToToggleStatus?.id) return;
+    const activar = leadToToggleStatus.activo === false;
+    setTogglingStatus(true);
+    try {
+      const resultado = await onSetLeadStatus(leadToToggleStatus.id, activar);
+      if (resultado.success) {
+        toast({
+          title: "Éxito",
+          description: activar
+            ? "Lead reactivado correctamente"
+            : "Lead anulado correctamente",
+        });
+        setIsToggleStatusDialogOpen(false);
+        setLeadToToggleStatus(null);
+      } else {
+        // Caso típico: LEAD_DUPLICADO_TELEFONO al reactivar. Se muestra el
+        // mensaje del backend en vez de un error genérico.
+        toast({
+          title: resultado.error.title || "Error",
+          description: resultado.error.message,
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setTogglingStatus(false);
     }
   };
 
@@ -2517,11 +2549,23 @@ export function LeadsTable({
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {leads.map((lead) => (
-                <tr key={lead.id} className="hover:bg-gray-50">
+                <tr
+                  key={lead.id}
+                  className={
+                    lead.activo === false
+                      ? "bg-gray-50/70 hover:bg-gray-100"
+                      : "hover:bg-gray-50"
+                  }
+                >
                   <td className="px-3 py-4 min-w-[240px] max-w-[320px]">
                     <div>
-                      <div className="text-base font-semibold text-gray-900 break-words">
-                        {lead.nombre}
+                      <div className="text-base font-semibold text-gray-900 break-words flex items-center gap-2">
+                        <span>{lead.nombre}</span>
+                        {lead.activo === false && (
+                          <span className="inline-flex items-center rounded-full bg-gray-200 px-2 py-0.5 text-[11px] font-medium text-gray-700">
+                            Anulado
+                          </span>
+                        )}
                       </div>
                       <div className="text-base text-gray-500 break-words whitespace-pre-line">
                         {breakTextAtLength(
@@ -2775,12 +2819,20 @@ export function LeadsTable({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDeleteClick(lead)}
-                        className="text-red-600 hover:text-red-800 h-7 w-7 p-0"
-                        title="Eliminar"
+                        onClick={() => handleToggleStatusClick(lead)}
+                        className={
+                          lead.activo === false
+                            ? "text-emerald-600 hover:text-emerald-800 h-7 w-7 p-0"
+                            : "text-red-600 hover:text-red-800 h-7 w-7 p-0"
+                        }
+                        title={lead.activo === false ? "Reactivar" : "Anular"}
                         disabled={disableActions}
                       >
-                        <Trash2 className="h-3 w-3" />
+                        {lead.activo === false ? (
+                          <RotateCcw className="h-3 w-3" />
+                        ) : (
+                          <Ban className="h-3 w-3" />
+                        )}
                       </Button>
                     </div>
                   </td>
@@ -4276,15 +4328,82 @@ export function LeadsTable({
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <ConfirmDeleteDialog
-        open={isDeleteDialogOpen}
-        onOpenChange={setIsDeleteDialogOpen}
-        title="Eliminar Lead"
-        message={`¿Estás seguro de que quieres eliminar el lead de ${leadToDelete?.nombre}? Esta acción no se puede deshacer.`}
-        onConfirm={handleDeleteConfirm}
-        confirmText="Eliminar Lead"
-      />
+      {/* Anular / Reactivar Lead */}
+      <Dialog
+        open={isToggleStatusDialogOpen}
+        onOpenChange={(open) => {
+          if (!togglingStatus) setIsToggleStatusDialogOpen(open);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {leadToToggleStatus?.activo === false ? (
+                <>
+                  <RotateCcw className="h-5 w-5 text-emerald-600" />
+                  Reactivar lead
+                </>
+              ) : (
+                <>
+                  <Ban className="h-5 w-5 text-red-600" />
+                  Anular lead
+                </>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm text-gray-600">
+            {leadToToggleStatus?.activo === false ? (
+              <p>
+                El lead de <strong>{leadToToggleStatus?.nombre}</strong> volverá
+                al listado y podrá gestionarse de nuevo. Si ya existe otro lead
+                activo con el mismo teléfono, no se podrá reactivar.
+              </p>
+            ) : (
+              <>
+                <p>
+                  El lead de <strong>{leadToToggleStatus?.nombre}</strong> no se
+                  borra: deja de aparecer en el listado y en los tableros, y se
+                  puede reactivar en cualquier momento.
+                </p>
+                <p>
+                  Además pasará al estado <strong>No interesado</strong> y sus
+                  ofertas de confección se cancelarán, liberando los materiales
+                  que tuvieran reservados.
+                </p>
+              </>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsToggleStatusDialogOpen(false)}
+              disabled={togglingStatus}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant={
+                leadToToggleStatus?.activo === false ? "default" : "destructive"
+              }
+              onClick={handleToggleStatusConfirm}
+              disabled={togglingStatus}
+            >
+              {togglingStatus ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Guardando...
+                </>
+              ) : leadToToggleStatus?.activo === false ? (
+                "Reactivar lead"
+              ) : (
+                "Anular lead"
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

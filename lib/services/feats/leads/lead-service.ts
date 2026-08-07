@@ -21,15 +21,6 @@ type LeadFotosResponse = {
   fotos?: LeadFoto[];
 };
 
-function appendMulti(search: URLSearchParams, key: string, value?: string | string[]) {
-  if (!value) return;
-  if (Array.isArray(value)) {
-    for (const v of value) if (v) search.append(key, v);
-  } else {
-    search.append(key, value);
-  }
-}
-
 export class LeadService {
   static async getLeads(
     params: {
@@ -38,23 +29,42 @@ export class LeadService {
       telefono?: string;
       direccion?: string;
       comercial?: string | string[];
-      estado?: string;
+      estado?: string | string[];
       fuente?: string;
+      provincia?: string | string[];
+      municipio?: string | string[];
+      prioridad?: string | string[];
+      ofertas_filtro?: "con_ofertas" | "sin_ofertas" | "confirmadas" | "pendientes";
       fechaDesde?: string;
       fechaHasta?: string;
       skip?: number;
       limit?: number;
+      /** true = solo activos, false = solo anulados, undefined = todos (activos + anulados) */
+      activo?: boolean;
     } = {},
   ): Promise<{ leads: Lead[]; total: number; skip: number; limit: number }> {
     console.log("Calling getLeads endpoint with params:", params);
     const search = new URLSearchParams();
+    const appendMulti = (name: string, value?: string | string[]) => {
+      if (value === undefined || value === null) return;
+      if (Array.isArray(value)) {
+        value.filter(Boolean).forEach((v) => search.append(name, v));
+      } else if (value) {
+        search.append(name, value);
+      }
+    };
     if (params.q) search.append("q", params.q);
     if (params.nombre) search.append("nombre", params.nombre);
     if (params.telefono) search.append("telefono", params.telefono);
     if (params.direccion) search.append("direccion", params.direccion);
-    appendMulti(search, "comercial", params.comercial);
-    if (params.estado) search.append("estado", params.estado);
+    appendMulti("comercial", params.comercial);
+    appendMulti("estado", params.estado);
     if (params.fuente) search.append("fuente", params.fuente);
+    appendMulti("provincia", params.provincia);
+    appendMulti("municipio", params.municipio);
+    appendMulti("prioridad", params.prioridad);
+    if (params.ofertas_filtro)
+      search.append("ofertas_filtro", params.ofertas_filtro);
     if (params.fechaDesde) {
       search.append("fechaDesde", params.fechaDesde);
       search.append("fecha_desde", params.fechaDesde);
@@ -67,6 +77,8 @@ export class LeadService {
       search.append("skip", params.skip.toString());
     if (params.limit !== undefined)
       search.append("limit", params.limit.toString());
+    if (params.activo !== undefined)
+      search.append("activo", params.activo.toString());
     const endpoint = `/leads/${search.toString() ? `?${search.toString()}` : ""}`;
     const response = await apiRequest<LeadResponse>(endpoint);
     console.log("LeadService.getLeads response:", response);
@@ -148,6 +160,45 @@ export class LeadService {
     );
     console.log("LeadService.deleteLead response:", response);
     return response.success === true;
+  }
+
+  static async updateLeadStatus(
+    leadId: string,
+    activo: boolean,
+  ): Promise<
+    | { success: true }
+    | {
+        success: false;
+        error: { code: string; title: string; message: string; field?: string };
+      }
+  > {
+    console.log("Calling updateLeadStatus with ID:", leadId, "activo:", activo);
+    const response = await apiRequest<{
+      success: boolean;
+      message?: string;
+      error?: {
+        code: string;
+        title: string;
+        message: string;
+        field?: string;
+      };
+    }>(`/leads/${leadId}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ activo }),
+    });
+    console.log("LeadService.updateLeadStatus response:", response);
+
+    if (response.success === false) {
+      return {
+        success: false,
+        error: response.error || {
+          code: "ERROR_DESCONOCIDO",
+          title: "Error",
+          message: response.message || "No se pudo actualizar el estado del lead",
+        },
+      };
+    }
+    return { success: true };
   }
 
   static async getLeadsByTelefono(telefono: string): Promise<Lead[]> {
