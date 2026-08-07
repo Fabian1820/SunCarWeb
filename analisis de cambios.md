@@ -2,6 +2,42 @@
 
 ---
 
+## 📅 7 de Agosto, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**1 commit real** — yany1509 (co-autorado con Claude Opus 5). Día activo en el módulo de **Leads**: sistema de anular/reactivar leads (reemplaza el anterior hard-delete), migración de todos los filtros del cliente al backend, y paginación paralela en la exportación.
+
+---
+
+### Área 1: Leads — anular/reactivar, filtros al backend y paginación paralela (1 commit — yany1509, 17:47)
+
+- **`feat(leads): anular/activar, filtros al backend y paginacion paralela (bloques A/B/C)`** — Bloque A: el botón de eliminar se convierte en anular (ícono Ban) / reactivar (ícono RotateCcw) con un diálogo que explica que el lead pasa a "No interesado" y que sus ofertas de confección se cancelan. Si el backend responde `LEAD_DUPLICADO_TELEFONO` al reactivar, se muestra el mensaje real del backend en vez de un error genérico. Badge "Anulado" y fila atenuada para leads anulados; checkbox "Mostrar anulados" en filtros (por defecto solo se ven activos). Bloque B: `LeadService.getLeads` acepta ahora `estado` múltiple, `provincia`, `municipio`, `prioridad`, `ofertas_filtro` y `activo`; `use-leads` deja de traerse todos los leads para filtrar en JS y manda todos los filtros al backend en una sola consulta paginada. Bloque C: `fetchAllLeadsByBaseFilters` (que alimenta la exportación) pagina en paralelo de a 5 en vez de en serie. Los bloques D-I (fuentes, estados nuevos, convertir, permisos, rediseño de modales) permanecen en dev y no se incluyen. Verificado: tsc con 249 errores antes y después, cero nuevos; next build compila `/leads` sin errores.
+
+---
+
+### Puede dar bateo
+
+1. **Anular lead cancela ofertas de confección en cascada — sin flujo de reversa confirmado**: El diálogo advierte al usuario, pero si anula por error, no hay acción documentada para restaurar las ofertas canceladas. Reactivar el lead no revierte las cancelaciones de ofertas.
+
+2. **Reactivar con `LEAD_DUPLICADO_TELEFONO` — usuario bloqueado sin resolución guiada**: El sistema muestra el mensaje real del backend, pero no ofrece navegación al lead duplicado ni opción de fusión. El usuario queda sin acción clara para desbloquear la reactivación.
+
+3. **Checkbox "Mostrar anulados" desactivado por defecto — leads anulados invisibles, riesgo de recreación**: Usuarios que busquen leads que recuerdan y no los encuentran pueden asumir que fueron borrados y crearlos de nuevo, generando duplicados con el mismo teléfono (que el backend puede rechazar con `LEAD_DUPLICADO_TELEFONO`).
+
+4. **Migración de filtrado JS → backend — confirmar que todos los parámetros son soportados en producción**: `estado` múltiple, `provincia`, `municipio`, `prioridad` y `ofertas_filtro` se envían ahora al backend. Si el backend en producción no acepta o ignora alguno, ese filtro deja de funcionar silenciosamente retornando más resultados de los esperados.
+
+5. **Paginación paralela de a 5 en exportación — puede saturar el backend en listas grandes**: Sin cota máxima de requests simultáneas, una exportación con 50+ páginas dispara ráfagas de 5 requests. Si el backend o la BD tienen rate limiting, las exportaciones grandes pueden fallar parcialmente devolviendo datos incompletos sin error al usuario.
+
+6. **Endpoint de anular lead — confirmar existencia y que cancela ofertas en backend de producción**: El commit asume el endpoint disponible. Si `PATCH /leads/{id}/anular` (o similar) no está deployado, el botón fallará al hacer clic sin advertencia previa al usuario.
+
+7. **Badge "Anulado" / estado "No interesado" — confirmar que está mapeado en `ESTADO_CONFIG`**: Si el estado devuelto por el backend para leads anulados no está en el mapa de estados del frontend, el badge mostrará texto crudo o `undefined`.
+
+8. **Parámetro `activo` en `getLeads` — confirmar soporte en backend**: El checkbox "Mostrar anulados" controla este parámetro. Si el backend no lo implementa, todos los leads (activos y anulados) siempre se mostrarán, haciendo el checkbox visualmente funcional pero sin efecto real.
+
+9. **Bloques D-I ausentes en main — UI de Leads en estado intermedio**: Fuentes, estados nuevos, convertir, permisos y rediseño de modales permanecen en dev. Si el backend ya soporta esas capacidades en producción, los usuarios no podrán acceder a ellas desde la UI actual de main, generando inconsistencia entre lo que el backend expone y lo que la UI permite.
+
+---
+
 ## 📅 6 de Agosto, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -210,22 +246,16 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 30 de Julio, 2026
-
-### Resumen de cambios (últimas 24h)
-
-Sin commits nuevos de código. El único commit en las últimas 24h es "Analisis diario Claude" (generado automáticamente). No hay cambios en producción.
-
----
-
-### Puede dar bateo
-
-Sin cambios nuevos — sin riesgos nuevos.
-
----
-
 #### Seguimientos vigentes
 
+- **Anular lead cancela ofertas de confección en cascada — sin flujo de reversa confirmado (Ago 7)**.
+- **Reactivar con `LEAD_DUPLICADO_TELEFONO` — usuario bloqueado sin navegación al duplicado ni opción de fusión (Ago 7)**.
+- **Filtros leads migrados a backend — confirmar soporte de `estado` múltiple, `provincia`, `municipio`, `prioridad` y `ofertas_filtro` en endpoint de producción (Ago 7)**.
+- **Paginación paralela de a 5 en exportación — puede saturar backend en listas con 50+ páginas (Ago 7)**.
+- **Endpoint de anular lead — confirmar existencia y cancelación de ofertas en backend (Ago 7)**.
+- **Badge "Anulado" — confirmar que el estado "No interesado" está mapeado en `ESTADO_CONFIG` (Ago 7)**.
+- **Parámetro `activo` en `getLeads` — confirmar soporte en backend, sin él el checkbox no tiene efecto real (Ago 7)**.
+- **Bloques D-I de leads ausentes en main — UI en estado intermedio respecto a capacidades del backend (Ago 7)**.
 - **Sub-permiso `informe-direccion/cobros-pendientes` no aditivo — datos financieros (precio final, pendiente) visibles a todos los usuarios con `informe-direccion` sin asignación explícita (Ago 6)**.
 - **Paginación 500 en 500 en cobros-pendientes sin cota total — puede causar timeout en listas largas (Ago 6)**.
 - **TSC incrementó 10 errores con cherry-pick informe-direccion cobros-pendientes — confirmar que no son regresiones de tipo silenciosas (Ago 6)**.
@@ -388,4 +418,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. La entrada del **28 de Julio** fue eliminada el 5 de Agosto al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. La entrada del **28 de Julio** fue eliminada el 5 de Agosto al superar los 7 días. La entrada del **30 de Julio** fue eliminada el 7 de Agosto al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
