@@ -34,6 +34,7 @@ import { downloadFile } from "@/lib/utils/download-file";
 import { LeadService } from "@/lib/api-services";
 import MapPicker from "@/components/shared/organism/MapPickerNoSSR";
 import { useAuth } from "@/contexts/auth-context";
+import { formatFuenteConReferencia } from "@/lib/utils/fuente-display";
 import {
   Camera,
   Edit,
@@ -2851,8 +2852,11 @@ export function LeadsTable({
                   </td>
                   <td className="px-4 py-3 min-w-[120px] max-w-[180px] text-sm text-gray-700">
                     {lead.fuente ? (
-                      <span className="inline-block max-w-full truncate">
-                        {lead.fuente}
+                      <span
+                        className="inline-block max-w-full truncate"
+                        title={formatFuenteConReferencia(lead.fuente, lead.fuente_referencia)}
+                      >
+                        {formatFuenteConReferencia(lead.fuente, lead.fuente_referencia)}
                       </span>
                     ) : (
                       <span className="text-gray-400">—</span>
@@ -3316,7 +3320,13 @@ export function LeadsTable({
                         label="Fecha de contacto"
                         value={formatDate(selectedLead.fecha_contacto)}
                       />
-                      <LeadInfoRow label="Fuente" value={selectedLead.fuente} />
+                      <LeadInfoRow
+                        label="Fuente"
+                        value={formatFuenteConReferencia(
+                          selectedLead.fuente,
+                          selectedLead.fuente_referencia,
+                        )}
+                      />
                       <LeadInfoRow
                         icon={UserCheck}
                         label="Comercial asignado"

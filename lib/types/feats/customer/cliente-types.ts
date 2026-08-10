@@ -22,6 +22,7 @@ export interface Cliente {
   fecha_contacto?: string;
   estado?: string;
   fuente?: string;
+  fuente_referencia?: string;
   referencia?: string;
   pais_contacto?: string;
   comentario?: string;

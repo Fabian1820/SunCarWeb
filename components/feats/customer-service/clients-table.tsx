@@ -92,6 +92,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { useComercialEquipoMap } from "@/hooks/use-comercial-equipo-map";
 import type { Cliente, ClienteFoto } from "@/lib/api-types";
 import { extraerComponentesDeOfertaConfeccion } from "@/lib/utils/oferta-confeccion-items";
+import { formatFuenteConReferencia } from "@/lib/utils/fuente-display";
 
 const CODIGO_BATERIA_ESPECIAL_NOMBRE = "FLS48100SCG01";
 
@@ -4990,9 +4991,18 @@ export function ClientsTable({
                               </div>
                             )}
                             {client.fuente && (
-                              <div className="text-[13px] text-gray-500 mt-0.5 truncate">
+                              <div
+                                className="text-[13px] text-gray-500 mt-0.5 truncate"
+                                title={formatFuenteConReferencia(
+                                  client.fuente,
+                                  client.fuente_referencia,
+                                )}
+                              >
                                 <span className="text-gray-400">Fuente:</span>{" "}
-                                {client.fuente}
+                                {formatFuenteConReferencia(
+                                  client.fuente,
+                                  client.fuente_referencia,
+                                )}
                               </div>
                             )}
                           </div>
