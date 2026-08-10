@@ -261,6 +261,7 @@ export function CreateLeadDialog({
     "Revisando ofertas",
     "Pendiente de presupuesto",
     "Pendiente de visita",
+    "Pendiente de visitarnos",
     "Pendiente de pago",
     "Esperando equipo",
     "Proximamente",
