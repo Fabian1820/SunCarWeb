@@ -26,6 +26,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  ConfirmDeleteDialog,
+  ConfirmEditDialog,
 } from "@/components/shared/molecule/dialog";
 import { Input } from "@/components/shared/molecule/input";
 import { Textarea } from "@/components/shared/molecule/textarea";
@@ -57,12 +59,15 @@ import {
   Zap,
   Battery,
   Sun,
+  Ban,
+  RotateCcw,
 } from "lucide-react";
 import { ClienteService } from "@/lib/api-services";
 import { apiRequest } from "@/lib/api-config";
 import { compareStrings } from "@/lib/utils/string-utils";
 import MapPicker from "@/components/shared/organism/MapPickerNoSSR";
 import { ClienteDetallesDialog } from "@/components/feats/customer/cliente-detalles-dialog";
+import { EstadoInstalacionMultipleDialog } from "@/components/feats/customer-service/estado-instalacion-multiple-dialog";
 import { useOfertasPersonalizadas } from "@/hooks/use-ofertas-personalizadas";
 import { OfertasPersonalizadasTable } from "@/components/feats/ofertas-personalizadas/ofertas-personalizadas-table";
 import { CreateOfertaDialog } from "@/components/feats/ofertas-personalizadas/create-oferta-dialog";
@@ -104,6 +109,13 @@ interface ClientsTableProps {
   totalClients?: number;
   onEdit: (client: Cliente) => void;
   onDelete: (client: Cliente) => void;
+  onSetClienteStatus?: (
+    numero: string,
+    activo: boolean,
+  ) => Promise<
+    | { success: true }
+    | { success: false; error: { code: string; title: string; message: string; field?: string } }
+  >;
   onViewLocation: (client: Cliente) => void;
   onUploadFotos?: (
     client: Cliente,
@@ -127,6 +139,7 @@ interface ClientsTableProps {
     municipio: string[];
     ofertas: string;
     tiempo: string;
+    mostrarAnulados: boolean;
   }) => void;
   exportButtons?: React.ReactNode;
   initialSearchTerm?: string;
@@ -614,6 +627,7 @@ export function ClientsTable({
   clients,
   totalClients,
   onEdit,
+  onSetClienteStatus,
   onViewLocation,
   onUploadFotos,
   onUpdatePrioridad,
@@ -644,6 +658,13 @@ export function ClientsTable({
   } = useOfertasConfeccion();
   const { materials } = useMaterials();
   const { marcas } = useMarcas();
+  const [clienteToToggleStatus, setClienteToToggleStatus] =
+    useState<Cliente | null>(null);
+  const [isToggleStatusDialogOpen, setIsToggleStatusDialogOpen] =
+    useState(false);
+  const [togglingStatus, setTogglingStatus] = useState(false);
+  const [clienteParaEstadosMultiples, setClienteParaEstadosMultiples] =
+    useState<Cliente | null>(null);
   const [showClientLocation, setShowClientLocation] = useState(false);
   const [clientLocation, setClientLocation] = useState<{
     lat: number;
@@ -823,6 +844,7 @@ export function ClientsTable({
     municipio: [] as string[],
     ofertas: "",
     tiempo: "",
+    mostrarAnulados: false,
   });
   const {
     equipos: equiposComerciales,
@@ -1008,6 +1030,7 @@ export function ClientsTable({
         municipio: filters.municipio,
         ofertas: filters.ofertas,
         tiempo: filters.tiempo,
+        mostrarAnulados: filters.mostrarAnulados,
       });
     }
   }, [debouncedSearchTerm, filters, onFiltersChange]);
@@ -1368,6 +1391,7 @@ export function ClientsTable({
       municipio: [],
       ofertas: "",
       tiempo: "",
+      mostrarAnulados: false,
     });
     setEquipoSeleccionado("todos");
   };
@@ -4388,6 +4412,41 @@ export function ClientsTable({
     }
   };
 
+  const handleToggleClienteStatusClick = (client: Cliente) => {
+    setClienteToToggleStatus(client);
+    setIsToggleStatusDialogOpen(true);
+  };
+
+  const handleToggleClienteStatusConfirm = async () => {
+    if (!clienteToToggleStatus?.numero || !onSetClienteStatus) return;
+    const activar = clienteToToggleStatus.activo === false;
+    setTogglingStatus(true);
+    try {
+      const resultado = await onSetClienteStatus(
+        clienteToToggleStatus.numero,
+        activar,
+      );
+      if (resultado.success) {
+        toast({
+          title: "Éxito",
+          description: activar
+            ? "Cliente reactivado correctamente"
+            : "Cliente anulado correctamente",
+        });
+        setIsToggleStatusDialogOpen(false);
+        setClienteToToggleStatus(null);
+      } else {
+        toast({
+          title: resultado.error.title || "Error",
+          description: resultado.error.message,
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setTogglingStatus(false);
+    }
+  };
+
   return (
     <>
       <Card className="mb-6 border-l-4 border-l-emerald-600">
@@ -4403,6 +4462,26 @@ export function ClientsTable({
                 className="pl-10"
               />
             </div>
+            {onSetClienteStatus && (
+              <div className="flex items-center gap-2 shrink-0">
+                <Checkbox
+                  id="mostrar-anulados-clientes"
+                  checked={filters.mostrarAnulados}
+                  onCheckedChange={(checked) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      mostrarAnulados: checked === true,
+                    }))
+                  }
+                />
+                <Label
+                  htmlFor="mostrar-anulados-clientes"
+                  className="text-sm text-gray-600 cursor-pointer whitespace-nowrap"
+                >
+                  Ver anulados
+                </Label>
+              </div>
+            )}
             <Button
               variant="outline"
               onClick={handleClearFilters}
@@ -4916,6 +4995,11 @@ export function ClientsTable({
                               <p className="font-semibold text-gray-900 text-base mb-0.5 truncate">
                                 {client.nombre}
                               </p>
+                              {client.activo === false && (
+                                <Badge className="bg-gray-200 text-gray-600 text-xs px-2 py-0.5 mb-0.5 inline-block">
+                                  Anulado
+                                </Badge>
+                              )}
                               <p className="text-[13px] text-gray-500 truncate">
                                 {client.numero}
                               </p>
@@ -5083,6 +5167,17 @@ export function ClientsTable({
                                     >
                                       {totalConfirmadas} confirmada{totalConfirmadas === 1 ? "" : "s"}
                                     </span>
+                                    {totalConfirmadas > 1 && oc?.confirmadas_detalle && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setClienteParaEstadosMultiples(client)
+                                        }
+                                        className="inline-flex items-center rounded bg-blue-100 px-2 py-0.5 text-[13px] font-medium text-blue-700 hover:bg-blue-200"
+                                      >
+                                        Fijar estados
+                                      </button>
+                                    )}
                                   </div>
                                 )}
                                 <div className="space-y-1 text-[14px]">
@@ -5303,6 +5398,33 @@ export function ClientsTable({
                               </PopoverTrigger>
                               <PopoverContent align="end" className="w-56 p-3">
                                 <div className="grid grid-cols-2 gap-3">
+                                  {onSetClienteStatus && (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() =>
+                                        handleToggleClienteStatusClick(client)
+                                      }
+                                      className="h-auto flex-col items-center justify-center gap-1 py-3"
+                                      title={
+                                        client.activo === false
+                                          ? "Reactivar cliente"
+                                          : "Anular cliente"
+                                      }
+                                    >
+                                      {client.activo === false ? (
+                                        <RotateCcw className="h-5 w-5 text-emerald-600" />
+                                      ) : (
+                                        <Ban className="h-5 w-5 text-red-600" />
+                                      )}
+                                      <span className="text-xs text-gray-700 leading-tight text-center">
+                                        {client.activo === false
+                                          ? "Reactivar"
+                                          : "Anular"}
+                                      </span>
+                                    </Button>
+                                  )}
                                   <Button
                                     type="button"
                                     variant="ghost"
@@ -5539,6 +5661,41 @@ export function ClientsTable({
         fotosCliente={fotosClientDetails}
         loadingFotosCliente={loadingFotosClientDetails}
       />
+
+      {/* Fijar estado de instalación por oferta, para clientes con 2+ confirmadas */}
+      <EstadoInstalacionMultipleDialog
+        clienteNombre={clienteParaEstadosMultiples?.nombre ?? null}
+        ofertas={
+          clienteParaEstadosMultiples?.oferta_confeccion?.confirmadas_detalle ??
+          null
+        }
+        onOpenChange={(open) => {
+          if (!open) setClienteParaEstadosMultiples(null);
+        }}
+      />
+
+      {/* Anular/Reactivar Confirmation Dialog */}
+      {clienteToToggleStatus?.activo === false ? (
+        <ConfirmEditDialog
+          open={isToggleStatusDialogOpen}
+          onOpenChange={setIsToggleStatusDialogOpen}
+          title="Reactivar Cliente"
+          message={`¿Reactivar al cliente ${clienteToToggleStatus?.nombre}? Volverá a aparecer en el listado de clientes activos.`}
+          onConfirm={handleToggleClienteStatusConfirm}
+          confirmText="Reactivar Cliente"
+          isLoading={togglingStatus}
+        />
+      ) : (
+        <ConfirmDeleteDialog
+          open={isToggleStatusDialogOpen}
+          onOpenChange={setIsToggleStatusDialogOpen}
+          title="Anular Cliente"
+          message={`¿Estás seguro de que quieres anular al cliente ${clienteToToggleStatus?.nombre}? Pasará a estado "No interesado", se cancelarán todas sus ofertas de confección vinculadas (liberando las reservas de materiales que tuvieran) y dejará de aparecer en el listado de clientes activos. Podrás reactivarlo luego, pero eso no revertirá las ofertas ya canceladas.`}
+          onConfirm={handleToggleClienteStatusConfirm}
+          confirmText="Anular Cliente"
+          isLoading={togglingStatus}
+        />
+      )}
 
       {/* Modal de gestión de averías */}
       {clientForAverias && (

@@ -50,6 +50,7 @@ export interface Cliente {
   tipo_persona?: string;
   oferta_confeccion?: OfertaConfeccionResumen | null;
   es_trabajador_suncar?: boolean;
+  activo?: boolean;
 }
 
 export interface ClienteResponse {
@@ -70,6 +71,7 @@ export interface ClienteCreateData {
   fecha_contacto?: string;
   estado?: string;
   fuente?: string;
+  fuente_referencia?: string;
   referencia?: string;
   pais_contacto?: string;
   comentario?: string;

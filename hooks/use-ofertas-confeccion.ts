@@ -912,6 +912,46 @@ export function useOfertasConfeccion(options?: { autoLoad?: boolean }) {
     [toast, fetchOfertas],
   );
 
+  const actualizarEstadoInstalacion = useCallback(
+    async (
+      ofertaId: string,
+      estadoInstalacion: string,
+      faltaInstalacion?: string,
+    ) => {
+      try {
+        const body: Record<string, string> = {
+          estado_instalacion: estadoInstalacion,
+        };
+        if (faltaInstalacion !== undefined) {
+          body.falta_instalacion = faltaInstalacion;
+        }
+        const response = await apiRequest<any>(
+          `/ofertas/confeccion/${ofertaId}/estado-instalacion`,
+          {
+            method: "PATCH",
+            body: JSON.stringify(body),
+          },
+        );
+        if (response?.success) {
+          return { success: true as const };
+        }
+        throw new Error(
+          response?.message || "No se pudo actualizar el estado de instalación",
+        );
+      } catch (error: any) {
+        console.error("Error actualizando estado de instalación:", error);
+        toast({
+          title: "Error",
+          description:
+            error.message || "No se pudo actualizar el estado de instalación",
+          variant: "destructive",
+        });
+        return { success: false as const };
+      }
+    },
+    [toast],
+  );
+
   useEffect(() => {
     if (autoLoad) {
       fetchOfertas();
@@ -931,5 +971,6 @@ export function useOfertasConfeccion(options?: { autoLoad?: boolean }) {
     obtenerIdsLeadsConOfertas,
     obtenerOfertaPorLead,
     asignarOfertaALead,
+    actualizarEstadoInstalacion,
   };
 }

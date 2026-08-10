@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/shared/atom/select";
 import { PrioritySelect } from "@/components/shared/molecule/priority-select";
+import { FuenteSelector } from "@/components/feats/leads/fuente-selector";
 import { FaltaInstalacionSelect } from "@/components/shared/molecule/falta-instalacion-select";
 import { Loader2, MapPin } from "lucide-react";
 import { FechaInstalacionDialog } from "@/components/shared/molecule/fecha-instalacion-dialog";
@@ -85,78 +86,6 @@ export function EditClientDialog({
   const [detectingCountry, setDetectingCountry] = useState(false);
   const [showMapModal, setShowMapModal] = useState(false);
 
-  // Estado para controlar si se está usando fuente personalizada
-  const fuentesBase = [
-    "Página Web",
-    "Instagram",
-    "Facebook",
-    "Directo",
-    "Mensaje de Whatsapp",
-    "Visita",
-  ];
-
-  // Cargar fuentes personalizadas desde localStorage y combinar con la fuente del cliente
-  const [fuentesDisponibles, setFuentesDisponibles] = useState<string[]>(() => {
-    try {
-      const stored = localStorage.getItem("fuentes_personalizadas");
-      let todasLasFuentes = [...fuentesBase];
-
-      if (stored) {
-        const personalizadas = JSON.parse(stored) as string[];
-        todasLasFuentes = [...new Set([...fuentesBase, ...personalizadas])];
-      }
-
-      // Si el cliente tiene una fuente que no está en la lista, agregarla
-      if (client.fuente && !todasLasFuentes.includes(client.fuente)) {
-        todasLasFuentes.push(client.fuente);
-      }
-
-      return todasLasFuentes;
-    } catch (error) {
-      console.error("Error al cargar fuentes personalizadas:", error);
-      // Si hay error, al menos incluir la fuente del cliente si existe
-      if (client.fuente && !fuentesBase.includes(client.fuente)) {
-        return [...fuentesBase, client.fuente];
-      }
-      return fuentesBase;
-    }
-  });
-
-  const [usandoFuentePersonalizada, setUsandoFuentePersonalizada] = useState(
-    () => {
-      // Si la fuente del cliente no está en las opciones base, usar input personalizado
-      return client.fuente ? !fuentesBase.includes(client.fuente) : false;
-    },
-  );
-
-  // Escuchar cambios en las fuentes desde otros componentes
-  useEffect(() => {
-    const handleFuentesUpdate = () => {
-      try {
-        const stored = localStorage.getItem("fuentes_personalizadas");
-        let todasLasFuentes = [...fuentesBase];
-
-        if (stored) {
-          const personalizadas = JSON.parse(stored) as string[];
-          todasLasFuentes = [...new Set([...fuentesBase, ...personalizadas])];
-        }
-
-        // Si el cliente tiene una fuente que no está en la lista, agregarla
-        if (client.fuente && !todasLasFuentes.includes(client.fuente)) {
-          todasLasFuentes.push(client.fuente);
-        }
-
-        setFuentesDisponibles(todasLasFuentes);
-      } catch (error) {
-        console.error("Error al actualizar fuentes:", error);
-      }
-    };
-
-    window.addEventListener("fuentes_updated", handleFuentesUpdate);
-    return () =>
-      window.removeEventListener("fuentes_updated", handleFuentesUpdate);
-  }, [client.fuente]);
-
   const [clientLatLng, setClientLatLng] = useState<{
     lat: string;
     lng: string;
@@ -218,6 +147,7 @@ export function EditClientDialog({
     telefono_adicional: client.telefono_adicional || "",
     estado: normalizeEstado(client.estado || ""),
     fuente: client.fuente || "",
+    fuente_referencia: client.fuente_referencia || "",
     referencia: client.referencia || "",
     direccion: client.direccion || "",
     pais_contacto: client.pais_contacto || "",
@@ -277,6 +207,7 @@ export function EditClientDialog({
         telefono_adicional: client.telefono_adicional || "",
         estado: estadoNormalizado,
         fuente: client.fuente || "",
+        fuente_referencia: client.fuente_referencia || "",
         referencia: client.referencia || "",
         direccion: client.direccion || "",
         pais_contacto: client.pais_contacto || "",
@@ -295,21 +226,6 @@ export function EditClientDialog({
         tipo_persona: normalizeTipoPersona(client.tipo_persona || ""),
         es_trabajador_suncar: client.es_trabajador_suncar ?? false,
       });
-
-      // Actualizar el estado de fuente personalizada
-      const esFuentePersonalizada = client.fuente
-        ? !fuentesBase.includes(client.fuente)
-        : false;
-      setUsandoFuentePersonalizada(esFuentePersonalizada);
-
-      // Si es una fuente personalizada, agregarla a la lista si no está
-      if (
-        client.fuente &&
-        !fuentesBase.includes(client.fuente) &&
-        !fuentesDisponibles.includes(client.fuente)
-      ) {
-        setFuentesDisponibles((prev) => [...prev, client.fuente]);
-      }
 
       console.log("✅ FormData actualizado con estado:", estadoNormalizado);
 
@@ -800,106 +716,14 @@ export function EditClientDialog({
                     </div>
                   )}
                   <div>
-                    <Label htmlFor="fuente">Fuente</Label>
-                    {!usandoFuentePersonalizada ? (
-                      <Select
-                        value={formData.fuente}
-                        onValueChange={(value) => {
-                          if (value === "__custom__") {
-                            setUsandoFuentePersonalizada(true);
-                            handleInputChange("fuente", "");
-                          } else {
-                            handleInputChange("fuente", value);
-                          }
-                        }}
-                      >
-                        <SelectTrigger id="fuente" className="text-gray-900">
-                          <SelectValue placeholder="Seleccionar fuente" />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-[300px] overflow-y-auto">
-                          {fuentesDisponibles.map((fuente) => (
-                            <SelectItem key={fuente} value={fuente}>
-                              {fuente}
-                            </SelectItem>
-                          ))}
-                          <SelectItem value="__custom__">
-                            ✏️ Otra (escribir manualmente)
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <div className="space-y-2">
-                        <Input
-                          id="fuente-custom"
-                          type="text"
-                          value={formData.fuente}
-                          onChange={(e) =>
-                            handleInputChange("fuente", e.target.value)
-                          }
-                          placeholder="Escribe la fuente personalizada..."
-                          className="text-gray-900 placeholder:text-gray-400"
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            // Si hay una fuente personalizada escrita, agregarla a la lista
-                            if (
-                              formData.fuente &&
-                              formData.fuente.trim() !== "" &&
-                              !fuentesDisponibles.includes(formData.fuente)
-                            ) {
-                              const nuevasFuentes = [
-                                ...fuentesDisponibles,
-                                formData.fuente,
-                              ];
-                              setFuentesDisponibles(nuevasFuentes);
-                              // Guardar en localStorage solo las personalizadas (sin las base)
-                              const personalizadas = nuevasFuentes.filter(
-                                (f) => !fuentesBase.includes(f),
-                              );
-                              localStorage.setItem(
-                                "fuentes_personalizadas",
-                                JSON.stringify(personalizadas),
-                              );
-
-                              // Quitar de la lista de excluidas si estaba ahí
-                              try {
-                                const excluidas = JSON.parse(
-                                  localStorage.getItem("fuentes_excluidas") ||
-                                    "[]",
-                                ) as string[];
-                                const nuevasExcluidas = excluidas.filter(
-                                  (f) => f !== formData.fuente,
-                                );
-                                if (
-                                  nuevasExcluidas.length !== excluidas.length
-                                ) {
-                                  localStorage.setItem(
-                                    "fuentes_excluidas",
-                                    JSON.stringify(nuevasExcluidas),
-                                  );
-                                }
-                              } catch (error) {
-                                console.error(
-                                  "Error al actualizar fuentes excluidas:",
-                                  error,
-                                );
-                              }
-
-                              window.dispatchEvent(
-                                new CustomEvent("fuentes_updated"),
-                              );
-                            }
-                            setUsandoFuentePersonalizada(false);
-                          }}
-                          className="text-xs"
-                        >
-                          ← Volver a opciones predefinidas
-                        </Button>
-                      </div>
-                    )}
+                    <FuenteSelector
+                      fuente={formData.fuente}
+                      fuenteReferencia={formData.fuente_referencia}
+                      onChange={(fuente, fuenteReferencia) => {
+                        handleInputChange("fuente", fuente);
+                        handleInputChange("fuente_referencia", fuenteReferencia);
+                      }}
+                    />
                   </div>
                   <div>
                     <Label htmlFor="tipo_persona">Tipo de Persona</Label>
