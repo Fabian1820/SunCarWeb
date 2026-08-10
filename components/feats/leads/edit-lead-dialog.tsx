@@ -231,14 +231,15 @@ export function EditLeadDialog({
   });
 
   const estadosDisponibles = [
-    "Nuevo",
-    "Revisando ofertas",
+    "Esperando equipo",
+    "No interesado",
+    "Pendiente de instalación",
     "Pendiente de presupuesto",
     "Pendiente de visita",
-    "Pendiente de pago",
-    "Esperando equipo",
+    "Pendiente de visitarnos",
     "Proximamente",
-    "No interesado",
+    "Revisando ofertas",
+    "Sin respuesta",
   ];
 
   const [errors, setErrors] = useState<Record<string, string>>({});

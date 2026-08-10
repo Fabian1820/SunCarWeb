@@ -639,7 +639,6 @@ export default function LeadsPage() {
               <div>
                 {(() => {
                   const estadosDisponibles = [
-                    "Nuevo",
                     "Esperando equipo",
                     "No interesado",
                     "Pendiente de instalación",
