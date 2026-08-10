@@ -4892,23 +4892,24 @@ export function ClientsTable({
               </p>
             </div>
           ) : (
+            <div className="overflow-hidden border border-gray-200 rounded-lg">
             <div className="overflow-x-auto">
               <table className="w-full table-fixed divide-y divide-gray-200 min-w-[640px]">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="text-left py-3 px-2 text-[13px] font-semibold text-gray-500 uppercase tracking-wider w-[24%] md:w-[18%]">
+                    <th className="text-left py-3 px-4 text-[13px] font-semibold text-gray-500 uppercase tracking-wider w-[24%] md:w-[18%]">
                       Cliente
                     </th>
-                    <th className="hidden md:table-cell text-left py-3 px-2 text-[13px] font-semibold text-gray-500 uppercase tracking-wider md:w-[24%]">
+                    <th className="hidden md:table-cell text-left py-3 px-4 text-[13px] font-semibold text-gray-500 uppercase tracking-wider md:w-[24%]">
                       Contacto
                     </th>
-                    <th className="text-left py-3 px-2 text-[13px] font-semibold text-gray-500 uppercase tracking-wider w-[22%] md:w-[16%]">
+                    <th className="text-left py-3 px-4 text-[13px] font-semibold text-gray-500 uppercase tracking-wider w-[22%] md:w-[16%]">
                       Estado
                     </th>
-                    <th className="text-left py-3 px-2 text-[13px] font-semibold text-gray-500 uppercase tracking-wider w-[34%] md:w-[24%]">
+                    <th className="text-left py-3 px-4 text-[13px] font-semibold text-gray-500 uppercase tracking-wider w-[34%] md:w-[24%]">
                       Oferta
                     </th>
-                    <th className="text-right py-3 px-2 text-[13px] font-semibold text-gray-500 uppercase tracking-wider w-[20%] md:w-[18%]">
+                    <th className="text-right py-3 px-4 text-[13px] font-semibold text-gray-500 uppercase tracking-wider w-[20%] md:w-[18%]">
                       Acciones
                     </th>
                   </tr>
@@ -4918,41 +4919,23 @@ export function ClientsTable({
                     // Determinar el color del estado (igual que en leads-table)
                     const getEstadoColor = (estado: string | undefined) => {
                       if (!estado)
-                        return "bg-gray-100 text-gray-700 hover:bg-gray-200";
+                        return "text-gray-600 bg-transparent border-transparent hover:bg-transparent";
 
                       // Normalizar el estado (trim y comparación)
                       const estadoNormalizado = estado.trim();
 
-                      // Mapeo exacto de estados como en leads
+                      // Estados válidos de Cliente (ver Select de estado en create/edit-client-dialog)
                       const estadosConfig: Record<string, string> = {
-                        // Estados de leads
-                        "Esperando equipo":
-                          "bg-amber-100 text-amber-800 hover:bg-amber-200",
-                        "No interesado":
-                          "bg-gray-200 text-gray-700 hover:bg-gray-300",
-                        "Pendiente de instalación":
-                          "bg-green-100 text-green-800 hover:bg-green-200",
-                        "Pendiente de presupuesto":
-                          "bg-purple-100 text-purple-800 hover:bg-purple-200",
-                        "Pendiente de visita":
-                          "bg-blue-100 text-blue-800 hover:bg-blue-200",
-                        "Pendiente de visitarnos":
-                          "bg-pink-100 text-pink-800 hover:bg-pink-200",
-                        Proximamente:
-                          "bg-cyan-100 text-cyan-800 hover:bg-cyan-200",
-                        "Revisando ofertas":
-                          "bg-indigo-100 text-indigo-800 hover:bg-indigo-200",
-                        // Estados de clientes
-                        "Equipo instalado con éxito":
-                          "bg-emerald-100 text-emerald-800 hover:bg-emerald-200",
-                        "Instalación en Proceso":
-                          "bg-blue-100 text-blue-800 hover:bg-blue-200",
+                        "Esperando equipo": "text-amber-600",
+                        "No interesado": "text-slate-500",
+                        "Pendiente de instalación": "text-orange-600",
+                        "Pendiente de visita": "text-pink-600",
+                        "Equipo instalado con éxito": "text-emerald-600",
+                        "Instalación en Proceso": "text-blue-600",
                       };
 
-                      return (
-                        estadosConfig[estadoNormalizado] ||
-                        "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                      );
+                      const textColor = estadosConfig[estadoNormalizado] || "text-gray-600";
+                      return `${textColor} bg-transparent border-transparent hover:bg-transparent`;
                     };
 
                     const atraso = getAtrasoBucket(client);
@@ -4979,7 +4962,7 @@ export function ClientsTable({
                         key={client._id || client.numero}
                         className="hover:bg-gray-50 transition-colors"
                       >
-                        <td className="py-4 px-2 align-top">
+                        <td className="px-4 py-3 align-top">
                           <div className="flex items-start gap-2">
                             <div className="pt-1">
                               <PriorityDot
@@ -4992,7 +4975,7 @@ export function ClientsTable({
                               />
                             </div>
                             <div className="min-w-0">
-                              <p className="font-semibold text-gray-900 text-base mb-0.5 truncate">
+                              <p className="font-semibold text-gray-900 text-sm mb-0.5 truncate">
                                 {client.nombre}
                               </p>
                               {client.activo === false && (
@@ -5033,9 +5016,9 @@ export function ClientsTable({
                             </div>
                           </div>
                         </td>
-                        <td className="hidden md:table-cell py-4 px-2 align-top">
+                        <td className="hidden md:table-cell px-4 py-3 align-top">
                           <div className="flex flex-col gap-1">
-                            <div className="flex items-center text-base text-gray-900">
+                            <div className="flex items-center text-sm text-gray-900">
                               <Phone className="h-4 w-4 text-gray-400 mr-1.5 flex-shrink-0" />
                               <span className="font-medium truncate">
                                 {client.telefono || "Sin teléfono"}
@@ -5058,7 +5041,7 @@ export function ClientsTable({
                             )}
                           </div>
                         </td>
-                        <td className="py-4 px-2 align-top">
+                        <td className="px-4 py-3 align-top">
                           <div className="w-full">
                             {client.estado && (
                               <Badge
@@ -5099,7 +5082,7 @@ export function ClientsTable({
                             )}
                           </div>
                         </td>
-                        <td className="py-4 px-2 align-top">
+                        <td className="px-4 py-3 align-top">
                           {(() => {
                             let inv: { cantidad: number; descripcion: string } | null = null;
                             let bats: { cantidad: number; descripcion: string }[] = [];
@@ -5211,7 +5194,7 @@ export function ClientsTable({
                             );
                           })()}
                         </td>
-                        <td className="py-4 px-2 align-top">
+                        <td className="px-4 py-3 align-top">
                           <div className="flex items-center justify-end gap-1 flex-wrap">
                             <Button
                               variant="ghost"
@@ -5464,6 +5447,7 @@ export function ClientsTable({
                   })}
                 </tbody>
               </table>
+            </div>
             </div>
           )}
         </CardContent>

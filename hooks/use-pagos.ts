@@ -98,6 +98,7 @@ export function usePagos() {
       devoluciones?: CobrosPaginadoParams["devoluciones"];
       estado_pendiente?: CobrosPaginadoParams["estado_pendiente"];
       estado_cliente?: string;
+      recibido_por?: string[];
       silent?: boolean;
     }) => {
       const { silent = false, skip = 0, ...filters } = options ?? {};

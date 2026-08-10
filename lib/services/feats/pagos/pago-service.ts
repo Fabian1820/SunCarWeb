@@ -211,6 +211,7 @@ export interface CobrosPaginadoParams {
   devoluciones?: "todos" | "con_devoluciones" | "sin_devoluciones";
   estado_pendiente?: "todos" | "con_pendiente" | "sin_pendiente";
   estado_cliente?: string;
+  recibido_por?: string[];
 }
 
 export interface CobrosPaginadoResponse {
@@ -541,6 +542,7 @@ export class PagoService {
         devoluciones,
         estado_pendiente,
         estado_cliente,
+        recibido_por,
       } = params;
       const sp = new URLSearchParams({
         skip: String(skip),
@@ -555,6 +557,9 @@ export class PagoService {
         sp.set("estado_pendiente", estado_pendiente);
       if (estado_cliente && estado_cliente !== "todos")
         sp.set("estado_cliente", estado_cliente);
+      if (recibido_por && recibido_por.length > 0) {
+        recibido_por.forEach((nombre) => sp.append("recibido_por", nombre));
+      }
 
       const response = await apiRequest<CobrosPaginadoResponse>(
         `/ofertas/confeccion/personalizadas/cobros-paginado?${sp.toString()}`,
@@ -566,6 +571,23 @@ export class PagoService {
       throw new Error(
         error.response?.data?.message || "Error al cargar cobros",
       );
+    }
+  }
+
+  /**
+   * Lista los nombres distintos que aparecen en Pago.recibido_por, para
+   * poblar el filtro multi-select "quien cobro".
+   */
+  static async getCobradores(): Promise<string[]> {
+    try {
+      const response = await apiRequest<{
+        success: boolean;
+        data: string[];
+      }>(`/pagos/cobradores`, { method: "GET" });
+      return Array.isArray(response?.data) ? response.data : [];
+    } catch (error: any) {
+      console.error("[PagoService] Error al obtener cobradores:", error);
+      return [];
     }
   }
 
