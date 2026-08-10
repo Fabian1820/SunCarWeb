@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, ConfirmEditDialog } from "@/components/shared/molecule/dialog"
 import { Button } from "@/components/shared/atom/button"
 import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
@@ -114,6 +114,7 @@ export function RegistrarPagoDialog({
     const [desgloseBilletes, setDesgloseBilletes] = useState<Record<string, number>>({})
 
     const [selectedFile, setSelectedFile] = useState<File | null>(null)
+    const [showConfirm, setShowConfirm] = useState(false)
 
     // Reset/prellenado cuando se abre el diálogo
     useEffect(() => {
@@ -367,8 +368,16 @@ export function RegistrarPagoDialog({
             return
         }
 
-        console.log('✅ Todas las validaciones pasaron, construyendo pagoData...')
-        
+        console.log('✅ Todas las validaciones pasaron, pidiendo confirmación...')
+
+        setShowConfirm(true)
+    }
+
+    const handleConfirmedSubmit = async () => {
+        if (!oferta) return
+
+        const monto = parseFloat(formData.monto)
+
         setLoading(true)
 
         try {
@@ -464,6 +473,7 @@ export function RegistrarPagoDialog({
     if (!oferta) return null
 
     return (
+        <>
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
@@ -923,5 +933,15 @@ export function RegistrarPagoDialog({
                 </div>
             </DialogContent>
         </Dialog>
+        <ConfirmEditDialog
+            open={showConfirm}
+            onOpenChange={setShowConfirm}
+            title="Confirmar registro de pago"
+            message={`¿Está seguro de registrar un pago de ${(parseFloat(formData.monto) || 0).toFixed(2)} ${formData.moneda}?`}
+            onConfirm={handleConfirmedSubmit}
+            confirmText="Sí, registrar pago"
+            isLoading={loading}
+        />
+        </>
     )
 }

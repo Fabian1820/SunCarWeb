@@ -8,6 +8,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  ConfirmDeleteDialog,
 } from "@/components/shared/molecule/dialog";
 import { Button } from "@/components/shared/atom/button";
 import { Label } from "@/components/shared/atom/label";
@@ -33,11 +34,13 @@ export function CancelarPagoDialog({
   const [loading, setLoading] = useState(false);
   const [motivo, setMotivo] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   useEffect(() => {
     setLoading(false);
     setMotivo("");
     setError(null);
+    setShowConfirm(false);
   }, [open, pago?.id]);
 
   const formatCurrency = (value: number, currency: string = "USD") =>
@@ -47,13 +50,19 @@ export function CancelarPagoDialog({
       minimumFractionDigits: 2,
     }).format(value);
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!pago) return;
 
     if (motivo.trim().length < 3) {
       setError("Debe indicar un motivo de cancelación (mínimo 3 caracteres).");
       return;
     }
+
+    setShowConfirm(true);
+  };
+
+  const handleConfirmedSubmit = async () => {
+    if (!pago) return;
 
     setLoading(true);
     setError(null);
@@ -86,6 +95,7 @@ export function CancelarPagoDialog({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -165,5 +175,15 @@ export function CancelarPagoDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <ConfirmDeleteDialog
+      open={showConfirm}
+      onOpenChange={setShowConfirm}
+      title="Confirmar cancelación de pago"
+      message={`¿Está seguro de cancelar este pago de ${pago ? formatCurrency(Number(pago.monto || 0), pago.moneda) : ""} ${pago?.moneda || ""}? Esta acción revierte el monto pendiente de la oferta.`}
+      onConfirm={handleConfirmedSubmit}
+      confirmText="Sí, cancelar pago"
+      isLoading={loading}
+    />
+    </>
   );
 }

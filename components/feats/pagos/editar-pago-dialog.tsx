@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, ConfirmEditDialog } from "@/components/shared/molecule/dialog"
 import { Button } from "@/components/shared/atom/button"
 import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
@@ -42,6 +42,7 @@ export function EditarPagoDialog({ open, onOpenChange, pago, oferta, onSuccess }
 
     const [desgloseBilletes, setDesgloseBilletes] = useState<Record<string, number>>({})
     const [selectedFile, setSelectedFile] = useState<File | null>(null)
+    const [showConfirm, setShowConfirm] = useState(false)
 
     // Cargar datos del pago cuando se abre el diálogo
     useEffect(() => {
@@ -206,6 +207,32 @@ export function EditarPagoDialog({ open, onOpenChange, pago, oferta, onSuccess }
             return
         }
 
+        // Calcular el monto disponible para este pago
+        // (pendiente actual + monto original del pago que estamos editando)
+        const montoDisponible = oferta.monto_pendiente + pago.monto_usd
+        const montoEnUSD = formData.moneda === 'USD' || formData.tasa_cambio <= 0
+            ? monto
+            : monto / formData.tasa_cambio
+        const excedePendiente = montoEnUSD > montoDisponible
+
+        if (excedePendiente && !formData.justificacion_diferencia.trim()) {
+            setError(`El monto en USD (${formatCurrency(montoEnUSD)}) excede el monto disponible (${formatCurrency(montoDisponible)}). Debe proporcionar una justificación.`)
+            return
+        }
+
+        if (excedePendiente && formData.justificacion_diferencia.trim().length < 10) {
+            setError('La justificación debe tener al menos 10 caracteres')
+            return
+        }
+
+        setShowConfirm(true)
+    }
+
+    const handleConfirmedSubmit = async () => {
+        if (!pago) return
+
+        const monto = parseFloat(formData.monto)
+
         setLoading(true)
 
         try {
@@ -239,7 +266,7 @@ export function EditarPagoDialog({ open, onOpenChange, pago, oferta, onSuccess }
                 updateData.comprobante_transferencia = formData.comprobante_transferencia
             }
 
-            // Calcular el monto disponible para este pago
+            // Calcular el monto disponible para este pago (ya validado en handleSubmit)
             // (pendiente actual + monto original del pago que estamos editando)
             const montoDisponible = oferta.monto_pendiente + pago.monto_usd
             // tasa_cambio en UI está en "moneda por USD", calcular USD = monto / tasa
@@ -247,18 +274,6 @@ export function EditarPagoDialog({ open, onOpenChange, pago, oferta, onSuccess }
                 ? monto
                 : monto / formData.tasa_cambio
             const excedePendiente = montoEnUSD > montoDisponible
-
-            if (excedePendiente && !formData.justificacion_diferencia.trim()) {
-                setError(`El monto en USD (${formatCurrency(montoEnUSD)}) excede el monto disponible (${formatCurrency(montoDisponible)}). Debe proporcionar una justificación.`)
-                setLoading(false)
-                return
-            }
-
-            if (excedePendiente && formData.justificacion_diferencia.trim().length < 10) {
-                setError('La justificación debe tener al menos 10 caracteres')
-                setLoading(false)
-                return
-            }
 
             // Agregar diferencia si el monto excede el disponible
             console.log('🔍 Validación diferencia (edición):')
@@ -299,6 +314,7 @@ export function EditarPagoDialog({ open, onOpenChange, pago, oferta, onSuccess }
     console.log('Renderizando EditarPagoDialog - formData.monto:', formData.monto)
 
     return (
+        <>
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent key={pago.id} className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
@@ -751,5 +767,15 @@ export function EditarPagoDialog({ open, onOpenChange, pago, oferta, onSuccess }
                 </div>
             </DialogContent>
         </Dialog>
+        <ConfirmEditDialog
+            open={showConfirm}
+            onOpenChange={setShowConfirm}
+            title="Confirmar edición de pago"
+            message={`¿Está seguro de guardar los cambios de este pago de ${(parseFloat(formData.monto) || 0).toFixed(2)} ${formData.moneda}?`}
+            onConfirm={handleConfirmedSubmit}
+            confirmText="Sí, guardar cambios"
+            isLoading={loading}
+        />
+        </>
     )
 }

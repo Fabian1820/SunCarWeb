@@ -8,6 +8,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  ConfirmEditDialog,
 } from "@/components/shared/molecule/dialog";
 import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/molecule/input";
@@ -40,6 +41,7 @@ export function RegistrarDevolucionPagoDialog({
   const { toast } = useToast();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [devolverTodo, setDevolverTodo] = useState(false);
   const [esTransferencia, setEsTransferencia] = useState(false);
   const [montoDevolucion, setMontoDevolucion] = useState("");
@@ -211,6 +213,17 @@ export function RegistrarDevolucionPagoDialog({
       }
     }
 
+    setShowConfirm(true);
+  };
+
+  const handleConfirmedSubmit = async () => {
+    if (!pago) return;
+
+    const monto = devolverTodo ? totalPago : parseAmount(montoDevolucion);
+    const codigoClienteLimpio = String(codigoCliente || "").trim();
+    const ofertaId = String(pago.oferta_id || "").trim();
+    const fechaSeleccionada = new Date(`${fechaDevolucion}T12:00:00`);
+
     setLoading(true);
     setError(null);
 
@@ -264,6 +277,7 @@ export function RegistrarDevolucionPagoDialog({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -498,5 +512,15 @@ export function RegistrarDevolucionPagoDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <ConfirmEditDialog
+      open={showConfirm}
+      onOpenChange={setShowConfirm}
+      title="Confirmar devolucion"
+      message={`¿Está seguro de registrar una devolucion de ${(devolverTodo ? totalPago : parseAmount(montoDevolucion)).toFixed(2)} ${monedaPago} al cliente?`}
+      onConfirm={handleConfirmedSubmit}
+      confirmText="Sí, registrar devolucion"
+      isLoading={loading}
+    />
+    </>
   );
 }
