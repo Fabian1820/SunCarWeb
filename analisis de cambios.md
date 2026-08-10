@@ -2,6 +2,76 @@
 
 ---
 
+## 📅 10 de Agosto, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**9 commits** — todos de yany1509 (varios co-autorados con Claude Opus 5). Día muy activo: refactor completo del catálogo de fuentes en Leads con FuenteSelector y GestionarFuentesDialog, display de referencia en dos líneas para fuentes con persona, prioridad Urgente/Ninguna, rediseño de UI de tabla y modales, tres fixes encadenados de estados inválidos (Nuevo, Pendiente de pago, Sin respuesta, Pendiente de instalación), anular/activar clientes con FuenteSelector y diálogo de estado múltiple de instalación, filtro multi-select "Quien cobro" en pagos respaldado por nuevo endpoint, y diálogos de confirmación antes de guardar en los 4 flujos de pagos.
+
+---
+
+### Área 1: Leads — Catálogo cerrado de fuentes, prioridad Urgente y rediseño UI (4 commits — yany1509, 12:41-13:37)
+
+- **`feat(leads): catalogo cerrado de fuentes, prioridad Urgente y rediseño de la UI`** (12:41) — FuenteSelector: fuente elegida desde lista servida por `/api/fuentes`; cuando la fuente lo requiere aparece sub-selector de sucursal/trabajador/cliente que llena `fuente_referencia`. GestionarFuentesDialog para administrar el catálogo con desactivación segura (avisa cuántos leads/clientes usan la fuente y permite reasignar). Archivos nuevos: `fuente-selector`, `gestionar-fuentes-dialog`, `lib/constants/fuentes.ts`. Prioridad Urgente y Ninguna: `priority-badge`, `priority-dot` y `priority-select` con colores nuevos (morado/gris). UI: columnas Fecha de contacto y Fuente, filtro "Sin confirmadas", popover compacto en vez de bloque amarillo de "equipo propio", 3 checks antes de convertir, estado real de la oferta en Ver Lead, comercial como select, errores dentro del diálogo de convertir, permiso `leads/anular` cableado. Verificado: tsc con 241 errores preexistentes y cero nuevos.
+- **`fix(leads): quita los estados "Nuevo" y "Pendiente de pago" de los selectores`** (12:47) — Se habían colado del commit anterior desde archivos de dev. Los 3 selectores (crear, editar, filtro) vuelven a los 9 estados de siempre. 0 leads usaban esos estados.
+- **`fix(leads): quita "Sin respuesta" de todos los selectores, badges y mapas`** (12:57) — Eliminado de 11 sitios: selectores de crear/editar lead, filtro, centro de control, mapas de color de badge (leads y clientes), normalizadores de etiqueta en pagos-clientes, obras-terminadas y todos-pagos. Los 149 leads migrados a "No interesado". Verificado: 0 referencias a "sin respuesta" en todo el proyecto, tsc 241 errores (cero nuevos).
+- **`fix(leads): quita "Pendiente de instalación" de crear/editar, deja el filtro igual`** (13:37) — Los 21 leads con ese estado se mantienen en BD intactos; si se abre Editar sobre uno de ellos el selector aparecerá vacío hasta que se elija otro estado. El filtro del listado mantiene el estado para poder encontrarlos y reclasificarlos.
+
+---
+
+### Área 2: Leads/Clientes — Display de fuente con referencia en dos líneas (2 commits — yany1509, 13:03-13:22)
+
+- **`feat(leads,clientes): muestra la referencia junto a fuente Trabajador/Sucursal/Otro cliente`** (13:03) — Nuevo helper compartido `lib/utils/fuente-display.ts`. La columna de fuente en ambas tablas y el detalle de Ver Lead muestran "Trabajador: Fernando Ferrera Dabo", "Sucursal: Suncar Santa Clara", etc. Para el resto de fuentes sin referencia se muestra igual que antes. Agrega `fuente_referencia` al tipo `Cliente` (el backend ya lo devuelve). Verificado: tsc 241 errores (cero nuevos).
+- **`feat(leads,clientes): fuente Trabajador/Sucursal/Otro cliente en dos líneas`** (13:22) — "Trabajador" arriba y "Fernando Ferrera Dabo" debajo en gris para columnas angostas. Tooltip (hover) sigue mostrando el texto completo. Nuevo `esFuenteConReferencia()` en el helper compartido. Sin cambios para fuentes sin referencia. Verificado: tsc 241 errores (cero nuevos).
+
+---
+
+### Área 3: Clientes — anular/activar, FuenteSelector y EstadoInstalacionMultiple (1 commit — yany1509, 15:11)
+
+- **`feat(clientes): anular/activar, FuenteSelector, filtro equipo comercial y estado instalacion multiple`** (15:11) — Botón anular/activar cliente (ícono Ban/RotateCcw) + badge "Anulado" + checkbox "Ver anulados" (`ClienteService.updateClienteStatus`). Swap del selector de fuente libre por FuenteSelector en create/edit client dialog; `fuente_referencia` agregado a `ClienteCreateData`. Nuevo `EstadoInstalacionMultipleDialog` + botón "Fijar estados" en columna Ofertas para clientes con 2+ ofertas confirmadas. `useOfertasConfeccion`: nuevo método `actualizarEstadoInstalacion`. Filtro por equipo comercial se deja intacto.
+
+---
+
+### Área 4: Clientes/Pagos — Estilo tabla y filtro multi-select "Quien cobro" (1 commit — yany1509, 17:22)
+
+- **`feat(clientes,pagos): estilo de tabla de dev + filtro multi-select "quien cobro"`** (17:22) — Clientes: badges de estado solo con color (sin relleno), acotado a 6 estados reales de Cliente (se quitan 4 de Leads); tabla con borde redondeado, padding px-4, tipografía text-sm. Pagos: nuevo filtro multi-select "Quien cobro" (Popover + Checkbox, mismo patrón que Estado/Provincia en Clientes), respaldado por `GET /pagos/cobradores` y el parámetro `recibido_por` en cobros-paginado.
+
+---
+
+### Área 5: Pagos — Confirmación explícita antes de guardar en los 4 diálogos (1 commit — yany1509, 17:36)
+
+- **`feat(pagos): confirmacion antes de guardar en crear/editar/cancelar/devolver pago`** (17:36) — Los 4 diálogos de Pagos Clientes piden confirmación explícita antes de ejecutar la acción: primero corren las validaciones, y si pasan, abren un diálogo "¿Está seguro?" con el monto en cuestión. Si el usuario cancela la confirmación, vuelve al formulario con los datos intactos (el diálogo original nunca se cierra). ConfirmEditDialog para registrar/editar/devolver; ConfirmDeleteDialog para cancelar. Enter o clic en botón principal ya no dispara el guardado directo.
+
+---
+
+### Puede dar bateo
+
+1. **FuenteSelector cierra el catálogo — leads con fuentes libres antiguas no cubiertas por la migración quedarán con campo vacío**: Las 83 fuentes libres se migran a 12 canónicas. Si algún lead/cliente tenía una fuente no incluida en la migración, el selector mostrará vacío al abrirlo. Además, `fuente_referencia` debe ser aceptado y persistido por el backend en `POST/PATCH` de leads y clientes; si no, el sub-campo se pierde silenciosamente.
+
+2. **GestionarFuentesDialog reasignación — fallo parcial deja leads con fuente desactivada**: Si la reasignación masiva falla a mitad (timeout, error de red), algunos leads quedan con una fuente desactivada que ya no aparece en el catálogo, rompiendo el selector al intentar editarlos.
+
+3. **"Nuevo" y "Pendiente de pago" — ventana de ~6 minutos antes del fix (12:41-12:47)**: Si Railway auto-deploy está activo, hubo ~6 minutos donde esos estados eran seleccionables en producción. Leads creados o editados en ese intervalo pueden tener estados no válidos persistidos en BD que el frontend ya no mostrará correctamente.
+
+4. **"Pendiente de instalación" — 21 leads con ese estado, modal de edición muestra campo vacío sin aviso**: Al abrir Editar sobre uno de esos leads, el selector aparecerá vacío. Si la validación del formulario no exige estado o el usuario guarda sin cambiar, puede persistirse un estado vacío/null que el backend puede aceptar silenciosamente.
+
+5. **"Sin respuesta" eliminado de 11 sitios — confirmar migración al 100% en BD**: Si alguno de los 149 leads no fue migrado (fallo parcial), su estado aparecerá como texto crudo o badge vacío en las vistas de leads, pagos-clientes, obras-terminadas y todos-pagos — sin error visible.
+
+6. **4 commits encadenados en 56 minutos (12:41-13:37) — posibles builds intermedios con estado inconsistente**: Si Railway hace auto-deploy de cada commit, pueden haber existido combinaciones intermedias donde el catálogo de fuentes ya estaba cerrado pero "Sin respuesta" aún aparecía, o vice-versa. Cada build intermedio podría haber dejado datos inconsistentes.
+
+7. **Clientes anular/activar — confirmar endpoint `updateClienteStatus` en backend de producción**: A diferencia de leads (donde ya existía anular), clientes puede ser un endpoint nuevo. Si `PATCH /clientes/{id}/status` (o similar) no existe, el botón fallará silenciosamente.
+
+8. **EstadoInstalacionMultipleDialog — confirmar endpoint de actualización masiva de estado instalación**: El nuevo método `actualizarEstadoInstalacion` en `useOfertasConfeccion` asume un endpoint de backend. Sin confirmarlo, el diálogo "Fijar estados" fallará para todos los clientes con 2+ ofertas confirmadas.
+
+9. **GET /pagos/cobradores + parámetro `recibido_por` — confirmar ambos en backend de producción**: Si el endpoint de cobradores no existe, el dropdown queda vacío. Si `recibido_por` no está soportado en cobros-paginado, el filtro no tiene efecto real (devuelve todos los registros sin filtrar).
+
+10. **Confirmación en 4 diálogos de pagos — Enter ya no guarda directamente**: Cambio de UX que puede sorprender a usuarios habituados. Más crítico: si el monto a mostrar en el diálogo de confirmación es null/undefined (por un error de datos o campo faltante), el render puede fallar y bloquear la acción sin mensaje útil al usuario.
+
+11. **TSC — commits de Clientes (15:11) y Pagos (17:22, 17:36) no documentan verificación de errores TypeScript**: Los commits de fuentes/referencias confirman explícitamente 241 errores y cero nuevos. Los tres commits posteriores no mencionan conteo TSC. Pueden haber introducido errores silenciosos que se manifiesten en runtime.
+
+12. **Volumen de 9 commits en ~5 horas — riesgo de integración cross-módulo**: Los estados eliminados (Sin respuesta, Nuevo, Pendiente de instalación, Pendiente de pago) pueden seguir presentes en partes del código no cubiertas por los 11 sitios del fix. Confirmar con grep exhaustivo antes del próximo ciclo de commits.
+
+---
+
 ## 📅 8 de Agosto, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -154,100 +224,19 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 3 de Agosto, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**6 commits reales** — 4 de yany1509 y 2 de Fabian1820. Día activo centrado en el módulo **informe-direccion**: nuevo módulo comparativo cherry-pickeado desde dev, fix de PDF, sistema de sub-permisos por sección, y actualización del catálogo de módulos. Además dos fixes de UX/export: explicación del botón "Asignar" deshabilitado en asignaciones, y separación del código de material en su propia columna en el Excel de facturas emitidas.
-
----
-
-### Área 1: Informe dirección — nuevo módulo comparativo a producción (1 commit — yany1509, 17:14)
-
-- **`feat(informe-direccion): agrega módulo de informe comparativo a producción`** — Cherry-pick aislado desde la rama dev: página + MonthPicker + servicios que consumen el nuevo endpoint de KPIs comparativos. El commit describe el cherry-pick como "sin dependencias de otras features en curso en dev".
-
----
-
-### Área 2: Informe dirección — fix texto espaciado en PDF + selector de secciones (1 commit — yany1509, 17:39)
-
-- **`fix(informe-direccion): corrige texto espaciado en PDF + selector de secciones`** — El carácter "→" no está en WinAnsiEncoding (fuentes estándar de jsPDF), lo que rompía el cálculo de ancho de autoTable y espaciaba cada letra en esas filas. Se reemplaza por "->". De paso, se agrega un checklist para elegir qué secciones incluir en el PDF exportado.
-
----
-
-### Área 3: Facturas emitidas — código de material en columna propia (1 commit — Fabian1820, 17:52)
-
-- **`fix(facturas-emitidas): código del material en columna propia, sin corchetes`** — El Excel apilaba el código al final del nombre entre corchetes ("INVERSOR FELICITY ON GRID 8KW [10001]"), dejando el dato inutilizable para filtrar o cruzar. Ahora el nombre va solo en "Material" y el código en su propia columna "Código" al lado. Material/Código/Cantidad quedan fuera del merge vertical porque varían por fila física; el resto de columnas se sigue fusionando por factura.
-
----
-
-### Área 4: Asignaciones — explicar por qué el botón "Asignar" está deshabilitado (1 commit — Fabian1820, 17:52)
-
-- **`fix(asignaciones): explica por qué el botón "Asignar" está deshabilitado`** — El botón se apagaba en silencio; los motivos más frecuentes eran invisibles: escribir en el buscador sin hacer clic en una fila (input con texto pero sin material seleccionado) o material con costo 0 (330 de 609 del catálogo) sin marcar "Permitir costo cero". Ahora se muestra el motivo concreto bajo el botón, tanto en creación como en edición. Además la búsqueda de materiales deja de disfrazar un fallo de red/permisos como "Sin resultados".
-
----
-
-### Área 5: Informe dirección — sub-permisos por sección (1 commit — yany1509, 19:51)
-
-- **`feat(informe-direccion): sub-permisos por sección del informe`** — Permite dar acceso completo al módulo (todas las secciones) o solo a secciones específicas vía sub-permisos `informe-direccion/<seccion>`, igual que el patrón ya usado en `solicitudes-envio/clientes`. La página solo muestra y deja seleccionar las secciones que el trabajador tiene asignadas.
-
----
-
-### Área 6: Informe dirección — sub-permisos al catálogo de módulos (1 commit — yany1509, 19:55)
-
-- **`feat(informe-direccion): agrega sub-permisos al catálogo de módulos`** — Completa el commit anterior (2a441e70): el catálogo de módulos se había quedado sin commitear. Sin este commit, el panel de permisos no mostraba los nuevos sub-permisos aunque el RouteGuard ya los chequeaba.
-
----
-
-### Puede dar bateo
-
-1. **Cherry-pick de informe-direccion desde dev — posible arrastre de dependencias incompletas**: Un cherry-pick "aislado" puede traer imports de tipos, constantes o componentes que solo existen en dev. Si la build de producción no falla en tiempo de compilación (TypeScript errors ignorados en next.config.mjs), el módulo puede romperse en runtime silenciosamente.
-
-2. **Endpoint de KPIs comparativos sin confirmar en backend de producción**: El módulo consume un "nuevo endpoint de KPIs comparativos". Si ese endpoint no está deployado en el backend de producción (`api.suncarsrl.com`), el módulo cargará con error de red inmediatamente al abrir, visible para todos los usuarios con permiso.
-
-3. **Sub-permisos informe-direccion — usuarios con permiso padre sin sub-permisos quedarán sin acceso a secciones**: El patrón de sub-permisos implica que usuarios que ya tenían acceso completo a `informe-direccion` necesitan que se les asignen los sub-permisos de cada sección. Sin migración de datos en backend, verán el módulo en el menú pero ninguna sección dentro.
-
-4. **Ventana de 4 minutos entre commits 5 y 6 (19:51 y 19:55) — build intermedio con RouteGuard sin catálogo**: Si Railway auto-deploy está activo, el commit de sub-permisos en RouteGuard (19:51) hizo deploy antes que el de catálogo (19:55). Durante esos ~4 minutos el RouteGuard chequeaba sub-permisos que el panel de permisos no mostraba, impidiendo asignarlos a nuevos usuarios en ese intervalo.
-
-5. **Selector de secciones en PDF — omisión de secciones del medio puede romper paginación o índice**: El checklist para elegir secciones no documenta qué pasa con la numeración de páginas, el índice o las referencias cruzadas si se omiten secciones intermedias del informe.
-
-6. **`fix(facturas-emitidas)` — Excel con nueva columna "Código" rompe importaciones por posición**: Si hay scripts, macros o flujos que procesan el Excel exportado leyendo por índice de columna (col A, B, C), la inserción de la columna "Código" desplaza todo el layout y rompe esas importaciones silenciosamente.
-
-7. **Merge vertical de columnas por factura — confirmar que los índices de merge no son posicionales**: Si la lógica de merge en `export-service.ts` hardcodea índices de columna en lugar de nombres, el reordenamiento puede aplicar merge a columnas incorrectas en el nuevo layout.
-
-8. **330/609 materiales con costo 0 — UX mejorado pero problema de datos de fondo**: El fix explica el bloqueo correctamente, pero más de la mitad del catálogo sin costo puede causar facturas y costeos incorrectos en otros módulos que no tengan la misma guardia de "costo cero".
-
----
-
-## 📅 2 de Agosto, 2026
-
-### Resumen de cambios (últimas 24h)
-
-Sin commits nuevos de código. El único commit en las últimas 24h es "Analisis diario Claude" (generado automáticamente). No hay cambios en producción.
-
----
-
-### Puede dar bateo
-
-Sin cambios nuevos — sin riesgos nuevos.
-
----
-
-## 📅 1 de Agosto, 2026
-
-### Resumen de cambios (últimas 24h)
-
-Sin commits nuevos de código. El único commit en las últimas 24h es "Analisis diario Claude" (generado automáticamente). No hay cambios en producción.
-
----
-
-### Puede dar bateo
-
-Sin cambios nuevos — sin riesgos nuevos.
-
----
-
 #### Seguimientos vigentes
 
+- **FuenteSelector — confirmar persistencia de `fuente_referencia` en POST/PATCH leads y clientes en backend de producción (Ago 10)**.
+- **GestionarFuentesDialog — confirmar que reasignación de fuentes es atómica en backend; fallo parcial deja leads con fuente desactivada (Ago 10)**.
+- **Leads "Nuevo"/"Pendiente de pago" — revisar BD por leads persistidos con esos estados en ventana de ~6 min antes del fix (12:41-12:47) (Ago 10)**.
+- **"Pendiente de instalación" en 21 leads — modal de edición muestra campo vacío sin aviso; confirmar validación de estado obligatorio en formulario (Ago 10)**.
+- **"Sin respuesta" eliminado de 11 sitios — confirmar migración 100% en BD; leads sin migrar mostrarán badge vacío en todas las vistas (Ago 10)**.
+- **4 commits en 56 min (leads 12:41-13:37) — confirmar que builds intermedios en producción no dejaron datos inconsistentes (Ago 10)**.
+- **Clientes anular/activar — confirmar endpoint `updateClienteStatus` en backend de producción (Ago 10)**.
+- **EstadoInstalacionMultipleDialog — confirmar endpoint de actualización masiva de estado instalación en backend (Ago 10)**.
+- **GET /pagos/cobradores + parámetro `recibido_por` en cobros-paginado — confirmar ambos en backend de producción (Ago 10)**.
+- **Confirmación en 4 diálogos de pagos — confirmar que el monto nunca es null/undefined; nuevo flujo puede bloquear si falla el render (Ago 10)**.
+- **TSC — commits de Clientes y Pagos del 10 de Agosto no documentan verificación de errores TypeScript (Ago 10)**.
 - **Anular lead cancela ofertas de confección en cascada — sin flujo de reversa confirmado (Ago 7)**.
 - **Reactivar con `LEAD_DUPLICADO_TELEFONO` — usuario bloqueado sin navegación al duplicado ni opción de fusión (Ago 7)**.
 - **Filtros leads migrados a backend — confirmar soporte de `estado` múltiple, `provincia`, `municipio`, `prioridad` y `ofertas_filtro` en endpoint de producción (Ago 7)**.
@@ -418,4 +407,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. La entrada del **28 de Julio** fue eliminada el 5 de Agosto al superar los 7 días. La entrada del **30 de Julio** fue eliminada el 7 de Agosto al superar los 7 días. La entrada del **31 de Julio** fue eliminada el 8 de Agosto al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. La entrada del **28 de Julio** fue eliminada el 5 de Agosto al superar los 7 días. La entrada del **30 de Julio** fue eliminada el 7 de Agosto al superar los 7 días. La entrada del **31 de Julio** fue eliminada el 8 de Agosto al superar los 7 días. Las entradas del **1, 2 y 3 de Agosto** fueron eliminadas el 10 de Agosto al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
