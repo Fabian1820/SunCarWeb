@@ -34,7 +34,10 @@ import { downloadFile } from "@/lib/utils/download-file";
 import { LeadService } from "@/lib/api-services";
 import MapPicker from "@/components/shared/organism/MapPickerNoSSR";
 import { useAuth } from "@/contexts/auth-context";
-import { formatFuenteConReferencia } from "@/lib/utils/fuente-display";
+import {
+  formatFuenteConReferencia,
+  esFuenteConReferencia,
+} from "@/lib/utils/fuente-display";
 import {
   Camera,
   Edit,
@@ -2852,12 +2855,21 @@ export function LeadsTable({
                   </td>
                   <td className="px-4 py-3 min-w-[120px] max-w-[180px] text-sm text-gray-700">
                     {lead.fuente ? (
-                      <span
-                        className="inline-block max-w-full truncate"
-                        title={formatFuenteConReferencia(lead.fuente, lead.fuente_referencia)}
-                      >
-                        {formatFuenteConReferencia(lead.fuente, lead.fuente_referencia)}
-                      </span>
+                      esFuenteConReferencia(lead.fuente) && lead.fuente_referencia ? (
+                        <div
+                          className="max-w-full"
+                          title={formatFuenteConReferencia(lead.fuente, lead.fuente_referencia)}
+                        >
+                          <div className="truncate">{lead.fuente}</div>
+                          <div className="text-xs text-gray-500 truncate">
+                            {lead.fuente_referencia}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="inline-block max-w-full truncate">
+                          {lead.fuente}
+                        </span>
+                      )
                     ) : (
                       <span className="text-gray-400">—</span>
                     )}

@@ -92,7 +92,10 @@ import { useAuth } from "@/contexts/auth-context";
 import { useComercialEquipoMap } from "@/hooks/use-comercial-equipo-map";
 import type { Cliente, ClienteFoto } from "@/lib/api-types";
 import { extraerComponentesDeOfertaConfeccion } from "@/lib/utils/oferta-confeccion-items";
-import { formatFuenteConReferencia } from "@/lib/utils/fuente-display";
+import {
+  formatFuenteConReferencia,
+  esFuenteConReferencia,
+} from "@/lib/utils/fuente-display";
 
 const CODIGO_BATERIA_ESPECIAL_NOMBRE = "FLS48100SCG01";
 
@@ -4992,17 +4995,22 @@ export function ClientsTable({
                             )}
                             {client.fuente && (
                               <div
-                                className="text-[13px] text-gray-500 mt-0.5 truncate"
+                                className="mt-0.5"
                                 title={formatFuenteConReferencia(
                                   client.fuente,
                                   client.fuente_referencia,
                                 )}
                               >
-                                <span className="text-gray-400">Fuente:</span>{" "}
-                                {formatFuenteConReferencia(
-                                  client.fuente,
-                                  client.fuente_referencia,
-                                )}
+                                <div className="text-[13px] text-gray-500 truncate">
+                                  <span className="text-gray-400">Fuente:</span>{" "}
+                                  {client.fuente}
+                                </div>
+                                {esFuenteConReferencia(client.fuente) &&
+                                  client.fuente_referencia && (
+                                    <div className="text-xs text-gray-400 truncate">
+                                      {client.fuente_referencia}
+                                    </div>
+                                  )}
                               </div>
                             )}
                           </div>
