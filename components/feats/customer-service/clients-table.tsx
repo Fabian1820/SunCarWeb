@@ -4859,8 +4859,6 @@ export function ClientsTable({
                           "bg-cyan-100 text-cyan-800 hover:bg-cyan-200",
                         "Revisando ofertas":
                           "bg-indigo-100 text-indigo-800 hover:bg-indigo-200",
-                        "Sin respuesta":
-                          "bg-red-100 text-red-800 hover:bg-red-200",
                         // Estados de clientes
                         "Equipo instalado con éxito":
                           "bg-emerald-100 text-emerald-800 hover:bg-emerald-200",

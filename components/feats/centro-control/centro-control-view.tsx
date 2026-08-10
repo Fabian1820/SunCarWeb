@@ -87,8 +87,7 @@ const CUBA_PROVINCIAS_ORDEN = [
 const ESTADOS_VALIDOS_LEAD = new Set([
   "Esperando equipo", "No interesado", "Pendiente de instalación",
   "Pendiente de presupuesto", "Pendiente de visita", "Pendiente de visitarnos",
-  "Proximamente", "Revisando ofertas", "Sin respuesta",
-])
+  "Proximamente", "Revisando ofertas",])
 
 /** Ordena clientes o leads por fecha_contacto desc (más reciente primero) */
 function sortByFechaDesc<T extends { fecha_contacto?: string }>(items: T[]): T[] {

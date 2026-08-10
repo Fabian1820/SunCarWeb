@@ -120,7 +120,6 @@ const ESTADO_CLIENTE_LABELS: Record<string, string> = {
   "pendiente de visitarnos": "Pendiente de visitarnos",
   proximamente: "Próximamente",
   "revisando ofertas": "Revisando ofertas",
-  "sin respuesta": "Sin respuesta",
   "sin estado": "Sin estado",
 };
 
@@ -135,7 +134,6 @@ const ESTADO_CLIENTE_ORDER = [
   "pendiente de visitarnos",
   "proximamente",
   "revisando ofertas",
-  "sin respuesta",
   "sin estado",
 ];
 

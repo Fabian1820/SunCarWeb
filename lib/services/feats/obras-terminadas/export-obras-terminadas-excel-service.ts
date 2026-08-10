@@ -23,7 +23,6 @@ const ESTADO_LABELS: Record<string, string> = {
   "pendiente de visitarnos": "Pendiente de visitarnos",
   proximamente: "Próximamente",
   "revisando ofertas": "Revisando ofertas",
-  "sin respuesta": "Sin respuesta",
 };
 
 const getEstadoLabel = (raw?: string | null): string => {

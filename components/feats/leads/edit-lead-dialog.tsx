@@ -239,7 +239,6 @@ export function EditLeadDialog({
     "Pendiente de visitarnos",
     "Proximamente",
     "Revisando ofertas",
-    "Sin respuesta",
   ];
 
   const [errors, setErrors] = useState<Record<string, string>>({});

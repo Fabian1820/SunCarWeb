@@ -2677,12 +2677,6 @@ export function LeadsTable({
         hover: "hover:bg-indigo-200",
         label: "Revisando ofertas",
       },
-      "Sin respuesta": {
-        bg: "bg-red-100",
-        text: "text-red-600",
-        hover: "hover:bg-red-200",
-        label: "Sin respuesta",
-      },
     };
 
     const config = estadosConfig[estado] || {
