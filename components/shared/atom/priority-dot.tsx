@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/shared/molecule/popover"
 import { Button } from "@/components/shared/atom/button"
 
-type Prioridad = "Alta" | "Media" | "Baja"
+type Prioridad = "Ninguna" | "Urgente" | "Alta" | "Media" | "Baja"
 
 interface PriorityDotProps {
   prioridad?: Prioridad
@@ -13,6 +13,11 @@ interface PriorityDotProps {
 }
 
 const PRIORIDAD_CONFIG = {
+  Urgente: {
+    color: "bg-purple-500",
+    hoverColor: "hover:bg-purple-600",
+    label: "🟣 Urgente"
+  },
   Alta: {
     color: "bg-red-500",
     hoverColor: "hover:bg-red-600",
@@ -27,15 +32,22 @@ const PRIORIDAD_CONFIG = {
     color: "bg-blue-500",
     hoverColor: "hover:bg-blue-600",
     label: "🔵 Baja"
+  },
+  Ninguna: {
+    color: "bg-gray-400",
+    hoverColor: "hover:bg-gray-500",
+    label: "⚪ Ninguna"
   }
 }
 
+const PRIORIDADES_VALIDAS: Prioridad[] = ["Ninguna", "Urgente", "Alta", "Media", "Baja"]
+
 export function PriorityDot({ prioridad = "Baja", onChange, disabled = false }: PriorityDotProps) {
   const [open, setOpen] = useState(false)
-  
+
   // Asegurar que siempre tengamos una prioridad válida
-  const prioridadValida: Prioridad = prioridad && (prioridad === "Alta" || prioridad === "Media" || prioridad === "Baja") 
-    ? prioridad 
+  const prioridadValida: Prioridad = prioridad && PRIORIDADES_VALIDAS.includes(prioridad)
+    ? prioridad
     : "Baja"
   
   const config = PRIORIDAD_CONFIG[prioridadValida]

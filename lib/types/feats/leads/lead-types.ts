@@ -94,7 +94,7 @@ export interface Lead {
   comprobante_pago_url?: string;
   metodo_pago?: string;
   moneda?: string;
-  prioridad?: "Alta" | "Media" | "Baja";
+  prioridad?: "Ninguna" | "Urgente" | "Alta" | "Media" | "Baja";
   motivo_visita?: string; // ⚠️ CAMPO TEMPORAL: NO se guarda en lead. Se usa para crear visita automática.
   oferta_confeccion?: OfertaConfeccionResumen | null;
   activo?: boolean; // false = lead anulado
@@ -130,7 +130,7 @@ export interface LeadCreateData {
   comprobante_pago_url?: string;
   metodo_pago?: string;
   moneda?: string;
-  prioridad?: "Alta" | "Media" | "Baja";
+  prioridad?: "Ninguna" | "Urgente" | "Alta" | "Media" | "Baja";
   motivo_visita?: string; // ⚠️ CAMPO TEMPORAL: Se envía al backend para crear visita. NO se guarda en lead.
 }
 
@@ -155,7 +155,7 @@ export interface LeadUpdateData {
   comprobante_pago_url?: string;
   metodo_pago?: string;
   moneda?: string;
-  prioridad?: "Alta" | "Media" | "Baja";
+  prioridad?: "Ninguna" | "Urgente" | "Alta" | "Media" | "Baja";
   motivo_visita?: string; // ⚠️ CAMPO TEMPORAL: Se envía al backend para crear visita. NO se guarda en lead.
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/shared/atom/button";
 import {
   Card,
@@ -37,11 +38,10 @@ import { SmartPagination } from "@/components/shared/molecule/smart-pagination";
 import { CreateLeadDialog } from "@/components/feats/leads/create-lead-dialog";
 import { EditLeadDialog } from "@/components/feats/leads/edit-lead-dialog";
 import { ExportButtons } from "@/components/shared/molecule/export-buttons";
-import { FuentesManager } from "@/components/shared/molecule/fuentes-manager";
-import { useLeads } from "@/hooks/use-leads";
 import { useComercialEquipoMap } from "@/hooks/use-comercial-equipo-map";
+import { useLeads } from "@/hooks/use-leads";
 import { useFuentesSync } from "@/hooks/use-fuentes-sync";
-import { LeadService } from "@/lib/api-services";
+import { LeadService, FuenteService } from "@/lib/api-services";
 import { Loader } from "@/components/shared/atom/loader";
 import { PageLoader } from "@/components/shared/atom/page-loader";
 import { useToast } from "@/hooks/use-toast";
@@ -56,6 +56,7 @@ import type { ExportOptions } from "@/lib/export-service";
 import { downloadFile } from "@/lib/utils/download-file";
 import { extraerComponentesDeOfertaConfeccion } from "@/lib/utils/oferta-confeccion-items";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
+import { GestionarFuentesDialog } from "@/components/feats/leads/gestionar-fuentes-dialog";
 import { useAuth } from "@/contexts/auth-context";
 
 type FechaPreset = "" | "hoy" | "semana" | "mes" | "personalizado";
@@ -97,6 +98,9 @@ export default function LeadsPage() {
   const { hasExactPermission } = useAuth();
   const canCrearLead = hasExactPermission("leads/crear");
   const canExportarLeads = hasExactPermission("leads/exportar");
+  const searchParams = useSearchParams();
+  const crearOfertaLeadIdParam = searchParams.get("crear_oferta_lead") ?? "";
+  const editarOfertaLeadIdParam = searchParams.get("editar_oferta_lead") ?? "";
   const {
     leads,
     availableSources,
@@ -126,15 +130,18 @@ export default function LeadsPage() {
     clearError,
   } = useLeads();
 
-  const {
-    equipos: equiposComerciales,
-    nombreEquipo,
-    comercialesDeEquipo,
-  } = useComercialEquipoMap();
-  const [equipoSeleccionado, setEquipoSeleccionado] = useState<string>("todos");
+  const { equipos: equiposComerciales, nombreEquipo, comercialesDeEquipo } =
+    useComercialEquipoMap();
 
   // Sincronizar fuentes de leads con localStorage
   useFuentesSync(leads, [], !loading);
+
+  const [fuentesDisponibles, setFuentesDisponibles] = useState<string[]>([]);
+  useEffect(() => {
+    FuenteService.getFuentes(true)
+      .then((data) => setFuentesDisponibles(data.map((f) => f.nombre)))
+      .catch(() => setFuentesDisponibles([]));
+  }, []);
 
   const [fechaPreset, setFechaPreset] = useState<FechaPreset>("");
   const handleFechaPresetChange = (preset: FechaPreset) => {
@@ -149,6 +156,7 @@ export default function LeadsPage() {
 
   const [isCreateLeadDialogOpen, setIsCreateLeadDialogOpen] = useState(false);
   const [isEditLeadDialogOpen, setIsEditLeadDialogOpen] = useState(false);
+  const [isGestionarFuentesOpen, setIsGestionarFuentesOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [loadingAction, setLoadingAction] = useState(false);
   const { toast } = useToast();
@@ -211,7 +219,7 @@ export default function LeadsPage() {
 
   const handleUpdateLeadPrioridad = async (
     leadId: string,
-    prioridad: "Alta" | "Media" | "Baja",
+    prioridad: "Ninguna" | "Urgente" | "Alta" | "Media" | "Baja",
   ) => {
     if (!leadId) return;
     try {
@@ -223,8 +231,6 @@ export default function LeadsPage() {
     }
   };
 
-  // El diálogo de la tabla es quien muestra el toast de éxito/error: aquí
-  // solo se propaga el resultado y se controla el spinner de la página.
   const handleSetLeadStatus = async (leadId: string, activo: boolean) => {
     setLoadingAction(true);
     try {
@@ -345,12 +351,13 @@ export default function LeadsPage() {
 
   const handleConvertLead = async (lead: Lead, data: LeadConversionRequest) => {
     if (!lead.id) {
+      const msg = "No se puede convertir un lead sin identificador.";
       toast({
         title: "Error",
-        description: "No se puede convertir un lead sin identificador.",
+        description: msg,
         variant: "destructive",
       });
-      return;
+      throw new Error(msg);
     }
 
     setLoadingAction(true);
@@ -361,14 +368,13 @@ export default function LeadsPage() {
         description: `Se creó el cliente ${cliente.numero || "sin número asignado"} a partir del lead.`,
       });
     } catch (e) {
+      // Re-lanzamos para que el diálogo de convertir muestre el error inline
+      // en su propio banner (el usuario no ve el toast si el diálogo está
+      // cubriendo la parte superior de la pantalla).
       console.error("Error converting lead:", e);
-      toast({
-        title: "Error",
-        description:
-          "No se pudo convertir el lead: " +
-          (e instanceof Error ? e.message : "Error desconocido"),
-        variant: "destructive",
-      });
+      throw e instanceof Error
+        ? e
+        : new Error(typeof e === "string" ? e : "Error desconocido");
     } finally {
       setLoadingAction(false);
     }
@@ -397,24 +403,38 @@ export default function LeadsPage() {
 
       const oc = lead.oferta_confeccion;
       if (oc && oc.items?.length) {
-        const { inv: itemInv, bats: itemBats, pan: itemPan } = extraerComponentesDeOfertaConfeccion(oc);
+        const {
+          inv: itemInv,
+          bats: itemBats,
+          pan: itemPan,
+        } = extraerComponentesDeOfertaConfeccion(oc);
         const productos: string[] = [];
-        if (itemInv) productos.push(`${itemInv.cantidad}x ${itemInv.descripcion}`);
-        itemBats.forEach((b) => productos.push(`${b.cantidad}x ${b.descripcion}`));
-        if (itemPan) productos.push(`${itemPan.cantidad}x ${itemPan.descripcion}`);
+        if (itemInv)
+          productos.push(`${itemInv.cantidad}x ${itemInv.descripcion}`);
+        itemBats.forEach((b) =>
+          productos.push(`${b.cantidad}x ${b.descripcion}`),
+        );
+        if (itemPan)
+          productos.push(`${itemPan.cantidad}x ${itemPan.descripcion}`);
         ofertaTexto = productos.length > 0 ? productos.join(" • ") : "";
       } else if (lead.ofertas && lead.ofertas.length > 0) {
         const ofertasFormateadas = lead.ofertas
           .map((oferta) => {
             const productos: string[] = [];
             if (oferta.inversor_codigo && oferta.inversor_cantidad > 0) {
-              productos.push(`${oferta.inversor_cantidad}x ${oferta.inversor_nombre || oferta.inversor_codigo}`);
+              productos.push(
+                `${oferta.inversor_cantidad}x ${oferta.inversor_nombre || oferta.inversor_codigo}`,
+              );
             }
             if (oferta.bateria_codigo && oferta.bateria_cantidad > 0) {
-              productos.push(`${oferta.bateria_cantidad}x ${oferta.bateria_nombre || oferta.bateria_codigo}`);
+              productos.push(
+                `${oferta.bateria_cantidad}x ${oferta.bateria_nombre || oferta.bateria_codigo}`,
+              );
             }
             if (oferta.panel_codigo && oferta.panel_cantidad > 0) {
-              productos.push(`${oferta.panel_cantidad}x ${oferta.panel_nombre || oferta.panel_codigo}`);
+              productos.push(
+                `${oferta.panel_cantidad}x ${oferta.panel_nombre || oferta.panel_codigo}`,
+              );
             }
             if (oferta.elementos_personalizados) {
               productos.push(oferta.elementos_personalizados);
@@ -467,9 +487,14 @@ export default function LeadsPage() {
     };
   };
 
-  if (initialLoading)
+  // Si hay un deep-link de oferta pendiente, montamos la tabla de una vez
+  // para que el fetch de la oferta arranque en paralelo con la lista de
+  // leads en vez de esperar a que esta termine de cargar primero.
+  const hasPendingOfertaDeepLink = Boolean(
+    crearOfertaLeadIdParam || editarOfertaLeadIdParam,
+  );
+  if (initialLoading && !hasPendingOfertaDeepLink)
     return <PageLoader moduleName="Leads" text="Cargando leads..." />;
-  if (error) return <div>Error: {error}</div>;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
@@ -480,7 +505,22 @@ export default function LeadsPage() {
         badge={{ text: "Ventas", className: "bg-green-100 text-green-800" }}
         actions={
           <div className="flex items-center gap-2">
-            <FuentesManager />
+            {leads.length > 0 && canExportarLeads && (
+              <ExportButtons
+                getExportOptions={getExportOptions}
+                baseFilename="leads"
+                variant="compact"
+                showPdf={false}
+              />
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setIsGestionarFuentesOpen(true)}
+              className="hidden sm:flex border-gray-300 text-gray-600 hover:bg-gray-50"
+            >
+              Gestionar fuentes
+            </Button>
             {canCrearLead && (
             <Dialog
               open={isCreateLeadDialogOpen}
@@ -498,9 +538,11 @@ export default function LeadsPage() {
                   <span className="sr-only">Nuevo lead</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Crear Nuevo Lead</DialogTitle>
+              <DialogContent className="max-w-xl max-h-[85vh] overflow-hidden p-0 gap-0 flex flex-col">
+                <DialogHeader className="shrink-0 border-b border-gray-100 px-5 py-4">
+                  <DialogTitle className="text-base font-semibold text-gray-900">
+                    Crear nuevo lead
+                  </DialogTitle>
                 </DialogHeader>
                 <CreateLeadDialog
                   onSubmit={handleCreateLead}
@@ -536,10 +578,10 @@ export default function LeadsPage() {
         )}
 
         {/* Search and Filters */}
-        <Card className="mb-8 border-l-4 border-l-green-600">
-          <CardContent className="p-4 sm:p-6">
-            {/* Primera fila: Búsqueda y botón limpiar */}
-            <div className="flex flex-col sm:flex-row gap-3 mb-4">
+        <Card className="mb-6 border-l-4 border-l-green-600">
+          <CardContent className="p-3 sm:p-4">
+            {/* Primera fila: Búsqueda, ver anulados y botón limpiar */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-3">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
@@ -550,11 +592,26 @@ export default function LeadsPage() {
                   className="pl-10"
                 />
               </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Checkbox
+                  id="mostrar-anulados"
+                  checked={filters.mostrarAnulados}
+                  onCheckedChange={(checked) =>
+                    setFilters({ mostrarAnulados: checked === true })
+                  }
+                />
+                <Label
+                  htmlFor="mostrar-anulados"
+                  className="text-sm text-gray-600 cursor-pointer whitespace-nowrap"
+                >
+                  Ver anulados
+                </Label>
+              </div>
               <Button
                 variant="outline"
+                size="sm"
                 onClick={() => {
                   setSearchTerm("");
-                  setEquipoSeleccionado("todos");
                   setFechaPreset("");
                   setFilters({
                     searchTerm: "",
@@ -567,6 +624,7 @@ export default function LeadsPage() {
                     ofertas: "",
                     fechaDesde: "",
                     fechaHasta: "",
+                    mostrarAnulados: false,
                   });
                 }}
                 className="text-gray-600 hover:text-gray-800 whitespace-nowrap"
@@ -575,12 +633,13 @@ export default function LeadsPage() {
               </Button>
             </div>
 
-            {/* Segunda fila: Todos los filtros en una sola fila con buen espaciado */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Todos los filtros, compactos y agrupados por tipo */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
               {/* Filtro por Estado (multi-select) */}
               <div>
                 {(() => {
                   const estadosDisponibles = [
+                    "Nuevo",
                     "Esperando equipo",
                     "No interesado",
                     "Pendiente de instalación",
@@ -639,7 +698,7 @@ export default function LeadsPage() {
                                 checked={seleccionados.includes(estado)}
                                 onCheckedChange={() => toggleEstado(estado)}
                               />
-                              <span>{estado}</span>
+                              <span>{estado === "Proximamente" ? "Próximamente" : estado}</span>
                             </label>
                           ))}
                         </div>
@@ -662,14 +721,11 @@ export default function LeadsPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="todas">Todas las fuentes</SelectItem>
-                    <SelectItem value="Página Web">Página Web</SelectItem>
-                    <SelectItem value="Instagram">Instagram</SelectItem>
-                    <SelectItem value="Facebook">Facebook</SelectItem>
-                    <SelectItem value="Directo">Directo</SelectItem>
-                    <SelectItem value="Mensaje de Whatsapp">
-                      Mensaje de Whatsapp
-                    </SelectItem>
-                    <SelectItem value="Visita">Visita</SelectItem>
+                    {fuentesDisponibles.map((f) => (
+                      <SelectItem key={f} value={f}>
+                        {f}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -699,17 +755,24 @@ export default function LeadsPage() {
                 </Select>
               </div>
 
-              {/* Filtro por Equipo (BTB/BTC) */}
+              {/* Filtro por Equipo (B2B / B2C) */}
               <div>
                 <Select
-                  value={equipoSeleccionado}
-                  onValueChange={(value) => {
-                    setEquipoSeleccionado(value);
+                  value={
+                    filters.equipoComerciales.length > 0
+                      ? equiposComerciales.find((e) =>
+                          comercialesDeEquipo(e.id).every((c) =>
+                            filters.equipoComerciales.includes(c),
+                          ),
+                        )?.id || "todos"
+                      : "todos"
+                  }
+                  onValueChange={(value) =>
                     setFilters({
                       equipoComerciales:
                         value === "todos" ? [] : comercialesDeEquipo(value),
-                    });
-                  }}
+                    })
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Todos los equipos" />
@@ -729,7 +792,10 @@ export default function LeadsPage() {
               <div>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-between">
+                    <Button
+                      variant="outline"
+                      className="w-full justify-between"
+                    >
                       <span className="truncate">
                         {filters.provincia.length > 0
                           ? `${filters.provincia.length} provincia${filters.provincia.length > 1 ? "s" : ""}`
@@ -746,7 +812,9 @@ export default function LeadsPage() {
                           variant="ghost"
                           size="sm"
                           className="h-7 px-2 text-xs"
-                          onClick={() => setFilters({ provincia: [], municipio: [] })}
+                          onClick={() =>
+                            setFilters({ provincia: [], municipio: [] })
+                          }
                         >
                           Limpiar
                         </Button>
@@ -754,7 +822,10 @@ export default function LeadsPage() {
                     </div>
                     <div className="space-y-2 max-h-52 overflow-y-auto">
                       {availableProvincias.map((p) => (
-                        <label key={p} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                        <label
+                          key={p}
+                          className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer"
+                        >
                           <Checkbox
                             checked={filters.provincia.includes(p)}
                             onCheckedChange={() => {
@@ -809,7 +880,10 @@ export default function LeadsPage() {
                     </div>
                     <div className="space-y-2 max-h-52 overflow-y-auto">
                       {availableMunicipios.map((m) => (
-                        <label key={m} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                        <label
+                          key={m}
+                          className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer"
+                        >
                           <Checkbox
                             checked={filters.municipio.includes(m)}
                             onCheckedChange={() => {
@@ -857,7 +931,7 @@ export default function LeadsPage() {
                       Con ofertas confirmadas
                     </SelectItem>
                     <SelectItem value="pendientes">
-                      Con ofertas, sin confirmar
+                      Sin confirmadas
                     </SelectItem>
                   </SelectContent>
                 </Select>
@@ -912,89 +986,55 @@ export default function LeadsPage() {
                   </div>
                 </>
               )}
-
-              <div className="flex items-center">
-                <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
-                    checked={filters.mostrarAnulados}
-                    onChange={(e) =>
-                      setFilters({ mostrarAnulados: e.target.checked })
-                    }
-                  />
-                  Mostrar anulados
-                </label>
-              </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Leads Table */}
-        <Card className="border-l-4 border-l-green-600">
-          <CardHeader>
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  Lista de Leads
-                  {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                </CardTitle>
-                <CardDescription>
-                  Mostrando {leads.length} de {totalLeads} leads
-                </CardDescription>
-              </div>
+        <div className="relative min-h-[16rem]">
+          {loading && leads.length > 0 && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/80 backdrop-blur-sm">
+              <Loader label="Aplicando filtros..." />
+            </div>
+          )}
 
-              {/* Botones de exportación */}
-              {leads.length > 0 && canExportarLeads && (
-                <div className="flex-shrink-0">
-                  <ExportButtons
-                    getExportOptions={getExportOptions}
-                    baseFilename="leads"
-                    variant="compact"
-                    showPdf={false}
-                  />
-                </div>
+          {loading && leads.length === 0 ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader label="Cargando leads..." />
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-xs text-gray-500">
+                {totalLeads} {totalLeads === 1 ? "lead" : "leads"}
+              </p>
+              <LeadsTable
+                leads={leads}
+                onEdit={handleEditLead}
+                onSetLeadStatus={handleSetLeadStatus}
+                onConvert={handleConvertLead}
+                onGenerarCodigo={handleGenerarCodigoCliente}
+                onUploadComprobante={handleUploadLeadComprobante}
+                onUploadFotos={handleUploadLeadFoto}
+                onDownloadComprobante={handleDownloadLeadComprobante}
+                onUpdatePrioridad={handleUpdateLeadPrioridad}
+                loading={loading || initialLoading}
+                disableActions={loadingAction}
+                onRefreshLeads={loadLeads}
+                autoOpenCrearOfertaLeadId={crearOfertaLeadIdParam || undefined}
+                autoOpenEditarOfertaLeadId={
+                  editarOfertaLeadIdParam || undefined
+                }
+              />
+              {totalLeads > limit && (
+                <SmartPagination
+                  currentPage={page}
+                  totalPages={Math.ceil(totalLeads / limit)}
+                  onPageChange={setPage}
+                />
               )}
             </div>
-          </CardHeader>
-          <CardContent className="relative min-h-[16rem]">
-            {loading && leads.length > 0 && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center rounded-b-lg bg-white/80 backdrop-blur-sm">
-                <Loader label="Aplicando filtros..." />
-              </div>
-            )}
-
-            {loading && leads.length === 0 ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader label="Cargando leads..." />
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <LeadsTable
-                  leads={leads}
-                  onEdit={handleEditLead}
-                  onSetLeadStatus={handleSetLeadStatus}
-                  onConvert={handleConvertLead}
-                  onGenerarCodigo={handleGenerarCodigoCliente}
-                  onUploadComprobante={handleUploadLeadComprobante}
-                  onUploadFotos={handleUploadLeadFoto}
-                  onDownloadComprobante={handleDownloadLeadComprobante}
-                  onUpdatePrioridad={handleUpdateLeadPrioridad}
-                  loading={loading}
-                  disableActions={loadingAction}
-                  onRefreshLeads={loadLeads}
-                />
-                {totalLeads > limit && (
-                  <SmartPagination
-                    currentPage={page}
-                    totalPages={Math.ceil(totalLeads / limit)}
-                    onPageChange={setPage}
-                  />
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+          )}
+        </div>
 
         {/* Edit Dialog */}
         {editingLead && (
@@ -1008,6 +1048,15 @@ export default function LeadsPage() {
         )}
       </main>
       <Toaster />
+      <GestionarFuentesDialog
+        open={isGestionarFuentesOpen}
+        onOpenChange={setIsGestionarFuentesOpen}
+        onFuentesChange={() => {
+          FuenteService.getFuentes(true)
+            .then((data) => setFuentesDisponibles(data.map((f) => f.nombre)))
+            .catch(() => {});
+        }}
+      />
     </div>
   );
 }

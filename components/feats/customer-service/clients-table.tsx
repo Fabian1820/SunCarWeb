@@ -107,7 +107,7 @@ interface ClientsTableProps {
   ) => Promise<void>;
   onUpdatePrioridad?: (
     clientId: string,
-    prioridad: "Alta" | "Media" | "Baja",
+    prioridad: "Ninguna" | "Urgente" | "Alta" | "Media" | "Baja",
   ) => Promise<void>;
   loading?: boolean;
   onFiltersChange?: (filters: {
@@ -1370,7 +1370,7 @@ export function ClientsTable({
 
   const handlePrioridadChange = async (
     clientId: string,
-    prioridad: "Alta" | "Media" | "Baja",
+    prioridad: "Ninguna" | "Urgente" | "Alta" | "Media" | "Baja",
   ) => {
     if (onUpdatePrioridad) {
       try {

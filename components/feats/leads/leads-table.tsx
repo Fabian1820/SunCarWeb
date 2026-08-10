@@ -1,6 +1,13 @@
 "use client";
 
-import { useMemo, useState, useEffect, useCallback, useRef } from "react";
+import {
+  useMemo,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  type ReactNode,
+} from "react";
 import { Button } from "@/components/shared/atom/button";
 import { Badge } from "@/components/shared/atom/badge";
 import { PriorityDot } from "@/components/shared/atom/priority-dot";
@@ -19,16 +26,17 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  ConfirmDeleteDialog,
+  ConfirmEditDialog,
 } from "@/components/shared/molecule/dialog";
 import { UploadComprobanteDialog } from "@/components/shared/molecule/upload-comprobante-dialog";
 import { downloadFile } from "@/lib/utils/download-file";
 import { LeadService } from "@/lib/api-services";
 import MapPicker from "@/components/shared/organism/MapPickerNoSSR";
+import { useAuth } from "@/contexts/auth-context";
 import {
   Camera,
   Edit,
-  Ban,
-  RotateCcw,
   Trash2,
   Phone,
   PhoneForwarded,
@@ -48,6 +56,13 @@ import {
   Zap,
   Battery,
   Sun,
+  Globe,
+  Ban,
+  RotateCcw,
+  CheckCircle2,
+  XCircle,
+  MoreHorizontal,
+  type LucideIcon,
 } from "lucide-react";
 import { useOfertasPersonalizadas } from "@/hooks/use-ofertas-personalizadas";
 import { useOfertasConfeccion } from "@/hooks/use-ofertas-confeccion";
@@ -73,15 +88,50 @@ import type {
   OfertaPersonalizadaUpdateRequest,
 } from "@/lib/types/feats/ofertas-personalizadas/oferta-personalizada-types";
 import type { OfertaConfeccion } from "@/hooks/use-ofertas-confeccion";
-import { seleccionarOfertaConfirmada, normalizeOfertaConfeccion } from "@/hooks/use-ofertas-confeccion";
+import {
+  seleccionarOfertaConfirmada,
+  normalizeOfertaConfeccion,
+} from "@/hooks/use-ofertas-confeccion";
 import { apiRequest } from "@/lib/api-config";
 import { useToast } from "@/hooks/use-toast";
 import { useComercialEquipoMap } from "@/hooks/use-comercial-equipo-map";
-import { useAuth } from "@/contexts/auth-context";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/shared/molecule/popover";
 import type { Lead, LeadConversionRequest, LeadFoto } from "@/lib/api-types";
 import { extraerComponentesDeOfertaConfeccion } from "@/lib/utils/oferta-confeccion-items";
 
 const CODIGO_BATERIA_ESPECIAL_NOMBRE = "FLS48100SCG01";
+
+/** Fila compacta "etiqueta encima del valor" usada en el panel de detalle del lead. */
+function LeadInfoRow({
+  icon: Icon,
+  label,
+  value,
+  strong,
+}: {
+  icon?: LucideIcon;
+  label: string;
+  value?: ReactNode;
+  strong?: boolean;
+}) {
+  if (value === undefined || value === null || value === "") return null;
+  return (
+    <div className="flex items-start gap-2.5">
+      {Icon && <Icon className="h-3.5 w-3.5 text-gray-400 mt-0.5 shrink-0" />}
+      <div className="min-w-0 flex-1">
+        <p className="text-xs text-gray-500">{label}</p>
+        <p
+          className={`text-sm text-gray-900 break-words mt-0.5 ${strong ? "font-semibold" : "font-medium"}`}
+        >
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+}
 
 interface LeadsTableProps {
   leads: Lead[];
@@ -106,12 +156,14 @@ interface LeadsTableProps {
   onDownloadComprobante?: (lead: Lead) => Promise<void>;
   onUpdatePrioridad?: (
     leadId: string,
-    prioridad: "Alta" | "Media" | "Baja",
+    prioridad: "Ninguna" | "Urgente" | "Alta" | "Media" | "Baja",
   ) => Promise<void>;
   loading?: boolean;
   disableActions?: boolean;
   /** Callback para refrescar la lista de leads (tras asignar/editar/eliminar oferta). */
   onRefreshLeads?: () => Promise<void>;
+  autoOpenCrearOfertaLeadId?: string;
+  autoOpenEditarOfertaLeadId?: string;
 }
 
 // Helper function to break text at approximately 25 characters
@@ -140,6 +192,27 @@ function breakTextAtLength(text: string, maxLength: number = 25): string {
   return result || text;
 }
 
+// Acepta ISO ("2026-07-30..."), DD/MM/YYYY, o strings ya legibles y
+// devuelve DD/MM/YYYY. Si no se puede parsear, devuelve el string tal cual.
+function formatearFechaContacto(fechaStr?: string | null): string {
+  if (!fechaStr) return "—";
+  const soloFecha = fechaStr.trim();
+  if (!soloFecha) return "—";
+  const matchDMY = soloFecha.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (matchDMY) {
+    const [, d, m, y] = matchDMY;
+    return `${d.padStart(2, "0")}/${m.padStart(2, "0")}/${y}`;
+  }
+  const parsed = new Date(soloFecha);
+  if (!Number.isNaN(parsed.getTime())) {
+    const d = String(parsed.getDate()).padStart(2, "0");
+    const m = String(parsed.getMonth() + 1).padStart(2, "0");
+    const y = parsed.getFullYear();
+    return `${d}/${m}/${y}`;
+  }
+  return soloFecha;
+}
+
 export function LeadsTable({
   leads,
   onEdit,
@@ -153,10 +226,13 @@ export function LeadsTable({
   loading,
   disableActions,
   onRefreshLeads,
+  autoOpenCrearOfertaLeadId,
+  autoOpenEditarOfertaLeadId,
 }: LeadsTableProps) {
   const { toast } = useToast();
   const { hasExactPermission } = useAuth();
   const canEditarLead = hasExactPermission("leads/editar");
+  const canAnularLead = hasExactPermission("leads/anular");
   const canConvertirLead = hasExactPermission("leads/convertir");
   const canSubirFotosLead = hasExactPermission("leads/fotos");
   const { nombreEquipo } = useComercialEquipoMap();
@@ -193,11 +269,8 @@ export function LeadsTable({
   const { marcas, loading: loadingMarcas } = useMarcas();
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
-  const [isToggleStatusDialogOpen, setIsToggleStatusDialogOpen] =
-    useState(false);
-  const [leadToToggleStatus, setLeadToToggleStatus] = useState<Lead | null>(
-    null,
-  );
+  const [isToggleStatusDialogOpen, setIsToggleStatusDialogOpen] = useState(false);
+  const [leadToToggleStatus, setLeadToToggleStatus] = useState<Lead | null>(null);
   const [togglingStatus, setTogglingStatus] = useState(false);
   const [isConvertDialogOpen, setIsConvertDialogOpen] = useState(false);
   const [leadToConvert, setLeadToConvert] = useState<Lead | null>(null);
@@ -208,6 +281,9 @@ export function LeadsTable({
     Record<string, string>
   >({});
   const [conversionLoading, setConversionLoading] = useState(false);
+  const [previewingCodigo, setPreviewingCodigo] = useState(false);
+  const [mostrarSeleccionManualEquipo, setMostrarSeleccionManualEquipo] =
+    useState(false);
   const [isComprobanteDialogOpen, setIsComprobanteDialogOpen] = useState(false);
   const [leadForComprobante, setLeadForComprobante] = useState<Lead | null>(
     null,
@@ -227,6 +303,36 @@ export function LeadsTable({
   const [selectedLeadForOfertas, setSelectedLeadForOfertas] =
     useState<Lead | null>(null);
   const [isCreateOfertaOpen, setIsCreateOfertaOpen] = useState(false);
+  const autoOpenCrearOfertaTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (!autoOpenCrearOfertaLeadId || autoOpenCrearOfertaTriggeredRef.current) {
+      return;
+    }
+    autoOpenCrearOfertaTriggeredRef.current = true;
+
+    (async () => {
+      const leadEnPagina = leads.find(
+        (l) => l.id === autoOpenCrearOfertaLeadId,
+      );
+      const lead =
+        leadEnPagina ||
+        (await LeadService.getLeadById(autoOpenCrearOfertaLeadId).catch(
+          () => null,
+        ));
+      if (lead) {
+        setLeadForAsignarOferta(lead);
+        setShowCrearOfertaPersonalizadaDialog(true);
+      } else {
+        toast({
+          title: "No se encontró el lead",
+          description:
+            "No se pudo abrir la oferta para este lead automáticamente.",
+          variant: "destructive",
+        });
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenCrearOfertaLeadId, leads]);
   const [isEditOfertaOpen, setIsEditOfertaOpen] = useState(false);
   const [editingOferta, setEditingOferta] =
     useState<OfertaPersonalizada | null>(null);
@@ -234,7 +340,6 @@ export function LeadsTable({
 
   // Estados para asignar ofertas genéricas
   const [showOfertaFlowDialog, setShowOfertaFlowDialog] = useState(false);
-  const [showAsignarOfertaDialog, setShowAsignarOfertaDialog] = useState(false);
   const [leadForAsignarOferta, setLeadForAsignarOferta] = useState<Lead | null>(
     null,
   );
@@ -289,6 +394,11 @@ export function LeadsTable({
     );
   }, []);
 
+  // Refresco de ofertas del lead abierto en Ver Lead (evita snapshots stale)
+  const [detailOfertasFrescas, setDetailOfertasFrescas] = useState<
+    OfertaConfeccion[] | null
+  >(null);
+
   // Estados para editar/eliminar/exportar ofertas
   const [mostrarDialogoEditar, setMostrarDialogoEditar] = useState(false);
   const [ofertaParaEditar, setOfertaParaEditar] =
@@ -302,7 +412,6 @@ export function LeadsTable({
     useState<OfertaConfeccion | null>(null);
   const [terminosCondicionesPayload, setTerminosCondicionesPayload] =
     useState<TerminosCondicionesPayload | null>(null);
-
 
   const ofertasDelLead = useMemo(() => {
     if (!selectedLeadForOfertas) return [];
@@ -340,37 +449,48 @@ export function LeadsTable({
     }
   }, [fetchOfertasGenericasAprobadas]);
 
-  // Cargar términos y condiciones al montar el componente
-  useEffect(() => {
-    const cargarTerminos = async () => {
-      try {
-        const { apiRequest } = await import("@/lib/api-config");
-        const result = await apiRequest<{
-          success: boolean;
-          data?: TerminosCondicionesPayload;
-        }>("/terminos-condiciones/activo", {
-          method: "GET",
-        });
+  // Términos y condiciones: solo se usan al exportar una oferta, así que se
+  // cargan de forma perezosa (la primera vez que se exporta) en vez de en
+  // cada montaje del componente.
+  const terminosCondicionesCargadosRef = useRef(false);
+  const terminosCondicionesLoadingRef = useRef(false);
 
-        if (result.success && result.data) {
-          console.log("✅ Términos y condiciones cargados");
-          setTerminosCondicionesPayload(result.data);
-        } else {
-          console.warn("⚠️ No se encontraron términos y condiciones activos");
-          setTerminosCondicionesPayload(null);
-        }
-      } catch (error) {
-        console.error("❌ Error cargando términos y condiciones:", error);
+  const ensureTerminosCondicionesCargados = useCallback(async () => {
+    if (terminosCondicionesCargadosRef.current) return;
+    if (terminosCondicionesLoadingRef.current) return;
+    terminosCondicionesLoadingRef.current = true;
+    try {
+      const { apiRequest } = await import("@/lib/api-config");
+      const result = await apiRequest<{
+        success: boolean;
+        data?: TerminosCondicionesPayload;
+      }>("/terminos-condiciones/activo", {
+        method: "GET",
+      });
+
+      if (result.success && result.data) {
+        console.log("✅ Términos y condiciones cargados");
+        setTerminosCondicionesPayload(result.data);
+      } else {
+        console.warn("⚠️ No se encontraron términos y condiciones activos");
         setTerminosCondicionesPayload(null);
       }
-    };
-    cargarTerminos();
+      terminosCondicionesCargadosRef.current = true;
+    } catch (error) {
+      console.error("❌ Error cargando términos y condiciones:", error);
+      setTerminosCondicionesPayload(null);
+    } finally {
+      terminosCondicionesLoadingRef.current = false;
+    }
   }, []);
 
   useEffect(() => {
     if (!showOfertaFlowDialog) return;
-    if (tipoOfertaSeleccionada !== "personalizada") return;
-    if (accionPersonalizadaSeleccionada !== "duplicar") return;
+    const necesitaGenericas =
+      tipoOfertaSeleccionada === "generica" ||
+      (tipoOfertaSeleccionada === "personalizada" &&
+        accionPersonalizadaSeleccionada === "duplicar");
+    if (!necesitaGenericas) return;
     if (ofertasGenericasAprobadasCargadas || loadingOfertasGenericasAprobadas)
       return;
 
@@ -470,13 +590,15 @@ export function LeadsTable({
     }
 
     if (tipoOfertaSeleccionada === "generica") {
-      setShowOfertaFlowDialog(false);
-      setTipoOfertaSeleccionada("");
-      setAccionPersonalizadaSeleccionada("");
-      setOfertasGenericasAprobadas([]);
-      setOfertaGenericaParaDuplicarId("");
-      setOfertasGenericasAprobadasCargadas(false);
-      setShowAsignarOfertaDialog(true);
+      if (!ofertaGenericaParaDuplicarId) {
+        toast({
+          title: "Selecciona una oferta genérica",
+          description: "Escoge qué oferta aprobada deseas asignar al lead.",
+          variant: "destructive",
+        });
+        return;
+      }
+      await handleAsignarOferta(ofertaGenericaParaDuplicarId);
       return;
     }
 
@@ -542,7 +664,6 @@ export function LeadsTable({
       console.log("✅ Oferta asignada exitosamente");
       console.log("📝 Lead ID:", leadId);
 
-      closeAsignarOfertaDialog();
       closeOfertaFlowDialog();
 
       // Refrescar la lista para que el botón verde se actualice
@@ -553,11 +674,6 @@ export function LeadsTable({
         description: "El lead ahora tiene una oferta asignada",
       });
     }
-  };
-
-  const closeAsignarOfertaDialog = () => {
-    setShowAsignarOfertaDialog(false);
-    setLeadForAsignarOferta(null);
   };
 
   const closeVerOfertaDialog = () => {
@@ -582,14 +698,28 @@ export function LeadsTable({
     setSelectedLead(lead);
     setIsDetailDialogOpen(true);
     setLoadingFotosLeadDetails(true);
+    setDetailOfertasFrescas(null);
 
     try {
       if (!lead.id) {
         setFotosLeadDetails([]);
         return;
       }
-      const fotos = await LeadService.getFotosLead(lead.id);
+      // Refrescar ofertas de confección del lead en paralelo con las fotos
+      // para no depender del snapshot embebido (que puede tener estado stale).
+      const [fotos, ofertaLive] = await Promise.all([
+        LeadService.getFotosLead(lead.id),
+        obtenerOfertaPorLead(lead.id).catch(() => null),
+      ]);
       setFotosLeadDetails(fotos);
+      if (ofertaLive && ofertaLive.success) {
+        const ofertas = ofertaLive.ofertas?.length
+          ? ofertaLive.ofertas
+          : ofertaLive.oferta
+            ? [ofertaLive.oferta]
+            : [];
+        setDetailOfertasFrescas(ofertas);
+      }
     } catch (error) {
       console.error("Error cargando fotos del lead:", error);
       toast({
@@ -661,8 +791,6 @@ export function LeadsTable({
         setIsToggleStatusDialogOpen(false);
         setLeadToToggleStatus(null);
       } else {
-        // Caso típico: LEAD_DUPLICADO_TELEFONO al reactivar. Se muestra el
-        // mensaje del backend en vez de un error genérico.
         toast({
           title: resultado.error.title || "Error",
           description: resultado.error.message,
@@ -676,7 +804,7 @@ export function LeadsTable({
 
   const handlePrioridadChange = async (
     leadId: string,
-    prioridad: "Alta" | "Media" | "Baja",
+    prioridad: "Ninguna" | "Urgente" | "Alta" | "Media" | "Baja",
   ) => {
     if (onUpdatePrioridad) {
       try {
@@ -708,16 +836,31 @@ export function LeadsTable({
 
   const openConvertDialog = (lead: Lead) => {
     console.log("🔵 openConvertDialog called for lead:", lead.id);
+    const tieneOfertaConfirmada = Boolean(lead.oferta_confeccion?.hay_confirmada);
     setLeadToConvert(lead);
     setConversionErrors({});
     setConversionLoading(false);
+    setMostrarSeleccionManualEquipo(false);
     setConversionData({
       numero: "",
       carnet_identidad: "",
       estado: "Pendiente de instalación",
-      equipo_propio: undefined,
+      // Si ya hay una oferta confirmada, se usa automáticamente sin preguntar.
+      equipo_propio: tieneOfertaConfirmada ? false : undefined,
     });
     setIsConvertDialogOpen(true);
+
+    if (tieneOfertaConfirmada && lead.id) {
+      setPreviewingCodigo(true);
+      onGenerarCodigo(lead.id, undefined)
+        .then((codigoGenerado) => {
+          setConversionData((prev) => ({ ...prev, numero: codigoGenerado }));
+        })
+        .catch(() => {
+          // El error real (si lo hay) se mostrará al confirmar.
+        })
+        .finally(() => setPreviewingCodigo(false));
+    }
   };
 
   const closeConvertDialog = () => {
@@ -768,7 +911,7 @@ export function LeadsTable({
     setConversionErrors({ general: errorMessage });
   };
 
-  const handleSeleccionEquipoPropio = (esEquipoPropio: boolean) => {
+  const handleSeleccionEquipoPropio = async (esEquipoPropio: boolean) => {
     setConversionData((prev) => ({
       ...prev,
       numero: "",
@@ -781,11 +924,71 @@ export function LeadsTable({
         return rest;
       });
     }
+
+    if (!leadToConvert?.id) return;
+
+    setPreviewingCodigo(true);
+    try {
+      const codigoGenerado = await onGenerarCodigo(
+        leadToConvert.id,
+        esEquipoPropio ? true : undefined,
+      );
+      setConversionData((prev) => ({
+        ...prev,
+        numero: codigoGenerado,
+      }));
+    } catch {
+      // El error real (si lo hay) se mostrará al confirmar; aquí solo es una vista previa.
+    } finally {
+      setPreviewingCodigo(false);
+    }
   };
 
   const leadTieneOfertaConfeccionada = Boolean(
     leadToConvert && leadTieneOferta(leadToConvert),
   );
+  const leadTieneOfertaConfirmada = Boolean(
+    leadToConvert?.oferta_confeccion?.hay_confirmada,
+  );
+
+  const convertChecks = useMemo(() => {
+    const lead = leadToConvert;
+    const tieneProvinciaMunicipio = Boolean(
+      lead?.provincia_montaje?.trim() && lead?.municipio?.trim(),
+    );
+    const tieneDireccion = Boolean(lead?.direccion?.trim());
+    const tieneOfertaConfirmada = Boolean(
+      lead?.oferta_confeccion?.hay_confirmada,
+    );
+    return [
+      {
+        key: "provincia-municipio",
+        label: "Provincia y municipio de montaje",
+        ok: tieneProvinciaMunicipio,
+        hint: tieneProvinciaMunicipio
+          ? undefined
+          : "Edita el lead y completa provincia y municipio.",
+      },
+      {
+        key: "direccion",
+        label: "Dirección de instalación",
+        ok: tieneDireccion,
+        hint: tieneDireccion
+          ? undefined
+          : "Edita el lead y agrega la dirección de instalación.",
+      },
+      {
+        key: "oferta-confirmada",
+        label: "Al menos una oferta confirmada por el cliente",
+        ok: tieneOfertaConfirmada,
+        hint: tieneOfertaConfirmada
+          ? undefined
+          : "Crea o confirma una oferta antes de convertir el lead.",
+      },
+    ];
+  }, [leadToConvert]);
+
+  const convertChecksOk = convertChecks.every((c) => c.ok);
 
   const handleComprobanteDialogOpenChange = (open: boolean) => {
     setIsComprobanteDialogOpen(open);
@@ -917,6 +1120,32 @@ export function LeadsTable({
     // Cerrar el diálogo de detalles si está abierto
     setShowDetalleOfertaDialog(false);
   };
+
+  const autoOpenEditarOfertaTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (
+      !autoOpenEditarOfertaLeadId ||
+      autoOpenEditarOfertaTriggeredRef.current
+    ) {
+      return;
+    }
+    autoOpenEditarOfertaTriggeredRef.current = true;
+
+    (async () => {
+      const result = await obtenerOfertaPorLead(autoOpenEditarOfertaLeadId);
+      if (result.success && result.oferta) {
+        handleEditarOferta(result.oferta);
+      } else {
+        toast({
+          title: "No se encontró la oferta",
+          description:
+            "No se pudo abrir la oferta de este lead automáticamente.",
+          variant: "destructive",
+        });
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenEditarOfertaLeadId]);
 
   const handleEliminarOferta = (oferta: OfertaConfeccion) => {
     setOfertaParaEliminar(oferta);
@@ -2264,7 +2493,8 @@ export function LeadsTable({
     [leads, materials, marcas, terminosCondicionesPayload],
   );
 
-  const handleExportarOferta = (oferta: OfertaConfeccion) => {
+  const handleExportarOferta = async (oferta: OfertaConfeccion) => {
+    await ensureTerminosCondicionesCargados();
     setOfertaParaExportar(oferta);
     setMostrarDialogoExportar(true);
     // Cerrar el diálogo de detalles si está abierto
@@ -2355,10 +2585,12 @@ export function LeadsTable({
         throw new Error("El lead no tiene ID válido");
       }
 
-      const codigoGenerado = await onGenerarCodigo(
-        leadToConvert.id,
-        conversionData.equipo_propio ? true : undefined,
-      );
+      const codigoGenerado =
+        conversionData.numero ||
+        (await onGenerarCodigo(
+          leadToConvert.id,
+          conversionData.equipo_propio ? true : undefined,
+        ));
 
       const formatoEsperado = conversionData.equipo_propio
         ? /^P\d{9}$/
@@ -2391,57 +2623,63 @@ export function LeadsTable({
       string,
       { bg: string; text: string; hover: string; label: string }
     > = {
+      Nuevo: {
+        bg: "bg-cyan-100",
+        text: "text-cyan-700",
+        hover: "hover:bg-cyan-200",
+        label: "Nuevo",
+      },
       "Esperando equipo": {
         bg: "bg-amber-100",
-        text: "text-amber-800",
+        text: "text-amber-600",
         hover: "hover:bg-amber-200",
         label: "Esperando equipo",
       },
       "No interesado": {
         bg: "bg-gray-200",
-        text: "text-gray-700",
+        text: "text-slate-500",
         hover: "hover:bg-gray-300",
         label: "No interesado",
       },
       "Pendiente de instalación": {
         bg: "bg-green-100",
-        text: "text-green-800",
+        text: "text-green-600",
         hover: "hover:bg-green-200",
         label: "Pendiente de instalación",
       },
       "Pendiente de presupuesto": {
         bg: "bg-purple-100",
-        text: "text-purple-800",
+        text: "text-violet-700",
         hover: "hover:bg-purple-200",
         label: "Pendiente de presupuesto",
       },
       "Pendiente de visita": {
         bg: "bg-blue-100",
-        text: "text-blue-800",
+        text: "text-blue-600",
         hover: "hover:bg-blue-200",
         label: "Pendiente de visita",
       },
       "Pendiente de visitarnos": {
         bg: "bg-pink-100",
-        text: "text-pink-800",
+        text: "text-fuchsia-600",
         hover: "hover:bg-pink-200",
         label: "Pendiente de visitarnos",
       },
       Proximamente: {
         bg: "bg-cyan-100",
-        text: "text-cyan-800",
+        text: "text-teal-600",
         hover: "hover:bg-cyan-200",
         label: "Próximamente",
       },
       "Revisando ofertas": {
         bg: "bg-indigo-100",
-        text: "text-indigo-800",
+        text: "text-indigo-600",
         hover: "hover:bg-indigo-200",
         label: "Revisando ofertas",
       },
       "Sin respuesta": {
         bg: "bg-red-100",
-        text: "text-red-800",
+        text: "text-red-600",
         hover: "hover:bg-red-200",
         label: "Sin respuesta",
       },
@@ -2449,12 +2687,12 @@ export function LeadsTable({
 
     const config = estadosConfig[estado] || {
       bg: "bg-gray-100",
-      text: "text-gray-800",
+      text: "text-gray-600",
       hover: "hover:bg-gray-200",
       label: estado,
     };
     return {
-      className: `${config.bg} ${config.text} ${config.hover}`,
+      className: `${config.text} bg-transparent border-transparent hover:bg-transparent`,
       label: config.label,
     };
   };
@@ -2530,19 +2768,25 @@ export function LeadsTable({
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-3 py-3 text-left text-[13px] font-semibold text-gray-500 uppercase tracking-wider min-w-[240px] max-w-[320px]">
+                <th className="px-4 py-3 text-left text-[13px] font-semibold text-gray-500 uppercase tracking-wider min-w-[240px] max-w-[320px]">
                   Lead
                 </th>
-                <th className="px-3 py-3 text-left text-[13px] font-semibold text-gray-500 uppercase tracking-wider min-w-[100px]">
+                <th className="px-4 py-3 text-left text-[13px] font-semibold text-gray-500 uppercase tracking-wider min-w-[100px]">
                   Contacto
                 </th>
-                <th className="px-3 py-3 text-left text-[13px] font-semibold text-gray-500 uppercase tracking-wider min-w-[160px] max-w-[190px]">
+                <th className="px-4 py-3 text-left text-[13px] font-semibold text-gray-500 uppercase tracking-wider min-w-[110px]">
+                  Fecha contacto
+                </th>
+                <th className="px-4 py-3 text-left text-[13px] font-semibold text-gray-500 uppercase tracking-wider min-w-[120px]">
+                  Fuente
+                </th>
+                <th className="px-4 py-3 text-left text-[13px] font-semibold text-gray-500 uppercase tracking-wider min-w-[200px] max-w-[240px]">
                   Estado
                 </th>
-                <th className="px-3 py-3 text-left text-[13px] font-semibold text-gray-500 uppercase tracking-wider min-w-[220px]">
+                <th className="px-4 py-3 text-left text-[13px] font-semibold text-gray-500 uppercase tracking-wider min-w-[220px]">
                   Oferta
                 </th>
-                <th className="px-3 py-3 text-right text-[13px] font-semibold text-gray-500 uppercase tracking-wider min-w-[120px] w-[120px]">
+                <th className="px-4 py-3 text-right text-[13px] font-semibold text-gray-500 uppercase tracking-wider min-w-[120px] w-[120px]">
                   Acciones
                 </th>
               </tr>
@@ -2551,46 +2795,48 @@ export function LeadsTable({
               {leads.map((lead) => (
                 <tr
                   key={lead.id}
-                  className={
-                    lead.activo === false
-                      ? "bg-gray-50/70 hover:bg-gray-100"
-                      : "hover:bg-gray-50"
-                  }
+                  className={`hover:bg-gray-50 ${lead.activo === false ? "opacity-60" : ""}`}
                 >
-                  <td className="px-3 py-4 min-w-[240px] max-w-[320px]">
-                    <div>
-                      <div className="text-base font-semibold text-gray-900 break-words flex items-center gap-2">
-                        <span>{lead.nombre}</span>
-                        {lead.activo === false && (
-                          <span className="inline-flex items-center rounded-full bg-gray-200 px-2 py-0.5 text-[11px] font-medium text-gray-700">
-                            Anulado
-                          </span>
-                        )}
+                  <td className="px-4 py-3min-w-[240px] max-w-[320px]">
+                    <div className="flex items-start gap-2">
+                      <div className="pt-1">
+                        <PriorityDot
+                          prioridad={lead.prioridad}
+                          onChange={(prioridad) =>
+                            lead.id && handlePrioridadChange(lead.id, prioridad)
+                          }
+                          disabled={disableActions || !onUpdatePrioridad}
+                        />
                       </div>
-                      <div className="text-base text-gray-500 break-words whitespace-pre-line">
-                        {breakTextAtLength(
-                          lead.direccion || "Sin dirección",
-                          32,
-                        )}
-                      </div>
-                      {(lead.municipio || lead.provincia_montaje) && (
-                        <div className="text-[13px] text-gray-500 flex items-center mt-1">
-                          <MapPin className="h-3.5 w-3.5 mr-1 text-gray-400 flex-shrink-0" />
-                          <span className="truncate">
-                            {[lead.municipio, lead.provincia_montaje]
-                              .filter(Boolean)
-                              .join(", ")}
-                          </span>
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-gray-900 break-words">
+                          {lead.nombre}
                         </div>
-                      )}
+                        <div className="text-sm text-gray-500 break-words whitespace-pre-line">
+                          {breakTextAtLength(
+                            lead.direccion || "Sin dirección",
+                            32,
+                          )}
+                        </div>
+                        {(lead.municipio || lead.provincia_montaje) && (
+                          <div className="text-[13px] text-gray-500 flex items-center mt-1">
+                            <MapPin className="h-3.5 w-3.5 mr-1 text-gray-400 flex-shrink-0" />
+                            <span className="truncate">
+                              {[lead.municipio, lead.provincia_montaje]
+                                .filter(Boolean)
+                                .join(", ")}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </td>
-                  <td className="px-3 py-4 whitespace-nowrap min-w-[100px] max-w-[130px]">
-                    <div className="text-base text-gray-900 truncate">
+                  <td className="px-4 py-3whitespace-nowrap min-w-[100px] max-w-[130px]">
+                    <div className="text-sm text-gray-900 truncate">
                       {lead.telefono}
                     </div>
                     {lead.telefono_adicional && (
-                      <div className="text-base text-gray-500 flex items-center mt-1">
+                      <div className="text-sm text-gray-500 flex items-center mt-1">
                         <PhoneForwarded className="h-4 w-4 mr-1 text-gray-400" />
                         <span className="truncate">
                           {lead.telefono_adicional}
@@ -2600,72 +2846,136 @@ export function LeadsTable({
                       </div>
                     )}
                     {lead.pais_contacto && (
-                      <div className="text-base text-gray-500 flex items-center mt-1">
+                      <div className="text-sm text-gray-500 flex items-center mt-1">
                         <MapPin className="h-4 w-4 mr-1 text-gray-400" />
                         <span className="truncate">{lead.pais_contacto}</span>
                       </div>
                     )}
                   </td>
-                  <td className="px-3 py-4 min-w-[160px] max-w-[190px]">
+                  <td className="px-4 py-3 whitespace-nowrap min-w-[110px] text-sm text-gray-700">
+                    {formatearFechaContacto(lead.fecha_contacto)}
+                  </td>
+                  <td className="px-4 py-3 min-w-[120px] max-w-[180px] text-sm text-gray-700">
+                    {lead.fuente ? (
+                      <span className="inline-block max-w-full truncate">
+                        {lead.fuente}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3min-w-[200px] max-w-[240px]">
                     <div className="w-full">
+                      {lead.activo === false && (
+                        <Badge className="bg-gray-200 text-gray-600 text-xs px-2 py-0.5 mb-1 inline-block">
+                          Anulado
+                        </Badge>
+                      )}
                       {(() => {
                         const estadoBadge = getEstadoBadge(lead.estado);
                         return (
                           <Badge
-                            className={`${estadoBadge.className} text-base whitespace-normal break-words leading-tight inline-block px-3 py-1.5`}
+                            className={`${estadoBadge.className} text-sm whitespace-normal break-words leading-tight inline-block px-3 py-1.5`}
                           >
                             {estadoBadge.label}
                           </Badge>
                         );
                       })()}
                       {lead.comercial && (
-                        <div className="text-base text-gray-500 flex items-center mt-1">
+                        <div className="text-sm text-gray-500 flex items-center mt-1">
                           <UserCheck className="h-4 w-4 mr-1 text-gray-400" />
                           <span className="truncate">{lead.comercial}</span>
                         </div>
                       )}
-                      {nombreEquipo(lead.comercial) && (
-                        <div className="text-xs text-gray-400 ml-5">
-                          {nombreEquipo(lead.comercial)}
-                        </div>
-                      )}
+                      {(() => {
+                        const equipo = nombreEquipo(lead.comercial);
+                        if (!equipo) return null;
+                        return (
+                          <div className="text-[11px] text-gray-400 mt-0.5 truncate">
+                            {equipo}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </td>
-                  <td className="px-3 py-4 min-w-[220px] max-w-[280px]">
+                  <td className="px-4 py-3min-w-[220px] max-w-[280px]">
                     <div className="space-y-1">
                       {(() => {
-                        type Componente = { cantidad: number; descripcion: string };
+                        type Componente = {
+                          cantidad: number;
+                          descripcion: string;
+                        };
                         let inv: Componente | null = null;
                         let bats: Componente[] = [];
                         let pan: Componente | null = null;
                         let elementoPersonalizado: string | null = null;
 
-                        const embebidas = lead.ofertas?.filter(
-                          (o) => o.inversor_codigo || o.bateria_codigo || o.panel_codigo || o.elementos_personalizados
-                        ) ?? [];
+                        const embebidas =
+                          lead.ofertas?.filter(
+                            (o) =>
+                              o.inversor_codigo ||
+                              o.bateria_codigo ||
+                              o.panel_codigo ||
+                              o.elementos_personalizados,
+                          ) ?? [];
                         const oc = lead.oferta_confeccion;
 
                         if (oc && oc.items?.length) {
-                          ({ inv, bats, pan } = extraerComponentesDeOfertaConfeccion(oc));
+                          ({ inv, bats, pan } =
+                            extraerComponentesDeOfertaConfeccion(oc));
                         } else if (embebidas.length > 0) {
                           const oferta = embebidas[0];
-                          if (oferta.inversor_codigo && oferta.inversor_cantidad > 0) {
-                            inv = { cantidad: oferta.inversor_cantidad, descripcion: oferta.inversor_nombre || oferta.inversor_codigo };
+                          if (
+                            oferta.inversor_codigo &&
+                            oferta.inversor_cantidad > 0
+                          ) {
+                            inv = {
+                              cantidad: oferta.inversor_cantidad,
+                              descripcion:
+                                oferta.inversor_nombre ||
+                                oferta.inversor_codigo,
+                            };
                           }
-                          if (oferta.bateria_codigo && oferta.bateria_cantidad > 0) {
-                            bats = [{ cantidad: oferta.bateria_cantidad, descripcion: oferta.bateria_nombre || oferta.bateria_codigo }];
+                          if (
+                            oferta.bateria_codigo &&
+                            oferta.bateria_cantidad > 0
+                          ) {
+                            bats = [
+                              {
+                                cantidad: oferta.bateria_cantidad,
+                                descripcion:
+                                  oferta.bateria_nombre ||
+                                  oferta.bateria_codigo,
+                              },
+                            ];
                           }
-                          if (oferta.panel_codigo && oferta.panel_cantidad > 0) {
-                            pan = { cantidad: oferta.panel_cantidad, descripcion: oferta.panel_nombre || oferta.panel_codigo };
+                          if (
+                            oferta.panel_codigo &&
+                            oferta.panel_cantidad > 0
+                          ) {
+                            pan = {
+                              cantidad: oferta.panel_cantidad,
+                              descripcion:
+                                oferta.panel_nombre || oferta.panel_codigo,
+                            };
                           }
                           if (oferta.elementos_personalizados) {
-                            elementoPersonalizado = oferta.elementos_personalizados;
+                            elementoPersonalizado =
+                              oferta.elementos_personalizados;
                           }
                         }
 
-                        const sinComponentes = !inv && bats.length === 0 && !pan && !elementoPersonalizado;
+                        const sinComponentes =
+                          !inv &&
+                          bats.length === 0 &&
+                          !pan &&
+                          !elementoPersonalizado;
                         if (sinComponentes && !oc) {
-                          return <div className="text-base text-gray-400">Sin ofertas</div>;
+                          return (
+                            <div className="text-sm text-gray-400">
+                              Sin ofertas
+                            </div>
+                          );
                         }
 
                         const totalOfertas = oc?.total_ofertas ?? 0;
@@ -2676,7 +2986,8 @@ export function LeadsTable({
                             {oc && (
                               <div className="flex flex-wrap gap-1">
                                 <span className="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-[13px] font-medium text-gray-700">
-                                  {totalOfertas} {totalOfertas === 1 ? "oferta" : "ofertas"}
+                                  {totalOfertas}{" "}
+                                  {totalOfertas === 1 ? "oferta" : "ofertas"}
                                 </span>
                                 <span
                                   className={`inline-flex items-center rounded px-2 py-0.5 text-[13px] font-medium ${
@@ -2685,7 +2996,8 @@ export function LeadsTable({
                                       : "bg-amber-100 text-amber-700"
                                   }`}
                                 >
-                                  {totalConfirmadas} confirmada{totalConfirmadas === 1 ? "" : "s"}
+                                  {totalConfirmadas} confirmada
+                                  {totalConfirmadas === 1 ? "" : "s"}
                                 </span>
                               </div>
                             )}
@@ -2693,29 +3005,48 @@ export function LeadsTable({
                               {inv && (
                                 <div className="flex items-center gap-1.5 text-gray-700">
                                   <Zap className="h-4 w-4 text-emerald-500 flex-shrink-0" />
-                                  <span className="font-medium">{inv.cantidad}x</span>
-                                  <span className="truncate">{inv.descripcion}</span>
+                                  <span className="font-medium">
+                                    {inv.cantidad}x
+                                  </span>
+                                  <span className="truncate">
+                                    {inv.descripcion}
+                                  </span>
                                 </div>
                               )}
                               {bats.map((bat, i) => (
-                                <div key={i} className="flex items-center gap-1.5 text-gray-700">
+                                <div
+                                  key={i}
+                                  className="flex items-center gap-1.5 text-gray-700"
+                                >
                                   <Battery className="h-4 w-4 text-green-500 flex-shrink-0" />
-                                  <span className="font-medium">{bat.cantidad}x</span>
-                                  <span className="truncate">{bat.descripcion}</span>
+                                  <span className="font-medium">
+                                    {bat.cantidad}x
+                                  </span>
+                                  <span className="truncate">
+                                    {bat.descripcion}
+                                  </span>
                                 </div>
                               ))}
                               {pan && (
                                 <div className="flex items-center gap-1.5 text-gray-700">
                                   <Sun className="h-4 w-4 text-yellow-500 flex-shrink-0" />
-                                  <span className="font-medium">{pan.cantidad}x</span>
-                                  <span className="truncate">{pan.descripcion}</span>
+                                  <span className="font-medium">
+                                    {pan.cantidad}x
+                                  </span>
+                                  <span className="truncate">
+                                    {pan.descripcion}
+                                  </span>
                                 </div>
                               )}
                               {elementoPersonalizado && (
-                                <div className="text-gray-700 text-[13px] truncate">{elementoPersonalizado}</div>
+                                <div className="text-gray-700 text-[13px] truncate">
+                                  {elementoPersonalizado}
+                                </div>
                               )}
                               {sinComponentes && oc && (
-                                <div className="text-gray-400 text-[13px]">Sin componentes principales</div>
+                                <div className="text-gray-400 text-[13px]">
+                                  Sin componentes principales
+                                </div>
                               )}
                             </div>
                           </div>
@@ -2723,17 +3054,8 @@ export function LeadsTable({
                       })()}
                     </div>
                   </td>
-                  <td className="px-3 py-4 whitespace-nowrap text-right text-sm font-medium min-w-[120px] w-[120px]">
+                  <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex items-center justify-end space-x-1">
-                      <div className="flex items-center h-7 w-7 justify-center">
-                        <PriorityDot
-                          prioridad={lead.prioridad}
-                          onChange={(prioridad) =>
-                            lead.id && handlePrioridadChange(lead.id, prioridad)
-                          }
-                          disabled={disableActions || !onUpdatePrioridad}
-                        />
-                      </div>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -2780,18 +3102,6 @@ export function LeadsTable({
                           <UserPlus className="h-3 w-3" />
                         </Button>
                       )}
-                      {canSubirFotosLead && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openUploadFotosDialog(lead)}
-                          className="text-violet-600 hover:text-violet-800 h-7 w-7 p-0"
-                          title="Agregar foto o video"
-                          disabled={disableActions || !onUploadFotos}
-                        >
-                          <Camera className="h-3 w-3" />
-                        </Button>
-                      )}
                       <Button
                         variant="ghost"
                         size="sm"
@@ -2816,24 +3126,63 @@ export function LeadsTable({
                           <Edit className="h-3 w-3" />
                         </Button>
                       )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleToggleStatusClick(lead)}
-                        className={
-                          lead.activo === false
-                            ? "text-emerald-600 hover:text-emerald-800 h-7 w-7 p-0"
-                            : "text-red-600 hover:text-red-800 h-7 w-7 p-0"
-                        }
-                        title={lead.activo === false ? "Reactivar" : "Anular"}
-                        disabled={disableActions}
-                      >
-                        {lead.activo === false ? (
-                          <RotateCcw className="h-3 w-3" />
-                        ) : (
-                          <Ban className="h-3 w-3" />
-                        )}
-                      </Button>
+                      {(canSubirFotosLead || canAnularLead) && (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-gray-600 hover:text-gray-700 hover:bg-gray-50 h-7 w-7 p-0"
+                              title="Más acciones"
+                              disabled={disableActions}
+                            >
+                              <MoreHorizontal className="h-3 w-3" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent align="end" className="w-56 p-3">
+                            <div className="grid grid-cols-2 gap-3">
+                              {canSubirFotosLead && (
+                                <Button
+                                  variant="ghost"
+                                  onClick={() => openUploadFotosDialog(lead)}
+                                  className="h-auto flex-col items-center justify-center gap-1 py-3"
+                                  title="Agregar foto o video"
+                                  disabled={disableActions || !onUploadFotos}
+                                >
+                                  <Camera className="h-5 w-5 text-violet-600" />
+                                  <span className="text-xs text-gray-700 leading-tight text-center">
+                                    Agregar foto
+                                  </span>
+                                </Button>
+                              )}
+                              {canAnularLead && (
+                                <Button
+                                  variant="ghost"
+                                  onClick={() => handleToggleStatusClick(lead)}
+                                  className="h-auto flex-col items-center justify-center gap-1 py-3"
+                                  title={
+                                    lead.activo === false
+                                      ? "Reactivar"
+                                      : "Anular"
+                                  }
+                                  disabled={disableActions}
+                                >
+                                  {lead.activo === false ? (
+                                    <RotateCcw className="h-5 w-5 text-emerald-600" />
+                                  ) : (
+                                    <Ban className="h-5 w-5 text-red-600" />
+                                  )}
+                                  <span className="text-xs text-gray-700 leading-tight text-center">
+                                    {lead.activo === false
+                                      ? "Reactivar"
+                                      : "Anular"}
+                                  </span>
+                                </Button>
+                              )}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -2855,112 +3204,33 @@ export function LeadsTable({
           }
         }}
       >
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader className="border-b pb-4">
-            <DialogTitle className="text-xl font-semibold text-gray-900">
-              Información del Lead
-            </DialogTitle>
-          </DialogHeader>
-
-          {selectedLead && (
-            <div className="space-y-6 pt-4">
-              {/* Sección 1: Datos Personales */}
-              <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
-                <div className="pb-4 mb-4 border-b-2 border-gray-200">
-                  <h3 className="text-xl font-bold text-gray-900">
-                    Datos Personales
-                  </h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Información básica del contacto
-                  </p>
+        <DialogContent className="max-w-md max-h-[85vh] overflow-hidden p-0 gap-0 flex flex-col">
+          <DialogHeader className="shrink-0 border-b border-gray-100 px-5 py-4 pr-10">
+            {selectedLead && (
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-base font-semibold text-emerald-700">
+                  {selectedLead.nombre?.charAt(0)?.toUpperCase() || "?"}
                 </div>
-                <div className="space-y-4">
-                  {/* Fila 1: Nombre y Referencia */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-gray-700">Nombre</Label>
-                      <p className="text-gray-900 font-medium mt-1">
-                        {selectedLead.nombre}
-                      </p>
-                    </div>
-                    {selectedLead.referencia && (
-                      <div>
-                        <Label className="text-gray-700">Referencia</Label>
-                        <p className="text-gray-900 mt-1">
-                          {selectedLead.referencia}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Fila 2: Teléfono y Teléfono Adicional */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-gray-700">Teléfono</Label>
-                      <p className="text-gray-900 font-medium flex items-center gap-2 mt-1">
-                        <Phone className="h-4 w-4 text-gray-400" />
-                        {selectedLead.telefono}
-                      </p>
-                    </div>
-                    {selectedLead.telefono_adicional && (
-                      <div>
-                        <Label className="text-gray-700">
-                          Teléfono Adicional
-                        </Label>
-                        <p className="text-gray-900 flex items-center gap-2 mt-1">
-                          <PhoneForwarded className="h-4 w-4 text-gray-400" />
-                          {selectedLead.telefono_adicional}
-                          {selectedLead.telefono_adicional_nombre &&
-                            ` (${selectedLead.telefono_adicional_nombre})`}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Fila 3: Estado, Fuente y Fecha */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <Label className="text-gray-700">Estado</Label>
-                      <div className="mt-1">
-                        {(() => {
-                          const estadoBadge = getEstadoBadge(
-                            selectedLead.estado,
-                          );
-                          return (
-                            <Badge
-                              className={`${estadoBadge.className} text-sm px-3 py-1`}
-                            >
-                              {estadoBadge.label}
-                            </Badge>
-                          );
-                        })()}
-                      </div>
-                    </div>
-                    {selectedLead.fuente && (
-                      <div>
-                        <Label className="text-gray-700">Fuente</Label>
-                        <p className="text-gray-900 mt-1">
-                          {selectedLead.fuente}
-                        </p>
-                      </div>
-                    )}
-                    <div>
-                      <Label className="text-gray-700">Fecha de Contacto</Label>
-                      <p className="text-gray-900 flex items-center gap-2 mt-1">
-                        <Calendar className="h-4 w-4 text-gray-400" />
-                        {formatDate(selectedLead.fecha_contacto)}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Fila 3.5: Prioridad */}
-                  {selectedLead.prioridad && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <Label className="text-gray-700">Prioridad</Label>
-                        <div className="mt-1 flex items-center gap-2">
-                          <div
-                            className={`w-3 h-3 rounded-full ${
+                <div className="min-w-0 flex-1">
+                  <DialogTitle className="truncate text-base font-semibold text-gray-900">
+                    {selectedLead.nombre}
+                  </DialogTitle>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                    {(() => {
+                      const estadoBadge = getEstadoBadge(selectedLead.estado);
+                      return (
+                        <Badge
+                          className={`${estadoBadge.className} px-2 py-0.5 text-xs`}
+                        >
+                          {estadoBadge.label}
+                        </Badge>
+                      );
+                    })()}
+                    {selectedLead.prioridad &&
+                      selectedLead.prioridad !== "Ninguna" && (
+                        <span className="inline-flex items-center gap-1.5 text-xs text-gray-500">
+                          <span
+                            className={`h-1.5 w-1.5 rounded-full ${
                               selectedLead.prioridad === "Alta"
                                 ? "bg-red-500"
                                 : selectedLead.prioridad === "Baja"
@@ -2968,443 +3238,386 @@ export function LeadsTable({
                                   : "bg-emerald-500"
                             }`}
                           />
-                          <span className="text-sm text-gray-900 font-medium">
-                            {selectedLead.prioridad}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Fila 4: Dirección (ancho completo) */}
-                  {selectedLead.direccion && (
-                    <div>
-                      <Label className="text-gray-700">Dirección</Label>
-                      <p className="text-gray-900 flex items-start gap-2 mt-1">
-                        <MapPin className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                        {selectedLead.direccion}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Fila 5: Provincia, Municipio y País */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {selectedLead.provincia_montaje && (
-                      <div>
-                        <Label className="text-gray-700">Provincia</Label>
-                        <p className="text-gray-900 mt-1">
-                          {selectedLead.provincia_montaje}
-                        </p>
-                      </div>
-                    )}
-                    {selectedLead.municipio && (
-                      <div>
-                        <Label className="text-gray-700">Municipio</Label>
-                        <p className="text-gray-900 mt-1">
-                          {selectedLead.municipio}
-                        </p>
-                      </div>
-                    )}
-                    {selectedLead.pais_contacto && (
-                      <div>
-                        <Label className="text-gray-700">
-                          País de Contacto
-                        </Label>
-                        <p className="text-gray-900 mt-1">
-                          {selectedLead.pais_contacto}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Fila 6: Comercial */}
-                  {selectedLead.comercial && (
-                    <div>
-                      <Label className="text-gray-700">
-                        Comercial Asignado
-                      </Label>
-                      <p className="text-gray-900 flex items-center gap-2 mt-1">
-                        <UserCheck className="h-4 w-4 text-gray-400" />
-                        {selectedLead.comercial}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Sección 2: Oferta */}
-              {selectedLead.ofertas && selectedLead.ofertas.length > 0 && (
-                <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
-                  <div className="pb-4 mb-4 border-b-2 border-gray-200">
-                    <h3 className="text-xl font-bold text-gray-900">Oferta</h3>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Detalles de productos y cantidades
-                    </p>
-                  </div>
-                  <div className="space-y-4">
-                    {selectedLead.ofertas.map((oferta, idx) => (
-                      <div
-                        key={idx}
-                        className="border rounded-lg p-4 bg-gray-50"
-                      >
-                        {/* Productos en Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          {/* Inversor */}
-                          {oferta.inversor_codigo &&
-                            oferta.inversor_cantidad > 0 && (
-                              <div>
-                                <Label className="text-gray-700">
-                                  Inversor
-                                </Label>
-                                <p className="text-gray-900 font-medium mt-1">
-                                  {oferta.inversor_nombre ||
-                                    oferta.inversor_codigo}
-                                </p>
-                                <p className="text-sm text-gray-600 mt-1">
-                                  Cantidad: {oferta.inversor_cantidad}
-                                </p>
-                              </div>
-                            )}
-
-                          {/* Batería */}
-                          {oferta.bateria_codigo &&
-                            oferta.bateria_cantidad > 0 && (
-                              <div>
-                                <Label className="text-gray-700">Batería</Label>
-                                <p className="text-gray-900 font-medium mt-1">
-                                  {oferta.bateria_nombre ||
-                                    oferta.bateria_codigo}
-                                </p>
-                                <p className="text-sm text-gray-600 mt-1">
-                                  Cantidad: {oferta.bateria_cantidad}
-                                </p>
-                              </div>
-                            )}
-
-                          {/* Paneles */}
-                          {oferta.panel_codigo && oferta.panel_cantidad > 0 && (
-                            <div>
-                              <Label className="text-gray-700">Paneles</Label>
-                              <p className="text-gray-900 font-medium mt-1">
-                                {oferta.panel_nombre || oferta.panel_codigo}
-                              </p>
-                              <p className="text-sm text-gray-600 mt-1">
-                                Cantidad: {oferta.panel_cantidad}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Estado de la Oferta */}
-                        {(oferta.aprobada || oferta.pagada) && (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                            {oferta.aprobada && (
-                              <div className="flex items-center space-x-2 p-3 border rounded-md bg-white">
-                                <input
-                                  type="checkbox"
-                                  checked={true}
-                                  disabled
-                                  className="h-5 w-5 rounded border-gray-300 text-green-600"
-                                />
-                                <Label className="font-medium">
-                                  Oferta Aprobada
-                                </Label>
-                              </div>
-                            )}
-                            {oferta.pagada && (
-                              <div className="flex items-center space-x-2 p-3 border rounded-md bg-white">
-                                <input
-                                  type="checkbox"
-                                  checked={true}
-                                  disabled
-                                  className="h-5 w-5 rounded border-gray-300 text-blue-600"
-                                />
-                                <Label className="font-medium">
-                                  Oferta Pagada
-                                </Label>
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Elementos Personalizados */}
-                        {oferta.elementos_personalizados && (
-                          <div className="mt-4">
-                            <Label className="text-gray-700">
-                              Elementos Personalizados (Comentario)
-                            </Label>
-                            <p className="text-sm text-gray-700 bg-white p-3 rounded-md border mt-1">
-                              {oferta.elementos_personalizados}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Sección 3: Costos y Pago */}
-              {selectedLead.ofertas && selectedLead.ofertas.length > 0 && (
-                <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
-                  <div className="pb-4 mb-4 border-b-2 border-gray-200">
-                    <h3 className="text-xl font-bold text-gray-900">
-                      Costos y Pago
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Información financiera de la oferta
-                    </p>
-                  </div>
-                  <div className="space-y-4">
-                    {selectedLead.ofertas.map((oferta, idx) => (
-                      <div key={`costos-${idx}`}>
-                        {/* Costos - Primera fila */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div>
-                            <Label className="text-gray-700">
-                              Costo de Oferta
-                            </Label>
-                            <p className="text-gray-900 font-semibold mt-1">
-                              ${oferta.costo_oferta.toFixed(2)}
-                            </p>
-                          </div>
-                          {oferta.costo_extra > 0 && (
-                            <div>
-                              <Label className="text-gray-700">
-                                Costo Extra
-                              </Label>
-                              <p className="text-gray-900 font-semibold mt-1">
-                                ${oferta.costo_extra.toFixed(2)}
-                              </p>
-                            </div>
-                          )}
-                          {oferta.costo_transporte > 0 && (
-                            <div>
-                              <Label className="text-gray-700">
-                                Costo de Transporte
-                              </Label>
-                              <p className="text-gray-900 font-semibold mt-1">
-                                ${oferta.costo_transporte.toFixed(2)}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Costo Final */}
-                        <div className="mt-4 p-4 bg-gray-50 rounded-lg border">
-                          <Label className="text-gray-700">Costo Final</Label>
-                          <p className="text-2xl font-bold text-gray-900 mt-1">
-                            $
-                            {(
-                              oferta.costo_oferta +
-                              oferta.costo_extra +
-                              oferta.costo_transporte
-                            ).toFixed(2)}
-                          </p>
-                        </div>
-
-                        {/* Razón del Costo Extra */}
-                        {oferta.razon_costo_extra && (
-                          <div className="mt-4">
-                            <Label className="text-gray-700">
-                              Razón del Costo Extra
-                            </Label>
-                            <p className="text-sm text-gray-700 bg-white p-3 rounded-md border mt-1">
-                              {oferta.razon_costo_extra}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-
-                    {/* Método de Pago y Moneda */}
-                    {(selectedLead.metodo_pago || selectedLead.moneda) && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
-                        {selectedLead.metodo_pago && (
-                          <div>
-                            <Label className="text-gray-700">
-                              Método de Pago
-                            </Label>
-                            <p className="text-gray-900 font-medium mt-1">
-                              {selectedLead.metodo_pago}
-                            </p>
-                          </div>
-                        )}
-                        {selectedLead.moneda && (
-                          <div>
-                            <Label className="text-gray-700">Moneda</Label>
-                            <p className="text-gray-900 font-medium mt-1">
-                              {selectedLead.moneda}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Comprobante de Pago */}
-                    {selectedLead.comprobante_pago_url && (
-                      <div className="pt-4 border-t">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            void handleDownloadComprobante(selectedLead)
-                          }
-                          className="w-full md:w-auto"
-                        >
-                          <Download className="h-4 w-4 mr-2" />
-                          Descargar Comprobante
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Sección 4: Evidencias (Fotos/Videos) */}
-              <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
-                <div className="pb-4 mb-4 border-b-2 border-gray-200">
-                  <h3 className="text-xl font-bold text-gray-900">
-                    Evidencias
-                  </h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Archivos subidos del lead (instalación o avería)
-                  </p>
-                </div>
-
-                {loadingFotosLeadDetails ? (
-                  <p className="text-sm text-gray-500">Cargando archivos...</p>
-                ) : fotosLeadDetails.length === 0 ? (
-                  <p className="text-sm text-gray-500">
-                    Este lead no tiene archivos subidos.
-                  </p>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {fotosLeadDetails.map((archivo, index) => (
-                      <div
-                        key={`${archivo.url}-${index}`}
-                        className="border rounded-lg p-3 bg-gray-50"
-                      >
-                        <div className="w-full h-48 bg-black/5 rounded-md overflow-hidden mb-3">
-                          {isVideoUrl(archivo.url) ? (
-                            <video
-                              src={archivo.url}
-                              controls
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <img
-                              src={archivo.url}
-                              alt={`Evidencia ${index + 1}`}
-                              className="w-full h-full object-cover"
-                            />
-                          )}
-                        </div>
-
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between gap-2">
-                            <Badge className="bg-blue-100 text-blue-700 border-blue-200">
-                              {archivo.tipo === "instalacion"
-                                ? "Instalación"
-                                : "Avería"}
-                            </Badge>
-                            <span className="text-xs text-gray-500">
-                              {formatFechaArchivo(archivo.fecha)}
-                            </span>
-                          </div>
-
-                          <div className="flex gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => window.open(archivo.url, "_blank")}
-                              className="flex-1"
-                            >
-                              Ver
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                void handleDownloadArchivo(archivo.url, index)
-                              }
-                              className="flex-1"
-                            >
-                              Descargar
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Sección 5: Comentarios (Condicional) */}
-              {selectedLead.comentario && (
-                <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
-                  <div className="pb-4 mb-4 border-b-2 border-gray-200">
-                    <h3 className="text-xl font-bold text-gray-900">
-                      Comentarios
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Notas adicionales sobre el lead
-                    </p>
-                  </div>
-                  <div className="space-y-4">
-                    <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap break-words bg-gray-50 p-4 rounded-lg border">
-                      {selectedLead.comentario}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Sección 6: Elementos Personalizados (Condicional) */}
-              {selectedLead.elementos_personalizados &&
-                selectedLead.elementos_personalizados.length > 0 && (
-                  <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
-                    <div className="pb-4 mb-4 border-b-2 border-gray-200">
-                      <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                        <ListChecks className="h-5 w-5" />
-                        Elementos Personalizados
-                      </h3>
-                      <p className="text-sm text-gray-500 mt-1">
-                        Elementos adicionales del lead
-                      </p>
-                    </div>
-                    <div className="space-y-2">
-                      {selectedLead.elementos_personalizados.map(
-                        (elemento, index) => (
-                          <div
-                            key={index}
-                            className="flex items-center justify-between border rounded-md px-4 py-3 bg-gray-50"
-                          >
-                            <span className="text-sm text-gray-900">
-                              {elemento.descripcion}
-                            </span>
-                            <span className="text-sm font-medium text-gray-600 ml-4">
-                              Cant: {elemento.cantidad}
-                            </span>
-                          </div>
-                        ),
+                          {selectedLead.prioridad}
+                        </span>
                       )}
-                    </div>
                   </div>
-                )}
+                </div>
+              </div>
+            )}
+          </DialogHeader>
 
-              {/* Botón Cerrar */}
-              <div className="flex justify-end pt-4 border-t">
+          {selectedLead && (
+            <>
+              <div className="flex-1 overflow-y-auto px-5 py-4">
+                <div className="space-y-5">
+                  {/* Contacto */}
+                  <section>
+                    <h4 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                      Contacto
+                    </h4>
+                    <div className="space-y-2.5">
+                      <LeadInfoRow
+                        icon={Phone}
+                        label="Teléfono"
+                        value={selectedLead.telefono}
+                      />
+                      {selectedLead.telefono_adicional && (
+                        <LeadInfoRow
+                          icon={PhoneForwarded}
+                          label="Teléfono adicional"
+                          value={`${selectedLead.telefono_adicional}${
+                            selectedLead.telefono_adicional_nombre
+                              ? ` (${selectedLead.telefono_adicional_nombre})`
+                              : ""
+                          }`}
+                        />
+                      )}
+                      <LeadInfoRow
+                        icon={Globe}
+                        label="País de contacto"
+                        value={selectedLead.pais_contacto}
+                      />
+                      <LeadInfoRow
+                        label="Referencia"
+                        value={selectedLead.referencia}
+                      />
+                    </div>
+                  </section>
+
+                  {/* Ubicación */}
+                  {(selectedLead.direccion ||
+                    selectedLead.provincia_montaje ||
+                    selectedLead.municipio) && (
+                    <section className="border-t border-gray-100 pt-5">
+                      <h4 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                        Ubicación
+                      </h4>
+                      <div className="space-y-2.5">
+                        <LeadInfoRow
+                          icon={MapPin}
+                          label="Dirección"
+                          value={selectedLead.direccion}
+                        />
+                        <LeadInfoRow
+                          label="Provincia"
+                          value={selectedLead.provincia_montaje}
+                        />
+                        <LeadInfoRow
+                          label="Municipio"
+                          value={selectedLead.municipio}
+                        />
+                      </div>
+                    </section>
+                  )}
+
+                  {/* Seguimiento */}
+                  <section className="border-t border-gray-100 pt-5">
+                    <h4 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                      Seguimiento
+                    </h4>
+                    <div className="space-y-2.5">
+                      <LeadInfoRow
+                        icon={Calendar}
+                        label="Fecha de contacto"
+                        value={formatDate(selectedLead.fecha_contacto)}
+                      />
+                      <LeadInfoRow label="Fuente" value={selectedLead.fuente} />
+                      <LeadInfoRow
+                        icon={UserCheck}
+                        label="Comercial asignado"
+                        value={selectedLead.comercial}
+                      />
+                    </div>
+                  </section>
+
+                  {/* Oferta */}
+                  {selectedLead.ofertas && selectedLead.ofertas.length > 0 && (
+                    <section className="border-t border-gray-100 pt-5">
+                      <h4 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                        Oferta
+                      </h4>
+                      <div className="space-y-4">
+                        {selectedLead.ofertas.map((oferta, idx) => (
+                          <div key={idx} className="space-y-2.5">
+                            <LeadInfoRow
+                              icon={Zap}
+                              label="Inversor"
+                              value={
+                                oferta.inversor_codigo &&
+                                oferta.inversor_cantidad > 0
+                                  ? `${oferta.inversor_nombre || oferta.inversor_codigo} · Cant: ${oferta.inversor_cantidad}`
+                                  : undefined
+                              }
+                            />
+                            <LeadInfoRow
+                              icon={Battery}
+                              label="Batería"
+                              value={
+                                oferta.bateria_codigo &&
+                                oferta.bateria_cantidad > 0
+                                  ? `${oferta.bateria_nombre || oferta.bateria_codigo} · Cant: ${oferta.bateria_cantidad}`
+                                  : undefined
+                              }
+                            />
+                            <LeadInfoRow
+                              icon={Sun}
+                              label="Paneles"
+                              value={
+                                oferta.panel_codigo && oferta.panel_cantidad > 0
+                                  ? `${oferta.panel_nombre || oferta.panel_codigo} · Cant: ${oferta.panel_cantidad}`
+                                  : undefined
+                              }
+                            />
+                            {(() => {
+                              // Preferimos el estado real de la oferta confeccionada
+                              // (traído en vivo al abrir el diálogo). Si no está
+                              // disponible, caemos al snapshot embebido.
+                              const ofertaLive = detailOfertasFrescas?.[idx];
+                              const estadoLive = ofertaLive?.estado;
+                              const label = estadoLive
+                                ? estadoLive.replace(/_/g, " ")
+                                : oferta.aprobada
+                                  ? "Oferta aprobada"
+                                  : oferta.pagada
+                                    ? "Oferta pagada"
+                                    : null;
+                              const badgeClass = estadoLive
+                                ? estadoLive === "confirmada_por_cliente"
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : estadoLive === "enviada_a_cliente"
+                                    ? "bg-blue-100 text-blue-700"
+                                    : estadoLive === "aprobada_para_enviar"
+                                      ? "bg-green-100 text-green-700"
+                                      : estadoLive === "reservada"
+                                        ? "bg-purple-100 text-purple-700"
+                                        : estadoLive === "rechazada" ||
+                                            estadoLive === "cancelada"
+                                          ? "bg-red-100 text-red-700"
+                                          : "bg-gray-100 text-gray-700"
+                                : oferta.pagada
+                                  ? "bg-blue-100 text-blue-700"
+                                  : "bg-green-100 text-green-700";
+                              return label ? (
+                                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                                  <Badge
+                                    className={`px-2 py-0.5 text-xs capitalize ${badgeClass}`}
+                                  >
+                                    {label}
+                                  </Badge>
+                                </div>
+                              ) : null;
+                            })()}
+                            {oferta.elementos_personalizados && (
+                              <LeadInfoRow
+                                label="Elementos personalizados"
+                                value={oferta.elementos_personalizados}
+                              />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* Costos y Pago */}
+                  {selectedLead.ofertas && selectedLead.ofertas.length > 0 && (
+                    <section className="border-t border-gray-100 pt-5">
+                      <h4 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                        Costos y pago
+                      </h4>
+                      <div className="space-y-4">
+                        {selectedLead.ofertas.map((oferta, idx) => (
+                          <div key={`costos-${idx}`} className="space-y-2.5">
+                            <LeadInfoRow
+                              icon={CreditCard}
+                              label="Costo de oferta"
+                              value={`$${oferta.costo_oferta.toFixed(2)}`}
+                            />
+                            {oferta.costo_extra > 0 && (
+                              <LeadInfoRow
+                                label="Costo extra"
+                                value={`$${oferta.costo_extra.toFixed(2)}`}
+                              />
+                            )}
+                            {oferta.costo_transporte > 0 && (
+                              <LeadInfoRow
+                                label="Costo de transporte"
+                                value={`$${oferta.costo_transporte.toFixed(2)}`}
+                              />
+                            )}
+                            <LeadInfoRow
+                              strong
+                              label="Costo final"
+                              value={`$${(
+                                oferta.costo_oferta +
+                                oferta.costo_extra +
+                                oferta.costo_transporte
+                              ).toFixed(2)}`}
+                            />
+                            {oferta.razon_costo_extra && (
+                              <LeadInfoRow
+                                label="Razón del costo extra"
+                                value={oferta.razon_costo_extra}
+                              />
+                            )}
+                          </div>
+                        ))}
+
+                        <LeadInfoRow
+                          label="Método de pago"
+                          value={selectedLead.metodo_pago}
+                        />
+                        <LeadInfoRow
+                          label="Moneda"
+                          value={selectedLead.moneda}
+                        />
+
+                        {selectedLead.comprobante_pago_url && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              void handleDownloadComprobante(selectedLead)
+                            }
+                            className="mt-1 w-full"
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            Descargar comprobante
+                          </Button>
+                        )}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* Evidencias */}
+                  <section className="border-t border-gray-100 pt-5">
+                    <h4 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                      Evidencias
+                    </h4>
+                    {loadingFotosLeadDetails ? (
+                      <p className="text-sm text-gray-500">
+                        Cargando archivos...
+                      </p>
+                    ) : fotosLeadDetails.length === 0 ? (
+                      <p className="text-sm text-gray-500">
+                        Este lead no tiene archivos subidos.
+                      </p>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2.5">
+                        {fotosLeadDetails.map((archivo, index) => (
+                          <div
+                            key={`${archivo.url}-${index}`}
+                            className="rounded-md border border-gray-100 p-2"
+                          >
+                            <div className="mb-2 h-24 w-full overflow-hidden rounded bg-black/5">
+                              {isVideoUrl(archivo.url) ? (
+                                <video
+                                  src={archivo.url}
+                                  controls
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <img
+                                  src={archivo.url}
+                                  alt={`Evidencia ${index + 1}`}
+                                  className="h-full w-full object-cover"
+                                />
+                              )}
+                            </div>
+                            <div className="flex items-center justify-between gap-1">
+                              <Badge className="border-blue-200 bg-blue-100 px-1.5 py-0 text-[10px] text-blue-700">
+                                {archivo.tipo === "instalacion"
+                                  ? "Instalación"
+                                  : "Avería"}
+                              </Badge>
+                              <span className="text-[10px] text-gray-500">
+                                {formatFechaArchivo(archivo.fecha)}
+                              </span>
+                            </div>
+                            <div className="mt-2 flex gap-1.5">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  window.open(archivo.url, "_blank")
+                                }
+                                className="h-7 flex-1 px-1 text-xs"
+                              >
+                                Ver
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  void handleDownloadArchivo(archivo.url, index)
+                                }
+                                className="h-7 flex-1 px-1 text-xs"
+                              >
+                                Descargar
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+
+                  {/* Comentarios */}
+                  {selectedLead.comentario && (
+                    <section className="border-t border-gray-100 pt-5">
+                      <h4 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                        Comentarios
+                      </h4>
+                      <p className="whitespace-pre-wrap break-words rounded-md bg-gray-50 p-3 text-sm leading-relaxed text-gray-700">
+                        {selectedLead.comentario}
+                      </p>
+                    </section>
+                  )}
+
+                  {/* Elementos Personalizados */}
+                  {selectedLead.elementos_personalizados &&
+                    selectedLead.elementos_personalizados.length > 0 && (
+                      <section className="border-t border-gray-100 pt-5">
+                        <h4 className="mb-2.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                          <ListChecks className="h-3.5 w-3.5" />
+                          Elementos personalizados
+                        </h4>
+                        <div className="divide-y divide-gray-100">
+                          {selectedLead.elementos_personalizados.map(
+                            (elemento, index) => (
+                              <div
+                                key={index}
+                                className="flex items-center justify-between py-2 text-sm"
+                              >
+                                <span className="text-gray-900">
+                                  {elemento.descripcion}
+                                </span>
+                                <span className="ml-4 font-medium text-gray-500">
+                                  Cant: {elemento.cantidad}
+                                </span>
+                              </div>
+                            ),
+                          )}
+                        </div>
+                      </section>
+                    )}
+                </div>
+              </div>
+
+              <div className="flex shrink-0 justify-end border-t border-gray-100 px-5 py-3.5">
                 <Button
                   variant="outline"
+                  size="sm"
                   onClick={() => setIsDetailDialogOpen(false)}
                 >
                   Cerrar
                 </Button>
               </div>
-            </div>
+            </>
           )}
         </DialogContent>
       </Dialog>
@@ -3439,6 +3652,53 @@ export function LeadsTable({
                     {leadToConvert.nombre}
                   </span>
                   . Los datos del lead se copiarán automáticamente.
+                </div>
+
+                {/* Checklist de precondiciones para convertir */}
+                <div
+                  className={`rounded-lg border p-4 ${
+                    convertChecksOk
+                      ? "bg-emerald-50 border-emerald-200"
+                      : "bg-amber-50 border-amber-200"
+                  }`}
+                >
+                  <p
+                    className={`text-xs font-semibold mb-2 ${
+                      convertChecksOk ? "text-emerald-800" : "text-amber-900"
+                    }`}
+                  >
+                    {convertChecksOk
+                      ? "Todo listo para convertir"
+                      : "Faltan datos para poder convertir"}
+                  </p>
+                  <ul className="space-y-1.5">
+                    {convertChecks.map((c) => (
+                      <li
+                        key={c.key}
+                        className="flex items-start gap-2 text-xs"
+                      >
+                        {c.ok ? (
+                          <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                        )}
+                        <div>
+                          <p
+                            className={
+                              c.ok ? "text-emerald-900" : "text-amber-900"
+                            }
+                          >
+                            {c.label}
+                          </p>
+                          {!c.ok && c.hint && (
+                            <p className="text-[11px] text-amber-700 mt-0.5">
+                              {c.hint}
+                            </p>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
 
                 {conversionErrors.general && (
@@ -3498,78 +3758,118 @@ export function LeadsTable({
                 )}
 
                 <div className="space-y-3">
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                    <Label className="text-sm font-semibold text-amber-900 mb-3 block">
-                      ¿El equipo es propio del cliente?
-                    </Label>
-                    <p className="text-xs text-amber-700 mb-3">
-                      {leadTieneOfertaConfeccionada
-                        ? "Este lead tiene oferta confeccionada. Elige si usar equipo propio o generar código con la oferta."
-                        : "Este lead no tiene una oferta confeccionada detectada. Puedes marcar equipo propio o crear una oferta antes de convertir."}
-                    </p>
-                    <div className="flex flex-col gap-2">
-                      <Button
+                  {leadTieneOfertaConfirmada && !mostrarSeleccionManualEquipo ? (
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex items-center justify-between gap-3">
+                      <p className="text-xs text-emerald-800">
+                        Este lead tiene una oferta confirmada. Se usará
+                        automáticamente para generar el código de cliente.
+                      </p>
+                      <button
                         type="button"
-                        variant="outline"
-                        className={`w-full ${
-                          conversionData.equipo_propio === true
-                            ? "bg-amber-100 border-amber-500 border-2"
-                            : "border-amber-300"
-                        } hover:bg-amber-100`}
-                        onClick={() => handleSeleccionEquipoPropio(true)}
+                        className="text-xs font-medium text-emerald-700 underline underline-offset-2 shrink-0"
+                        onClick={() => setMostrarSeleccionManualEquipo(true)}
                       >
-                        {conversionData.equipo_propio === true && "✓ "}Sí, es
-                        equipo propio
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className={`w-full ${
-                          conversionData.equipo_propio === false
-                            ? "bg-amber-100 border-amber-500 border-2"
-                            : "border-amber-300"
-                        } hover:bg-amber-100`}
-                        onClick={() => handleSeleccionEquipoPropio(false)}
-                      >
-                        {conversionData.equipo_propio === false && "✓ "}No, usar
-                        oferta confeccionada
-                      </Button>
-                      {!leadTieneOfertaConfeccionada && (
+                        ¿Es equipo propio?
+                      </button>
+                    </div>
+                  ) : (
+                  <div className="rounded-lg border border-gray-200 bg-white p-3 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-800">
+                        {conversionData.equipo_propio === true
+                          ? "Equipo propio del cliente"
+                          : conversionData.equipo_propio === false
+                            ? "Se usará la oferta confeccionada"
+                            : "Falta indicar si el equipo es propio"}
+                      </p>
+                      <p className="text-xs text-gray-500 truncate">
+                        {leadTieneOfertaConfeccionada
+                          ? "Elige equipo propio o usar la oferta confeccionada."
+                          : "Este lead no tiene oferta confeccionada."}
+                      </p>
+                    </div>
+                    <Popover>
+                      <PopoverTrigger asChild>
                         <Button
                           type="button"
                           variant="outline"
-                          className="w-full border-amber-300 hover:bg-amber-100"
-                          onClick={() => {
-                            closeConvertDialog();
-                            openAsignarOfertaDialog(leadToConvert);
-                          }}
+                          size="sm"
+                          className="shrink-0"
                         >
-                          Crear oferta confeccionada
+                          Configurar
                         </Button>
-                      )}
-                    </div>
+                      </PopoverTrigger>
+                      <PopoverContent align="end" className="w-64 p-1.5">
+                        <div className="space-y-0.5">
+                          <button
+                            type="button"
+                            onClick={() => handleSeleccionEquipoPropio(true)}
+                            className={`w-full text-left rounded-md px-3 py-2 text-sm transition-colors ${
+                              conversionData.equipo_propio === true
+                                ? "bg-emerald-50 text-emerald-800 font-medium"
+                                : "hover:bg-gray-50 text-gray-700"
+                            }`}
+                          >
+                            {conversionData.equipo_propio === true && "✓ "}
+                            Sí, es equipo propio
+                          </button>
+                          {leadTieneOfertaConfeccionada ? (
+                            <button
+                              type="button"
+                              onClick={() => handleSeleccionEquipoPropio(false)}
+                              className={`w-full text-left rounded-md px-3 py-2 text-sm transition-colors ${
+                                conversionData.equipo_propio === false
+                                  ? "bg-emerald-50 text-emerald-800 font-medium"
+                                  : "hover:bg-gray-50 text-gray-700"
+                              }`}
+                            >
+                              {conversionData.equipo_propio === false && "✓ "}
+                              No, usar oferta confeccionada
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                closeConvertDialog();
+                                openAsignarOfertaDialog(leadToConvert);
+                              }}
+                              className="w-full text-left rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                            >
+                              Crear oferta confeccionada
+                            </button>
+                          )}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   </div>
+                  )}
 
                   <div>
                     <Label
                       htmlFor="numero_cliente"
                       className="text-xs sm:text-sm"
                     >
-                      Código de cliente (generado automáticamente)
+                      Código de cliente (se creará con este número)
                     </Label>
                     <Input
                       id="numero_cliente"
-                      value={conversionData.numero}
+                      value={
+                        previewingCodigo
+                          ? "Generando..."
+                          : conversionData.numero
+                      }
                       disabled
-                      className="bg-gray-100 cursor-not-allowed"
-                      placeholder="Se generará al confirmar la conversión"
+                      className="bg-gray-100 cursor-not-allowed font-mono font-semibold"
+                      placeholder="Elige si el equipo es propio para ver el código"
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      {conversionData.numero
-                        ? conversionData.equipo_propio
-                          ? 'Código con prefijo "P" para equipo propio del cliente'
-                          : "Código generado según marca de inversor, provincia y municipio"
-                        : "El código se generará cuando confirmes la conversión"}
+                      {previewingCodigo
+                        ? "Calculando el próximo código disponible..."
+                        : conversionData.numero
+                          ? conversionData.equipo_propio
+                            ? 'Código con prefijo "P" para equipo propio del cliente'
+                            : "Código generado según marca de inversor, provincia y municipio"
+                          : "El código se mostrará al elegir si el equipo es propio"}
                     </p>
                   </div>
 
@@ -3657,9 +3957,14 @@ export function LeadsTable({
                 </Button>
                 <Button
                   type="button"
-                  className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white"
+                  className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white disabled:opacity-40 disabled:cursor-not-allowed"
                   onClick={handleConfirmConversion}
-                  disabled={conversionLoading}
+                  disabled={conversionLoading || !convertChecksOk}
+                  title={
+                    !convertChecksOk
+                      ? "Completa los datos marcados arriba para poder convertir"
+                      : undefined
+                  }
                 >
                   {conversionLoading ? (
                     <>
@@ -3909,10 +4214,15 @@ export function LeadsTable({
               </div>
             )}
 
-            {tipoOfertaSeleccionada === "personalizada" &&
-              accionPersonalizadaSeleccionada === "duplicar" && (
+            {(tipoOfertaSeleccionada === "generica" ||
+              (tipoOfertaSeleccionada === "personalizada" &&
+                accionPersonalizadaSeleccionada === "duplicar")) && (
                 <div className="space-y-2 flex-1 min-h-0 flex flex-col">
-                  <Label>Selecciona la oferta genérica a duplicar</Label>
+                  <Label>
+                    {tipoOfertaSeleccionada === "generica"
+                      ? "Selecciona la oferta genérica a asignar"
+                      : "Selecciona la oferta genérica a duplicar"}
+                  </Label>
                   {loadingOfertasGenericasAprobadas ? (
                     <div className="flex items-center justify-center py-8">
                       <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
@@ -4188,25 +4498,6 @@ export function LeadsTable({
         }}
       />
 
-      {/* Modal de asignar oferta genérica */}
-      <AsignarOfertaGenericaDialog
-        open={showAsignarOfertaDialog}
-        onOpenChange={(open) => {
-          setShowAsignarOfertaDialog(open);
-          if (!open) closeAsignarOfertaDialog();
-        }}
-        cliente={
-          leadForAsignarOferta
-            ? ({
-                nombre: leadForAsignarOferta.nombre,
-                numero: leadForAsignarOferta.id || "",
-              } as any)
-            : null
-        }
-        onAsignar={handleAsignarOferta}
-        fetchOfertasGenericas={fetchOfertasGenericasAprobadas}
-      />
-
       {/* Modal de ver oferta del lead */}
       <AsignarOfertaGenericaDialog
         open={showVerOfertaDialog}
@@ -4328,82 +4619,28 @@ export function LeadsTable({
         </DialogContent>
       </Dialog>
 
-      {/* Anular / Reactivar Lead */}
-      <Dialog
-        open={isToggleStatusDialogOpen}
-        onOpenChange={(open) => {
-          if (!togglingStatus) setIsToggleStatusDialogOpen(open);
-        }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {leadToToggleStatus?.activo === false ? (
-                <>
-                  <RotateCcw className="h-5 w-5 text-emerald-600" />
-                  Reactivar lead
-                </>
-              ) : (
-                <>
-                  <Ban className="h-5 w-5 text-red-600" />
-                  Anular lead
-                </>
-              )}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 text-sm text-gray-600">
-            {leadToToggleStatus?.activo === false ? (
-              <p>
-                El lead de <strong>{leadToToggleStatus?.nombre}</strong> volverá
-                al listado y podrá gestionarse de nuevo. Si ya existe otro lead
-                activo con el mismo teléfono, no se podrá reactivar.
-              </p>
-            ) : (
-              <>
-                <p>
-                  El lead de <strong>{leadToToggleStatus?.nombre}</strong> no se
-                  borra: deja de aparecer en el listado y en los tableros, y se
-                  puede reactivar en cualquier momento.
-                </p>
-                <p>
-                  Además pasará al estado <strong>No interesado</strong> y sus
-                  ofertas de confección se cancelarán, liberando los materiales
-                  que tuvieran reservados.
-                </p>
-              </>
-            )}
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setIsToggleStatusDialogOpen(false)}
-              disabled={togglingStatus}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              variant={
-                leadToToggleStatus?.activo === false ? "default" : "destructive"
-              }
-              onClick={handleToggleStatusConfirm}
-              disabled={togglingStatus}
-            >
-              {togglingStatus ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Guardando...
-                </>
-              ) : leadToToggleStatus?.activo === false ? (
-                "Reactivar lead"
-              ) : (
-                "Anular lead"
-              )}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Anular/Reactivar Confirmation Dialog */}
+      {leadToToggleStatus?.activo === false ? (
+        <ConfirmEditDialog
+          open={isToggleStatusDialogOpen}
+          onOpenChange={setIsToggleStatusDialogOpen}
+          title="Reactivar Lead"
+          message={`¿Reactivar el lead de ${leadToToggleStatus?.nombre}? Volverá a aparecer en el listado de leads activos.`}
+          onConfirm={handleToggleStatusConfirm}
+          confirmText="Reactivar Lead"
+          isLoading={togglingStatus}
+        />
+      ) : (
+        <ConfirmDeleteDialog
+          open={isToggleStatusDialogOpen}
+          onOpenChange={setIsToggleStatusDialogOpen}
+          title="Anular Lead"
+          message={`¿Estás seguro de que quieres anular el lead de ${leadToToggleStatus?.nombre}? Pasará a estado "No interesado", se cancelarán todas sus ofertas de confección vinculadas (liberando las reservas de materiales que tuvieran) y dejará de aparecer en el listado de leads activos. Podrás reactivarlo luego, pero eso no revertirá las ofertas ya canceladas.`}
+          onConfirm={handleToggleStatusConfirm}
+          confirmText="Anular Lead"
+          isLoading={togglingStatus}
+        />
+      )}
     </>
   );
 }
