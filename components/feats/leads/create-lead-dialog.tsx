@@ -259,7 +259,6 @@ export function CreateLeadDialog({
   const estadosDisponibles = [
     "Esperando equipo",
     "No interesado",
-    "Pendiente de instalación",
     "Pendiente de presupuesto",
     "Pendiente de visita",
     "Pendiente de visitarnos",
