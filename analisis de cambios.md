@@ -2,6 +2,36 @@
 
 ---
 
+## 📅 11 de Agosto, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**2 commits** — ambos de yany1509. Cambio puntual de dato: actualización de la dirección física de la empresa en todos los servicios de generación de documentos PDF. Se reemplaza la dirección antigua "Calle 24 #109 e/ 1ra y 3ra" por "Calle 2 e/3ra y 5ta, Miramar, Playa, La Habana" en comprobantes de pago, devolución, facturas y obras terminadas.
+
+---
+
+### Área 1: Pagos — Actualización de dirección en comprobantes de pago y devolución (1 commit — yany1509, 15:30)
+
+- **`fix(pagos): actualiza direccion de la empresa en comprobantes de pago/devolucion`** (15:30) — Cambia la dirección impresa en los PDFs de comprobantes de pago y comprobantes de devolución de "Calle 24 #109 e/ 1ra y 3ra" a "Calle 2 e/3ra y 5ta, Miramar, Playa, La Habana".
+
+---
+
+### Área 2: Exportación — Actualización de dirección en facturas y comprobantes generales (1 commit — yany1509, 15:41)
+
+- **`fix(exportacion): actualiza direccion de la empresa en el resto de facturas/comprobantes`** (15:41) — Misma corrección de dirección aplicada a 4 servicios de exportación: `facturas/export-factura-service.ts`, `facturas/export-factura-contabilidad-service.ts`, `obras-terminadas/export-factura-cliente-service.ts`, `pagos-clientes-ventas/export-factura-venta-consolidada-service.ts`.
+
+---
+
+### Puede dar bateo
+
+1. **Dirección hardcodeada en múltiples archivos — posibles ocurrencias no actualizadas**: La dirección estaba duplicada en al menos 6 archivos distintos. Si existen otros servicios de exportación (informes, vales de salida, RRHH, reportes de dirección, documentos DOCX) que no fueron incluidos en estos dos commits, seguirán imprimiendo la dirección antigua sin error visible ni advertencia al usuario.
+
+2. **Dos commits separados para el mismo fix — posible build intermedio en Railway**: Si Railway tiene auto-deploy activo, hubo una ventana de ~11 minutos (15:30-15:41) donde los comprobantes de pago/devolución mostraban la dirección nueva pero las facturas y obras terminadas aún mostraban la dirección vieja. Documentos generados en ese intervalo son inconsistentes.
+
+3. **Sin cobertura de tests sobre contenido de PDFs**: Los cambios de texto en documentos generados no pueden ser verificados por TypeScript ni ESLint. Solo una revisión visual de cada documento (comprobante de pago, devolución, factura de contabilidad, factura de cliente, factura venta consolidada) puede confirmar que la dirección es correcta en todos los flujos y que no hay otros archivos afectados.
+
+---
+
 ## 📅 10 de Agosto, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -226,6 +256,7 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 #### Seguimientos vigentes
 
+- **Dirección de empresa hardcodeada en múltiples archivos — confirmar que NO quedan referencias a "Calle 24 #109 e/ 1ra y 3ra" en vales, reportes, informes u otros PDFs generados más allá de los 6 archivos ya corregidos (Ago 11)**.
 - **FuenteSelector — confirmar persistencia de `fuente_referencia` en POST/PATCH leads y clientes en backend de producción (Ago 10)**.
 - **GestionarFuentesDialog — confirmar que reasignación de fuentes es atómica en backend; fallo parcial deja leads con fuente desactivada (Ago 10)**.
 - **Leads "Nuevo"/"Pendiente de pago" — revisar BD por leads persistidos con esos estados en ventana de ~6 min antes del fix (12:41-12:47) (Ago 10)**.
