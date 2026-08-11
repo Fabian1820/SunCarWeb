@@ -5,7 +5,7 @@ import type { FacturaClienteObra, ObraTerminada, PagoObra } from "./obras-termin
 const EMPRESA = {
   nombre: "SunCar",
   nombreLargo: "Empresa Solar Carros",
-  direccion: "Calle 24 #109 e/ 1ra y 3ra, Playa, La Habana",
+  direccion: "Calle 2 e/3ra y 5ta, Miramar, Playa, La Habana",
 };
 
 const fmt = (v?: number | null) => {

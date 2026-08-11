@@ -38,7 +38,7 @@ export interface FacturaContabilidadExportContext {
 export class ExportFacturaContabilidadService {
   private static readonly EMPRESA = {
     nombre: "MPM Solar Carro",
-    direccion: "Calle 24 #109 e/ 1ra y 3ra, Playa La Habana, Cuba",
+    direccion: "Calle 2 e/3ra y 5ta, Miramar, Playa, La Habana",
     telefono: "+53 63962417",
     nit: "50004469717",
   };

@@ -328,7 +328,7 @@ export class ExportFacturaService {
 
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    doc.text("Calle 24 #109 e/ 1ra y 3ra, Playa La Habana, Cuba", marginX, y);
+    doc.text("Calle 2 e/3ra y 5ta, Miramar, Playa, La Habana", marginX, y);
     y += 8;
 
     // Línea separadora
