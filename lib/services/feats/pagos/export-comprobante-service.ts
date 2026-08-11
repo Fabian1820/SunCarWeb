@@ -23,7 +23,7 @@ interface ComprobanteData {
 export class ExportComprobanteService {
   private static readonly EMPRESA = {
     nombre: "Empresa Solar Carros",
-    direccion: "Calle 24 #109 e/ 1ra y 3ra, Playa La Habana, Cuba",
+    direccion: "Calle 2 e/3ra y 5ta, Miramar, Playa, La Habana",
     telefono: "+53 5 282 6474",
     email: "info@suncarsrl.com",
   };
