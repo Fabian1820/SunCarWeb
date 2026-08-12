@@ -39,6 +39,7 @@ import {
   Gauge,
   HelpCircle,
   ClipboardList,
+  FlaskConical,
 } from "lucide-react"
 
 /**
@@ -313,6 +314,16 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     icon: ClipboardList,
     iconClass: "text-emerald-600",
     href: "/datos-a-averiguar",
+    grupo: "resultados-empresa",
+    alwaysVisible: true,
+  },
+  {
+    key: "numeros-prueba",
+    label: "Números de Prueba",
+    descripcion: "Números de teléfono a los que el asistente de WhatsApp siempre responde, para probar el flujo sin importar el historial.",
+    icon: FlaskConical,
+    iconClass: "text-emerald-600",
+    href: "/numeros-prueba",
     grupo: "resultados-empresa",
     alwaysVisible: true,
   },
