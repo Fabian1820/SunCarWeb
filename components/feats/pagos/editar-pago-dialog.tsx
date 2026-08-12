@@ -99,7 +99,7 @@ export function EditarPagoDialog({ open, onOpenChange, pago, oferta, onSuccess }
         const denominaciones = {
             USD: ['100', '50', '20', '10', '5', '1'],
             EUR: ['500', '200', '100', '50', '20', '10', '5'],
-            CUP: ['1000', '500', '200', '100', '50', '20', '10', '5', '1']
+            CUP: ['5000', '2000', '1000', '500', '200', '100', '50', '20', '10', '5', '1']
         }
         return denominaciones[moneda as keyof typeof denominaciones] || []
     }
