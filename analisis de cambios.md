@@ -2,6 +2,38 @@
 
 ---
 
+## 📅 12 de Agosto, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**2 commits** — ambos de yany1509. Cambio puntual en el módulo de Pagos: se agregan los billetes de 5000 y 2000 CUP al desglose de denominaciones en los tres diálogos de registro/edición de pagos.
+
+---
+
+### Área 1: Pagos — billetes de 5000 y 2000 CUP en Registrar Pago (1 commit — yany1509, 17:45)
+
+- **`feat(pagos): agrega billetes de 5000 y 2000 CUP al desglose en Registrar Pago`** (17:45) — Se añaden las denominaciones de 5000 y 2000 CUP al array de billetes en `components/feats/pagos/registrar-pago-dialog.tsx`. Cambio mínimo: 1 adición, 1 eliminación.
+
+---
+
+### Área 2: Pagos — billetes de 5000 y 2000 CUP en Editar Pago y Registrar Devolución (1 commit — yany1509, 17:52)
+
+- **`feat(pagos): agrega billetes de 5000 y 2000 CUP al desglose en Editar Pago y Registrar Devolucion`** (17:52) — La misma adición de denominaciones aplicada a `components/feats/pagos/editar-pago-dialog.tsx` y `components/feats/pagos/registrar-devolucion-pago-dialog.tsx`. 1 adición y 1 eliminación por archivo.
+
+---
+
+### Puede dar bateo
+
+1. **Denominaciones de billetes CUP hardcodeadas en 3 diálogos separados — posible 4° diálogo sin actualizar**: Los 2 commits en 7 minutos (17:45 y 17:52) cubren Registrar Pago, Editar Pago y Registrar Devolución. Si existe algún otro diálogo o componente de consulta/histórico que también muestre el desglose de billetes, no recibirá las nuevas denominaciones y mostrará una lista inconsistente con los registros guardados.
+
+2. **Lista de denominaciones no centralizada — riesgo de desincronía futura**: El hecho de que se necesitaron 2 commits separados para actualizar 3 archivos indica que el array de denominaciones está duplicado en cada diálogo. Cualquier denominación nueva en el futuro requerirá el mismo proceso manual, con riesgo de omitir algún archivo.
+
+3. **Orden del array no confirmado**: El cambio mínimo (1 add / 1 delete) no aclara si los billetes de 5000 y 2000 se insertaron en la posición correcta (generalmente descendente por valor: 5000, 2000, 1000, 500...). Si el orden es incorrecto, el desglose visual puede resultar confuso para el usuario.
+
+4. **Ventana de ~7 minutos con Railway auto-deploy (17:45-17:52)**: Si Railway hace auto-deploy de cada commit, hubo un intervalo donde Registrar Pago ya mostraba 5000 y 2000 CUP pero Editar Pago y Registrar Devolución aún no. Cualquier operación iniciada en ese intervalo puede haber generado comprobantes con los campos de billetes en estado intermedio.
+
+---
+
 ## 📅 11 de Agosto, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -136,7 +168,7 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 2. **Reactivar con `LEAD_DUPLICADO_TELEFONO` — usuario bloqueado sin resolución guiada**: El sistema muestra el mensaje real del backend, pero no ofrece navegación al lead duplicado ni opción de fusión. El usuario queda sin acción clara para desbloquear la reactivación.
 
-3. **Checkbox "Mostrar anulados" desactivado por defecto — leads anulados invisibles, riesgo de recreación**: Usuarios que busquen leads que recuerdan y no los encuentran pueden asumir que fueron borrados y crearlos de nuevo, generando duplicados con el mismo teléfono (que el backend puede rechazar con `LEAD_DUPLICADO_TELEFONO`).
+3. **Checkbox "Mostrar anulados" desactivado por defecto — leads anulados invisibles, riesgo de recreaón**: Usuarios que busquen leads que recuerdan y no los encuentran pueden asumir que fueron borrados y crearlos de nuevo, generando duplicados con el mismo teléfono (que el backend puede rechazar con `LEAD_DUPLICADO_TELEFONO`).
 
 4. **Migración de filtrado JS → backend — confirmar que todos los parámetros son soportados en producción**: `estado` múltiple, `provincia`, `municipio`, `prioridad` y `ofertas_filtro` se envían ahora al backend. Si el backend en producción no acepta o ignora alguno, ese filtro deja de funcionar silenciosamente retornando más resultados de los esperados.
 
@@ -172,7 +204,7 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 2. **Paginación sin cota máxima total — 500 en 500 puede disparar múltiples requests en listas grandes**: Si hay cientos o miles de obras terminadas con cobro pendiente, el cliente hace múltiples fetches de 500 registros antes de tener los datos completos. Sin una cota máxima total, el tiempo de carga del PDF puede ser muy alto o causar timeout del navegador.
 
-3. **TSC incrementó de 382 a 392 — 10 nuevos errores TypeScript con este cherry-pick**: Aunque el commit confirma que el conteo es el mismo antes y después en esta rama, el número subió 10 respecto a los commits del día anterior. Puede indicar que el cherry-pick arrastró código con tipos no declarados que en runtime fallen silenciosamente.
+3. **TSC incrementó de 382 a 392 — 10 nuevos errores TypeScript con este cherry-pick**: Aunque el commit confirma que el conteo es el mismo antes y después en esta rama, el número subió 10 respecto a los commits del día anterior. Puede indicar que el cherry-pick arrastre código con tipos no declarados que en runtime fallen silenciosamente.
 
 4. **Anchos fijos de columnas en PDF (269mm) — nombre largo de oferta puede desbordar o truncarse**: El campo "Oferta (nombre largo)" (`nombre_completo`) puede ser muy extenso. Con ancho fijo, el texto puede truncarse sin indicación visual o romper el layout de la fila en el PDF generado.
 
@@ -226,36 +258,11 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 4 de Agosto, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**1 commit real** — yany1509. Cherry-pick desde dev: nuevo módulo **Distribución de Comerciales** (página, diálogo, hooks y servicio) más filtro/columna de equipo comercial en las tablas de Leads y Clientes, apoyado en el endpoint `comercial-multivalor` descrito como ya en producción.
-
----
-
-### Área 1: Distribución de Comerciales — nuevo módulo + filtro en Leads y Clientes (1 commit — yany1509, 12:17)
-
-- **`feat(distribucion-comerciales): agrega modulo y filtro de equipo BTB/BTC en Leads y Clientes`** — Cherry-pick aislado desde dev. Incluye: página de Distribución de Comerciales, diálogo de asignación, hooks dedicados y servicio. Además agrega un filtro y columna de "equipo comercial" (BTB/BTC) en las tablas de Leads y Clientes, consumiendo el endpoint de `comercial-multivalor` que ya estaba deployado en producción.
-
----
-
-### Puede dar bateo
-
-1. **Módulo distribucion-comerciales sin permisos asignados — ningún usuario lo verá hasta que SuperAdmin lo configure**: El nuevo módulo no está en la lista de permisos de ningún trabajador. Necesita ser creado en el panel de módulos y asignado manualmente; hasta entonces es invisible para todos salvo SuperAdmin.
-
-2. **Cherry-pick desde dev — posible arrastre de dependencias no presentes en main**: Igual que con informe-direccion (Ago 3), un cherry-pick "aislado" puede traer imports de tipos, constantes o componentes que solo existen en la rama dev. Con TypeScript errors ignorados en `next.config.mjs`, el módulo puede fallar en runtime sin error de build.
-
-3. **Endpoint `comercial-multivalor` "ya en producción" sin verificar respuesta actual**: El commit asume que el endpoint está listo. Si la forma de la respuesta cambió desde que se escribió el código en dev, o si el campo `equipo_comercial` tiene un nombre distinto en el JSON del backend, la columna aparecerá vacía o causará un error de renderizado silencioso.
-
-4. **Filtro equipo_comercial en Leads y Clientes — dos tablas afectadas por un único commit**: Cualquier bug en la lógica del filtro (p.ej., comparación incorrecta de valores BTB vs BTC) afecta simultáneamente ambas vistas. No hay aislamiento entre módulos.
-
-5. **Diálogo de asignación sin confirmar endpoint de escritura**: El módulo incluye un diálogo para asignar equipo comercial. Si el endpoint `PATCH` correspondiente no existe o espera un formato diferente, las asignaciones fallarán silenciosamente o con error 404/422.
-
----
-
 #### Seguimientos vigentes
 
+- **Denominaciones 5000 y 2000 CUP hardcodeadas en 3 diálogos — confirmar que no existe un 4° diálogo de pagos que muestre el desglose sin actualizar (Ago 12)**.
+- **Billetes 5000/2000 CUP en 2 commits separados en 7 min — confirmar orden descendente del array y cálculo de total correcto en los 3 diálogos (Ago 12)**.
+- **Railway auto-deploy: ventana de ~7 min (17:45-17:52) donde solo Registrar Pago tenía las nuevas denominaciones; confirmar que no quedaron registros de pago con desglose incompleto (Ago 12)**.
 - **Dirección de empresa hardcodeada en múltiples archivos — confirmar que NO quedan referencias a "Calle 24 #109 e/ 1ra y 3ra" en vales, reportes, informes u otros PDFs generados más allá de los 6 archivos ya corregidos (Ago 11)**.
 - **FuenteSelector — confirmar persistencia de `fuente_referencia` en POST/PATCH leads y clientes en backend de producción (Ago 10)**.
 - **GestionarFuentesDialog — confirmar que reasignación de fuentes es atómica en backend; fallo parcial deja leads con fuente desactivada (Ago 10)**.
@@ -438,4 +445,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. La entrada del **28 de Julio** fue eliminada el 5 de Agosto al superar los 7 días. La entrada del **30 de Julio** fue eliminada el 7 de Agosto al superar los 7 días. La entrada del **31 de Julio** fue eliminada el 8 de Agosto al superar los 7 días. Las entradas del **1, 2 y 3 de Agosto** fueron eliminadas el 10 de Agosto al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. La entrada del **28 de Julio** fue eliminada el 5 de Agosto al superar los 7 días. La entrada del **30 de Julio** fue eliminada el 7 de Agosto al superar los 7 días. La entrada del **31 de Julio** fue eliminada el 8 de Agosto al superar los 7 días. Las entradas del **1, 2 y 3 de Agosto** fueron eliminadas el 10 de Agosto al superar los 7 días. La entrada del **4 de Agosto** fue eliminada el 12 de Agosto al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
