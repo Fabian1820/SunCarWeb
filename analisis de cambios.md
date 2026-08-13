@@ -2,6 +2,20 @@
 
 ---
 
+## 📅 13 de Agosto, 2026
+
+### Resumen de cambios (últimas 24h)
+
+Sin commits nuevos de código. El único commit en las últimas 24h es "Analisis diario Claude" (generado automáticamente). Los cambios del 12 de Agosto (billetes 5000 y 2000 CUP en los 3 diálogos de pagos) ya están cubiertos en la entrada de ayer. No hay cambios en producción.
+
+---
+
+### Puede dar bateo
+
+Sin cambios nuevos — sin riesgos nuevos.
+
+---
+
 ## 📅 12 de Agosto, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -214,50 +228,6 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 5 de Agosto, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**3 commits reales** — todos de yany1509. Día activo centrado en el módulo de **Leads**: filtro de fecha con presets + nuevos sub-permisos aditivos, nuevo campo `telefono_adicional_nombre`, y validación estricta de formato de teléfono en los 4 formularios de Leads y Clientes.
-
----
-
-### Área 1: Leads — filtro de fecha por presets + sub-permisos aditivos (1 commit — yany1509, 13:30)
-
-- **`feat(leads): filtro de fecha por presets + permisos aditivos ocultan botones`** — Reemplaza los dos `<input type="date">` siempre visibles por un Select con presets (Todas las fechas / Hoy / Esta semana / Este mes / Definir rango). Los 3 primeros calculan `fechaDesde`/`fechaHasta` automáticamente en cliente. "Definir rango" muestra los inputs manuales. Declara los sub-permisos de `leads` en el catálogo: `leads/equipo`, `leads/todos`, `leads/crear`, `leads/editar`, `leads/anular`, `leads/convertir`, `leads/fotos`, `leads/exportar` (todos aditivos). Gatea con `hasExactPermission`: "Nuevo Lead" (crear), "Convertir a cliente", "Agregar foto", "Editar" (fila + atajo del diálogo de convertir) y botones de exportar. El botón "Eliminar" (hard delete) no se gatea porque no corresponde 1:1 con `leads/anular`. Backfill previo al commit: los 26 trabajadores con acceso a `leads` recibieron los 5 permisos operativos nuevos vía `scripts/backfill_permisos_leads_aditivos.py`.
-
----
-
-### Área 2: Leads — nuevo campo telefono_adicional_nombre (1 commit — yany1509, 14:05)
-
-- **`feat(leads): agrega telefono_adicional_nombre (a quien pertenece el numero)`** — Cherry-pick desde dev. Nuevo campo `telefono_adicional_nombre` en `Lead`/`LeadCreateData`/`LeadUpdateData`. Input condicional "¿De quién es ese teléfono?" que aparece solo si hay `telefono_adicional`; se limpia del payload si `telefono_adicional` queda vacío. Se muestra "(nombre)" junto al teléfono adicional en la tabla y en el detalle "Ver Lead". Motivación: patrones detectados en datos de producción donde el nombre se mezclaba como texto libre dentro del campo de número ("58548362 Rosana Marmesa Argüelles", "Fijo: 49418601").
-
----
-
-### Área 3: Leads y Clientes — validación estricta de formato de teléfono (1 commit — yany1509, 14:49)
-
-- **`feat(leads,clientes): valida formato estricto de telefono en los 4 formularios`** — Nuevo `lib/utils/telefono.ts` compartido: `sanitizarTelefono()` filtra en tiempo real (solo dígitos + "+" inicial opcional) mientras el usuario escribe; `esTelefonoValido()` valida el formato final (`^\+?\d{6,15}$`, mismo patrón que el backend). Aplicado en `create-lead-dialog` / `edit-lead-dialog` / `create-client-dialog` / `edit-client-dialog` para `telefono` y `telefono_adicional`. Antes: el teléfono principal en leads no filtraba nada; `telefono_adicional` en leads permitía espacios/guiones/paréntesis; clientes no filtraba nada. Ahora `validateForm` agrega error de formato además del ya existente de "obligatorio". Placeholders actualizados a "+5351234567". Verificado: tsc --noEmit mismo conteo de errores preexistentes (382), cero errores nuevos.
-
----
-
-### Puede dar bateo
-
-1. **Botón "Eliminar" (hard delete) sin gatear con permisos — visible para todos los usuarios con acceso a leads**: El commit documenta explícitamente que no se gateó porque "no corresponde 1:1 con `leads/anular`". Esto deja la acción más destructiva del módulo sin control de permisos, accesible para cualquier trabajador que tenga acceso a `leads`, independientemente de su rol.
-
-2. **Backfill de sub-permisos leads — confirmar ejecución exitosa para los 26 trabajadores**: El backfill se ejecutó en producción antes del commit. Si falló silenciosamente para algún trabajador (error de red, CI/documento no encontrado), ese trabajador verá los botones desaparecidos sin haber perdido permisos explícitamente, bloqueando su flujo de trabajo sin mensaje claro.
-
-3. **Filtros de fecha por preset calculados en cliente — desfase timezone**: Los presets "Hoy", "Esta semana" y "Este mes" calculan `fechaDesde`/`fechaHasta` en el navegador del usuario. Si el timezone del cliente difiere del timezone del backend (el backend usa UTC; los usuarios están en Cuba, UTC-5), los filtros pueden incluir o excluir registros del día borde incorrectamente.
-
-4. **`telefono_adicional_nombre` — confirmar soporte en backend (`POST/PATCH /leads/{id}`)**: El campo se agrega al tipo y se envía en el payload. Si el backend no acepta ni persiste `telefono_adicional_nombre`, el campo se enviará, no dará error 422 (depende de la validación del backend), pero se perderá silenciosamente sin confirmación al usuario.
-
-5. **`telefono_adicional_nombre` al limpiar `telefono_adicional` — semántica de campo ausente en PATCH**: El commit limpia el nombre del payload si `telefono_adicional` queda vacío. Si el backend trata la ausencia del campo en un PATCH como "no cambiar" (en vez de "borrar"), un usuario que borre el teléfono adicional dejará el nombre anterior guardado en BD aunque el frontend muestre el campo vacío.
-
-6. **Validación de teléfono `^\+?\d{6,15}$` — confirmar que el patrón es idéntico al del backend**: El commit asume paridad con el patrón del backend. Si el backend usa una expresión diferente o más restrictiva, números que pasan la validación del frontend pueden ser rechazados con error 422 genérico, sin mensaje de usuario apropiado.
-
-7. **`sanitizarTelefono()` modifica el input silenciosamente**: Si un usuario pega un número con formato común (+53 5 123 4567 o 535-123-4567), la función elimina los espacios y guiones sin aviso visual. Puede resultar confuso o percibirse como un bug al ver el campo modificado.
-
----
-
 #### Seguimientos vigentes
 
 - **Denominaciones 5000 y 2000 CUP hardcodeadas en 3 diálogos — confirmar que no existe un 4° diálogo de pagos que muestre el desglose sin actualizar (Ago 12)**.
@@ -287,6 +257,7 @@ Sin cambios nuevos — sin riesgos nuevos.
 - **Paginación 500 en 500 en cobros-pendientes sin cota total — puede causar timeout en listas largas (Ago 6)**.
 - **TSC incrementó 10 errores con cherry-pick informe-direccion cobros-pendientes — confirmar que no son regresiones de tipo silenciosas (Ago 6)**.
 - **PDF cobros-pendientes columna "Oferta (nombre largo)" con ancho fijo — puede truncarse en facturas con ofertas complejas (Ago 6)**.
+- **`sanitizarTelefono()` modifica el input silenciosamente — puede confundir usuarios que pegan números con espacios/guiones sin aviso visual (Ago 5)**.
 - **Botón "Eliminar" leads (hard delete) sin gatear con permisos — visible para todos los usuarios con acceso a leads (Ago 5)**.
 - **Backfill de sub-permisos leads — confirmar ejecución exitosa para los 26 trabajadores en producción (Ago 5)**.
 - **Filtros de fecha por preset calculados en cliente — desfase timezone con backend puede afectar filtros de día borde (Ago 5)**.
@@ -445,4 +416,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. La entrada del **28 de Julio** fue eliminada el 5 de Agosto al superar los 7 días. La entrada del **30 de Julio** fue eliminada el 7 de Agosto al superar los 7 días. La entrada del **31 de Julio** fue eliminada el 8 de Agosto al superar los 7 días. Las entradas del **1, 2 y 3 de Agosto** fueron eliminadas el 10 de Agosto al superar los 7 días. La entrada del **4 de Agosto** fue eliminada el 12 de Agosto al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. La entrada del **28 de Julio** fue eliminada el 5 de Agosto al superar los 7 días. La entrada del **30 de Julio** fue eliminada el 7 de Agosto al superar los 7 días. La entrada del **31 de Julio** fue eliminada el 8 de Agosto al superar los 7 días. Las entradas del **1, 2 y 3 de Agosto** fueron eliminadas el 10 de Agosto al superar los 7 días. La entrada del **4 de Agosto** fue eliminada el 12 de Agosto al superar los 7 días. La entrada del **5 de Agosto** fue eliminada el 13 de Agosto al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
