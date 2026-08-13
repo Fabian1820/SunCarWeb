@@ -305,7 +305,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-emerald-600",
     href: "/preguntas-frecuentes",
     grupo: "resultados-empresa",
-    alwaysVisible: true,
+    superAdminOnly: true,
   },
   {
     key: "datos-a-averiguar",
@@ -315,7 +315,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-emerald-600",
     href: "/datos-a-averiguar",
     grupo: "resultados-empresa",
-    alwaysVisible: true,
+    superAdminOnly: true,
   },
   {
     key: "numeros-prueba",
@@ -325,7 +325,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-emerald-600",
     href: "/numeros-prueba",
     grupo: "resultados-empresa",
-    alwaysVisible: true,
+    superAdminOnly: true,
   },
 
   // ───────── Comercial Instaladora ─────────
