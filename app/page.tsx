@@ -73,6 +73,7 @@ type DashboardModule = {
   description: string;
   iconClass: string;
   alwaysVisible?: boolean;
+  superAdminOnly?: boolean;
   childKeys?: string[];
 };
 
@@ -288,6 +289,7 @@ export default function Dashboard() {
     description: m.descripcion,
     iconClass: m.iconClass,
     alwaysVisible: m.alwaysVisible,
+    superAdminOnly: m.superAdminOnly,
     childKeys: m.childKeys,
   });
 
@@ -349,6 +351,9 @@ export default function Dashboard() {
 
   const availableModules = [
     ...allModules.filter((module) => {
+      // Los módulos marcados como superAdminOnly no se muestran a nadie más,
+      // aunque tengan permiso asignado.
+      if (module.superAdminOnly) return !!user?.is_superAdmin;
       if (module.alwaysVisible) return true;
       if (hasPermission(module.permission ?? module.id)) return true;
       if (module.childKeys?.some((k) => hasPermission(k))) return true;
