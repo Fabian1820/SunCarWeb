@@ -257,7 +257,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     icon: MessageCircle,
     iconClass: "text-emerald-600",
     href: "/api/chatwoot/sso",
-    grupo: "resultados-empresa",
+    grupo: "comercial-instaladora",
     subPermisos: [
       {
         key: "suncar-whatsapp/admin",
@@ -275,7 +275,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     icon: HelpCircle,
     iconClass: "text-emerald-600",
     href: "/preguntas-frecuentes",
-    grupo: "resultados-empresa",
+    grupo: "comercial-instaladora",
     superAdminOnly: true,
   },
   {
@@ -285,7 +285,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     icon: ClipboardList,
     iconClass: "text-emerald-600",
     href: "/datos-a-averiguar",
-    grupo: "resultados-empresa",
+    grupo: "comercial-instaladora",
     superAdminOnly: true,
   },
   {
@@ -295,7 +295,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     icon: FlaskConical,
     iconClass: "text-emerald-600",
     href: "/numeros-prueba",
-    grupo: "resultados-empresa",
+    grupo: "comercial-instaladora",
     superAdminOnly: true,
   },
 
