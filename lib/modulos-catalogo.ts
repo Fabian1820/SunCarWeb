@@ -404,7 +404,6 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-emerald-600",
     href: "/preguntas-frecuentes",
     grupo: "comercial-instaladora",
-    superAdminOnly: true,
   },
   {
     key: "datos-a-averiguar",
@@ -414,7 +413,6 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-emerald-600",
     href: "/datos-a-averiguar",
     grupo: "comercial-instaladora",
-    superAdminOnly: true,
   },
   {
     key: "numeros-prueba",
