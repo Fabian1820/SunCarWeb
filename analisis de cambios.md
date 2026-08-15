@@ -2,6 +2,32 @@
 
 ---
 
+## 📅 15 de Agosto, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**1 commit real** — yany1509. Fix puntual en el sistema de permisos: "Preguntas Frecuentes" y "Datos a Averiguar" ya pueden asignarse y ser vistos por comerciales.
+
+---
+
+### Área 1: Permisos — Preguntas Frecuentes y Datos a Averiguar accesibles para comerciales (1 commit — yany1509, 14:50)
+
+- **`fix(permisos): Preguntas Frecuentes y Datos a Averiguar se pueden asignar`** — El cherry-pick del 14 de Agosto había marcado los 4 módulos del asistente de WhatsApp (SunCar WhatsApp, Preguntas Frecuentes, Datos a Averiguar y Números de Prueba) como exclusivos para superAdmin. El problema: la comprobación de superAdmin se evalúa antes que la de permisos asignados, por lo que aunque un módulo estuviera asignado a una comercial, no podía verlo. Fix: "Preguntas Frecuentes" y "Datos a Averiguar" salen de la restricción de superAdmin y quedan bajo el sistema regular de permisos (quien los tenga asignados los ve). "Números de Prueba" y "Solicitudes de Desarrollo" siguen siendo solo para superAdmin.
+
+---
+
+### Puede dar bateo
+
+1. **La visibilidad depende del sistema de permisos regular — confirmar asignaciones en BD**: El fix elimina la barrera de superAdmin pero no asigna los módulos. Si las comerciales que los necesitan no los tienen asignados explícitamente en sus permisos de BD, seguirán sin verlos. Verificar que las asignaciones están hechas en producción.
+
+2. **"Preguntas Frecuentes" sigue sin RouteGuard dedicado**: Cualquier usuario autenticado puede acceder a `/preguntas-frecuentes` directamente por URL. Ahora que el módulo es visible para no-superAdmin en el dashboard, este riesgo es más relevante que antes.
+
+3. **Contenido que alimenta al wizard de WhatsApp en tiempo real, sin audit trail**: Las comerciales con permiso asignado pueden modificar las FAQs y los campos que el asistente recopila, afectando directamente las respuestas del bot en producción. No hay flujo de revisión ni registro de quién cambió qué.
+
+4. **"Datos a Averiguar" — confirmar que tampoco tiene RouteGuard propio**: El análisis del 14 de Agosto identificó ausencia de RouteGuard en "Preguntas Frecuentes"; verificar si "Datos a Averiguar" está en la misma situación.
+
+---
+
 ## 📅 14 de Agosto, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -12,7 +38,7 @@
 
 ### Área 1: Permisos — fix nativo de guardado cuando falla la carga (1 commit — Ruben0304, 14:03)
 
-- **`fix(permisos): bloquear guardado si falla la carga de permisos actuales`** — Commit nativo (no cherry-pick). `getTrabajadorModulosNombres` ya no silencia errores: si falla (red, 429, 500, etc.) se activa `permisosLoadError`, se muestra toast + banner y “Guardar Cambios” queda deshabilitado hasta reabrir el diálogo. `PermisosService.getTrabajadorModulosNombres/updateTrabajadorPermisos` ahora detectan `success:false` y lanzan `Error` (antes `apiRequest` no lanzaba excepción en HTTPException JSON del backend, por lo que el `.catch(() => [])` del diálogo nunca se disparaba). Guardar lista de permisos vacía intencionalmente pide `window.confirm` y envía `confirmar_vacio: true`. Complementa fix de backend (SuncarBackend) para el caso de Fernando Ferrera (CEO) sin permisos.
+- **`fix(permisos): bloquear guardado si falla la carga de permisos actuales`** — Commit nativo (no cherry-pick). `getTrabajadorModulosNombres` ya no silencia errores: si falla (red, 429, 500, etc.) se activa `permisosLoadError`, se muestra toast + banner y "Guardar Cambios" queda deshabilitado hasta reabrir el diálogo. `PermisosService.getTrabajadorModulosNombres/updateTrabajadorPermisos` ahora detectan `success:false` y lanzan `Error` (antes `apiRequest` no lanzaba excepción en HTTPException JSON del backend, por lo que el `.catch(() => [])` del diálogo nunca se disparaba). Guardar lista de permisos vacía intencionalmente pide `window.confirm` y envía `confirmar_vacio: true`. Complementa fix de backend (SuncarBackend) para el caso de Fernando Ferrera (CEO) sin permisos.
 
 ---
 
@@ -157,7 +183,7 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ### Área 1: Leads — Catálogo cerrado de fuentes, prioridad Urgente y rediseño UI (4 commits — yany1509, 12:41-13:37)
 
-- **`feat(leads): catalogo cerrado de fuentes, prioridad Urgente y rediseño de la UI`** (12:41) — FuenteSelector desde `/api/fuentes`; GestionarFuentesDialog; archivos nuevos `fuente-selector`, `gestionar-fuentes-dialog`, `lib/constants/fuentes.ts`. Prioridad Urgente y Ninguna con colores nuevos. UI: columnas Fecha de contacto y Fuente, filtro “Sin confirmadas”, popover compacto, 3 checks antes de convertir. TSC: 241 errores, cero nuevos.
+- **`feat(leads): catalogo cerrado de fuentes, prioridad Urgente y rediseño de la UI`** (12:41) — FuenteSelector desde `/api/fuentes`; GestionarFuentesDialog; archivos nuevos `fuente-selector`, `gestionar-fuentes-dialog`, `lib/constants/fuentes.ts`. Prioridad Urgente y Ninguna con colores nuevos. UI: columnas Fecha de contacto y Fuente, filtro "Sin confirmadas", popover compacto, 3 checks antes de convertir. TSC: 241 errores, cero nuevos.
 - **`fix(leads): quita los estados "Nuevo" y "Pendiente de pago" de los selectores`** (12:47) — Se habían colado del commit anterior. Los 3 selectores vuelven a los 9 estados. 0 leads usaban esos estados.
 - **`fix(leads): quita "Sin respuesta" de todos los selectores, badges y mapas`** (12:57) — Eliminado de 11 sitios. Los 149 leads migrados a "No interesado". TSC 241 errores (cero nuevos).
 - **`fix(leads): quita "Pendiente de instalación" de crear/editar, deja el filtro igual`** (13:37) — Los 21 leads con ese estado se mantienen en BD; si se abre Editar, el selector aparecerá vacío.
@@ -220,36 +246,10 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 7 de Agosto, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**1 commit real** — yany1509 (co-autorado con Claude Opus 5). Módulo de **Leads**: sistema de anular/reactivar leads, migración de todos los filtros del cliente al backend, y paginación paralela en la exportación.
-
----
-
-### Área 1: Leads — anular/reactivar, filtros al backend y paginación paralela (1 commit — yany1509, 17:47)
-
-- **`feat(leads): anular/activar, filtros al backend y paginacion paralela (bloques A/B/C)`** — Bloque A: botón anular/reactivar con diálogo explicativo. `LEAD_DUPLICADO_TELEFONO` muestra mensaje real del backend. Badge "Anulado" y fila atenuada. Bloque B: `LeadService.getLeads` acepta `estado` múltiple, `provincia`, `municipio`, `prioridad`, `ofertas_filtro` y `activo`; filtrado migrado del cliente al backend. Bloque C: `fetchAllLeadsByBaseFilters` pagina en paralelo de a 5. TSC: 249 errores antes y después; next build compila `/leads` sin errores.
-
----
-
-### Puede dar bateo
-
-1. **Anular lead cancela ofertas de confección en cascada — sin flujo de reversa confirmado**.
-2. **Reactivar con `LEAD_DUPLICADO_TELEFONO` — usuario bloqueado sin navegación al duplicado ni opción de fusión**.
-3. **Checkbox "Mostrar anulados" desactivado por defecto — leads anulados invisibles, riesgo de recreaoción de duplicados**.
-4. **Filtros leads migrados a backend — confirmar soporte de `estado` múltiple, `provincia`, `municipio`, `prioridad` y `ofertas_filtro` en producción**.
-5. **Paginación paralela de a 5 en exportación — puede saturar el backend en listas con 50+ páginas**.
-6. **Endpoint de anular lead — confirmar existencia y cancelación de ofertas en backend**.
-7. **Badge "Anulado" / estado "No interesado" — confirmar mapeo en `ESTADO_CONFIG`**.
-8. **Parámetro `activo` en `getLeads` — confirmar soporte en backend; sin él el checkbox no tiene efecto real**.
-9. **Bloques D-I ausentes en main — UI de Leads en estado intermedio respecto a capacidades del backend**.
-
----
-
 #### Seguimientos vigentes
 
+- **Permisos de "Preguntas Frecuentes" y "Datos a Averiguar" para comerciales — confirmar que las trabajadoras que los necesitan tienen los módulos asignados explícitamente en BD (Ago 15)**.
+- **"Preguntas Frecuentes" y "Datos a Averiguar" modificables por cualquier comercial con permiso, sin audit trail — cambios afectan al wizard de WhatsApp en tiempo real (Ago 15)**.
 - **`fix(permisos)` — `confirmar_vacio: true` requiere soporte en backend de producción; si el backend no lo maneja, guardado de permisos vacíos puede fallar (Ago 14)**.
 - **`fix(permisos)` — revisar otros servicios en `api-services.ts` con `.catch(() => [])` sobre errores `success:false` del backend (Ago 14)**.
 - **`feat(actualizaciones-felicity)` — página pública sin autenticación SunCar; confirmar seguridad de credenciales de Felicity y validación en backend del endpoint de subida (Ago 14)**.
@@ -262,7 +262,7 @@ Sin cambios nuevos — sin riesgos nuevos.
 - **Módulos WhatsApp solo visibles para superAdmin en dashboard pero rutas sin RouteGuard — accesibles con URL directa (Ago 14)**.
 - **Denominaciones 5000 y 2000 CUP hardcodeadas en 3 diálogos — confirmar que no existe un 4° diálogo de pagos sin actualizar (Ago 12)**.
 - **Railway auto-deploy: ventana de ~7 min (17:45-17:52) donde solo Registrar Pago tenía las nuevas denominaciones; confirmar que no quedaron registros con desglose incompleto (Ago 12)**.
-- **Dirección de empresa — confirmar que NO quedan referencias a “Calle 24 #109 e/ 1ra y 3ra” en vales, reportes, informes u otros PDFs más allá de los 6 archivos corregidos (Ago 11)**.
+- **Dirección de empresa — confirmar que NO quedan referencias a "Calle 24 #109 e/ 1ra y 3ra" en vales, reportes, informes u otros PDFs más allá de los 6 archivos corregidos (Ago 11)**.
 - **FuenteSelector — confirmar persistencia de `fuente_referencia` en POST/PATCH leads y clientes en backend (Ago 10)**.
 - **GestionarFuentesDialog — confirmar que reasignación de fuentes es atómica en backend (Ago 10)**.
 - **Leads "Nuevo"/"Pendiente de pago" — revisar BD por leads persistidos con esos estados en ventana de ~6 min (12:41-12:47) (Ago 10)**.
@@ -343,4 +343,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. La entrada del **28 de Julio** fue eliminada el 5 de Agosto al superar los 7 días. La entrada del **30 de Julio** fue eliminada el 7 de Agosto al superar los 7 días. La entrada del **31 de Julio** fue eliminada el 8 de Agosto al superar los 7 días. Las entradas del **1, 2 y 3 de Agosto** fueron eliminadas el 10 de Agosto al superar los 7 días. La entrada del **4 de Agosto** fue eliminada el 12 de Agosto al superar los 7 días. La entrada del **5 de Agosto** fue eliminada el 13 de Agosto al superar los 7 días. La entrada del **6 de Agosto** fue eliminada el 14 de Agosto al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. La entrada del **28 de Julio** fue eliminada el 5 de Agosto al superar los 7 días. La entrada del **30 de Julio** fue eliminada el 7 de Agosto al superar los 7 días. La entrada del **31 de Julio** fue eliminada el 8 de Agosto al superar los 7 días. Las entradas del **1, 2 y 3 de Agosto** fueron eliminadas el 10 de Agosto al superar los 7 días. La entrada del **4 de Agosto** fue eliminada el 12 de Agosto al superar los 7 días. La entrada del **5 de Agosto** fue eliminada el 13 de Agosto al superar los 7 días. La entrada del **6 de Agosto** fue eliminada el 14 de Agosto al superar los 7 días. La entrada del **7 de Agosto** fue eliminada el 15 de Agosto al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
