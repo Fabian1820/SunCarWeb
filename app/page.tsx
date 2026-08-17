@@ -57,6 +57,7 @@ import { WeatherWidget } from "@/components/feats/dashboard/weather-widget";
 import { EstadoOficinaSidebar } from "@/components/feats/equipos-felicity/estado-oficina-sidebar";
 import { ConfigurarEquipoOficinaButton } from "@/components/feats/equipos-felicity/configurar-equipo-oficina-button";
 import { Toaster } from "@/components/shared/molecule/toaster";
+import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
 import { UserMenu } from "@/components/auth/user-menu";
 import { BirthdayChecker } from "@/components/shared/molecule/birthday-checker";
@@ -156,6 +157,7 @@ export default function Dashboard() {
   const router = useRouter();
   const { hasPermission, user, loadModulosPermitidos, updateUserFoto, getAuthHeader } = useAuth();
   const { permiso: myWalletPermiso } = useMyWalletPermiso();
+  const { toast } = useToast();
 
   const [isContactosDialogOpen, setIsContactosDialogOpen] = useState(false);
   const [isTasaCambioDialogOpen, setIsTasaCambioDialogOpen] = useState(false);
@@ -509,10 +511,22 @@ export default function Dashboard() {
         if (!res.ok || !data.url) {
           throw new Error(data.message || "No se pudo abrir el módulo");
         }
-        if (win) win.location.href = data.url;
+        // Si el navegador bloqueó la pestaña, window.open devuelve null. Antes
+        // se perdía el enlace ahí mismo y no pasaba nada visible; ahora se
+        // navega en la propia pestaña, que es mejor que no entrar.
+        if (win) {
+          win.location.href = data.url;
+        } else {
+          window.location.href = data.url;
+        }
       } catch (error) {
         win?.close();
-        console.error("Error abriendo módulo externo:", error);
+        toast({
+          title: "No se pudo abrir el módulo",
+          description:
+            error instanceof Error ? error.message : "Error desconocido",
+          variant: "destructive",
+        });
       }
     };
 
