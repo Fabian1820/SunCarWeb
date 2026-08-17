@@ -4,6 +4,8 @@ export interface PreguntaFrecuente {
   respuesta: string;
   activa: boolean;
   orden: number;
+  /** Marca manual de revision. No la usa el asistente. */
+  revisada?: boolean;
 }
 
 export interface PreguntaFrecuenteCreateData {
@@ -11,6 +13,7 @@ export interface PreguntaFrecuenteCreateData {
   respuesta: string;
   activa: boolean;
   orden: number;
+  revisada?: boolean;
 }
 
 export type PreguntaFrecuenteUpdateData = Partial<PreguntaFrecuenteCreateData>;
