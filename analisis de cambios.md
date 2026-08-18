@@ -2,6 +2,20 @@
 
 ---
 
+## 📅 18 de Agosto, 2026
+
+### Resumen de cambios (últimas 24h)
+
+Sin commits nuevos de código. El único commit del período es "Analisis diario Claude" (generado automáticamente). Los 2 commits reales de yany1509 del 17 de Agosto (preguntas frecuentes y fix de módulos WhatsApp) ya estaban cubiertos en el análisis de ayer.
+
+---
+
+### Puede dar bateo
+
+Sin cambios nuevos — sin riesgos nuevos.
+
+---
+
 ## 📅 17 de Agosto, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -194,56 +208,6 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 10 de Agosto, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**9 commits** — todos de yany1509. Día muy activo: refactor completo del catálogo de fuentes en Leads con FuenteSelector y GestionarFuentesDialog, display de referencia en dos líneas, prioridad Urgente/Ninguna, rediseño de UI, tres fixes encadenados de estados inválidos, anular/activar clientes, filtro multi-select "Quien cobro" en pagos, y confirmación antes de guardar en los 4 flujos de pagos.
-
----
-
-### Área 1: Leads — Catálogo cerrado de fuentes, prioridad Urgente y rediseño UI (4 commits — yany1509, 12:41-13:37)
-
-- **`feat(leads): catalogo cerrado de fuentes, prioridad Urgente y rediseño de la UI`** (12:41) — FuenteSelector desde `/api/fuentes`; GestionarFuentesDialog; prioridades Urgente y Ninguna; columnas Fecha de contacto y Fuente; filtro "Sin confirmadas".
-- **`fix(leads): quita los estados "Nuevo" y "Pendiente de pago" de los selectores`** (12:47).
-- **`fix(leads): quita "Sin respuesta" de todos los selectores, badges y mapas`** (12:57) — Eliminado de 11 sitios. Los 149 leads migrados a "No interesado".
-- **`fix(leads): quita "Pendiente de instalación" de crear/editar, deja el filtro igual`** (13:37) — Los 21 leads con ese estado se mantienen en BD.
-
----
-
-### Área 2: Leads/Clientes — Display de fuente con referencia en dos líneas (2 commits — yany1509, 13:03-13:22)
-
-- **`feat(leads,clientes): muestra la referencia junto a fuente Trabajador/Sucursal/Otro cliente`** y **`feat(leads,clientes): fuente Trabajador/Sucursal/Otro cliente en dos líneas`** — Nuevo helper `lib/utils/fuente-display.ts` con tooltip en hover.
-
----
-
-### Área 3: Clientes — anular/activar, FuenteSelector y EstadoInstalacionMultiple (1 commit — yany1509, 15:11)
-
-- **`feat(clientes): anular/activar, FuenteSelector, filtro equipo comercial y estado instalacion multiple`** — Botón anular/activar + badge "Anulado" + checkbox "Ver anulados". FuenteSelector en create/edit. Nuevo `EstadoInstalacionMultipleDialog`.
-
----
-
-### Área 4-5: Clientes/Pagos — Estilo tabla, filtro multi-select y confirmación (2 commits — yany1509, 17:22-17:36)
-
-- **`feat(clientes,pagos): estilo de tabla de dev + filtro multi-select "quien cobro"`** — Badges de estado; tabla con borde redondeado. Filtro multi-select respaldado por `GET /pagos/cobradores` y parámetro `recibido_por`.
-- **`feat(pagos): confirmacion antes de guardar en crear/editar/cancelar/devolver pago`** — Los 4 diálogos piden confirmación explícita.
-
----
-
-### Puede dar bateo
-
-1. **FuenteSelector cierra el catálogo — leads con fuentes libres antiguas quedarán con campo vacío**.
-2. **GestionarFuentesDialog — fallo parcial en reasignación deja leads con fuente desactivada**.
-3. **"Nuevo"/"Pendiente de pago" — ventana de ~6 min (12:41-12:47) con posibles leads en BD con estados inválidos**.
-4. **"Pendiente de instalación" — 21 leads, modal de edición muestra campo vacío sin aviso**.
-5. **"Sin respuesta" eliminado de 11 sitios — confirmar migración 100% en BD**.
-6. **Clientes anular/activar — confirmar endpoint `updateClienteStatus` en backend**.
-7. **EstadoInstalacionMultipleDialog — confirmar endpoint de actualización masiva en backend**.
-8. **GET /pagos/cobradores + parámetro `recibido_por` — confirmar ambos en backend**.
-9. **Confirmación en 4 diálogos de pagos — confirmar que el monto nunca es null/undefined**.
-
----
-
 #### Seguimientos vigentes
 
 - **Permisos de "Preguntas Frecuentes" y "Datos a Averiguar" para comerciales — confirmar asignaciones explícitas en BD (Ago 15)**.
@@ -312,4 +276,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. La entrada del **28 de Julio** fue eliminada el 5 de Agosto al superar los 7 días. La entrada del **30 de Julio** fue eliminada el 7 de Agosto al superar los 7 días. La entrada del **31 de Julio** fue eliminada el 8 de Agosto al superar los 7 días. Las entradas del **1, 2 y 3 de Agosto** fueron eliminadas el 10 de Agosto al superar los 7 días. La entrada del **4 de Agosto** fue eliminada el 12 de Agosto al superar los 7 días. La entrada del **5 de Agosto** fue eliminada el 13 de Agosto al superar los 7 días. La entrada del **6 de Agosto** fue eliminada el 14 de Agosto al superar los 7 días. La entrada del **7 de Agosto** fue eliminada el 15 de Agosto al superar los 7 días. La entrada del **8 de Agosto** fue eliminada el 17 de Agosto al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. La entrada del **28 de Julio** fue eliminada el 5 de Agosto al superar los 7 días. La entrada del **30 de Julio** fue eliminada el 7 de Agosto al superar los 7 días. La entrada del **31 de Julio** fue eliminada el 8 de Agosto al superar los 7 días. Las entradas del **1, 2 y 3 de Agosto** fueron eliminadas el 10 de Agosto al superar los 7 días. La entrada del **4 de Agosto** fue eliminada el 12 de Agosto al superar los 7 días. La entrada del **5 de Agosto** fue eliminada el 13 de Agosto al superar los 7 días. La entrada del **6 de Agosto** fue eliminada el 14 de Agosto al superar los 7 días. La entrada del **7 de Agosto** fue eliminada el 15 de Agosto al superar los 7 días. La entrada del **8 de Agosto** fue eliminada el 17 de Agosto al superar los 7 días. La entrada del **10 de Agosto** fue eliminada el 18 de Agosto al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
