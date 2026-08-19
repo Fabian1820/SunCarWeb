@@ -31,6 +31,7 @@ import {
   type ModuloCatalogo,
 } from "@/lib/modulos-catalogo";
 import { useRef, useState, useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/shared/atom/button";
 import {
   Dialog,
@@ -157,6 +158,7 @@ export default function Dashboard() {
   const router = useRouter();
   const { hasPermission, user, loadModulosPermitidos, updateUserFoto, getAuthHeader } = useAuth();
   const { permiso: myWalletPermiso } = useMyWalletPermiso();
+  const { toast } = useToast();
 
   const [isContactosDialogOpen, setIsContactosDialogOpen] = useState(false);
   const [isTasaCambioDialogOpen, setIsTasaCambioDialogOpen] = useState(false);
@@ -514,6 +516,13 @@ export default function Dashboard() {
       } catch (error) {
         win?.close();
         console.error("Error abriendo módulo externo:", error);
+        // Sin esto la pestaña se abre y se cierra sola y el usuario no llega a
+        // saber por qué: el motivo se quedaba solo en la consola.
+        toast({
+          title: `No se pudo abrir ${module.title}`,
+          description: error instanceof Error ? error.message : "Error desconocido",
+          variant: "destructive",
+        });
       }
     };
 
