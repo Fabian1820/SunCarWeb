@@ -44,3 +44,9 @@ next-env.d.ts
 .DS_Store
 **/.DS_Store
 Entrega Variantes de marca & Editable/
+
+# Salida y caché de herramientas de análisis
+graphify-out/
+
+# Configuración local de editores
+.idea/
