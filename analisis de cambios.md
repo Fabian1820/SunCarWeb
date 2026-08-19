@@ -2,6 +2,41 @@
 
 ---
 
+## 📅 19 de Agosto, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**2 commits** — Fabian1820. Fix de acceso del superAdmin al módulo SunCar WhatsApp (error silencioso en SSO) y limpieza de archivos cacheados versionados por error.
+
+---
+
+### Área 1: fix(suncar-whatsapp) — superAdmin entra al módulo y error deja de ser mudo (Fabian1820, 15:18)
+
+- **`fix(suncar-whatsapp): el superAdmin entra al módulo y el error deja de ser mudo`** — El SSO de Chatwoot exigía el permiso explícito `suncar-whatsapp` en el backend y respondía 403. La tarjeta era visible en el dashboard, la pestaña se abría en blanco y se cerraba sola sin mostrar nada porque el motivo solo iba a `console.error`.
+  - **Fix de identidad**: se extrae del endpoint `/auth/validate` (token JWT firmado) en lugar de fiarse del `ci` en el cuerpo de la petición — eliminando un vector de suplantación.
+  - **Fix de roles**: el superAdmin entra como administrador en Chatwoot, igual que ya hacía `hasExactPermission`.
+  - **Fix de visibilidad de errores**: los errores que antes se tragaban silenciosamente ahora se muestran en pantalla con el motivo real.
+
+---
+
+### Área 2: gitignore — dejar de versionar graphify-out/ e IntelliJ (Fabian1820, 22:10)
+
+- **`Dejar de versionar la caché de graphify y la configuración de IntelliJ`** — `graphify-out/` (435 ficheros, ~12.8 MB de caché AST generada por la herramienta de análisis) eliminado del tracking. La configuración de IntelliJ también ignorada. Estos paths ahora en `.gitignore`.
+
+---
+
+### Puede dar bateo
+
+1. **Fix SSO — `/auth/validate` como fuente de identidad**: Confirmar que el endpoint `/auth/validate` no tiene rate limiting que pueda causar fallos en el SSO bajo carga. Si este endpoint está caído o responde lento, el SSO completo falla aunque Chatwoot esté disponible.
+
+2. **SuperAdmin entra como "administrador" en Chatwoot — confirmar que el rol es correcto para todos los superAdmins**: "Administrador" en Chatwoot puede dar acceso a configuración sensible de inboxes y datos de agentes. Verificar que esto es el acceso deseado para todos los usuarios con `is_superAdmin: true`.
+
+3. **`graphify-out/` en .gitignore pero no eliminado del historial git**: Los 435 ficheros siguen en commits anteriores, incrementando el tamaño de clone (~12.8 MB extra). Si hay información sensible en el caché AST, requiere `git filter-branch` o BFG Repo Cleaner para limpiar el historial.
+
+4. **Archivos IntelliJ (`.idea/`) — confirmar que ya estaban sin credenciales locales**: Si algún archivo de IntelliJ versionado anteriormente contenía rutas absolutas, tokens o configuraciones locales, siguen en el historial.
+
+---
+
 ## 📅 18 de Agosto, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -96,28 +131,28 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 Todos con committer date 14:11:08, cherry-picks de código original entre Jul 6 y Ago 13:
 
-- **`feat(permisos): módulos del asistente de WhatsApp solo visibles para superadmin`** — SunCar WhatsApp, Preguntas Frecuentes, Datos a Averiguar y Números de Prueba solo accesibles para superAdmin.
-- **`fix: quita el directorio telefónico, que no entra en esta release`** — El cherry-pick arrastró import de `DirectorioTelefonicoCard`, rompiendo el build. Fix inmediato.
-- **`feat(numeros-prueba): página para gestionar los números de prueba del wizard`** — Nuevo CRUD de números de prueba para el wizard de WhatsApp en Chatwoot.
-- **`fix(datos-a-averiguar): contenido tapado por el header fijo`** — Fix de layout `content-with-fixed-header`.
-- **`feat(datos-a-averiguar): página para gestionar lo que el asistente debe averiguar`** — CRUD de los campos que el wizard debe recopilar en cada conversación.
-- **`feat(preguntas-frecuentes): agrega la página al menú lateral (siempre visible)`** — `/preguntas-frecuentes` aparece en la navegación sin permiso dedicado.
-- **`feat(preguntas-frecuentes): página para gestionar FAQ que usa el wizard`** — CRUD completo contra endpoint del backend. Sin RouteGuard por ahora.
-- **`feat(actualizaciones-felicity): página pública de subida (zh/en/es) + búsqueda interna`** — Página standalone `/actualizaciones-felicity` para ingenieros de Felicity con login propio (separado del de SunCar). `AuthGuard` deja pasar la ruta sin sesión.
-- **`feat(equipos-felicity): equipo de oficina como referencia de estado`** — Marcar dispositivo Felicity como equipo de oficina; su estado (red/batería) en barra lateral del dashboard.
-- **`feat(equipos-felicity): nuevo módulo de monitoreo y administración FSolar`** — Listado de equipos por planta, vinculación de cuenta FSolar, panel de estado en vivo, ficha avanzada y zona de peligro con operaciones por nivel de riesgo.
-- **`feat(peticiones): módulo dedicado para superAdmin con resolución + terminada`** — Nueva página `/peticiones` solo superAdmin.
-- **`feat(solicitudes-desarrollo): botón flotante para reportar al equipo de desarrollo`** — FAB índigo sobre campana de notificaciones.
-- **`perf(chatwoot): paraleliza las llamadas a la Platform API en el SSO`** — 5 llamadas HTTP secuenciales reducidas a paralelas.
-- **`feat(chatwoot-sso): sincroniza la foto de perfil del usuario como avatar del agente`**.
-- **`feat(chatwoot): módulo Suncar WhatsApp con SSO automático`** — Crea/reusa agente Chatwoot vía Platform API, lo agrega con rol agente o administrador, lo agrega a todas las inboxes, abre pestaña nueva ya logueado por SSO.
+- **`feat(permisos): módulos del asistente de WhatsApp solo visibles para superadmin`**
+- **`fix: quita el directorio telefónico, que no entra en esta release`**
+- **`feat(numeros-prueba): página para gestionar los números de prueba del wizard`**
+- **`fix(datos-a-averiguar): contenido tapado por el header fijo`**
+- **`feat(datos-a-averiguar): página para gestionar lo que el asistente debe averiguar`**
+- **`feat(preguntas-frecuentes): agrega la página al menú lateral (siempre visible)`**
+- **`feat(preguntas-frecuentes): página para gestionar FAQ que usa el wizard`**
+- **`feat(actualizaciones-felicity): página pública de subida (zh/en/es) + búsqueda interna`**
+- **`feat(equipos-felicity): equipo de oficina como referencia de estado`**
+- **`feat(equipos-felicity): nuevo módulo de monitoreo y administración FSolar`**
+- **`feat(peticiones): módulo dedicado para superAdmin con resolución + terminada`**
+- **`feat(solicitudes-desarrollo): botón flotante para reportar al equipo de desarrollo`**
+- **`perf(chatwoot): paraleliza las llamadas a la Platform API en el SSO`**
+- **`feat(chatwoot-sso): sincroniza la foto de perfil del usuario como avatar del agente`**
+- **`feat(chatwoot): módulo Suncar WhatsApp con SSO automático`**
 
 ---
 
 ### Área 3: Reordenamiento módulos WhatsApp en dashboard (2 commits — yany1509, 14:36 y 19:26)
 
-- **`feat(modulos): los módulos del asistente de WhatsApp pasan a Comercial Instaladora`** — Los 4 módulos se mueven al grupo Comercial Instaladora.
-- **`feat(modulos): el asistente de WhatsApp baja al final de Comercial Instaladora`** — Los mismos 4 módulos se reubican al final del grupo, detrás de Reportes.
+- **`feat(modulos): los módulos del asistente de WhatsApp pasan a Comercial Instaladora`**
+- **`feat(modulos): el asistente de WhatsApp baja al final de Comercial Instaladora`**
 
 ---
 
@@ -180,34 +215,6 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 11 de Agosto, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**2 commits** — ambos de yany1509. Actualización de la dirección física de la empresa en todos los servicios de generación de documentos PDF.
-
----
-
-### Área 1: Pagos — Actualización de dirección en comprobantes de pago y devolución (1 commit — yany1509, 15:30)
-
-- **`fix(pagos): actualiza direccion de la empresa en comprobantes de pago/devolucion`** (15:30) — Cambia la dirección a "Calle 2 e/3ra y 5ta, Miramar, Playa, La Habana" en PDFs de comprobantes de pago y devolución.
-
----
-
-### Área 2: Exportación — Actualización de dirección en facturas y comprobantes generales (1 commit — yany1509, 15:41)
-
-- **`fix(exportacion): actualiza direccion de la empresa en el resto de facturas/comprobantes`** (15:41) — Misma corrección en 4 servicios de exportación: `facturas/export-factura-service.ts`, `facturas/export-factura-contabilidad-service.ts`, `obras-terminadas/export-factura-cliente-service.ts`, `pagos-clientes-ventas/export-factura-venta-consolidada-service.ts`.
-
----
-
-### Puede dar bateo
-
-1. **Dirección hardcodeada en múltiples archivos — posibles ocurrencias no actualizadas en vales, reportes, informes u otros PDFs no cubiertos**.
-2. **Ventana de ~11 minutos (15:30-15:41)** donde comprobantes de pago mostraban dirección nueva pero facturas no.
-3. **Sin cobertura de tests sobre contenido de PDFs**.
-
----
-
 #### Seguimientos vigentes
 
 - **Permisos de "Preguntas Frecuentes" y "Datos a Averiguar" para comerciales — confirmar asignaciones explícitas en BD (Ago 15)**.
@@ -223,7 +230,7 @@ Sin cambios nuevos — sin riesgos nuevos.
 - **Cherry-pick batch — confirmar que no hay otros arrastra de dependencias como el del directorio telefónico (Ago 14)**.
 - **Módulos WhatsApp solo visibles para superAdmin en dashboard pero rutas sin RouteGuard — accesibles con URL directa (Ago 14)**.
 - **Denominaciones 5000 y 2000 CUP hardcodeadas en 3 diálogos — confirmar que no existe un 4° diálogo sin actualizar (Ago 12)**.
-- **Dirección de empresa — confirmar que NO quedan referencias a "Calle 24 #109 e/ 1ra y 3ra" en vales, reportes u otros PDFs más allá de los 6 archivos corregidos (Ago 11)**.
+- **Dirección de empresa — confirmar que NO quedan referencias a "Calle 24 #109 e/ 1ra y 3ra" en vales, reportes u otros PDFs más allá de los 6 archivos corregidos (Ago 11 — entrada eliminada por retención)**.
 - **FuenteSelector — confirmar persistencia de `fuente_referencia` en POST/PATCH leads y clientes en backend (Ago 10)**.
 - **GestionarFuentesDialog — confirmar que reasignación de fuentes es atómica en backend (Ago 10)**.
 - **Leads "Nuevo"/"Pendiente de pago" — revisar BD por leads persistidos en ventana de ~6 min (Ago 10)**.
@@ -276,4 +283,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. La entrada del **28 de Julio** fue eliminada el 5 de Agosto al superar los 7 días. La entrada del **30 de Julio** fue eliminada el 7 de Agosto al superar los 7 días. La entrada del **31 de Julio** fue eliminada el 8 de Agosto al superar los 7 días. Las entradas del **1, 2 y 3 de Agosto** fueron eliminadas el 10 de Agosto al superar los 7 días. La entrada del **4 de Agosto** fue eliminada el 12 de Agosto al superar los 7 días. La entrada del **5 de Agosto** fue eliminada el 13 de Agosto al superar los 7 días. La entrada del **6 de Agosto** fue eliminada el 14 de Agosto al superar los 7 días. La entrada del **7 de Agosto** fue eliminada el 15 de Agosto al superar los 7 días. La entrada del **8 de Agosto** fue eliminada el 17 de Agosto al superar los 7 días. La entrada del **10 de Agosto** fue eliminada el 18 de Agosto al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. La entrada del **28 de Julio** fue eliminada el 5 de Agosto al superar los 7 días. La entrada del **30 de Julio** fue eliminada el 7 de Agosto al superar los 7 días. La entrada del **31 de Julio** fue eliminada el 8 de Agosto al superar los 7 días. Las entradas del **1, 2 y 3 de Agosto** fueron eliminadas el 10 de Agosto al superar los 7 días. La entrada del **4 de Agosto** fue eliminada el 12 de Agosto al superar los 7 días. La entrada del **5 de Agosto** fue eliminada el 13 de Agosto al superar los 7 días. La entrada del **6 de Agosto** fue eliminada el 14 de Agosto al superar los 7 días. La entrada del **7 de Agosto** fue eliminada el 15 de Agosto al superar los 7 días. La entrada del **8 de Agosto** fue eliminada el 17 de Agosto al superar los 7 días. La entrada del **10 de Agosto** fue eliminada el 18 de Agosto al superar los 7 días. La entrada del **11 de Agosto** fue eliminada el 19 de Agosto al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
