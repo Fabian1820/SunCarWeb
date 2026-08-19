@@ -18,16 +18,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'No autenticado' }, { status: 401 })
     }
 
-    const { ci, nombre, foto_perfil: fotoPerfil } = await request.json()
-    if (!ci || !nombre) {
+    const { ci: ciDelCuerpo, nombre, foto_perfil: fotoPerfil } = await request.json()
+    if (!ciDelCuerpo || !nombre) {
       return NextResponse.json(
         { success: false, message: 'Faltan datos del usuario' },
         { status: 400 }
       )
     }
 
-    // Verifica el token reenviándolo al mismo endpoint que ya usa el cliente
-    // para leer permisos — si el token no es válido para ese ci, esto falla.
+    // La identidad se saca del token, no del cuerpo: el ci que manda el
+    // navegador es dato del cliente y se puede cambiar a mano. `/auth/validate`
+    // la devuelve tal y como viaja firmada dentro del JWT.
+    const validateRes = await fetch(`${API_BASE_URL}/auth/validate`, {
+      headers: { Authorization: authHeader },
+    })
+    if (!validateRes.ok) {
+      return NextResponse.json({ success: false, message: 'Sesión inválida' }, { status: 401 })
+    }
+    const identidad = (await validateRes.json())?.data ?? {}
+    // Si el backend aún no devuelve `data` (despliegue anterior a este cambio),
+    // se cae al ci del cuerpo para no dejar fuera a quien ya entraba.
+    const ci: string = identidad.ci ?? ciDelCuerpo
+    const esSuperAdmin = identidad.is_superAdmin === true
+
     const permisosRes = await fetch(
       `${API_BASE_URL}/permisos/trabajador/${encodeURIComponent(ci)}/modulos-nombres`,
       { headers: { Authorization: authHeader } }
@@ -37,7 +50,11 @@ export async function POST(request: NextRequest) {
     }
     const permisosData = await permisosRes.json()
     const modulosPermitidos: string[] = permisosData.data ?? []
-    if (!modulosPermitidos.includes(CHATWOOT_MODULE_KEY)) {
+    // El superAdmin entra siempre. El panel ya le pinta la tarjeta del módulo
+    // (`hasPermission` en auth-context le da por bueno todo menos "permisos"),
+    // así que exigirle aquí el permiso explícito dejaba la tarjeta a la vista
+    // pero la puerta cerrada.
+    if (!esSuperAdmin && !modulosPermitidos.includes(CHATWOOT_MODULE_KEY)) {
       return NextResponse.json(
         { success: false, message: 'No tienes permiso para este módulo' },
         { status: 403 }
@@ -46,9 +63,10 @@ export async function POST(request: NextRequest) {
     // Rol en Chatwoot según el sub-permiso aditivo, igual que
     // "almacenes-suncar/admin": el permiso base entra como agente, el
     // sub-permiso aditivo entra como administrador.
-    const chatwootRole = modulosPermitidos.includes(CHATWOOT_ADMIN_SUBPERMISO)
-      ? 'administrator'
-      : 'agent'
+    const chatwootRole =
+      esSuperAdmin || modulosPermitidos.includes(CHATWOOT_ADMIN_SUBPERMISO)
+        ? 'administrator'
+        : 'agent'
 
     const CHATWOOT_BASE_URL = process.env.CHATWOOT_BASE_URL
     const CHATWOOT_PLATFORM_API_TOKEN = process.env.CHATWOOT_PLATFORM_API_TOKEN
