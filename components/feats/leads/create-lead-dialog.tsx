@@ -257,15 +257,15 @@ export function CreateLeadDialog({
   }, [selectedProvinciaCodigo]);
 
   const estadosDisponibles = [
-    "Nuevo",
-    "Revisando ofertas",
+    "Esperando equipo",
+    "No interesado",
     "Pendiente de presupuesto",
     "Pendiente de visita",
     "Pendiente de visitarnos",
     "Pendiente de pago",
     "Esperando equipo",
     "Proximamente",
-    "No interesado",
+    "Revisando ofertas",
   ];
 
   const [errors, setErrors] = useState<Record<string, string>>({});

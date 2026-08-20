@@ -36,6 +36,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/shared/molecule/popover";
+import { Checkbox } from "@/components/shared/molecule/checkbox";
 import {
   FileCheck,
   Camera,
@@ -48,6 +49,8 @@ import {
   Trash2,
   ListChecks,
   Plus,
+  Search,
+  ChevronDown,
   AlertTriangle,
   Loader2,
   MoreHorizontal,
@@ -79,7 +82,6 @@ import { ConfeccionOfertasView } from "@/components/feats/ofertas/confeccion-ofe
 import { useOfertasConfeccion } from "@/hooks/use-ofertas-confeccion";
 import { useMaterials } from "@/hooks/use-materials";
 import { useMarcas } from "@/hooks/use-marcas";
-import { useComercialEquipoMap } from "@/hooks/use-comercial-equipo-map";
 import {
   buildTerminosCondicionesHtml,
   type TerminosCondicionesPayload,
@@ -92,8 +94,13 @@ import type {
 } from "@/lib/types/feats/ofertas-personalizadas/oferta-personalizada-types";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
+import { useComercialEquipoMap } from "@/hooks/use-comercial-equipo-map";
 import type { Cliente, ClienteFoto } from "@/lib/api-types";
 import { extraerComponentesDeOfertaConfeccion } from "@/lib/utils/oferta-confeccion-items";
+import {
+  formatFuenteConReferencia,
+  esFuenteConReferencia,
+} from "@/lib/utils/fuente-display";
 
 const CODIGO_BATERIA_ESPECIAL_NOMBRE = "FLS48100SCG01";
 
@@ -119,9 +126,52 @@ interface ClientsTableProps {
     prioridad: "Ninguna" | "Urgente" | "Alta" | "Media" | "Baja",
   ) => Promise<void>;
   loading?: boolean;
-  autoOpenEditarOfertaClienteNumero?: string;
-  autoOpenCrearOfertaClienteNumero?: string;
+  onFiltersChange?: (filters: {
+    searchTerm: string;
+    estado: string[];
+    fuente: string;
+    comercial: string;
+    equipoComerciales: string[];
+    fechaDesde: string;
+    fechaHasta: string;
+    mes: string;
+    provincia: string[];
+    municipio: string[];
+    ofertas: string;
+    tiempo: string;
+    mostrarAnulados: boolean;
+  }) => void;
+  exportButtons?: React.ReactNode;
+  initialSearchTerm?: string;
 }
+
+const CLIENT_ESTADOS = [
+  "Equipo instalado con éxito",
+  "Esperando equipo",
+  "Pendiente de instalación",
+  "Instalación en Proceso",
+  "Pendiente de visita",
+  "Pendiente de visitarnos",
+  "No interesado",
+];
+
+const LEAD_FUENTES = [
+  "Página Web",
+  "Instagram",
+  "Facebook",
+  "Directo",
+  "Mensaje de Whatsapp",
+  "Visita",
+];
+
+const LEAD_COMERCIALES = [
+  "Enelido Alexander Calero Perez",
+  "Yanet Clara Rodríguez Quintana",
+  "Dashel Pinillos Zubiaur",
+  "Gretel María Mojena Almenares",
+];
+
+const COMERCIALES_LEADS_CACHE_KEY = "leadsComercialesAllCache";
 
 const parseClienteFecha = (value?: string): Date | null => {
   if (!value) return null;
@@ -187,6 +237,56 @@ const getAtrasoBucket = (
   if (dias >= 15) return { bucket: "medio", dias };
   if (dias >= 10) return { bucket: "leve", dias };
   return { bucket: null, dias };
+};
+
+const TIEMPO_BUCKETS: Record<string, (dias: number) => boolean> = {
+  "1_5": (d) => d >= 1 && d < 5,
+  "5_10": (d) => d >= 5 && d < 10,
+  "10_15": (d) => d >= 10 && d < 15,
+  "15_20": (d) => d >= 15 && d < 20,
+  "1mes": (d) => d >= 20 && d <= 30,
+  ">1mes": (d) => d > 30,
+};
+
+const TIEMPO_LABELS: Record<string, string> = {
+  "1_5": "Entre 1 y 5 días",
+  "5_10": "Entre 5 y 10 días",
+  "10_15": "Entre 10 y 15 días",
+  "15_20": "Entre 15 y 20 días",
+  "1mes": "1 mes",
+  ">1mes": "Más de 1 mes",
+};
+
+const OFERTAS_FILTER_OPTIONS = [
+  { value: "todas", label: "Todas las ofertas" },
+  { value: "con_ofertas", label: "Con ofertas" },
+  { value: "sin_ofertas", label: "Sin ofertas" },
+  { value: "con_confirmadas", label: "Con ofertas confirmadas" },
+  { value: "mas_1_confirmada", label: "Con más de 1 confirmada" },
+  { value: "sin_confirmadas", label: "Sin ofertas confirmadas" },
+];
+
+const getTotalConfirmadasCliente = (client: Cliente): number => {
+  // 1. Nuevo campo tipado oferta_confeccion (total sobre todas las confecciones del cliente)
+  if (typeof client.oferta_confeccion?.total_confirmadas === "number") {
+    return client.oferta_confeccion.total_confirmadas;
+  }
+  // 2. Fallback: ofertas_confeccion_resumen (array dinámico del backend)
+  const raw = client as Cliente & Record<string, unknown>;
+  const resumen = raw.ofertas_confeccion_resumen;
+  if (Array.isArray(resumen)) {
+    let total = 0;
+    for (const r of resumen) {
+      const tc = (r as Record<string, unknown>)?.total_confirmadas;
+      if (typeof tc === "number") total += tc;
+    }
+    if (total > 0) return total;
+  }
+  // 3. Fallback: ofertas embebidas con aprobada=true
+  if (Array.isArray(client.ofertas)) {
+    return client.ofertas.filter((o: any) => o?.aprobada === true).length;
+  }
+  return 0;
 };
 
 const getTieneOfertasCliente = (client: Cliente): boolean => {
@@ -532,8 +632,9 @@ export function ClientsTable({
   onUploadFotos,
   onUpdatePrioridad,
   loading = false,
-  autoOpenEditarOfertaClienteNumero,
-  autoOpenCrearOfertaClienteNumero,
+  onFiltersChange,
+  exportButtons,
+  initialSearchTerm = "",
 }: ClientsTableProps) {
   const { toast } = useToast();
   const { hasExactPermission } = useAuth();
@@ -552,21 +653,23 @@ export function ClientsTable({
     obtenerNumerosClientesConOfertas,
     obtenerOfertaPorCliente,
     obtenerEstadoOfertaCliente,
-    obtenerOfertasConfirmadasParaPago,
     eliminarOferta,
     refetch: refetchOfertas,
   } = useOfertasConfeccion();
   const { materials } = useMaterials();
   const { marcas } = useMarcas();
-  const { nombreEquipo } = useComercialEquipoMap();
+  const [clienteToToggleStatus, setClienteToToggleStatus] =
+    useState<Cliente | null>(null);
+  const [isToggleStatusDialogOpen, setIsToggleStatusDialogOpen] =
+    useState(false);
+  const [togglingStatus, setTogglingStatus] = useState(false);
+  const [clienteParaEstadosMultiples, setClienteParaEstadosMultiples] =
+    useState<Cliente | null>(null);
   const [showClientLocation, setShowClientLocation] = useState(false);
   const [clientLocation, setClientLocation] = useState<{
     lat: number;
     lng: number;
   } | null>(null);
-  const [isToggleStatusDialogOpen, setIsToggleStatusDialogOpen] = useState(false);
-  const [clienteToToggleStatus, setClienteToToggleStatus] = useState<Cliente | null>(null);
-  const [togglingStatus, setTogglingStatus] = useState(false);
   const [showClientDetails, setShowClientDetails] = useState(false);
   const [clientForDetails, setClientForDetails] = useState<Cliente | null>(
     null,
@@ -580,42 +683,7 @@ export function ClientsTable({
   const [clientForOfertas, setClientForOfertas] = useState<Cliente | null>(
     null,
   );
-  const [clienteParaEstadosMultiples, setClienteParaEstadosMultiples] =
-    useState<Cliente | null>(null);
   const [isCreateOfertaOpen, setIsCreateOfertaOpen] = useState(false);
-  const autoOpenCrearOfertaTriggeredRef = useRef(false);
-  useEffect(() => {
-    if (
-      !autoOpenCrearOfertaClienteNumero ||
-      autoOpenCrearOfertaTriggeredRef.current
-    ) {
-      return;
-    }
-    autoOpenCrearOfertaTriggeredRef.current = true;
-
-    (async () => {
-      const clienteEnPagina = clients.find(
-        (c) => c.numero === autoOpenCrearOfertaClienteNumero,
-      );
-      const cliente =
-        clienteEnPagina ||
-        (await ClienteService.getClienteByNumero(
-          autoOpenCrearOfertaClienteNumero,
-        ).catch(() => null));
-      if (cliente) {
-        setClientForAsignarOferta(cliente);
-        setShowCrearOfertaPersonalizadaDialog(true);
-      } else {
-        toast({
-          title: "No se encontró el cliente",
-          description:
-            "No se pudo abrir la creación de oferta para este cliente automáticamente.",
-          variant: "destructive",
-        });
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoOpenCrearOfertaClienteNumero, clients]);
   const [isEditOfertaOpen, setIsEditOfertaOpen] = useState(false);
   const [editingOferta, setEditingOferta] =
     useState<OfertaPersonalizada | null>(null);
@@ -680,8 +748,6 @@ export function ClientsTable({
   const [loadingListoPagoDialog, setLoadingListoPagoDialog] = useState(false);
   const [ofertaListoPagoSeleccionada, setOfertaListoPagoSeleccionada] =
     useState<OfertaConfeccion | null>(null);
-  const [ofertasConfirmadasListoPago, setOfertasConfirmadasListoPago] =
-    useState<OfertaConfeccion[]>([]);
   const [tieneOfertaAsignadaListoPago, setTieneOfertaAsignadaListoPago] =
     useState(false);
   const [tieneOfertaConfirmadaListoPago, setTieneOfertaConfirmadaListoPago] =
@@ -764,6 +830,143 @@ export function ClientsTable({
   const [terminosCondicionesPayload, setTerminosCondicionesPayload] =
     useState<TerminosCondicionesPayload | null>(null);
 
+  const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+  const [filters, setFilters] = useState({
+    estado: [] as string[],
+    fuente: "",
+    comercial: "",
+    equipoComerciales: [] as string[],
+    fechaDesde: "",
+    fechaHasta: "",
+    mes: "",
+    provincia: [] as string[],
+    municipio: [] as string[],
+    ofertas: "",
+    tiempo: "",
+    mostrarAnulados: false,
+  });
+  const {
+    equipos: equiposComerciales,
+    nombreEquipo,
+    comercialesDeEquipo,
+  } = useComercialEquipoMap();
+  const [equipoSeleccionado, setEquipoSeleccionado] = useState<string>("todos");
+
+  // Provincias / municipios para filtros
+  const [provinciasList, setProvinciasList] = useState<
+    Array<{ codigo: string; nombre: string }>
+  >([]);
+  const [municipiosList, setMunicipiosList] = useState<
+    Array<{ codigo: string; nombre: string }>
+  >([]);
+  const [comercialesExtra, setComercialesExtra] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelado = false;
+    (async () => {
+      try {
+        const response = await apiRequest<{
+          success: boolean;
+          data: Array<{ codigo: string; nombre: string }>;
+        }>("/provincias/", { method: "GET" });
+        if (!cancelado && response.success && response.data) {
+          setProvinciasList(response.data);
+        }
+      } catch (error) {
+        console.error("Error cargando provincias:", error);
+      }
+    })();
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (filters.provincia.length === 0) {
+      setMunicipiosList([]);
+      return;
+    }
+    const codigos = filters.provincia
+      .map((nombre) => provinciasList.find((p) => p.nombre === nombre)?.codigo)
+      .filter(Boolean) as string[];
+    if (codigos.length === 0) {
+      setMunicipiosList([]);
+      return;
+    }
+    let cancelado = false;
+    (async () => {
+      try {
+        const resultados = await Promise.all(
+          codigos.map((codigo) =>
+            apiRequest<{ success: boolean; data: Array<{ codigo: string; nombre: string }> }>(
+              `/provincias/provincia/${codigo}/municipios`,
+              { method: "GET" },
+            ),
+          ),
+        );
+        if (cancelado) return;
+        const combined = new Map<string, { codigo: string; nombre: string }>();
+        for (const r of resultados) {
+          if (r?.success && Array.isArray(r.data)) {
+            for (const m of r.data) combined.set(m.nombre, m);
+          }
+        }
+        setMunicipiosList(
+          [...combined.values()].sort((a, b) =>
+            a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }),
+          ),
+        );
+      } catch (error) {
+        console.error("Error cargando municipios:", error);
+      }
+    })();
+    return () => {
+      cancelado = true;
+    };
+  }, [filters.provincia, provinciasList]);
+
+  // Cargar comerciales lazy: solo desde caché al inicio; el endpoint se invoca cuando el usuario abre el dropdown
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const cached = sessionStorage.getItem(COMERCIALES_LEADS_CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached) as string[];
+        if (Array.isArray(parsed)) setComercialesExtra(parsed);
+      }
+    } catch {}
+  }, []);
+
+  const comercialesFetchedRef = useRef(false);
+  const ensureComercialesCargados = useCallback(async () => {
+    if (comercialesFetchedRef.current) return;
+    comercialesFetchedRef.current = true;
+    try {
+      const response = await apiRequest<{
+        success: boolean;
+        data: { leads?: Array<{ comercial?: string }> };
+      }>("/leads/?skip=0&limit=500", { method: "GET" });
+      const leads = response?.data?.leads ?? [];
+      const set = new Set<string>();
+      for (const lead of leads) {
+        if (lead.comercial && lead.comercial.trim())
+          set.add(lead.comercial.trim());
+      }
+      const list = Array.from(set);
+      setComercialesExtra(list);
+      try {
+        sessionStorage.setItem(
+          COMERCIALES_LEADS_CACHE_KEY,
+          JSON.stringify(list),
+        );
+      } catch {}
+    } catch (error) {
+      console.warn("No se pudo cargar comerciales de leads:", error);
+      comercialesFetchedRef.current = false;
+    }
+  }, []);
+
   const ofertasDelCliente = useMemo(() => {
     if (!clientForOfertas) return [];
     // Usar solo el ID de MongoDB para filtrar ofertas
@@ -780,11 +983,60 @@ export function ClientsTable({
     [ofertasGenericasAprobadas, ofertaGenericaParaDuplicarId],
   );
 
+  const availableEstados = CLIENT_ESTADOS;
+  const availableFuentes = LEAD_FUENTES;
+  const availableComerciales = useMemo(() => {
+    const set = new Set<string>();
+    LEAD_COMERCIALES.forEach((c) => set.add(c));
+    comercialesExtra.forEach((c) => set.add(c));
+    clients.forEach((c) => {
+      if (c.comercial && c.comercial.trim()) set.add(c.comercial.trim());
+    });
+    return Array.from(set).sort((a, b) =>
+      a.localeCompare(b, "es", { sensitivity: "base" }),
+    );
+  }, [comercialesExtra, clients]);
 
-  // Nota: clients ya viene filtrado por el padre (app/clientes/page.tsx), que es
-  // dueño de la barra de búsqueda y los filtros (mismo esquema que Leads).
+  const toggleEstado = (estado: string) => {
+    setFilters((prev) => {
+      const next = prev.estado.includes(estado)
+        ? prev.estado.filter((value) => value !== estado)
+        : [...prev.estado, estado];
+      return { ...prev, estado: next };
+    });
+  };
+
+  // Debounce del searchTerm para evitar llamadas al backend por cada tecla
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Notificar al padre cuando cambien los filtros
+  useEffect(() => {
+    if (onFiltersChange) {
+      onFiltersChange({
+        searchTerm: debouncedSearchTerm,
+        estado: filters.estado,
+        fuente: filters.fuente,
+        comercial: filters.comercial,
+        equipoComerciales: filters.equipoComerciales,
+        fechaDesde: filters.fechaDesde,
+        fechaHasta: filters.fechaHasta,
+        mes: filters.mes,
+        provincia: filters.provincia,
+        municipio: filters.municipio,
+        ofertas: filters.ofertas,
+        tiempo: filters.tiempo,
+        mostrarAnulados: filters.mostrarAnulados,
+      });
+    }
+  }, [debouncedSearchTerm, filters, onFiltersChange]);
+
   const sortedClients = useMemo(() => {
-    return [...clients].sort((a, b) => {
+    const ordered = [...clients].sort((a, b) => {
       const tailA = getClientTailSortNumber(a);
       const tailB = getClientTailSortNumber(b);
       if (tailA !== tailB) return tailB - tailA;
@@ -793,7 +1045,50 @@ export function ClientsTable({
       const codeB = getClientSortCode(b);
       return codeB.localeCompare(codeA, "es", { sensitivity: "base" });
     });
-  }, [clients]);
+
+    return ordered.filter((client) => {
+      if (filters.provincia.length > 0) {
+        if (!filters.provincia.includes((client.provincia_montaje || "").trim()))
+          return false;
+      }
+      if (filters.municipio.length > 0) {
+        if (!filters.municipio.includes((client.municipio || "").trim())) return false;
+      }
+      if (filters.ofertas) {
+        const tieneOfertas = getTieneOfertasCliente(client);
+        if (filters.ofertas === "con_ofertas" && !tieneOfertas) return false;
+        if (filters.ofertas === "sin_ofertas" && tieneOfertas) return false;
+        if (
+          filters.ofertas === "con_confirmadas" &&
+          getTotalConfirmadasCliente(client) <= 0
+        )
+          return false;
+        if (
+          filters.ofertas === "mas_1_confirmada" &&
+          getTotalConfirmadasCliente(client) <= 1
+        )
+          return false;
+        if (
+          filters.ofertas === "sin_confirmadas" &&
+          getTotalConfirmadasCliente(client) > 0
+        )
+          return false;
+      }
+      if (filters.tiempo) {
+        const dias = getClienteDiasDesdeCreacion(client);
+        if (dias === null) return false;
+        const matcher = TIEMPO_BUCKETS[filters.tiempo];
+        if (!matcher || !matcher(dias)) return false;
+      }
+      return true;
+    });
+  }, [
+    clients,
+    filters.provincia,
+    filters.municipio,
+    filters.ofertas,
+    filters.tiempo,
+  ]);
 
   useEffect(() => {
     if (!cargaSetOfertasTerminada) return;
@@ -1067,6 +1362,39 @@ export function ClientsTable({
     };
   }, [cargarClientesConOfertas]);
 
+  const hasActiveFilters =
+    searchTerm.trim() ||
+    filters.estado.length > 0 ||
+    filters.fuente ||
+    filters.comercial ||
+    filters.equipoComerciales.length > 0 ||
+    filters.fechaDesde ||
+    filters.fechaHasta ||
+    filters.mes ||
+    filters.provincia.length > 0 ||
+    filters.municipio.length > 0 ||
+    filters.ofertas ||
+    filters.tiempo;
+
+  const handleClearFilters = () => {
+    setSearchTerm("");
+    setDebouncedSearchTerm("");
+    setFilters({
+      estado: [],
+      fuente: "",
+      comercial: "",
+      equipoComerciales: [],
+      fechaDesde: "",
+      fechaHasta: "",
+      mes: "",
+      provincia: [],
+      municipio: [],
+      ofertas: "",
+      tiempo: "",
+      mostrarAnulados: false,
+    });
+    setEquipoSeleccionado("todos");
+  };
 
   const handlePrioridadChange = async (
     clientId: string,
@@ -1109,38 +1437,6 @@ export function ClientsTable({
         setClientLocation({ lat, lng });
         setShowClientLocation(true);
       }
-    }
-  };
-
-  const handleToggleClienteStatusClick = (client: Cliente) => {
-    setClienteToToggleStatus(client);
-    setIsToggleStatusDialogOpen(true);
-  };
-
-  const handleToggleClienteStatusConfirm = async () => {
-    if (!clienteToToggleStatus?.numero || !onSetClienteStatus) return;
-    const activar = clienteToToggleStatus.activo === false;
-    setTogglingStatus(true);
-    try {
-      const resultado = await onSetClienteStatus(clienteToToggleStatus.numero, activar);
-      if (resultado.success) {
-        toast({
-          title: "Éxito",
-          description: activar
-            ? "Cliente reactivado correctamente"
-            : "Cliente anulado correctamente",
-        });
-        setIsToggleStatusDialogOpen(false);
-        setClienteToToggleStatus(null);
-      } else {
-        toast({
-          title: resultado.error.title || "Error",
-          description: resultado.error.message,
-          variant: "destructive",
-        });
-      }
-    } finally {
-      setTogglingStatus(false);
     }
   };
 
@@ -1482,34 +1778,6 @@ export function ClientsTable({
     // Cerrar el diálogo de detalles si está abierto
     setShowDetalleOfertaDialog(false);
   };
-
-  const autoOpenOfertaTriggeredRef = useRef(false);
-  useEffect(() => {
-    if (
-      !autoOpenEditarOfertaClienteNumero ||
-      autoOpenOfertaTriggeredRef.current
-    ) {
-      return;
-    }
-    autoOpenOfertaTriggeredRef.current = true;
-
-    (async () => {
-      const result = await obtenerOfertaPorCliente(
-        autoOpenEditarOfertaClienteNumero,
-      );
-      if (result.success && result.oferta) {
-        handleEditarOferta(result.oferta);
-      } else {
-        toast({
-          title: "No se encontró la oferta",
-          description:
-            "No se pudo abrir la oferta de este cliente automáticamente.",
-          variant: "destructive",
-        });
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoOpenEditarOfertaClienteNumero]);
 
   const handleEliminarOferta = (oferta: OfertaConfeccion) => {
     setOfertaParaEliminar(oferta);
@@ -2318,6 +2586,34 @@ export function ClientsTable({
     }
   };
 
+  const resolveOfertaConfirmadaCliente = (
+    ofertasCliente: OfertaConfeccion[],
+    estadoResult: {
+      oferta_id_confirmada: string | null;
+      numero_oferta_confirmada: string | null;
+      codigo_oferta_confirmada: string | null;
+    },
+  ) =>
+    (estadoResult.oferta_id_confirmada
+      ? ofertasCliente.find(
+          (item) => item.id === estadoResult.oferta_id_confirmada,
+        )
+      : undefined) ??
+    (estadoResult.numero_oferta_confirmada
+      ? ofertasCliente.find(
+          (item) =>
+            item.numero_oferta === estadoResult.numero_oferta_confirmada,
+        )
+      : undefined) ??
+    (estadoResult.codigo_oferta_confirmada
+      ? ofertasCliente.find(
+          (item) =>
+            item.numero_oferta === estadoResult.codigo_oferta_confirmada ||
+            item.id === estadoResult.codigo_oferta_confirmada,
+        )
+      : undefined) ??
+    ofertasCliente.find((item) => item.estado === "confirmada_por_cliente");
+
   const handleOpenListoPagoDialog = async (client: Cliente) => {
     const numeroCliente = normalizeClienteNumero(client.numero);
     if (!numeroCliente) {
@@ -2334,35 +2630,52 @@ export function ClientsTable({
     setUpdatingClienteListoParaPagarNumero(numeroCliente);
     setLoadingListoPagoDialog(true);
     setOfertaListoPagoSeleccionada(null);
-    setOfertasConfirmadasListoPago([]);
     setTieneOfertaAsignadaListoPago(false);
     setTieneOfertaConfirmadaListoPago(false);
     setComentarioContabilidadListoPago("");
 
     try {
-      const { success, ofertas } =
-        await obtenerOfertasConfirmadasParaPago(numeroCliente);
+      const [estadoResult, result] = await Promise.all([
+        obtenerEstadoOfertaCliente(numeroCliente),
+        obtenerOfertaPorCliente(numeroCliente),
+      ]);
+      const ofertasCliente = result.ofertas?.length
+        ? result.ofertas
+        : result.oferta
+          ? [result.oferta]
+          : [];
 
-      const ofertasConfirmadas = (ofertas || []) as OfertaConfeccion[];
-      setOfertasConfirmadasListoPago(ofertasConfirmadas);
+      const tieneOfertaAsignada =
+        result.success &&
+        Array.isArray(ofertasCliente) &&
+        ofertasCliente.length > 0;
+      setTieneOfertaAsignadaListoPago(tieneOfertaAsignada);
 
-      const tieneConfirmada = success && ofertasConfirmadas.length > 0;
-      setTieneOfertaAsignadaListoPago(tieneConfirmada);
+      const ofertaConfirmada = resolveOfertaConfirmadaCliente(ofertasCliente, {
+        oferta_id_confirmada: estadoResult.oferta_id_confirmada,
+        numero_oferta_confirmada: estadoResult.numero_oferta_confirmada,
+        codigo_oferta_confirmada: estadoResult.codigo_oferta_confirmada,
+      });
+
+      const tieneConfirmada =
+        !estadoResult.error &&
+        Boolean(estadoResult.tiene_oferta_confirmada_por_cliente) &&
+        Boolean(ofertaConfirmada);
       setTieneOfertaConfirmadaListoPago(tieneConfirmada);
 
-      const ofertaPreview = ofertasConfirmadas[0] ?? null;
+      const ofertaPreview = ofertaConfirmada ?? ofertasCliente[0] ?? null;
       setOfertaListoPagoSeleccionada(ofertaPreview);
       setComentarioContabilidadListoPago(
-        ofertaPreview?.comentario_contabilidad || "",
+        ofertaConfirmada?.comentario_contabilidad || "",
       );
       setClienteListoParaPagarMap((prev) => ({
         ...prev,
-        [numeroCliente]: ofertasConfirmadas.some((item) =>
+        [numeroCliente]: ofertasCliente.some((item) =>
           Boolean(item.cliente_listo_para_pagar),
         ),
       }));
 
-      if (!success) {
+      if (estadoResult.error) {
         toast({
           title: "Aviso",
           description:
@@ -4099,9 +4412,465 @@ export function ClientsTable({
     }
   };
 
+  const handleToggleClienteStatusClick = (client: Cliente) => {
+    setClienteToToggleStatus(client);
+    setIsToggleStatusDialogOpen(true);
+  };
+
+  const handleToggleClienteStatusConfirm = async () => {
+    if (!clienteToToggleStatus?.numero || !onSetClienteStatus) return;
+    const activar = clienteToToggleStatus.activo === false;
+    setTogglingStatus(true);
+    try {
+      const resultado = await onSetClienteStatus(
+        clienteToToggleStatus.numero,
+        activar,
+      );
+      if (resultado.success) {
+        toast({
+          title: "Éxito",
+          description: activar
+            ? "Cliente reactivado correctamente"
+            : "Cliente anulado correctamente",
+        });
+        setIsToggleStatusDialogOpen(false);
+        setClienteToToggleStatus(null);
+      } else {
+        toast({
+          title: resultado.error.title || "Error",
+          description: resultado.error.message,
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setTogglingStatus(false);
+    }
+  };
+
   return (
     <>
-      <div className="relative min-h-[16rem]">
+      <Card className="mb-6 border-l-4 border-l-emerald-600">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex gap-3 mb-4 flex-col sm:flex-row">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                id="search-client"
+                placeholder="Buscar por cualquier dato..."
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                className="pl-10"
+              />
+            </div>
+            {onSetClienteStatus && (
+              <div className="flex items-center gap-2 shrink-0">
+                <Checkbox
+                  id="mostrar-anulados-clientes"
+                  checked={filters.mostrarAnulados}
+                  onCheckedChange={(checked) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      mostrarAnulados: checked === true,
+                    }))
+                  }
+                />
+                <Label
+                  htmlFor="mostrar-anulados-clientes"
+                  className="text-sm text-gray-600 cursor-pointer whitespace-nowrap"
+                >
+                  Ver anulados
+                </Label>
+              </div>
+            )}
+            <Button
+              variant="outline"
+              onClick={handleClearFilters}
+              className="text-gray-600 hover:text-gray-800 whitespace-nowrap"
+              disabled={!hasActiveFilters}
+            >
+              Limpiar Filtros
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-between">
+                    <span className="truncate">
+                      {filters.estado.length > 0
+                        ? `${filters.estado.length} estado${filters.estado.length > 1 ? "s" : ""}`
+                        : "Todos los estados"}
+                    </span>
+                    <ChevronDown className="h-4 w-4 text-gray-400" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-72">
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="text-sm text-gray-700">Estado</Label>
+                    {filters.estado.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() =>
+                          setFilters((prev) => ({ ...prev, estado: [] }))
+                        }
+                      >
+                        Limpiar
+                      </Button>
+                    )}
+                  </div>
+                  <div className="space-y-2 max-h-52 overflow-y-auto">
+                    {availableEstados.map((estado) => (
+                      <label
+                        key={estado}
+                        className="flex items-center gap-2 text-sm text-gray-700"
+                      >
+                        <Checkbox
+                          checked={filters.estado.includes(estado)}
+                          onCheckedChange={() => toggleEstado(estado)}
+                        />
+                        <span>{estado}</span>
+                      </label>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div>
+              <Select
+                value={filters.fuente || "todas"}
+                onValueChange={(value) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    fuente: value === "todas" ? "" : value,
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Todas las fuentes" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todas">Todas las fuentes</SelectItem>
+                  {availableFuentes.map((fuente) => (
+                    <SelectItem key={fuente} value={fuente}>
+                      {fuente}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Select
+                value={filters.comercial || "todos"}
+                onValueChange={(value) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    comercial: value === "todos" ? "" : value,
+                  }))
+                }
+                onOpenChange={(open) => {
+                  if (open) void ensureComercialesCargados();
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Todos los comerciales" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos los comerciales</SelectItem>
+                  {availableComerciales.map((comercial) => (
+                    <SelectItem key={comercial} value={comercial}>
+                      {comercial}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Select
+                value={equipoSeleccionado}
+                onValueChange={(value) => {
+                  setEquipoSeleccionado(value);
+                  setFilters((prev) => ({
+                    ...prev,
+                    equipoComerciales:
+                      value === "todos" ? [] : comercialesDeEquipo(value),
+                  }));
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Todos los equipos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos los equipos</SelectItem>
+                  {equiposComerciales.map((equipo) => (
+                    <SelectItem key={equipo.id} value={equipo.id}>
+                      {equipo.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Input
+                type="date"
+                value={filters.fechaDesde}
+                onChange={(event) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    fechaDesde: event.target.value,
+                  }))
+                }
+                placeholder="Fecha desde"
+              />
+            </div>
+
+            <div>
+              <Input
+                type="date"
+                value={filters.fechaHasta}
+                onChange={(event) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    fechaHasta: event.target.value,
+                  }))
+                }
+                placeholder="Fecha hasta"
+              />
+            </div>
+
+            <div>
+              <Select
+                value={filters.mes || "todos"}
+                onValueChange={(value) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    mes: value === "todos" ? "" : value,
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Todos los meses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos los meses</SelectItem>
+                  <SelectItem value="1">Enero</SelectItem>
+                  <SelectItem value="2">Febrero</SelectItem>
+                  <SelectItem value="3">Marzo</SelectItem>
+                  <SelectItem value="4">Abril</SelectItem>
+                  <SelectItem value="5">Mayo</SelectItem>
+                  <SelectItem value="6">Junio</SelectItem>
+                  <SelectItem value="7">Julio</SelectItem>
+                  <SelectItem value="8">Agosto</SelectItem>
+                  <SelectItem value="9">Septiembre</SelectItem>
+                  <SelectItem value="10">Octubre</SelectItem>
+                  <SelectItem value="11">Noviembre</SelectItem>
+                  <SelectItem value="12">Diciembre</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-between">
+                    <span className="truncate">
+                      {filters.provincia.length > 0
+                        ? `${filters.provincia.length} provincia${filters.provincia.length > 1 ? "s" : ""}`
+                        : "Todas las provincias"}
+                    </span>
+                    <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-72">
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="text-sm text-gray-700">Provincia</Label>
+                    {filters.provincia.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() =>
+                          setFilters((prev) => ({ ...prev, provincia: [], municipio: [] }))
+                        }
+                      >
+                        Limpiar
+                      </Button>
+                    )}
+                  </div>
+                  <div className="space-y-2 max-h-52 overflow-y-auto">
+                    {provinciasList.map((p) => (
+                      <label
+                        key={p.codigo}
+                        className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer"
+                      >
+                        <Checkbox
+                          checked={filters.provincia.includes(p.nombre)}
+                          onCheckedChange={() => {
+                            setFilters((prev) => {
+                              const next = prev.provincia.includes(p.nombre)
+                                ? prev.provincia.filter((x) => x !== p.nombre)
+                                : [...prev.provincia, p.nombre];
+                              return { ...prev, provincia: next, municipio: [] };
+                            });
+                          }}
+                        />
+                        <span>{p.nombre}</span>
+                      </label>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-between"
+                    disabled={filters.provincia.length === 0}
+                  >
+                    <span className="truncate">
+                      {filters.municipio.length > 0
+                        ? `${filters.municipio.length} municipio${filters.municipio.length > 1 ? "s" : ""}`
+                        : filters.provincia.length > 0
+                          ? "Todos los municipios"
+                          : "Selecciona provincia"}
+                    </span>
+                    <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-72">
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="text-sm text-gray-700">Municipio</Label>
+                    {filters.municipio.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() =>
+                          setFilters((prev) => ({ ...prev, municipio: [] }))
+                        }
+                      >
+                        Limpiar
+                      </Button>
+                    )}
+                  </div>
+                  <div className="space-y-2 max-h-52 overflow-y-auto">
+                    {municipiosList.map((m) => (
+                      <label
+                        key={m.codigo}
+                        className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer"
+                      >
+                        <Checkbox
+                          checked={filters.municipio.includes(m.nombre)}
+                          onCheckedChange={() => {
+                            setFilters((prev) => {
+                              const next = prev.municipio.includes(m.nombre)
+                                ? prev.municipio.filter((x) => x !== m.nombre)
+                                : [...prev.municipio, m.nombre];
+                              return { ...prev, municipio: next };
+                            });
+                          }}
+                        />
+                        <span>{m.nombre}</span>
+                      </label>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div>
+              <Select
+                value={filters.ofertas || "todas"}
+                onValueChange={(value) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    ofertas: value === "todas" ? "" : value,
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Todas las ofertas" />
+                </SelectTrigger>
+                <SelectContent>
+                  {OFERTAS_FILTER_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Select
+                value={filters.tiempo || "todos"}
+                onValueChange={(value) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    tiempo: value === "todos" ? "" : value,
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Tiempo desde creación" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Cualquier tiempo</SelectItem>
+                  {Object.entries(TIEMPO_LABELS).map(([key, label]) => (
+                    <SelectItem key={key} value={key}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {(filters.fechaDesde ||
+            filters.fechaHasta ||
+            filters.mes ||
+            filters.provincia.length > 0 ||
+            filters.municipio.length > 0 ||
+            filters.ofertas ||
+            filters.tiempo) &&
+            typeof totalClients === "number" && (
+              <div className="mt-4 text-sm text-gray-700">
+                Total de clientes filtrados:{" "}
+                <span className="font-semibold text-emerald-600">
+                  {totalClients}
+                </span>
+              </div>
+            )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-l-4 border-l-emerald-600">
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+            <div>
+              <CardTitle>Clientes</CardTitle>
+              <CardDescription>
+                Mostrando {sortedClients.length} cliente
+                {sortedClients.length === 1 ? "" : "s"}
+              </CardDescription>
+            </div>
+
+            {/* Botones de exportación */}
+            {exportButtons && sortedClients.length > 0 && (
+              <div className="flex-shrink-0">{exportButtons}</div>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="relative min-h-[16rem]">
           {loading && sortedClients.length > 0 && (
             <div className="absolute inset-0 z-10 flex items-center justify-center rounded-b-lg bg-white/80 backdrop-blur-sm">
               <Loader label="Aplicando filtros..." />
@@ -4165,8 +4934,7 @@ export function ClientsTable({
                         "Instalación en Proceso": "text-blue-600",
                       };
 
-                      const textColor =
-                        estadosConfig[estadoNormalizado] || "text-gray-600";
+                      const textColor = estadosConfig[estadoNormalizado] || "text-gray-600";
                       return `${textColor} bg-transparent border-transparent hover:bg-transparent`;
                     };
 
@@ -4207,17 +4975,14 @@ export function ClientsTable({
                               />
                             </div>
                             <div className="min-w-0">
-                              <p className="font-semibold text-gray-900 text-sm mb-0.5 truncate flex items-center gap-1.5">
-                                <span className="truncate">{client.nombre}</span>
-                                {client.es_trabajador_suncar && (
-                                  <span
-                                    className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-semibold px-1.5 py-0.5 shrink-0"
-                                    title="Cliente trabajador de SunCar"
-                                  >
-                                    Trabajador
-                                  </span>
-                                )}
+                              <p className="font-semibold text-gray-900 text-sm mb-0.5 truncate">
+                                {client.nombre}
                               </p>
+                              {client.activo === false && (
+                                <Badge className="bg-gray-200 text-gray-600 text-xs px-2 py-0.5 mb-0.5 inline-block">
+                                  Anulado
+                                </Badge>
+                              )}
                               <p className="text-[13px] text-gray-500 truncate">
                                 {client.numero}
                               </p>
@@ -4278,11 +5043,6 @@ export function ClientsTable({
                         </td>
                         <td className="px-4 py-3 align-top">
                           <div className="w-full">
-                            {client.activo === false && (
-                              <Badge className="bg-gray-200 text-gray-600 text-xs px-2 py-0.5 mb-1 inline-block">
-                                Anulado
-                              </Badge>
-                            )}
                             {client.estado && (
                               <Badge
                                 className={`${getEstadoColor(client.estado)} text-[13px] whitespace-normal break-words leading-tight inline-block px-2.5 py-1`}
@@ -4295,19 +5055,29 @@ export function ClientsTable({
                                 {client.comercial}
                               </div>
                             )}
-                            {(() => {
-                              const equipo = nombreEquipo(client.comercial);
-                              if (!equipo) return null;
-                              return (
-                                <div className="text-[11px] text-gray-400 mt-0.5 truncate">
-                                  {equipo}
-                                </div>
-                              );
-                            })()}
+                            {nombreEquipo(client.comercial) && (
+                              <div className="text-xs text-gray-400 truncate">
+                                {nombreEquipo(client.comercial)}
+                              </div>
+                            )}
                             {client.fuente && (
-                              <div className="text-[13px] text-gray-500 mt-0.5 truncate">
-                                <span className="text-gray-400">Fuente:</span>{" "}
-                                {client.fuente}
+                              <div
+                                className="mt-0.5"
+                                title={formatFuenteConReferencia(
+                                  client.fuente,
+                                  client.fuente_referencia,
+                                )}
+                              >
+                                <div className="text-[13px] text-gray-500 truncate">
+                                  <span className="text-gray-400">Fuente:</span>{" "}
+                                  {client.fuente}
+                                </div>
+                                {esFuenteConReferencia(client.fuente) &&
+                                  client.fuente_referencia && (
+                                    <div className="text-xs text-gray-400 truncate">
+                                      {client.fuente_referencia}
+                                    </div>
+                                  )}
                               </div>
                             )}
                           </div>
@@ -4383,9 +5153,10 @@ export function ClientsTable({
                                     {totalConfirmadas > 1 && oc?.confirmadas_detalle && (
                                       <button
                                         type="button"
-                                        onClick={() => setClienteParaEstadosMultiples(client)}
+                                        onClick={() =>
+                                          setClienteParaEstadosMultiples(client)
+                                        }
                                         className="inline-flex items-center rounded bg-blue-100 px-2 py-0.5 text-[13px] font-medium text-blue-700 hover:bg-blue-200"
-                                        title="Fijar el estado de instalación de cada oferta confirmada"
                                       >
                                         Fijar estados
                                       </button>
@@ -4502,6 +5273,83 @@ export function ClientsTable({
                                 </Button>
                               );
                             })()}
+                            {(() => {
+                              const numeroCliente = normalizeClienteNumero(
+                                client.numero,
+                              );
+                              const consultandoServicio =
+                                consultandoEquiposEnServicioNumero ===
+                                numeroCliente;
+                              const tieneServicio = getServicioStatus(client);
+
+                              return (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    void handleOpenEquiposEnServicioDialog(
+                                      client,
+                                    );
+                                  }}
+                                  disabled={consultandoServicio}
+                                  className={
+                                    tieneServicio
+                                      ? "h-7 w-7 p-0 text-purple-700 hover:text-purple-800 hover:bg-purple-50"
+                                      : "h-7 w-7 p-0 text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                                  }
+                                  title="Equipos en servicio"
+                                >
+                                  {consultandoServicio ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <Zap className="h-3 w-3" />
+                                  )}
+                                </Button>
+                              );
+                            })()}
+                            {(() => {
+                              const numeroCliente = normalizeClienteNumero(
+                                client.numero,
+                              );
+                              const consultandoEquipo =
+                                consultandoEquipoEntregadoNumero ===
+                                numeroCliente;
+                              const equipoEntregado =
+                                getEquipoEntregadoStatus(client);
+
+                              return (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    void handleOpenEquipoEntregadoDialog(
+                                      client,
+                                    );
+                                  }}
+                                  disabled={consultandoEquipo}
+                                  className={
+                                    equipoEntregado
+                                      ? "h-7 w-7 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                                      : "h-7 w-7 p-0 text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                                  }
+                                  title={
+                                    equipoEntregado
+                                      ? "Ver equipos entregados"
+                                      : "Ver estado de equipo entregado"
+                                  }
+                                >
+                                  {consultandoEquipo ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <Truck className="h-3 w-3" />
+                                  )}
+                                </Button>
+                              );
+                            })()}
                             <Button
                               variant="ghost"
                               size="sm"
@@ -4520,76 +5368,6 @@ export function ClientsTable({
                             >
                               <Edit className="h-3 w-3" />
                             </Button>
-                            {(() => {
-                              const numeroCliente = normalizeClienteNumero(
-                                client.numero,
-                              );
-                              const consultandoEquipo =
-                                consultandoEquipoEntregadoNumero === numeroCliente;
-                              const equipoEntregado =
-                                getEquipoEntregadoStatus(client);
-                              return (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() =>
-                                    void handleOpenEquipoEntregadoDialog(client)
-                                  }
-                                  disabled={consultandoEquipo}
-                                  className="h-7 w-7 p-0"
-                                  title={
-                                    equipoEntregado
-                                      ? "Ver equipos entregados"
-                                      : "Registrar entrega de equipo"
-                                  }
-                                >
-                                  {consultandoEquipo ? (
-                                    <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
-                                  ) : (
-                                    <Truck
-                                      className={`h-3 w-3 ${
-                                        equipoEntregado
-                                          ? "text-emerald-600"
-                                          : "text-gray-400"
-                                      }`}
-                                    />
-                                  )}
-                                </Button>
-                              );
-                            })()}
-                            {(() => {
-                              const numeroCliente = normalizeClienteNumero(
-                                client.numero,
-                              );
-                              const consultandoServicio =
-                                consultandoEquiposEnServicioNumero ===
-                                numeroCliente;
-                              const tieneServicio = getServicioStatus(client);
-                              return (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() =>
-                                    void handleOpenEquiposEnServicioDialog(client)
-                                  }
-                                  disabled={consultandoServicio}
-                                  className="h-7 w-7 p-0"
-                                  title="Equipos en servicio"
-                                >
-                                  {consultandoServicio ? (
-                                    <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
-                                  ) : (
-                                    <Zap
-                                      className={`h-3 w-3 ${
-                                        tieneServicio
-                                          ? "text-purple-700"
-                                          : "text-gray-400"
-                                      }`}
-                                    />
-                                  )}
-                                </Button>
-                              );
-                            })()}
                             <Popover>
                               <PopoverTrigger asChild>
                                 <Button
@@ -4634,6 +5412,19 @@ export function ClientsTable({
                                     type="button"
                                     variant="ghost"
                                     size="sm"
+                                    onClick={() => openAveriasCliente(client)}
+                                    className="h-auto flex-col items-center justify-center gap-1 py-3"
+                                    title={getAveriaStatus(client).title}
+                                  >
+                                    <AlertTriangle className="h-5 w-5 text-amber-600" />
+                                    <span className="text-xs text-gray-700 leading-tight text-center">
+                                      Avería
+                                    </span>
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
                                     onClick={() =>
                                       openUploadFotosDialog(client)
                                     }
@@ -4644,27 +5435,6 @@ export function ClientsTable({
                                     <Camera className="h-5 w-5 text-violet-600" />
                                     <span className="text-xs text-gray-700 leading-tight text-center">
                                       Agregar foto
-                                    </span>
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() =>
-                                      handleViewClientLocation(client)
-                                    }
-                                    disabled={
-                                      client.latitud === undefined ||
-                                      client.latitud === null ||
-                                      client.longitud === undefined ||
-                                      client.longitud === null
-                                    }
-                                    className="h-auto flex-col items-center justify-center gap-1 py-3"
-                                    title="Ver ubicación en el mapa"
-                                  >
-                                    <MapPin className="h-5 w-5 text-purple-600" />
-                                    <span className="text-xs text-gray-700 leading-tight text-center">
-                                      Ver ubicación
                                     </span>
                                   </Button>
                                 </div>
@@ -4680,7 +5450,8 @@ export function ClientsTable({
             </div>
             </div>
           )}
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Ofertas personalizadas */}
       <Dialog
@@ -4878,7 +5649,10 @@ export function ClientsTable({
       {/* Fijar estado de instalación por oferta, para clientes con 2+ confirmadas */}
       <EstadoInstalacionMultipleDialog
         clienteNombre={clienteParaEstadosMultiples?.nombre ?? null}
-        ofertas={clienteParaEstadosMultiples?.oferta_confeccion?.confirmadas_detalle ?? null}
+        ofertas={
+          clienteParaEstadosMultiples?.oferta_confeccion?.confirmadas_detalle ??
+          null
+        }
         onOpenChange={(open) => {
           if (!open) setClienteParaEstadosMultiples(null);
         }}
@@ -5253,55 +6027,6 @@ export function ClientsTable({
                   </Badge>
                 </div>
               </div>
-
-              {ofertasConfirmadasListoPago.length > 1 && (
-                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 space-y-2">
-                  <p className="text-sm font-medium text-amber-900">
-                    Este cliente tiene {ofertasConfirmadasListoPago.length} ofertas
-                    confirmadas. Elige cuál va a pagar:
-                  </p>
-                  <div className="space-y-1.5">
-                    {ofertasConfirmadasListoPago.map((oferta) => {
-                      const activa =
-                        ofertaListoPagoSeleccionada?.id === oferta.id;
-                      return (
-                        <button
-                          key={oferta.id}
-                          type="button"
-                          onClick={() => {
-                            setOfertaListoPagoSeleccionada(oferta);
-                            setComentarioContabilidadListoPago(
-                              oferta.comentario_contabilidad || "",
-                            );
-                          }}
-                          className={`w-full text-left rounded-md border px-3 py-2 transition-colors ${
-                            activa
-                              ? "border-amber-500 bg-white ring-1 ring-amber-200"
-                              : "border-amber-200 bg-white/70 hover:bg-white"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-sm font-semibold text-slate-800">
-                              {oferta.numero_oferta || oferta.id}
-                            </span>
-                            <span className="text-xs text-slate-600">
-                              {formatOfertaMoney(oferta.precio_final)}
-                            </span>
-                          </div>
-                          <p className="text-xs text-slate-600 mt-0.5 line-clamp-1">
-                            {oferta.nombre}
-                          </p>
-                          {oferta.cliente_listo_para_pagar && (
-                            <p className="text-[11px] text-emerald-700 mt-0.5 font-medium">
-                              Ya marcada como lista para pagar
-                            </p>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
 
               <div className="rounded-md border border-slate-200 p-3 space-y-2">
                 <p className="text-sm font-medium text-slate-800">

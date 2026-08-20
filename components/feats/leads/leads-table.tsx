@@ -35,6 +35,10 @@ import { LeadService } from "@/lib/api-services";
 import MapPicker from "@/components/shared/organism/MapPickerNoSSR";
 import { useAuth } from "@/contexts/auth-context";
 import {
+  formatFuenteConReferencia,
+  esFuenteConReferencia,
+} from "@/lib/utils/fuente-display";
+import {
   Camera,
   Edit,
   Trash2,
@@ -2677,12 +2681,6 @@ export function LeadsTable({
         hover: "hover:bg-indigo-200",
         label: "Revisando ofertas",
       },
-      "Sin respuesta": {
-        bg: "bg-red-100",
-        text: "text-red-600",
-        hover: "hover:bg-red-200",
-        label: "Sin respuesta",
-      },
     };
 
     const config = estadosConfig[estado] || {
@@ -2857,9 +2855,21 @@ export function LeadsTable({
                   </td>
                   <td className="px-4 py-3 min-w-[120px] max-w-[180px] text-sm text-gray-700">
                     {lead.fuente ? (
-                      <span className="inline-block max-w-full truncate">
-                        {lead.fuente}
-                      </span>
+                      esFuenteConReferencia(lead.fuente) && lead.fuente_referencia ? (
+                        <div
+                          className="max-w-full"
+                          title={formatFuenteConReferencia(lead.fuente, lead.fuente_referencia)}
+                        >
+                          <div className="truncate">{lead.fuente}</div>
+                          <div className="text-xs text-gray-500 truncate">
+                            {lead.fuente_referencia}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="inline-block max-w-full truncate">
+                          {lead.fuente}
+                        </span>
+                      )
                     ) : (
                       <span className="text-gray-400">—</span>
                     )}
@@ -3322,7 +3332,13 @@ export function LeadsTable({
                         label="Fecha de contacto"
                         value={formatDate(selectedLead.fecha_contacto)}
                       />
-                      <LeadInfoRow label="Fuente" value={selectedLead.fuente} />
+                      <LeadInfoRow
+                        label="Fuente"
+                        value={formatFuenteConReferencia(
+                          selectedLead.fuente,
+                          selectedLead.fuente_referencia,
+                        )}
+                      />
                       <LeadInfoRow
                         icon={UserCheck}
                         label="Comercial asignado"

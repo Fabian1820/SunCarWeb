@@ -1,6 +1,20 @@
 import { apiRequest } from '@/lib/api-config'
 import { Modulo, ModuloCreateData, PermisosUpdateData } from '@/lib/types/feats/permisos/permisos-types'
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const extractApiError = (response: any): string | null => {
+  if (!response) return null
+  if (response.success === false) {
+    return (
+      response?.error?.message ||
+      response?.message ||
+      response?.detail ||
+      'No se pudo completar la operación.'
+    )
+  }
+  return null
+}
+
 export const PermisosService = {
   // ============= MÓDULOS =============
 
@@ -54,13 +68,22 @@ export const PermisosService = {
     trabajadorCi: string,
     data: PermisosUpdateData
   ): Promise<void> {
-    await apiRequest<{
+    const response = await apiRequest<{
       success: boolean
       message: string
     }>(`/permisos/trabajador/${trabajadorCi}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     })
+
+    // apiRequest no lanza excepción en errores con cuerpo JSON (ej. el 400 que
+    // devuelve el backend cuando se intenta guardar modulo_ids vacío sin
+    // confirmar_vacio): normaliza a success:false y lo devuelve tal cual, así
+    // que hay que revisarlo explícitamente para no "guardar" en silencio.
+    const error = extractApiError(response)
+    if (error) {
+      throw new Error(error)
+    }
   },
 
   /**
@@ -72,6 +95,15 @@ export const PermisosService = {
       message: string
       data: string[]
     }>(`/permisos/trabajador/${trabajadorCi}/modulos-nombres`)
+
+    // apiRequest no lanza excepción en errores con cuerpo JSON (ej. un 500 del
+    // backend), solo normaliza a success:false — hay que revisarlo aquí para
+    // que el .catch() del diálogo de permisos detecte el fallo y no arranque
+    // en silencio desde una lista vacía.
+    const error = extractApiError(response)
+    if (error) {
+      throw new Error(error)
+    }
 
     return response.data
   },

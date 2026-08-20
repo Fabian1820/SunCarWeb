@@ -138,8 +138,16 @@ export class ClienteService {
     if (params.limit !== undefined)
       search.append("limit", params.limit.toString());
     appendMulti("comercial", params.comercial);
-    if (params.fechaDesde) search.append("fechaDesde", params.fechaDesde);
-    if (params.fechaHasta) search.append("fechaHasta", params.fechaHasta);
+    // El backend acepta las fechas en camelCase y en snake_case segun el
+    // endpoint, asi que se mandan las dos formas.
+    if (params.fechaDesde) {
+      search.append("fechaDesde", params.fechaDesde);
+      search.append("fecha_desde", params.fechaDesde);
+    }
+    if (params.fechaHasta) {
+      search.append("fechaHasta", params.fechaHasta);
+      search.append("fecha_hasta", params.fechaHasta);
+    }
     if (params.activo !== undefined) {
       search.append("activo", params.activo ? "true" : "false");
     }

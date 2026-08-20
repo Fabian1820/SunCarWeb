@@ -83,7 +83,6 @@ const ESTADO_CLIENTE_LABELS: Record<string, string> = {
   "pendiente de visitarnos": "Pendiente de visitarnos",
   proximamente: "Próximamente",
   "revisando ofertas": "Revisando ofertas",
-  "sin respuesta": "Sin respuesta",
 };
 
 const ESTADO_CLIENTE_BADGE_CLASS: Record<string, string> = {
@@ -97,7 +96,6 @@ const ESTADO_CLIENTE_BADGE_CLASS: Record<string, string> = {
   "pendiente de visitarnos": "bg-pink-100 text-pink-800 border-pink-300",
   proximamente: "bg-indigo-100 text-indigo-800 border-indigo-300",
   "revisando ofertas": "bg-violet-100 text-violet-800 border-violet-300",
-  "sin respuesta": "bg-red-100 text-red-700 border-red-300",
 };
 
 const normalizeEstadoClienteLabel = (estado: string) =>

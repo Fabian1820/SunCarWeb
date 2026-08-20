@@ -23,7 +23,8 @@ import type { Trabajador } from "@/lib/api-types"
 import type { Cliente } from "@/lib/types/feats/customer/cliente-types"
 
 interface FuenteSelectorProps {
-  fuente: string
+  /** Opcional: los formularios de lead/cliente arrancan sin fuente elegida. */
+  fuente?: string
   fuenteReferencia?: string
   onChange: (fuente: string, fuenteReferencia: string) => void
 }
@@ -92,7 +93,7 @@ export function FuenteSelector({ fuente, fuenteReferencia, onChange }: FuenteSel
               <Label>{etiquetaReferencia(tipoRef)}</Label>
               <SucursalSelect
                 value={fuenteReferencia || ""}
-                onChange={(v) => onChange(fuente, v)}
+                onChange={(v) => onChange(fuente ?? "", v)}
               />
             </>
           ) : (
@@ -100,7 +101,7 @@ export function FuenteSelector({ fuente, fuenteReferencia, onChange }: FuenteSel
               tipo={tipoRef as "trabajador" | "cliente"}
               label={etiquetaReferencia(tipoRef)}
               value={fuenteReferencia || ""}
-              onChange={(v) => onChange(fuente, v)}
+              onChange={(v) => onChange(fuente ?? "", v)}
             />
           )}
         </div>

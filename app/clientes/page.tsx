@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/shared/atom/button";
 import {
@@ -10,38 +10,18 @@ import {
   DialogTitle,
   ConfirmDeleteDialog,
 } from "@/components/shared/molecule/dialog";
-import { User, Search, ChevronDown } from "lucide-react";
+import { User } from "lucide-react";
 import { ClienteService } from "@/lib/api-services";
 import { ClientsTable } from "@/components/feats/customer-service/clients-table";
 import { PageLoader } from "@/components/shared/atom/page-loader";
-import { Loader } from "@/components/shared/atom/loader";
 import { useToast } from "@/hooks/use-toast";
 import { useFuentesSync } from "@/hooks/use-fuentes-sync";
-import { useMaterials } from "@/hooks/use-materials";
-import { useEquiposEnOfertas } from "@/hooks/use-equipos-en-ofertas";
-import { useComercialEquipoMap } from "@/hooks/use-comercial-equipo-map";
 import { Toaster } from "@/components/shared/molecule/toaster";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { CreateClientDialog } from "@/components/feats/cliente/create-client-dialog";
+import { FuentesManager } from "@/components/shared/molecule/fuentes-manager";
 import { ExportButtons } from "@/components/shared/molecule/export-buttons";
 import { SmartPagination } from "@/components/shared/molecule/smart-pagination";
-import { Card, CardContent } from "@/components/shared/molecule/card";
-import { Input } from "@/components/shared/molecule/input";
-import { Label } from "@/components/shared/atom/label";
-import { Checkbox } from "@/components/shared/molecule/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/shared/atom/select";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/shared/molecule/popover";
-import { apiRequest } from "@/lib/api-config";
 import type {
   Cliente,
   ClienteCreateData,
@@ -58,7 +38,6 @@ type ClientesFilters = {
   estado: string[];
   fuente: string;
   comercial: string;
-  /** Nombres de los comerciales del equipo (B2B/B2C) elegido en el filtro "Equipo". */
   equipoComerciales: string[];
   fechaDesde: string;
   fechaHasta: string;
@@ -68,8 +47,6 @@ type ClientesFilters = {
   ofertas: string;
   tiempo: string;
   mostrarAnulados: boolean;
-  categoriaComponente: string;
-  materialCodigo: string;
   skip: number;
   limit: number;
 };
@@ -82,150 +59,6 @@ const TIEMPO_RANGES: Record<string, (dias: number) => boolean> = {
   "1mes": (d) => d >= 20 && d <= 30,
   ">1mes": (d) => d > 30,
 };
-
-/**
- * "Tiempo desde creación" traducido a un rango real de fecha_creacion,
- * para que el backend lo pueda filtrar directamente en vez de descargar
- * todo y filtrar en JS. Devuelve fechas ISO (YYYY-MM-DD) o undefined.
- */
-function tiempoARangoFecha(tiempo: string): {
-  fechaDesde?: string;
-  fechaHasta?: string;
-} {
-  const rangos: Record<string, { minDias: number; maxDias?: number }> = {
-    "1_5": { minDias: 1, maxDias: 5 },
-    "5_10": { minDias: 5, maxDias: 10 },
-    "10_15": { minDias: 10, maxDias: 15 },
-    "15_20": { minDias: 15, maxDias: 20 },
-    "1mes": { minDias: 20, maxDias: 30 },
-    ">1mes": { minDias: 30, maxDias: undefined },
-  };
-  const rango = rangos[tiempo];
-  if (!rango) return {};
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-  const iso = (date: Date) => date.toISOString().slice(0, 10);
-  const desdeDate =
-    rango.maxDias !== undefined
-      ? new Date(hoy.getTime() - rango.maxDias * 24 * 60 * 60 * 1000)
-      : undefined;
-  const hastaDate = new Date(hoy.getTime() - rango.minDias * 24 * 60 * 60 * 1000);
-  return {
-    fechaDesde: desdeDate ? iso(desdeDate) : undefined,
-    fechaHasta: iso(hastaDate),
-  };
-}
-
-function mapOfertasFiltroBackend(
-  ofertas: string,
-): "con_ofertas" | "sin_ofertas" | "confirmadas" | "pendientes" | undefined {
-  switch (ofertas) {
-    case "con_ofertas":
-      return "con_ofertas";
-    case "sin_ofertas":
-      return "sin_ofertas";
-    case "con_confirmadas":
-      return "confirmadas";
-    case "sin_confirmadas":
-      return "pendientes";
-    default:
-      // "mas_1_confirmada" no lo cubre el backend — se filtra en JS.
-      return undefined;
-  }
-}
-
-/**
- * Traduce los filtros de la UI al querystring del endpoint /clientes/.
- * `tiempo` se convierte en rango fechaDesde/fechaHasta; `ofertas` se
- * mapea a `ofertas_filtro` cuando el backend lo soporta.
- */
-function buildBackendClientParams(filters: ClientesFilters) {
-  const searchValue = filters.searchTerm.trim();
-  const normalizedEstado = Array.from(
-    new Set(filters.estado.map((v) => v.trim()).filter(Boolean)),
-  );
-
-  let fechaDesde = filters.fechaDesde || undefined;
-  let fechaHasta = filters.fechaHasta || undefined;
-  if (filters.tiempo) {
-    const rango = tiempoARangoFecha(filters.tiempo);
-    // El tiempo domina sobre el rango manual si ambos están puestos.
-    fechaDesde = rango.fechaDesde ?? fechaDesde;
-    fechaHasta = rango.fechaHasta ?? fechaHasta;
-  }
-
-  const comercialEfectivo = filters.comercial
-    ? filters.comercial
-    : filters.equipoComerciales.length
-      ? filters.equipoComerciales
-      : undefined;
-
-  return {
-    q: searchValue || undefined,
-    estado: normalizedEstado.length > 0 ? normalizedEstado : undefined,
-    fuente: filters.fuente || undefined,
-    comercial: comercialEfectivo,
-    provincia: filters.provincia.length ? filters.provincia : undefined,
-    municipio: filters.municipio.length ? filters.municipio : undefined,
-    fechaDesde,
-    fechaHasta,
-    activo: filters.mostrarAnulados ? undefined : true,
-    categoriaComponente:
-      (filters.categoriaComponente as
-        | "INVERSORES"
-        | "BATERÍAS"
-        | "PANELES"
-        | "") || undefined,
-    materialCodigo: filters.materialCodigo || undefined,
-    ofertas_filtro: mapOfertasFiltroBackend(filters.ofertas),
-  };
-}
-
-const TIEMPO_LABELS: Record<string, string> = {
-  "1_5": "Entre 1 y 5 días",
-  "5_10": "Entre 5 y 10 días",
-  "10_15": "Entre 10 y 15 días",
-  "15_20": "Entre 15 y 20 días",
-  "1mes": "1 mes",
-  ">1mes": "Más de 1 mes",
-};
-
-const OFERTAS_FILTER_OPTIONS = [
-  { value: "todas", label: "Todas las ofertas" },
-  { value: "con_ofertas", label: "Con ofertas" },
-  { value: "sin_ofertas", label: "Sin ofertas" },
-  { value: "con_confirmadas", label: "Con ofertas confirmadas" },
-  { value: "mas_1_confirmada", label: "Con más de 1 confirmada" },
-  { value: "sin_confirmadas", label: "Sin ofertas confirmadas" },
-];
-
-const CLIENT_ESTADOS = [
-  "Equipo instalado con éxito",
-  "Esperando equipo",
-  "Pendiente de instalación",
-  "Instalación en Proceso",
-  "Pendiente de visita",
-  "Pendiente de visitarnos",
-  "No interesado",
-];
-
-const LEAD_FUENTES = [
-  "Página Web",
-  "Instagram",
-  "Facebook",
-  "Directo",
-  "Mensaje de Whatsapp",
-  "Visita",
-];
-
-const LEAD_COMERCIALES = [
-  "Enelido Alexander Calero Perez",
-  "Yanet Clara Rodríguez Quintana",
-  "Dashel Pinillos Zubiaur",
-  "Gretel María Mojena Almenares",
-];
-
-const COMERCIALES_LEADS_CACHE_KEY = "leadsComercialesAllCache";
 
 const getTotalConfirmadasCliente = (client: Cliente): number => {
   if (typeof client.oferta_confeccion?.total_confirmadas === "number") {
@@ -439,10 +272,6 @@ const matchesClientDateFilters = (
 export default function ClientesPage() {
   const searchParams = useSearchParams();
   const buscarParam = searchParams.get("buscar") ?? "";
-  const editarOfertaClienteParam =
-    searchParams.get("editar_oferta_cliente") ?? "";
-  const crearOfertaClienteParam =
-    searchParams.get("crear_oferta_cliente") ?? "";
 
   const [clients, setClients] = useState<Cliente[]>([]);
   const [totalClients, setTotalClients] = useState(0);
@@ -464,14 +293,6 @@ export default function ClientesPage() {
   // Sincronizar fuentes de clientes con localStorage
   useFuentesSync([], clients, !initialLoading);
 
-  // Materiales para el selector de "componente principal" especifico (inversor/bateria/panel exacto)
-  const { materials: allMaterials } = useMaterials();
-  const {
-    equipos: equiposComerciales,
-    nombreEquipo,
-    comercialesDeEquipo,
-  } = useComercialEquipoMap();
-
   // Estado para capturar los filtros aplicados desde ClientsTable
   const [appliedFilters, setAppliedFilters] = useState<ClientesFilters>({
     searchTerm: buscarParam,
@@ -487,217 +308,47 @@ export default function ClientesPage() {
     ofertas: "",
     tiempo: "",
     mostrarAnulados: false,
-    categoriaComponente: "",
-    materialCodigo: "",
     skip: 0,
     limit: 20,
   });
-  const updateFilters = useCallback(
-    (patch: Partial<Omit<ClientesFilters, "skip" | "limit">>) => {
-      setAppliedFilters((prev) => ({ ...prev, ...patch, skip: 0 }));
+  const handleFiltersChange = useCallback(
+    (newFilters: Omit<ClientesFilters, "skip" | "limit">) => {
+      const normalizedEstado = Array.from(
+        new Set(newFilters.estado.map((value) => value.trim()).filter(Boolean)),
+      );
+      setAppliedFilters((prev) => {
+        const isSameEstado =
+          normalizedEstado.length === prev.estado.length &&
+          normalizedEstado.every(
+            (value, index) => value === prev.estado[index],
+          );
+        const filtersChanged =
+          prev.searchTerm !== newFilters.searchTerm ||
+          !isSameEstado ||
+          prev.fuente !== newFilters.fuente ||
+          prev.comercial !== newFilters.comercial ||
+          prev.equipoComerciales.join(",") !== newFilters.equipoComerciales.join(",") ||
+          prev.fechaDesde !== newFilters.fechaDesde ||
+          prev.fechaHasta !== newFilters.fechaHasta ||
+          prev.mes !== newFilters.mes ||
+          prev.provincia.join(",") !== newFilters.provincia.join(",") ||
+          prev.municipio.join(",") !== newFilters.municipio.join(",") ||
+          prev.ofertas !== newFilters.ofertas ||
+          prev.tiempo !== newFilters.tiempo ||
+          prev.mostrarAnulados !== newFilters.mostrarAnulados;
+
+        if (!filtersChanged) return prev;
+
+        return {
+          ...prev,
+          ...newFilters,
+          estado: normalizedEstado,
+          skip: 0,
+        };
+      });
     },
     [],
   );
-
-  const { porCategoria: equiposPorCategoria } = useEquiposEnOfertas();
-
-  const materialesDeCategoriaSeleccionada = useMemo(() => {
-    if (!appliedFilters.categoriaComponente) return [];
-    const equipos = equiposPorCategoria.get(appliedFilters.categoriaComponente) ?? [];
-    return equipos
-      .map((eq) => ({
-        codigo: eq.material_codigo,
-        descripcion:
-          eq.nombre ||
-          [eq.marca, eq.modelo].filter(Boolean).join(" ") ||
-          eq.material_codigo,
-      }))
-      .sort((a, b) => a.descripcion.localeCompare(b.descripcion));
-  }, [equiposPorCategoria, appliedFilters.categoriaComponente]);
-
-  // Buscador con debounce (mismo esquema que Leads)
-  const [searchInput, setSearchInput] = useState(buscarParam);
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      updateFilters({ searchTerm: searchInput });
-    }, 400);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchInput]);
-
-  // Provincias / municipios para filtros
-  const [provinciasList, setProvinciasList] = useState<
-    Array<{ codigo: string; nombre: string }>
-  >([]);
-  const [municipiosList, setMunicipiosList] = useState<
-    Array<{ codigo: string; nombre: string }>
-  >([]);
-  const [comercialesExtra, setComercialesExtra] = useState<string[]>([]);
-
-  useEffect(() => {
-    let cancelado = false;
-    (async () => {
-      try {
-        const response = await apiRequest<{
-          success: boolean;
-          data: Array<{ codigo: string; nombre: string }>;
-        }>("/provincias/", { method: "GET" });
-        if (!cancelado && response.success && response.data) {
-          setProvinciasList(response.data);
-        }
-      } catch (error) {
-        console.error("Error cargando provincias:", error);
-      }
-    })();
-    return () => {
-      cancelado = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (appliedFilters.provincia.length === 0) {
-      setMunicipiosList([]);
-      return;
-    }
-    const codigos = appliedFilters.provincia
-      .map((nombre) => provinciasList.find((p) => p.nombre === nombre)?.codigo)
-      .filter(Boolean) as string[];
-    if (codigos.length === 0) {
-      setMunicipiosList([]);
-      return;
-    }
-    let cancelado = false;
-    (async () => {
-      try {
-        const resultados = await Promise.all(
-          codigos.map((codigo) =>
-            apiRequest<{ success: boolean; data: Array<{ codigo: string; nombre: string }> }>(
-              `/provincias/provincia/${codigo}/municipios`,
-              { method: "GET" },
-            ),
-          ),
-        );
-        if (cancelado) return;
-        const combined = new Map<string, { codigo: string; nombre: string }>();
-        for (const r of resultados) {
-          if (r?.success && Array.isArray(r.data)) {
-            for (const m of r.data) combined.set(m.nombre, m);
-          }
-        }
-        setMunicipiosList(
-          [...combined.values()].sort((a, b) =>
-            a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }),
-          ),
-        );
-      } catch (error) {
-        console.error("Error cargando municipios:", error);
-      }
-    })();
-    return () => {
-      cancelado = true;
-    };
-  }, [appliedFilters.provincia, provinciasList]);
-
-  // Cargar comerciales lazy: solo desde caché al inicio; el endpoint se invoca cuando el usuario abre el dropdown
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const cached = sessionStorage.getItem(COMERCIALES_LEADS_CACHE_KEY);
-      if (cached) {
-        const parsed = JSON.parse(cached) as string[];
-        if (Array.isArray(parsed)) setComercialesExtra(parsed);
-      }
-    } catch {}
-  }, []);
-
-  const comercialesFetchedRef = useRef(false);
-  const ensureComercialesCargados = useCallback(async () => {
-    if (comercialesFetchedRef.current) return;
-    comercialesFetchedRef.current = true;
-    try {
-      const response = await apiRequest<{
-        success: boolean;
-        data: { leads?: Array<{ comercial?: string }> };
-      }>("/leads/?skip=0&limit=500", { method: "GET" });
-      const leads = response?.data?.leads ?? [];
-      const set = new Set<string>();
-      for (const lead of leads) {
-        if (lead.comercial && lead.comercial.trim())
-          set.add(lead.comercial.trim());
-      }
-      const list = Array.from(set);
-      setComercialesExtra(list);
-      try {
-        sessionStorage.setItem(
-          COMERCIALES_LEADS_CACHE_KEY,
-          JSON.stringify(list),
-        );
-      } catch {}
-    } catch (error) {
-      console.warn("No se pudo cargar comerciales de leads:", error);
-      comercialesFetchedRef.current = false;
-    }
-  }, []);
-
-  const availableEstados = CLIENT_ESTADOS;
-  const availableFuentes = LEAD_FUENTES;
-  const availableComerciales = useMemo(() => {
-    const set = new Set<string>();
-    LEAD_COMERCIALES.forEach((c) => set.add(c));
-    comercialesExtra.forEach((c) => set.add(c));
-    clients.forEach((c) => {
-      if (c.comercial && c.comercial.trim()) set.add(c.comercial.trim());
-    });
-    return Array.from(set).sort((a, b) =>
-      a.localeCompare(b, "es", { sensitivity: "base" }),
-    );
-  }, [comercialesExtra, clients]);
-
-  const toggleEstado = (estado: string) => {
-    setAppliedFilters((prev) => {
-      const next = prev.estado.includes(estado)
-        ? prev.estado.filter((value) => value !== estado)
-        : [...prev.estado, estado];
-      return { ...prev, estado: next, skip: 0 };
-    });
-  };
-
-  const hasActiveFilters = Boolean(
-    searchInput.trim() ||
-      appliedFilters.estado.length > 0 ||
-      appliedFilters.fuente ||
-      appliedFilters.comercial ||
-      appliedFilters.fechaDesde ||
-      appliedFilters.fechaHasta ||
-      appliedFilters.mes ||
-      appliedFilters.provincia.length > 0 ||
-      appliedFilters.municipio.length > 0 ||
-      appliedFilters.ofertas ||
-      appliedFilters.tiempo,
-  );
-
-  const handleClearFilters = () => {
-    setSearchInput("");
-    setAppliedFilters((prev) => ({
-      ...prev,
-      searchTerm: "",
-      estado: [],
-      fuente: "",
-      comercial: "",
-      equipoComerciales: [],
-      fechaDesde: "",
-      fechaHasta: "",
-      mes: "",
-      provincia: [],
-      municipio: [],
-      ofertas: "",
-      tiempo: "",
-      mostrarAnulados: false,
-      categoriaComponente: "",
-      materialCodigo: "",
-      skip: 0,
-    }));
-  };
 
   const setPage = useCallback(
     (page: number) => {
@@ -720,15 +371,11 @@ export default function ClientesPage() {
       estado?: string[];
       fuente?: string;
       comercial?: string | string[];
-      provincia?: string[];
-      municipio?: string[];
+      provincia?: string;
+      municipio?: string;
       fechaDesde?: string;
       fechaHasta?: string;
       activo?: boolean;
-      categoriaComponente?: "INVERSORES" | "BATERÍAS" | "PANELES" | "";
-      materialCodigo?: string;
-      esTrabajadorSuncar?: boolean;
-      ofertas_filtro?: "con_ofertas" | "sin_ofertas" | "confirmadas" | "pendientes";
     }): Promise<Cliente[]> => {
       const cacheKey = JSON.stringify({
         q: baseParams.q || "",
@@ -737,11 +384,9 @@ export default function ClientesPage() {
         comercial: baseParams.comercial || "",
         provincia: baseParams.provincia || "",
         municipio: baseParams.municipio || "",
-        categoriaComponente: baseParams.categoriaComponente || "",
-        materialCodigo: baseParams.materialCodigo || "",
         fechaDesde: baseParams.fechaDesde || "",
         fechaHasta: baseParams.fechaHasta || "",
-        activo: baseParams.activo ?? null,
+        activo: baseParams.activo === undefined ? "" : baseParams.activo,
       });
       const cached = fetchAllCacheRef.current;
       if (
@@ -818,34 +463,52 @@ export default function ClientesPage() {
       setLoading(true);
       try {
         const filters = { ...appliedFilters, ...overrideFilters };
-        const baseParams = buildBackendClientParams(filters);
-        // Backend soporta todo salvo `mes` (poco frecuente) y
-        // `ofertas === "mas_1_confirmada"` (requiere agregación sobre el
-        // total de confirmadas). Sólo esos dos siguen siendo locales.
-        const necesitaFiltroLocal = Boolean(
-          filters.mes || filters.ofertas === "mas_1_confirmada",
+        const searchValue = filters.searchTerm.trim();
+        const normalizedEstado = Array.from(
+          new Set(filters.estado.map((value) => value.trim()).filter(Boolean)),
+        );
+        // El backend soporta server-side: q, estado, fuente, comercial, provincia (1 valor), municipio (1 valor), fechaDesde, fechaHasta
+        // Múltiples provincias/municipios y mes/ofertas/tiempo se filtran localmente
+        const multiProvincia = filters.provincia.length > 1;
+        const multiMunicipio = filters.municipio.length > 1;
+        const hasLocalOnlyFilter = Boolean(
+          filters.mes || filters.ofertas || filters.tiempo || multiProvincia || multiMunicipio,
         );
 
-        if (necesitaFiltroLocal) {
+        // Pasar al backend solo si hay exactamente 1 valor (compatibilidad API)
+        const serverProvincia = filters.provincia.length === 1 ? filters.provincia[0] : undefined;
+        const serverMunicipio = filters.municipio.length === 1 ? filters.municipio[0] : undefined;
+        const comercialEfectivo: string | string[] =
+          filters.comercial || filters.equipoComerciales;
+
+        const baseParams = {
+          q: searchValue || undefined,
+          estado: normalizedEstado.length > 0 ? normalizedEstado : undefined,
+          fuente: filters.fuente || undefined,
+          comercial: comercialEfectivo || undefined,
+          provincia: serverProvincia,
+          municipio: serverMunicipio,
+          fechaDesde: filters.fechaDesde || undefined,
+          fechaHasta: filters.fechaHasta || undefined,
+          activo: filters.mostrarAnulados ? undefined : true,
+        };
+
+        if (hasLocalOnlyFilter) {
           const all = await fetchAllClientsByBaseFilters(baseParams);
-          const filtered = all.filter((client) => {
-            if (filters.mes) {
-              const parsed =
-                parseClientDate(client.fecha_creacion) ??
-                parseClientDate(client.created_at);
-              if (!parsed) return false;
-              const month = Number.parseInt(filters.mes, 10);
-              if (
-                Number.isFinite(month) &&
-                parsed.getMonth() + 1 !== month
-              )
-                return false;
-            }
-            if (filters.ofertas === "mas_1_confirmada") {
-              if (getTotalConfirmadasCliente(client) <= 1) return false;
-            }
-            return true;
-          });
+          // Provincias/municipios extra (>1) se filtran localmente; si hay 1 ya lo aplicó el backend
+          const localProvincia = multiProvincia ? filters.provincia : [];
+          const localMunicipio = multiMunicipio ? filters.municipio : [];
+          const filtered = all.filter((client) =>
+            matchesClientLocalFilters(client, {
+              fechaDesde: "",
+              fechaHasta: "",
+              mes: filters.mes,
+              provincia: localProvincia,
+              municipio: localMunicipio,
+              ofertas: filters.ofertas,
+              tiempo: filters.tiempo,
+            }),
+          );
           const sorted = sortClientsByCodigo(filtered);
           const page = sorted.slice(
             filters.skip,
@@ -883,24 +546,44 @@ export default function ClientesPage() {
   const getAllFilteredClientsForExport = useCallback(async (): Promise<
     Cliente[]
   > => {
-    const baseParams = buildBackendClientParams(appliedFilters);
-    const result = await fetchAllClientsByBaseFilters(baseParams);
+    const searchValue = appliedFilters.searchTerm.trim();
+    const normalizedEstado = Array.from(
+      new Set(
+        appliedFilters.estado.map((value) => value.trim()).filter(Boolean),
+      ),
+    );
 
-    const filtered = result.filter((client) => {
-      if (appliedFilters.mes) {
-        const parsed =
-          parseClientDate(client.fecha_creacion) ??
-          parseClientDate(client.created_at);
-        if (!parsed) return false;
-        const month = Number.parseInt(appliedFilters.mes, 10);
-        if (Number.isFinite(month) && parsed.getMonth() + 1 !== month)
-          return false;
-      }
-      if (appliedFilters.ofertas === "mas_1_confirmada") {
-        if (getTotalConfirmadasCliente(client) <= 1) return false;
-      }
-      return true;
+    const exportProvincia = appliedFilters.provincia.length === 1 ? appliedFilters.provincia[0] : undefined;
+    const exportMunicipio = appliedFilters.municipio.length === 1 ? appliedFilters.municipio[0] : undefined;
+    const comercialEfectivoExport: string | string[] =
+      appliedFilters.comercial || appliedFilters.equipoComerciales;
+
+    const result = await fetchAllClientsByBaseFilters({
+      q: searchValue || undefined,
+      estado: normalizedEstado.length > 0 ? normalizedEstado : undefined,
+      fuente: appliedFilters.fuente || undefined,
+      comercial: comercialEfectivoExport || undefined,
+      provincia: exportProvincia,
+      municipio: exportMunicipio,
+      fechaDesde: appliedFilters.fechaDesde || undefined,
+      fechaHasta: appliedFilters.fechaHasta || undefined,
+      activo: appliedFilters.mostrarAnulados ? undefined : true,
     });
+
+    const localProvinciaExport = appliedFilters.provincia.length > 1 ? appliedFilters.provincia : [];
+    const localMunicipioExport = appliedFilters.municipio.length > 1 ? appliedFilters.municipio : [];
+
+    const filtered = result.filter((client) =>
+      matchesClientLocalFilters(client, {
+        fechaDesde: "",
+        fechaHasta: "",
+        mes: appliedFilters.mes,
+        provincia: localProvinciaExport,
+        municipio: localMunicipioExport,
+        ofertas: appliedFilters.ofertas,
+        tiempo: appliedFilters.tiempo,
+      }),
+    );
 
     return sortClientsByCodigo(filtered);
   }, [appliedFilters, fetchAllClientsByBaseFilters]);
@@ -931,6 +614,7 @@ export default function ClientesPage() {
     appliedFilters.estado,
     appliedFilters.fuente,
     appliedFilters.comercial,
+    appliedFilters.equipoComerciales,
     appliedFilters.fechaDesde,
     appliedFilters.fechaHasta,
     appliedFilters.mes,
@@ -1047,11 +731,10 @@ export default function ClientesPage() {
     setIsDeleteDialogOpen(true);
   };
 
-  // Anular/reactivar cliente (soft-delete), mismo esquema que anular lead
   const handleSetClienteStatus = async (numero: string, activo: boolean) => {
     const resultado = await ClienteService.updateClienteStatus(numero, activo);
-    if (resultado.success && typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("refreshClientsTable"));
+    if (resultado.success) {
+      await fetchClients();
     }
     return resultado;
   };
@@ -1283,14 +966,8 @@ export default function ClientesPage() {
     };
   };
 
-  // Mostrar loader mientras se cargan los datos iniciales, salvo que haya
-  // un deep-link de oferta pendiente: en ese caso montamos la tabla de una
-  // vez para que el fetch de la oferta arranque en paralelo con la lista
-  // en vez de esperar a que la lista termine de cargar primero.
-  const hasPendingOfertaDeepLink = Boolean(
-    editarOfertaClienteParam || crearOfertaClienteParam,
-  );
-  if (initialLoading && !hasPendingOfertaDeepLink) {
+  // Mostrar loader mientras se cargan los datos iniciales
+  if (initialLoading) {
     return (
       <PageLoader moduleName="Clientes" text="Cargando lista de clientes..." />
     );
@@ -1313,465 +990,35 @@ export default function ClientesPage() {
         badge={{ text: "Servicio", className: "bg-emerald-100 text-emerald-800" }}
         className="bg-white shadow-sm border-b border-emerald-100"
         actions={
-          totalClients > 0 ? (
-            <ExportButtons
-              getExportOptions={getExportOptions}
-              baseFilename="clientes"
-              variant="compact"
-            />
-          ) : undefined
+          <div className="flex items-center gap-2">
+            <FuentesManager />
+          </div>
         }
       />
       <main className="content-with-fixed-header max-w-[96rem] mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
         <div className="space-y-4">
-          {/* Búsqueda y filtros */}
-          <Card className="border-l-4 border-l-emerald-600">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex gap-3 mb-4 flex-col sm:flex-row">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="search-client"
-                    placeholder="Buscar por cualquier dato..."
-                    value={searchInput}
-                    onChange={(event) => setSearchInput(event.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-                <label className="flex items-center gap-2 text-sm text-gray-700 whitespace-nowrap px-1">
-                  <Checkbox
-                    checked={appliedFilters.mostrarAnulados}
-                    onCheckedChange={(checked) =>
-                      updateFilters({ mostrarAnulados: checked === true })
-                    }
-                  />
-                  Mostrar anulados
-                </label>
-                <Button
-                  variant="outline"
-                  onClick={handleClearFilters}
-                  className="text-gray-600 hover:text-gray-800 whitespace-nowrap"
-                  disabled={!hasActiveFilters}
-                >
-                  Limpiar Filtros
-                </Button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                <div>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className="w-full justify-between">
-                        <span className="truncate">
-                          {appliedFilters.estado.length > 0
-                            ? `${appliedFilters.estado.length} estado${appliedFilters.estado.length > 1 ? "s" : ""}`
-                            : "Todos los estados"}
-                        </span>
-                        <ChevronDown className="h-4 w-4 text-gray-400" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent align="start" className="w-72">
-                      <div className="flex items-center justify-between mb-2">
-                        <Label className="text-sm text-gray-700">Estado</Label>
-                        {appliedFilters.estado.length > 0 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-2 text-xs"
-                            onClick={() => updateFilters({ estado: [] })}
-                          >
-                            Limpiar
-                          </Button>
-                        )}
-                      </div>
-                      <div className="space-y-2 max-h-52 overflow-y-auto">
-                        {availableEstados.map((estado) => (
-                          <label
-                            key={estado}
-                            className="flex items-center gap-2 text-sm text-gray-700"
-                          >
-                            <Checkbox
-                              checked={appliedFilters.estado.includes(estado)}
-                              onCheckedChange={() => toggleEstado(estado)}
-                            />
-                            <span>{estado}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                <div>
-                  <Select
-                    value={appliedFilters.fuente || "todas"}
-                    onValueChange={(value) =>
-                      updateFilters({ fuente: value === "todas" ? "" : value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Todas las fuentes" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="todas">Todas las fuentes</SelectItem>
-                      {availableFuentes.map((fuente) => (
-                        <SelectItem key={fuente} value={fuente}>
-                          {fuente}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Select
-                    value={appliedFilters.comercial || "todos"}
-                    onValueChange={(value) =>
-                      updateFilters({ comercial: value === "todos" ? "" : value })
-                    }
-                    onOpenChange={(open) => {
-                      if (open) void ensureComercialesCargados();
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Todos los comerciales" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="todos">Todos los comerciales</SelectItem>
-                      {availableComerciales.map((comercial) => (
-                        <SelectItem key={comercial} value={comercial}>
-                          {comercial}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Select
-                    value={
-                      appliedFilters.equipoComerciales.length > 0
-                        ? equiposComerciales.find((e) =>
-                            comercialesDeEquipo(e.id).every((c) =>
-                              appliedFilters.equipoComerciales.includes(c),
-                            ),
-                          )?.id || "todos"
-                        : "todos"
-                    }
-                    onValueChange={(value) =>
-                      updateFilters({
-                        equipoComerciales:
-                          value === "todos" ? [] : comercialesDeEquipo(value),
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Todos los equipos" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="todos">Todos los equipos</SelectItem>
-                      {equiposComerciales.map((equipo) => (
-                        <SelectItem key={equipo.id} value={equipo.id}>
-                          {equipo.nombre}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Input
-                    type="date"
-                    value={appliedFilters.fechaDesde}
-                    onChange={(event) =>
-                      updateFilters({ fechaDesde: event.target.value })
-                    }
-                    placeholder="Fecha desde"
-                  />
-                </div>
-
-                <div>
-                  <Input
-                    type="date"
-                    value={appliedFilters.fechaHasta}
-                    onChange={(event) =>
-                      updateFilters({ fechaHasta: event.target.value })
-                    }
-                    placeholder="Fecha hasta"
-                  />
-                </div>
-
-                <div>
-                  <Select
-                    value={appliedFilters.mes || "todos"}
-                    onValueChange={(value) =>
-                      updateFilters({ mes: value === "todos" ? "" : value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Todos los meses" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="todos">Todos los meses</SelectItem>
-                      <SelectItem value="1">Enero</SelectItem>
-                      <SelectItem value="2">Febrero</SelectItem>
-                      <SelectItem value="3">Marzo</SelectItem>
-                      <SelectItem value="4">Abril</SelectItem>
-                      <SelectItem value="5">Mayo</SelectItem>
-                      <SelectItem value="6">Junio</SelectItem>
-                      <SelectItem value="7">Julio</SelectItem>
-                      <SelectItem value="8">Agosto</SelectItem>
-                      <SelectItem value="9">Septiembre</SelectItem>
-                      <SelectItem value="10">Octubre</SelectItem>
-                      <SelectItem value="11">Noviembre</SelectItem>
-                      <SelectItem value="12">Diciembre</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className="w-full justify-between">
-                        <span className="truncate">
-                          {appliedFilters.provincia.length > 0
-                            ? `${appliedFilters.provincia.length} provincia${appliedFilters.provincia.length > 1 ? "s" : ""}`
-                            : "Todas las provincias"}
-                        </span>
-                        <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent align="start" className="w-72">
-                      <div className="flex items-center justify-between mb-2">
-                        <Label className="text-sm text-gray-700">Provincia</Label>
-                        {appliedFilters.provincia.length > 0 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-2 text-xs"
-                            onClick={() =>
-                              updateFilters({ provincia: [], municipio: [] })
-                            }
-                          >
-                            Limpiar
-                          </Button>
-                        )}
-                      </div>
-                      <div className="space-y-2 max-h-52 overflow-y-auto">
-                        {provinciasList.map((p) => (
-                          <label
-                            key={p.codigo}
-                            className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer"
-                          >
-                            <Checkbox
-                              checked={appliedFilters.provincia.includes(p.nombre)}
-                              onCheckedChange={() => {
-                                setAppliedFilters((prev) => {
-                                  const next = prev.provincia.includes(p.nombre)
-                                    ? prev.provincia.filter((x) => x !== p.nombre)
-                                    : [...prev.provincia, p.nombre];
-                                  return {
-                                    ...prev,
-                                    provincia: next,
-                                    municipio: [],
-                                    skip: 0,
-                                  };
-                                });
-                              }}
-                            />
-                            <span>{p.nombre}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                <div>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-between"
-                        disabled={appliedFilters.provincia.length === 0}
-                      >
-                        <span className="truncate">
-                          {appliedFilters.municipio.length > 0
-                            ? `${appliedFilters.municipio.length} municipio${appliedFilters.municipio.length > 1 ? "s" : ""}`
-                            : appliedFilters.provincia.length > 0
-                              ? "Todos los municipios"
-                              : "Selecciona provincia"}
-                        </span>
-                        <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent align="start" className="w-72">
-                      <div className="flex items-center justify-between mb-2">
-                        <Label className="text-sm text-gray-700">Municipio</Label>
-                        {appliedFilters.municipio.length > 0 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-2 text-xs"
-                            onClick={() => updateFilters({ municipio: [] })}
-                          >
-                            Limpiar
-                          </Button>
-                        )}
-                      </div>
-                      <div className="space-y-2 max-h-52 overflow-y-auto">
-                        {municipiosList.map((m) => (
-                          <label
-                            key={m.codigo}
-                            className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer"
-                          >
-                            <Checkbox
-                              checked={appliedFilters.municipio.includes(m.nombre)}
-                              onCheckedChange={() => {
-                                setAppliedFilters((prev) => {
-                                  const next = prev.municipio.includes(m.nombre)
-                                    ? prev.municipio.filter((x) => x !== m.nombre)
-                                    : [...prev.municipio, m.nombre];
-                                  return { ...prev, municipio: next, skip: 0 };
-                                });
-                              }}
-                            />
-                            <span>{m.nombre}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                <div>
-                  <Select
-                    value={appliedFilters.ofertas || "todas"}
-                    onValueChange={(value) =>
-                      updateFilters({ ofertas: value === "todas" ? "" : value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Todas las ofertas" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {OFERTAS_FILTER_OPTIONS.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Select
-                    value={appliedFilters.tiempo || "todos"}
-                    onValueChange={(value) =>
-                      updateFilters({ tiempo: value === "todos" ? "" : value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Tiempo desde creación" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="todos">Cualquier tiempo</SelectItem>
-                      {Object.entries(TIEMPO_LABELS).map(([key, label]) => (
-                        <SelectItem key={key} value={key}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Select
-                    value={appliedFilters.categoriaComponente || "todos"}
-                    onValueChange={(value) =>
-                      updateFilters({
-                        categoriaComponente: value === "todos" ? "" : value,
-                        materialCodigo: "",
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Componente principal" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="todos">
-                        Cualquier componente
-                      </SelectItem>
-                      <SelectItem value="INVERSORES">Inversor</SelectItem>
-                      <SelectItem value="BATERÍAS">Batería</SelectItem>
-                      <SelectItem value="PANELES">Paneles</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {appliedFilters.categoriaComponente && (
-                  <div>
-                    <Select
-                      value={appliedFilters.materialCodigo || "todos"}
-                      onValueChange={(value) =>
-                        updateFilters({
-                          materialCodigo: value === "todos" ? "" : value,
-                        })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona el modelo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="todos">
-                          Cualquier modelo
-                        </SelectItem>
-                        {materialesDeCategoriaSeleccionada.map((m) => (
-                          <SelectItem key={m.codigo} value={m.codigo}>
-                            {m.descripcion}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Tabla de clientes */}
-          <div className="relative min-h-[16rem]">
-            {loading && clients.length > 0 && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/80 backdrop-blur-sm">
-                <Loader label="Aplicando filtros..." />
-              </div>
-            )}
-
-            {loading && clients.length === 0 ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader label="Cargando clientes..." />
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <p className="text-xs text-gray-500">
-                  {totalClients} {totalClients === 1 ? "cliente" : "clientes"}
-                </p>
-                <ClientsTable
-                  clients={clients}
-                  totalClients={totalClients}
-                  onEdit={handleEditClient}
-                  onDelete={handleDeleteClient}
-                  onSetClienteStatus={handleSetClienteStatus}
-                  onViewLocation={handleViewClientLocation}
-                  onUploadFotos={handleUploadClientFoto}
-                  onUpdatePrioridad={handleUpdateClientPrioridad}
-                  loading={loading || initialLoading}
-                  autoOpenEditarOfertaClienteNumero={editarOfertaClienteParam || undefined}
-                  autoOpenCrearOfertaClienteNumero={crearOfertaClienteParam || undefined}
+          <ClientsTable
+            clients={clients}
+            totalClients={totalClients}
+            onEdit={handleEditClient}
+            onDelete={handleDeleteClient}
+            onSetClienteStatus={handleSetClienteStatus}
+            onViewLocation={handleViewClientLocation}
+            onUploadFotos={handleUploadClientFoto}
+            onUpdatePrioridad={handleUpdateClientPrioridad}
+            loading={loading}
+            onFiltersChange={handleFiltersChange}
+            initialSearchTerm={buscarParam}
+            exportButtons={
+              totalClients > 0 ? (
+                <ExportButtons
+                  getExportOptions={getExportOptions}
+                  baseFilename="clientes"
+                  variant="compact"
                 />
-              </div>
-            )}
-          </div>
+              ) : undefined
+            }
+          />
           {totalClients > appliedFilters.limit && appliedFilters.limit > 0 && (
             <SmartPagination
               currentPage={page}
@@ -1785,11 +1032,9 @@ export default function ClientesPage() {
           open={isCreateClientDialogOpen}
           onOpenChange={setIsCreateClientDialogOpen}
         >
-          <DialogContent className="max-w-xl max-h-[85vh] overflow-hidden p-0 gap-0 flex flex-col">
-            <DialogHeader className="shrink-0 border-b border-gray-100 px-5 py-4">
-              <DialogTitle className="text-base font-semibold text-gray-900">
-                Crear nuevo cliente
-              </DialogTitle>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Crear nuevo cliente</DialogTitle>
             </DialogHeader>
             <CreateClientDialog
               onSubmit={handleCreateClient}

@@ -20,6 +20,12 @@ import {
   DialogTitle,
 } from "@/components/shared/molecule/dialog";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/shared/molecule/popover";
+import { Checkbox } from "@/components/shared/molecule/checkbox";
+import {
   ArrowLeft,
   Search,
   Plus,
@@ -33,6 +39,7 @@ import {
   UserCheck,
   MessageSquareText,
   ChevronRight,
+  ChevronDown,
   Volume2,
   VolumeX,
   Coins,
@@ -120,7 +127,6 @@ const ESTADO_CLIENTE_LABELS: Record<string, string> = {
   "pendiente de visitarnos": "Pendiente de visitarnos",
   proximamente: "Próximamente",
   "revisando ofertas": "Revisando ofertas",
-  "sin respuesta": "Sin respuesta",
   "sin estado": "Sin estado",
 };
 
@@ -135,7 +141,6 @@ const ESTADO_CLIENTE_ORDER = [
   "pendiente de visitarnos",
   "proximamente",
   "revisando ofertas",
-  "sin respuesta",
   "sin estado",
 ];
 
@@ -171,6 +176,8 @@ export default function PagosClientesPage() {
   const [estadoOfertaPendienteFilter, setEstadoOfertaPendienteFilter] =
     useState<"todos" | "con_pendiente" | "sin_pendiente">("todos");
   const [estadoClienteFilter, setEstadoClienteFilter] = useState("todos");
+  const [recibidoPorFilter, setRecibidoPorFilter] = useState<string[]>([]);
+  const [cobradoresDisponibles, setCobradoresDisponibles] = useState<string[]>([]);
   const [resumenPagos, setResumenPagos] =
     useState<ResumenPagosPendientes | null>(null);
   const [loadingResumenPagos, setLoadingResumenPagos] = useState(false);
@@ -501,6 +508,7 @@ export default function PagosClientesPage() {
     showCobrosConPagosFilters &&
     searchTerm.trim() === "" &&
     devolucionesFilter === "todos" &&
+    recibidoPorFilter.length === 0 &&
     (viewMode !== "pagos-por-ofertas" ||
       (estadoOfertaPendienteFilter === "todos" &&
         estadoClienteFilter === "todos"));
@@ -570,6 +578,8 @@ export default function PagosClientesPage() {
         estadoOfertaPendienteFilter !== "todos"
           ? estadoOfertaPendienteFilter
           : undefined,
+      recibido_por:
+        recibidoPorFilter.length > 0 ? recibidoPorFilter : undefined,
     }),
     [
       skipCobros,
@@ -578,6 +588,7 @@ export default function PagosClientesPage() {
       fechaCobroHasta,
       devolucionesFilter,
       estadoOfertaPendienteFilter,
+      recibidoPorFilter,
     ],
   );
 
@@ -697,6 +708,10 @@ export default function PagosClientesPage() {
     refetchOfertasConSaldoPendiente({ skip: 0, silent: true });
   }, [refetchOfertasConSaldoPendiente, refetchOfertasSinPago]);
 
+  useEffect(() => {
+    PagoService.getCobradores().then(setCobradoresDisponibles);
+  }, []);
+
   // Debounce: re-fetch desde page 1 cuando cambia la búsqueda en tabs paginadas
   const isFirstSearchRender = useRef(true);
   useEffect(() => {
@@ -720,6 +735,7 @@ export default function PagosClientesPage() {
           fecha_hasta: fechaCobroHasta || undefined,
           devoluciones: devolucionesFilter !== "todos" ? devolucionesFilter : undefined,
           estado_pendiente: estadoOfertaPendienteFilter !== "todos" ? estadoOfertaPendienteFilter : undefined,
+          recibido_por: recibidoPorFilter.length > 0 ? recibidoPorFilter : undefined,
         });
       }
     }, 300);
@@ -735,6 +751,7 @@ export default function PagosClientesPage() {
     fechaCobroHasta,
     devolucionesFilter,
     estadoOfertaPendienteFilter,
+    recibidoPorFilter,
   ]);
 
   // Re-fetch cobros from skip=0 when non-search filters change (immediate, no debounce)
@@ -753,12 +770,14 @@ export default function PagosClientesPage() {
       fecha_hasta: fechaCobroHasta || undefined,
       devoluciones: devolucionesFilter !== "todos" ? devolucionesFilter : undefined,
       estado_pendiente: estadoOfertaPendienteFilter !== "todos" ? estadoOfertaPendienteFilter : undefined,
+      recibido_por: recibidoPorFilter.length > 0 ? recibidoPorFilter : undefined,
     });
   }, [
     fechaCobroDesde,
     fechaCobroHasta,
     devolucionesFilter,
     estadoOfertaPendienteFilter,
+    recibidoPorFilter,
     // intentionally exclude searchTerm (handled by debounce above) and viewMode
     // eslint-disable-next-line react-hooks/exhaustive-deps
   ]);
@@ -1324,6 +1343,69 @@ export default function PagosClientesPage() {
                         </option>
                       </select>
                     </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                        Quién cobró
+                      </Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="w-full h-10 justify-between font-normal"
+                          >
+                            <span className="truncate">
+                              {recibidoPorFilter.length > 0
+                                ? `${recibidoPorFilter.length} seleccionado${recibidoPorFilter.length > 1 ? "s" : ""}`
+                                : "Todos"}
+                            </span>
+                            <ChevronDown className="h-4 w-4 text-gray-400" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent align="start" className="w-64">
+                          <div className="flex items-center justify-between mb-2">
+                            <Label className="text-sm text-gray-700">
+                              Quién cobró
+                            </Label>
+                            {recibidoPorFilter.length > 0 && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2 text-xs"
+                                onClick={() => setRecibidoPorFilter([])}
+                              >
+                                Limpiar
+                              </Button>
+                            )}
+                          </div>
+                          <div className="space-y-2 max-h-52 overflow-y-auto">
+                            {cobradoresDisponibles.length === 0 ? (
+                              <p className="text-xs text-gray-500">
+                                No hay cobradores registrados
+                              </p>
+                            ) : (
+                              cobradoresDisponibles.map((nombre) => (
+                                <label
+                                  key={nombre}
+                                  className="flex items-center gap-2 text-sm text-gray-700"
+                                >
+                                  <Checkbox
+                                    checked={recibidoPorFilter.includes(nombre)}
+                                    onCheckedChange={() =>
+                                      setRecibidoPorFilter((prev) =>
+                                        prev.includes(nombre)
+                                          ? prev.filter((n) => n !== nombre)
+                                          : [...prev, nombre],
+                                      )
+                                    }
+                                  />
+                                  <span>{nombre}</span>
+                                </label>
+                              ))
+                            )}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
                     {viewMode === "pagos-por-ofertas" && (
                       <>
                         <div>
@@ -1385,6 +1467,7 @@ export default function PagosClientesPage() {
                       setDevolucionesFilter("todos");
                       setEstadoOfertaPendienteFilter("todos");
                       setEstadoClienteFilter("todos");
+                      setRecibidoPorFilter([]);
                     }}
                   >
                     Limpiar filtros de cobro

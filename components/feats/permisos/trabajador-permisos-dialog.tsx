@@ -91,6 +91,11 @@ export function TrabajadorPermisosDialog({
 
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  // true si falló la carga de los permisos ACTUALES del trabajador (timeout,
+  // 429 por rate limit, 500, etc.). Con esto en true bloqueamos "Guardar" para
+  // no arrancar en silencio desde un checklist vacío y terminar borrando los
+  // permisos previos del trabajador con un $set completo en el backend.
+  const [permisosLoadError, setPermisosLoadError] = useState(false)
 
   // Copiar permisos
   const [trabajadoresConPermisos, setTrabajadoresConPermisos] = useState<
@@ -102,20 +107,39 @@ export function TrabajadorPermisosDialog({
   const loadData = useCallback(async () => {
     if (!trabajadorCi) return
     setIsLoading(true)
+    setPermisosLoadError(false)
     try {
       // Asegurar que el catálogo está sincronizado en BD antes de cargar IDs.
       await sincronizarFaltantes()
 
-      const [tiendasData, almacenesData, nombresAsignados, cisConPermisos, todosTrabajadores] =
+      // OJO: getTrabajadorModulosNombres se captura aparte (no en el
+      // Promise.all general) para distinguir "no tiene permisos asignados"
+      // (array vacío legítimo) de "falló la carga" (null) — si las tratamos
+      // igual, un fallo de red/rate-limit arranca el checklist vacío sin
+      // avisar y un guardado posterior borra los permisos reales del
+      // trabajador.
+      const [tiendasData, almacenesData, nombresAsignadosOrNull, cisConPermisos, todosTrabajadores] =
         await Promise.all([
           InventarioService.getTiendas(),
           InventarioService.getAlmacenes(),
           PermisosService.getTrabajadorModulosNombres(trabajadorCi).catch(
-            () => [] as string[],
+            () => null,
           ),
           PermisosService.getTrabajadoresConPermisos().catch(() => [] as string[]),
           TrabajadorService.getAllTrabajadores().catch(() => []),
         ])
+
+      const fallóCargaPermisos = nombresAsignadosOrNull === null
+      const nombresAsignados = nombresAsignadosOrNull ?? []
+      setPermisosLoadError(fallóCargaPermisos)
+      if (fallóCargaPermisos) {
+        toast({
+          title: "No se pudieron cargar los permisos actuales",
+          description:
+            "El guardado quedó bloqueado para no borrar por accidente los permisos existentes del trabajador. Cierra este diálogo y vuelve a intentarlo.",
+          variant: "destructive",
+        })
+      }
 
       setTiendas(Array.isArray(tiendasData) ? tiendasData : [])
       setAlmacenes(Array.isArray(almacenesData) ? almacenesData : [])
@@ -231,6 +255,30 @@ export function TrabajadorPermisosDialog({
 
   const handleSave = async () => {
     if (!trabajadorCi) return
+
+    if (permisosLoadError) {
+      toast({
+        title: "No se puede guardar",
+        description:
+          "No se cargaron los permisos actuales de este trabajador. Cierra el diálogo y vuelve a abrirlo para reintentar antes de guardar.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const seleccionados = Array.from(permisosSeleccionados)
+
+    // Dejar a alguien sin ningún módulo casi nunca es intencional (ver el
+    // bloqueo de permisosLoadError arriba). Cuando sí lo es, se pide
+    // confirmación explícita y se lo indicamos al backend con
+    // confirmar_vacio para que no lo rechace.
+    if (seleccionados.length === 0) {
+      const confirmado = window.confirm(
+        `¿Seguro que quieres dejar a ${trabajadorNombre ?? "este trabajador"} SIN NINGÚN permiso? No podrá acceder a ningún módulo del sistema.`,
+      )
+      if (!confirmado) return
+    }
+
     setIsSaving(true)
     try {
       // Asegurar IDs en BD para todos los permisos seleccionados (incluyendo
@@ -244,11 +292,11 @@ export function TrabajadorPermisosDialog({
         return nuevoId
       }
 
-      const seleccionados = Array.from(permisosSeleccionados)
       const ids = await Promise.all(seleccionados.map((n) => ensureModuloId(n)))
 
       await PermisosService.updateTrabajadorPermisos(trabajadorCi, {
         modulo_ids: ids,
+        confirmar_vacio: seleccionados.length === 0,
       })
 
       toast({
@@ -261,7 +309,10 @@ export function TrabajadorPermisosDialog({
       console.error(error)
       toast({
         title: "Error",
-        description: "No se pudieron guardar los permisos.",
+        description:
+          error instanceof Error && error.message
+            ? error.message
+            : "No se pudieron guardar los permisos.",
         variant: "destructive",
       })
     } finally {
@@ -454,6 +505,16 @@ export function TrabajadorPermisosDialog({
           </div>
         ) : (
           <div className="space-y-4">
+            {permisosLoadError ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                <span className="font-medium">
+                  No se pudieron cargar los permisos actuales de este trabajador.
+                </span>{" "}
+                Para evitar borrarlos por accidente, el guardado está bloqueado.
+                Cierra este diálogo y vuelve a abrirlo para reintentar.
+              </div>
+            ) : null}
+
             {/* Copiar permisos de otro */}
             {trabajadoresConPermisos.length > 0 ? (
               <div className="flex items-end gap-2 border rounded-lg p-3 bg-blue-50/30 border-blue-200">
@@ -611,7 +672,12 @@ export function TrabajadorPermisosDialog({
           </Button>
           <Button
             onClick={handleSave}
-            disabled={isSaving || isLoading}
+            disabled={isSaving || isLoading || permisosLoadError}
+            title={
+              permisosLoadError
+                ? "No se pudieron cargar los permisos actuales; cierra y reabre el diálogo para reintentar"
+                : undefined
+            }
             className="bg-emerald-600 hover:bg-emerald-700"
           >
             {isSaving ? (

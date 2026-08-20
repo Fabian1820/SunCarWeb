@@ -4,6 +4,8 @@ import { useState } from "react";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { Button } from "@/components/shared/atom/button";
 import { Badge } from "@/components/shared/atom/badge";
+import { Input } from "@/components/shared/atom/input";
+import { Checkbox } from "@/components/shared/molecule/checkbox";
 import { ConfirmDeleteDialog } from "@/components/shared/molecule/dialog";
 import {
   Table,
@@ -13,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/shared/molecule/table";
-import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, Search } from "lucide-react";
 import { usePreguntasFrecuentes } from "@/hooks/use-preguntas-frecuentes";
 import { PreguntaFrecuenteFormDialog } from "@/components/feats/preguntas-frecuentes/pregunta-frecuente-form-dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -35,6 +37,35 @@ export default function PreguntasFrecuentesPage() {
   const [preguntaAEliminar, setPreguntaAEliminar] =
     useState<PreguntaFrecuente | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [busqueda, setBusqueda] = useState("");
+
+  const termino = busqueda.trim().toLowerCase();
+  const preguntasVisibles = termino
+    ? preguntas.filter(
+        (p) =>
+          p.pregunta.toLowerCase().includes(termino) ||
+          p.respuesta.toLowerCase().includes(termino)
+      )
+    : preguntas;
+
+  const revisadas = preguntas.filter((p) => p.revisada).length;
+
+  // El check se guarda al momento, sin abrir el formulario: la idea es poder
+  // ir marcando mientras se repasa la lista.
+  const marcarRevisada = async (
+    pregunta: PreguntaFrecuente,
+    revisada: boolean
+  ) => {
+    try {
+      await actualizarPregunta(pregunta.id, { revisada });
+    } catch {
+      toast({
+        title: "No se pudo guardar",
+        description: "Vuelve a intentarlo en un momento.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const abrirCrear = () => {
     setPreguntaEditando(null);
@@ -96,7 +127,22 @@ export default function PreguntasFrecuentesPage() {
         }
       />
 
-      <div className="content-with-fixed-header max-w-5xl mx-auto p-4 sm:p-6">
+      <main className="content-with-fixed-header px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar en preguntas y respuestas"
+              className="pl-9"
+            />
+          </div>
+          <span className="text-sm text-gray-500 whitespace-nowrap">
+            {revisadas} de {preguntas.length} revisadas
+          </span>
+        </div>
+
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
@@ -105,11 +151,16 @@ export default function PreguntasFrecuentesPage() {
           <div className="text-center py-16 text-gray-500">
             Todavía no hay preguntas frecuentes cargadas.
           </div>
+        ) : preguntasVisibles.length === 0 ? (
+          <div className="text-center py-16 text-gray-500">
+            Ninguna pregunta coincide con «{busqueda}».
+          </div>
         ) : (
           <div className="bg-white rounded-lg border overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-24 text-center">Revisada</TableHead>
                   <TableHead>Pregunta</TableHead>
                   <TableHead>Respuesta</TableHead>
                   <TableHead>Estado</TableHead>
@@ -117,8 +168,17 @@ export default function PreguntasFrecuentesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {preguntas.map((pregunta) => (
+                {preguntasVisibles.map((pregunta) => (
                   <TableRow key={pregunta.id}>
+                    <TableCell className="text-center">
+                      <Checkbox
+                        checked={!!pregunta.revisada}
+                        onCheckedChange={(valor) =>
+                          marcarRevisada(pregunta, valor === true)
+                        }
+                        aria-label={`Marcar "${pregunta.pregunta}" como revisada`}
+                      />
+                    </TableCell>
                     <TableCell className="font-medium max-w-xs">
                       {pregunta.pregunta}
                     </TableCell>
@@ -156,7 +216,7 @@ export default function PreguntasFrecuentesPage() {
             </Table>
           </div>
         )}
-      </div>
+      </main>
 
       <PreguntaFrecuenteFormDialog
         open={isFormOpen}

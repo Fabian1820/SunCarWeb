@@ -635,486 +635,452 @@ export function CreateClientDialog({
     <>
       <form
         onSubmit={handleSubmit}
-        className="flex flex-1 flex-col overflow-hidden"
+        className="space-y-6 max-h-[80vh] overflow-y-auto pr-2 overflow-x-hidden"
       >
-        <div className="flex-1 overflow-y-auto px-5 py-4">
-          <div className="space-y-5">
-            {/* Contacto */}
-            <section>
-              <h4 className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-                Contacto
-              </h4>
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="nombre">
-                      Nombre <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="nombre"
-                      value={formData.nombre}
-                      onChange={(e) =>
-                        handleInputChange("nombre", e.target.value)
-                      }
-                      className={`text-gray-900 placeholder:text-gray-400 ${errors.nombre ? "border-red-500" : ""}`}
-                    />
-                    {errors.nombre && (
-                      <p className="text-sm text-red-500 mt-1">
-                        {errors.nombre}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="referencia">Referencia</Label>
-                    <Input
-                      id="referencia"
-                      value={formData.referencia}
-                      onChange={(e) =>
-                        handleInputChange("referencia", e.target.value)
-                      }
-                      className="text-gray-900 placeholder:text-gray-400"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="telefono">
-                      Teléfono <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="telefono"
-                      value={formData.telefono}
-                      onChange={(e) => handleTelefonoChange(e.target.value)}
-                      placeholder="+5351234567"
-                      className={`text-gray-900 placeholder:text-gray-400 ${errors.telefono ? "border-red-500" : ""}`}
-                    />
-                    {errors.telefono && (
-                      <p className="text-sm text-red-500 mt-1">
-                        {errors.telefono}
-                      </p>
-                    )}
-                    {detectingCountry && (
-                      <p className="text-sm text-blue-500 mt-1">
-                        Detectando país...
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="telefono_adicional">
-                      Teléfono Adicional
-                    </Label>
-                    <Input
-                      id="telefono_adicional"
-                      value={formData.telefono_adicional || ""}
-                      onChange={(e) =>
-                        handleInputChange("telefono_adicional", e.target.value)
-                      }
-                      placeholder="+5351234567"
-                      className={`text-gray-900 placeholder:text-gray-400 ${errors.telefono_adicional ? "border-red-500" : ""}`}
-                    />
-                    {errors.telefono_adicional && (
-                      <p className="text-sm text-red-500 mt-1">
-                        {errors.telefono_adicional}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="pais_contacto">País de contacto</Label>
-                  <Input
-                    id="pais_contacto"
-                    value={formData.pais_contacto || ""}
-                    onChange={(e) =>
-                      handleInputChange("pais_contacto", e.target.value)
-                    }
-                    className="text-gray-900 placeholder:text-gray-400"
-                  />
-                </div>
+        {/* Sección 1: Datos Personales */}
+        <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
+          <div className="pb-4 mb-4 border-b-2 border-gray-200">
+            <h3 className="text-xl font-bold text-gray-900">
+              Datos Personales
+            </h3>
+            <p className="text-sm text-gray-500 mt-1">
+              Información básica del contacto
+            </p>
+          </div>
+          <div className="space-y-4">
+            {/* 1. Nombre y Referencia */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="nombre">
+                  Nombre <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="nombre"
+                  value={formData.nombre}
+                  onChange={(e) => handleInputChange("nombre", e.target.value)}
+                  className={`text-gray-900 placeholder:text-gray-400 ${errors.nombre ? "border-red-500" : ""}`}
+                />
+                {errors.nombre && (
+                  <p className="text-sm text-red-500 mt-1">{errors.nombre}</p>
+                )}
               </div>
-            </section>
+              <div>
+                <Label htmlFor="referencia">Referencia</Label>
+                <Input
+                  id="referencia"
+                  value={formData.referencia}
+                  onChange={(e) =>
+                    handleInputChange("referencia", e.target.value)
+                  }
+                  className="text-gray-900 placeholder:text-gray-400"
+                />
+              </div>
+            </div>
 
-            {/* Identificación */}
-            <section className="border-t border-gray-100 pt-5">
-              <h4 className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-                Identificación
-              </h4>
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="numero">
-                      Código de cliente <span className="text-red-500">*</span>
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        id="numero"
-                        value={formData.numero}
-                        readOnly
-                        disabled
-                        className={`text-gray-900 bg-gray-50 ${errors.numero ? "border-red-500" : ""}`}
-                        placeholder={
-                          generandoCodigo
-                            ? "Generando código..."
-                            : "Seleccione provincia y municipio"
-                        }
-                      />
-                      {generandoCodigo && (
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                          <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
-                        </div>
-                      )}
+            {/* 2. Codigo y Carnet */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="numero">
+                  Código de cliente <span className="text-red-500">*</span>
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="numero"
+                    value={formData.numero}
+                    readOnly
+                    disabled
+                    className={`text-gray-900 bg-gray-50 ${errors.numero ? "border-red-500" : ""}`}
+                    placeholder={
+                      generandoCodigo
+                        ? "Generando código..."
+                        : "Seleccione provincia y municipio para generar el código"
+                    }
+                  />
+                  {generandoCodigo && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
                     </div>
-                    {errorCodigo && (
-                      <p className="text-sm text-red-500 mt-1">
-                        {errorCodigo}
-                      </p>
-                    )}
-                    {!errorCodigo && !generandoCodigo && formData.numero && (
-                      <p className="text-sm text-green-600 mt-1">
-                        ✓ Código generado automáticamente
-                      </p>
-                    )}
-                    {!errorCodigo && !generandoCodigo && !formData.numero && (
-                      <p className="text-sm text-gray-500 mt-1">
-                        Se genera automáticamente al seleccionar provincia y
-                        municipio
-                      </p>
-                    )}
-                    {errors.numero && (
-                      <p className="text-sm text-red-500 mt-1">
-                        {errors.numero}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="carnet_identidad">
-                      {formData.tipo_persona === "Jurídica"
-                        ? "NIT Empresa"
-                        : "Carnet de identidad"}
-                    </Label>
-                    <Input
-                      id="carnet_identidad"
-                      value={formData.carnet_identidad || ""}
-                      onChange={(e) =>
-                        handleInputChange("carnet_identidad", e.target.value)
-                      }
-                      className="text-gray-900 placeholder:text-gray-400"
-                    />
-                  </div>
+                  )}
                 </div>
-                <div>
-                  <Label htmlFor="tipo_persona">Tipo de Persona</Label>
-                  <Select
-                    value={formData.tipo_persona || ""}
-                    onValueChange={(value) =>
-                      handleInputChange("tipo_persona", value)
-                    }
-                  >
-                    <SelectTrigger id="tipo_persona" className="text-gray-900">
-                      <SelectValue placeholder="Seleccionar tipo de persona" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Natural">Natural</SelectItem>
-                      <SelectItem value="Jurídica">Jurídica</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="es_trabajador_suncar"
-                    checked={formData.es_trabajador_suncar ?? false}
-                    onCheckedChange={(checked) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        es_trabajador_suncar: checked === true,
-                      }))
-                    }
-                  />
-                  <Label
-                    htmlFor="es_trabajador_suncar"
-                    className="cursor-pointer"
-                  >
-                    Es trabajador de SunCar
-                  </Label>
-                </div>
+                {errorCodigo && (
+                  <p className="text-sm text-red-500 mt-1">{errorCodigo}</p>
+                )}
+                {!errorCodigo && !generandoCodigo && formData.numero && (
+                  <p className="text-sm text-green-600 mt-1">
+                    ✓ Código generado automáticamente
+                  </p>
+                )}
+                {!errorCodigo && !generandoCodigo && !formData.numero && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    El código se generará automáticamente al seleccionar
+                    provincia y municipio
+                  </p>
+                )}
+                {errors.numero && (
+                  <p className="text-sm text-red-500 mt-1">{errors.numero}</p>
+                )}
               </div>
-            </section>
+              <div>
+                <Label htmlFor="carnet_identidad">
+                  {formData.tipo_persona === "Jurídica"
+                    ? "NIT Empresa"
+                    : "Carnet de identidad"}
+                </Label>
+                <Input
+                  id="carnet_identidad"
+                  value={formData.carnet_identidad || ""}
+                  onChange={(e) =>
+                    handleInputChange("carnet_identidad", e.target.value)
+                  }
+                  className="text-gray-900 placeholder:text-gray-400"
+                />
+              </div>
+            </div>
 
-            {/* Ubicación */}
-            <section className="border-t border-gray-100 pt-5">
-              <h4 className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-                Ubicación
-              </h4>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="direccion">Dirección</Label>
-                  <Input
-                    id="direccion"
-                    value={formData.direccion}
+            {/* 3. Estado y Fuente */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="estado">Estado</Label>
+                <Select
+                  value={formData.estado}
+                  onValueChange={(value) => handleInputChange("estado", value)}
+                >
+                  <SelectTrigger id="estado" className="text-gray-900">
+                    <SelectValue placeholder="Seleccionar estado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Equipo instalado con éxito">
+                      Equipo instalado con éxito
+                    </SelectItem>
+                    <SelectItem value="Esperando equipo">
+                      Esperando equipo
+                    </SelectItem>
+                    <SelectItem value="Pendiente de instalación">
+                      Pendiente de instalación
+                    </SelectItem>
+                    <SelectItem value="Instalación en Proceso">
+                      Instalación en Proceso
+                    </SelectItem>
+                    <SelectItem value="Pendiente de visita">
+                      Pendiente de visita
+                    </SelectItem>
+                    <SelectItem value="No interesado">
+                      No interesado
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {formData.estado === "Pendiente de visita" && (
+                <div className="md:col-span-3">
+                  <Label htmlFor="motivo_visita">Motivo de Visita</Label>
+                  <Textarea
+                    id="motivo_visita"
+                    value={formData.motivo_visita || ""}
                     onChange={(e) =>
-                      handleInputChange("direccion", e.target.value)
+                      handleInputChange("motivo_visita", e.target.value)
                     }
-                    className="text-gray-900 placeholder:text-gray-400"
+                    placeholder="Ej: Primera evaluación técnica, revisar condiciones del sitio..."
+                    rows={3}
+                    className="text-gray-900"
                   />
-                  {errors.direccion && (
+                  {errors.motivo_visita && (
                     <p className="text-sm text-red-500 mt-1">
-                      {errors.direccion}
+                      {errors.motivo_visita}
                     </p>
                   )}
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="provincia_montaje">Provincia</Label>
-                    <Select
-                      value={formData.provincia_montaje}
-                      onValueChange={handleProvinciaChange}
-                      disabled={loadingProvincias}
-                    >
-                      <SelectTrigger
-                        id="provincia_montaje"
-                        className="text-gray-900"
-                      >
-                        <SelectValue
-                          placeholder={
-                            loadingProvincias
-                              ? "Cargando..."
-                              : "Seleccionar provincia"
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-[300px] overflow-y-auto">
-                        {provincias.map((provincia, index) => (
-                          <SelectItem
-                            key={`provincia-${provincia.codigo}-${index}`}
-                            value={provincia.nombre}
-                          >
-                            {provincia.nombre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="municipio">Municipio</Label>
-                    <Select
-                      value={formData.municipio || ""}
-                      onValueChange={(value) =>
-                        handleInputChange("municipio", value)
-                      }
-                      disabled={!selectedProvinciaCodigo || loadingMunicipios}
-                    >
-                      <SelectTrigger id="municipio" className="text-gray-900">
-                        <SelectValue
-                          placeholder={
-                            !selectedProvinciaCodigo
-                              ? "Seleccione una provincia primero"
-                              : loadingMunicipios
-                                ? "Cargando..."
-                                : "Seleccionar municipio"
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-[300px] overflow-y-auto">
-                        {municipios.map((municipio, index) => (
-                          <SelectItem
-                            key={`municipio-${municipio.codigo}-${index}`}
-                            value={municipio.nombre}
-                          >
-                            {municipio.nombre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div>
-                  <Label>Ubicación en el mapa</Label>
-                  <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-                    <div className="flex gap-2 flex-1">
-                      <Input
-                        value={clientLatLng.lat}
-                        readOnly
-                        className="flex-1 sm:w-32 text-gray-600 bg-gray-50 text-xs sm:text-sm"
-                      />
-                      <Input
-                        value={clientLatLng.lng}
-                        readOnly
-                        className="flex-1 sm:w-32 text-gray-600 bg-gray-50 text-xs sm:text-sm"
-                      />
-                    </div>
-                    <Button
-                      type="button"
-                      className="bg-purple-600 hover:bg-purple-700 text-white shrink-0"
-                      size="sm"
-                      onClick={() => setShowMapModal(true)}
-                    >
-                      <MapPin className="h-4 w-4 sm:mr-1" />
-                      <span className="hidden sm:inline">
-                        Seleccionar en mapa
-                      </span>
-                    </Button>
-                  </div>
-                </div>
+              )}
+              <div>
+                <FuenteSelector
+                  fuente={formData.fuente}
+                  fuenteReferencia={formData.fuente_referencia}
+                  onChange={(fuente, fuenteReferencia) => {
+                    handleInputChange("fuente", fuente);
+                    handleInputChange("fuente_referencia", fuenteReferencia);
+                  }}
+                />
               </div>
-            </section>
-
-            {/* Origen y prioridad */}
-            <section className="border-t border-gray-100 pt-5">
-              <h4 className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-                Origen y prioridad
-              </h4>
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FuenteSelector
-                    fuente={formData.fuente}
-                    fuenteReferencia={formData.fuente_referencia}
-                    onChange={(fuente, fuenteReferencia) => {
-                      handleInputChange("fuente", fuente);
-                      handleInputChange("fuente_referencia", fuenteReferencia);
-                    }}
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <PrioritySelect
-                    value={formData.prioridad}
-                    onChange={(value) => handleInputChange("prioridad", value)}
-                  />
-                </div>
+              <div>
+                <Label htmlFor="tipo_persona">Tipo de Persona</Label>
+                <Select
+                  value={formData.tipo_persona || ""}
+                  onValueChange={(value) =>
+                    handleInputChange("tipo_persona", value)
+                  }
+                >
+                  <SelectTrigger id="tipo_persona" className="text-gray-900">
+                    <SelectValue placeholder="Seleccionar tipo de persona" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Natural">Natural</SelectItem>
+                    <SelectItem value="Jurídica">Jurídica</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            </section>
+            </div>
 
-            {/* Estado y seguimiento */}
-            <section className="border-t border-gray-100 pt-5">
-              <h4 className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-                Estado y seguimiento
-              </h4>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="estado">Estado</Label>
-                  <Select
-                    value={formData.estado}
-                    onValueChange={(value) =>
-                      handleInputChange("estado", value)
-                    }
+            {/* Trabajador de SunCar */}
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="es_trabajador_suncar"
+                checked={formData.es_trabajador_suncar ?? false}
+                onCheckedChange={(checked) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    es_trabajador_suncar: checked === true,
+                  }))
+                }
+              />
+              <Label htmlFor="es_trabajador_suncar" className="cursor-pointer">
+                Es trabajador de SunCar
+              </Label>
+            </div>
+
+            {/* 4. Prioridad */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <PrioritySelect
+                value={formData.prioridad}
+                onChange={(value) => handleInputChange("prioridad", value)}
+              />
+            </div>
+
+            {/* Campo condicional: Falta Instalación */}
+            {formData.estado === "Instalación en Proceso" && (
+              <div>
+                <Label htmlFor="falta_instalacion">
+                  ¿Qué le falta a la instalación?
+                </Label>
+                <Textarea
+                  id="falta_instalacion"
+                  value={formData.falta_instalacion || ""}
+                  onChange={(e) =>
+                    handleInputChange("falta_instalacion", e.target.value)
+                  }
+                  rows={2}
+                  className="text-gray-900 placeholder:text-gray-400"
+                  placeholder="Describe qué le falta para completar la instalación..."
+                />
+              </div>
+            )}
+
+            {/* 4. Dirección */}
+            <div>
+              <Label htmlFor="direccion">Dirección</Label>
+              <Input
+                id="direccion"
+                value={formData.direccion}
+                onChange={(e) => handleInputChange("direccion", e.target.value)}
+                className="text-gray-900 placeholder:text-gray-400"
+              />
+              {errors.direccion && (
+                <p className="text-sm text-red-500 mt-1">{errors.direccion}</p>
+              )}
+            </div>
+
+            {/* 5. Provincia y Municipio */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="provincia_montaje">Provincia</Label>
+                <Select
+                  value={formData.provincia_montaje}
+                  onValueChange={handleProvinciaChange}
+                  disabled={loadingProvincias}
+                >
+                  <SelectTrigger
+                    id="provincia_montaje"
+                    className="text-gray-900"
                   >
-                    <SelectTrigger id="estado" className="text-gray-900">
-                      <SelectValue placeholder="Seleccionar estado" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Equipo instalado con éxito">
-                        Equipo instalado con éxito
-                      </SelectItem>
-                      <SelectItem value="Esperando equipo">
-                        Esperando equipo
-                      </SelectItem>
-                      <SelectItem value="Pendiente de instalación">
-                        Pendiente de instalación
-                      </SelectItem>
-                      <SelectItem value="Instalación en Proceso">
-                        Instalación en Proceso
-                      </SelectItem>
-                      <SelectItem value="Pendiente de visita">
-                        Pendiente de visita
-                      </SelectItem>
-                      <SelectItem value="No interesado">
-                        No interesado
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {formData.estado === "Pendiente de visita" && (
-                  <div>
-                    <Label htmlFor="motivo_visita">Motivo de Visita</Label>
-                    <Textarea
-                      id="motivo_visita"
-                      value={formData.motivo_visita || ""}
-                      onChange={(e) =>
-                        handleInputChange("motivo_visita", e.target.value)
+                    <SelectValue
+                      placeholder={
+                        loadingProvincias
+                          ? "Cargando..."
+                          : "Seleccionar provincia"
                       }
-                      placeholder="Ej: Primera evaluación técnica, revisar condiciones del sitio..."
-                      rows={3}
-                      className="text-gray-900"
                     />
-                    {errors.motivo_visita && (
-                      <p className="text-sm text-red-500 mt-1">
-                        {errors.motivo_visita}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {formData.estado === "Instalación en Proceso" && (
-                  <div>
-                    <Label htmlFor="falta_instalacion">
-                      ¿Qué le falta a la instalación?
-                    </Label>
-                    <Textarea
-                      id="falta_instalacion"
-                      value={formData.falta_instalacion || ""}
-                      onChange={(e) =>
-                        handleInputChange("falta_instalacion", e.target.value)
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px] overflow-y-auto">
+                    {provincias.map((provincia, index) => (
+                      <SelectItem
+                        key={`provincia-${provincia.codigo}-${index}`}
+                        value={provincia.nombre}
+                      >
+                        {provincia.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="municipio">Municipio</Label>
+                <Select
+                  value={formData.municipio || ""}
+                  onValueChange={(value) =>
+                    handleInputChange("municipio", value)
+                  }
+                  disabled={!selectedProvinciaCodigo || loadingMunicipios}
+                >
+                  <SelectTrigger id="municipio" className="text-gray-900">
+                    <SelectValue
+                      placeholder={
+                        !selectedProvinciaCodigo
+                          ? "Seleccione una provincia primero"
+                          : loadingMunicipios
+                            ? "Cargando..."
+                            : "Seleccionar municipio"
                       }
-                      rows={2}
-                      className="text-gray-900 placeholder:text-gray-400"
-                      placeholder="Describe qué le falta para completar la instalación..."
                     />
-                  </div>
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px] overflow-y-auto">
+                    {municipios.map((municipio, index) => (
+                      <SelectItem
+                        key={`municipio-${municipio.codigo}-${index}`}
+                        value={municipio.nombre}
+                      >
+                        {municipio.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* 6. Ubicación en el mapa */}
+            <div>
+              <Label>Ubicación en el mapa</Label>
+              <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                <div className="flex gap-2 flex-1">
+                  <Input
+                    value={clientLatLng.lat}
+                    readOnly
+                    className="flex-1 sm:w-32 text-gray-600 bg-gray-50 text-xs sm:text-sm"
+                  />
+                  <Input
+                    value={clientLatLng.lng}
+                    readOnly
+                    className="flex-1 sm:w-32 text-gray-600 bg-gray-50 text-xs sm:text-sm"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  className="bg-purple-600 hover:bg-purple-700 text-white shrink-0"
+                  size="sm"
+                  onClick={() => setShowMapModal(true)}
+                >
+                  <MapPin className="h-4 w-4 sm:mr-1" />
+                  <span className="hidden sm:inline">Seleccionar en mapa</span>
+                </Button>
+              </div>
+            </div>
+
+            {/* 7. Telefono y Pais */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="telefono">
+                  Teléfono <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="telefono"
+                  value={formData.telefono}
+                  onChange={(e) => handleTelefonoChange(e.target.value)}
+                  placeholder="+5351234567"
+                  className={`text-gray-900 placeholder:text-gray-400 ${errors.telefono ? "border-red-500" : ""}`}
+                />
+                {errors.telefono && (
+                  <p className="text-sm text-red-500 mt-1">{errors.telefono}</p>
                 )}
-
-                <div>
-                  <Label htmlFor="comentario">Comentario</Label>
-                  <Textarea
-                    id="comentario"
-                    value={formData.comentario || ""}
-                    onChange={(e) =>
-                      handleInputChange("comentario", e.target.value)
-                    }
-                    rows={3}
-                    className="text-gray-900 placeholder:text-gray-400"
-                  />
-                </div>
+                {detectingCountry && (
+                  <p className="text-sm text-blue-500 mt-1">
+                    Detectando pais...
+                  </p>
+                )}
               </div>
-            </section>
-
-            {/* Fechas de instalación */}
-            <section className="border-t border-gray-100 pt-5">
-              <h4 className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-                Fechas de instalación
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="fecha_montaje">Fecha de inicio</Label>
-                  <Input
-                    id="fecha_montaje"
-                    type="date"
-                    value={convertToDateInput(formData.fecha_montaje || "")}
-                    onChange={(e) =>
-                      handleInputChange("fecha_montaje", e.target.value)
-                    }
-                    className="text-gray-900"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="fecha_instalacion">Fecha de fin</Label>
-                  <Input
-                    id="fecha_instalacion"
-                    type="date"
-                    value={convertToDateInput(
-                      formData.fecha_instalacion || "",
-                    )}
-                    onChange={(e) =>
-                      handleInputChange("fecha_instalacion", e.target.value)
-                    }
-                    className="text-gray-900"
-                  />
-                </div>
+              <div>
+                <Label htmlFor="telefono_adicional">Teléfono Adicional</Label>
+                <Input
+                  id="telefono_adicional"
+                  value={formData.telefono_adicional || ""}
+                  onChange={(e) =>
+                    handleInputChange("telefono_adicional", e.target.value)
+                  }
+                  placeholder="+5351234567"
+                  className={`text-gray-900 placeholder:text-gray-400 ${errors.telefono_adicional ? "border-red-500" : ""}`}
+                />
+                {errors.telefono_adicional && (
+                  <p className="text-sm text-red-500 mt-1">
+                    {errors.telefono_adicional}
+                  </p>
+                )}
               </div>
-            </section>
+            </div>
+            <div>
+              <Label htmlFor="pais_contacto">País de contacto</Label>
+              <Input
+                id="pais_contacto"
+                value={formData.pais_contacto || ""}
+                onChange={(e) =>
+                  handleInputChange("pais_contacto", e.target.value)
+                }
+                className="text-gray-900 placeholder:text-gray-400"
+              />
+            </div>
           </div>
         </div>
 
+        <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
+          <div className="pb-4 mb-4 border-b-2 border-gray-200">
+            <h3 className="text-xl font-bold text-gray-900">
+              Fechas de Instalacion
+            </h3>
+            <p className="text-sm text-gray-500 mt-1">
+              Inicio y fin de la instalacion
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="fecha_montaje">
+                Fecha de inicio de instalación
+              </Label>
+              <Input
+                id="fecha_montaje"
+                type="date"
+                value={convertToDateInput(formData.fecha_montaje || "")}
+                onChange={(e) =>
+                  handleInputChange("fecha_montaje", e.target.value)
+                }
+                className="text-gray-900"
+              />
+            </div>
+            <div>
+              <Label htmlFor="fecha_instalacion">
+                Fecha de fin de instalación
+              </Label>
+              <Input
+                id="fecha_instalacion"
+                type="date"
+                value={convertToDateInput(formData.fecha_instalacion || "")}
+                onChange={(e) =>
+                  handleInputChange("fecha_instalacion", e.target.value)
+                }
+                className="text-gray-900"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Comentarios */}
+        <div className="space-y-2">
+          <Label htmlFor="comentario">Comentario</Label>
+          <Textarea
+            id="comentario"
+            value={formData.comentario || ""}
+            onChange={(e) => handleInputChange("comentario", e.target.value)}
+            rows={3}
+            className="text-gray-900 placeholder:text-gray-400"
+          />
+        </div>
+
         {/* Botones */}
-        <div className="flex shrink-0 justify-end gap-2 border-t border-gray-100 px-5 py-3.5">
+        <div className="flex justify-end gap-2 pt-4">
           <Button
             type="button"
             variant="outline"
@@ -1123,14 +1089,18 @@ export function CreateClientDialog({
           >
             Cancelar
           </Button>
-          <Button type="submit" disabled={isLoading}>
+          <Button
+            type="submit"
+            className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white"
+            disabled={isLoading}
+          >
             {isLoading ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 Guardando...
               </>
             ) : (
-              "Crear cliente"
+              "Crear Cliente"
             )}
           </Button>
         </div>

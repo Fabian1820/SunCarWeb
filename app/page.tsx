@@ -512,7 +512,14 @@ export default function Dashboard() {
         if (!res.ok || !data.url) {
           throw new Error(data.message || "No se pudo abrir el módulo");
         }
-        if (win) win.location.href = data.url;
+        // Si el navegador bloqueó la pestaña, window.open devuelve null. Antes
+        // se perdía el enlace ahí mismo y no pasaba nada visible; ahora se
+        // navega en la propia pestaña, que es mejor que no entrar.
+        if (win) {
+          win.location.href = data.url;
+        } else {
+          window.location.href = data.url;
+        }
       } catch (error) {
         win?.close();
         console.error("Error abriendo módulo externo:", error);

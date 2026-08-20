@@ -648,7 +648,6 @@ export default function LeadsPage() {
                     "Pendiente de visitarnos",
                     "Proximamente",
                     "Revisando ofertas",
-                    "Sin respuesta",
                   ];
                   const seleccionados = filters.estado;
                   const toggleEstado = (estado: string) => {
