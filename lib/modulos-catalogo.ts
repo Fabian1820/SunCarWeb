@@ -40,6 +40,7 @@ import {
   HelpCircle,
   ClipboardList,
   FlaskConical,
+  Send,
 } from "lucide-react"
 
 /**
@@ -797,6 +798,15 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     icon: Package,
     iconClass: "text-sky-700",
     href: "/materiales",
+    grupo: "gestion-almacenes",
+  },
+  {
+    key: "solicitudes-envio",
+    label: "Solicitudes de Envío",
+    descripcion: "Pedidos a la compradora internacional y alertas de stock.",
+    icon: Send,
+    iconClass: "text-sky-700",
+    href: "/solicitudes-envio",
     grupo: "gestion-almacenes",
   },
   {
