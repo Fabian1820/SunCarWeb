@@ -272,6 +272,12 @@ const matchesClientDateFilters = (
 export default function ClientesPage() {
   const searchParams = useSearchParams();
   const buscarParam = searchParams.get("buscar") ?? "";
+  // Deep-links de oferta: permiten llegar desde otro módulo directamente al
+  // diálogo de la oferta de un cliente, sin buscarlo a mano en la tabla.
+  const editarOfertaClienteParam =
+    searchParams.get("editar_oferta_cliente") ?? "";
+  const crearOfertaClienteParam =
+    searchParams.get("crear_oferta_cliente") ?? "";
 
   const [clients, setClients] = useState<Cliente[]>([]);
   const [totalClients, setTotalClients] = useState(0);
@@ -966,8 +972,14 @@ export default function ClientesPage() {
     };
   };
 
-  // Mostrar loader mientras se cargan los datos iniciales
-  if (initialLoading) {
+  // Mostrar loader mientras se cargan los datos iniciales, salvo que haya un
+  // deep-link de oferta pendiente: en ese caso montamos la tabla de una vez
+  // para que el fetch de la oferta arranque en paralelo con la lista, en vez
+  // de esperar a que la lista termine de cargar primero.
+  const hasPendingOfertaDeepLink = Boolean(
+    editarOfertaClienteParam || crearOfertaClienteParam,
+  );
+  if (initialLoading && !hasPendingOfertaDeepLink) {
     return (
       <PageLoader moduleName="Clientes" text="Cargando lista de clientes..." />
     );
@@ -1007,6 +1019,12 @@ export default function ClientesPage() {
             onUploadFotos={handleUploadClientFoto}
             onUpdatePrioridad={handleUpdateClientPrioridad}
             loading={loading}
+            autoOpenEditarOfertaClienteNumero={
+              editarOfertaClienteParam || undefined
+            }
+            autoOpenCrearOfertaClienteNumero={
+              crearOfertaClienteParam || undefined
+            }
             onFiltersChange={handleFiltersChange}
             initialSearchTerm={buscarParam}
             exportButtons={

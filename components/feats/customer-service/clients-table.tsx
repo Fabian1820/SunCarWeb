@@ -143,6 +143,10 @@ interface ClientsTableProps {
   }) => void;
   exportButtons?: React.ReactNode;
   initialSearchTerm?: string;
+  /** Número de cliente cuya oferta se abre a editar nada más montar la tabla. */
+  autoOpenEditarOfertaClienteNumero?: string;
+  /** Número de cliente para el que se abre directamente el alta de oferta. */
+  autoOpenCrearOfertaClienteNumero?: string;
 }
 
 const CLIENT_ESTADOS = [
@@ -635,6 +639,8 @@ export function ClientsTable({
   onFiltersChange,
   exportButtons,
   initialSearchTerm = "",
+  autoOpenEditarOfertaClienteNumero,
+  autoOpenCrearOfertaClienteNumero,
 }: ClientsTableProps) {
   const { toast } = useToast();
   const { hasExactPermission } = useAuth();
@@ -709,6 +715,44 @@ export function ClientsTable({
     showDuplicarOfertaPersonalizadaDialog,
     setShowDuplicarOfertaPersonalizadaDialog,
   ] = useState(false);
+
+  // Deep-link ?crear_oferta_cliente=NUMERO: abre el alta de oferta sin que el
+  // usuario tenga que buscar al cliente. El ref evita que se vuelva a disparar
+  // si la lista se recarga y cambia la referencia de `clients`.
+  const autoOpenCrearOfertaTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (
+      !autoOpenCrearOfertaClienteNumero ||
+      autoOpenCrearOfertaTriggeredRef.current
+    ) {
+      return;
+    }
+    autoOpenCrearOfertaTriggeredRef.current = true;
+
+    (async () => {
+      // Si el cliente ya está en la página cargada nos ahorramos la petición.
+      const clienteEnPagina = clients.find(
+        (c) => c.numero === autoOpenCrearOfertaClienteNumero,
+      );
+      const cliente =
+        clienteEnPagina ||
+        (await ClienteService.getClienteByNumero(
+          autoOpenCrearOfertaClienteNumero,
+        ).catch(() => null));
+      if (cliente) {
+        setClientForAsignarOferta(cliente);
+        setShowCrearOfertaPersonalizadaDialog(true);
+      } else {
+        toast({
+          title: "No se encontró el cliente",
+          description:
+            "No se pudo abrir la creación de oferta para este cliente automáticamente.",
+          variant: "destructive",
+        });
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenCrearOfertaClienteNumero, clients]);
   const [ofertasGenericasAprobadas, setOfertasGenericasAprobadas] = useState<
     OfertaConfeccion[]
   >([]);
@@ -1778,6 +1822,37 @@ export function ClientsTable({
     // Cerrar el diálogo de detalles si está abierto
     setShowDetalleOfertaDialog(false);
   };
+
+  // Deep-link ?editar_oferta_cliente=NUMERO: busca la oferta del cliente y abre
+  // su diálogo de edición directamente. No depende de `clients` porque la
+  // oferta se pide al backend por número, no se saca de la página cargada.
+  const autoOpenOfertaTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (
+      !autoOpenEditarOfertaClienteNumero ||
+      autoOpenOfertaTriggeredRef.current
+    ) {
+      return;
+    }
+    autoOpenOfertaTriggeredRef.current = true;
+
+    (async () => {
+      const result = await obtenerOfertaPorCliente(
+        autoOpenEditarOfertaClienteNumero,
+      );
+      if (result.success && result.oferta) {
+        handleEditarOferta(result.oferta);
+      } else {
+        toast({
+          title: "No se encontró la oferta",
+          description:
+            "No se pudo abrir la oferta de este cliente automáticamente.",
+          variant: "destructive",
+        });
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenEditarOfertaClienteNumero]);
 
   const handleEliminarOferta = (oferta: OfertaConfeccion) => {
     setOfertaParaEliminar(oferta);
