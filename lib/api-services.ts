@@ -7,7 +7,6 @@ export { TrabajadorService } from "./services/feats/worker/trabajador-service";
 export { ClienteService } from "./services/feats/customer/cliente-service";
 export { AtencionClienteService } from "./services/feats/customer-service/atencion-cliente-service";
 export { ContactoService } from "./services/feats/contactos/contacto-service";
-export { OfertaService } from "./services/feats/ofertas/oferta-service";
 export { LeadService } from "./services/feats/leads/lead-service";
 export { RecursosHumanosService } from "./services/feats/recursos-humanos/recursos-humanos-service";
 export { IngresoMensualService } from "./services/feats/recursos-humanos/ingreso-mensual-service";
