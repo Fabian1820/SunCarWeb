@@ -2,6 +2,50 @@
 
 ---
 
+## 📅 20 de Agosto, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**2 commits** — Fabian1820. Módulo de Solicitudes de Envío: código original del 31 de julio mergeado hoy a main, y luego promovido como entrada propia en el dashboard dentro del grupo "Gestión de Almacenes".
+
+---
+
+### Área 1: feat(inventario) — módulo /solicitudes-envio + alertas de stock (co-authored Claude Sonnet 5, committed 2026-08-20)
+
+- **`feat(inventario): módulo de Solicitudes de Envío + alertas de stock`** — Código original del 31 de julio, integrado hoy en main. Agrega:
+  - Página `/solicitudes-envio` con 3 tabs: solicitudes locales, solicitudes internacionales, y materiales con alerta de stock (silenciables).
+  - Componentes, hooks y servicio de API dedicados.
+  - Tarjeta de acceso en Almacenes SunCar detrás del permiso `solicitudes-envio`.
+
+---
+
+### Área 2: feat(solicitudes-envio) — promueve el módulo al dashboard (Fabian1820, 19:59)
+
+- **`feat(solicitudes-envio): promueve el módulo al dashboard, junto a Materiales`** — El módulo estaba oculto dentro de Almacenes SunCar (acceso solo por tarjeta interior, sin registro en módulos-catálogo, imposible de asignar como permiso normal). Ahora:
+  - Entrada propia en el grupo "Gestión de Almacenes", al lado de "Gestionar Materiales".
+  - Tarjeta de acceso eliminada de Almacenes SunCar (sin rutas duplicadas).
+  - Permiso `solicitudes-envio` sin cambios — asignaciones existentes preservadas.
+
+---
+
+### Puede dar bateo
+
+1. **Código de ~3 semanas sin deploy en main — endpoints de backend sin confirmar en producción**: El módulo fue escrito el 31 de julio. Si el backend de solicitudes-envio no fue deployado en ese momento (o fue deployado y revertido), los 3 tabs pueden fallar con 404 o 500 en producción. Verificar que los endpoints de solicitudes locales, internacionales y alertas de stock están activos.
+
+2. **Alertas de stock "silenciables" — confirmar persistencia del estado silenciado**: Si el silenciado se guarda solo en estado local o `localStorage`, se pierde al recargar y el usuario vuelve a ver todas las alertas. Verificar si hay persistencia en backend o si el comportamiento esperado es explícitamente "se resetea al recargar".
+
+3. **Módulo sin registro en módulos-catálogo hasta hoy — permisos posiblemente no asignados**: El permiso `solicitudes-envio` existía pero el módulo no aparecía en el catálogo de permisos. Nadie pudo haberlo asignado a través de la UI. Verificar que los usuarios que deben acceder tienen el permiso asignado explícitamente en BD.
+
+4. **Ventana entre commits 1 y 2**: Si Railway auto-deploy estaba activo, hubo un período donde la tarjeta aparecía tanto en Almacenes SunCar como en el dashboard a la vez (dos caminos al mismo sitio). Usuarios que entraron en esa ventana pueden tener caché inconsistente.
+
+5. **`/solicitudes-envio` sin RouteGuard confirmado**: Si la ruta no tiene `RouteGuard`, cualquier usuario autenticado puede acceder directamente por URL sin tener el permiso `solicitudes-envio`. Confirmar que existe el guard o que es intencional.
+
+6. **3 tabs con potencialmente 3 endpoints distintos — error handling por tab**: Si un endpoint falla (ej. backend no tiene solicitudes internacionales deployadas), el tab puede quedar en loading o error sin afectar los demás. Confirmar que el fallo de un tab no rompe la página completa.
+
+7. **Tarjeta eliminada de Almacenes SunCar — usuarios con flujo de trabajo establecido**: Usuarios que accedían a Solicitudes de Envío desde dentro de Almacenes SunCar deben adaptarse a la nueva ubicación en el dashboard. Sin redirect ni aviso desde la ubicación anterior.
+
+---
+
 ## 📅 19 de Agosto, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -186,35 +230,6 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 12 de Agosto, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**2 commits** — ambos de yany1509. Cambio puntual en el módulo de Pagos: se agregan los billetes de 5000 y 2000 CUP al desglose de denominaciones en los tres diálogos de registro/edición de pagos.
-
----
-
-### Área 1: Pagos — billetes de 5000 y 2000 CUP en Registrar Pago (1 commit — yany1509, 17:45)
-
-- **`feat(pagos): agrega billetes de 5000 y 2000 CUP al desglose en Registrar Pago`** (17:45) — Se añaden las denominaciones de 5000 y 2000 CUP al array de billetes en `components/feats/pagos/registrar-pago-dialog.tsx`.
-
----
-
-### Área 2: Pagos — billetes de 5000 y 2000 CUP en Editar Pago y Registrar Devolución (1 commit — yany1509, 17:52)
-
-- **`feat(pagos): agrega billetes de 5000 y 2000 CUP al desglose en Editar Pago y Registrar Devolucion`** (17:52) — La misma adición de denominaciones aplicada a `editar-pago-dialog.tsx` y `registrar-devolucion-pago-dialog.tsx`.
-
----
-
-### Puede dar bateo
-
-1. **Denominaciones de billetes CUP hardcodeadas en 3 diálogos separados — posible 4° diálogo sin actualizar**.
-2. **Lista de denominaciones no centralizada — riesgo de desincronía futura**.
-3. **Orden del array no confirmado — verificar posición descendente correcta**.
-4. **Ventana de ~7 minutos con Railway auto-deploy (17:45-17:52)** donde solo Registrar Pago tenía las nuevas denominaciones.
-
----
-
 #### Seguimientos vigentes
 
 - **Permisos de "Preguntas Frecuentes" y "Datos a Averiguar" para comerciales — confirmar asignaciones explícitas en BD (Ago 15)**.
@@ -229,8 +244,6 @@ Sin cambios nuevos — sin riesgos nuevos.
 - **`feat(chatwoot)` SSO — Platform API puede haber cambiado desde el código original del 6 de Julio (Ago 14)**.
 - **Cherry-pick batch — confirmar que no hay otros arrastra de dependencias como el del directorio telefónico (Ago 14)**.
 - **Módulos WhatsApp solo visibles para superAdmin en dashboard pero rutas sin RouteGuard — accesibles con URL directa (Ago 14)**.
-- **Denominaciones 5000 y 2000 CUP hardcodeadas en 3 diálogos — confirmar que no existe un 4° diálogo sin actualizar (Ago 12)**.
-- **Dirección de empresa — confirmar que NO quedan referencias a "Calle 24 #109 e/ 1ra y 3ra" en vales, reportes u otros PDFs más allá de los 6 archivos corregidos (Ago 11 — entrada eliminada por retención)**.
 - **FuenteSelector — confirmar persistencia de `fuente_referencia` en POST/PATCH leads y clientes en backend (Ago 10)**.
 - **GestionarFuentesDialog — confirmar que reasignación de fuentes es atómica en backend (Ago 10)**.
 - **Leads "Nuevo"/"Pendiente de pago" — revisar BD por leads persistidos en ventana de ~6 min (Ago 10)**.
@@ -283,4 +296,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. La entrada del **28 de Julio** fue eliminada el 5 de Agosto al superar los 7 días. La entrada del **30 de Julio** fue eliminada el 7 de Agosto al superar los 7 días. La entrada del **31 de Julio** fue eliminada el 8 de Agosto al superar los 7 días. Las entradas del **1, 2 y 3 de Agosto** fueron eliminadas el 10 de Agosto al superar los 7 días. La entrada del **4 de Agosto** fue eliminada el 12 de Agosto al superar los 7 días. La entrada del **5 de Agosto** fue eliminada el 13 de Agosto al superar los 7 días. La entrada del **6 de Agosto** fue eliminada el 14 de Agosto al superar los 7 días. La entrada del **7 de Agosto** fue eliminada el 15 de Agosto al superar los 7 días. La entrada del **8 de Agosto** fue eliminada el 17 de Agosto al superar los 7 días. La entrada del **10 de Agosto** fue eliminada el 18 de Agosto al superar los 7 días. La entrada del **11 de Agosto** fue eliminada el 19 de Agosto al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. La entrada del **28 de Julio** fue eliminada el 5 de Agosto al superar los 7 días. La entrada del **30 de Julio** fue eliminada el 7 de Agosto al superar los 7 días. La entrada del **31 de Julio** fue eliminada el 8 de Agosto al superar los 7 días. Las entradas del **1, 2 y 3 de Agosto** fueron eliminadas el 10 de Agosto al superar los 7 días. La entrada del **4 de Agosto** fue eliminada el 12 de Agosto al superar los 7 días. La entrada del **5 de Agosto** fue eliminada el 13 de Agosto al superar los 7 días. La entrada del **6 de Agosto** fue eliminada el 14 de Agosto al superar los 7 días. La entrada del **7 de Agosto** fue eliminada el 15 de Agosto al superar los 7 días. La entrada del **8 de Agosto** fue eliminada el 17 de Agosto al superar los 7 días. La entrada del **10 de Agosto** fue eliminada el 18 de Agosto al superar los 7 días. La entrada del **11 de Agosto** fue eliminada el 19 de Agosto al superar los 7 días. La entrada del **12 de Agosto** fue eliminada el 20 de Agosto al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
