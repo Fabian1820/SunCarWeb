@@ -31,6 +31,8 @@ import {
   Download,
   PlayCircle,
   Pencil,
+  AlertTriangle,
+  ClipboardList,
 } from "lucide-react";
 import type { PendienteVisita } from "@/lib/types/feats/instalaciones/instalaciones-types";
 import { useToast } from "@/hooks/use-toast";
@@ -298,9 +300,14 @@ const extractOfertasConfeccion = (response: any): OfertaConfeccion[] => {
   return [];
 };
 
+/** Visita que solo se marcó como realizada, sin estudio, evidencia ni resultado. */
+const esVisitaSinInfo = (registro: VisitaRegistro) =>
+  String(registro.resultadoVisita || "").toLowerCase() === "marcada_sin_info";
+
 const getResultadoLabel = (resultado?: string) => {
   const value = String(resultado || "").toLowerCase();
   if (!value) return "Sin resultado";
+  if (value.includes("marcada_sin_info")) return "Marcada sin información";
   if (value.includes("oferta_cubre_necesidades") || value === "cubre") {
     return "Oferta cubre necesidades";
   }
@@ -376,6 +383,9 @@ export function PendientesVisitaTable({
     useState(false);
   const [pendienteSeleccionado, setPendienteSeleccionado] =
     useState<PendienteVisita | null>(null);
+  const [visitaIdParaRellenar, setVisitaIdParaRellenar] = useState<
+    string | null
+  >(null);
   const [ofertaCargada, setOfertaCargada] = useState<OfertaConfeccion | null>(
     null,
   );
@@ -703,6 +713,24 @@ export function PendientesVisitaTable({
 
   const handleCompletarVisita = (pendiente: PendienteVisita) => {
     setPendienteSeleccionado(pendiente);
+    setVisitaIdParaRellenar(null);
+    setCompletarVisitaDialogOpen(true);
+  };
+
+  /** Abre el formulario completo sobre una visita ya marcada sin información. */
+  const handleRellenarInfo = (visita: VisitaRegistro) => {
+    if (!visita.visitaId) {
+      toast({
+        title: "Sin ID de visita",
+        description:
+          "No se pueden rellenar los datos porque la visita no tiene identificador.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setPendienteSeleccionado(visita);
+    setVisitaIdParaRellenar(visita.visitaId);
     setCompletarVisitaDialogOpen(true);
   };
 
@@ -1455,18 +1483,38 @@ export function PendientesVisitaTable({
                   const esRealizada = normalizeEstado(
                     registro.estadoVisita || registro.estado,
                   ).includes("complet");
+                  const sinInfo = esRealizada && esVisitaSinInfo(registro);
 
                   return (
                     <Card
                       key={`${registro.id}-${registro.visitaId || "p"}`}
-                      className="border-gray-200"
+                      className={
+                        sinInfo
+                          ? "border-amber-300 bg-amber-50"
+                          : "border-gray-200"
+                      }
                     >
                       <CardContent className="p-4 space-y-3">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <p className="font-semibold text-gray-900 text-lg">
+                            <p
+                              className={
+                                sinInfo
+                                  ? "font-semibold text-amber-900 text-lg italic"
+                                  : "font-semibold text-gray-900 text-lg"
+                              }
+                            >
                               {registro.nombre}
                             </p>
+                            {sinInfo && (
+                              <Badge
+                                variant="outline"
+                                className="mt-1 border-amber-400 bg-amber-100 text-amber-800 text-xs"
+                              >
+                                <AlertTriangle className="h-3 w-3 mr-1" />
+                                Visita sin información
+                              </Badge>
+                            )}
                             <div className="flex items-center gap-2 text-base text-gray-600 mt-1">
                               <Phone className="h-3 w-3" />
                               <span>{registro.telefono || "N/A"}</span>
@@ -1521,6 +1569,16 @@ export function PendientesVisitaTable({
 
                         {esRealizada ? (
                           <div className="grid grid-cols-2 gap-2">
+                            {sinInfo && (
+                              <Button
+                                onClick={() => handleRellenarInfo(registro)}
+                                size="sm"
+                                className="text-sm h-9 col-span-2 bg-amber-600 hover:bg-amber-700"
+                              >
+                                <ClipboardList className="h-3 w-3 mr-1" />
+                                Rellenar info
+                              </Button>
+                            )}
                             <Button
                               onClick={() => handleVerDetalleVisita(registro)}
                               size="sm"
@@ -1630,11 +1688,16 @@ export function PendientesVisitaTable({
                       const esRealizada = normalizeEstado(
                         registro.estadoVisita || registro.estado,
                       ).includes("complet");
+                      const sinInfo = esRealizada && esVisitaSinInfo(registro);
 
                       return (
                         <tr
                           key={`${registro.id}-${registro.visitaId || "p"}`}
-                          className="border-b border-gray-100 hover:bg-gray-50"
+                          className={
+                            sinInfo
+                              ? "border-b border-amber-200 bg-amber-50 text-amber-900 italic hover:bg-amber-100"
+                              : "border-b border-gray-100 hover:bg-gray-50"
+                          }
                         >
                           <td className="py-3 px-2">
                             <Badge
@@ -1653,13 +1716,28 @@ export function PendientesVisitaTable({
                             </Badge>
                           </td>
                           <td className="py-3 px-2">
-                            <p className="font-semibold text-gray-900">
+                            <p
+                              className={
+                                sinInfo
+                                  ? "font-semibold text-amber-900"
+                                  : "font-semibold text-gray-900"
+                              }
+                            >
                               {registro.nombre}
                             </p>
                             {registro.numero && (
                               <p className="text-xs text-gray-500">
                                 #{registro.numero}
                               </p>
+                            )}
+                            {sinInfo && (
+                              <Badge
+                                variant="outline"
+                                className="mt-1 border-amber-400 bg-amber-100 text-amber-800 text-xs not-italic"
+                              >
+                                <AlertTriangle className="h-3 w-3 mr-1" />
+                                Sin info
+                              </Badge>
                             )}
                           </td>
                           <td className="py-3 px-2">
@@ -1728,6 +1806,16 @@ export function PendientesVisitaTable({
                             <div className="flex items-center justify-center gap-2">
                               {esRealizada ? (
                                 <>
+                                  {sinInfo && (
+                                    <Button
+                                      onClick={() => handleRellenarInfo(registro)}
+                                      size="sm"
+                                      className="text-sm h-8 px-3 bg-amber-600 hover:bg-amber-700 not-italic"
+                                    >
+                                      <ClipboardList className="h-3 w-3 mr-1" />
+                                      Rellenar info
+                                    </Button>
+                                  )}
                                   <Button
                                     onClick={() => handleVerDetalleVisita(registro)}
                                     size="sm"
@@ -1811,8 +1899,12 @@ export function PendientesVisitaTable({
 
       <CompletarVisitaDialog
         open={completarVisitaDialogOpen}
-        onOpenChange={setCompletarVisitaDialogOpen}
+        onOpenChange={(open) => {
+          setCompletarVisitaDialogOpen(open);
+          if (!open) setVisitaIdParaRellenar(null);
+        }}
         pendiente={pendienteSeleccionado}
+        visitaIdExistente={visitaIdParaRellenar}
         onSuccess={handleVisitaCompletada}
       />
 

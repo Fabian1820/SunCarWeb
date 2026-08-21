@@ -24,6 +24,7 @@ import {
   CheckCircle2,
   AlertCircle,
   AlertTriangle,
+  ClipboardCheck,
   Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -38,6 +39,11 @@ interface CompletarVisitaDialogProps {
   onOpenChange: (open: boolean) => void;
   pendiente: PendienteVisita | null;
   onSuccess: () => void;
+  /**
+   * ID de una visita ya marcada sin información. Si viene, el diálogo se abre
+   * directamente en el formulario completo para rellenarle los datos.
+   */
+  visitaIdExistente?: string | null;
 }
 
 interface MaterialSeleccionado {
@@ -65,6 +71,13 @@ type ResultadoType =
   | "necesita_material_extra"
   | "necesita_oferta_nueva"
   | "";
+
+/**
+ * "eleccion": el usuario decide si marca la visita sin info o rellena los datos.
+ * "sin_info": formulario mínimo (solo fecha y comentario opcional).
+ * "completo": formulario con estudio energético, evidencia y resultado.
+ */
+type ModoDialogo = "eleccion" | "sin_info" | "completo";
 
 type SubmitStep =
   | "idle"
@@ -106,14 +119,54 @@ const getTodayLocalDateValue = (): string => {
   return `${year}-${month}-${day}`;
 };
 
+const parseVisitas = (visitasResponse: any): any[] => {
+  const data = visitasResponse?.data ?? visitasResponse;
+  return Array.isArray(data?.visitas)
+    ? data.visitas
+    : Array.isArray(visitasResponse?.visitas)
+      ? visitasResponse.visitas
+      : Array.isArray(data)
+        ? data
+        : Array.isArray(visitasResponse)
+          ? visitasResponse
+          : data && typeof data === "object"
+            ? [data]
+            : [];
+};
+
+const extraerVisitaId = (payload: any): string | null => {
+  const data = payload?.data ?? payload;
+  return (
+    data?.id ??
+    data?._id ??
+    data?.visita_id ??
+    data?.visita?.id ??
+    data?.visita?._id ??
+    payload?.id ??
+    payload?._id ??
+    null
+  );
+};
+
+/** Elige la visita aún no completada del registro, o la más reciente como último recurso. */
+const seleccionarVisitaPendiente = (visitas: any[]): any =>
+  visitas.find((v) => String(v?.estado || "").toLowerCase() === "programada") ??
+  visitas.find((v) => {
+    const estado = String(v?.estado || "").toLowerCase();
+    return estado !== "completada" && estado !== "cancelada";
+  }) ??
+  visitas[0];
+
 export function CompletarVisitaDialog({
   open,
   onOpenChange,
   pendiente,
   onSuccess,
+  visitaIdExistente,
 }: CompletarVisitaDialogProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [modo, setModo] = useState<ModoDialogo>("eleccion");
 
   const [tieneOferta, setTieneOferta] = useState<boolean | null>(null);
   const [verificandoOferta, setVerificandoOferta] = useState(false);
@@ -149,9 +202,11 @@ export function CompletarVisitaDialog({
   useEffect(() => {
     if (open && pendiente) {
       setFechaVisitaCompletada(getTodayLocalDateValue());
+      // Si venimos a rellenar una visita ya marcada, no hay nada que elegir.
+      setModo(visitaIdExistente ? "completo" : "eleccion");
       verificarOferta();
     }
-  }, [open, pendiente]);
+  }, [open, pendiente, visitaIdExistente]);
 
   const verificarOferta = async () => {
     if (!pendiente) return;
@@ -289,6 +344,7 @@ export function CompletarVisitaDialog({
     setOfertaAsignada(null);
     setFechaVisitaCompletada(getTodayLocalDateValue());
     setSubmitProgress(INITIAL_SUBMIT_PROGRESS);
+    setModo("eleccion");
   };
 
   const handleFileUpload = (
@@ -565,6 +621,165 @@ export function CompletarVisitaDialog({
     }
   };
 
+  /**
+   * Devuelve el ID de la visita ya registrada para este lead/cliente,
+   * o null si todavía no existe ninguna y hay que crearla.
+   */
+  const buscarVisitaExistenteId = async (): Promise<string | null> => {
+    if (!pendiente) return null;
+    if (visitaIdExistente) return String(visitaIdExistente);
+
+    const token = localStorage.getItem("auth_token");
+    const clienteIdentificador = pendiente.id || pendiente.numero;
+    const endpoints =
+      pendiente.tipo === "lead"
+        ? [`/visitas/lead/${encodeURIComponent(pendiente.id)}`]
+        : Array.from(
+            new Set(
+              [
+                clienteIdentificador
+                  ? `/visitas/cliente/${encodeURIComponent(String(clienteIdentificador))}`
+                  : "",
+                pendiente.numero
+                  ? `/visitas/cliente/${encodeURIComponent(pendiente.numero)}`
+                  : "",
+              ].filter(Boolean),
+            ),
+          );
+
+    for (const endpoint of endpoints) {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        method: "GET",
+        headers: {
+          Authorization: token ? `Bearer ${token}` : "",
+          "Content-Type": "application/json",
+        },
+      });
+
+      // 404 = el lead/cliente aún no tiene visitas registradas
+      if (response.status === 404) continue;
+
+      if (!response.ok) {
+        throw new Error(
+          `No se pudo consultar visitas (${response.status} ${response.statusText})`,
+        );
+      }
+
+      const visitas = parseVisitas(await response.json());
+      if (visitas.length === 0) continue;
+
+      const visita = seleccionarVisitaPendiente(visitas);
+      const visitaId = visita?.id || visita?._id || visita?.visita_id;
+      if (!visitaId) {
+        throw new Error("La visita encontrada no tiene identificador válido");
+      }
+      return String(visitaId);
+    }
+
+    return null;
+  };
+
+  const crearVisita = async (
+    extra: Record<string, unknown>,
+  ): Promise<string | null> => {
+    if (!pendiente) return null;
+
+    const createPayload: Record<string, unknown> = {
+      motivo: (pendiente.comentario?.trim() || "Visita técnica").toString(),
+      ...extra,
+    };
+
+    if (pendiente.tipo === "lead") {
+      createPayload.lead_id = String(pendiente.id);
+    } else {
+      createPayload.cliente_numero = String(pendiente.numero || pendiente.id);
+    }
+
+    const createResponse = await apiRequest<any>("/visitas/", {
+      method: "POST",
+      body: JSON.stringify(createPayload),
+    });
+    return extraerVisitaId(createResponse);
+  };
+
+  const handleMarcarSinInfo = async () => {
+    if (!pendiente) return;
+
+    if (!fechaVisitaCompletada) {
+      toast({
+        title: "Campo requerido",
+        description: "Debe seleccionar la fecha de la visita realizada.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      setSubmitProgress({
+        ...INITIAL_SUBMIT_PROGRESS,
+        step: "buscando_visita",
+        message: "Buscando o creando la visita...",
+      });
+
+      const fechaCompletadaIso = new Date(
+        `${fechaVisitaCompletada}T12:00:00`,
+      ).toISOString();
+      const comentario = evidenciaTexto.trim();
+      const visitaId = await buscarVisitaExistenteId();
+
+      setSubmitProgress((prev) => ({
+        ...prev,
+        step: "actualizando_visita",
+        message: "Marcando la visita...",
+      }));
+
+      if (!visitaId) {
+        await crearVisita({
+          resultado: "marcada_sin_info",
+          fecha_visita: fechaCompletadaIso,
+          ...(comentario ? { evidencia_texto: comentario, notas: comentario } : {}),
+        });
+      } else {
+        await apiRequest(`/visitas/${encodeURIComponent(visitaId)}`, {
+          method: "PUT",
+          body: JSON.stringify({
+            estado: "completada",
+            resultado: "marcada_sin_info",
+            fecha_completada: fechaCompletadaIso,
+            ...(comentario
+              ? { evidencia_texto: comentario, notas: comentario }
+              : {}),
+          }),
+        });
+      }
+
+      toast({
+        title: "Visita marcada",
+        description:
+          "Se registró la visita sin información. Puedes rellenar los datos más adelante desde la pestaña de visitas realizadas.",
+      });
+
+      resetForm();
+      onOpenChange(false);
+      onSuccess();
+    } catch (error: any) {
+      console.error("Error al marcar visita sin info:", error);
+      setSubmitProgress((prev) => ({
+        ...prev,
+        step: "error",
+        message: "Ocurrió un error al marcar la visita.",
+      }));
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo marcar la visita",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async () => {
     const leadId = pendiente?.id;
     const clienteIdentificador = pendiente?.id || pendiente?.numero;
@@ -670,111 +885,19 @@ export function CompletarVisitaDialog({
       const fechaCompletadaIso = new Date(
         `${fechaVisitaCompletada}T12:00:00`,
       ).toISOString();
-      const token = localStorage.getItem("auth_token");
-      const parseVisitas = (visitasResponse: any): any[] => {
-        const data = visitasResponse?.data ?? visitasResponse;
-        return Array.isArray(data?.visitas)
-          ? data.visitas
-          : Array.isArray(visitasResponse?.visitas)
-            ? visitasResponse.visitas
-            : Array.isArray(data)
-              ? data
-              : Array.isArray(visitasResponse)
-                ? visitasResponse
-                : data && typeof data === "object"
-                  ? [data]
-                  : [];
-      };
-
-      let visitas: any[] = [];
-      let crearYCompletarDirecto = false;
-
       setSubmitProgress((prev) => ({
         ...prev,
         step: "buscando_visita",
         message: "Buscando o creando la visita...",
       }));
 
-      if (pendiente.tipo === "lead") {
-        const response = await fetch(`${API_BASE_URL}/visitas/lead/${leadId}`, {
-          method: "GET",
-          headers: {
-            Authorization: token ? `Bearer ${token}` : "",
-            "Content-Type": "application/json",
-          },
-        });
-
-        if (response.status === 404) {
-          crearYCompletarDirecto = true;
-        } else if (!response.ok) {
-          throw new Error(
-            `No se pudo consultar visitas del lead (${response.status} ${response.statusText})`,
-          );
-        } else {
-          const visitasResponse = await response.json();
-          visitas = parseVisitas(visitasResponse);
-          if (visitas.length === 0) {
-            crearYCompletarDirecto = true;
-          }
-        }
-      } else {
-        const visitaLookupEndpoints = Array.from(
-          new Set(
-            [
-              clienteIdentificador
-                ? `/visitas/cliente/${clienteIdentificador}`
-                : "",
-              pendiente.numero ? `/visitas/cliente/${pendiente.numero}` : "",
-            ].filter(Boolean),
-          ),
-        );
-
-        for (const endpoint of visitaLookupEndpoints) {
-          const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-            method: "GET",
-            headers: {
-              Authorization: token ? `Bearer ${token}` : "",
-              "Content-Type": "application/json",
-            },
-          });
-
-          if (response.status === 404) {
-            continue;
-          }
-
-          if (!response.ok) {
-            throw new Error(
-              `No se pudo consultar visitas (${response.status} ${response.statusText})`,
-            );
-          }
-
-          const visitasResponse = await response.json();
-          visitas = parseVisitas(visitasResponse);
-          if (visitas.length > 0) {
-            break;
-          }
-        }
-      }
+      const visitaId = await buscarVisitaExistenteId();
 
       const resultadoParaBackend =
         resultado || (tieneOferta === false ? "estudio_sin_oferta" : null);
       let visitaIdParaArchivos: string | null = null;
 
-      const extraerVisitaId = (payload: any): string | null => {
-        const data = payload?.data ?? payload;
-        return (
-          data?.id ??
-          data?._id ??
-          data?.visita_id ??
-          data?.visita?.id ??
-          data?.visita?._id ??
-          payload?.id ??
-          payload?._id ??
-          null
-        );
-      };
-
-      if (crearYCompletarDirecto && pendiente.tipo === "lead") {
+      if (!visitaId) {
         setSubmitProgress((prev) => ({
           ...prev,
           step: "actualizando_visita",
@@ -782,8 +905,7 @@ export function CompletarVisitaDialog({
         }));
 
         const createPayload: Record<string, unknown> = {
-          lead_id: String(leadId),
-          motivo: (pendiente.comentario?.trim() || "Visita técnica").toString(),
+          fecha_visita: fechaCompletadaIso,
         };
 
         if (resultadoParaBackend) {
@@ -794,35 +916,8 @@ export function CompletarVisitaDialog({
           createPayload.notas = evidenciaTexto.trim();
         }
 
-        const createResponse = await apiRequest<any>("/visitas/", {
-          method: "POST",
-          body: JSON.stringify(createPayload),
-        });
-        visitaIdParaArchivos = extraerVisitaId(createResponse);
+        visitaIdParaArchivos = await crearVisita(createPayload);
       } else {
-        if (visitas.length === 0) {
-          throw new Error("No se encontró una visita para este registro");
-        }
-
-        const visitaPendiente =
-          visitas.find(
-            (v) => String(v?.estado || "").toLowerCase() === "programada",
-          ) ??
-          visitas.find((v) => {
-            const estado = String(v?.estado || "").toLowerCase();
-            return estado !== "completada" && estado !== "cancelada";
-          }) ??
-          visitas[0];
-
-        const visitaId =
-          visitaPendiente?.id ||
-          visitaPendiente?._id ||
-          visitaPendiente?.visita_id;
-
-        if (!visitaId) {
-          throw new Error("La visita encontrada no tiene identificador válido");
-        }
-
         setSubmitProgress((prev) => ({
           ...prev,
           step: "actualizando_visita",
@@ -942,7 +1037,11 @@ export function CompletarVisitaDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-            Completar Visita
+            {modo === "sin_info"
+              ? "Marcar visita sin información"
+              : visitaIdExistente
+                ? "Rellenar datos de la visita"
+                : "Completar Visita"}
           </DialogTitle>
           {pendiente && (
             <div className="mt-2 flex items-center gap-2">
@@ -974,44 +1073,130 @@ export function CompletarVisitaDialog({
                   />
                 </div>
 
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-emerald-800">
-                  <span>
-                    Archivos subidos: {submitProgress.uploadedFiles}/
-                    {submitProgress.totalFiles}
-                  </span>
-                  <span>
-                    Lotes: {submitProgress.uploadedBatches}/
-                    {submitProgress.totalBatches}
-                  </span>
-                  {submitProgress.currentCategory && (
+                {submitProgress.totalFiles > 0 && (
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-emerald-800">
                     <span>
-                      Categoría:{" "}
-                      {submitProgress.currentCategory === "estudio_energetico"
-                        ? "Estudio energético"
-                        : "Evidencia"}
+                      Archivos subidos: {submitProgress.uploadedFiles}/
+                      {submitProgress.totalFiles}
                     </span>
-                  )}
-                </div>
+                    <span>
+                      Lotes: {submitProgress.uploadedBatches}/
+                      {submitProgress.totalBatches}
+                    </span>
+                    {submitProgress.currentCategory && (
+                      <span>
+                        Categoría:{" "}
+                        {submitProgress.currentCategory === "estudio_energetico"
+                          ? "Estudio energético"
+                          : "Evidencia"}
+                      </span>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
 
-          <div>
-            <Label htmlFor="fecha-visita-completada" className="text-base font-semibold mb-2">
-              Fecha de la visita realizada
-              <span className="text-red-500 ml-1">*</span>
-            </Label>
-            <p className="text-sm text-gray-500 mb-3">
-              Puedes seleccionar hoy, un día anterior o el día siguiente.
-            </p>
-            <Input
-              id="fecha-visita-completada"
-              type="date"
-              value={fechaVisitaCompletada}
-              onChange={(e) => setFechaVisitaCompletada(e.target.value)}
-            />
-          </div>
+          {/* Paso 1: elegir entre marcar sin info o rellenar los datos */}
+          {modo === "eleccion" && (
+            <div className="space-y-3">
+              <p className="text-sm text-gray-600">
+                ¿Cómo quieres registrar esta visita?
+              </p>
 
+              <Card
+                className="border-2 border-gray-200 hover:border-amber-400 cursor-pointer transition-all"
+                onClick={() => setModo("sin_info")}
+              >
+                <CardContent className="p-4 flex items-start gap-3">
+                  <ClipboardCheck className="h-5 w-5 text-amber-600 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="font-semibold text-gray-900">
+                      Marcar visita sin información
+                    </p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Solo deja constancia de que la visita se realizó. Quedará
+                      señalada en “Visitas Realizadas” y podrás rellenarle los
+                      datos más adelante.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card
+                className="border-2 border-gray-200 hover:border-emerald-400 cursor-pointer transition-all"
+                onClick={() => setModo("completo")}
+              >
+                <CardContent className="p-4 flex items-start gap-3">
+                  <FileText className="h-5 w-5 text-emerald-600 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="font-semibold text-gray-900">
+                      Rellenar datos de la visita
+                    </p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Estudio energético, evidencia y resultado de la visita.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {modo !== "eleccion" && (
+            <div>
+              <Label htmlFor="fecha-visita-completada" className="text-base font-semibold mb-2">
+                Fecha de la visita realizada
+                <span className="text-red-500 ml-1">*</span>
+              </Label>
+              <p className="text-sm text-gray-500 mb-3">
+                Puedes seleccionar hoy, un día anterior o el día siguiente.
+              </p>
+              <Input
+                id="fecha-visita-completada"
+                type="date"
+                value={fechaVisitaCompletada}
+                onChange={(e) => setFechaVisitaCompletada(e.target.value)}
+              />
+            </div>
+          )}
+
+          {/* Formulario mínimo: solo se deja constancia de la visita */}
+          {modo === "sin_info" && (
+            <>
+              <Card className="border-amber-200 bg-amber-50">
+                <CardContent className="p-4 flex items-start gap-3">
+                  <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="font-semibold text-amber-900 mb-1">
+                      Visita sin información
+                    </p>
+                    <p className="text-sm text-amber-800">
+                      No se registrará estudio energético, evidencia ni
+                      resultado. La visita aparecerá marcada como{" "}
+                      <strong>sin información</strong> en la pestaña de visitas
+                      realizadas, con la opción de rellenarla después.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div>
+                <Label htmlFor="comentario-sin-info" className="text-sm mb-2">
+                  Comentario (opcional)
+                </Label>
+                <Textarea
+                  id="comentario-sin-info"
+                  placeholder="Nota breve sobre la visita..."
+                  value={evidenciaTexto}
+                  onChange={(e) => setEvidenciaTexto(e.target.value)}
+                  rows={3}
+                />
+              </div>
+            </>
+          )}
+
+          {modo === "completo" && (
+            <>
           {/* Estado de Verificación de Oferta */}
           {verificandoOferta && (
             <Card className="border-blue-200 bg-blue-50">
@@ -1402,26 +1587,51 @@ export function CompletarVisitaDialog({
                 </>
             </div>
           )}
+            </>
+          )}
         </div>
 
         <DialogFooter>
           <Button
             variant="outline"
             onClick={() => {
+              // Desde un formulario se vuelve al paso de elección; desde el paso
+              // de elección (o al rellenar una visita ya marcada) se cierra.
+              if (modo !== "eleccion" && !visitaIdExistente) {
+                setModo("eleccion");
+                return;
+              }
               resetForm();
               onOpenChange(false);
             }}
             disabled={loading}
           >
-            Cancelar
+            {modo !== "eleccion" && !visitaIdExistente ? "Atrás" : "Cancelar"}
           </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={loading || verificandoOferta}
-            className="bg-emerald-600 hover:bg-emerald-700"
-          >
-            {loading ? submitProgress.message || "Guardando..." : "Completar Visita"}
-          </Button>
+          {modo === "sin_info" && (
+            <Button
+              onClick={handleMarcarSinInfo}
+              disabled={loading}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              {loading
+                ? submitProgress.message || "Guardando..."
+                : "Marcar visita"}
+            </Button>
+          )}
+          {modo === "completo" && (
+            <Button
+              onClick={handleSubmit}
+              disabled={loading || verificandoOferta}
+              className="bg-emerald-600 hover:bg-emerald-700"
+            >
+              {loading
+                ? submitProgress.message || "Guardando..."
+                : visitaIdExistente
+                  ? "Guardar datos"
+                  : "Completar Visita"}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
