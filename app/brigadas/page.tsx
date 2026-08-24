@@ -95,11 +95,11 @@ function BrigadasPageContent() {
     }
   }
 
-  // Handler para eliminar brigada
-  const handleDeleteBrigada = async (id: string) => {
+  // Handler para eliminar brigada. El backend la identifica por el CI del lider.
+  const handleDeleteBrigada = async (liderCi: string) => {
     setLoadingAction(true);
     try {
-      await BrigadaService.eliminarBrigada(id);
+      await BrigadaService.eliminarBrigada(liderCi);
       toast({
         title: "Éxito",
         description: 'Brigada eliminada correctamente',
@@ -117,11 +117,11 @@ function BrigadasPageContent() {
   };
 
 
-  // Handler para eliminar trabajador de brigada
-  const handleRemoveWorker = async (brigadeId: string, workerId: string) => {
+  // Handler para eliminar trabajador de brigada. El primer parametro es el CI del lider.
+  const handleRemoveWorker = async (liderCi: string, workerCi: string) => {
     setLoadingAction(true);
     try {
-      await BrigadaService.eliminarTrabajadorDeBrigada(brigadeId, workerId);
+      await BrigadaService.eliminarTrabajadorDeBrigada(liderCi, workerCi);
       toast({
         title: "Éxito",
         description: 'Trabajador removido de la brigada correctamente',
