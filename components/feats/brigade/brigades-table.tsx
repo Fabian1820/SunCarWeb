@@ -15,8 +15,8 @@ import { API_BASE_URL } from "@/lib/api-config"
 interface BrigadesTableProps {
   brigades: Brigade[]
   onEdit: (brigade: Brigade) => void
-  onDelete: (id: string) => void
-  onRemoveWorker: (brigadeId: string, workerId: string) => void
+  onDelete: (liderCi: string) => void
+  onRemoveWorker: (liderCi: string, workerCi: string) => void
   onRefresh: () => void
 }
 
@@ -25,12 +25,12 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
   const [isDeleteBrigadeDialogOpen, setIsDeleteBrigadeDialogOpen] = useState(false)
   const [isDeleteWorkerDialogOpen, setIsDeleteWorkerDialogOpen] = useState(false)
-  const [workerToDelete, setWorkerToDelete] = useState<{ brigadeId: string, workerId: string, workerName: string } | null>(null)
+  const [workerToDelete, setWorkerToDelete] = useState<{ liderCi: string, workerId: string, workerName: string } | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
   const [expandedBrigadeId, setExpandedBrigadeId] = useState<string | null>(null)
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false)
-  const [reportBrigadeId, setReportBrigadeId] = useState<string | null>(null)
+  const [reportLiderCi, setReportLiderCi] = useState<string | null>(null)
   const [dateRange, setDateRange] = useState<{ from: string; to: string }>({ from: '', to: '' })
   const [category, setCategory] = useState('')
   const [isLoadingReport, setIsLoadingReport] = useState(false)
@@ -54,7 +54,12 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
     
     setIsLoading(true)
     try {
-      await BrigadaService.eliminarBrigada(selectedBrigade.id)
+      // El backend identifica la brigada por el CI del líder (DELETE /brigadas/{lider_ci}),
+      // no por su _id de Mongo.
+      const eliminada = await BrigadaService.eliminarBrigada(selectedBrigade.leader.ci)
+      if (!eliminada) {
+        throw new Error("La brigada no fue encontrada en el servidor")
+      }
       toast({
         title: "Brigada eliminada",
         description: "La brigada ha sido eliminada exitosamente.",
@@ -77,8 +82,15 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
     
     setIsLoading(true)
     try {
-      // Cambiar a BrigadaService y asegurar orden correcto de parámetros
-      await BrigadaService.eliminarTrabajadorDeBrigada(workerToDelete.brigadeId, workerToDelete.workerId)
+      // El backend identifica la brigada por el CI del líder
+      // (DELETE /brigadas/{lider_ci}/trabajadores/{trabajador_ci}).
+      const removido = await BrigadaService.eliminarTrabajadorDeBrigada(
+        workerToDelete.liderCi,
+        workerToDelete.workerId,
+      )
+      if (!removido) {
+        throw new Error("No se encontró la brigada o el trabajador en el servidor")
+      }
       toast({
         title: "Trabajador removido",
         description: "El trabajador ha sido removido de la brigada exitosamente.",
@@ -101,14 +113,14 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
     setIsDeleteBrigadeDialogOpen(true)
   }
 
-  const openDeleteWorkerDialog = (brigadeId: string, workerId: string, workerName: string) => {
-    setWorkerToDelete({ brigadeId, workerId, workerName })
+  const openDeleteWorkerDialog = (liderCi: string, workerId: string, workerName: string) => {
+    setWorkerToDelete({ liderCi, workerId, workerName })
     setIsDeleteWorkerDialogOpen(true)
   }
 
   // Abre el modal para una brigada específica o para todas (null)
-  const openReportDialog = (brigadeId: string | null = null) => {
-    setReportBrigadeId(brigadeId)
+  const openReportDialog = (liderCi: string | null = null) => {
+    setReportLiderCi(liderCi)
     setIsReportDialogOpen(true)
     setReportResults(null)
     setReportError(null)
@@ -116,7 +128,7 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
   }
   const closeReportDialog = () => {
     setIsReportDialogOpen(false)
-    setReportBrigadeId(null)
+    setReportLiderCi(null)
     setDateRange({ from: '', to: '' })
     setCategory('')
     setReportResults(null)
@@ -131,16 +143,18 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
     setReportResults(null)
     try {
       const { apiRequest } = await import('@/lib/api-config')
-      let url = ''
-      if (reportBrigadeId) {
-        url = `/brigadas/${reportBrigadeId}/materiales-usados?fecha_inicio=${dateRange.from}&fecha_fin=${dateRange.to}`
-        if (category) url += `&categoria=${encodeURIComponent(category)}`
+      const rango = `fecha_inicio=${dateRange.from}&fecha_fin=${dateRange.to}`
+      const filtroCategoria = category ? `&categoria=${encodeURIComponent(category)}` : ''
+      if (reportLiderCi) {
+        // El backend identifica la brigada por el CI del lider, no por su _id.
+        const url = `/reportes/materiales-usados/brigada?lider_ci=${encodeURIComponent(reportLiderCi)}&${rango}${filtroCategoria}`
+        const data = await apiRequest<{ materiales?: unknown }>(url)
+        setReportResults(data.materiales ?? [])
       } else {
-        url = `/brigadas/materiales-usados-todas?fecha_inicio=${dateRange.from}&fecha_fin=${dateRange.to}`
-        if (category) url += `&categoria=${encodeURIComponent(category)}`
+        const url = `/reportes/materiales-usados/todas-brigadas?${rango}${filtroCategoria}`
+        const data = await apiRequest<{ brigadas?: unknown }>(url)
+        setReportResults(data.brigadas ?? [])
       }
-      const data = await apiRequest(url)
-      setReportResults(data.data)
     } catch (err: any) {
       setReportError(err.message || 'Error desconocido')
     } finally {
@@ -279,7 +293,7 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
 	                    variant="outline"
 	                    className="h-11 w-full border-green-400 text-green-700 hover:bg-green-50 touch-manipulation"
 	                    title="Calcular materiales usados de esta brigada"
-	                    onClick={() => openReportDialog(brigade.id)}
+	                    onClick={() => openReportDialog(brigade.leader.ci)}
 	                    aria-label="Materiales"
 	                  >
 	                    <Calendar className="h-4 w-4" />
@@ -304,7 +318,7 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
                             <Button
                               variant="outline"
                               size="icon"
-                              onClick={() => openDeleteWorkerDialog(brigade.id, member.ci, member.name)}
+                              onClick={() => openDeleteWorkerDialog(brigade.leader.ci, member.ci, member.name)}
                               className="border-red-300 text-red-700 hover:bg-red-50 touch-manipulation"
                               title="Remover trabajador"
                             >
@@ -394,7 +408,7 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
                       size="sm"
                       className="border-green-400 text-green-700 hover:bg-green-50"
                       title="Calcular materiales usados de esta brigada"
-                      onClick={() => openReportDialog(brigade.id)}
+                      onClick={() => openReportDialog(brigade.leader.ci)}
                     >
                       <Calendar className="h-4 w-4" />
                     </Button>
@@ -477,7 +491,7 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => openDeleteWorkerDialog(selectedBrigade.id, member.ci, member.name)}
+                            onClick={() => openDeleteWorkerDialog(selectedBrigade.leader.ci, member.ci, member.name)}
                             className="border-red-300 text-red-700 hover:bg-red-50"
                           >
                             <UserMinus className="h-4 w-4" />
@@ -521,7 +535,7 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {reportBrigadeId
+              {reportLiderCi
                 ? "Reporte de materiales usados por brigada"
                 : "Reporte de materiales usados por todas las brigadas"}
             </DialogTitle>
@@ -589,14 +603,14 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
           )}
           {reportResults && (
             <div className="mt-8">
-              {reportBrigadeId ? (
+              {reportLiderCi ? (
                 // Tabla para una brigada
                 <div className="overflow-x-auto -mx-2 px-2 overscroll-x-contain touch-pan-x" style={{ WebkitOverflowScrolling: "touch" }}>
                   <table className="w-full min-w-[640px] text-sm border-separate border-spacing-y-2">
                     <thead>
                       <tr className="bg-green-50">
                         <th className="py-2 px-4 text-left font-semibold text-green-900 rounded-tl-lg">Código</th>
-                        <th className="py-2 px-4 text-left font-semibold text-green-900">Categoría</th>
+                        <th className="py-2 px-4 text-left font-semibold text-green-900">UM</th>
                         <th className="py-2 px-4 text-left font-semibold text-green-900">Descripción</th>
                         <th className="py-2 px-4 text-left font-semibold text-green-900 rounded-tr-lg">Cantidad total</th>
                       </tr>
@@ -605,9 +619,9 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
                       {Array.isArray(reportResults) && reportResults.length > 0 ? reportResults.map((mat: any, idx: number) => (
                         <tr key={mat.codigo + idx} className="bg-white border-b border-gray-100 hover:bg-green-50">
                           <td className="py-2 px-4">{mat.codigo}</td>
-                          <td className="py-2 px-4">{mat.categoria}</td>
+                          <td className="py-2 px-4">{mat.um}</td>
                           <td className="py-2 px-4">{mat.descripcion}</td>
-                          <td className="py-2 px-4 font-bold text-green-700">{mat.cantidad_total}</td>
+                          <td className="py-2 px-4 font-bold text-green-700">{mat.cantidad}</td>
                         </tr>
                       )) : (
                         <tr><td colSpan={4} className="text-center text-gray-500 py-4">No hay materiales usados en este rango</td></tr>
@@ -619,14 +633,14 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
                 // Tabla para todas las brigadas
                 <div className="space-y-8">
                   {Array.isArray(reportResults) && reportResults.length > 0 ? reportResults.map((brigada: any, idx: number) => (
-                    <div key={brigada.jefe_brigada + idx}>
-                      <div className="font-bold text-lg text-green-800 mb-2">Jefe de Brigada: {brigada.jefe_brigada || <span className='text-gray-400'>(Sin nombre)</span>}</div>
+                    <div key={brigada.lider_nombre + idx}>
+                      <div className="font-bold text-lg text-green-800 mb-2">Jefe de Brigada: {brigada.lider_nombre || <span className='text-gray-400'>(Sin nombre)</span>}</div>
                       <div className="overflow-x-auto -mx-2 px-2 overscroll-x-contain touch-pan-x" style={{ WebkitOverflowScrolling: "touch" }}>
                         <table className="w-full min-w-[640px] text-sm border-separate border-spacing-y-2 mb-4">
                           <thead>
                             <tr className="bg-green-50">
                               <th className="py-2 px-4 text-left font-semibold text-green-900 rounded-tl-lg">Código</th>
-                              <th className="py-2 px-4 text-left font-semibold text-green-900">Categoría</th>
+                              <th className="py-2 px-4 text-left font-semibold text-green-900">UM</th>
                               <th className="py-2 px-4 text-left font-semibold text-green-900">Descripción</th>
                               <th className="py-2 px-4 text-left font-semibold text-green-900 rounded-tr-lg">Cantidad total</th>
                             </tr>
@@ -635,9 +649,9 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
                             {Array.isArray(brigada.materiales) && brigada.materiales.length > 0 ? brigada.materiales.map((mat: any, idx2: number) => (
                               <tr key={mat.codigo + idx2} className="bg-white border-b border-gray-100 hover:bg-green-50">
                                 <td className="py-2 px-4">{mat.codigo}</td>
-                                <td className="py-2 px-4">{mat.categoria}</td>
+                                <td className="py-2 px-4">{mat.um}</td>
                                 <td className="py-2 px-4">{mat.descripcion}</td>
-                                <td className="py-2 px-4 font-bold text-green-700">{mat.cantidad_total}</td>
+                                <td className="py-2 px-4 font-bold text-green-700">{mat.cantidad}</td>
                               </tr>
                             )) : (
                               <tr><td colSpan={4} className="text-center text-gray-500 py-4">No hay materiales usados en este rango</td></tr>
