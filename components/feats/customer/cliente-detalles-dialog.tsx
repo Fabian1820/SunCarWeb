@@ -104,16 +104,15 @@ export function ClienteDetallesDialog({
 
   const hasLocation =
     cliente.latitud !== undefined && cliente.latitud !== null && cliente.longitud !== undefined && cliente.longitud !== null
-  const latNumber = hasLocation
-    ? typeof cliente.latitud === "number"
-      ? cliente.latitud
-      : parseFloat(cliente.latitud as string)
-    : null
-  const lngNumber = hasLocation
-    ? typeof cliente.longitud === "number"
-      ? cliente.longitud
-      : parseFloat(cliente.longitud as string)
-    : null
+  // El estrechamiento de hasLocation no alcanza a parseFloat: se comprueba aqui
+  // en vez de silenciarlo con `as string`, que no verifica nada.
+  const toCoord = (valor: number | string | undefined | null): number | null => {
+    if (typeof valor === "number") return valor
+    if (typeof valor === "string" && valor.trim()) return parseFloat(valor)
+    return null
+  }
+  const latNumber = hasLocation ? toCoord(cliente.latitud) : null
+  const lngNumber = hasLocation ? toCoord(cliente.longitud) : null
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return null
