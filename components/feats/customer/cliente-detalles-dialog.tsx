@@ -43,12 +43,14 @@ export function ClienteDetallesDialog({
   if (!cliente) return null
 
   const hasLocation = cliente.latitud !== undefined && cliente.latitud !== null && cliente.longitud !== undefined && cliente.longitud !== null
-  const latNumber = hasLocation
-    ? (typeof cliente.latitud === 'number' ? cliente.latitud : parseFloat(cliente.latitud))
-    : null
-  const lngNumber = hasLocation
-    ? (typeof cliente.longitud === 'number' ? cliente.longitud : parseFloat(cliente.longitud))
-    : null
+  // El estrechamiento de hasLocation no alcanza a parseFloat: se comprueba aqui.
+  const toCoord = (valor: number | string | undefined | null): number | null => {
+    if (typeof valor === 'number') return valor
+    if (typeof valor === 'string' && valor.trim()) return parseFloat(valor)
+    return null
+  }
+  const latNumber = hasLocation ? toCoord(cliente.latitud) : null
+  const lngNumber = hasLocation ? toCoord(cliente.longitud) : null
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return null
