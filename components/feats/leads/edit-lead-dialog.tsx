@@ -283,7 +283,8 @@ export function EditLeadDialog({
         !fuentesBase.includes(lead.fuente) &&
         !fuentesDisponibles.includes(lead.fuente)
       ) {
-        setFuentesDisponibles((prev) => [...prev, lead.fuente]);
+        const fuenteLead = lead.fuente;
+        setFuentesDisponibles((prev) => [...prev, fuenteLead]);
       }
 
       console.log("✅ FormData.estado establecido a:", lead.estado || "");

@@ -57,6 +57,9 @@ export function MarcaSelectorField({
       const success = await createMarca({
         nombre: newMarcaNombre.trim(),
         descripcion: newMarcaDescripcion.trim() || undefined,
+        // El backend exige tipos_material. Este alta rapida no pregunta por el
+        // tipo, asi que se crea como OTRO y se afina desde Materiales > Marcas.
+        tipos_material: ['OTRO'],
         is_active: true,
       })
 

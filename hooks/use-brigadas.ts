@@ -11,10 +11,11 @@ interface UseBrigadasReturn {
   setSearchTerm: (term: string) => void
   loadBrigadas: () => Promise<void>
   createBrigada: (data: BrigadaRequest) => Promise<boolean>
-  updateBrigada: (id: string, data: BrigadaRequest) => Promise<boolean>
-  deleteBrigada: (id: string) => Promise<boolean>
+  updateBrigada: (brigadaId: string, data: BrigadaRequest) => Promise<boolean>
+  // deleteBrigada y removeTrabajador se identifican por el CI del líder (así lo expone el backend).
+  deleteBrigada: (liderCi: string) => Promise<boolean>
   addTrabajador: (brigadaId: string, trabajador: TeamMember) => Promise<boolean>
-  removeTrabajador: (brigadaId: string, trabajadorCi: string) => Promise<boolean>
+  removeTrabajador: (liderCi: string, trabajadorCi: string) => Promise<boolean>
   clearError: () => void
 }
 
@@ -87,11 +88,11 @@ export function useBrigadas(): UseBrigadasReturn {
     }
   }, [loadBrigadas])
 
-  const updateBrigada = useCallback(async (id: string, data: BrigadaRequest): Promise<boolean> => {
+  const updateBrigada = useCallback(async (brigadaId: string, data: BrigadaRequest): Promise<boolean> => {
     setLoading(true)
     setError(null)
     try {
-      await BrigadaService.updateBrigada(id, data)
+      await BrigadaService.updateBrigada(brigadaId, data)
       await loadBrigadas() // Recargar la lista
       return true
     } catch (err) {
@@ -103,11 +104,11 @@ export function useBrigadas(): UseBrigadasReturn {
     }
   }, [loadBrigadas])
 
-  const deleteBrigada = useCallback(async (id: string): Promise<boolean> => {
+  const deleteBrigada = useCallback(async (liderCi: string): Promise<boolean> => {
     setLoading(true)
     setError(null)
     try {
-      await BrigadaService.deleteBrigada(id)
+      await BrigadaService.deleteBrigada(liderCi)
       await loadBrigadas() // Recargar la lista
       return true
     } catch (err) {
@@ -135,11 +136,11 @@ export function useBrigadas(): UseBrigadasReturn {
     }
   }, [loadBrigadas])
 
-  const removeTrabajador = useCallback(async (brigadaId: string, trabajadorCi: string): Promise<boolean> => {
+  const removeTrabajador = useCallback(async (liderCi: string, trabajadorCi: string): Promise<boolean> => {
     setLoading(true)
     setError(null)
     try {
-      await BrigadaService.removeTrabajador(brigadaId, trabajadorCi)
+      await BrigadaService.removeTrabajador(liderCi, trabajadorCi)
       await loadBrigadas() // Recargar la lista
       return true
     } catch (err) {

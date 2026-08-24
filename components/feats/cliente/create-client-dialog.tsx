@@ -150,7 +150,7 @@ export function CreateClientDialog({
     comercial: "Sistema",
   });
   const hasDatosBasicosParaCodigo = Boolean(
-    formData.nombre.trim() && formData.telefono.trim(),
+    formData.nombre.trim() && formData.telefono?.trim(),
   );
 
   // Actualizar el comercial cuando el usuario cambie (por si acaso)
@@ -168,7 +168,7 @@ export function CreateClientDialog({
   useEffect(() => {
     leadTemporalDraftRef.current = {
       nombre: formData.nombre,
-      telefono: formData.telefono,
+      telefono: formData.telefono ?? "",
       direccion: formData.direccion,
       comercial: user?.nombre || "Sistema",
     };
@@ -519,7 +519,7 @@ export function CreateClientDialog({
       // Al menos 10 dígitos (sin contar el +)
 
       const timeoutId = setTimeout(() => {
-        detectCountryFromPhone(formData.telefono);
+        detectCountryFromPhone(formData.telefono ?? "");
       }, 800); // Aumentado a 800ms para dar más tiempo al usuario
 
       return () => clearTimeout(timeoutId);
@@ -585,7 +585,7 @@ export function CreateClientDialog({
     if (!formData.nombre.trim()) {
       newErrors.nombre = "El nombre es obligatorio";
     }
-    if (!formData.telefono.trim()) {
+    if (!formData.telefono?.trim()) {
       newErrors.telefono = "El teléfono es obligatorio";
     } else if (!esTelefonoValido(formData.telefono)) {
       newErrors.telefono = TELEFONO_ERROR_MSG;

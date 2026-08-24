@@ -39,9 +39,9 @@ type ClienteFotosResponse = {
   fotos?: ClienteFoto[];
 };
 
-const cleanPayload = <T extends Record<string, unknown>>(
-  payload: T,
-): Partial<T> => {
+// `object` y no `Record<string, unknown>`: las interfaces (ClienteCreateData,
+// ClienteSimpleCreateData) no tienen indice implicito y no satisfacen Record.
+const cleanPayload = <T extends object>(payload: T): Partial<T> => {
   const cleaned: Record<string, unknown> = {};
   Object.entries(payload).forEach(([key, value]) => {
     if (value === undefined || value === null) return;

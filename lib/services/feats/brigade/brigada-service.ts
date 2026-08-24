@@ -2,6 +2,7 @@
 
 import { apiRequest } from '../../../api-config'
 import type { Brigada as ApiBrigada } from '../../../api-types'
+import type { BrigadaRequest, TeamMember } from '../../../brigade-types'
 import { TrabajadorService } from '../worker/trabajador-service'
 
 export class BrigadaService {
@@ -80,15 +81,45 @@ export class BrigadaService {
     return apiRequest<ApiBrigada[]>(`/brigadas/buscar?nombre=${encodeURIComponent(nombre)}`)
   }
 
-  static async eliminarBrigada(brigadaId: string): Promise<boolean> {
-    const response = await apiRequest<{ success: boolean }>(`/brigadas/${brigadaId}`, {
+  // PUT /brigadas/{brigada_id} — se identifica por el _id de Mongo de la brigada.
+  static async updateBrigada(brigadaId: string, brigadaData: BrigadaRequest): Promise<boolean> {
+    const response = await apiRequest<{ success: boolean; message?: string }>(`/brigadas/${brigadaId}`, {
+      method: 'PUT',
+      body: JSON.stringify(brigadaData),
+    })
+    return response.success === true
+  }
+
+  // POST /brigadas/{brigada_id}/trabajadores — se identifica por el _id de Mongo de la brigada.
+  static async addTrabajador(brigadaId: string, trabajador: TeamMember): Promise<boolean> {
+    const response = await apiRequest<{ success: boolean; message?: string }>(`/brigadas/${brigadaId}/trabajadores`, {
+      method: 'POST',
+      body: JSON.stringify({ nombre: trabajador.nombre, CI: trabajador.CI }),
+    })
+    return response.success === true
+  }
+
+  // OJO: el backend identifica esta ruta por el CI del líder, no por el _id de la brigada.
+  static async deleteBrigada(liderCi: string): Promise<boolean> {
+    return BrigadaService.eliminarBrigada(liderCi)
+  }
+
+  // OJO: el backend identifica esta ruta por el CI del líder, no por el _id de la brigada.
+  static async removeTrabajador(liderCi: string, trabajadorCi: string): Promise<boolean> {
+    return BrigadaService.eliminarTrabajadorDeBrigada(liderCi, trabajadorCi)
+  }
+
+  // DELETE /brigadas/{lider_ci} — el parámetro es el CI del líder, no el _id de la brigada.
+  static async eliminarBrigada(liderCi: string): Promise<boolean> {
+    const response = await apiRequest<{ success: boolean }>(`/brigadas/${liderCi}`, {
       method: 'DELETE',
     })
     return response.success === true
   }
 
-  static async eliminarTrabajadorDeBrigada(brigadaId: string, trabajadorCi: string): Promise<boolean> {
-    const response = await apiRequest<{ success: boolean }>(`/brigadas/${brigadaId}/trabajadores/${trabajadorCi}`, {
+  // DELETE /brigadas/{lider_ci}/trabajadores/{trabajador_ci} — el primer parámetro es el CI del líder.
+  static async eliminarTrabajadorDeBrigada(liderCi: string, trabajadorCi: string): Promise<boolean> {
+    const response = await apiRequest<{ success: boolean }>(`/brigadas/${liderCi}/trabajadores/${trabajadorCi}`, {
       method: 'DELETE',
     })
     return response.success === true

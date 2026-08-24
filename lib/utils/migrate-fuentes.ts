@@ -26,7 +26,7 @@ export async function migrarFuentesDesdeDB(): Promise<{
 
     // Cargar todos los clientes
     console.log('📥 Cargando clientes...')
-    const clientes = await ClienteService.getClientes()
+    const { clients: clientes } = await ClienteService.getClientes()
     console.log(`✅ ${clientes.length} clientes cargados`)
 
     // Sincronizar fuentes

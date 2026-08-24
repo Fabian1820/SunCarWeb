@@ -2,6 +2,7 @@ import { apiRequest } from "@/lib/api-config";
 import type { TrabajoDiarioVale } from "./instalaciones-service";
 import type {
   TrabajoDiarioArchivo,
+  TrabajoDiarioArchivoTipo,
   TrabajoDiarioFiltro,
   TrabajoDiarioMaterialResumen,
   TrabajoDiarioRegistro,
@@ -50,6 +51,9 @@ const pickFirstString = (...values: unknown[]): string | undefined => {
   }
   return undefined;
 };
+
+/** filter(Boolean) no estrecha el tipo en TS; este guard si. */
+const noNulo = <T,>(valor: T | null | undefined): valor is T => valor != null;
 
 const normalizeInstaladoresInput = (value: unknown): string[] => {
   if (Array.isArray(value)) {
@@ -144,14 +148,14 @@ const mapFromVale = (row: TrabajoDiarioVale): TrabajoDiarioRegistro => ({
   })),
 });
 
-const normalizeArchivos = (value: unknown) => {
+const normalizeArchivos = (value: unknown): TrabajoDiarioArchivo[] => {
   if (!Array.isArray(value)) return [];
   return value
     .map((raw) => {
       if (!raw || typeof raw !== "object") return null;
       const file = raw as Record<string, unknown>;
       const tipoRaw = pickFirstString(file.tipo, file.mime_type) || "imagen";
-      const tipo =
+      const tipo: TrabajoDiarioArchivoTipo =
         tipoRaw === "video" || String(tipoRaw).startsWith("video/")
           ? "video"
           : tipoRaw === "audio" || String(tipoRaw).startsWith("audio/")
@@ -171,7 +175,7 @@ const normalizeArchivos = (value: unknown) => {
         created_at: pickFirstString(file.created_at, file.fecha) || "",
       };
     })
-    .filter(Boolean);
+    .filter(noNulo);
 };
 
 const normalizeMateriales = (value: unknown) => {
@@ -200,7 +204,7 @@ const normalizeMateriales = (value: unknown) => {
         cantidad_en_servicio: asNumber(material.cantidad_en_servicio),
       };
     })
-    .filter(Boolean);
+    .filter(noNulo);
 };
 
 const normalizeTrabajo = (item: unknown): TrabajoDiarioRegistro | null => {
@@ -288,7 +292,7 @@ const normalizeTrabajo = (item: unknown): TrabajoDiarioRegistro | null => {
             if (!ci) return null;
             return { ci, nombre: pickFirstString(b.nombre) };
           })
-          .filter(Boolean)
+          .filter(noNulo)
       : [],
     tipo_trabajo: tipoTrabajo as TrabajoDiarioRegistro["tipo_trabajo"],
     problema_encontrado: pickFirstString(row.problema_encontrado),
@@ -322,7 +326,7 @@ const normalizeTrabajo = (item: unknown): TrabajoDiarioRegistro | null => {
     materiales_utilizados: normalizeMateriales(row.materiales_utilizados),
   };
 
-  if (normalized.instaladores.length === 0 && normalized.responsable_recogida) {
+  if ((normalized.instaladores?.length ?? 0) === 0 && normalized.responsable_recogida) {
     normalized.instaladores = [normalized.responsable_recogida];
   }
 

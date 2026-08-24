@@ -108,14 +108,19 @@ export default function PagosClientesVentasPage() {
   };
 
   const handleRegistrarPago = async (data: Parameters<typeof registrarPago>[0] & {
-    factura?: { numero_factura: string; fecha_emision: string };
+    factura?: { numero: string; numero_factura: string; fecha_emision: string };
   }) => {
     const { factura, ...pagoData } = data;
     const pagoCreado = await registrarPago(pagoData);
     if (factura) {
       try {
+        // POST /facturas-ventas exige numero, fecha, cliente_venta_id y solicitudes;
+        // los demas son legacy. Mismo payload que app/solicitudes-ventas.
         await crearFactura({
-          solicitud_venta_id: pagoData.solicitud_venta_id,
+          numero: factura.numero,
+          fecha: pagoData.fecha,
+          cliente_venta_id: selectedSolicitud?.cliente_venta_id || "",
+          solicitudes: [{ solicitud_venta_id: pagoData.solicitud_venta_id }],
           numero_factura: factura.numero_factura,
           emitida_por: pagoData.recibido_por,
           fecha_emision: factura.fecha_emision,
@@ -165,6 +170,7 @@ export default function PagosClientesVentasPage() {
     )
       return;
     try {
+      if (!factura.id) return;
       await eliminarFactura(factura.id);
       toast({
         title: "Factura eliminada",

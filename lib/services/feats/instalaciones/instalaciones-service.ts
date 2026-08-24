@@ -6,24 +6,10 @@ import {
 } from "@/lib/utils/oferta-id";
 
 // Tipos para el endpoint de pendientes de instalación
-export interface OfertaInstalacion {
-  inversor_codigo: string | null;
-  inversor_cantidad: number;
-  inversor_nombre: string | null;
-  bateria_codigo: string | null;
-  bateria_cantidad: number;
-  bateria_nombre: string | null;
-  panel_codigo: string | null;
-  panel_cantidad: number;
-  panel_nombre: string | null;
-  costo_oferta: number;
-  costo_extra: number;
-  costo_transporte: number;
-  aprobada: boolean;
-  pagada: boolean;
-  elementos_personalizados: string | null;
-  razon_costo_extra: string | null;
-}
+// Habia dos OfertaInstalacion (esta y la de types/), incompatibles entre si.
+// Se reexporta la canonica, que es superconjunto de la que habia aqui.
+export type { OfertaInstalacion } from "../../../types/feats/instalaciones/instalaciones-types";
+import type { OfertaInstalacion } from "../../../types/feats/instalaciones/instalaciones-types";
 
 export interface LeadPendienteInstalacion {
   id: string;
@@ -38,7 +24,6 @@ export interface LeadPendienteInstalacion {
   pais_contacto: string | null;
   comentario: string | null;
   provincia_montaje: string | null;
-  municipio: string | null;
   comercial: string | null;
   ofertas: OfertaInstalacion[];
   comprobante_pago_url: string | null;
@@ -64,7 +49,6 @@ export interface ClientePendienteInstalacion {
   pais_contacto: string | null;
   comentario: string | null;
   provincia_montaje: string | null;
-  municipio: string | null;
   comercial: string | null;
   ofertas: OfertaInstalacion[];
   latitud: string | null;
@@ -323,11 +307,14 @@ export const InstalacionesService = {
         })
         .filter(Boolean) as TrabajoDiarioItem[];
 
+      const valeAnidado = (
+        row.vale && typeof row.vale === "object" ? row.vale : {}
+      ) as Record<string, unknown>;
       const valeId = asString(
         row.id_vale_salida ??
           row.vale_id ??
           row.id_vale ??
-          row.vale?.id ??
+          valeAnidado.id ??
           row.vale_salida_id ??
           row.id_valeSalida,
       );
@@ -336,7 +323,7 @@ export const InstalacionesService = {
       return {
         vale_id: valeId,
         vale_codigo: asString(
-          row.vale_codigo ?? row.codigo_vale ?? row.vale?.codigo ?? valeId,
+          row.vale_codigo ?? row.codigo_vale ?? valeAnidado.codigo ?? valeId,
         ),
         vale_estado: asString(row.vale_estado ?? row.estado ?? "entregado"),
         fecha_creacion: asString(row.created_at ?? row.fecha_creacion) || null,

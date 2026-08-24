@@ -96,8 +96,9 @@ export function PosView({ tiendaId, sesionId }: PosViewProps) {
 
   // Seleccionar automáticamente el primer almacén si solo hay uno
   useEffect(() => {
-    if (almacenesTienda.length === 1 && !almacenId) {
-      setAlmacenId(almacenesTienda[0].id)
+    const unico = almacenesTienda[0]
+    if (almacenesTienda.length === 1 && !almacenId && unico?.id) {
+      setAlmacenId(unico.id)
     }
   }, [almacenesTienda, almacenId])
 
@@ -744,11 +745,13 @@ export function PosView({ tiendaId, sesionId }: PosViewProps) {
                         No hay almacenes
                       </div>
                     ) : (
-                      almacenesTienda.map((almacen) => (
-                        <SelectItem key={almacen.id} value={almacen.id}>
-                          {almacen.nombre}
-                        </SelectItem>
-                      ))
+                      almacenesTienda
+                        .filter((almacen) => Boolean(almacen.id))
+                        .map((almacen) => (
+                          <SelectItem key={almacen.id} value={almacen.id!}>
+                            {almacen.nombre}
+                          </SelectItem>
+                        ))
                     )}
                   </SelectContent>
                 </Select>

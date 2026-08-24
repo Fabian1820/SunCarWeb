@@ -165,6 +165,17 @@ export interface ExportColumn {
 /** Valores apilados en varias filas Excel; el resto de columnas se fusionan en vertical */
 export type ExportCellValue = string | number | string[] | number[];
 
+/**
+ * Normaliza una celda a string. Las filas de exportacion son
+ * Record<string, ExportCellValue>, pero el render de PDF y las claves de
+ * agrupacion necesitan texto plano.
+ */
+function cellToString(value: ExportCellValue | null | undefined): string {
+  if (value === null || value === undefined) return "";
+  if (Array.isArray(value)) return value.join(", ");
+  return String(value);
+}
+
 export function resolveStackedColumnKeys(
   rowData: Record<string, unknown>,
   configured?: string[],
@@ -212,7 +223,7 @@ export interface ExportOptions {
   subtitle?: string;
   filename: string;
   columns: ExportColumn[];
-  data: Array<Record<string, ExportCellValue>>;
+  data: Array<Record<string, ExportCellValue | undefined>>;
   /** Columnas con arrays (Material, Cantidad, etc.). Si se omite, se detectan arrays en `data`. */
   stackedColumnKeys?: string[];
   logoUrl?: string;
@@ -832,7 +843,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     // Filtrar filas que no son parte del presupuesto de materiales
     if (!esFilaMaterialPresupuesto(row)) return;
 
-    const seccion = row.seccion || "Sin categoría";
+    const seccion = cellToString(row.seccion) || "Sin categoría";
     if (!datosPorSeccion.has(seccion)) {
       datosPorSeccion.set(seccion, []);
     }
@@ -1344,7 +1355,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(0, 0, 0);
-        doc.text(subtotal.descripcion, 12, yPosition);
+        doc.text(cellToString(subtotal.descripcion), 12, yPosition);
         doc.text(
           formatearMonto(parseNumericValue(subtotal.total)),
           pageWidth - 12,
@@ -1361,7 +1372,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(0, 0, 0);
-        doc.text(servicio.descripcion, 12, yPosition);
+        doc.text(cellToString(servicio.descripcion), 12, yPosition);
         doc.text(
           formatearMonto(parseNumericValue(servicio.total)),
           pageWidth - 12,
@@ -1377,7 +1388,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(0, 0, 0);
-      doc.text(trans.descripcion, 12, yPosition);
+      doc.text(cellToString(trans.descripcion), 12, yPosition);
 
       // Mostrar precio siempre (incluso en sin precios)
       doc.text(
@@ -1394,7 +1405,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(0, 0, 0);
-      doc.text(contrib.descripcion, 12, yPosition);
+      doc.text(cellToString(contrib.descripcion), 12, yPosition);
       doc.text(
         formatearMonto(parseNumericValue(contrib.total)),
         pageWidth - 12,
@@ -1409,8 +1420,8 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal"); // Cambiado de 'bold' a 'normal'
       doc.setTextColor(220, 38, 38);
-      doc.text(desc.descripcion, 12, yPosition);
-      doc.text(desc.total || "", pageWidth - 12, yPosition, { align: "right" });
+      doc.text(cellToString(desc.descripcion), 12, yPosition);
+      doc.text(cellToString(desc.total), pageWidth - 12, yPosition, { align: "right" });
       yPosition += 5; // Unificado a 5 para todos
     });
 
@@ -1676,26 +1687,26 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     datosPago.forEach((pago) => {
       if (pago.tipo === "Datos") {
         // Limpiar caracteres de control EXCEPTO saltos de línea (\n = \u000A) y tabulaciones (\t = \u0009)
-        datosCuentaTexto = (pago.total || "").replace(
+        datosCuentaTexto = cellToString(pago.total).replace(
           /[\u0000-\u0008\u000B-\u001F\u007F-\u009F]/g,
           "",
         );
       }
-      if (pago.tipo === "Info" && pago.descripcion.includes("Contribución")) {
+      if (pago.tipo === "Info" && cellToString(pago.descripcion).includes("Contribución")) {
         tieneContribucion = true;
       }
       if (pago.tipo === "Monto") {
-        montoContribucion = pago.total || "";
+        montoContribucion = cellToString(pago.total);
       }
-      if (pago.tipo === "Info" && pago.descripcion.includes("Moneda")) {
-        monedaPago = pago.total || "";
+      if (pago.tipo === "Info" && cellToString(pago.descripcion).includes("Moneda")) {
+        monedaPago = cellToString(pago.total);
       }
       if (pago.tipo === "Tasa") {
-        tasaCambio = pago.descripcion || "";
+        tasaCambio = cellToString(pago.descripcion);
       }
       if (pago.tipo === "Conversión") {
         tieneConversion = true;
-        precioConvertido = pago.total || "";
+        precioConvertido = cellToString(pago.total);
       }
     });
 

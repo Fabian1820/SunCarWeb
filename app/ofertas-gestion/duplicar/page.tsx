@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
-import { ArrowLeft, Copy } from "lucide-react"
+import { ArrowLeft } from "lucide-react"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { ConfeccionOfertasView } from "@/components/feats/ofertas/confeccion-ofertas-view"
 import { Button } from "@/components/shared/atom/button"
@@ -72,7 +72,6 @@ export default function DuplicarOfertaPage() {
         title="Duplicar Oferta"
         subtitle={`Creando nueva oferta basada en: ${ofertaParaDuplicar.nombre}`}
         badge={{ text: "Ventas", className: "bg-amber-100 text-amber-800" }}
-        icon={<Copy className="h-6 w-6" />}
         actions={
           <Button
             onClick={handleVolver}
