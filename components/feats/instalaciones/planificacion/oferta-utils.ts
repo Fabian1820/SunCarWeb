@@ -5,6 +5,29 @@ export const toNumber = (value: unknown) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+/**
+ * Elige la oferta confirmada mas reciente; si ninguna lo esta, la mas reciente
+ * del conjunto. Equivale a seleccionarOfertaConfirmada pero tipado para OfertaTrabajo.
+ */
+export const seleccionarOfertaTrabajoConfirmada = (
+  ofertas: OfertaTrabajo[],
+): OfertaTrabajo | undefined => {
+  if (!ofertas.length) return undefined;
+  const confirmadas = ofertas.filter(
+    (o) => o.estado === "confirmada_por_cliente",
+  );
+  const pool = confirmadas.length > 0 ? confirmadas : ofertas;
+  return pool.reduce((mejor, actual) => {
+    const tMejor = new Date(
+      mejor.fecha_actualizacion || mejor.fecha_creacion || 0,
+    ).getTime();
+    const tActual = new Date(
+      actual.fecha_actualizacion || actual.fecha_creacion || 0,
+    ).getTime();
+    return tActual > tMejor ? actual : mejor;
+  });
+};
+
 export const ofertaTieneEntregas = (oferta: OfertaTrabajo) =>
   Array.isArray(oferta.items) &&
   oferta.items.some((item) =>

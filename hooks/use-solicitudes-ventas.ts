@@ -5,12 +5,13 @@ import type {
   SolicitudVentaAnularData,
   SolicitudVentaCreateData,
   SolicitudVentaListParams,
+  SolicitudVentaSummary,
   SolicitudVentaUpdateData,
 } from "@/lib/api-types";
 
 interface UseSolicitudesVentasReturn {
-  solicitudes: SolicitudVenta[];
-  filteredSolicitudes: SolicitudVenta[];
+  solicitudes: SolicitudVentaSummary[];
+  filteredSolicitudes: SolicitudVentaSummary[];
   loading: boolean;
   isSearching: boolean; // Nueva bandera para indicar búsqueda en progreso
   error: string | null;
@@ -39,7 +40,7 @@ interface UseSolicitudesVentasReturn {
 }
 
 export function useSolicitudesVentas(): UseSolicitudesVentasReturn {
-  const [solicitudes, setSolicitudes] = useState<SolicitudVenta[]>([]);
+  const [solicitudes, setSolicitudes] = useState<SolicitudVentaSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [skip, setSkip] = useState(0); // Contador de registros cargados
   const [hasMore, setHasMore] = useState(true); // Hay más registros por cargar

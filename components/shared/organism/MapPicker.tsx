@@ -17,7 +17,8 @@ const customMarker = new L.Icon({
 export interface MapPickerProps {
   initialLat?: number;
   initialLng?: number;
-  onSelect: (lat: number, lng: number) => void;
+  /** Si se omite, el mapa es de solo consulta y no notifica la seleccion. */
+  onSelect?: (lat: number, lng: number) => void;
 }
 
 export function MapPicker({ initialLat = 23.1136, initialLng = -82.3666, onSelect }: MapPickerProps) {
@@ -29,7 +30,7 @@ export function MapPicker({ initialLat = 23.1136, initialLng = -82.3666, onSelec
     useMapEvents({
       click(e) {
         setPosition(e.latlng);
-        onSelect(e.latlng.lat, e.latlng.lng);
+        onSelect?.(e.latlng.lat, e.latlng.lng);
       },
     });
     return position ? <Marker position={position} icon={customMarker} /> : null;

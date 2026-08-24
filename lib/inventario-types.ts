@@ -1,5 +1,6 @@
 export type {
   InventarioMovimientoTipo,
+  PoolStockKey,
   Almacen,
   AlmacenInfo,
   Tienda,

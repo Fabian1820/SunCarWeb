@@ -305,20 +305,11 @@ const normalizeClienteNumero = (value?: string) =>
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, "");
 
+// El unico codigo que trae el backend para un Cliente es `numero`; codigo_cliente
+// y numero_cliente pertenecen a otras entidades (DevolucionPago, FacturaContabilidad).
 const getClientSortCode = (client: Cliente) => {
   if (typeof client.numero === "string" && client.numero.trim()) {
     return client.numero.trim();
-  }
-
-  const dynamicClient = client as Record<string, unknown>;
-  const codigoCliente = dynamicClient.codigo_cliente;
-  if (typeof codigoCliente === "string" && codigoCliente.trim()) {
-    return codigoCliente.trim();
-  }
-
-  const numeroCliente = dynamicClient.numero_cliente;
-  if (typeof numeroCliente === "string" && numeroCliente.trim()) {
-    return numeroCliente.trim();
   }
 
   return "";
@@ -451,7 +442,7 @@ const normalizeMaterialCode = (value: unknown) =>
     .toUpperCase();
 
 const getServicioCategoria = (
-  item: OfertaConfeccion["items"][number],
+  item: NonNullable<OfertaConfeccion["items"]>[number],
 ): ServicioCategoria | null => {
   const descripcion = String(item?.descripcion || "").toLowerCase();
   const codigo = String(item?.material_codigo || "").toLowerCase();
@@ -485,7 +476,7 @@ const getServicioCategoria = (
 };
 
 const getServicioItemId = (
-  item: OfertaConfeccion["items"][number],
+  item: NonNullable<OfertaConfeccion["items"]>[number],
   index: number,
   categoria: ServicioCategoria,
 ) => {
@@ -534,9 +525,9 @@ const itemTieneEntregas = (item: unknown) => {
   return false;
 };
 
-const ofertaTieneEntregas = (oferta: OfertaConfeccion | null | undefined) => {
-  if (!oferta) return false;
-  const raw = oferta as OfertaConfeccion & Record<string, unknown>;
+const ofertaTieneEntregas = (oferta: unknown) => {
+  if (!oferta || typeof oferta !== "object") return false;
+  const raw = oferta as Record<string, unknown>;
 
   if (
     raw.tiene_materiales_entregados === true ||
@@ -547,15 +538,13 @@ const ofertaTieneEntregas = (oferta: OfertaConfeccion | null | undefined) => {
     return true;
   }
 
-  const items = Array.isArray(oferta.items) ? oferta.items : [];
+  const items = Array.isArray(raw.items) ? raw.items : [];
   return items.some((item) => itemTieneEntregas(item));
 };
 
-const ofertaTieneEquiposEnServicio = (
-  oferta: OfertaConfeccion | null | undefined,
-) => {
-  if (!oferta) return false;
-  const raw = oferta as OfertaConfeccion & Record<string, unknown>;
+const ofertaTieneEquiposEnServicio = (oferta: unknown) => {
+  if (!oferta || typeof oferta !== "object") return false;
+  const raw = oferta as Record<string, unknown>;
 
   if (
     raw.tiene_materiales_en_servicio === true ||
@@ -568,7 +557,7 @@ const ofertaTieneEquiposEnServicio = (
     return true;
   }
 
-  const items = Array.isArray(oferta.items) ? oferta.items : [];
+  const items = Array.isArray(raw.items) ? raw.items : [];
   return items.some((item) => itemEstaEnServicio(item));
 };
 
@@ -1881,7 +1870,7 @@ export function ClientsTable({
     }
 
     const ofertasCliente = Array.isArray(rawClient.ofertas)
-      ? (rawClient.ofertas as OfertaConfeccion[])
+      ? rawClient.ofertas
       : [];
     return ofertasCliente.some((oferta) => ofertaTieneEntregas(oferta));
   }, []);
@@ -2109,7 +2098,7 @@ export function ClientsTable({
     }
 
     const ofertasCliente = Array.isArray(rawClient.ofertas)
-      ? (rawClient.ofertas as OfertaConfeccion[])
+      ? rawClient.ofertas
       : [];
     return ofertasCliente.some((oferta) =>
       ofertaTieneEquiposEnServicio(oferta),
@@ -2253,7 +2242,7 @@ export function ClientsTable({
 
         const itemId = getServicioItemId(item, index, categoria);
         const cantidadTotal = Math.max(0, parseNumber(item.cantidad));
-        const rawItem = item as OfertaConfeccion["items"][number] &
+        const rawItem = item as NonNullable<OfertaConfeccion["items"]>[number] &
           Record<string, unknown>;
         const cantidadEnServicioRaw = parseNumber(rawItem.cantidad_en_servicio);
         const marcadoEnServicio = rawItem.en_servicio === true;
@@ -2539,7 +2528,7 @@ export function ClientsTable({
     const materialesServicioPayload = itemsActualizados
       .filter((item) => String(item.material_codigo || "").trim())
       .map((item) => {
-        const rawItem = item as OfertaConfeccion["items"][number] &
+        const rawItem = item as NonNullable<OfertaConfeccion["items"]>[number] &
           Record<string, unknown>;
         return {
           material_codigo: String(item.material_codigo || "").trim(),
@@ -5034,7 +5023,7 @@ export function ClientsTable({
 
                     return (
                       <tr
-                        key={client._id || client.numero}
+                        key={client.id || client.numero}
                         className="hover:bg-gray-50 transition-colors"
                       >
                         <td className="px-4 py-3 align-top">

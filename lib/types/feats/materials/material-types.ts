@@ -103,6 +103,8 @@ export interface Material {
   especificaciones?: Record<string, string> | null;
   ficha_tecnica_url?: string | null;
   producto_id?: string;
+  /** Ubicacion fisica en almacen; la devuelven las respuestas de catalogo. */
+  ubicacion_en_almacen?: string | null;
   numero_serie?: string | null;
   stockaje_minimo?: number | null;
   codigo_contabilidad?: string;

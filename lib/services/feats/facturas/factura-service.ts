@@ -4,10 +4,11 @@ import type {
   FacturaConsolidada,
   FacturaFilters,
   FacturaStats,
+  FacturaTipo,
   NumeroFacturaSugerido,
   Vale,
 } from "@/lib/types/feats/facturas/factura-types";
-import type { ValeSalida } from "@/lib/api-types";
+import type { ValeClienteInfo, ValeSalida } from "@/lib/api-types";
 
 interface ValesDisponiblesResponse {
   success?: boolean;
@@ -17,27 +18,13 @@ interface ValesDisponiblesResponse {
   vales?: ValeSalida[];
 }
 
+/**
+ * ValeSalida ya declara `solicitud` como ValeSolicitudInfo (con id obligatorio,
+ * igual que el backend); aqui solo se anade `cliente`, que el vale trae al margen
+ * de la solicitud y ValeSalida no declara.
+ */
 interface ValeNoFacturadoApiItem extends ValeSalida {
-  solicitud?: {
-    id?: string;
-    codigo?: string;
-    estado?: string;
-    cliente?: {
-      id?: string;
-      numero?: string;
-      nombre?: string;
-    } | null;
-    cliente_venta?: {
-      id?: string;
-      numero?: string;
-      nombre?: string;
-    } | null;
-  } | null;
-  cliente?: {
-    id?: string;
-    numero?: string;
-    nombre?: string;
-  } | null;
+  cliente?: ValeClienteInfo | null;
 }
 
 interface ValesNoFacturadosResponse {
@@ -84,6 +71,22 @@ const normalizeValeNoFacturado = (vale: ValeNoFacturadoApiItem): ValeSalida => {
     solicitud_tipo: vale.solicitud_tipo || "material",
     materiales: Array.isArray(vale.materiales) ? vale.materiales : [],
   };
+};
+
+/**
+ * El backend devuelve los vales en tres formas: array plano, { vales }, o
+ * { data } donde data puede ser el array o volver a envolverlo. Resuelve las tres
+ * respetando la precedencia historica (vales antes que data).
+ */
+const extraerListaDeVales = <T,>(
+  raw: T[] | { data?: T[] | { data?: T[]; vales?: T[] }; vales?: T[] },
+): T[] => {
+  if (Array.isArray(raw)) return raw;
+  const payload = raw?.data ?? raw;
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.vales)) return payload.vales;
+  const anidado = payload?.data;
+  return Array.isArray(anidado) ? anidado : [];
 };
 
 /**
@@ -463,9 +466,7 @@ export class FacturaService {
       );
     }
 
-    const payload = Array.isArray(raw) ? raw : (raw?.data ?? raw);
-    if (Array.isArray(payload)) return payload;
-    return payload?.vales || payload?.data || [];
+    return extraerListaDeVales(raw);
   }
 
   /**
@@ -505,12 +506,7 @@ export class FacturaService {
       );
     }
 
-    const payload = Array.isArray(raw) ? raw : (raw?.data ?? raw);
-    const valesRaw = Array.isArray(payload)
-      ? payload
-      : payload?.vales || payload?.data || [];
-
-    return valesRaw.map(normalizeValeNoFacturado);
+    return extraerListaDeVales(raw).map(normalizeValeNoFacturado);
   }
 
   /**

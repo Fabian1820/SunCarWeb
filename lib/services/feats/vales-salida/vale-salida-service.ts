@@ -85,10 +85,9 @@ export class ValeSalidaService {
     const error = extractApiError(raw);
     if (error) throw new Error(error);
 
-    // El total está en raw.total, NO en raw.data.total
-    const data = Array.isArray(raw.data)
-      ? raw.data
-      : raw.data?.vales || raw.vales || [];
+    // El total está en raw.total, NO en raw.data.total.
+    // El backend declara `data` como array obligatorio.
+    const data = Array.isArray(raw.data) ? raw.data : [];
     const total = raw.total || 0;
 
     return { data, total };

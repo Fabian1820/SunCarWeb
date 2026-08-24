@@ -1318,7 +1318,7 @@ export function LeadsTable({
         .trim();
 
       if (oferta.tipo === "personalizada" && lead) {
-        const nombreContacto = lead.nombre_completo || lead.nombre || "";
+        const nombreContacto = lead.nombre || "";
         if (nombreContacto) {
           const nombreLimpio = nombreContacto
             .replace(/[<>:"/\\|?*]/g, "")
@@ -1786,12 +1786,11 @@ export function LeadsTable({
           oferta.tipo === "personalizada" && lead
             ? {
                 id: lead.id,
-                nombre: lead.nombre_completo || lead.nombre,
+                nombre: lead.nombre,
                 telefono: lead.telefono,
-                email: lead.email,
-                provincia: lead.provincia,
+                provincia: lead.provincia_montaje,
                 direccion: lead.direccion,
-                atencion_de: lead.nombre_completo || lead.nombre,
+                atencion_de: lead.nombre,
               }
             : undefined,
         leadSinAgregarData:
@@ -2047,12 +2046,11 @@ export function LeadsTable({
           oferta.tipo === "personalizada" && lead
             ? {
                 id: lead.id,
-                nombre: lead.nombre_completo || lead.nombre,
+                nombre: lead.nombre,
                 telefono: lead.telefono,
-                email: lead.email,
-                provincia: lead.provincia,
+                provincia: lead.provincia_montaje,
                 direccion: lead.direccion,
-                atencion_de: lead.nombre_completo || lead.nombre,
+                atencion_de: lead.nombre,
               }
             : undefined,
         leadSinAgregarData:
@@ -2385,12 +2383,11 @@ export function LeadsTable({
           oferta.tipo === "personalizada" && lead
             ? {
                 id: lead.id,
-                nombre: lead.nombre_completo || lead.nombre,
+                nombre: lead.nombre,
                 telefono: lead.telefono,
-                email: lead.email,
-                provincia: lead.provincia,
+                provincia: lead.provincia_montaje,
                 direccion: lead.direccion,
-                atencion_de: lead.nombre_completo || lead.nombre,
+                atencion_de: lead.nombre,
               }
             : undefined,
         leadSinAgregarData:
@@ -2437,12 +2434,11 @@ export function LeadsTable({
           oferta.tipo === "personalizada" && lead
             ? {
                 id: lead.id,
-                nombre: lead.nombre_completo || lead.nombre,
+                nombre: lead.nombre,
                 telefono: lead.telefono,
-                email: lead.email,
-                provincia: lead.provincia,
+                provincia: lead.provincia_montaje,
                 direccion: lead.direccion,
-                atencion_de: lead.nombre_completo || lead.nombre,
+                atencion_de: lead.nombre,
               }
             : undefined,
         leadSinAgregarData:

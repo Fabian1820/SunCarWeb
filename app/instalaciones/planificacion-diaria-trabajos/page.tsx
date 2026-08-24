@@ -318,8 +318,8 @@ const buildInstalacionesNuevas = (
       ofertas: Array.isArray(cliente.ofertas)
         ? (cliente.ofertas as unknown[])
         : undefined,
-      fotos: Array.isArray(cliente.fotos)
-        ? (cliente.fotos as unknown[])
+      fotos: Array.isArray((cliente as { fotos?: unknown }).fotos)
+        ? ((cliente as { fotos?: unknown }).fotos as unknown[])
         : undefined,
     });
   });
@@ -344,7 +344,9 @@ const buildInstalacionesNuevas = (
       ofertas: Array.isArray(lead.ofertas)
         ? (lead.ofertas as unknown[])
         : undefined,
-      fotos: Array.isArray(lead.fotos) ? (lead.fotos as unknown[]) : undefined,
+      fotos: Array.isArray((lead as { fotos?: unknown }).fotos)
+        ? ((lead as { fotos?: unknown }).fotos as unknown[])
+        : undefined,
     });
   });
 

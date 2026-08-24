@@ -64,7 +64,11 @@ import {
 } from "./planificacion/trabajo-utils";
 import { usePlanificacionData } from "./planificacion/use-planificacion-data";
 import type { AsignacionOption, OfertaTrabajo, OfertaTrabajoItem } from "./planificacion/types";
-import { toNumber, ofertaTieneEntregas } from "./planificacion/oferta-utils";
+import {
+  toNumber,
+  ofertaTieneEntregas,
+  seleccionarOfertaTrabajoConfirmada,
+} from "./planificacion/oferta-utils";
 
 interface PlanificacionDiariaTrabajosTableProps {
   trabajos: TrabajoPlanificable[];
@@ -700,7 +704,7 @@ export function PlanificacionDiariaTrabajosTable({
         });
         return;
       }
-      const confirmada = seleccionarOfertaConfirmada(ofertas);
+      const confirmada = seleccionarOfertaTrabajoConfirmada(ofertas);
       const withEntregas = (confirmada && ofertaTieneEntregas(confirmada))
         ? confirmada
         : ofertas.find((oferta) => ofertaTieneEntregas(oferta));
@@ -727,7 +731,7 @@ export function PlanificacionDiariaTrabajosTable({
         });
         return;
       }
-      const oferta = seleccionarOfertaConfirmada(ofertas) ?? ofertas[0];
+      const oferta = seleccionarOfertaTrabajoConfirmada(ofertas) ?? ofertas[0];
       const items = Array.isArray(oferta.items) ? oferta.items : [];
       const itemsEnServicio = items.filter(
         (item) =>

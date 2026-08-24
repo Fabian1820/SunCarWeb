@@ -156,7 +156,7 @@ export function FacturasTable({
                                                 <div className="space-y-0.5">
                                                     {factura.cliente_id ? (
                                                         <button
-                                                            onClick={() => handleClienteClick(factura.cliente_id)}
+                                                            onClick={() => handleClienteClick(factura.cliente_id ?? undefined)}
                                                             className="text-emerald-600 hover:text-emerald-700 hover:underline font-medium block"
                                                             disabled={loadingCliente}
                                                         >

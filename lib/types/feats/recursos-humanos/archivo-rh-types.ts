@@ -4,7 +4,8 @@
  * Trabajador en una nómina archivada
  * NOTA: dias_no_trabajados es ARRAY (igual que en datos actuales) para mantener consistencia
  */
-export interface TrabajadorArchivoRH {
+// Alias y no interface: asi obtiene indice implicito y sirve como fila de exportacion.
+export type TrabajadorArchivoRH = {
   CI: string
   nombre: string
   cargo: string

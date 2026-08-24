@@ -31,6 +31,7 @@ import type {
   PoolKey,
   SolicitudEntradaAlmacen,
   SolicitudEntradaAlmacenCreateData,
+  SolicitudEntradaAlmacenUpdateData,
 } from "@/lib/types/feats/solicitudes-entrada-almacen/solicitud-entrada-almacen-types";
 import {
   POOL_LABELS,
@@ -77,7 +78,7 @@ interface CrearSolicitudEntradaDialogProps {
    * - al submit llama onUpdate en lugar de onSubmit
    */
   solicitudExistente?: SolicitudEntradaAlmacen | null;
-  onUpdate?: (id: string, data: Partial<SolicitudEntradaAlmacenCreateData>) => Promise<void>;
+  onUpdate?: (id: string, data: SolicitudEntradaAlmacenUpdateData) => Promise<void>;
   isLoading?: boolean;
 }
 

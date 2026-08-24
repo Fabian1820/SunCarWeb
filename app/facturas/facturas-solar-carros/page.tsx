@@ -1148,8 +1148,8 @@ function FacturasSolarCarrosPageContent() {
     setTasaError(null);
 
     TasaCambioService.getTasaCambioByFecha(previewDraft.fecha)
-      .then((data: TasaCambio) => {
-        if (cancelled) return;
+      .then((data: TasaCambio | null) => {
+        if (cancelled || !data) return;
         const usdToCup = parseNumero(data.usd_a_cup);
         if (usdToCup > 0) {
           setPreviewDraft((prev) =>

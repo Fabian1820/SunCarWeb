@@ -117,22 +117,10 @@ const parseClientDate = (value?: string): Date | null => {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
-const getCodigoCliente = (client: Cliente): string => {
-  const dynamicClient = client as Record<string, unknown>;
-  const candidates = [
-    client.numero,
-    typeof dynamicClient.codigo_cliente === "string"
-      ? dynamicClient.codigo_cliente
-      : undefined,
-    typeof dynamicClient.numero_cliente === "string"
-      ? dynamicClient.numero_cliente
-      : undefined,
-  ];
-
-  return (candidates
-    .find((value) => typeof value === "string" && value.trim())
-    ?.trim() || "") as string;
-};
+// El backend solo expone `numero` como codigo del Cliente; codigo_cliente y
+// numero_cliente pertenecen a otras entidades (DevolucionPago, FacturaContabilidad).
+const getCodigoCliente = (client: Cliente): string =>
+  typeof client.numero === "string" ? client.numero.trim() : "";
 
 const getCodigoTailValue = (code: string): number => {
   const normalizedCode = code.toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -171,23 +159,15 @@ const normalizeSearchText = (value: string): string =>
     .replace(/[\u0300-\u036f]/g, "");
 
 const buildClientSearchText = (client: Cliente): string => {
-  const dynamicClient = client as Record<string, unknown>;
-  const provinciaAlterna =
-    typeof dynamicClient.provincia === "string" ? dynamicClient.provincia : "";
-  const referenciaAlterna =
-    typeof dynamicClient.referencia_cliente === "string"
-      ? dynamicClient.referencia_cliente
-      : "";
-
+  // `provincia` y `referencia_cliente` no existen en el Cliente del backend:
+  // los campos reales son provincia_montaje y referencia, ya incluidos abajo.
   const fields = [
     client.nombre,
     client.direccion,
     client.telefono,
     client.municipio,
     client.provincia_montaje,
-    provinciaAlterna,
     client.referencia,
-    referenciaAlterna,
     client.comercial,
     client.fuente,
     client.numero,

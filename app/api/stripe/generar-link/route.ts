@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
-
-const STRIPE_API_VERSION = '2024-12-18.acacia'
+import { STRIPE_API_VERSION } from '@/lib/server/stripe-payment-links'
 
 const STRIPE_RATE = 0.0325
 const STRIPE_FIXED = 0.30

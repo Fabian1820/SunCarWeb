@@ -65,7 +65,7 @@ export class TasaCambioService {
     if (error) throw new Error(error);
 
     const payload = unwrapPayload(raw);
-    const list = Array.isArray(payload)
+    const list: any[] = Array.isArray(payload)
       ? payload
       : Array.isArray(payload?.tasas_cambio)
         ? payload.tasas_cambio

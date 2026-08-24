@@ -84,7 +84,7 @@ export function ServicioSelectorField({
 
     // Verificar si ya existe este servicio en la lista de la oferta
     const existeEnOferta = value.some(
-      (s) => s.descripcion.toLowerCase() === descripcionTrimmed.toLowerCase()
+      (s) => s.descripcion?.toLowerCase() === descripcionTrimmed.toLowerCase()
     )
     if (existeEnOferta) {
       toast({

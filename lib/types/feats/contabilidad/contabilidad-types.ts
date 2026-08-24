@@ -14,7 +14,8 @@ export interface MaterialContabilidadBackend {
 }
 
 // Material contable (frontend)
-export interface MaterialContabilidad {
+// Alias y no interface: asi obtiene indice implicito y sirve como fila de exportacion.
+export type MaterialContabilidad = {
   id: string
   codigoContabilidad: string
   nombre?: string
