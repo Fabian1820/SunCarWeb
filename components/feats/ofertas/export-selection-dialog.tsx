@@ -952,110 +952,112 @@ export function ExportSelectionDialog({
           <Separator />
 
           {/* Botones de exportación */}
-          <div className="space-y-3">
-            <div className="text-sm font-semibold text-slate-700">
-              Selecciona el tipo de exportación:
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-              {/* Opción 1: Completo */}
-              <div className="rounded-lg border-2 border-blue-200 bg-blue-50 p-4 space-y-3">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold">
-                      1
-                    </div>
-                    <h4 className="text-sm font-bold text-blue-900">
-                      Completo
-                    </h4>
-                  </div>
-                  <p className="text-xs text-blue-700 leading-relaxed">
-                    Incluye todos los detalles: precios unitarios, márgenes,
-                    servicios y totales.
-                  </p>
-                </div>
-                <ExportButtons
-                  exportOptions={opcionesFiltradas.exportOptionsCompleto}
-                  baseFilename={opcionesExportacion?.baseFilename || "oferta"}
-                  variant="compact"
-                />
+          {opcionesFiltradas && (
+            <div className="space-y-3">
+              <div className="text-sm font-semibold text-slate-700">
+                Selecciona el tipo de exportación:
               </div>
-
-              {/* Opción 2: Sin precios */}
-              <div className="rounded-lg border-2 border-green-200 bg-green-50 p-4 space-y-3">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-green-600 text-white text-xs font-bold">
-                      2
-                    </div>
-                    <h4 className="text-sm font-bold text-green-900">
-                      Sin precios
-                    </h4>
-                  </div>
-                  <p className="text-xs text-green-700 leading-relaxed">
-                    Solo materiales y cantidades. Ideal para presupuestos
-                    preliminares.
-                  </p>
-                </div>
-                <ExportButtons
-                  exportOptions={opcionesFiltradas.exportOptionsSinPrecios}
-                  baseFilename={opcionesExportacion?.baseFilename || "oferta"}
-                  variant="compact"
-                />
-              </div>
-
-              {/* Opción 3: Cliente con precios */}
-              <div className="rounded-lg border-2 border-purple-200 bg-purple-50 p-4 space-y-3">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-purple-600 text-white text-xs font-bold">
-                      3
-                    </div>
-                    <h4 className="text-sm font-bold text-purple-900">
-                      Cliente con precios
-                    </h4>
-                  </div>
-                  <p className="text-xs text-purple-700 leading-relaxed">
-                    Materiales con precios finales. Perfecto para enviar al
-                    cliente.
-                  </p>
-                </div>
-                <ExportButtons
-                  exportOptions={
-                    opcionesFiltradas.exportOptionsClienteConPrecios
-                  }
-                  baseFilename={opcionesExportacion?.baseFilename || "oferta"}
-                  variant="compact"
-                />
-              </div>
-
-              {/* Opción 4: Cliente con precios y tasa de cambio */}
-              {opcionesFiltradas.exportOptionsClienteConPreciosTasaCambio && (
-                <div className="rounded-lg border-2 border-amber-200 bg-amber-50 p-4 space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                {/* Opción 1: Completo */}
+                <div className="rounded-lg border-2 border-blue-200 bg-blue-50 p-4 space-y-3">
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
-                      <div className="flex items-center justify-center w-6 h-6 rounded-full bg-amber-600 text-white text-xs font-bold">
-                        4
+                      <div className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold">
+                        1
                       </div>
-                      <h4 className="text-sm font-bold text-amber-900">
-                        Cliente con precios + cambio
+                      <h4 className="text-sm font-bold text-blue-900">
+                        Completo
                       </h4>
                     </div>
-                    <p className="text-xs text-amber-700 leading-relaxed">
-                      Misma exportación de cliente con precios, pero con la
-                      columna de importes en la moneda de la tasa de cambio.
+                    <p className="text-xs text-blue-700 leading-relaxed">
+                      Incluye todos los detalles: precios unitarios, márgenes,
+                      servicios y totales.
+                    </p>
+                  </div>
+                  <ExportButtons
+                    exportOptions={opcionesFiltradas.exportOptionsCompleto}
+                    baseFilename={opcionesExportacion?.baseFilename || "oferta"}
+                    variant="compact"
+                  />
+                </div>
+
+                {/* Opción 2: Sin precios */}
+                <div className="rounded-lg border-2 border-green-200 bg-green-50 p-4 space-y-3">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-center w-6 h-6 rounded-full bg-green-600 text-white text-xs font-bold">
+                        2
+                      </div>
+                      <h4 className="text-sm font-bold text-green-900">
+                        Sin precios
+                      </h4>
+                    </div>
+                    <p className="text-xs text-green-700 leading-relaxed">
+                      Solo materiales y cantidades. Ideal para presupuestos
+                      preliminares.
+                    </p>
+                  </div>
+                  <ExportButtons
+                    exportOptions={opcionesFiltradas.exportOptionsSinPrecios}
+                    baseFilename={opcionesExportacion?.baseFilename || "oferta"}
+                    variant="compact"
+                  />
+                </div>
+
+                {/* Opción 3: Cliente con precios */}
+                <div className="rounded-lg border-2 border-purple-200 bg-purple-50 p-4 space-y-3">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-center w-6 h-6 rounded-full bg-purple-600 text-white text-xs font-bold">
+                        3
+                      </div>
+                      <h4 className="text-sm font-bold text-purple-900">
+                        Cliente con precios
+                      </h4>
+                    </div>
+                    <p className="text-xs text-purple-700 leading-relaxed">
+                      Materiales con precios finales. Perfecto para enviar al
+                      cliente.
                     </p>
                   </div>
                   <ExportButtons
                     exportOptions={
-                      opcionesFiltradas.exportOptionsClienteConPreciosTasaCambio
+                      opcionesFiltradas.exportOptionsClienteConPrecios
                     }
                     baseFilename={opcionesExportacion?.baseFilename || "oferta"}
                     variant="compact"
                   />
                 </div>
-              )}
+
+                {/* Opción 4: Cliente con precios y tasa de cambio */}
+                {opcionesFiltradas.exportOptionsClienteConPreciosTasaCambio && (
+                  <div className="rounded-lg border-2 border-amber-200 bg-amber-50 p-4 space-y-3">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-center w-6 h-6 rounded-full bg-amber-600 text-white text-xs font-bold">
+                          4
+                        </div>
+                        <h4 className="text-sm font-bold text-amber-900">
+                          Cliente con precios + cambio
+                        </h4>
+                      </div>
+                      <p className="text-xs text-amber-700 leading-relaxed">
+                        Misma exportación de cliente con precios, pero con la
+                        columna de importes en la moneda de la tasa de cambio.
+                      </p>
+                    </div>
+                    <ExportButtons
+                      exportOptions={
+                        opcionesFiltradas.exportOptionsClienteConPreciosTasaCambio
+                      }
+                      baseFilename={opcionesExportacion?.baseFilename || "oferta"}
+                      variant="compact"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

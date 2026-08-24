@@ -293,7 +293,13 @@ export class PagoService {
       });
 
       // apiRequest devuelve { success: false, error: {...} } para errores 400
-      const responseAny = response as Record<string, unknown>;
+      // PagoCreateResponse no declara el sobre de error que apiRequest puede
+      // devolver en un 400; se sondea solo esa forma, sin fingir un indice.
+      const responseAny = response as {
+        success?: unknown;
+        error?: unknown;
+        message?: unknown;
+      };
       if (responseAny?.success === false || responseAny?.error) {
         const errMsg =
           (responseAny?.error as Record<string, unknown>)?.message as string ||

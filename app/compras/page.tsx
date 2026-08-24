@@ -51,6 +51,7 @@ import type {
   ArchivoCompra,
   Compra,
   CompraCreateData,
+  CompraFormData,
   EstadoCompra,
   TipoCompra,
 } from "@/lib/types/feats/compras/compra-types";
@@ -148,12 +149,14 @@ function ComprasContent() {
     setPagadoFilter("todos");
   };
 
-  const handleCreate = async (data: CompraCreateData) => {
-    await createCompra(data);
+  const handleCreate = async (data: CompraFormData) => {
+    // El alta siempre trae materiales; el dialogo solo los omite al editar.
+    if (!data.materiales) return;
+    await createCompra({ ...data, materiales: data.materiales });
     toast({ title: "Compra registrada", description: "La compra fue creada correctamente." });
   };
 
-  const handleEdit = async (data: CompraCreateData) => {
+  const handleEdit = async (data: CompraFormData) => {
     if (!editTarget) return;
     await updateCompra(editTarget.id, data);
     toast({ title: "Compra actualizada", description: "Los cambios fueron guardados." });

@@ -72,7 +72,11 @@ export function SolicitudesVentasTable({
       return (
         <div className="flex flex-col gap-0.5">
           {solicitud.materiales.map((m, i) => {
-            const nombre = m.material_descripcion ?? m.material?.nombre ?? m.nombre ?? m.material_nombre ?? m.material_codigo ?? m.material_id;
+            const nombre =
+              m.material_descripcion ??
+              ("material" in m ? m.material?.nombre : undefined) ??
+              m.material_codigo ??
+              m.material_id;
             return (
               <span key={i} className="text-xs text-gray-600 leading-5">
                 <span className="font-medium text-gray-800">{m.cantidad}x</span> {nombre}

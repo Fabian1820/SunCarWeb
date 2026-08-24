@@ -14,4 +14,8 @@ export type {
   MaterialCategory,
   MaterialFormData,
   MaterialFilters,
+  CreateCategoryRequest,
+  CreateMaterialRequest,
+  UpdateCategoryRequest,
+  AddMaterialToCategoryRequest,
 } from './types/feats/materials/material-types'

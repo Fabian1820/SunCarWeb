@@ -372,7 +372,7 @@ export function FacturasSection() {
 
   // Returns the current catalog price for a vale material item, falling back to the embedded price
   const getCurrentMaterialPrecio = useCallback(
-    (item: { material_id?: string; material_codigo?: string; codigo?: string; material?: { precio?: number } }): number => {
+    (item: { material_id?: string; material_codigo?: string; codigo?: string; material?: { precio?: number; codigo?: string } }): number => {
       const materialId = (item.material_id || "").toString();
       const codigo = item.material_codigo || item.codigo || item.material?.codigo || "";
       const found =

@@ -45,6 +45,7 @@ import type {
   Almacen,
   MovimientoInventario,
   MovimientoLoteResponse,
+  PoolStockKey,
   StockItem,
 } from "@/lib/inventario-types";
 import type { Material, BackendCatalogoProductos } from "@/lib/material-types";
@@ -461,7 +462,7 @@ export default function AlmacenDetallePage() {
     if (loadedTabs.current.has("historial")) fetchMovimientos({ skip: 0, busqueda: historialSearch, tipo: historialTipo, fechaDesde: historialFechaDesde, fechaHasta: historialFechaHasta });
   };
 
-  const handleAjustarStock = async (payload: { cantidad: number; pool?: string; motivo?: string; referencia?: string }) => {
+  const handleAjustarStock = async (payload: { cantidad: number; pool: PoolStockKey; motivo?: string; referencia?: string }) => {
     if (!almacen?.id || !stockToEdit) return;
     await InventarioService.createMovimiento({
       tipo: "ajuste",
@@ -1149,13 +1150,13 @@ export default function AlmacenDetallePage() {
                 const um = (material as any).um;
                 const precio = (material as any).precio;
                 const isNewCategory = (material as any).isNewCategory;
-                const categoryPhoto = (material as any).categoryPhoto;
-                const categoryVendible = (material as any).categoryVendible;
 
                 let productoId: string | undefined;
                 if (isNewCategory) {
-                  productoId = await MaterialService.createCategoryWithPhoto({
-                    categoria, foto: categoryPhoto, esVendible: categoryVendible,
+                  // El backend modela la categoria como { categoria, materiales }: la foto vive
+                  // en cada material, no en la categoria. Mismo camino que app/materiales.
+                  productoId = await MaterialService.createCategoryWithMaterials({
+                    categoria,
                     materiales: [{ codigo: String(codigo), descripcion, um, precio: precio || 0 }],
                   });
                 } else {

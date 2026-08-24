@@ -1,6 +1,8 @@
 import Stripe from 'stripe'
 
-export const STRIPE_API_VERSION: Stripe.LatestApiVersion = '2024-12-18.acacia'
+// Version fijada a proposito. El SDK solo tipa la ultima que conoce
+// (LatestApiVersion), de ahi el cast: subirla es una decision de negocio.
+export const STRIPE_API_VERSION = '2024-12-18.acacia' as Stripe.LatestApiVersion
 
 const normalizeUrl = (value: string) => value.trim().replace(/\/$/, '')
 

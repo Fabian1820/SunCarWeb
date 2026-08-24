@@ -600,8 +600,8 @@ export class WalletService {
     if (filters.tipo) search.append("tipo", filters.tipo);
     if (typeof filters.skip === "number") search.append("skip", String(filters.skip));
     if (typeof filters.limit === "number") search.append("limit", String(filters.limit));
-    if (filters.fechaDesde) search.append("fecha_desde", filters.fechaDesde.toISOString());
-    if (filters.fechaHasta) search.append("fecha_hasta", filters.fechaHasta.toISOString());
+    if (filters.fecha_desde) search.append("fecha_desde", filters.fecha_desde);
+    if (filters.fecha_hasta) search.append("fecha_hasta", filters.fecha_hasta);
     if (filters.q) search.append("q", filters.q);
 
     const qs = search.toString();
@@ -652,6 +652,7 @@ export class WalletService {
           total: 0,
           skip: filters.skip ?? 0,
           limit: filters.limit ?? 0,
+          totals_by_currency: [],
         };
       }
       throw new Error(

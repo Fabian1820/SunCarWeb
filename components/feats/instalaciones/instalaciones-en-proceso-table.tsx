@@ -42,7 +42,6 @@ import { EntregaCelebrationAnimation } from "@/components/feats/instalaciones/en
 import { FechaInstalacionDialog } from "@/components/shared/molecule/fecha-instalacion-dialog";
 import { apiRequest } from "@/lib/api-config";
 import { extractOfertaIdsFromEntity } from "@/lib/utils/oferta-id";
-import { seleccionarOfertaConfirmada } from "@/hooks/use-ofertas-confeccion";
 import {
   formatCostoItem,
   formatCostoTotal,
@@ -572,8 +571,10 @@ export function InstalacionesEnProcesoTable({
       const ofertasRaw = (client as { ofertas?: unknown }).ofertas;
       if (!Array.isArray(ofertasRaw) || ofertasRaw.length === 0) return;
 
+      // Lo devuelve /pendientes-instalacion (ClientePendienteResponse), no el Cliente base.
       const potenciaPrincipal = parsePositiveNumber(
-        (client as Record<string, unknown>).potencia_inversor_principal_kw,
+        (client as { potencia_inversor_principal_kw?: unknown })
+          .potencia_inversor_principal_kw,
       );
 
       const detallesCliente: OfertaDetalle[] = [];
@@ -884,7 +885,7 @@ export function InstalacionesEnProcesoTable({
     try {
       const ofertas = await loadOfertasParaEntrega(client);
       if (ofertas.length > 0) {
-        setOfertaConfeccionCargada(seleccionarOfertaConfirmada(ofertas) ?? ofertas[0]);
+        setOfertaConfeccionCargada(seleccionarMejorOfertaParaEntrega(ofertas) ?? ofertas[0]);
       } else {
         toast({
           title: "Sin oferta confeccionada",
@@ -922,7 +923,7 @@ export function InstalacionesEnProcesoTable({
     try {
       const ofertas = await loadOfertasParaEntrega(client);
       if (ofertas.length > 0) {
-        const oferta = seleccionarOfertaConfirmada(ofertas) ?? ofertas[0];
+        const oferta = seleccionarMejorOfertaParaEntrega(ofertas) ?? ofertas[0];
         setOfertaServicioCargada(oferta);
         updateServicioStatusForCliente(
           client,

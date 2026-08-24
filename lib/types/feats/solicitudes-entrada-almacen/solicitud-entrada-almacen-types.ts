@@ -83,6 +83,14 @@ export interface SolicitudEntradaAlmacenCreateData {
   materiales: MaterialSolicitudEntradaCreate[];
 }
 
+/**
+ * PATCH /solicitudes-entrada-almacen/{id} solo acepta `materiales`:
+ * origen, compra_id, consignacion_id y almacen_id no son editables.
+ */
+export interface SolicitudEntradaAlmacenUpdateData {
+  materiales: MaterialSolicitudEntradaCreate[];
+}
+
 export interface AprobarSolicitudRequest {
   observaciones_recepcion?: string;
 }

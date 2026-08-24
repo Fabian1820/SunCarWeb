@@ -40,6 +40,7 @@ import type { Material } from "@/lib/material-types";
 import type {
   Compra,
   CompraCreateData,
+  CompraFormData,
   DatosMaritimo,
   EstadoCompra,
   TipoCompra,
@@ -67,7 +68,7 @@ interface MaterialSeleccionado {
 export interface CompraFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (data: CompraCreateData) => Promise<void>;
+  onSubmit: (data: CompraFormData) => Promise<void>;
   materials: Material[];
   isLoading?: boolean;
   initialData?: Compra;
@@ -355,7 +356,7 @@ export function CompraFormDialog({
       // Cuando los materiales están bloqueados (compra ya recibida) no los
       // mandamos en el payload para no provocar validaciones de "modificación
       // de materiales en estado X" en el backend.
-      const payload: CompraCreateData = {
+      const payload: CompraFormData = {
         nombre: nombre.trim(),
         descripcion: descripcion.trim() || undefined,
         tipo: tipo as TipoCompra,
@@ -800,7 +801,7 @@ export function CompraFormDialog({
               <div className="mb-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800 flex items-start gap-2">
                 <span className="shrink-0">🔒</span>
                 <span>
-                  La compra ya está {initialData?.estado === "recibida_parcial" ? "recibida parcialmente" : "recibida"}: los materiales y cantidades quedan
+                  La compra ya está {initialData?.estado === "recibido_parcial" ? "recibida parcialmente" : "recibida"}: los materiales y cantidades quedan
                   congelados. Podés seguir editando datos informativos, fechas, partes involucradas y adjuntos.
                 </span>
               </div>

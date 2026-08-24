@@ -102,10 +102,9 @@ export function ValeSalidaDetailDialog({
     vale.recogido_por || solicitud?.responsable_recogida || null;
   const valeBloqueadoDevolucion =
     vale.estado === "anulado";
-  // Solicitudes de venta no traen fecha_recogida; caemos a fecha_creacion
-  // (recogida el mismo día) para no mostrar "Hoy" como dato real.
-  const recogidaFecha =
-    solicitud?.fecha_recogida || solicitud?.fecha_creacion || null;
+  // Las solicitudes de venta no traen fecha_recogida y el resumen del vale
+  // tampoco incluye fecha_creacion, asi que en ese caso queda sin fecha.
+  const recogidaFecha = solicitud?.fecha_recogida || null;
   const recogidaBadge = getFechaRecogidaBadge(recogidaFecha);
   const recogidaBadgeClass =
     recogidaBadge.kind === "today" || recogidaBadge.kind === "unknown"

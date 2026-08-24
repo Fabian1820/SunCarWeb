@@ -7,6 +7,7 @@ import type {
   OrigenSolicitudEntrada,
   SolicitudEntradaAlmacen,
   SolicitudEntradaAlmacenCreateData,
+  SolicitudEntradaAlmacenUpdateData,
 } from "@/lib/types/feats/solicitudes-entrada-almacen/solicitud-entrada-almacen-types";
 
 interface UseSolicitudesEntradaAlmacenReturn {
@@ -29,7 +30,7 @@ interface UseSolicitudesEntradaAlmacenReturn {
   setOrigenFilter: (value: "todos" | OrigenSolicitudEntrada) => void;
   loadSolicitudes: () => Promise<void>;
   createSolicitud: (data: SolicitudEntradaAlmacenCreateData) => Promise<SolicitudEntradaAlmacen>;
-  updateSolicitud: (id: string, data: Partial<SolicitudEntradaAlmacenCreateData>) => Promise<SolicitudEntradaAlmacen>;
+  updateSolicitud: (id: string, data: SolicitudEntradaAlmacenUpdateData) => Promise<SolicitudEntradaAlmacen>;
   aprobarSolicitud: (id: string, payload?: AprobarSolicitudRequest) => Promise<SolicitudEntradaAlmacen>;
   denegarSolicitud: (id: string, payload: DenegarSolicitudRequest) => Promise<SolicitudEntradaAlmacen>;
   clearError: () => void;
@@ -88,7 +89,7 @@ export function useSolicitudesEntradaAlmacen(): UseSolicitudesEntradaAlmacenRetu
     }
   }, []);
 
-  const updateSolicitud = useCallback(async (id: string, data: Partial<SolicitudEntradaAlmacenCreateData>) => {
+  const updateSolicitud = useCallback(async (id: string, data: SolicitudEntradaAlmacenUpdateData) => {
     setUpdating(true);
     setError(null);
     try {

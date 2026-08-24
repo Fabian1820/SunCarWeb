@@ -182,7 +182,13 @@ export interface VentaCreateData {
 
 // ── Solicitudes de Transferencia ──
 
-export type SolicitudTransferenciaEstado = "pendiente" | "aprobada" | "denegada";
+// Refleja EstadoSolicitud del backend; "procesando" es el estado transitorio
+// que deja un movimiento a medio aplicar.
+export type SolicitudTransferenciaEstado =
+  | "pendiente"
+  | "procesando"
+  | "aprobada"
+  | "denegada";
 
 export interface SolicitudTransferenciaItem {
   material_id: string;

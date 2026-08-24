@@ -64,16 +64,13 @@ export function ActualizarPreciosDialog({
         }
         setRows(
           mats.map((m) => ({
-            material_id:         (m as Record<string, unknown>).material_id as string ?? (m as Record<string, unknown>).id as string ?? "",
-            nombre:              (m as Record<string, unknown>).material_descripcion as string ??
-                                 (m as Record<string, unknown>).descripcion as string ??
-                                 (m as Record<string, unknown>).nombre as string ??
-                                 String((m as Record<string, unknown>).material_id ?? "Material"),
-            cantidad:            Number((m as Record<string, unknown>).cantidad ?? 1),
-            precio:              (m as Record<string, unknown>).precio != null
-                                   ? String((m as Record<string, unknown>).precio)
-                                   : "",
-            descuento_porcentaje: (m as Record<string, unknown>).descuento_porcentaje as number | undefined,
+            material_id:         m.material_id,
+            nombre:              m.material_descripcion ??
+                                 m.descripcion ??
+                                 String(m.material_id || "Material"),
+            cantidad:            Number(m.cantidad ?? 1),
+            precio:              m.precio != null ? String(m.precio) : "",
+            descuento_porcentaje: m.descuento_porcentaje,
           })),
         );
       })

@@ -151,6 +151,15 @@ export interface CompraCreateData {
   materiales: CompraMaterialCreate[];
 }
 
+/**
+ * Payload del formulario de compras. Sirve para alta y edicion: al editar una
+ * compra ya recibida los materiales quedan congelados y no se envian, cosa que
+ * CompraUpdateRequest admite (materiales opcional) pero el alta no.
+ */
+export type CompraFormData = Omit<CompraCreateData, "materiales"> & {
+  materiales?: CompraMaterialCreate[];
+};
+
 // Payload del POST /api/compras/{id}/cancelar
 export interface CancelarCompraRequest {
   motivo?: string;

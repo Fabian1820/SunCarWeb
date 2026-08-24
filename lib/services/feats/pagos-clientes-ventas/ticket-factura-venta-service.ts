@@ -5,6 +5,19 @@ import type { FacturaVentaResumen } from "@/lib/types/feats/pagos-clientes-venta
 // El PDF se hace de 48 mm para que el driver Epson 9-Pin no tenga que
 // escalar (lo que apelmazaría el texto). Márgenes mínimos, todo en negro
 // y tipografía generosa para que se vea limpio a baja resolución.
+/** Forma del material cuando `materiales` viene detallado (no como string). */
+type MaterialTicket = {
+  material_descripcion?: string;
+  descripcion?: string;
+  nombre?: string;
+  cantidad?: number;
+  precio?: number;
+  subtotal?: number;
+  precio_con_descuento?: number;
+  descuento_porcentaje?: number;
+  descuento_monto?: number;
+};
+
 const PAGE_W   = 48;
 const MARGIN   = 1.5;
 const LEFT_X   = MARGIN;
@@ -94,7 +107,8 @@ export class TicketFacturaVentaService {
     doc.text("PRODUCTOS", CENTER_X, y, { align: "center" });
     y += 5.5;
 
-    const allMats = solicitudes.flatMap((s) =>
+    // `materiales` llega como lista de strings (resumen) o de objetos (detalle).
+    const allMats = solicitudes.flatMap<string | MaterialTicket>((s) =>
       Array.isArray(s.materiales) ? s.materiales : [],
     );
 
@@ -107,17 +121,7 @@ export class TicketFacturaVentaService {
         y += ls.length * 4.2 + 1.5;
         continue;
       }
-      const r = m as {
-        material_descripcion?: string;
-        descripcion?: string;
-        nombre?: string;
-        cantidad?: number;
-        precio?: number;
-        subtotal?: number;
-        precio_con_descuento?: number;
-        descuento_porcentaje?: number;
-        descuento_monto?: number;
-      };
+      const r = m;
       const desc    = r.material_descripcion || r.descripcion || r.nombre || "Material";
       const cant    = Number(r.cantidad ?? 1);
       const precio  = Number(r.precio ?? 0);

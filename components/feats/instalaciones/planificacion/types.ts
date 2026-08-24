@@ -22,4 +22,8 @@ export interface OfertaTrabajo {
   nombre?: string;
   nombre_automatico?: string;
   items?: OfertaTrabajoItem[];
+  /** Vienen en el mismo payload de oferta; se usan para elegir la confirmada. */
+  estado?: string;
+  fecha_creacion?: string;
+  fecha_actualizacion?: string;
 }

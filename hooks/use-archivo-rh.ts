@@ -121,7 +121,7 @@ export function useArchivoRH() {
       let errorMsg = err.message || 'Error al guardar la nómina'
 
       if (err.message?.includes('409') || err.message?.includes('ya existe')) {
-        errorMsg = `Ya existe una nómina registrada para ${data.mes}/${data.anio}`
+        errorMsg = 'Ya existe una nómina registrada para ese mes'
       } else if (err.message?.includes('400') || err.message?.includes('validación')) {
         errorMsg = 'Datos inválidos. Verifica que todos los campos sean correctos.'
       }

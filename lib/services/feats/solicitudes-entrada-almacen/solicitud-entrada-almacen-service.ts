@@ -10,6 +10,7 @@ import type {
   PendienteCosteoMaterial,
   SolicitudEntradaAlmacen,
   SolicitudEntradaAlmacenCreateData,
+  SolicitudEntradaAlmacenUpdateData,
   SplitPool,
 } from "../../../types/feats/solicitudes-entrada-almacen/solicitud-entrada-almacen-types";
 
@@ -140,6 +141,22 @@ export class SolicitudEntradaAlmacenService {
       method: "POST",
       body: JSON.stringify(data),
     });
+    const error = extractApiError(raw);
+    if (error) throw new Error(error);
+    return mapSolicitud(unwrapPayload(raw));
+  }
+
+  static async updateSolicitud(
+    solicitudId: string,
+    data: SolicitudEntradaAlmacenUpdateData,
+  ): Promise<SolicitudEntradaAlmacen> {
+    const raw = await apiRequest<any>(
+      `${BASE_ENDPOINT}/${encodeURIComponent(solicitudId)}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ materiales: data.materiales }),
+      },
+    );
     const error = extractApiError(raw);
     if (error) throw new Error(error);
     return mapSolicitud(unwrapPayload(raw));

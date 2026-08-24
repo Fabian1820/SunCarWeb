@@ -120,7 +120,7 @@ function SolicitudesEntradaAlmacenContent() {
 
   const almacenNameById = useMemo(() => {
     const map: Record<string, string> = {};
-    almacenes.forEach((a) => { map[a.id] = a.nombre; });
+    almacenes.forEach((a) => { if (a.id) map[a.id] = a.nombre; });
     return map;
   }, [almacenes]);
 
@@ -282,8 +282,8 @@ function SolicitudesEntradaAlmacenContent() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todos los almacenes</SelectItem>
-                  {almacenes.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>{a.nombre}</SelectItem>
+                  {almacenes.filter((a) => Boolean(a.id)).map((a) => (
+                    <SelectItem key={a.id} value={a.id!}>{a.nombre}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

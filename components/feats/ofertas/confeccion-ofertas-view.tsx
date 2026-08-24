@@ -5548,7 +5548,7 @@ export function ConfeccionOfertasView({
 
         console.log(
           "📋 Items construidos:",
-          ofertaData.items.map((i) => ({
+          ofertaData.items.map((i: any) => ({
             codigo: i.material_codigo,
             margen: i.margen_asignado,
           })),
@@ -6963,7 +6963,7 @@ export function ConfeccionOfertasView({
                                             ] === "number"
                                           ) {
                                             return {
-                                              tipo: "editado",
+                                              tipo: "editado" as const,
                                               margenActual: margenItem,
                                             };
                                           }
@@ -7040,7 +7040,7 @@ export function ConfeccionOfertasView({
 
                                           // Mostrar sugerencia incluso si la diferencia es pequeña
                                           return {
-                                            tipo: "sugerencia",
+                                            tipo: "sugerencia" as const,
                                             margenSugerido,
                                             porcentajeSugerido,
                                             diferencia,
