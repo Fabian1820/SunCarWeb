@@ -645,6 +645,15 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     href: "/compras",
     grupo: "economia",
     hideFromDashboard: true,
+    subPermisos: [
+      {
+        key: "envio-contenedores/ficha-precios",
+        label: "Ficha de costo: precios y márgenes",
+        descripcion:
+          "Sin este permiso, la ficha de costo de una compra queda en modo solo-costos: CIF, % recargo, costo y el botón 'Actualizar costos'. Con él se habilitan los márgenes de ventas/instaladora, las columnas de precios (catálogo, sugeridos y finales) y el botón 'Aplicar precios', que propaga al catálogo de materiales.",
+        aditivo: true,
+      },
+    ],
   },
   {
     key: "fichas-costo",
