@@ -2,6 +2,64 @@
 
 ---
 
+## 📅 25 de Agosto, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**3 commits reales** — Fabian1820 (co-authored Claude Opus 5). Dos features y una limpieza: separación del sub-permiso de precios en la ficha de costo de compras, subida de lote de fotos/videos en clientes y leads, y eliminación de una ruta vacía de tiendas que generaba errores TypeScript silenciosos.
+
+---
+
+### Área 1: feat(compras) — sub-permiso `envio-contenedores/ficha-precios` separado (16:39)
+
+- **`feat(compras): separa el permiso de precios de la ficha de costo`** — Se introduce el sub-permiso ADITIVO `envio-contenedores/ficha-precios` para controlar quién puede ver y aplicar precios de venta en la ficha de costo de una compra:
+
+  1. **Sin el sub-permiso** (solo el padre `envio-contenedores`): la ficha muestra únicamente CIF, % recargo, costo, stock y el botón "Actualizar costos". Se ocultan márgenes, columnas de precios (catálogo, sugeridos y finales) y el botón "Aplicar precios".
+  2. **Con el sub-permiso**: la ficha completa, igual que antes del cambio.
+  3. **Guardados en modo solo-costos**: los campos de precio y los márgenes globales se omiten del PATCH, aprovechando `exclude_unset` en el backend (`PATCH /compras/{id}` y `/ficha`), para que el usuario de costos no pise el borrador del económico al pulsar "Actualizar costos".
+  4. **Backfill**: `scripts/backfill_permiso_ficha_precios.py` en SunCarBackend para los 10 usuarios que ya ejercían el permiso completo — necesita ejecutarse en producción.
+  5. **Fix visual adicional**: la fila de totales tenía 13 celdas para 14 columnas; la tabla salía corrida una columna a partir del grupo "Actuales". Corregido.
+
+---
+
+### Área 2: feat(clientes,leads) — subida de lote de fotos/videos (16:47)
+
+- **`feat(clientes,leads): permite subir varias fotos/videos a la vez`** — El diálogo de "agregar foto" aceptaba un solo archivo por vez. Ahora:
+
+  1. **Input múltiple con acumulación**: la selección se acumula entre tandas (el usuario puede agregar más antes de subir). Lista los archivos elegidos con su tamaño y permite quitar cualquiera antes de subir.
+  2. **Progreso archivo por archivo**: se muestra el avance durante la subida.
+  3. **Subida secuencial** (uno a uno), ya que el backend acepta un archivo por petición (`POST /clientes/{numero}/fotos` y `POST /leads/{id}/fotos`).
+  4. **Resiliencia a fallos parciales**: si un archivo falla, los demás continúan. Los archivos fallidos permanecen en el diálogo para reintentarlos sin duplicar los ya guardados. La lista se refresca una sola vez al final.
+  5. **Lógica común extraída** a `lib/utils/upload-fotos-lote.ts`, compartida entre ambos módulos.
+
+---
+
+### Área 3: chore(tiendas) — elimina ruta vacía /tiendas/[tiendaId]/ventas (16:58)
+
+- **`chore(tiendas): elimina la ruta vacía /tiendas/[tiendaId]/ventas`** — El archivo entró vacío (0 bytes) en el commit `0e8ff594` junto con los módulos de POS y caja, y nunca llegó a tener contenido. Next lo registraba igual como ruta y, al no exportar nada, rompía el typecheck con 3 errores TS2306 (ignorados por `next.config.mjs` en el build). Ningún archivo enlazaba a esa ruta: la ficha de tienda solo apunta a `/caja`.
+
+---
+
+### Puede dar bateo
+
+1. **Backfill de `envio-contenedores/ficha-precios` sin confirmar ejecución**: El script `backfill_permiso_ficha_precios.py` está en SunCarBackend pero no hay confirmación de que se ejecutó en producción. Hasta que se ejecute, los 10 usuarios que ya tenían acceso completo verán solo la ficha de costos — perderán visibilidad de precios y el botón "Aplicar precios" sin aviso previo.
+
+2. **Ventana de degradación entre deploy de frontend y ejecución del backfill**: Si el frontend se desplegó antes de ejecutar el script, hubo (o hay) una ventana donde usuarios con acceso previo no pueden usar la funcionalidad de precios. Confirmar el orden de operaciones real en producción.
+
+3. **`exclude_unset` en PATCH `/compras/{id}` y `/ficha` — confirmar en backend de producción**: El commit asume que el backend tiene `exclude_unset=True` en los endpoints de compra. Si la versión deployada no lo tiene, pulsar "Actualizar costos" en modo solo-costos silenciosamente borrará los precios del económico con `null` o valores vacíos.
+
+4. **Lote de fotos: archivos fallidos se pierden si el usuario cierra el diálogo**: Si el usuario cierra el diálogo de subida antes de ver el resumen de errores, los archivos fallidos se descartan sin confirmación. No hay persistencia del estado de reintento entre aperturas del diálogo.
+
+5. **Subida secuencial lenta en lotes grandes**: Con 10+ archivos, la subida de uno en uno puede tardar considerablemente. Si el usuario navega fuera de la página durante la subida, las peticiones en curso pueden quedar huérfanas (depende de si el componente se desmonta o no).
+
+6. **`lib/utils/upload-fotos-lote.ts` compartida — un bug afecta ambos módulos simultáneamente**: Cualquier regresión en la lógica compartida rompe la subida tanto en leads como en clientes a la vez. Confirmar que hay cobertura de pruebas o que el cambio fue verificado en ambos módulos.
+
+7. **Ruta /tiendas/[tiendaId]/ventas eliminada — bookmarks y links externos darán 404**: Aunque nadie enlazaba desde el código, pueden existir bookmarks de usuarios o links en WhatsApp/correo. Confirmar que el 404 muestra una página de error manejada y no una pantalla en blanco de Next.
+
+8. **3 errores TS2306 ignorados durante la vida de la ruta vacía — confirmar que no quedan otras rutas vacías**: El archivo entró en producción en `0e8ff594` y pasó desapercibido. Verificar si hay otros archivos de ruta vacíos en el directorio `app/` que puedan generar el mismo patrón.
+
+---
+
 ## 📅 24 de Agosto, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -232,44 +290,11 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 17 de Agosto, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**2 commits reales** — yany1509 (co-autorados con Claude Opus 5). Dos mejoras en los módulos de WhatsApp: buscador + marca de revisada en Preguntas Frecuentes, y fix de acceso silencioso a SunCar WhatsApp cuando el navegador bloquea la pestaña nueva.
-
----
-
-### Área 1: Preguntas Frecuentes — buscador, revisada y ancho completo (1 commit — yany1509, 12:42)
-
-- **`feat(preguntas-frecuentes): buscador, marca de revisada y ancho completo`** — Cuatro arreglos en la pantalla:
-  1. **Layout**: el contenido quedaba tapado por la barra superior fija — se agrega `content-with-fixed-header`.
-  2. **Ancho**: tabla pasa de `max-w-5xl` a ancho completo disponible.
-  3. **Buscador**: filtra por pregunta y por respuesta.
-  4. **Revisada**: casilla por fila con guardado inmediato (sin abrir formulario) y contador de cuántas van revisadas.
-
----
-
-### Área 2: Módulos — fix de acceso silencioso a SunCar WhatsApp (1 commit — yany1509, 16:28)
-
-- **`fix(modulos): el acceso a Suncar Whatsapp fallaba en silencio`** — Cuando el navegador bloquea `window.open()`, devuelve `null` y el enlace se perdía sin ningún aviso. Fix: si `window.open` devuelve `null`, se navega en la pestaña actual como fallback. Además, los errores que antes iban a `console.error` (y la pestaña se cerraba sola) ahora se muestran en un aviso en pantalla con el motivo real.
-
----
-
-### Puede dar bateo
-
-1. **Fallback a pestaña actual en SunCar WhatsApp — sesión SunCar puede perderse**: El SSO de Chatwoot fue diseñado para abrirse en pestaña nueva; si el navegador la bloquea y el fallback redirige en la misma pestaña, el usuario abandona el contexto de la app. Verificar que el flujo SSO completo funciona correctamente sin pestaña nueva y que el usuario pueda volver.
-
-2. **Guardado inmediato de "revisada" — confirmar endpoint de backend**: El checkbox guarda sin abrir el formulario con un PATCH parcial al endpoint de FAQs. Si el backend no soporta el campo `revisada` o no acepta actualización parcial, el guardado falla silenciosamente y el estado se pierde al recargar.
-
-3. **Buscador en cliente — confirmar que hay debounce**: Un buscador sin debounce dispara el filtrado en cada pulsación. Si el filtro hace llamadas al backend (en lugar de filtrar localmente), puede saturar la API con listas de FAQs grandes.
-
-4. **Tabla a ancho completo — confirmar responsive en pantallas angostas**: Respuestas largas de FAQs sin word-wrap correcto pueden desbordar el layout en viewports pequeños o tabletas.
-
----
-
 #### Seguimientos vigentes
 
+- **Backfill de `envio-contenedores/ficha-precios` — confirmar ejecución del script para los 10 usuarios existentes en producción (Ago 25)**.
+- **PATCH /compras y /ficha — confirmar `exclude_unset` en backend de producción para que modo solo-costos no pise datos del económico (Ago 25)**.
+- **Lote de fotos — diálogo de reintento se pierde si el usuario cierra el diálogo antes de ver el resumen de archivos fallidos (Ago 25)**.
 - **CLAUDE.md desactualizado — sección de `OfertasAsignacionFields` describe componente ya eliminado como en uso activo; puede confundir sesiones futuras de Claude Code (Ago 24)**.
 - **Stripe pin `2024-12-18.acacia` mantenido explícitamente por decisión de negocio — revisión pendiente si Stripe depreca el pin (Ago 24)**.
 - **Visitas `marcada_sin_info` — confirmar deploy de backend con resultado `marcada_sin_info` antes de usar en producción (Ago 21)**.
@@ -340,4 +365,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. La entrada del **28 de Julio** fue eliminada el 5 de Agosto al superar los 7 días. La entrada del **30 de Julio** fue eliminada el 7 de Agosto al superar los 7 días. La entrada del **31 de Julio** fue eliminada el 8 de Agosto al superar los 7 días. Las entradas del **1, 2 y 3 de Agosto** fueron eliminadas el 10 de Agosto al superar los 7 días. La entrada del **4 de Agosto** fue eliminada el 12 de Agosto al superar los 7 días. La entrada del **5 de Agosto** fue eliminada el 13 de Agosto al superar los 7 días. La entrada del **6 de Agosto** fue eliminada el 14 de Agosto al superar los 7 días. La entrada del **7 de Agosto** fue eliminada el 15 de Agosto al superar los 7 días. La entrada del **8 de Agosto** fue eliminada el 17 de Agosto al superar los 7 días. La entrada del **10 de Agosto** fue eliminada el 18 de Agosto al superar los 7 días. La entrada del **11 de Agosto** fue eliminada el 19 de Agosto al superar los 7 días. La entrada del **12 de Agosto** fue eliminada el 20 de Agosto al superar los 7 días. La entrada del **13 de Agosto** fue eliminada el 21 de Agosto al superar los 7 días. La entrada del **14 de Agosto** fue eliminada el 22 de Agosto al superar los 7 días. La entrada del **15 de Agosto** fue eliminada el 23 de Agosto al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. La entrada del **28 de Julio** fue eliminada el 5 de Agosto al superar los 7 días. La entrada del **30 de Julio** fue eliminada el 7 de Agosto al superar los 7 días. La entrada del **31 de Julio** fue eliminada el 8 de Agosto al superar los 7 días. Las entradas del **1, 2 y 3 de Agosto** fueron eliminadas el 10 de Agosto al superar los 7 días. La entrada del **4 de Agosto** fue eliminada el 12 de Agosto al superar los 7 días. La entrada del **5 de Agosto** fue eliminada el 13 de Agosto al superar los 7 días. La entrada del **6 de Agosto** fue eliminada el 14 de Agosto al superar los 7 días. La entrada del **7 de Agosto** fue eliminada el 15 de Agosto al superar los 7 días. La entrada del **8 de Agosto** fue eliminada el 17 de Agosto al superar los 7 días. La entrada del **10 de Agosto** fue eliminada el 18 de Agosto al superar los 7 días. La entrada del **11 de Agosto** fue eliminada el 19 de Agosto al superar los 7 días. La entrada del **12 de Agosto** fue eliminada el 20 de Agosto al superar los 7 días. La entrada del **13 de Agosto** fue eliminada el 21 de Agosto al superar los 7 días. La entrada del **14 de Agosto** fue eliminada el 22 de Agosto al superar los 7 días. La entrada del **15 de Agosto** fue eliminada el 23 de Agosto al superar los 7 días. La entrada del **17 de Agosto** fue eliminada el 25 de Agosto al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
