@@ -55,6 +55,11 @@ import type {
 import type { ExportOptions } from "@/lib/export-service";
 import { downloadFile } from "@/lib/utils/download-file";
 import { extraerComponentesDeOfertaConfeccion } from "@/lib/utils/oferta-confeccion-items";
+import {
+  describirFallidos,
+  subirFotosEnLote,
+  type UploadFotosResultado,
+} from "@/lib/utils/upload-fotos-lote";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { GestionarFuentesDialog } from "@/components/feats/leads/gestionar-fuentes-dialog";
 import { useAuth } from "@/contexts/auth-context";
@@ -311,37 +316,61 @@ export default function LeadsPage() {
     }
   };
 
+  // El backend acepta un archivo por petición, así que el lote se sube de uno
+  // en uno. Se informa el progreso y se devuelven los fallidos para que el
+  // diálogo permita reintentar solo esos sin duplicar los ya guardados.
   const handleUploadLeadFoto = async (
     lead: Lead,
-    payload: { file: File; tipo: "instalacion" | "averia" },
-  ) => {
-    if (!lead.id) {
+    payload: { files: File[]; tipo: "instalacion" | "averia" },
+    onProgress?: (procesados: number) => void,
+  ): Promise<UploadFotosResultado> => {
+    const leadId = lead.id;
+    if (!leadId) {
       const message = "No se puede subir archivo sin ID de lead.";
       toast({
         title: "Error",
         description: message,
         variant: "destructive",
       });
-      throw new Error(message);
+      return {
+        subidos: 0,
+        fallidos: payload.files.map((file) => ({ file, message })),
+      };
     }
 
-    try {
-      await LeadService.uploadFotoLead(lead.id, payload);
-      toast({
-        title: "Archivo agregado",
-        description: `Se adjuntó correctamente como ${payload.tipo}.`,
-      });
+    const tipoLabel = payload.tipo === "averia" ? "avería" : "instalación";
+
+    const { subidos, fallidos } = await subirFotosEnLote(
+      payload.files,
+      (file) =>
+        LeadService.uploadFotoLead(leadId, { file, tipo: payload.tipo }),
+      onProgress,
+    );
+
+    if (subidos > 0) {
       await loadLeads();
-    } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : "No se pudo subir el archivo";
+    }
+
+    if (fallidos.length === 0) {
       toast({
-        title: "Error",
-        description: message,
+        title: subidos === 1 ? "Archivo agregado" : "Archivos agregados",
+        description:
+          subidos === 1
+            ? `Se adjuntó correctamente como ${tipoLabel}.`
+            : `Se adjuntaron ${subidos} archivos como ${tipoLabel}.`,
+      });
+    } else {
+      toast({
+        title:
+          subidos > 0
+            ? `Se subieron ${subidos} de ${payload.files.length}`
+            : "No se pudo subir ningún archivo",
+        description: describirFallidos(fallidos),
         variant: "destructive",
       });
-      throw error instanceof Error ? error : new Error(message);
     }
+
+    return { subidos, fallidos };
   };
 
   const handleEditLead = (lead: Lead) => {
