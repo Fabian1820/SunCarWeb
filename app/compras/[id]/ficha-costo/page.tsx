@@ -34,6 +34,7 @@ import { Toaster } from "@/components/shared/molecule/toaster";
 import { useToast } from "@/hooks/use-toast";
 import { PageLoader } from "@/components/shared/atom/page-loader";
 import { RouteGuard } from "@/components/auth/route-guard";
+import { useAuth } from "@/contexts/auth-context";
 
 import { CompraService } from "@/lib/api-services";
 import type {
@@ -112,7 +113,17 @@ function FichaCostoContent() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
+  const { hasExactPermission } = useAuth();
   const envioId = String(params.id ?? "");
+
+  /**
+   * Sub-permiso ADITIVO: tener `envio-contenedores` (Compras) NO alcanza. Sin
+   * él la ficha queda en modo solo-costos — CIF, % recargo, costo y "Actualizar
+   * costos" — y se ocultan márgenes, precios (catálogo/sugeridos/finales) y
+   * "Aplicar precios". Los guardados tampoco envían campos de precio, para que
+   * un usuario de costos no pise el borrador que dejó el económico.
+   */
+  const puedePrecios = hasExactPermission("envio-contenedores/ficha-precios");
 
   // ── estado global ──
   const [envio, setEnvio] = useState<Compra | null>(null);
@@ -501,6 +512,7 @@ function FichaCostoContent() {
   // ─── flujo de guardado ────────────────────────────────────────────────────
 
   const abrirConfirmacion = () => {
+    if (!puedePrecios) return;
     if (hayErroresValidacion) {
       toast({ title: "Errores de validación", description: "Corrige los errores antes de guardar.", variant: "destructive" });
       return;
@@ -539,6 +551,7 @@ function FichaCostoContent() {
   };
 
   const ejecutarAplicarPrecios = async (cambiosEditados: CambioMaterialPrecio[]) => {
+    if (!puedePrecios) return;
     setSaving(true);
     try {
       // 1. Guardar ficha primero: persiste totales + materiales (CIF, recargo,
@@ -617,8 +630,12 @@ function FichaCostoContent() {
   const guardarFichaInterno = async (): Promise<Compra> => {
     const updatePayload: Partial<CompraCreateData> = {
       costos,
-      porciento_instaladora: porcientoInstaladora,
-      porciento_ventas: porcientoVentas,
+      // Los márgenes solo viajan si el usuario puede editarlos. El backend usa
+      // exclude_unset, así que omitirlos preserva los valores ya guardados.
+      ...(puedePrecios && {
+        porciento_instaladora: porcientoInstaladora,
+        porciento_ventas: porcientoVentas,
+      }),
       porciento_cargo_envio_sugerido: porcientoEnvioSugerido,
       porciento_cargo_envio_impuestos: porcientoImpuestos,
       total_costos: totalCostosUsd,
@@ -634,11 +651,15 @@ function FichaCostoContent() {
       precio_unitario_cif: f.precio_unitario_cif,
       porciento_recargo: f.porciento_recargo + porcientoImpuestos,
       costo: f.costo_nuevo,
-      precio_venta_sugerido: f.precio_venta_sugerido > 0 ? f.precio_venta_sugerido : null,
-      precio_instaladora_sugerido: f.precio_instaladora_sugerido > 0 ? f.precio_instaladora_sugerido : null,
-      precio_venta_final: f.precio_venta_final > 0 ? f.precio_venta_final : null,
-      precio_instaladora_final: f.precio_instaladora_final > 0 ? f.precio_instaladora_final : null,
-      porciento_rebajable_venta: f.porciento_rebajable_venta,
+      // Igual que arriba: en modo solo-costos los precios ni se envían, así el
+      // PATCH /ficha (exclude_unset) deja intactos los que ya estaban en BD.
+      ...(puedePrecios && {
+        precio_venta_sugerido: f.precio_venta_sugerido > 0 ? f.precio_venta_sugerido : null,
+        precio_instaladora_sugerido: f.precio_instaladora_sugerido > 0 ? f.precio_instaladora_sugerido : null,
+        precio_venta_final: f.precio_venta_final > 0 ? f.precio_venta_final : null,
+        precio_instaladora_final: f.precio_instaladora_final > 0 ? f.precio_instaladora_final : null,
+        porciento_rebajable_venta: f.porciento_rebajable_venta,
+      }),
     }));
     const compraActualizada = await CompraService.guardarFicha(envioId, { materiales });
     setEnvio(compraActualizada);
@@ -908,10 +929,15 @@ function FichaCostoContent() {
                 >
                   {envio.pagado ? "Pagado" : "Pendiente"}
                 </Badge>
-                {hayErroresValidacion && (
+                {puedePrecios && hayErroresValidacion && (
                   <Badge className="bg-red-100 text-red-700 border-red-200 border text-xs font-medium gap-1">
                     <AlertTriangle className="h-3 w-3" />
                     {filas.filter((f) => f.errorValidacion).length} errores
+                  </Badge>
+                )}
+                {!puedePrecios && (
+                  <Badge className="bg-amber-100 text-amber-800 border-amber-200 border text-xs font-medium">
+                    Solo costos
                   </Badge>
                 )}
               </div>
@@ -941,17 +967,19 @@ function FichaCostoContent() {
                 <span className="hidden lg:inline">Guardar ficha</span>
                 <span className="lg:hidden">Guardar</span>
               </Button>
-              <Button
-                size="sm"
-                onClick={abrirConfirmacion}
-                disabled={saving || hayErroresValidacion}
-                className="gap-1.5 bg-cyan-600 hover:bg-cyan-700 text-white"
-                title="Propaga al catálogo los precios de venta, instaladora y % rebajable. El costo se calcula automáticamente al recibir mercancía o al ponderar."
-              >
-                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                <span className="hidden sm:inline">Aplicar precios</span>
-                <span className="sm:hidden">Aplicar</span>
-              </Button>
+              {puedePrecios && (
+                <Button
+                  size="sm"
+                  onClick={abrirConfirmacion}
+                  disabled={saving || hayErroresValidacion}
+                  className="gap-1.5 bg-cyan-600 hover:bg-cyan-700 text-white"
+                  title="Propaga al catálogo los precios de venta, instaladora y % rebajable. El costo se calcula automáticamente al recibir mercancía o al ponderar."
+                >
+                  {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                  <span className="hidden sm:inline">Aplicar precios</span>
+                  <span className="sm:hidden">Aplicar</span>
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -1196,7 +1224,9 @@ function FichaCostoContent() {
           {/* Panel porcentajes de margen */}
           <Card className="border border-gray-200 shadow-none">
             <CardHeader className="pb-0 pt-4 px-4">
-              <CardTitle className="text-sm font-semibold text-gray-800">Porcentajes globales</CardTitle>
+              <CardTitle className="text-sm font-semibold text-gray-800">
+                {puedePrecios ? "Porcentajes globales" : "Porcentajes de costo"}
+              </CardTitle>
             </CardHeader>
             <CardContent className="px-4 pt-3 pb-4">
               {/* Impuesto nacional */}
@@ -1229,6 +1259,7 @@ function FichaCostoContent() {
                 </div>
               </div>
 
+              {puedePrecios && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium text-gray-600">% Margen Ventas</Label>
@@ -1266,9 +1297,10 @@ function FichaCostoContent() {
                   </p>
                 </div>
               </div>
+              )}
 
               {/* Resumen */}
-              <div className="mt-4 grid gap-2 grid-cols-4">
+              <div className={`mt-4 grid gap-2 ${puedePrecios ? "grid-cols-4" : "grid-cols-2"}`}>
                 <div className="text-center p-2 rounded-md bg-cyan-50 border border-cyan-100">
                   <p className="text-xs text-cyan-600 font-medium">% Envío</p>
                   <p className="text-sm font-bold text-cyan-700">{fmt(porcientoEnvioSugerido, 1)}%</p>
@@ -1279,16 +1311,20 @@ function FichaCostoContent() {
                   <p className="text-sm font-bold text-emerald-700">{fmt(porcientoImpuestos, 1)}%</p>
                   <p className="text-xs text-emerald-500">manual</p>
                 </div>
-                <div className="text-center p-2 rounded-md bg-gray-50 border border-gray-100">
-                  <p className="text-xs text-gray-500 font-medium">% Ventas</p>
-                  <p className="text-sm font-bold text-gray-700">{fmt(porcientoVentas, 1)}%</p>
-                  <p className="text-xs text-gray-400">manual</p>
-                </div>
-                <div className="text-center p-2 rounded-md bg-gray-50 border border-gray-100">
-                  <p className="text-xs text-gray-500 font-medium">% Install.</p>
-                  <p className="text-sm font-bold text-gray-700">{fmt(porcientoInstaladora, 1)}%</p>
-                  <p className="text-xs text-gray-400">manual</p>
-                </div>
+                {puedePrecios && (
+                  <>
+                    <div className="text-center p-2 rounded-md bg-gray-50 border border-gray-100">
+                      <p className="text-xs text-gray-500 font-medium">% Ventas</p>
+                      <p className="text-sm font-bold text-gray-700">{fmt(porcientoVentas, 1)}%</p>
+                      <p className="text-xs text-gray-400">manual</p>
+                    </div>
+                    <div className="text-center p-2 rounded-md bg-gray-50 border border-gray-100">
+                      <p className="text-xs text-gray-500 font-medium">% Install.</p>
+                      <p className="text-sm font-bold text-gray-700">{fmt(porcientoInstaladora, 1)}%</p>
+                      <p className="text-xs text-gray-400">manual</p>
+                    </div>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -1330,7 +1366,7 @@ function FichaCostoContent() {
               </div>
             ) : (
               <div className="w-full overflow-x-auto">
-                <table className="w-full text-sm border-collapse" style={{ minWidth: "1300px" }}>
+                <table className="w-full text-sm border-collapse" style={{ minWidth: puedePrecios ? "1300px" : "760px" }}>
                   <thead>
                     {/* Fila 1: grupos */}
                     <tr className="bg-gray-50 border-b border-gray-200">
@@ -1350,34 +1386,48 @@ function FichaCostoContent() {
                         Costo
                       </th>
                       {/* Grupo actuales */}
-                      <th colSpan={4} className="text-center py-2 px-2 font-semibold text-gray-500 text-xs uppercase tracking-wide bg-slate-50 border-l border-r border-slate-200">
+                      <th colSpan={puedePrecios ? 4 : 2} className="text-center py-2 px-2 font-semibold text-gray-500 text-xs uppercase tracking-wide bg-slate-50 border-l border-r border-slate-200">
                         Actuales (catálogo)
                       </th>
                       {/* Grupo nuevos */}
-                      <th colSpan={2} className="text-center py-2 px-2 font-semibold text-cyan-700 text-xs uppercase tracking-wide bg-cyan-50 border-l border-r border-cyan-200">
-                        Sugeridos
-                      </th>
-                      <th colSpan={3} className="text-center py-2 px-2 font-semibold text-purple-700 text-xs uppercase tracking-wide bg-purple-50 border-l border-r border-purple-200">
-                        Finales (a aplicar al catálogo)
-                      </th>
+                      {puedePrecios && (
+                        <>
+                          <th colSpan={2} className="text-center py-2 px-2 font-semibold text-cyan-700 text-xs uppercase tracking-wide bg-cyan-50 border-l border-r border-cyan-200">
+                            Sugeridos
+                          </th>
+                          <th colSpan={3} className="text-center py-2 px-2 font-semibold text-purple-700 text-xs uppercase tracking-wide bg-purple-50 border-l border-r border-purple-200">
+                            Finales (a aplicar al catálogo)
+                          </th>
+                        </>
+                      )}
                     </tr>
                     {/* Fila 2: sub-columnas */}
                     <tr className="border-b border-gray-200">
                       <th className="text-center py-1.5 px-2 font-medium text-gray-500 text-xs bg-slate-50 border-l border-slate-200 w-[5%]">Stock</th>
-                      <th className="text-center py-1.5 px-2 font-medium text-gray-500 text-xs bg-slate-50 w-[7%]">P. Venta</th>
-                      <th className="text-center py-1.5 px-2 font-medium text-gray-500 text-xs bg-slate-50 w-[7%]">P. Inst.</th>
+                      {puedePrecios && (
+                        <>
+                          <th className="text-center py-1.5 px-2 font-medium text-gray-500 text-xs bg-slate-50 w-[7%]">P. Venta</th>
+                          <th className="text-center py-1.5 px-2 font-medium text-gray-500 text-xs bg-slate-50 w-[7%]">P. Inst.</th>
+                        </>
+                      )}
                       <th className="text-center py-1.5 px-2 font-medium text-gray-500 text-xs bg-slate-50 border-r border-slate-200 w-[6%]">Costo</th>
-                      <th className="text-center py-1.5 px-2 font-medium text-cyan-600 text-xs bg-cyan-50 border-l border-cyan-200 w-[7%]">P. Venta</th>
-                      <th className="text-center py-1.5 px-2 font-medium text-cyan-600 text-xs bg-cyan-50 border-r border-cyan-200 w-[7%]">P. Inst.</th>
-                      <th className="text-center py-1.5 px-2 font-medium text-purple-600 text-xs bg-purple-50 border-l border-purple-200 w-[8%]">P. Venta</th>
-                      <th className="text-center py-1.5 px-2 font-medium text-purple-600 text-xs bg-purple-50 w-[8%]">P. Inst.</th>
-                      <th className="text-center py-1.5 px-2 font-medium text-purple-600 text-xs bg-purple-50 border-r border-purple-200 w-[7%]">% Reb/ventas</th>
+                      {puedePrecios && (
+                        <>
+                          <th className="text-center py-1.5 px-2 font-medium text-cyan-600 text-xs bg-cyan-50 border-l border-cyan-200 w-[7%]">P. Venta</th>
+                          <th className="text-center py-1.5 px-2 font-medium text-cyan-600 text-xs bg-cyan-50 border-r border-cyan-200 w-[7%]">P. Inst.</th>
+                          <th className="text-center py-1.5 px-2 font-medium text-purple-600 text-xs bg-purple-50 border-l border-purple-200 w-[8%]">P. Venta</th>
+                          <th className="text-center py-1.5 px-2 font-medium text-purple-600 text-xs bg-purple-50 w-[8%]">P. Inst.</th>
+                          <th className="text-center py-1.5 px-2 font-medium text-purple-600 text-xs bg-purple-50 border-r border-purple-200 w-[7%]">% Reb/ventas</th>
+                        </>
+                      )}
                     </tr>
                   </thead>
 
                   <tbody>
                     {filas.map((f, idx) => {
-                      const hasError = !!f.errorValidacion;
+                      // Las validaciones existentes son todas de precios, así que
+                      // en modo solo-costos no deben pintar la fila en rojo.
+                      const hasError = puedePrecios && !!f.errorValidacion;
 
                       const pctCambioVenta =
                         f.precio_catalogo > 0
@@ -1485,22 +1535,28 @@ function FichaCostoContent() {
                               <p className="text-sm font-semibold text-gray-700">{fmt(f.stock_actual, 0)}</p>
                               <p className="text-xs text-gray-400">uds.</p>
                             </td>
-                            <td className="py-2.5 px-2 text-center bg-slate-50/60">
-                              {f.precio_catalogo > 0
-                                ? <p className="text-sm font-semibold text-gray-700">${fmt(f.precio_catalogo)}</p>
-                                : <p className="text-xs text-gray-300">—</p>}
-                            </td>
-                            <td className="py-2.5 px-2 text-center bg-slate-50/60">
-                              {f.precio_instaladora_catalogo > 0
-                                ? <p className="text-sm font-semibold text-gray-700">${fmt(f.precio_instaladora_catalogo)}</p>
-                                : <p className="text-xs text-gray-300">—</p>}
-                            </td>
+                            {puedePrecios && (
+                              <>
+                                <td className="py-2.5 px-2 text-center bg-slate-50/60">
+                                  {f.precio_catalogo > 0
+                                    ? <p className="text-sm font-semibold text-gray-700">${fmt(f.precio_catalogo)}</p>
+                                    : <p className="text-xs text-gray-300">—</p>}
+                                </td>
+                                <td className="py-2.5 px-2 text-center bg-slate-50/60">
+                                  {f.precio_instaladora_catalogo > 0
+                                    ? <p className="text-sm font-semibold text-gray-700">${fmt(f.precio_instaladora_catalogo)}</p>
+                                    : <p className="text-xs text-gray-300">—</p>}
+                                </td>
+                              </>
+                            )}
                             <td className="py-2.5 px-2 text-center bg-slate-50/60 border-r border-slate-100">
                               {f.costo_actual > 0
                                 ? <p className="text-sm font-semibold text-gray-700">${fmt(f.costo_actual)}</p>
                                 : <p className="text-xs text-gray-300">—</p>}
                             </td>
 
+                            {puedePrecios && (
+                              <>
                             {/* ── Sugeridos (calculados, read-only) ─────── */}
                             <td className="py-2.5 px-2 text-center bg-cyan-50/40 border-l border-cyan-100">
                               {f.precio_venta_sugerido > 0
@@ -1607,12 +1663,14 @@ function FichaCostoContent() {
                                 )}
                               </div>
                             </td>
+                              </>
+                            )}
                           </tr>
 
-                          {/* Fila de error */}
-                          {hasError && (
+                          {/* Fila de error (validación de precios: solo aplica con el sub-permiso) */}
+                          {puedePrecios && hasError && (
                             <tr className="bg-red-50 border-b border-red-100">
-                              <td colSpan={13} className="px-4 py-2">
+                              <td colSpan={14} className="px-4 py-2">
                                 <div className="flex items-start gap-2">
                                   <AlertTriangle className="h-3.5 w-3.5 text-red-500 shrink-0 mt-0.5" />
                                   <p className="text-xs text-red-600">{f.errorValidacion}</p>
@@ -1646,29 +1704,40 @@ function FichaCostoContent() {
                       <td className="py-3 px-2 bg-slate-50/60 border-l border-slate-100 text-center">
                         <span className="text-sm font-bold text-gray-600">{fmt(filas.reduce((s, f) => s + f.stock_actual, 0), 0)}</span>
                       </td>
-                      <td className="py-3 px-2 bg-slate-50/60" />
+                      {/* Dos huecos (P. Venta / P. Inst. del catálogo): sin ellos
+                          la fila de totales quedaba corrida una columna. */}
+                      {puedePrecios && (
+                        <>
+                          <td className="py-3 px-2 bg-slate-50/60" />
+                          <td className="py-3 px-2 bg-slate-50/60" />
+                        </>
+                      )}
                       <td className="py-3 px-2 bg-slate-50/60 border-r border-slate-100" />
-                      <td className="py-3 px-2 text-center bg-cyan-50/40 border-l border-cyan-100">
-                        <span className="text-sm font-bold text-cyan-800">
-                          ${fmt(filas.reduce((s, f) => s + f.precio_venta_sugerido * f.cantidad, 0))}
-                        </span>
-                      </td>
-                      <td className="py-3 px-2 text-center bg-cyan-50/40 border-r border-cyan-100">
-                        <span className="text-sm font-bold text-cyan-800">
-                          ${fmt(filas.reduce((s, f) => s + f.precio_instaladora_sugerido * f.cantidad, 0))}
-                        </span>
-                      </td>
-                      <td className="py-3 px-2 text-center bg-purple-50/40 border-l border-purple-100">
-                        <span className="text-sm font-bold text-purple-800">
-                          ${fmt(filas.reduce((s, f) => s + f.precio_venta_final * f.cantidad, 0))}
-                        </span>
-                      </td>
-                      <td className="py-3 px-2 text-center bg-purple-50/40">
-                        <span className="text-sm font-bold text-purple-800">
-                          ${fmt(filas.reduce((s, f) => s + f.precio_instaladora_final * f.cantidad, 0))}
-                        </span>
-                      </td>
-                      <td className="py-3 px-2 bg-purple-50/40 border-r border-purple-100" />
+                      {puedePrecios && (
+                        <>
+                          <td className="py-3 px-2 text-center bg-cyan-50/40 border-l border-cyan-100">
+                            <span className="text-sm font-bold text-cyan-800">
+                              ${fmt(filas.reduce((s, f) => s + f.precio_venta_sugerido * f.cantidad, 0))}
+                            </span>
+                          </td>
+                          <td className="py-3 px-2 text-center bg-cyan-50/40 border-r border-cyan-100">
+                            <span className="text-sm font-bold text-cyan-800">
+                              ${fmt(filas.reduce((s, f) => s + f.precio_instaladora_sugerido * f.cantidad, 0))}
+                            </span>
+                          </td>
+                          <td className="py-3 px-2 text-center bg-purple-50/40 border-l border-purple-100">
+                            <span className="text-sm font-bold text-purple-800">
+                              ${fmt(filas.reduce((s, f) => s + f.precio_venta_final * f.cantidad, 0))}
+                            </span>
+                          </td>
+                          <td className="py-3 px-2 text-center bg-purple-50/40">
+                            <span className="text-sm font-bold text-purple-800">
+                              ${fmt(filas.reduce((s, f) => s + f.precio_instaladora_final * f.cantidad, 0))}
+                            </span>
+                          </td>
+                          <td className="py-3 px-2 bg-purple-50/40 border-r border-purple-100" />
+                        </>
+                      )}
                     </tr>
                   </tfoot>
                 </table>
@@ -1680,7 +1749,7 @@ function FichaCostoContent() {
 
       {/* Confirmación al aplicar precios */}
       <AplicarPreciosConfirmDialog
-        open={confirmOpen}
+        open={puedePrecios && confirmOpen}
         onOpenChange={(o) => {
           if (!saving) setConfirmOpen(o);
         }}
