@@ -101,6 +101,12 @@ import {
   formatFuenteConReferencia,
   esFuenteConReferencia,
 } from "@/lib/utils/fuente-display";
+import {
+  agregarArchivosSinDuplicar,
+  fileKey,
+  formatBytes,
+  type UploadFotosResultado,
+} from "@/lib/utils/upload-fotos-lote";
 
 const CODIGO_BATERIA_ESPECIAL_NOMBRE = "FLS48100SCG01";
 
@@ -119,8 +125,9 @@ interface ClientsTableProps {
   onViewLocation: (client: Cliente) => void;
   onUploadFotos?: (
     client: Cliente,
-    payload: { file: File; tipo: "instalacion" | "averia" },
-  ) => Promise<void>;
+    payload: { files: File[]; tipo: "instalacion" | "averia" },
+    onProgress?: (completados: number) => void,
+  ) => Promise<UploadFotosResultado>;
   onUpdatePrioridad?: (
     clientId: string,
     prioridad: "Ninguna" | "Urgente" | "Alta" | "Media" | "Baja",
@@ -802,8 +809,9 @@ export function ClientsTable({
   const [uploadFotoTipo, setUploadFotoTipo] = useState<
     "instalacion" | "averia"
   >("instalacion");
-  const [uploadFotoFile, setUploadFotoFile] = useState<File | null>(null);
+  const [uploadFotoFiles, setUploadFotoFiles] = useState<File[]>([]);
   const [uploadingFoto, setUploadingFoto] = useState(false);
+  const [uploadFotoProgreso, setUploadFotoProgreso] = useState(0);
 
   // Estados para editar/eliminar/exportar ofertas
   const [mostrarDialogoEditar, setMostrarDialogoEditar] = useState(false);
@@ -1478,7 +1486,8 @@ export function ClientsTable({
     if (!onUploadFotos) return;
     setClientForUploadFotos(client);
     setUploadFotoTipo("instalacion");
-    setUploadFotoFile(null);
+    setUploadFotoFiles([]);
+    setUploadFotoProgreso(0);
     setShowUploadFotosDialog(true);
   };
 
@@ -1486,24 +1495,56 @@ export function ClientsTable({
     setShowUploadFotosDialog(false);
     setClientForUploadFotos(null);
     setUploadFotoTipo("instalacion");
-    setUploadFotoFile(null);
+    setUploadFotoFiles([]);
+    setUploadFotoProgreso(0);
     setUploadingFoto(false);
   };
 
+  const handleSeleccionarArchivosFoto = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const seleccionados = Array.from(event.target.files || []);
+    if (seleccionados.length > 0) {
+      setUploadFotoFiles((previos) =>
+        agregarArchivosSinDuplicar(previos, seleccionados),
+      );
+    }
+    // Permite volver a elegir el mismo archivo después de quitarlo de la lista.
+    event.target.value = "";
+  };
+
+  const quitarArchivoFoto = (file: File) => {
+    setUploadFotoFiles((previos) =>
+      previos.filter((actual) => fileKey(actual) !== fileKey(file)),
+    );
+  };
+
   const handleUploadFotosCliente = async () => {
-    if (!clientForUploadFotos || !uploadFotoFile || !onUploadFotos) return;
+    if (!clientForUploadFotos || uploadFotoFiles.length === 0 || !onUploadFotos)
+      return;
 
     try {
       setUploadingFoto(true);
-      await onUploadFotos(clientForUploadFotos, {
-        file: uploadFotoFile,
-        tipo: uploadFotoTipo,
-      });
-      closeUploadFotosDialog();
+      setUploadFotoProgreso(0);
+      const resultado = await onUploadFotos(
+        clientForUploadFotos,
+        { files: uploadFotoFiles, tipo: uploadFotoTipo },
+        (completados) => setUploadFotoProgreso(completados),
+      );
+
+      if (!resultado || resultado.fallidos.length === 0) {
+        closeUploadFotosDialog();
+        return;
+      }
+
+      // Subida parcial: dejamos solo los que fallaron para reintentar sin
+      // duplicar los que ya quedaron guardados.
+      setUploadFotoFiles(resultado.fallidos.map((fallido) => fallido.file));
     } catch (error) {
-      console.error("Error subiendo foto/video del cliente:", error);
+      console.error("Error subiendo fotos/videos del cliente:", error);
     } finally {
       setUploadingFoto(false);
+      setUploadFotoProgreso(0);
     }
   };
 
@@ -5419,11 +5460,11 @@ export function ClientsTable({
                                     }
                                     disabled={!onUploadFotos}
                                     className="h-auto flex-col items-center justify-center gap-1 py-3"
-                                    title="Agregar foto o video"
+                                    title="Agregar fotos o videos"
                                   >
                                     <Camera className="h-5 w-5 text-violet-600" />
                                     <span className="text-xs text-gray-700 leading-tight text-center">
-                                      Agregar foto
+                                      Agregar fotos
                                     </span>
                                   </Button>
                                 </div>
@@ -5520,7 +5561,7 @@ export function ClientsTable({
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Agregar foto/video del cliente</DialogTitle>
+            <DialogTitle>Agregar fotos/videos del cliente</DialogTitle>
             <DialogDescription>
               {clientForUploadFotos
                 ? `${clientForUploadFotos.nombre} (${clientForUploadFotos.numero})`
@@ -5536,6 +5577,7 @@ export function ClientsTable({
                 onValueChange={(value: "instalacion" | "averia") =>
                   setUploadFotoTipo(value)
                 }
+                disabled={uploadingFoto}
               >
                 <SelectTrigger id="cliente-foto-tipo">
                   <SelectValue placeholder="Selecciona un tipo" />
@@ -5545,22 +5587,98 @@ export function ClientsTable({
                   <SelectItem value="averia">Avería</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-xs text-gray-500">
+                El tipo se aplica a todos los archivos seleccionados.
+              </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="cliente-foto-archivo">Archivo</Label>
+              <Label htmlFor="cliente-foto-archivo">Archivos</Label>
               <Input
                 id="cliente-foto-archivo"
                 type="file"
                 accept="image/*,video/*"
-                onChange={(event) => {
-                  const file = event.target.files?.[0] || null;
-                  setUploadFotoFile(file);
-                }}
+                multiple
+                onChange={handleSeleccionarArchivosFoto}
                 disabled={uploadingFoto}
               />
-              <p className="text-xs text-gray-500">Acepta imágenes y videos.</p>
+              <p className="text-xs text-gray-500">
+                Acepta imágenes y videos. Puedes seleccionar uno o varios, y
+                repetir la selección para ir agregando más.
+              </p>
             </div>
+
+            {uploadFotoFiles.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs text-gray-600">
+                  <span>
+                    {uploadFotoFiles.length}{" "}
+                    {uploadFotoFiles.length === 1
+                      ? "archivo seleccionado"
+                      : "archivos seleccionados"}
+                  </span>
+                  <span>
+                    {formatBytes(
+                      uploadFotoFiles.reduce((total, file) => total + file.size, 0),
+                    )}{" "}
+                    en total
+                  </span>
+                </div>
+
+                <div className="max-h-48 overflow-y-auto rounded-md border border-gray-200 divide-y divide-gray-100">
+                  {uploadFotoFiles.map((file, index) => {
+                    // "Procesado" (no "subido"): el resultado por archivo se
+                    // conoce al terminar el lote, y los que fallen se quedan
+                    // en el diálogo para reintentarlos.
+                    const procesado = uploadingFoto && index < uploadFotoProgreso;
+                    const enCurso = uploadingFoto && index === uploadFotoProgreso;
+
+                    return (
+                      <div
+                        key={fileKey(file)}
+                        className="flex items-center gap-2 px-2 py-1.5"
+                      >
+                        {procesado ? (
+                          <FileCheck className="h-4 w-4 shrink-0 text-gray-400" />
+                        ) : enCurso ? (
+                          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-violet-600" />
+                        ) : file.type.startsWith("video/") ? (
+                          <Eye className="h-4 w-4 shrink-0 text-gray-400" />
+                        ) : (
+                          <Camera className="h-4 w-4 shrink-0 text-gray-400" />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs text-gray-700">
+                            {file.name}
+                          </p>
+                          <p className="text-[11px] text-gray-400">
+                            {formatBytes(file.size)}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 shrink-0 p-0 text-gray-400 hover:text-red-600"
+                          onClick={() => quitarArchivoFoto(file)}
+                          disabled={uploadingFoto}
+                          title="Quitar de la lista"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {uploadingFoto && (
+                  <p className="text-xs text-violet-700">
+                    Subiendo {Math.min(uploadFotoProgreso + 1, uploadFotoFiles.length)}{" "}
+                    de {uploadFotoFiles.length}...
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="flex justify-end gap-2">
               <Button
@@ -5574,7 +5692,9 @@ export function ClientsTable({
               <Button
                 type="button"
                 onClick={handleUploadFotosCliente}
-                disabled={!uploadFotoFile || uploadingFoto || !onUploadFotos}
+                disabled={
+                  uploadFotoFiles.length === 0 || uploadingFoto || !onUploadFotos
+                }
                 className="bg-violet-600 hover:bg-violet-700 text-white"
               >
                 {uploadingFoto ? (
@@ -5582,6 +5702,8 @@ export function ClientsTable({
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     Subiendo...
                   </>
+                ) : uploadFotoFiles.length > 1 ? (
+                  `Subir ${uploadFotoFiles.length} archivos`
                 ) : (
                   "Subir archivo"
                 )}

@@ -13,6 +13,11 @@ import {
 import { User } from "lucide-react";
 import { ClienteService } from "@/lib/api-services";
 import { ClientsTable } from "@/components/feats/customer-service/clients-table";
+import {
+  describirFallidos,
+  subirFotosEnLote,
+  type UploadFotosResultado,
+} from "@/lib/utils/upload-fotos-lote";
 import { PageLoader } from "@/components/shared/atom/page-loader";
 import { useToast } from "@/hooks/use-toast";
 import { useFuentesSync } from "@/hooks/use-fuentes-sync";
@@ -749,27 +754,50 @@ export default function ClientesPage() {
     }
   };
 
+  // El backend acepta un archivo por petición, así que el lote se sube de uno
+  // en uno. Se informa el progreso y se devuelven los fallidos para que el
+  // diálogo permita reintentar solo esos sin duplicar los ya guardados.
   const handleUploadClientFoto = async (
     client: Cliente,
-    payload: { file: File; tipo: "instalacion" | "averia" },
-  ) => {
-    try {
-      await ClienteService.uploadFotoCliente(client.numero, payload);
-      toast({
-        title: "Archivo agregado",
-        description: `Se adjuntó correctamente como ${payload.tipo}.`,
-      });
+    payload: { files: File[]; tipo: "instalacion" | "averia" },
+    onProgress?: (procesados: number) => void,
+  ): Promise<UploadFotosResultado> => {
+    const tipoLabel = payload.tipo === "averia" ? "avería" : "instalación";
+
+    const { subidos, fallidos } = await subirFotosEnLote(
+      payload.files,
+      (file) =>
+        ClienteService.uploadFotoCliente(client.numero, {
+          file,
+          tipo: payload.tipo,
+        }),
+      onProgress,
+    );
+
+    if (subidos > 0) {
       await fetchClients();
-    } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : "No se pudo subir el archivo";
+    }
+
+    if (fallidos.length === 0) {
       toast({
-        title: "Error",
-        description: message,
+        title: subidos === 1 ? "Archivo agregado" : "Archivos agregados",
+        description:
+          subidos === 1
+            ? `Se adjuntó correctamente como ${tipoLabel}.`
+            : `Se adjuntaron ${subidos} archivos como ${tipoLabel}.`,
+      });
+    } else {
+      toast({
+        title:
+          subidos > 0
+            ? `Se subieron ${subidos} de ${payload.files.length}`
+            : "No se pudo subir ningún archivo",
+        description: describirFallidos(fallidos),
         variant: "destructive",
       });
-      throw error instanceof Error ? error : new Error(message);
     }
+
+    return { subidos, fallidos };
   };
 
   const handleDownloadClientComprobante = async (client: Cliente) => {
