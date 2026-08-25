@@ -2,6 +2,77 @@
 
 ---
 
+## 📅 24 de Agosto, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**7 commits reales** — Fabian1820 (co-authored Claude Opus 5). Sesión masiva de saneamiento: errores TypeScript en main: **237 → 0** en dos etapas (47 intermedios). Se eliminan archivos huérfanos del catálogo viejo de ofertas, se alinean todos los tipos con el backend real, y se corrigen tres bugs de comportamiento críticos en brigadas y facturación.
+
+---
+
+### Área 1: fix(types) — alineación de tipos con backend (237 → 0 errores) (14:17–14:31)
+
+- **`fix(types): alinea los tipos con lo que devuelve el backend (190 → 0 errores)`** — Campaña exhaustiva verificada endpoint por endpoint contra `openapi.json` del backend desplegado. Bugs reales encontrados en el proceso:
+  1. **PDF de oferta mostraba provincia en blanco**: `Lead` no tiene `nombre_completo`, `email` ni `provincia`; el campo correcto es `provincia_montaje`.
+  2. **TypeError al hacer clic en mapa**: `MapPicker.onSelect` era obligatorio; el diálogo "Ubicación del cliente" no lo pasaba.
+  3. **Compras: filtro de estado roto**: Se comparaba con `"recibida_parcial"` (alias legacy) cuando el backend normaliza a `"recibido_parcial"` — el filtro nunca coincidía.
+  4. **Transferencias**: Faltaba el estado `"procesando"` en el union de tipos.
+  5. **Marcas**: Alta rápida no mandaba `tipos_material` (obligatorio) → 422.
+  6. **Nóminas**: Mensaje de error interpolaba `mes`/`anio`, campos que el request no tiene → se mostraba `"undefined/undefined"`.
+  7. **`OfertaInstalacion` duplicada**: Dos definiciones incompatibles en servicios y types; ahora el servicio reexporta la canónica.
+  8. **Barrels rotos**: `material-types` e `inventario-types` habían perdido sus reexports.
+  9. **Stripe `route.ts`**: Duplicaba la constante de versión en lugar de importarla. Pin mantenido en `2024-12-18.acacia` como decisión de negocio.
+  10. **Fallbacks imposibles removidos**: Fotos en planificación, `fecha_creacion` en solicitud del vale, `codigo_cliente`/`numero_cliente`/`referencia_cliente` en clientes — verificados contra backend como campos que no existen en el response model.
+
+- **`chore: elimina cuatro archivos huérfanos`** — Sin imports entrantes detectados en análisis estático:
+  - `category-management.tsx` y `category-form.tsx` (llamaban a `MaterialService.createCategoryWithPhoto/updateCategoryWithPhoto`, métodos que no existen).
+  - `venta-form.tsx` (daría 422 al backend por falta de `almacen_id` por item).
+  - `local-storage-ordenes.ts` (placeholder previo al backend de órdenes de trabajo; sus tipos ya no existían).
+
+---
+
+### Área 2: fix(brigadas) — tres bugs de comportamiento en CRUD y reportes (14:16–14:28)
+
+- **`fix(brigadas): editar/eliminar brigada y trabajadores llamaban a métodos inexistentes`** — `BrigadaService` no definía `updateBrigada`, `deleteBrigada`, `addTrabajador` ni `removeTrabajador`; cualquier consumidor del hook reventaba con TypeError. Los DELETE pasaban el `ObjectId` de la brigada, pero el backend busca por `lider_ci`. El backend devolvía `success:false` con HTTP 200 y la UI mostraba "Éxito" sin haber borrado nada.
+
+- **`fix(brigadas): el informe de materiales usados apuntaba a rutas inexistentes`** — Rutas correctas: `/reportes/materiales-usados/brigada` y `.../todas-brigadas` (las anteriores daban 404). El endpoint pide `lider_ci`, no el `ObjectId`. La respuesta es `{success, message, materiales}`, no `data.data`. Las columnas de la tabla también se corrigen: **UM** en lugar de Categoría (que no existe en el response).
+
+---
+
+### Área 3: fix(pagos-ventas) — emitir factura daba 422 (14:16–14:28)
+
+- **`fix(pagos-ventas): emitir factura desde pagos-clientes-ventas omitía los campos obligatorios`** — `POST /facturas-ventas` exige `numero`, `fecha`, `cliente_venta_id` y `solicitudes`. La llamada anterior solo mandaba campos legacy (`numero_factura`, `emitida_por`, `fecha_emision`) → 422. El endpoint del catch usaba el mismo esquema, por lo que el reintento tampoco salvaba. Verificado en producción: las 576 facturas existentes llevan los 4 campos obligatorios. Fix: `cliente_venta_id` sale de `selectedSolicitud` (766/766 solicitudes lo tienen).
+
+---
+
+### Área 4: chore(ofertas) — retira catálogo viejo de producción (16:11–16:21)
+
+- **`chore(ofertas): retira el catalogo viejo de produccion y arregla las coordenadas`** — Porta a main lo que dev hizo el 20 de agosto. La cadena del catálogo viejo estaba muerta en main (ningún archivo fuera de ella la referenciaba). Se eliminan los 4 eslabones: `ofertas-embebidas-fields.tsx`, `ofertas-asignacion-fields.tsx`, `hooks/use-ofertas.ts`, y `OfertaService` de `api-services.ts`/`feats/ofertas/oferta-service.ts`. Aportaban 45 de los 47 errores TypeScript restantes.
+  - **Fix adicional**: `cliente-detalles-dialog` — el estrechamiento de `hasLocation` no alcanzaba a `parseFloat` (recibía `string | undefined`). Se extrae a helper `toCoord` que comprueba en el punto de uso.
+  - **CLAUDE.md desactualizado (señalado en el commit)**: La sección que describe `OfertasAsignacionFields` como componente en uso quedó obsoleta.
+
+---
+
+### Puede dar bateo
+
+1. **Catálogo viejo eliminado — imports dinámicos no detectados**: El análisis de dependencias fue estático. Si hay `React.lazy()` o `dynamic(() => import(...))` apuntando a los archivos eliminados en algún path no analizado, la app rompe en runtime con "module not found" la primera vez que se activa esa ruta. Confirmar que no hay lazy-loading residual en el router.
+
+2. **Fallbacks removidos — datos inesperados del backend**: Se retiraron fallbacks verificados como "imposibles" contra el openapi. Si el backend en producción tiene una versión ligeramente distinta y devuelve alguno de esos campos (fotos en planificación, `fecha_creacion` en vale, `codigo_cliente` en clientes), el renderizado puede romper o perder datos silenciosamente sin error visible.
+
+3. **Fix emitir factura — `selectedSolicitud` puede ser null**: El fix asume que `selectedSolicitud` siempre tiene `cliente_venta_id` (verificado contra 766/766 solicitudes en producción). Si el estado de la UI permite abrir el diálogo de factura sin solicitud seleccionada, el payload tendrá `cliente_venta_id: undefined` y seguirá dando 422 con un error diferente.
+
+4. **Fix brigadas DELETE por lider_ci — múltiples brigadas con mismo lider**: Raro pero posible si la BD tiene inconsistencias históricas. Si hay dos brigadas con el mismo `lider_ci`, el DELETE puede afectar la primera que encuentre el backend, no la seleccionada en UI.
+
+5. **`OfertaInstalacion` canónica reexportada desde el servicio**: Cualquier import directo desde el archivo de types que no pase por el barrel puede tener el path roto. Un import roto en runtime que TypeScript no detectó (los 190 errores eran en archivos ya eliminados) podría aparecer en producción la primera vez que se active esa funcionalidad.
+
+6. **Stripe pin `2024-12-18.acacia` mantenido explícitamente**: Si Stripe depreca este pin o tiene vulnerabilidades en esta versión de API, el endpoint de pagos podría fallar o quedar expuesto sin una alerta clara. Es una deuda técnica activa por decisión de negocio.
+
+7. **CLAUDE.md desactualizado (señalado en el commit, no corregido)**: La sección del CLAUDE.md describe `OfertasAsignacionFields` como componente en uso activo. Cualquier sesión de Claude Code que la lea puede tomar decisiones erróneas (buscar o referenciar archivos que ya no existen). Conviene actualizar o eliminar esa sección.
+
+8. **Barrels restaurados — posibles imports duplicados**: Si algún archivo importaba directamente desde la fuente (no el barrel) durante el período con barrels rotos, ahora puede tener el tipo importado dos veces con nombres distintos, causando incompatibilidades de tipos en runtime aunque TypeScript no lo detecte.
+
+---
+
 ## 📅 23 de Agosto, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -199,6 +270,8 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 #### Seguimientos vigentes
 
+- **CLAUDE.md desactualizado — sección de `OfertasAsignacionFields` describe componente ya eliminado como en uso activo; puede confundir sesiones futuras de Claude Code (Ago 24)**.
+- **Stripe pin `2024-12-18.acacia` mantenido explícitamente por decisión de negocio — revisión pendiente si Stripe depreca el pin (Ago 24)**.
 - **Visitas `marcada_sin_info` — confirmar deploy de backend con resultado `marcada_sin_info` antes de usar en producción (Ago 21)**.
 - **"Rellenar info" en visitas sin info — confirmar que backend acepta PATCH sin restricción de estado previo (Ago 21)**.
 - **`/solicitudes-envio` sin RouteGuard confirmado — accesible por URL directa (Ago 20)**.
