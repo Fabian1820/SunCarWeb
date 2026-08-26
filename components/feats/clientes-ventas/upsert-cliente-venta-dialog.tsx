@@ -60,6 +60,10 @@ export function UpsertClienteVentaDialog({
   const [municipio, setMunicipio] = useState("");
   const [comercial, setComercial] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // Error devuelto por el backend. Se muestra pegado al campo CI cuando se
+  // trata de una CI ya registrada, que es el caso que generaba clientes
+  // duplicados.
+  const [submitError, setSubmitError] = useState("");
 
   const [provincias, setProvincias] = useState<Provincia[]>([]);
   const [municipios, setMunicipios] = useState<Municipio[]>([]);
@@ -80,6 +84,7 @@ export function UpsertClienteVentaDialog({
     setMunicipio(cliente?.municipio || "");
     setComercial(cliente?.comercial || "");
     setSelectedProvinciaCodigo("");
+    setSubmitError("");
   }, [open, cliente]);
 
   // Cargar provincias al abrir el dialog
@@ -163,15 +168,23 @@ export function UpsertClienteVentaDialog({
 
     console.log("🧾 [UpsertClienteVenta] payload a enviar:", JSON.stringify(payload, null, 2));
     setSubmitting(true);
+    setSubmitError("");
     try {
       await onSubmit(payload);
       onOpenChange(false);
-    } catch {
-      // El padre muestra el mensaje de error y mantiene el dialogo abierto.
+    } catch (error) {
+      // El padre tambien muestra un toast, pero el mensaje del backend
+      // (p. ej. "La CI ya esta registrada en el cliente CV-...") se queda aqui
+      // para que quede junto al campo que hay que corregir.
+      setSubmitError(
+        error instanceof Error ? error.message : "No se pudo guardar el cliente",
+      );
     } finally {
       setSubmitting(false);
     }
   };
+
+  const errorEsDeCi = /\bci\b/i.test(submitError);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -277,12 +290,30 @@ export function UpsertClienteVentaDialog({
               <Input
                 id="cliente-venta-ci"
                 value={ci}
-                onChange={(event) => setCi(event.target.value)}
+                onChange={(event) => {
+                  setCi(event.target.value);
+                  if (errorEsDeCi) setSubmitError("");
+                }}
                 placeholder="Carnet de identidad"
                 maxLength={40}
+                aria-invalid={errorEsDeCi || undefined}
+                className={
+                  errorEsDeCi
+                    ? "border-red-500 focus-visible:ring-red-500"
+                    : undefined
+                }
               />
             </div>
           </div>
+
+          {submitError ? (
+            <p
+              role="alert"
+              className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2"
+            >
+              {submitError}
+            </p>
+          ) : null}
 
           {/* Comercial */}
           <div className="space-y-2">

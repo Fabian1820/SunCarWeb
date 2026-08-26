@@ -220,10 +220,10 @@ export function CreateReservaVentaDialog({
     const timer = setTimeout(async () => {
       setSearchingClientes(true);
       try {
-        const data = await ClienteVentaService.getClientes({
-          nombre: clienteSearch.trim(),
-          limit: 20,
-        });
+        const data = await ClienteVentaService.buscarClientesPorNombre(
+          clienteSearch.trim(),
+          50,
+        );
         setClienteResults(data);
       } catch {
         setClienteResults([]);

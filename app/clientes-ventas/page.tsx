@@ -62,9 +62,13 @@ export default function ClientesVentasPage() {
     setFilterMunicipio,
     filterComercial,
     setFilterComercial,
+    mostrarAnulados,
+    setMostrarAnulados,
+    totalAnulados,
     createCliente,
     updateCliente,
     deleteCliente,
+    setClienteStatus,
     loadClientes,
   } = useClientesVentas();
 
@@ -207,6 +211,28 @@ export default function ClientesVentasPage() {
   const handleAskDelete = (cliente: ClienteVenta) => {
     setClienteToDelete(cliente);
     setIsDeleteDialogOpen(true);
+  };
+
+  const handleToggleStatus = async (cliente: ClienteVenta) => {
+    const activar = cliente.activo === false;
+    try {
+      await setClienteStatus(cliente.id, activar);
+      toast({
+        title: "Exito",
+        description: activar
+          ? "Cliente venta reactivado correctamente"
+          : "Cliente venta anulado. Su historial de ofertas, solicitudes y facturas se conserva.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : `No se pudo ${activar ? "reactivar" : "anular"} el cliente venta`,
+        variant: "destructive",
+      });
+    }
   };
 
   const handleConfirmDelete = async () => {
@@ -358,8 +384,22 @@ export default function ClientesVentasPage() {
               Clientes Ventas
             </CardTitle>
             <CardDescription>
-              Mostrando {filteredClientes.length} cliente
-              {filteredClientes.length !== 1 ? "s" : ""}
+              Mostrando {filteredClientes.length} de {clientes.length} cliente
+              {clientes.length !== 1 ? "s" : ""}
+              {totalAnulados > 0 && (
+                <>
+                  {" · "}
+                  <button
+                    type="button"
+                    onClick={() => setMostrarAnulados(!mostrarAnulados)}
+                    className="underline underline-offset-2 text-teal-700 hover:text-teal-900"
+                  >
+                    {mostrarAnulados
+                      ? "Ocultar anulados"
+                      : `Ver ${totalAnulados} anulado${totalAnulados !== 1 ? "s" : ""}`}
+                  </button>
+                </>
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -370,6 +410,7 @@ export default function ClientesVentasPage() {
                 setIsEditDialogOpen(true);
               }}
               onDelete={handleAskDelete}
+              onToggleStatus={handleToggleStatus}
               onAgregarOferta={handleAbrirOfertas}
             />
           </CardContent>
