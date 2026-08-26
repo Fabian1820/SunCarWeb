@@ -273,6 +273,16 @@ export function ConfeccionOfertasView({
     estadoInicial?.descuentoPorcentaje || 0,
   );
 
+  // Ajuste manual del redondeo del precio final. Por defecto el precio se
+  // redondea al múltiplo de 10 hacia arriba; con esto el comercial fija el
+  // precio a mano dentro de [total sin redondear, redondeo automático].
+  const [redondeoManual, setRedondeoManual] = useState<boolean>(
+    estadoInicial?.redondeoManual || false,
+  );
+  const [precioFinalManual, setPrecioFinalManual] = useState<string>(
+    estadoInicial?.precioFinalManual ?? "",
+  );
+
   // Estados para compensación y asumido por empresa
   const [tieneCompensacion, setTieneCompensacion] = useState(
     estadoInicial?.tieneCompensacion || false,
@@ -1060,6 +1070,13 @@ export function ConfeccionOfertasView({
           ? Math.max(0, cantidadPagosOferta || pagosAcordadosOferta.length)
           : 0,
       );
+      const redondeoManualOferta = Boolean(ofertaACopiar.redondeo_manual);
+      setRedondeoManual(redondeoManualOferta);
+      setPrecioFinalManual(
+        redondeoManualOferta && ofertaACopiar.precio_final != null
+          ? String(ofertaACopiar.precio_final)
+          : "",
+      );
       setAplicaContribucion(ofertaACopiar.aplica_contribucion || false);
       setPorcentajeContribucion(ofertaACopiar.porcentaje_contribucion || 0);
 
@@ -1150,6 +1167,8 @@ export function ConfeccionOfertasView({
           porcentajeMargenInstalacion,
           costoTransportacion,
           descuentoPorcentaje,
+          redondeoManual,
+          precioFinalManual,
           elementosPersonalizados,
           almacenId,
           inversorSeleccionado,
@@ -1203,6 +1222,8 @@ export function ConfeccionOfertasView({
     porcentajeMargenInstalacion,
     costoTransportacion,
     descuentoPorcentaje,
+    redondeoManual,
+    precioFinalManual,
     elementosPersonalizados,
     almacenId,
     inversorSeleccionado,
@@ -2158,10 +2179,74 @@ export function ConfeccionOfertasView({
     porcentajeContribucion,
   ]);
 
-  const precioFinal = useMemo(() => {
-    // Redondear al múltiplo de 10 más cercano hacia arriba
+  // Redondeo automático: al múltiplo de 10 más cercano hacia arriba. Es el
+  // tope del ajuste manual y lo que se aplica cuando el ajuste está apagado.
+  const precioRedondeoMaximo = useMemo(() => {
     return Math.ceil(totalSinRedondeo / 10) * 10;
   }, [totalSinRedondeo]);
+
+  // Sugerencia intermedia: redondeo al múltiplo de 5 hacia arriba. Siempre cae
+  // dentro de la banda, porque ceil5(x) <= ceil10(x).
+  const precioRedondeoA5 = useMemo(() => {
+    return Math.ceil(totalSinRedondeo / 5) * 5;
+  }, [totalSinRedondeo]);
+
+  const precioFinalManualNumero = useMemo(() => {
+    if (precioFinalManual.trim() === "") return Number.NaN;
+    const valor = Number(precioFinalManual);
+    return Number.isFinite(valor) ? valor : Number.NaN;
+  }, [precioFinalManual]);
+
+  // El precio manual solo puede moverse entre el precio real de la oferta y lo
+  // que habría redondeado el automático.
+  const redondeoManualFueraDeRango = useMemo(() => {
+    if (!redondeoManual) return false;
+    if (!Number.isFinite(precioFinalManualNumero)) return true;
+    return (
+      precioFinalManualNumero < totalSinRedondeo - 0.01 ||
+      precioFinalManualNumero > precioRedondeoMaximo + 0.01
+    );
+  }, [
+    redondeoManual,
+    precioFinalManualNumero,
+    totalSinRedondeo,
+    precioRedondeoMaximo,
+  ]);
+
+  // Sin margen de redondeo (el total ya es múltiplo de 10) no hay nada que
+  // ajustar: la banda es un único valor.
+  const sinMargenDeRedondeo = useMemo(() => {
+    return precioRedondeoMaximo - totalSinRedondeo <= 0.01;
+  }, [precioRedondeoMaximo, totalSinRedondeo]);
+
+  const precioFinal = useMemo(() => {
+    if (!redondeoManual) return precioRedondeoMaximo;
+    // Mientras el valor tecleado sea inválido se sigue calculando con un precio
+    // dentro de la banda; el guardado queda bloqueado por
+    // redondeoManualFueraDeRango.
+    if (!Number.isFinite(precioFinalManualNumero)) return precioRedondeoMaximo;
+    return Math.min(
+      Math.max(precioFinalManualNumero, totalSinRedondeo),
+      precioRedondeoMaximo,
+    );
+  }, [
+    redondeoManual,
+    precioFinalManualNumero,
+    totalSinRedondeo,
+    precioRedondeoMaximo,
+  ]);
+
+  const activarRedondeoManual = useCallback(
+    (activo: boolean) => {
+      setRedondeoManual(activo);
+      // Al activarlo se carga el precio que hoy calcula el automático, para que
+      // el comercial parta de ahí y lo baje si quiere.
+      setPrecioFinalManual(
+        activo ? String(Math.round(precioRedondeoMaximo * 100) / 100) : "",
+      );
+    },
+    [precioRedondeoMaximo],
+  );
 
   // Sincronizar compensación: cuando cambia el porcentaje, actualizar el monto
   useEffect(() => {
@@ -5383,6 +5468,19 @@ export function ConfeccionOfertasView({
       }
     }
 
+    if (redondeoManualFueraDeRango) {
+      toast({
+        title: "Precio ajustado inválido",
+        description: `El precio con redondeo manual debe estar entre ${formatCurrency(
+          totalSinRedondeo,
+        )} (precio real de la oferta) y ${formatCurrency(
+          precioRedondeoMaximo,
+        )} (redondeo automático).`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     const cantidadPagosAcordadosNormalizada = Math.max(
       0,
       Math.floor(Number(cantidadPagosAcordados) || 0),
@@ -5676,6 +5774,7 @@ export function ConfeccionOfertasView({
           totalElementosPersonalizados;
         ofertaData.total_costos_extras = totalCostosExtras;
         ofertaData.precio_final = precioFinal;
+        ofertaData.redondeo_manual = redondeoManual;
 
         console.log("💰 DEBUG - Datos de descuento que se envían:", {
           descuento_porcentaje: descuentoPorcentaje,
@@ -6178,6 +6277,8 @@ export function ConfeccionOfertasView({
     setPagosAcordados([]);
     setAplicaContribucion(false);
     setPorcentajeContribucion(0);
+    setRedondeoManual(false);
+    setPrecioFinalManual("");
     setMargenComercialTotal(0);
     setMargenParaMateriales(0);
     setMargenParaInstalacion(0);
@@ -8510,6 +8611,119 @@ export function ConfeccionOfertasView({
                           (Redondeado desde {formatCurrency(totalSinRedondeo)})
                         </p>
                       )}
+
+                      {/* Ajuste manual del redondeo */}
+                      <div className="pt-2 mt-2 border-t border-slate-200 space-y-2">
+                        <label className="flex items-center gap-2 text-sm text-slate-700">
+                          <input
+                            type="checkbox"
+                            checked={redondeoManual}
+                            onChange={(e) =>
+                              activarRedondeoManual(e.target.checked)
+                            }
+                            disabled={sinMargenDeRedondeo && !redondeoManual}
+                            className="h-4 w-4 rounded border-slate-300 disabled:opacity-50"
+                          />
+                          Ajustar redondeo manual
+                        </label>
+
+                        {sinMargenDeRedondeo && !redondeoManual && (
+                          <p className="text-xs text-slate-500">
+                            El total ya es múltiplo de 10, no hay redondeo que
+                            ajustar.
+                          </p>
+                        )}
+
+                        {redondeoManual && (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm text-slate-700">
+                                Precio ajustado
+                              </span>
+                              <Input
+                                type="number"
+                                min={totalSinRedondeo}
+                                max={precioRedondeoMaximo}
+                                step="0.01"
+                                value={precioFinalManual}
+                                onChange={(e) =>
+                                  setPrecioFinalManual(e.target.value)
+                                }
+                                className={`h-8 w-[130px] text-right bg-white ${
+                                  redondeoManualFueraDeRango
+                                    ? "border-red-500 focus-visible:ring-red-500"
+                                    : ""
+                                }`}
+                                placeholder="0.00"
+                              />
+                            </div>
+
+                            <div className="flex flex-wrap justify-end gap-1">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-7 px-2 text-xs"
+                                onClick={() =>
+                                  setPrecioFinalManual(
+                                    String(
+                                      Math.round(totalSinRedondeo * 100) / 100,
+                                    ),
+                                  )
+                                }
+                              >
+                                Sin redondeo (
+                                {formatCurrency(totalSinRedondeo)})
+                              </Button>
+                              {precioRedondeoA5 > totalSinRedondeo + 0.01 &&
+                                precioRedondeoA5 <
+                                  precioRedondeoMaximo - 0.01 && (
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 px-2 text-xs"
+                                    onClick={() =>
+                                      setPrecioFinalManual(
+                                        String(precioRedondeoA5),
+                                      )
+                                    }
+                                  >
+                                    A 5 ({formatCurrency(precioRedondeoA5)})
+                                  </Button>
+                                )}
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-7 px-2 text-xs"
+                                onClick={() =>
+                                  setPrecioFinalManual(
+                                    String(precioRedondeoMaximo),
+                                  )
+                                }
+                              >
+                                A 10 ({formatCurrency(precioRedondeoMaximo)})
+                              </Button>
+                            </div>
+
+                            {redondeoManualFueraDeRango ? (
+                              <p className="text-xs text-red-600 text-right">
+                                El precio debe estar entre{" "}
+                                {formatCurrency(totalSinRedondeo)} y{" "}
+                                {formatCurrency(precioRedondeoMaximo)}.
+                              </p>
+                            ) : (
+                              <p className="text-xs text-slate-500 text-right">
+                                Permitido entre{" "}
+                                {formatCurrency(totalSinRedondeo)} (precio real)
+                                y {formatCurrency(precioRedondeoMaximo)}{" "}
+                                (redondeo automático).
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
 
                       {/* Mostrar compensación y asumido si existen */}
                       {(tieneCompensacion || tieneAsumidoPorEmpresa) && (
