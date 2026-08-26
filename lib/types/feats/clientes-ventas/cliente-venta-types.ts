@@ -12,6 +12,10 @@
   fecha_actualizacion?: string;
   creado_por_ci?: string;
   actualizado_por_ci?: string;
+  /** Los clientes creados antes de la anulacion no traen el campo: ausente = activo. */
+  activo?: boolean;
+  anulado_en?: string;
+  anulado_por_ci?: string;
 }
 
 export interface ClienteVentaCreateData {

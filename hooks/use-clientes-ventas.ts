@@ -19,7 +19,11 @@ interface UseClientesVentasReturn {
   setFilterMunicipio: (v: string) => void;
   filterComercial: string;
   setFilterComercial: (v: string) => void;
+  mostrarAnulados: boolean;
+  setMostrarAnulados: (v: boolean) => void;
+  totalAnulados: number;
   loadClientes: () => Promise<void>;
+  setClienteStatus: (id: string, activo: boolean) => Promise<void>;
   createCliente: (data: ClienteVentaCreateData) => Promise<ClienteVenta>;
   updateCliente: (
     id: string,
@@ -35,6 +39,9 @@ const normalizeText = (value?: string): string =>
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    // Espacios repetidos: hay clientes guardados como "Antonio Rivero  Garcia"
+    // que de otro modo no aparecen al escribir un solo espacio.
+    .replace(/\s+/g, " ")
     .trim();
 
 export function useClientesVentas(): UseClientesVentasReturn {
@@ -45,15 +52,16 @@ export function useClientesVentas(): UseClientesVentasReturn {
   const [filterProvincia, setFilterProvincia] = useState("");
   const [filterMunicipio, setFilterMunicipio] = useState("");
   const [filterComercial, setFilterComercial] = useState("");
+  const [mostrarAnulados, setMostrarAnulados] = useState(false);
 
   const loadClientes = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await ClienteVentaService.getClientes({
-        skip: 0,
-        limit: 500,
-      });
+      // Paginado completo: el buscador y los filtros de este modulo trabajan
+      // en memoria, asi que un tope fijo dejaba fuera a los clientes mas
+      // antiguos (orden fecha_creacion DESC) en cuanto se superaba ese tope.
+      const data = await ClienteVentaService.getAllClientes();
       setClientes(data);
     } catch (err) {
       setError(
@@ -65,8 +73,17 @@ export function useClientesVentas(): UseClientesVentasReturn {
     }
   }, []);
 
+  // `activo` no existe en los clientes creados antes de la anulacion: ausente
+  // significa activo.
+  const esActivo = (cliente: ClienteVenta) => cliente.activo !== false;
+
+  const totalAnulados = useMemo(
+    () => clientes.filter((c) => !esActivo(c)).length,
+    [clientes],
+  );
+
   const filteredClientes = useMemo(() => {
-    let result = clientes;
+    let result = mostrarAnulados ? clientes : clientes.filter(esActivo);
 
     const term = normalizeText(searchTerm);
     if (term) {
@@ -109,7 +126,14 @@ export function useClientesVentas(): UseClientesVentasReturn {
     }
 
     return result;
-  }, [clientes, searchTerm, filterProvincia, filterMunicipio, filterComercial]);
+  }, [
+    clientes,
+    searchTerm,
+    filterProvincia,
+    filterMunicipio,
+    filterComercial,
+    mostrarAnulados,
+  ]);
 
   const createCliente = useCallback(
     async (data: ClienteVentaCreateData): Promise<ClienteVenta> => {
@@ -179,6 +203,27 @@ export function useClientesVentas(): UseClientesVentasReturn {
     [loadClientes],
   );
 
+  const setClienteStatus = useCallback(
+    async (id: string, activo: boolean): Promise<void> => {
+      setLoading(true);
+      setError(null);
+      try {
+        await ClienteVentaService.setClienteStatus(id, activo);
+        await loadClientes();
+      } catch (err) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : `No se pudo ${activo ? "reactivar" : "anular"} el cliente venta`;
+        setError(message);
+        throw new Error(message);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [loadClientes],
+  );
+
   const clearError = useCallback(() => setError(null), []);
 
   useEffect(() => {
@@ -198,7 +243,11 @@ export function useClientesVentas(): UseClientesVentasReturn {
     setFilterMunicipio,
     filterComercial,
     setFilterComercial,
+    mostrarAnulados,
+    setMostrarAnulados,
+    totalAnulados,
     loadClientes,
+    setClienteStatus,
     createCliente,
     updateCliente,
     deleteCliente,

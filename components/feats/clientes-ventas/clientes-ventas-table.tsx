@@ -4,11 +4,13 @@ import React from "react";
 import { Badge } from "@/components/shared/atom/badge";
 import { Button } from "@/components/shared/atom/button";
 import {
+  Ban,
   ChevronDown,
   ChevronRight,
   MapPin,
   Pencil,
   Phone,
+  RotateCcw,
   ShoppingCart,
   Trash2,
   UserRound,
@@ -21,6 +23,7 @@ interface ClientesVentasTableProps {
   clientes: ClienteVenta[];
   onEdit?: (cliente: ClienteVenta) => void;
   onDelete?: (cliente: ClienteVenta) => void;
+  onToggleStatus?: (cliente: ClienteVenta) => void;
   onAgregarOferta?: (cliente: ClienteVenta) => void;
 }
 
@@ -28,6 +31,7 @@ export function ClientesVentasTable({
   clientes,
   onEdit,
   onDelete,
+  onToggleStatus,
   onAgregarOferta,
 }: ClientesVentasTableProps) {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
@@ -43,6 +47,9 @@ export function ClientesVentasTable({
       return newSet;
     });
   };
+
+  // Los clientes creados antes de la anulacion no traen `activo`.
+  const esActivo = (cliente: ClienteVenta) => cliente.activo !== false;
 
   const formatDate = (value?: string) => {
     if (!value) return "-";
@@ -104,6 +111,14 @@ export function ClientesVentasTable({
                       >
                         {cliente.numero || cliente.id.slice(-6).toUpperCase()}
                       </Badge>
+                      {!esActivo(cliente) && (
+                        <Badge
+                          variant="outline"
+                          className="bg-red-50 text-red-700 border-red-200 text-[11px] mb-1 ml-1"
+                        >
+                          Anulado
+                        </Badge>
+                      )}
                       <p className="font-semibold text-gray-900 text-sm break-words leading-tight">
                         {cliente.nombre}
                       </p>
@@ -177,15 +192,25 @@ export function ClientesVentasTable({
                     <span>Editar</span>
                   </button>
                 )}
-                {onDelete && (
+                {onToggleStatus && (
                   <button
                     type="button"
-                    onClick={() => onDelete(cliente)}
-                    className="h-11 flex items-center justify-center gap-1.5 text-red-700 text-xs font-medium active:bg-red-50 touch-manipulation"
-                    title="Eliminar cliente"
+                    onClick={() => onToggleStatus(cliente)}
+                    className={
+                      esActivo(cliente)
+                        ? "h-11 flex items-center justify-center gap-1.5 text-red-700 text-xs font-medium active:bg-red-50 touch-manipulation"
+                        : "h-11 flex items-center justify-center gap-1.5 text-emerald-700 text-xs font-medium active:bg-emerald-50 touch-manipulation"
+                    }
+                    title={
+                      esActivo(cliente) ? "Anular cliente" : "Reactivar cliente"
+                    }
                   >
-                    <Trash2 className="h-4 w-4" />
-                    <span>Eliminar</span>
+                    {esActivo(cliente) ? (
+                      <Ban className="h-4 w-4" />
+                    ) : (
+                      <RotateCcw className="h-4 w-4" />
+                    )}
+                    <span>{esActivo(cliente) ? "Anular" : "Reactivar"}</span>
                   </button>
                 )}
               </div>
@@ -223,7 +248,11 @@ export function ClientesVentasTable({
               return (
                 <React.Fragment key={cliente.id}>
                   <tr
-                    className="border-b border-gray-100 hover:bg-gray-50"
+                    className={
+                      esActivo(cliente)
+                        ? "border-b border-gray-100 hover:bg-gray-50"
+                        : "border-b border-gray-100 bg-red-50/40 hover:bg-red-50 text-gray-500"
+                    }
                   >
                     <td className="py-4 px-4">
                       <Button
@@ -247,6 +276,14 @@ export function ClientesVentasTable({
                       >
                         {cliente.numero || cliente.id.slice(-6).toUpperCase()}
                       </Badge>
+                      {!esActivo(cliente) && (
+                        <Badge
+                          variant="outline"
+                          className="bg-red-50 text-red-700 border-red-200 ml-1"
+                        >
+                          Anulado
+                        </Badge>
+                      )}
                     </td>
                     <td className="py-4 px-4 font-medium text-gray-900">
                       {cliente.nombre}
@@ -288,13 +325,38 @@ export function ClientesVentasTable({
                             <Pencil className="h-4 w-4" />
                           </Button>
                         )}
-                        {onDelete && (
+                        {onToggleStatus && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onToggleStatus(cliente)}
+                            className={
+                              esActivo(cliente)
+                                ? "border-red-300 text-red-700 hover:bg-red-50 h-8 w-8 p-0"
+                                : "border-emerald-300 text-emerald-700 hover:bg-emerald-50 h-8 w-8 p-0"
+                            }
+                            title={
+                              esActivo(cliente)
+                                ? "Anular cliente"
+                                : "Reactivar cliente"
+                            }
+                          >
+                            {esActivo(cliente) ? (
+                              <Ban className="h-4 w-4" />
+                            ) : (
+                              <RotateCcw className="h-4 w-4" />
+                            )}
+                          </Button>
+                        )}
+                        {/* Borrado definitivo: solo tras anular, y el backend
+                            lo rechaza si el cliente tiene historial. */}
+                        {onDelete && !esActivo(cliente) && (
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => onDelete(cliente)}
                             className="border-red-300 text-red-700 hover:bg-red-50 h-8 w-8 p-0"
-                            title="Eliminar cliente"
+                            title="Eliminar definitivamente"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>

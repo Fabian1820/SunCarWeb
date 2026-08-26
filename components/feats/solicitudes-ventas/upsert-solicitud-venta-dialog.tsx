@@ -398,7 +398,7 @@ export function UpsertSolicitudVentaDialog({
       try {
         const data = await ClienteVentaService.buscarClientesPorNombre(
           term,
-          20,
+          50,
         );
         setClienteSearchResults(data);
         setShowClienteDropdown(data.length > 0);
