@@ -619,6 +619,9 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     "transportacion",
     "contribucion",
     "descuento",
+    // Van solo en el bloque de totales, no como filas de la tabla de materiales.
+    "descuentoneto",
+    "totalapagar",
     "total",
     "info",
     "datos",
@@ -1315,6 +1318,11 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
 
   const descuentos = data.filter((row) => row.tipo === "Descuento");
   const totales = data.filter((row) => row.tipo === "TOTAL");
+  // Descuento asumido por la empresa y compensación: a diferencia del descuento
+  // porcentual de arriba, NO están dentro del precio final, así que se pintan
+  // debajo de él y cierran con el total a pagar.
+  const descuentosNetos = data.filter((row) => row.tipo === "DescuentoNeto");
+  const totalAPagar = data.find((row) => row.tipo === "TotalAPagar");
   const datosPago = data.filter((row) => row.seccion === "PAGO");
   const totalCostosExtrasDesdeSubtotales = roundCurrency(
     subtotalesCostosExtras.reduce(
@@ -1481,6 +1489,49 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
 
       yPosition += 2;
 
+      // Desglose que va DEBAJO del precio final: las rebajas que no están
+      // incluidas en él (descuento asumido por la empresa, compensación) y el
+      // total que realmente paga el cliente.
+      const altoNeto =
+        descuentosNetos.length * 5 + (totalAPagar ? 1 + 8 : 0);
+
+      const dibujarDesgloseNeto = (yInicio: number) => {
+        let y = yInicio;
+        descuentosNetos.forEach((desc) => {
+          doc.setFontSize(10);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(220, 38, 38);
+          doc.text(cellToString(desc.descripcion), 12, y);
+          // Mismo formato de moneda que el resto del bloque; el valor llega
+          // como texto ya negativo ("- 6000.00").
+          doc.text(
+            `- ${formatearMonto(Math.abs(parseNumericValue(desc.total)))}`,
+            pageWidth - 12,
+            y,
+            { align: "right" },
+          );
+          y += 5;
+        });
+
+        if (totalAPagar) {
+          y += 1;
+          doc.setFontSize(13);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(0, 0, 0);
+          doc.text("Total a pagar", 12, y + 4);
+          doc.text(
+            formatearMonto(parseNumericValue(totalAPagar.total)),
+            pageWidth - 12,
+            y + 4,
+            { align: "right" },
+          );
+          y += 8;
+        }
+
+        doc.setTextColor(0, 0, 0);
+        return y;
+      };
+
       if (resumenResaltado.length > 0) {
         const lineHeight = 6;
         const finalRowHeight = 8;
@@ -1491,6 +1542,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
           resumenResaltado.length * lineHeight +
           1 +
           finalRowHeight +
+          altoNeto +
           paddingBottom;
 
         if (yPosition + bloqueAltura > doc.internal.pageSize.getHeight() - 30) {
@@ -1529,10 +1581,21 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
           { align: "right" },
         );
 
+        if (altoNeto > 0) {
+          dibujarDesgloseNeto(separadorY + 11);
+        }
+
         yPosition += bloqueAltura + 2;
       } else {
+        const bloqueAltura = 10 + altoNeto;
+
+        if (yPosition + bloqueAltura > doc.internal.pageSize.getHeight() - 30) {
+          doc.addPage();
+          yPosition = 15;
+        }
+
         doc.setFillColor(230, 244, 239);
-        doc.rect(10, yPosition, pageWidth - 20, 10, "F");
+        doc.rect(10, yPosition, pageWidth - 20, bloqueAltura, "F");
 
         doc.setFontSize(13);
         doc.setFont("helvetica", "bold");
@@ -1544,7 +1607,12 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
           yPosition + 7,
           { align: "right" },
         );
-        yPosition += 12;
+
+        if (altoNeto > 0) {
+          dibujarDesgloseNeto(yPosition + 12);
+        }
+
+        yPosition += bloqueAltura + 2;
       }
     }
   }

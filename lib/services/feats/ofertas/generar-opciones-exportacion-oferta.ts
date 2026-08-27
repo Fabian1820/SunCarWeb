@@ -258,10 +258,15 @@ export function generarOpcionesExportacionOferta({
 
     const filas: Record<string, any>[] = [];
 
+    // Tipos propios a propósito: el renderizador del PDF agrupa las filas por
+    // `tipo` e ignora el orden del array. Con "Descuento" caían en el grupo del
+    // descuento porcentual antiguo, que se pinta ANTES del precio final, y con
+    // "TOTAL" la fila del neto quedaba como totales[1], que nadie dibuja.
+    // Con estos dos tipos, export-service las pinta bajo el precio final.
     if (descuentosOferta.montoDescuento > 0) {
       filas.push({
         ...base,
-        tipo: "Descuento",
+        tipo: "DescuentoNeto",
         descripcion: descuentosOferta.justificacionDescuento
           ? `Descuento — ${descuentosOferta.justificacionDescuento}`
           : "Descuento",
@@ -272,7 +277,7 @@ export function generarOpcionesExportacionOferta({
     if (descuentosOferta.montoCompensacion > 0) {
       filas.push({
         ...base,
-        tipo: "Descuento",
+        tipo: "DescuentoNeto",
         descripcion: descuentosOferta.justificacionCompensacion
           ? `Compensación — ${descuentosOferta.justificacionCompensacion}`
           : "Compensación",
@@ -282,7 +287,7 @@ export function generarOpcionesExportacionOferta({
 
     filas.push({
       ...base,
-      tipo: "TOTAL",
+      tipo: "TotalAPagar",
       descripcion: "Total a pagar",
       total: descuentosOferta.precioReal.toFixed(2),
     });
