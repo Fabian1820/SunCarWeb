@@ -7807,27 +7807,28 @@ export function ConfeccionOfertasView({
                   )}
                 </div>
 
-                {/* Descuento */}
-                <div className="rounded-md border border-purple-200 bg-purple-50 p-3 space-y-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <label className="text-sm font-semibold text-purple-900">
-                      Descuento (%)
-                    </label>
-                    <Input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.1"
-                      value={descuentoPorcentaje}
-                      onChange={(e) =>
-                        setDescuentoPorcentaje(Number(e.target.value) || 0)
-                      }
-                      className="h-9 w-24 text-right bg-white"
-                      placeholder="0"
-                    />
-                  </div>
+                {/* Descuento heredado (solo lectura).
+                    Lo sustituye el bloque "Descuento" de más abajo, que aplica sobre
+                    el precio final en vez de sobre el subtotal con margen. Se sigue
+                    mostrando cuando la oferta ya lo tiene guardado para que ninguna
+                    de las ofertas antiguas arrastre un descuento invisible al
+                    editarla; en ofertas nuevas no aparece. */}
+                {descuentoPorcentaje > 0 && (
+                  <div className="rounded-md border border-purple-200 bg-purple-50 p-3 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <label className="text-sm font-semibold text-purple-900">
+                        Descuento anterior ({descuentoPorcentaje}%)
+                      </label>
+                      <span className="rounded border border-purple-200 bg-white px-2 py-1 text-xs font-medium text-purple-700">
+                        Solo lectura
+                      </span>
+                    </div>
+                    <p className="text-xs text-purple-700">
+                      Descuento del sistema anterior, calculado sobre el subtotal con
+                      margen. Ya no se puede editar: para aplicar un descuento nuevo
+                      usa el campo &ldquo;Descuento&rdquo; de más abajo.
+                    </p>
 
-                  {descuentoPorcentaje > 0 && (
                     <div className="pt-2 border-t border-purple-200 space-y-1">
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-purple-700">
@@ -7854,8 +7855,8 @@ export function ConfeccionOfertasView({
                         </span>
                       </div>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {/* Costo de Transportación */}
                 <div className="rounded-md border border-slate-200 bg-white p-3">
@@ -7997,7 +7998,10 @@ export function ConfeccionOfertasView({
                   )}
                 </div>
 
-                {/* Asumido por Empresa */}
+                {/* Descuento (internamente asumido_por_empresa).
+                    Es el descuento vigente: admite monto fijo o porcentaje sobre el
+                    precio final, y la empresa lo absorbe. El nombre del campo en la
+                    BD se mantiene por compatibilidad con las ofertas ya guardadas. */}
                 <div className="rounded-md border border-blue-200 bg-blue-50 p-3 space-y-3">
                   <div className="flex items-center gap-2">
                     <input
@@ -8013,13 +8017,13 @@ export function ConfeccionOfertasView({
                       htmlFor="tieneAsumidoPorEmpresa"
                       className="text-sm font-semibold text-blue-900 cursor-pointer"
                     >
-                      Tiene Monto Asumido por Empresa
+                      Tiene Descuento
                     </label>
                   </div>
                   <p className="text-xs text-blue-700">
-                    La empresa decide absorberlo por una razón externa, no
-                    por un fallo del servicio (ej. descuento VIP aprobado por
-                    gerencia).
+                    Descuento que asume la empresa por una razón externa, no por un
+                    fallo del servicio (ej. descuento VIP aprobado por gerencia). Se
+                    resta del precio final y requiere justificación.
                   </p>
 
                   {tieneAsumidoPorEmpresa && (
@@ -8741,9 +8745,7 @@ export function ConfeccionOfertasView({
                           {tieneAsumidoPorEmpresa &&
                             montoAsumidoPorEmpresa > 0 && (
                               <div className="flex items-center justify-between text-sm">
-                                <span className="text-blue-700">
-                                  Asumido por Empresa
-                                </span>
+                                <span className="text-blue-700">Descuento</span>
                                 <span className="font-medium text-blue-700">
                                   - {formatCurrency(montoAsumidoPorEmpresa)}
                                 </span>
