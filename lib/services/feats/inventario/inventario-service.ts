@@ -242,6 +242,11 @@ export class InventarioService {
       almacen: context.almacen,
       material_id: materialId,
       material_codigo: materialCodigo || materialId || "",
+      // El backend enriquece cada renglon de stock con el material de catalogo
+      // (`_batch_get_material_detalles`), asi que `nombre` viene siempre que el
+      // material exista en `productos`.
+      material_nombre:
+        asString(row?.material_nombre) || asString(materialObj?.nombre),
       material_descripcion:
         asString(row?.material_descripcion) ||
         asString(materialObj?.descripcion) ||

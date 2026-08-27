@@ -1088,7 +1088,7 @@ function VentasClientesCard({ municipio, clientesVenta, solicitudesUsadas, onClo
     const map = new Map<string, { nombre: string; cantidad: number }>()
     solicitudesUsadas.forEach(s => {
       ;(s.materiales ?? []).forEach(m => {
-        const nombre = m.material_descripcion || m.descripcion || m.material_codigo || m.material_id || "Material"
+        const nombre = m.material_nombre || m.material_descripcion || m.descripcion || m.material_codigo || m.material_id || "Material"
         const key = m.material_id || normalizeText(nombre)
         const prev = map.get(key) ?? { nombre, cantidad: 0 }
         map.set(key, { ...prev, cantidad: prev.cantidad + (m.cantidad ?? 0) })

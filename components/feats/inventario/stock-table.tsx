@@ -425,7 +425,7 @@ export function StockTable({
             <DialogTitle>Editar ubicación en almacén</DialogTitle>
             <DialogDescription>
               {selectedItem
-                ? `Material: ${selectedItem.material_codigo} - ${selectedItem.material_descripcion || "Sin descripción"}`
+                ? `Material: ${selectedItem.material_codigo} - ${selectedItem.material_nombre || selectedItem.material_descripcion || "Sin descripción"}`
                 : ""}
             </DialogDescription>
           </DialogHeader>
@@ -563,7 +563,9 @@ export function StockTable({
                   {item.material_codigo}
                 </div>
                 <div className="text-sm text-gray-600">
-                  {item.material_descripcion || "Sin descripcion"}
+                  {item.material_nombre ||
+                    item.material_descripcion ||
+                    "Sin descripcion"}
                 </div>
               </td>
               <td className="py-4 px-4">
@@ -599,7 +601,7 @@ export function StockTable({
           <DialogTitle>Editar ubicación en almacén</DialogTitle>
           <DialogDescription>
             {selectedItem
-              ? `Material: ${selectedItem.material_codigo} - ${selectedItem.material_descripcion || "Sin descripción"}`
+              ? `Material: ${selectedItem.material_codigo} - ${selectedItem.material_nombre || selectedItem.material_descripcion || "Sin descripción"}`
               : ""}
           </DialogDescription>
         </DialogHeader>

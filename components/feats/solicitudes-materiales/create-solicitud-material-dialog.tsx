@@ -722,8 +722,12 @@ export function CreateSolicitudMaterialDialog({
               id: s.material_id,
               _id: s.material_id,
               codigo: s.material_codigo || s.material_id,
-              nombre: s.material_descripcion || s.material_codigo || "",
-              descripcion: s.material_descripcion || "",
+              // Igual que las otras vías de entrada (catálogo y autollenado):
+              // el nombre de catálogo manda. La descripción libre no identifica
+              // al material — hay artículos distintos que la comparten y otros
+              // donde es el nombre de la categoría ("PROTECCION").
+              nombre: s.material_nombre || s.material_descripcion || s.material_codigo || "",
+              descripcion: s.material_descripcion || s.material_nombre || "",
               um: s.um || "",
               foto: (s.material as any)?.foto,
             }));

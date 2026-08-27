@@ -109,6 +109,7 @@ export function FacturaVentaDetailDialog({
                           );
                         }
                         const row = m as {
+                          material_nombre?: string;
                           material_descripcion?: string;
                           descripcion?: string;
                           nombre?: string;
@@ -126,7 +127,7 @@ export function FacturaVentaDetailDialog({
                         return (
                           <tr key={`sol-${sidx}-mat-${midx}`} className="border-t">
                             <td className="p-2">
-                              {row.material_descripcion || row.descripcion || row.nombre || "Material"}
+                              {row.material_nombre || row.nombre || row.material_descripcion || row.descripcion || "Material"}
                               {descPct > 0 && (
                                 <span className="ml-1 text-xs text-emerald-600">(-{descPct.toFixed(1)}%)</span>
                               )}

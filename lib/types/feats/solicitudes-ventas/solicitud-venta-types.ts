@@ -37,6 +37,8 @@ export interface SolicitudVentaMaterialItemDetalle {
   subtotal?: number;
   material_codigo?: string;
   material_descripcion?: string;
+  /** Nombre de catálogo resuelto por el backend; preferirlo sobre la descripción. */
+  material_nombre?: string;
   um?: string;
   codigo?: string;
   descripcion?: string;

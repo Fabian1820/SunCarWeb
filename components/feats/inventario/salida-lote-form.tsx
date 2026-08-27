@@ -51,7 +51,9 @@ interface SalidaLoteFormProps {
 
 interface SalidaLoteItem {
   material_codigo: string;
-  material_descripcion: string;
+  /** Solo para mostrar en la lista; no viaja en el payload. Es el nombre de
+   *  catalogo, no la descripcion libre: esta ultima no identifica al material. */
+  material_nombre: string;
   material_foto?: string;
   um?: string;
   cantidad: string;
@@ -300,7 +302,8 @@ export function SalidaLoteForm({
       ...prev,
       {
         material_codigo: codigoMaterial,
-        material_descripcion: material.descripcion || "Sin descripcion",
+        material_nombre:
+          material.nombre || material.descripcion || "Sin nombre",
         material_foto: material.foto,
         um: material.um,
         cantidad: "1",
@@ -562,7 +565,7 @@ export function SalidaLoteForm({
                     <span className="font-medium">{material.codigo}</span>
                     <span className="text-gray-600">
                       {" "}
-                      - {material.descripcion}
+                      - {material.nombre || material.descripcion}
                     </span>
                   </button>
                 ))}
@@ -634,7 +637,7 @@ export function SalidaLoteForm({
                             <MaterialImage
                               foto={item.material_foto}
                               fotoDisponible={(item as { material_foto_disponible?: boolean | null }).material_foto_disponible}
-                              alt={item.material_descripcion || item.material_codigo}
+                              alt={item.material_nombre || item.material_codigo}
                               imgClassName="w-full h-full object-contain p-0.5"
                               fallback={<Package className="h-4 w-4 text-amber-700" />}
                             />
@@ -646,7 +649,7 @@ export function SalidaLoteForm({
                         )}
                         <div className="min-w-0">
                           <p className="truncate">
-                            {item.material_descripcion}
+                            {item.material_nombre}
                           </p>
                         </div>
                       </div>

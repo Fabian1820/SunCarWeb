@@ -109,7 +109,7 @@ export function EditarStockForm({ almacen, item, onSubmit, onCancel }: EditarSto
         <div>
           <Label className="text-sm font-medium text-gray-700 mb-2 block">Material</Label>
           <div className="rounded-md border px-3 py-2 text-sm text-gray-700 bg-gray-50">
-            {item.material_descripcion || "Sin descripción"}
+            {item.material_nombre || item.material_descripcion || "Sin descripción"}
           </div>
         </div>
 

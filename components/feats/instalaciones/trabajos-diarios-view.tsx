@@ -611,7 +611,8 @@ export function TrabajosDiariosView({ mode = "vales" }: TrabajosDiariosViewProps
                                       </td>
                                       <td className="py-1.5 pr-2">
                                         {safeText(
-                                          m.material_descripcion,
+                                          m.material_nombre ||
+                                            m.material_descripcion,
                                           "Material",
                                         )}
                                       </td>

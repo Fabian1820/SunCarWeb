@@ -65,7 +65,8 @@ export function ActualizarPreciosDialog({
         setRows(
           mats.map((m) => ({
             material_id:         m.material_id,
-            nombre:              m.material_descripcion ??
+            nombre:              m.material_nombre ??
+                                 m.material_descripcion ??
                                  m.descripcion ??
                                  String(m.material_id || "Material"),
             cantidad:            Number(m.cantidad ?? 1),

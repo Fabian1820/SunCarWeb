@@ -240,10 +240,12 @@ const mapValeToFacturaVale = (
       matchedMaterial?.codigo?.toString() ||
       `ITEM-${index + 1}`;
     const materialDescription =
+      item.material_nombre ||
+      item.material?.nombre ||
+      matchedMaterial?.nombre ||
       item.descripcion ||
       item.material_descripcion ||
       item.material?.descripcion ||
-      item.material?.nombre ||
       matchedMaterial?.descripcion ||
       "Sin descripcion";
     const basePrice = Number(
@@ -297,10 +299,11 @@ const getValeItemCode = (item: ValeSalidaMaterialItemDetalle) =>
   item.codigo || item.material_codigo || item.material?.codigo || "-";
 
 const getValeItemDescription = (item: ValeSalidaMaterialItemDetalle) =>
+  item.material_nombre ||
+  item.material?.nombre ||
   item.descripcion ||
   item.material_descripcion ||
   item.material?.descripcion ||
-  item.material?.nombre ||
   "Sin descripcion";
 
 const buildClienteLookupParams = (

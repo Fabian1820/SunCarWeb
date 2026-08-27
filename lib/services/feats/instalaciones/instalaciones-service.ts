@@ -111,6 +111,8 @@ export interface TrabajoDiarioItem {
   material_id: string;
   material_codigo?: string | null;
   material_descripcion?: string | null;
+  /** Nombre de catálogo resuelto por el backend; preferirlo sobre la descripción. */
+  material_nombre?: string | null;
   um?: string | null;
   cantidad: number;
 }
@@ -295,6 +297,11 @@ export const InstalacionesService = {
             ),
             material_descripcion: asString(
               mat.material_descripcion ?? mat.descripcion ?? mat.nombre,
+            ),
+            material_nombre: asString(
+              mat.material_nombre ??
+                (mat.material as Record<string, unknown> | undefined)?.nombre ??
+                mat.nombre,
             ),
             um: asString(mat.um),
             cantidad: asNumber(

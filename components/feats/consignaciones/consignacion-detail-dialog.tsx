@@ -92,7 +92,7 @@ export function ConsignacionDetailDialog({
   c.materiales_entregados.forEach((m) => {
     materialInfoById[m.material_id] = {
       codigo: m.material_codigo,
-      descripcion: m.material_descripcion,
+      descripcion: m.material_nombre || m.material_descripcion,
       um: m.um,
     };
   });
@@ -244,7 +244,7 @@ export function ConsignacionDetailDialog({
                         {m.material_codigo ?? "—"}
                       </TableCell>
                       <TableCell className="text-sm">
-                        {m.material_descripcion ?? "—"}
+                        {m.material_nombre ?? m.material_descripcion ?? "—"}
                       </TableCell>
                       <TableCell className="text-right text-sm">
                         {m.cantidad}

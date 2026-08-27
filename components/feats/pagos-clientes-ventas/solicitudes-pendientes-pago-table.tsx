@@ -73,7 +73,8 @@ export function SolicitudesPendientesPagoTable({
   const getMaterialesLineas = (s: SolicitudVentaSummary) => {
     if (!s.materiales?.length) return null;
     return s.materiales.map((m, i) => {
-      const nombre = m.material_descripcion || m.material_codigo || m.material_id;
+      const nombre =
+        m.material_nombre || m.material_descripcion || m.material_codigo || m.material_id;
       return (
         <div key={i} className="flex items-baseline justify-between gap-2 leading-5">
           <span className="text-xs text-gray-600">

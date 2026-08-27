@@ -62,6 +62,13 @@ export interface StockItem {
   almacen?: Record<string, unknown>;
   material_id?: string;
   material_codigo: string;
+  /**
+   * Nombre de catalogo del material (`productos.materiales[].nombre`). Es el
+   * campo identificatorio: `material_descripcion` guarda la descripcion libre,
+   * que en varios materiales esta vacia, repetida entre articulos distintos o
+   * es el nombre de la categoria ("PROTECCION"), y no permite diferenciarlos.
+   */
+  material_nombre?: string;
   material_descripcion?: string;
   material?: Record<string, unknown>;
   categoria?: string;

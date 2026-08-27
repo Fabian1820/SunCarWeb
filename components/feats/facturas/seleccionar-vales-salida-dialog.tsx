@@ -223,7 +223,10 @@ export function SeleccionarValesSalidaDialog({
                                 >
                                   <span>
                                     {material.material_codigo || material.codigo} -{" "}
-                                    {material.material_descripcion || material.descripcion}
+                                    {material.material_nombre ||
+                                      material.material?.nombre ||
+                                      material.material_descripcion ||
+                                      material.descripcion}
                                   </span>
                                   <span className="text-gray-500">
                                     x{material.cantidad}
