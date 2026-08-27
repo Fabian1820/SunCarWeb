@@ -23,6 +23,13 @@ export interface OfertaListadoItem {
   moneda_pago?: string;
   fecha_creacion: string;
   fecha_actualizacion: string;
+  // Descuentos que NO están dentro de precio_final. Ver
+  // lib/utils/oferta-descuentos.ts para el detalle de cada concepto.
+  asumido_por_empresa?: { monto_usd: number; justificacion: string } | null;
+  compensacion?: { monto_usd: number; justificacion: string } | null;
+  // Descuento del sistema anterior, ya incluido dentro de precio_final.
+  descuento_porcentaje?: number;
+  monto_descuento?: number;
 }
 
 export interface OpcionComponente {
@@ -122,6 +129,20 @@ function normalizeItem(r: any): OfertaListadoItem {
     moneda_pago: r.moneda_pago ?? "USD",
     fecha_creacion: r.fecha_creacion ?? "",
     fecha_actualizacion: r.fecha_actualizacion ?? "",
+    asumido_por_empresa: r.asumido_por_empresa
+      ? {
+          monto_usd: Number(r.asumido_por_empresa.monto_usd ?? 0),
+          justificacion: r.asumido_por_empresa.justificacion ?? "",
+        }
+      : null,
+    compensacion: r.compensacion
+      ? {
+          monto_usd: Number(r.compensacion.monto_usd ?? 0),
+          justificacion: r.compensacion.justificacion ?? "",
+        }
+      : null,
+    descuento_porcentaje: Number(r.descuento_porcentaje ?? 0),
+    monto_descuento: Number(r.monto_descuento ?? 0),
   };
 }
 
