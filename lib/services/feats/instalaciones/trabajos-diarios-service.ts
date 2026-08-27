@@ -143,7 +143,11 @@ const mapFromVale = (row: TrabajoDiarioVale): TrabajoDiarioRegistro => ({
   materiales_utilizados: (row.items || []).map((item) => ({
     id_material: item.material_id,
     codigo_material: item.material_codigo || "",
-    nombre: item.material_descripcion || item.material_codigo || "Material",
+    nombre:
+      item.material_nombre ||
+      item.material_descripcion ||
+      item.material_codigo ||
+      "Material",
     cantidad_utilizada: Number(item.cantidad || 0),
   })),
 });

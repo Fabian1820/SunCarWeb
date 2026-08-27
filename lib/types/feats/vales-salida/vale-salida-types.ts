@@ -17,6 +17,12 @@ export interface ValeSalidaMaterialItemDetalle {
   faltante?: number;
   material_codigo?: string;
   material_descripcion?: string;
+  /**
+   * Nombre de catálogo resuelto por el backend en lectura. Preferirlo siempre
+   * sobre `material_descripcion`, que es el snapshot congelado al emitir el
+   * vale y no identifica al material.
+   */
+  material_nombre?: string;
   um?: string;
   codigo?: string;
   descripcion?: string;
@@ -166,6 +172,7 @@ export interface DevolucionValeMaterial {
   cantidad: number;
   material_codigo?: string;
   material_descripcion?: string;
+  material_nombre?: string;
   um?: string;
 }
 
@@ -187,6 +194,7 @@ export interface DevolucionValeResumenMaterial {
   cantidad_disponible_devolver: number;
   material_codigo?: string;
   material_descripcion?: string;
+  material_nombre?: string;
   um?: string;
 }
 
@@ -204,6 +212,7 @@ export interface ValeSalidaSummaryMaterial {
   cantidad: number;
   material_codigo?: string | null;
   material_descripcion?: string | null;
+  material_nombre?: string | null;
   um?: string | null;
 }
 

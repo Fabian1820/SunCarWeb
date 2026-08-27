@@ -43,6 +43,7 @@ interface DevolucionMaterialFormRow {
   material_id: string;
   material_codigo?: string;
   material_descripcion?: string;
+  material_nombre?: string;
   um?: string;
   cantidad_salida: number;
   cantidad_devuelta: number;
@@ -80,9 +81,18 @@ const getValeCodigo = (vale: ValeSalida | null) =>
 const getMaterialNombre = (
   material:
     | DevolucionValeResumenMaterial
-    | { material_descripcion?: string; material_codigo?: string; material_id?: string },
+    | {
+        material_nombre?: string;
+        material_descripcion?: string;
+        material_codigo?: string;
+        material_id?: string;
+      },
 ) =>
-  material.material_descripcion || material.material_codigo || material.material_id || "Material";
+  material.material_nombre ||
+  material.material_descripcion ||
+  material.material_codigo ||
+  material.material_id ||
+  "Material";
 
 const mapResumenToFormRows = (
   materiales: DevolucionValeResumenMaterial[],
@@ -94,6 +104,7 @@ const mapResumenToFormRows = (
         material_id: material.material_id,
         material_codigo: material.material_codigo,
         material_descripcion: material.material_descripcion,
+        material_nombre: material.material_nombre,
         um: material.um,
         cantidad_salida: toSafeNumber(material.cantidad_salida),
         cantidad_devuelta: toSafeNumber(material.cantidad_devuelta),

@@ -274,11 +274,15 @@ const mapValeSalidaToFacturaVale = (valeSalida: ValeSalida, currentMaterials?: M
     return {
       material_id: materialId,
       codigo,
+      // Nombre de catálogo primero: es lo que identifica al material en la
+      // línea de factura. La descripción libre no sirve para eso (hay líneas
+      // que quedaban como "PROTECCION" o "BREAKER" a secas).
       descripcion:
+        material.material_nombre ||
+        material.material?.nombre ||
         material.material_descripcion ||
         material.descripcion ||
         material.material?.descripcion ||
-        material.material?.nombre ||
         "",
       precio: applyInstaladoraDiscount(basePrice, discountPct),
       cantidad: Number(material.cantidad || 0),
@@ -2227,10 +2231,11 @@ export function FacturasSection() {
                                         "Sin código"}
                                     </p>
                                     <p className="text-gray-600 text-xs">
-                                      {material.material_descripcion ||
+                                      {material.material_nombre ||
+                                        material.material?.nombre ||
+                                        material.material_descripcion ||
                                         material.descripcion ||
                                         material.material?.descripcion ||
-                                        material.material?.nombre ||
                                         "Sin descripción"}
                                     </p>
                                     {devueltaCantidad > 0 ? (
@@ -2795,7 +2800,8 @@ export function FacturasSection() {
                                             {material.material_codigo ||
                                               material.codigo}{" "}
                                             -{" "}
-                                            {material.material_descripcion ||
+                                            {material.material_nombre ||
+                                              material.material_descripcion ||
                                               material.descripcion}
                                           </span>
                                           <span className="text-gray-500">
@@ -2830,7 +2836,8 @@ export function FacturasSection() {
                                         material.codigo}
                                     </p>
                                     <p className="text-gray-600 text-xs">
-                                      {material.material_descripcion ||
+                                      {material.material_nombre ||
+                                        material.material_descripcion ||
                                         material.descripcion}
                                     </p>
                                   </div>

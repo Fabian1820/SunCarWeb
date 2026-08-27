@@ -8,6 +8,13 @@ export interface SolicitudMaterialItemDetalle {
   cantidad: number;
   material_codigo?: string;
   material_descripcion?: string;
+  /**
+   * Nombre de catálogo resuelto por el backend en lectura. Preferirlo siempre
+   * sobre `material_descripcion`, que es el snapshot congelado al crear la
+   * solicitud y no identifica al material (descripciones vacías, repetidas
+   * entre artículos distintos, o iguales al nombre de la categoría).
+   */
+  material_nombre?: string;
   um?: string;
   // Legacy flat fields
   codigo?: string;
@@ -102,6 +109,7 @@ export interface MaterialSugerido {
   material_id: string;
   material_codigo?: string;
   material_descripcion?: string;
+  material_nombre?: string;
   um?: string;
   cantidad: number;
   // Nested full catalog object — populated by backend since fix

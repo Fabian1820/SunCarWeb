@@ -185,6 +185,8 @@ export interface SolicitudVentaSlim {
     material_id?: string
     material_codigo?: string
     material_descripcion?: string
+    /** Nombre de catálogo resuelto por el backend; preferirlo sobre la descripción. */
+    material_nombre?: string
     descripcion?: string
     cantidad?: number
   }>

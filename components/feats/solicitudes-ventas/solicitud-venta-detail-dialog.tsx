@@ -226,6 +226,7 @@ export function SolicitudVentaDetailDialog({
                 <tbody>
                   {(solicitud.materiales || []).map((material, index) => {
                     const nombre =
+                      material.material_nombre ||
                       material.material?.nombre ||
                       material.material?.descripcion ||
                       material.material_descripcion ||

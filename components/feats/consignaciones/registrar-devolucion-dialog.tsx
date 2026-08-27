@@ -127,6 +127,7 @@ export function RegistrarDevolucionDialog({
         material_id: l.material.material_id,
         material_codigo: l.material.material_codigo || l.material.material_id,
         material_nombre:
+          l.material.material_nombre ||
           l.material.material_descripcion ||
           l.material.material_codigo ||
           l.material.material_id,
@@ -186,7 +187,7 @@ export function RegistrarDevolucionDialog({
                 <TableRow key={p.material_id}>
                   <TableCell>
                     <div className="text-sm font-medium">
-                      {p.material_descripcion ?? p.material_id}
+                      {p.material_nombre ?? p.material_descripcion ?? p.material_id}
                     </div>
                     <div className="text-xs text-gray-500">
                       {p.material_codigo}

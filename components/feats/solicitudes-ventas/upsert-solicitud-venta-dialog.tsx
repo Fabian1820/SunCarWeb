@@ -337,6 +337,7 @@ export function UpsertSolicitudVentaDialog({
         codigo:
           item.material?.codigo || item.material_codigo || item.codigo || "",
         nombre:
+          item.material_nombre ||
           item.material?.nombre ||
           item.material?.descripcion ||
           item.material_descripcion ||
@@ -346,6 +347,7 @@ export function UpsertSolicitudVentaDialog({
           item.material?.descripcion ||
           item.material_descripcion ||
           item.descripcion ||
+          item.material_nombre ||
           item.material?.nombre,
         um: item.material?.um || item.um,
         foto: item.material?.foto,

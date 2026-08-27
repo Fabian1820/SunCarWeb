@@ -135,11 +135,16 @@ export function TodosPagosVentasTable({
             const row = m as {
               nombre?: string;
               descripcion?: string;
+              material_nombre?: string;
               material_descripcion?: string;
               cantidad?: number;
             };
             const nombre =
-              row.nombre || row.descripcion || row.material_descripcion || "";
+              row.material_nombre ||
+              row.nombre ||
+              row.descripcion ||
+              row.material_descripcion ||
+              "";
             const cantidad =
               typeof row.cantidad === "number" && row.cantidad > 0
                 ? `${row.cantidad}x `

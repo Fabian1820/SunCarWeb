@@ -25,6 +25,8 @@ export interface MaterialConsignado {
   material_id: string;
   material_codigo?: string | null;
   material_descripcion?: string | null;
+  /** Nombre de catálogo resuelto por el backend; preferirlo sobre la descripción. */
+  material_nombre?: string | null;
   um?: string | null;
   cantidad: number;
   precio_unitario_consignado: number;
