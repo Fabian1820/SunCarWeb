@@ -2,6 +2,74 @@
 
 ---
 
+## 📅 27 de Agosto, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**3 commits reales** — Fabian1820 (co-authored Claude Opus 5). Sesión centrada en el módulo de ofertas y materiales: se unifica el nombre de catálogo en todas las pantallas de materiales, y se agrega el flujo completo de descuento / total a pagar en tabla y PDF (feature + fix de orden de renderizado).
+
+---
+
+### Área 1: feat(materiales) — nombre de catálogo en lugar de descripción libre (18:42)
+
+- **`feat(materiales): muestra el nombre de catalogo en vez de la descripcion`** — El operador reportó que el breaker de 80A 3P aparecía como "PROTECCION" y el de 2P como "BREAKER", sin poder distinguirlos salvo por la foto. Causa: `descripcion` es texto libre y 27 materiales la comparten con otro artículo; además uno tiene como descripción el nombre de su categoría. El `nombre` sí los distingue.
+
+  1. **Orden unificado en todas las pantallas**: `material_nombre` → `material.nombre` → `material_descripcion`. El backend ya publica `material_nombre` resuelto del catálogo.
+  2. **`material_nombre` añadido a StockItem**: hasta ahora StockItem solo exponía la descripción embebida.
+  3. **Pantallas afectadas**: inventario (stock, editar stock, salida por lote), solicitudes de materiales, vales y devolución de vale, facturas, pagos de ventas, solicitudes de ventas, consignaciones, centro de control y trabajos diarios.
+  4. **Efecto en facturas**: la línea de factura armada desde el vale pasa a guardar el nombre de catálogo en lugar de la descripción (antes escribía "PROTECCION").
+
+---
+
+### Área 2: feat(ofertas) — descuento y total a pagar en tabla y PDF (21:51)
+
+- **`feat(ofertas): muestra el descuento y el total a pagar en tabla y PDF`** — `asumido_por_empresa` y `compensacion` no estaban dentro de `precio_final`; solo bajaban `monto_pendiente`, así que ni la tabla ni las exportaciones los reflejaban. Una oferta de 16.870 con 6.000 asumidos se exportaba como 16.870.
+
+  1. **"Monto asumido por empresa" renombrado a "Descuento"** en el formulario. Admite monto fijo o % sobre el precio final y exige justificación. El "Descuento (%)" anterior queda en solo lectura y solo aparece en las ofertas que ya lo tienen guardado.
+  2. **Tabla con nuevas columnas "Descuento" y "Total a pagar"**.
+  3. **Exportaciones**: bajo cada precio final, el desglose del descuento y la compensación con su justificación y el total a pagar. La conversión a EUR/CUP pasa a calcularse sobre el total a pagar.
+  4. **Unificación del generador de opciones de exportación**: estaba triplicado en `ofertas-confeccionadas-view`, `clients-table` y `leads-table`. Las copias de clientes y leads calculaban el subtotal sin `margen_materiales`, por lo que la nota "(Redondeado desde X $)" imprimía un importe ~18% menor que el real: acertaban en 5 de 46 ofertas frente a 46 de 46 de la versión de ofertas, que es la conservada.
+
+---
+
+### Área 3: fix(ofertas) — descuento debajo del precio final en el PDF (22:13)
+
+- **`fix(ofertas): coloca el descuento bajo el precio final en el PDF`** — El renderizador agrupaba las filas por `tipo` e ignoraba el orden del array, así que el descuento se pintaba ANTES del precio final (junto al descuento porcentual antiguo) y la fila del neto nunca se dibujaba porque el bloque final solo usa `totales[0]`.
+
+  1. **Nuevos tipos de fila `DescuentoNeto` y `TotalAPagar`**: pintados dentro del bloque resaltado, debajo del precio final.
+  2. **Añadidos a `tipoNoMaterial`**: para que la tabla de materiales no los duplique como sección.
+  3. **Importe formateado consistentemente** con el resto del bloque.
+  4. Resultado en PDF:
+     ```
+     Precio Final                                    16870,00 $
+     Descuento — Recogida del equipamiento Huawei   - 6000,00 $
+     Total a pagar                                   10870,00 $
+     ```
+
+---
+
+### Puede dar bateo
+
+1. **Facturas históricas con `descripcion` embebida — nombre incorrecto en vista**: Las líneas de factura creadas antes del deploy guardan la descripción libre, no el nombre de catálogo. Si la vista prioriza `material_nombre` del catálogo y no tiene fallback a la descripción embebida histórica, esas facturas mostrarán el campo vacío o el nombre incorrecto.
+
+2. **27 materiales con descripciones compartidas — confirmación de mapeo correcto en producción**: El fix asume que `material_nombre` del catálogo distingue correctamente los artículos con descripciones idénticas. Confirmar con el catálogo real en producción que ningún `material_nombre` está también duplicado o vacío.
+
+3. **StockItem con `material_nombre` nuevo — consumidores sin actualizar**: Si algún componente consume `StockItem` y accedía directamente a `descripcion` sin pasar por la prioridad de campos, el nombre seguirá siendo el antiguo hasta que se recargue con el nuevo campo. Confirmar que todos los consumidores de `StockItem` fueron actualizados.
+
+4. **Conversión EUR/CUP ahora sobre "Total a pagar" — posible desincronía con backend**: Si el backend calculaba la conversión sobre `precio_final` y el frontend la calcula ahora sobre `total_a_pagar`, puede haber diferencia entre el monto en EUR/CUP mostrado en la UI y el que el backend devuelve en exportaciones serverside, hasta que el backend también se actualice.
+
+5. **"Descuento (%)" antiguo en solo lectura — confirmar que no se pierde en borradores**: El % de descuento anterior es visible solo en ofertas "que ya lo tienen guardado". Si un borrador con este campo no guardado se edita y se guarda de nuevo, el valor puede perderse sin aviso.
+
+6. **~18% de subimporte erróneo en exportaciones históricas**: Las exportaciones de clientes/leads generadas antes del deploy muestran importes ~18% menores que el real (calculaban sin `margen_materiales`). Los documentos impresos o guardados tienen datos incorrectos; no hay forma de regenerarlos automáticamente sin abrir cada oferta.
+
+7. **`tipoNoMaterial` como mecanismo de exclusión frágil**: La solución añade `DescuentoNeto` y `TotalAPagar` a `tipoNoMaterial` para evitar que se dupliquen como secciones de materiales en el PDF. Si en el futuro se añade otro tipo especial sin recordar actualizar `tipoNoMaterial`, se duplicará silenciosamente en el PDF.
+
+8. **Signo del descuento en el PDF — doble negativo en edge case**: El PDF prefija "- " al monto del descuento. Si el campo de descuento puede llegar negativo desde el backend en algún caso edge, el PDF mostrará "- -6000,00 $". Confirmar que el campo siempre llega como valor positivo.
+
+9. **Nuevas columnas en tabla — impacto en exportaciones Excel por posición de columna**: La tabla ahora tiene más columnas. Cualquier importación externa que lea el Excel de ofertas por índice de columna (en lugar de por nombre de cabecera) quedará desalineada.
+
+---
+
 ## 📅 26 de Agosto, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -292,43 +360,13 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 19 de Agosto, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**2 commits** — Fabian1820. Fix de acceso del superAdmin al módulo SunCar WhatsApp (error silencioso en SSO) y limpieza de archivos cacheados versionados por error.
-
----
-
-### Área 1: fix(suncar-whatsapp) — superAdmin entra al módulo y error deja de ser mudo (Fabian1820, 15:18)
-
-- **`fix(suncar-whatsapp): el superAdmin entra al módulo y el error deja de ser mudo`** — El SSO de Chatwoot exigía el permiso explícito `suncar-whatsapp` en el backend y respondía 403. La tarjeta era visible en el dashboard, la pestaña se abría en blanco y se cerraba sola sin mostrar nada porque el motivo solo iba a `console.error`.
-  - **Fix de identidad**: se extrae del endpoint `/auth/validate` (token JWT firmado) en lugar de fiarse del `ci` en el cuerpo de la petición — eliminando un vector de suplantación.
-  - **Fix de roles**: el superAdmin entra como administrador en Chatwoot, igual que ya hacía `hasExactPermission`.
-  - **Fix de visibilidad de errores**: los errores que antes se tragaban silenciosamente ahora se muestran en pantalla con el motivo real.
-
----
-
-### Área 2: gitignore — dejar de versionar graphify-out/ e IntelliJ (Fabian1820, 22:10)
-
-- **`Dejar de versionar la caché de graphify y la configuración de IntelliJ`** — `graphify-out/` (435 ficheros, ~12.8 MB de caché AST generada por la herramienta de análisis) eliminado del tracking. La configuración de IntelliJ también ignorada. Estos paths ahora en `.gitignore`.
-
----
-
-### Puede dar bateo
-
-1. **Fix SSO — `/auth/validate` como fuente de identidad**: Confirmar que el endpoint `/auth/validate` no tiene rate limiting que pueda causar fallos en el SSO bajo carga. Si este endpoint está caído o responde lento, el SSO completo falla aunque Chatwoot esté disponible.
-
-2. **SuperAdmin entra como "administrador" en Chatwoot — confirmar que el rol es correcto para todos los superAdmins**: "Administrador" en Chatwoot puede dar acceso a configuración sensible de inboxes y datos de agentes. Verificar que esto es el acceso deseado para todos los usuarios con `is_superAdmin: true`.
-
-3. **`graphify-out/` en .gitignore pero no eliminado del historial git**: Los 435 ficheros siguen en commits anteriores, incrementando el tamaño de clone (~12.8 MB extra). Si hay información sensible en el caché AST, requiere `git filter-branch` o BFG Repo Cleaner para limpiar el historial.
-
-4. **Archivos IntelliJ (`.idea/`) — confirmar que ya estaban sin credenciales locales**: Si algún archivo de IntelliJ versionado anteriormente contenía rutas absolutas, tokens o configuraciones locales, siguen en el historial.
-
----
-
 #### Seguimientos vigentes
 
+- **feat(materiales): facturas históricas con `descripcion` embebida — verificar vista de facturas anteriores al 27 de Agosto para detectar campos vacíos o nombres incorrectos (Ago 27)**.
+- **feat(materiales): StockItem con `material_nombre` nuevo — confirmar que todos los consumidores de StockItem manejan el nuevo campo y no tienen referencias al campo viejo (Ago 27)**.
+- **feat(ofertas): conversión EUR/CUP ahora sobre "Total a pagar" — confirmar que backend también calcula la conversión sobre el total con descuento y no sobre `precio_final` (Ago 27)**.
+- **feat(ofertas): descuento % antiguo en solo lectura — confirmar que no se pierde en borradores o duplicaciones sin guardar (Ago 27)**.
+- **fix(ofertas) PDF: `tipoNoMaterial` como mecanismo de exclusión frágil — nuevos tipos especiales deben agregarse explícitamente o se duplicarán como secciones de materiales (Ago 27)**.
 - **67 clientes invisibles ~26 días — verificar si se crearon duplicados de los 67 clientes en el período 31 Jul – 26 Ago; buscar por CI o teléfono (Ago 26)**.
 - **Clientes anulados — confirmar que los selectores de oferta/solicitud/factura excluyen clientes anulados (Ago 26)**.
 - **Delete definitivo de clientes — confirmar que la restricción "con historial" está en backend y no solo en frontend (Ago 26)**.
@@ -406,4 +444,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. La entrada del **28 de Julio** fue eliminada el 5 de Agosto al superar los 7 días. La entrada del **30 de Julio** fue eliminada el 7 de Agosto al superar los 7 días. La entrada del **31 de Julio** fue eliminada el 8 de Agosto al superar los 7 días. Las entradas del **1, 2 y 3 de Agosto** fueron eliminadas el 10 de Agosto al superar los 7 días. La entrada del **4 de Agosto** fue eliminada el 12 de Agosto al superar los 7 días. La entrada del **5 de Agosto** fue eliminada el 13 de Agosto al superar los 7 días. La entrada del **6 de Agosto** fue eliminada el 14 de Agosto al superar los 7 días. La entrada del **7 de Agosto** fue eliminada el 15 de Agosto al superar los 7 días. La entrada del **8 de Agosto** fue eliminada el 17 de Agosto al superar los 7 días. La entrada del **10 de Agosto** fue eliminada el 18 de Agosto al superar los 7 días. La entrada del **11 de Agosto** fue eliminada el 19 de Agosto al superar los 7 días. La entrada del **12 de Agosto** fue eliminada el 20 de Agosto al superar los 7 días. La entrada del **13 de Agosto** fue eliminada el 21 de Agosto al superar los 7 días. La entrada del **14 de Agosto** fue eliminada el 22 de Agosto al superar los 7 días. La entrada del **15 de Agosto** fue eliminada el 23 de Agosto al superar los 7 días. La entrada del **17 de Agosto** fue eliminada el 25 de Agosto al superar los 7 días. La entrada del **18 de Agosto** fue eliminada el 26 de Agosto al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. La entrada del **28 de Julio** fue eliminada el 5 de Agosto al superar los 7 días. La entrada del **30 de Julio** fue eliminada el 7 de Agosto al superar los 7 días. La entrada del **31 de Julio** fue eliminada el 8 de Agosto al superar los 7 días. Las entradas del **1, 2 y 3 de Agosto** fueron eliminadas el 10 de Agosto al superar los 7 días. La entrada del **4 de Agosto** fue eliminada el 12 de Agosto al superar los 7 días. La entrada del **5 de Agosto** fue eliminada el 13 de Agosto al superar los 7 días. La entrada del **6 de Agosto** fue eliminada el 14 de Agosto al superar los 7 días. La entrada del **7 de Agosto** fue eliminada el 15 de Agosto al superar los 7 días. La entrada del **8 de Agosto** fue eliminada el 17 de Agosto al superar los 7 días. La entrada del **10 de Agosto** fue eliminada el 18 de Agosto al superar los 7 días. La entrada del **11 de Agosto** fue eliminada el 19 de Agosto al superar los 7 días. La entrada del **12 de Agosto** fue eliminada el 20 de Agosto al superar los 7 días. La entrada del **13 de Agosto** fue eliminada el 21 de Agosto al superar los 7 días. La entrada del **14 de Agosto** fue eliminada el 22 de Agosto al superar los 7 días. La entrada del **15 de Agosto** fue eliminada el 23 de Agosto al superar los 7 días. La entrada del **17 de Agosto** fue eliminada el 25 de Agosto al superar los 7 días. La entrada del **18 de Agosto** fue eliminada el 26 de Agosto al superar los 7 días. La entrada del **19 de Agosto** fue eliminada el 27 de Agosto al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
