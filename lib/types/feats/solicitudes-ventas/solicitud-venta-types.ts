@@ -105,6 +105,13 @@ export interface SolicitudVentaCreateData {
   reserva_id?: string | null;
   descuento_free?: boolean;
   motivo_descuento_free?: string;
+  /**
+   * Autoriza incluir materiales sin `habilitar_venta_web` en ESTA solicitud.
+   * No modifica el catálogo: el material no se publica en la tienda pública.
+   */
+  venta_excepcional?: boolean;
+  /** Obligatorio si `venta_excepcional`: motivo y quién autorizó, en un solo texto. */
+  motivo_venta_excepcional?: string;
 }
 
 export interface SolicitudVentaUpdateData {

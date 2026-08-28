@@ -118,6 +118,13 @@ export interface ValeSalidaCreateData {
   solicitud_material_id?: string;
   solicitud_venta_id?: string;
   materiales: ValeSalidaMaterialItem[];
+  /**
+   * Autoriza incluir materiales sin `habilitar_venta_web` en ESTE vale.
+   * No modifica el catálogo: el material no se publica en la tienda pública.
+   */
+  venta_excepcional?: boolean;
+  /** Obligatorio si `venta_excepcional`: motivo y quién autorizó, en un solo texto. */
+  motivo_venta_excepcional?: string;
 }
 
 export interface ValeSalidaAnularData {

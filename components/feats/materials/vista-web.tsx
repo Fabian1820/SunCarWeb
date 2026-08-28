@@ -114,23 +114,16 @@ export function VistaWeb({
     setTogglingWeb(key);
     try {
       const productoId = material.producto_id || material.id.split("_")[0];
+      // Update parcial: solo el flag. Reenviar el material completo hacía que
+      // un toggle pisara precio, nombre, foto o especificaciones con los
+      // valores que tuviera cargados esta pestaña, revirtiendo ediciones
+      // hechas en paralelo desde otra sesión.
       await onUpdateMaterial(
         productoId,
         String(material.codigo),
         {
           codigo: material.codigo,
-          descripcion: material.descripcion,
-          um: material.um,
-          precio: material.precio,
-          ubicacion_en_almacen: material.ubicacion_en_almacen ?? null,
-          comentario: material.comentario ?? null,
-          nombre: material.nombre,
-          foto: material.foto,
-          marca_id: material.marca_id,
-          potenciaKW: material.potenciaKW,
           habilitar_venta_web: !material.habilitar_venta_web,
-          precio_por_cantidad: material.precio_por_cantidad,
-          especificaciones: material.especificaciones,
         },
         material.categoria,
       );
@@ -178,17 +171,6 @@ export function VistaWeb({
         String(selectedMaterial.codigo),
         {
           codigo: selectedMaterial.codigo,
-          descripcion: selectedMaterial.descripcion,
-          um: selectedMaterial.um,
-          precio: selectedMaterial.precio,
-          ubicacion_en_almacen: selectedMaterial.ubicacion_en_almacen ?? null,
-          comentario: selectedMaterial.comentario ?? null,
-          nombre: selectedMaterial.nombre,
-          foto: selectedMaterial.foto,
-          marca_id: selectedMaterial.marca_id,
-          potenciaKW: selectedMaterial.potenciaKW,
-          habilitar_venta_web: selectedMaterial.habilitar_venta_web,
-          precio_por_cantidad: selectedMaterial.precio_por_cantidad,
           especificaciones:
             Object.keys(especificacionesObj || {}).length > 0
               ? especificacionesObj
@@ -240,19 +222,8 @@ export function VistaWeb({
         String(selectedMaterial.codigo),
         {
           codigo: selectedMaterial.codigo,
-          descripcion: selectedMaterial.descripcion,
-          um: selectedMaterial.um,
-          precio: selectedMaterial.precio,
-          ubicacion_en_almacen: selectedMaterial.ubicacion_en_almacen ?? null,
-          comentario: selectedMaterial.comentario ?? null,
-          nombre: selectedMaterial.nombre,
-          foto: selectedMaterial.foto,
-          marca_id: selectedMaterial.marca_id,
-          potenciaKW: selectedMaterial.potenciaKW,
-          habilitar_venta_web: selectedMaterial.habilitar_venta_web,
           precio_por_cantidad:
             Object.keys(preciosObj || {}).length > 0 ? preciosObj : null,
-          especificaciones: selectedMaterial.especificaciones,
         },
         selectedMaterial.categoria,
       );
