@@ -1,11 +1,10 @@
 "use client"
 
-import Link from "next/link"
-import { Card, CardContent } from "@/components/shared/molecule/card"
 import { Package, Settings } from "lucide-react"
 import { useEffect, useState } from "react"
 import { InventarioService } from "@/lib/api-services"
 import type { Almacen } from "@/lib/inventario-types"
+import { ModuleCard } from "@/components/shared/molecule/module-card"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import { useAuth } from "@/contexts/auth-context"
@@ -33,7 +32,7 @@ export default function AlmacenesSuncarPage() {
     return <PageLoader moduleName="Almacenes Suncar" text="Cargando almacenes..." />
   }
 
-  const almacenesDisponibles = almacenes.filter(almacen => 
+  const almacenesDisponibles = almacenes.filter(almacen =>
     hasPermission(`almacen:${almacen.id}`)
   )
 
@@ -42,8 +41,8 @@ export default function AlmacenesSuncarPage() {
       <ModuleHeader
         title="Almacenes Suncar"
         subtitle="Gestión de almacenes y control de inventario"
-        badge={{ text: "Inventario", className: "bg-blue-100 text-blue-800" }}
-        className="bg-white shadow-sm border-b border-blue-100"
+        badge={{ text: "Gestión de Almacenes", className: "bg-sky-100 text-sky-800" }}
+        className="bg-white shadow-sm border-b border-sky-100"
       />
 
       <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
@@ -51,16 +50,14 @@ export default function AlmacenesSuncarPage() {
           {/* Módulo de Gestión de Almacenes. Solicitudes de Envío ya no vive
               aquí: es un módulo propio dentro de Gestión de Almacenes. */}
           {hasPermission('inventario') && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <Link href="/inventario/almacenes">
-                <Card className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer hover:-translate-y-2 bg-white/90 backdrop-blur-sm">
-                  <CardContent className="p-6 flex flex-col items-center justify-center text-center">
-                    <Settings className="h-10 w-10 text-blue-600 mb-3" />
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Gestión de Almacenes</h3>
-                    <p className="text-sm text-gray-600">Crear y administrar almacenes</p>
-                  </CardContent>
-                </Card>
-              </Link>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <ModuleCard
+                href="/inventario/almacenes"
+                icon={Settings}
+                iconClass="text-sky-700"
+                title="Gestión de Almacenes"
+                description="Crear y administrar almacenes"
+              />
             </div>
           )}
 
@@ -73,19 +70,22 @@ export default function AlmacenesSuncarPage() {
                 <p className="text-sm text-gray-500 mt-2">Contacta con el administrador para obtener permisos</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {almacenesDisponibles.map((almacen) => (
-                  <Link key={almacen.id} href={`/almacenes-suncar/${almacen.id}`}>
-                    <Card className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer hover:-translate-y-2 bg-white/90 backdrop-blur-sm">
-                      <CardContent className="p-6 flex flex-col items-center justify-center text-center">
-                        <Package className="h-10 w-10 text-blue-600 mb-3" />
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">{almacen.nombre}</h3>
-                        <p className="text-sm text-gray-600">
-                          {almacen.direccion || "Entradas, salidas y stock"}
-                        </p>
-                      </CardContent>
-                    </Card>
-                  </Link>
+                  <ModuleCard
+                    key={almacen.id}
+                    href={`/almacenes-suncar/${almacen.id}`}
+                    icon={Package}
+                    iconClass="text-sky-700"
+                    title={almacen.nombre}
+                    // La dirección la escribe el usuario y puede ser larga: se
+                    // recorta para que una tarjeta no estire toda la fila.
+                    description={almacen.direccion || "Entradas, salidas y stock"}
+                    clampDescription
+                    // Dentro de cada almacén hay stock, solicitudes de entrada
+                    // y vales de salida.
+                    tieneSubmodulos
+                  />
                 ))}
               </div>
             )}

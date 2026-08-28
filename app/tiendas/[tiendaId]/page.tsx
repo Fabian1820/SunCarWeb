@@ -1,8 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
-import { Card, CardContent } from "@/components/shared/molecule/card"
+import { useParams } from "next/navigation"
+import { ModuleCard } from "@/components/shared/molecule/module-card"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import { AlertCircle, RefreshCw, DollarSign } from "lucide-react"
@@ -13,7 +13,6 @@ import { RouteGuard } from "@/components/auth/route-guard"
 
 export default function TiendaDetallePage() {
   const params = useParams()
-  const router = useRouter()
   const tiendaId = params.tiendaId as string
 
   const [tienda, setTienda] = useState<Tienda | null>(null)
@@ -51,40 +50,9 @@ export default function TiendaDetallePage() {
       title: 'Abrir caja registradora',
       description: 'Gestionar caja registradora de la tienda',
       icon: DollarSign,
-      color: 'green',
       href: `/tiendas/${tiendaId}/caja`
     }
   ]
-
-  const getColorClasses = (color: string) => {
-    const colors = {
-      green: {
-        bg: 'bg-green-50',
-        border: 'border-green-200',
-        icon: 'text-green-600',
-        hover: 'hover:bg-green-100'
-      },
-      blue: {
-        bg: 'bg-blue-50',
-        border: 'border-blue-200',
-        icon: 'text-blue-600',
-        hover: 'hover:bg-blue-100'
-      },
-      purple: {
-        bg: 'bg-purple-50',
-        border: 'border-purple-200',
-        icon: 'text-purple-600',
-        hover: 'hover:bg-purple-100'
-      },
-      orange: {
-        bg: 'bg-emerald-50',
-        border: 'border-emerald-200',
-        icon: 'text-emerald-600',
-        hover: 'hover:bg-emerald-100'
-      }
-    }
-    return colors[color as keyof typeof colors] || colors.blue
-  }
 
   if (loading) {
     return <PageLoader moduleName="Tienda" text="Cargando detalles..." />
@@ -118,8 +86,8 @@ export default function TiendaDetallePage() {
         <ModuleHeader
           title={`Tienda: ${tienda.nombre}`}
           subtitle={almacen ? `Almacén asociado: ${almacen.nombre}` : "Sin almacén asignado"}
-          badge={{ text: "Gestión", className: "bg-emerald-100 text-emerald-800" }}
-          className="bg-white shadow-sm border-b border-emerald-100"
+          badge={{ text: "Comercial Ventas", className: "bg-indigo-100 text-indigo-800" }}
+          className="bg-white shadow-sm border-b border-indigo-100"
           backButton={{
             href: "/tiendas-suncarventas",
             label: "Volver a Tiendas"
@@ -127,35 +95,17 @@ export default function TiendaDetallePage() {
         />
 
         <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {submodulos.map((submodulo) => {
-              const Icon = submodulo.icon
-              const colors = getColorClasses(submodulo.color)
-              
-              return (
-                <Card
-                  key={submodulo.id}
-                  className={`cursor-pointer transition-all duration-200 ${colors.border} ${colors.hover} border-2`}
-                  onClick={() => router.push(submodulo.href)}
-                >
-                  <CardContent className="p-6">
-                    <div className="flex flex-col items-center text-center space-y-4">
-                      <div className={`${colors.bg} p-4 rounded-full`}>
-                        <Icon className={`h-8 w-8 ${colors.icon}`} />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                          {submodulo.title}
-                        </h3>
-                        <p className="text-sm text-gray-600">
-                          {submodulo.description}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            })}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {submodulos.map((submodulo) => (
+              <ModuleCard
+                key={submodulo.id}
+                href={submodulo.href}
+                icon={submodulo.icon}
+                iconClass="text-indigo-600"
+                title={submodulo.title}
+                description={submodulo.description}
+              />
+            ))}
           </div>
         </main>
       </div>

@@ -20,6 +20,12 @@ interface ModuleCardProps {
   href?: string
   onClick?: () => void
   /**
+   * Recorta la descripción a dos líneas. Para cuando el texto lo escribe el
+   * usuario (la dirección de un almacén, p. ej.) y una tarjeta con una
+   * dirección larga estiraría toda la fila.
+   */
+  clampDescription?: boolean
+  /**
    * El módulo contiene submódulos: la tarjeta se dibuja apilada sobre otras y
    * lleva la etiqueta "Varias secciones", para que a simple vista se sepa que
    * dentro hay más cosas y no una pantalla suelta.
@@ -37,6 +43,7 @@ export function ModuleCard({
   iconClass,
   href,
   onClick,
+  clampDescription,
   tieneSubmodulos,
   cornerAction,
   className,
@@ -54,14 +61,27 @@ export function ModuleCard({
       <h4 className="mb-1 text-base font-semibold text-gray-900">{title}</h4>
 
       {description ? (
-        <p className="text-sm leading-relaxed text-gray-500">{description}</p>
+        <p
+          className={cn(
+            "text-sm leading-relaxed text-gray-500",
+            clampDescription && "line-clamp-2",
+          )}
+          title={clampDescription ? description : undefined}
+        >
+          {description}
+        </p>
       ) : null}
 
+      {/* El `mt-auto` del contenedor ancla la etiqueta abajo: si no, en una
+          fila de tarjetas estiradas queda a distinta altura en cada una según
+          lo larga que sea su descripción. */}
       {tieneSubmodulos ? (
-        <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-100">
-          <Layers className="h-3 w-3" />
-          Varias secciones
-        </span>
+        <div className="mt-auto pt-3">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-100">
+            <Layers className="h-3 w-3" />
+            Varias secciones
+          </span>
+        </div>
       ) : null}
     </>
   )

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -18,6 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/shared/molecule/table";
+import { SmartPagination } from "@/components/shared/molecule/smart-pagination";
 import {
   Select,
   SelectContent,
@@ -60,6 +61,8 @@ const RESTRICTED_USERS = [
   "Maikel Jermanys Fernández Leal",
 ];
 
+const POR_PAGINA = 20;
+
 export function VentasPorComercialTable({
   facturas,
   loading,
@@ -75,6 +78,7 @@ export function VentasPorComercialTable({
   const [fechaDesde, setFechaDesde] = useState<string>("");
   const [fechaHasta, setFechaHasta] = useState<string>("");
   const [exportingExcel, setExportingExcel] = useState(false);
+  const [page, setPage] = useState(1);
 
   const isRestrictedUser = RESTRICTED_USERS.includes(user?.nombre || "");
 
@@ -160,6 +164,29 @@ export function VentasPorComercialTable({
     });
   }, [
     facturas,
+    searchTerm,
+    comercialFilter,
+    descuentoFilter,
+    mesFilter,
+    anioFilter,
+    fechaDesde,
+    fechaHasta,
+  ]);
+
+  // Con 600+ facturas, pintar la tabla entera de golpe es lo que hacia lento el
+  // modulo. Se pagina en cliente: los filtros y los totales siguen mirando el
+  // conjunto completo, solo se recorta lo que se dibuja.
+  const totalPages = Math.max(1, Math.ceil(filteredFacturas.length / POR_PAGINA));
+  const facturasPagina = useMemo(
+    () => filteredFacturas.slice((page - 1) * POR_PAGINA, page * POR_PAGINA),
+    [filteredFacturas, page],
+  );
+
+  // Al cambiar un filtro se vuelve a la primera pagina; si no, con menos
+  // resultados se quedaria en una pagina que ya no existe y se veria vacia.
+  useEffect(() => {
+    setPage(1);
+  }, [
     searchTerm,
     comercialFilter,
     descuentoFilter,
@@ -559,7 +586,7 @@ export function VentasPorComercialTable({
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredFacturas.map((f) => {
+                  facturasPagina.map((f) => {
                     const comercial = f.cliente.comercial || "Sin asignar";
                     const showAmount = canViewAmount(comercial);
 
@@ -638,7 +665,13 @@ export function VentasPorComercialTable({
               )}
               <div className="flex justify-between items-center text-sm text-gray-600">
                 <span>
-                  Mostrando {filteredFacturas.length} de {facturas.length} ventas
+                  Mostrando{" "}
+                  <span className="font-medium">
+                    {(page - 1) * POR_PAGINA + 1}&ndash;
+                    {Math.min(page * POR_PAGINA, filteredFacturas.length)}
+                  </span>{" "}
+                  de <span className="font-medium">{filteredFacturas.length}</span> ventas
+                  {filteredFacturas.length !== facturas.length && ` (de ${facturas.length} en total)`}
                 </span>
                 {!isRestrictedUser && (
                   <div className="flex gap-6">
@@ -654,6 +687,16 @@ export function VentasPorComercialTable({
                   </div>
                 )}
               </div>
+
+              {totalPages > 1 && (
+                <div className="flex justify-center pt-2">
+                  <SmartPagination
+                    currentPage={page}
+                    totalPages={totalPages}
+                    onPageChange={setPage}
+                  />
+                </div>
+              )}
             </div>
           )}
         </CardContent>
