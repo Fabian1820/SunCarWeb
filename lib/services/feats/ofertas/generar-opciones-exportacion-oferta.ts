@@ -345,6 +345,26 @@ export function generarOpcionesExportacionOferta({
     return convertido < 0 ? `- ${textoMonto}` : textoMonto;
   };
 
+  // Filas cuyo `total` no es un importe convertible. "Datos" lleva el número de
+  // cuenta: al convertirlo, el limpiado de no-dígitos lo transformaba en una
+  // cifra y el cliente recibía la cuenta destrozada. "Conversión" ya viene en la
+  // moneda de pago y volver a convertirla la elevaría al cuadrado.
+  const TIPOS_TOTAL_NO_MONETARIO = new Set([
+    "Info",
+    "Tasa",
+    "Conversión",
+    "Datos",
+  ]);
+
+  const convertirFilasAMonedaPago = (filas: any[]) => {
+    if (!tieneMonedaCambio) return filas;
+    return filas.map((fila) =>
+      TIPOS_TOTAL_NO_MONETARIO.has(fila?.tipo)
+        ? fila
+        : { ...fila, total: convertirTextoTotalMonedaPago(fila?.total) },
+    );
+  };
+
   // Debug: ver campos de descuento de la oferta
   console.log("🔍 DEBUG - Oferta completa:", oferta);
   console.log("🔍 DEBUG - Descuento:", {
@@ -1133,7 +1153,8 @@ export function generarOpcionesExportacionOferta({
     rowsSinPrecios.push(...filasDescuentoPdf(false));
 
     const totalesCalc = calcularTotalesDetalle(oferta);
-    if (Math.abs(totalesCalc.redondeo) > 0.01) {
+    // La nota del redondeo va en USD; en un documento ya convertido confunde.
+    if (Math.abs(totalesCalc.redondeo) > 0.01 && !tieneMonedaCambio) {
       rowsSinPrecios.push({
         material_codigo: "",
         seccion: "PAGO",
@@ -1143,7 +1164,7 @@ export function generarOpcionesExportacionOferta({
       });
     }
 
-    if (oferta.moneda_pago !== "USD" && tasaCambioNumero > 0) {
+    if (tieneMonedaCambio) {
       const simboloMoneda = oferta.moneda_pago === "EUR" ? "€" : "CUP";
       const nombreMoneda =
         oferta.moneda_pago === "EUR" ? "Euros (EUR)" : "Pesos Cubanos (CUP)";
@@ -1157,18 +1178,9 @@ export function generarOpcionesExportacionOferta({
         total: nombreMoneda,
       });
 
-      const tasaTexto =
-        oferta.moneda_pago === "EUR"
-          ? `Tasa de cambio: 1 EUR = ${tasaCambioNumero} USD`
-          : `Tasa de cambio: 1 USD = ${tasaCambioNumero} CUP`;
-
-      rowsSinPrecios.push({
-        material_codigo: "",
-        seccion: "PAGO",
-        tipo: "Tasa",
-        descripcion: tasaTexto,
-        cantidad: "",
-      });
+      // Sin fila "Tasa": al cliente se le da el importe en su moneda, no el
+      // tipo de cambio con el que se calculó. Sigue estando en la exportación
+      // completa, que es la interna.
 
       rowsSinPrecios.push({
         material_codigo: "",
@@ -1193,7 +1205,9 @@ export function generarOpcionesExportacionOferta({
       { header: "Material", key: "descripcion", width: 60 },
       { header: "Cant", key: "cantidad", width: 10 },
     ],
-    data: rowsSinPrecios,
+    // Sin precios no lleva columna de importes, pero el bloque de pago sí trae
+    // el precio final: va en la moneda acordada con el cliente.
+    data: convertirFilasAMonedaPago(rowsSinPrecios),
     logoUrl: "/brand/suncar-v1-iso.png",
     clienteData:
       oferta.tipo === "personalizada" && cliente
@@ -1472,7 +1486,8 @@ export function generarOpcionesExportacionOferta({
     rowsClienteConPrecios.push(...filasDescuentoPdf(false));
 
     const totalesCalc = calcularTotalesDetalle(oferta);
-    if (Math.abs(totalesCalc.redondeo) > 0.01) {
+    // La nota del redondeo va en USD; en un documento ya convertido confunde.
+    if (Math.abs(totalesCalc.redondeo) > 0.01 && !tieneMonedaCambio) {
       rowsClienteConPrecios.push({
         descripcion: `(Redondeado desde ${totalesCalc.totalSinRedondeo.toFixed(2)} $)`,
         cantidad: "",
@@ -1481,7 +1496,7 @@ export function generarOpcionesExportacionOferta({
       });
     }
 
-    if (oferta.moneda_pago !== "USD" && tasaCambioNumero > 0) {
+    if (tieneMonedaCambio) {
       const simboloMoneda = oferta.moneda_pago === "EUR" ? "€" : "CUP";
       const nombreMoneda =
         oferta.moneda_pago === "EUR" ? "Euros (EUR)" : "Pesos Cubanos (CUP)";
@@ -1494,17 +1509,7 @@ export function generarOpcionesExportacionOferta({
         tipo: "Info",
       });
 
-      const tasaTexto =
-        oferta.moneda_pago === "EUR"
-          ? `Tasa de cambio: 1 EUR = ${tasaCambioNumero} USD`
-          : `Tasa de cambio: 1 USD = ${tasaCambioNumero} CUP`;
-
-      rowsClienteConPrecios.push({
-        descripcion: tasaTexto,
-        cantidad: "",
-        seccion: "PAGO",
-        tipo: "Tasa",
-      });
+      // Sin fila "Tasa": ver la nota en la exportación sin precios.
 
       rowsClienteConPrecios.push({
         descripcion: `Precio en ${oferta.moneda_pago}`,
@@ -1527,93 +1532,12 @@ export function generarOpcionesExportacionOferta({
     columns: [
       { header: "Material", key: "descripcion", width: 50 },
       { header: "Cant", key: "cantidad", width: 10 },
-      { header: "Total ($)", key: "total", width: 15 },
-    ],
-    data: rowsClienteConPrecios,
-    logoUrl: "/brand/suncar-v1-iso.png",
-    clienteData:
-      oferta.tipo === "personalizada" && cliente
-        ? {
-            numero: cliente.numero || cliente.id,
-            nombre: cliente.nombre,
-            carnet_identidad: cliente.carnet_identidad,
-            telefono: cliente.telefono,
-            provincia_montaje: cliente.provincia_montaje,
-            direccion: cliente.direccion,
-            atencion_de: cliente.nombre,
-          }
-        : undefined,
-    leadData:
-      oferta.tipo === "personalizada" && lead
-        ? {
-            id: lead.id,
-            nombre: lead.nombre_completo || lead.nombre,
-            telefono: lead.telefono,
-            email: lead.email,
-            provincia: lead.provincia_montaje ?? lead.provincia,
-            direccion: lead.direccion,
-            atencion_de: lead.nombre_completo || lead.nombre,
-          }
-        : undefined,
-    leadSinAgregarData:
-      oferta.tipo === "personalizada" && oferta.nombre_lead_sin_agregar
-        ? {
-            nombre: oferta.nombre_lead_sin_agregar,
-            atencion_de: oferta.nombre_lead_sin_agregar,
-          }
-        : undefined,
-    ofertaData: {
-      numero_oferta: oferta.numero_oferta || oferta.id,
-      nombre_oferta: oferta.nombre_completo || oferta.nombre,
-      tipo_oferta: oferta.tipo === "generica" ? "Genérica" : "Personalizada",
-      estado: etiquetaEstadoOferta(oferta.estado),
-    },
-    incluirFotos: true,
-    fotosMap,
-    conPreciosCliente: true,
-    componentesPrincipales,
-    terminosCondiciones: terminosCondicionesExport || undefined,
-    seccionesPersonalizadas: seccionesPersonalizadasOferta.filter(
-      (s: any) =>
-        s.tipo === "extra" &&
-        (s.tipo_extra === "escritura" || s.tipo_extra === "costo"),
-    ),
-  };
-
-  const rowsClienteConPreciosTasaCambio = rowsClienteConPrecios.map((row) => {
-    if (!tieneMonedaCambio || row.total === undefined || row.total === "") {
-      return row;
-    }
-
-    if (
-      row.tipo === "Datos" ||
-      row.tipo === "Info" ||
-      row.tipo === "Tasa" ||
-      row.tipo === "Conversión"
-    ) {
-      return row;
-    }
-
-    return {
-      ...row,
-      total: convertirTextoTotalMonedaPago(row.total),
-    };
-  });
-
-  const exportOptionsClienteConPreciosTasaCambio = {
-    title: "Oferta - Cliente con precios y tasa de cambio",
-    subtitle:
-      oferta.nombre_completo &&
-      oferta.nombre_completo !== "0.00" &&
-      isNaN(Number(oferta.nombre_completo))
-        ? oferta.nombre_completo
-        : oferta.nombre,
-    columns: [
-      { header: "Material", key: "descripcion", width: 50 },
-      { header: "Cant", key: "cantidad", width: 10 },
       { header: `Total (${codigoMonedaCambio})`, key: "total", width: 15 },
     ],
-    data: rowsClienteConPreciosTasaCambio,
+    // Los importes van en la moneda con la que se guardó la oferta. Antes esto
+    // salía siempre en USD y el importe en la moneda acordada solo aparecía
+    // como una línea suelta al final del PDF.
+    data: convertirFilasAMonedaPago(rowsClienteConPrecios),
     logoUrl: "/brand/suncar-v1-iso.png",
     clienteData:
       oferta.tipo === "personalizada" && cliente
@@ -1670,7 +1594,6 @@ export function generarOpcionesExportacionOferta({
     exportOptionsCompleto,
     exportOptionsSinPrecios,
     exportOptionsClienteConPrecios,
-    exportOptionsClienteConPreciosTasaCambio,
     baseFilename,
   };
 }
