@@ -589,8 +589,6 @@ export default function InstalacionesEnProcesoPage() {
         title="Instalaciones en Proceso"
         subtitle="Clientes con instalación en proceso"
         badge={{ text: "En Proceso", className: "bg-blue-100 text-blue-800" }}
-        backHref="/instalaciones"
-        backLabel="Volver a Instalaciones"
       />
 
       <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">

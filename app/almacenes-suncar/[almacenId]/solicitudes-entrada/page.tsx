@@ -120,7 +120,7 @@ export default function SolicitudesEntradaPorAlmacenPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Solicitudes de Entrada"
         subtitle={almacen ? `Recepciones pendientes en ${almacen.nombre}` : "Recepciones pendientes en este almacén"}

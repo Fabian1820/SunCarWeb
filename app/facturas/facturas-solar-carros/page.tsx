@@ -2384,14 +2384,6 @@ function FacturasSolarCarrosPageContent() {
         subtitle="Instaladora, Ventas y Facturas creadas"
         badge={{ text: "Solar Carros", className: "bg-sky-100 text-sky-800" }}
         className="bg-white shadow-sm border-b border-emerald-100"
-        actions={
-          <Link href="/facturas">
-            <Button variant="outline" className="gap-2">
-              <ArrowLeft className="h-4 w-4" />
-              Volver
-            </Button>
-          </Link>
-        }
       />
 
       <main className="content-with-fixed-header max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">

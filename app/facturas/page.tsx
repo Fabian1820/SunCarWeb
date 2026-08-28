@@ -1,9 +1,8 @@
 "use client"
 
-import Link from "next/link"
-import { Button } from "@/components/shared/atom/button"
-import { Card, CardContent } from "@/components/shared/molecule/card"
-import { ArrowLeft, FileText, CreditCard, Receipt, HardHat } from "lucide-react"
+import { CreditCard, Receipt, HardHat } from "lucide-react"
+import { ModuleCard } from "@/components/shared/molecule/module-card"
+import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { useAuth } from "@/contexts/auth-context"
 import { SOLO_PAGOS_CLIENTES_CIS } from "@/lib/facturacion-access"
 
@@ -19,7 +18,7 @@ export default function FacturacionPage() {
             icon: CreditCard,
             title: 'Pagos Clientes',
             description: 'Gestión de pagos recibidos de clientes y seguimiento de cuentas por cobrar',
-            color: 'green-600',
+            iconClass: 'text-amber-600',
         },
         // TODO: módulo temporalmente comentado
         // {
@@ -28,7 +27,7 @@ export default function FacturacionPage() {
         //     icon: FileText,
         //     title: 'Vales y Facturas de Instaladora',
         //     description: 'Control de facturación y vales de venta de la instaladora',
-        //     color: 'emerald-600',
+        //     iconClass: 'text-amber-600',
         // },
         {
             id: 'facturas-solar-carros',
@@ -36,7 +35,7 @@ export default function FacturacionPage() {
             icon: Receipt,
             title: 'Facturas Solar Carros',
             description: 'Facturación Solar Carros para Instaladora y Ventas',
-            color: 'sky-600',
+            iconClass: 'text-sky-600',
         },
         {
             id: 'obras-terminadas',
@@ -44,7 +43,7 @@ export default function FacturacionPage() {
             icon: HardHat,
             title: 'Obras Terminadas',
             description: 'Resultados por oferta: pagos, trabajos diarios y comercial para pago por resultados',
-            color: 'emerald-600',
+            iconClass: 'text-emerald-600',
         },
     ]
 
@@ -55,53 +54,23 @@ export default function FacturacionPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
-            {/* Header */}
-            <header className="fixed-header bg-white shadow-sm border-b border-emerald-100">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-5 gap-4">
-                        <div className="flex items-center space-x-3">
-                            <Link href="/">
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="touch-manipulation h-9 w-9 sm:h-10 sm:w-auto sm:px-4 sm:rounded-md gap-2"
-                                    aria-label="Volver al Dashboard"
-                                    title="Volver al Dashboard"
-                                >
-                                    <ArrowLeft className="h-4 w-4 sm:mr-2" />
-                                    <span className="hidden sm:inline">Volver al Dashboard</span>
-                                    <span className="sr-only">Volver al Dashboard</span>
-                                </Button>
-                            </Link>
-                            <div className="rounded-xl bg-suncar-primary shadow-sm flex items-center justify-center h-9 w-9 sm:h-12 sm:w-12 shrink-0 p-1.5 sm:p-2">
-                                <img src="/brand/suncar-v1-iso.png" alt="Logo Suncar" className="h-full w-full object-contain" />
-                            </div>
-                            <div className="min-w-0">
-                                <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate flex items-center gap-2">
-                                    Facturación
-                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
-                                        Finanzas
-                                    </span>
-                                </h1>
-                                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Gestión de pagos y facturas</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </header>
+            <ModuleHeader
+                title="Facturación"
+                subtitle="Gestión de pagos y facturas"
+                badge={{ text: "Economía", className: "bg-amber-100 text-amber-800" }}
+            />
 
             <main className="content-with-fixed-header pb-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {submodules.map((module) => (
-                        <Link key={module.id} href={module.href}>
-                            <Card className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer h-full hover:-translate-y-2 bg-white/90 backdrop-blur-sm">
-                                <CardContent className="p-4 sm:p-6 flex flex-col items-center justify-center text-center h-full">
-                                    <module.icon className={`h-8 w-8 sm:h-10 sm:w-10 text-${module.color} mx-auto mb-3`} />
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-2">{module.title}</h3>
-                                    <p className="text-sm text-gray-600">{module.description}</p>
-                                </CardContent>
-                            </Card>
-                        </Link>
+                        <ModuleCard
+                            key={module.id}
+                            href={module.href}
+                            icon={module.icon}
+                            iconClass={module.iconClass}
+                            title={module.title}
+                            description={module.description}
+                        />
                     ))}
                 </div>
             </main>

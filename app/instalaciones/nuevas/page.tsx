@@ -522,8 +522,6 @@ export default function InstalacionesNuevasPage() {
         title="Instalaciones Nuevas"
         subtitle="Leads y clientes pendientes de instalación"
         badge={{ text: "Nuevas", className: "bg-green-100 text-green-800" }}
-        backHref="/instalaciones"
-        backLabel="Volver a Instalaciones"
       />
 
       <main className="content-with-fixed-header w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">

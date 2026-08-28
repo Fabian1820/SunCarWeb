@@ -132,11 +132,10 @@ function ActualizacionesFelicityContent() {
   }, [material, q]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Actualizaciones de equipos"
         subtitle="Busca la actualización correcta por equipo, cantidad conectada y configuración."
-        backButton={{ href: "/equipos-felicity", label: "Equipos Felicity" }}
       />
 
       <main className="content-with-fixed-header max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-12 space-y-4 pt-4">

@@ -87,7 +87,7 @@ export default function EstadoEquiposPage() {
   }, [fetchData]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Estado de Equipos"
         subtitle="Seguimiento de equipos vendidos, entregados y en servicio"

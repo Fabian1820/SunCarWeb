@@ -63,11 +63,10 @@ function DispositivoFelicityContent({ sn }: { sn: string }) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title={estadoRapido?.modelo || sn}
         subtitle={estadoRapido?.planta_nombre ? `${sn} · ${estadoRapido.planta_nombre}` : sn}
-        backButton={{ href: "/equipos-felicity", label: "Equipos Felicity" }}
       />
 
       <main className="content-with-fixed-header max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-12 space-y-6 pt-4">

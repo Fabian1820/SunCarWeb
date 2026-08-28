@@ -32,6 +32,7 @@ import {
 } from "@/lib/modulos-catalogo";
 import { useRef, useState, useEffect } from "react";
 import { Button } from "@/components/shared/atom/button";
+import { ModuleCard as SharedModuleCard } from "@/components/shared/molecule/module-card";
 import {
   Dialog,
   DialogContent,
@@ -75,6 +76,7 @@ type DashboardModule = {
   alwaysVisible?: boolean;
   superAdminOnly?: boolean;
   childKeys?: string[];
+  tieneSubmodulos?: boolean;
 };
 
 type GroupMeta = {
@@ -292,6 +294,7 @@ export default function Dashboard() {
     alwaysVisible: m.alwaysVisible,
     superAdminOnly: m.superAdminOnly,
     childKeys: m.childKeys,
+    tieneSubmodulos: m.tieneSubmodulos,
   });
 
   const allModules: DashboardModule[] = MODULOS_CATALOGO.filter(
@@ -539,42 +542,29 @@ export default function Dashboard() {
     };
 
     return (
-      <div
-        role="button"
-        tabIndex={0}
+      <SharedModuleCard
+        title={module.title}
+        description={module.description}
+        icon={module.icon}
+        iconClass={module.iconClass}
         onClick={handleActivate}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            handleActivate();
-          }
-        }}
-        className="group relative flex cursor-pointer flex-col items-center rounded-2xl border border-gray-200/70 bg-white/80 p-5 text-center shadow-sm backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
-      >
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            toggleFavorite(module.id);
-          }}
-          aria-label={isFav ? "Quitar de favoritos" : "Agregar a favoritos"}
-          className="absolute right-3 top-3 rounded-full p-1.5 text-gray-300 transition-colors hover:bg-amber-50 hover:text-amber-400"
-        >
-          <Star
-            className={`h-4 w-4 ${isFav ? "fill-amber-400 text-amber-400" : ""}`}
-          />
-        </button>
-
-        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gray-50 ring-1 ring-gray-100 transition-colors group-hover:bg-emerald-50/60">
-          <module.icon className={`h-6 w-6 ${module.iconClass}`} />
-        </div>
-        <h4 className="mb-1 text-base font-semibold text-gray-900">
-          {module.title}
-        </h4>
-        <p className="text-sm leading-relaxed text-gray-500">
-          {module.description}
-        </p>
-      </div>
+        tieneSubmodulos={module.tieneSubmodulos}
+        cornerAction={
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleFavorite(module.id);
+            }}
+            aria-label={isFav ? "Quitar de favoritos" : "Agregar a favoritos"}
+            className="rounded-full p-1.5 text-gray-300 transition-colors hover:bg-amber-50 hover:text-amber-400"
+          >
+            <Star
+              className={`h-4 w-4 ${isFav ? "fill-amber-400 text-amber-400" : ""}`}
+            />
+          </button>
+        }
+      />
     );
   };
 

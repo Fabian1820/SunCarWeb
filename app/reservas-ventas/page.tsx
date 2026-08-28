@@ -181,12 +181,18 @@ export default function ReservasPage() {
   const activeTab = ORIGEN_TABS.find((t) => t.value === origenTab)!;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Reservas"
         subtitle="Gestiona reservas de materiales para instaladora y ventas"
         badge={{ text: "Almacén", className: "bg-indigo-100 text-indigo-800" }}
         className="bg-white shadow-sm border-b border-indigo-100"
+        // Esta ruta la comparten dos módulos de áreas distintas, y solo el
+        // query las distingue: sin esto, volver desde la vista de instaladora
+        // caería en Comercial Ventas.
+        {...(soloLectura
+          ? { backHref: "/?area=comercial-instaladora", backLabel: "Volver a Comercial Instaladora" }
+          : {})}
         actions={
           soloLectura ? undefined : (
             <Button

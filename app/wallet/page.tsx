@@ -1236,7 +1236,7 @@ function WalletPageContent() {
   const walletBalance = getWalletViewBalance(wallet);
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <Toaster />
 
       <BancoGlobalSheet

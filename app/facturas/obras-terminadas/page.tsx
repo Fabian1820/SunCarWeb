@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, usePathname } from "next/navigation"
+import { resolverDestinoVolver } from "@/lib/navegacion-modulos"
 import { Button } from "@/components/shared/atom/button"
 import { Input } from "@/components/shared/molecule/input"
 import {
@@ -46,6 +47,11 @@ import { useToast } from "@/hooks/use-toast"
 type Vista = "obras" | "facturas"
 
 export default function ObrasTerminadasPage() {
+  // El destino de "Volver" sale del catálogo, que cambia entre ramas: en
+  // producción estos submódulos cuelgan de la tarjeta Facturación y en dev
+  // cuelgan directo de Economía.
+  const destinoVolver = resolverDestinoVolver(usePathname() ?? "/")
+
   const [vista, setVista] = useState<Vista>("obras")
   const { toast } = useToast()
 
@@ -317,16 +323,16 @@ export default function ObrasTerminadasPage() {
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-5 gap-4">
             <div className="flex items-center space-x-3">
-              <Link href="/facturas">
+              <Link href={destinoVolver.href}>
                 <Button
                   variant="ghost"
                   size="icon"
                   className="touch-manipulation h-9 w-9 sm:h-10 sm:w-auto sm:px-4 sm:rounded-md gap-2"
-                  aria-label="Volver a Facturación"
-                  title="Volver a Facturación"
+                  aria-label={destinoVolver.label}
+                  title={destinoVolver.label}
                 >
                   <ArrowLeft className="h-4 w-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Volver a Facturación</span>
+                  <span className="hidden sm:inline">{destinoVolver.label}</span>
                 </Button>
               </Link>
               <div className="rounded-xl bg-suncar-primary shadow-sm flex items-center justify-center h-9 w-9 sm:h-12 sm:w-12 shrink-0 p-1.5 sm:p-2">

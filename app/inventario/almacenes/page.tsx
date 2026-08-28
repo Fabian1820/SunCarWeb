@@ -63,7 +63,7 @@ export default function GestionAlmacenesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Gestión de Almacenes"
         subtitle="Crear y administrar almacenes"

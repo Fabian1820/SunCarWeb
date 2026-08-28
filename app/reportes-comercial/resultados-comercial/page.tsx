@@ -77,7 +77,7 @@ export default function ResultadosComercialPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Resultados por Comercial"
         subtitle="Ofertas personalizadas cerradas con pagos registrados"

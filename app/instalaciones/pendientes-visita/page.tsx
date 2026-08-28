@@ -130,12 +130,10 @@ export default function PendientesVisitaPage() {
 
   return (
     <RouteGuard requiredModule="instalaciones/pendientes-visita">
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Visitas"
         subtitle="Gestiona visitas pendientes, realizadas y el histórico completo"
-        backHref="/instalaciones"
-        backLabel="Volver a Instalaciones"
         badge={{
           text: "Instalaciones",
           className: "bg-emerald-100 text-emerald-800",

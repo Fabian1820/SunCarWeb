@@ -13,8 +13,6 @@ export default function ConfeccionOfertasPage() {
         title="Confección de Ofertas"
         subtitle="Arma ofertas fotovoltaicas con materiales, margen y redondeo final."
         badge={{ text: "Ventas", className: "bg-amber-100 text-amber-800" }}
-        backHref="/ofertas-gestion"
-        backLabel="Volver a Gestión de Ofertas"
       />
 
       <main

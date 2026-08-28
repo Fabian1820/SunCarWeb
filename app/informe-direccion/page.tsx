@@ -324,7 +324,7 @@ function InformeDireccionContent() {
   const puedeCobrosPendientes = hasSubPermission(MODULE, "cobros-pendientes");
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Informe de Dirección"
         subtitle="Informes de dirección generados en el momento a partir de la base de datos."

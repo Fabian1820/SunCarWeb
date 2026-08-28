@@ -76,7 +76,7 @@ export default function InventarioPage() {
 
   if (error && data.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-emerald-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee] flex items-center justify-center">
         <div className="text-center max-w-md">
           <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
@@ -137,7 +137,7 @@ export default function InventarioPage() {
     : "Cantidad por material y desglose por almacén. Expande una fila para ver el detalle."
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-emerald-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Inventario y Almacenes"
         subtitle="Consulta las existencias por almacén y tienda"

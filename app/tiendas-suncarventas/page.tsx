@@ -45,10 +45,6 @@ export default function TiendasSuncarVentasPage() {
         subtitle="Gestión de tiendas y puntos de venta"
         badge={{ text: "Ventas", className: "bg-emerald-100 text-emerald-800" }}
         className="bg-white shadow-sm border-b border-emerald-100"
-        backButton={{
-          href: "/",
-          label: "Volver al Dashboard"
-        }}
       />
 
       <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">

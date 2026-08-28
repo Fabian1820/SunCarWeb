@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { resolverDestinoVolver } from "@/lib/navegacion-modulos";
 import { Button } from "@/components/shared/atom/button";
 import { Toaster } from "@/components/shared/molecule/toaster";
 import { useToast } from "@/hooks/use-toast";
@@ -34,6 +36,11 @@ const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
 ];
 
 export default function PagosClientesVentasPage() {
+  // El destino de "Volver" sale del catálogo, que cambia entre ramas: en
+  // producción estos submódulos cuelgan de la tarjeta Facturación y en dev
+  // cuelgan directo de Economía.
+  const destinoVolver = resolverDestinoVolver(usePathname() ?? "/")
+
   const { toast } = useToast();
   const {
     solicitudesPendientes,
@@ -192,13 +199,13 @@ export default function PagosClientesVentasPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-5 gap-4">
             <div className="flex items-center space-x-3">
-              <Link href="/facturas">
+              <Link href={destinoVolver.href}>
                 <Button
                   variant="ghost"
                   size="icon"
                   className="touch-manipulation h-9 w-9 sm:h-10 sm:auto sm:px-4 sm:rounded-md gap-2"
-                  aria-label="Volver a Facturación"
-                  title="Volver a Facturación"
+                  aria-label={destinoVolver.label}
+                  title={destinoVolver.label}
                 >
                   <ArrowLeft className="h-4 w-4 sm:mr-2" />
                   <span className="hidden sm:inline">Volver</span>

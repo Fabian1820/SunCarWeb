@@ -427,13 +427,11 @@ function FichasCostoPageContent() {
   const to = Math.min(currentPage * PAGE_SIZE, filtered.length)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#fdf6ec] via-white to-[#fbe6cf]">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Fichas de Costo"
         subtitle="Vista contable de materiales: costos, precios, márgenes, historial de costos y compras"
         badge={{ text: "Costos", className: "bg-amber-100 text-amber-800" }}
-        backHref="/compras-envios-costos"
-        backLabel="Volver a Compras, Envíos y Costos"
         actions={
           soloPrecios ? null : (
             <div className="flex items-center gap-2">

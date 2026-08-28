@@ -134,7 +134,7 @@ export default function CajaPage() {
   if (loading) {
     return (
       <RouteGuard requiredModule={`tienda:${tiendaId}`}>
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-emerald-50 flex items-center justify-center">
+        <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee] flex items-center justify-center">
           <Loader />
         </div>
       </RouteGuard>
@@ -143,7 +143,7 @@ export default function CajaPage() {
 
   return (
     <RouteGuard requiredModule={`tienda:${tiendaId}`}>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-emerald-50">
+      <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
 <main className="max-w-full h-screen box-border flex min-h-0">
           {sesionActiva ? (
             <PosView tiendaId={tiendaId} sesionId={sesionActiva.id} />

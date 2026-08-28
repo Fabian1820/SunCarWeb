@@ -1,9 +1,10 @@
 "use client"
 
 import { useLayoutEffect, useRef, type ReactNode } from "react"
-import Link from "next/link"
+import { usePathname, useRouter } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 import { Button } from "@/components/shared/atom/button"
+import { resolverDestinoVolver } from "@/lib/navegacion-modulos"
 import { cn } from "@/lib/utils"
 
 type ModuleHeaderBadge = {
@@ -20,6 +21,7 @@ interface ModuleHeaderProps {
   title: string
   subtitle?: string
   badge?: ModuleHeaderBadge
+  /** Sobrescribe el destino de "Volver". Por defecto se deduce de la ruta. */
   backHref?: string
   backLabel?: string
   backButton?: ModuleHeaderBackButton
@@ -31,17 +33,23 @@ export function ModuleHeader({
   title,
   subtitle,
   badge,
-  backHref = "/",
-  backLabel = "Volver al Dashboard",
+  backHref,
+  backLabel,
   backButton,
   actions,
   className,
 }: ModuleHeaderProps) {
+  const router = useRouter()
+  const pathname = usePathname()
   const headerRef = useRef<HTMLElement>(null)
 
-  // Si se proporciona backButton, usar esos valores
-  const finalBackHref = backButton?.href || backHref
-  const finalBackLabel = backButton?.label || backLabel
+  // Por defecto, "Volver" sube un nivel en la jerarquía real de la app: de un
+  // submódulo a su hub, y de un módulo al área de la barra lateral desde la
+  // que se entró. Antes caía siempre en "/" y sacaba al usuario al inicio.
+  // Las páginas que pasan backHref/backButton mandan sobre esto.
+  const destino = resolverDestinoVolver(pathname ?? "/")
+  const finalBackHref = backButton?.href || backHref || destino.href
+  const finalBackLabel = backButton?.label || backLabel || destino.label
 
   const computeOffset = () => {
     if (typeof window === "undefined") return 16
@@ -86,17 +94,22 @@ export function ModuleHeader({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between py-3 sm:py-6 gap-3">
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            <Link href={finalBackHref} className="flex shrink-0" aria-label={finalBackLabel} title={finalBackLabel}>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="touch-manipulation h-9 w-9 sm:h-10 sm:w-auto sm:px-4 sm:rounded-md gap-2"
-              >
-                <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span className="hidden sm:inline">{finalBackLabel}</span>
-                <span className="sr-only">{finalBackLabel}</span>
-              </Button>
-            </Link>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="touch-manipulation h-9 w-9 sm:h-10 sm:w-auto sm:px-4 sm:rounded-md gap-2 shrink-0"
+              aria-label={finalBackLabel}
+              title={finalBackLabel}
+              onClick={() => router.push(finalBackHref)}
+            >
+              <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+              {/* Las etiquetas de área son largas ("Volver a Gestión de
+                  Almacenes"); se acotan para no comerse el título. */}
+              <span className="hidden max-w-[15rem] truncate sm:inline-block">
+                {finalBackLabel}
+              </span>
+              <span className="sr-only">{finalBackLabel}</span>
+            </Button>
 
             <div className="rounded-xl bg-suncar-primary shadow-sm flex items-center justify-center h-9 w-9 sm:h-12 sm:w-12 shrink-0 p-1.5 sm:p-2">
               <img

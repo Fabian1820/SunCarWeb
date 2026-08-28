@@ -664,12 +664,10 @@ export default function PlanificacionDiariaTrabajosPage() {
 
   return (
     <RouteGuard requiredModule="instalaciones/planificacion-diaria-trabajos">
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Planificación Diaria de Trabajos"
         subtitle="Planifica las instalaciones y trabajos del día siguiente por brigadas"
-        backHref="/instalaciones"
-        backLabel="Volver a Operaciones"
         badge={{
           text: "Operaciones",
           className: "bg-purple-100 text-purple-800",

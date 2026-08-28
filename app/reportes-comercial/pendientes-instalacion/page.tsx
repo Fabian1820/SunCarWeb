@@ -160,7 +160,7 @@ export default function PendientesInstalacionPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Pendientes de Instalación"
         subtitle="No iniciadas y en proceso de leads y clientes"

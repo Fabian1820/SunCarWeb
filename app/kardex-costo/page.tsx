@@ -222,13 +222,11 @@ function KardexCostoContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-violet-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Historial de Costos"
         subtitle="Cómo se formó el costo promedio de cada material en cada almacén"
         badge={{ text: "Economía", className: "bg-violet-100 text-violet-800" }}
-        backHref="/compras-envios-costos"
-        backLabel="Volver a Compras, Envíos y Costos"
         actions={
           <Button
             variant="ghost"

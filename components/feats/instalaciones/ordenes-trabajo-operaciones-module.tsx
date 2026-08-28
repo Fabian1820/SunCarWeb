@@ -1662,7 +1662,6 @@ export function OrdenesTrabajoOperacionesModule() {
           text: "Operaciones",
           className: "bg-emerald-100 text-emerald-800",
         }}
-        backButton={{ href: "/instalaciones", label: "Volver a Operaciones" }}
         className="bg-white shadow-sm border-b border-emerald-100"
         actions={
           <>
