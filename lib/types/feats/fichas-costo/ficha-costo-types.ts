@@ -34,13 +34,3 @@ export interface MaterialFichaResumen {
   potenciaKW?: number
   ficha_activa: FichaResumen | null
 }
-
-// Payload para edición rápida de precios + costo desde la tabla.
-export interface EditarPreciosCostoPayload {
-  precio?: number
-  precio_instaladora?: number
-  porciento_rebajable_venta?: number
-  costo?: number
-  numero_serie?: string | null
-  stockaje_minimo?: number | null
-}

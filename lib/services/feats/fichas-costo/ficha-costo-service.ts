@@ -1,8 +1,5 @@
 import { apiRequest } from '../../../api-config'
-import type {
-  EditarPreciosCostoPayload,
-  MaterialFichaResumen,
-} from '../../../types/feats/fichas-costo/ficha-costo-types'
+import type { MaterialFichaResumen } from '../../../types/feats/fichas-costo/ficha-costo-types'
 
 /**
  * Servicio de Fichas de Costo (modelo simplificado).
@@ -65,43 +62,5 @@ export class FichaCostoService {
       console.error('[FichaCostoService] Error al obtener materiales:', error)
       throw error
     }
-  }
-
-  // Edición rápida de precios + costo de un material.
-  // PUT /productos/{producto_id}/materiales/{material_codigo} con exclude_unset:
-  // solo se modifican los campos enviados.
-  static async editPreciosCosto(
-    productoId: string,
-    materialCodigo: string | number,
-    payload: EditarPreciosCostoPayload
-  ): Promise<boolean> {
-    if (!productoId) throw new Error('producto_id requerido')
-    if (materialCodigo == null || materialCodigo === '') throw new Error('codigo de material requerido')
-
-    const body: Record<string, number | string | null> = {}
-    if (typeof payload.precio === 'number') body.precio = payload.precio
-    if (typeof payload.precio_instaladora === 'number') body.precio_instaladora = payload.precio_instaladora
-    if (typeof payload.porciento_rebajable_venta === 'number') body.porciento_rebajable_venta = payload.porciento_rebajable_venta
-    if (typeof payload.costo === 'number') body.costo = payload.costo
-    if (payload.numero_serie !== undefined) body.numero_serie = payload.numero_serie
-    if (payload.stockaje_minimo !== undefined) body.stockaje_minimo = payload.stockaje_minimo
-
-    if (Object.keys(body).length === 0) return true
-
-    const result = await apiRequest<any>(
-      `/productos/${encodeURIComponent(productoId)}/materiales/${encodeURIComponent(String(materialCodigo))}`,
-      {
-        method: 'PUT',
-        body: JSON.stringify(body),
-      }
-    )
-
-    if (result && typeof result === 'object' && result.success === false) {
-      throw new Error(result.message || result.error || 'Error al actualizar material')
-    }
-    if (result && typeof result === 'object' && result.error) {
-      throw new Error(result.error)
-    }
-    return true
   }
 }
