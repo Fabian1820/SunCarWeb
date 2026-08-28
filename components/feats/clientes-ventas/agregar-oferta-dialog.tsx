@@ -204,7 +204,10 @@ export function AgregarOfertaDialog({
       return;
     }
     setLoadingStock(true);
-    InventarioService.getStock({ almacen_id: almacenId, limit: 500 })
+    // Sin `limit`: el mapa debe cubrir TODO el almacén. Con un tope el backend
+    // paginaba (orden material_id asc) y los materiales fuera del corte se
+    // leían como stock 0.
+    InventarioService.getStock({ almacen_id: almacenId })
       .then(({ data }) => {
         stockMapRef.current = buildStockMap(data);
         setStockVersion((v) => v + 1);

@@ -713,10 +713,11 @@ export function ConfeccionOfertasView({
     let cancelled = false;
     void (async () => {
       try {
+        // Sin `limit`: descuentan del stock disponible, así que la lista debe
+        // ser completa. Truncada, la disponibilidad saldría inflada.
         const { data } = await ReservaVentaService.getReservas({
           almacen_id: almacenId,
           estado: "activa",
-          limit: 500,
         });
         if (cancelled) return;
         setReservasOtrasActivas(

@@ -330,9 +330,11 @@ const loadStockByCode = async (
   if (!almacenId) return stockByCode;
 
   try {
+    // Sin `limit`: el mapa por código debe cubrir TODO el almacén. Con un tope
+    // el backend paginaba y los materiales fuera del corte se exportaban con
+    // stock 0.
     const { data: stockRows } = await InventarioService.getStock({
       almacen_id: almacenId,
-      limit: 200,
     });
     stockRows.forEach((row) => {
       const code = normalizeMaterialCode(String(row.material_codigo || ""));
