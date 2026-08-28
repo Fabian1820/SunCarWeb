@@ -53,7 +53,7 @@ export function ClienteSelectorField({
     const loadClientes = async () => {
       setClientesLoading(true)
       try {
-        const data = await ClienteService.getClientes()
+        const data = await ClienteService.getClientes({ activo: true })
         // El servicio devuelve { clients: Cliente[], total, skip, limit }
         setClientes(data.clients || [])
       } catch (error) {

@@ -200,7 +200,7 @@ function ReferenciaSelector({
           if (!activo) return
           setTrabajadores(data || [])
         } else {
-          const res = await ClienteService.getClientes()
+          const res = await ClienteService.getClientes({ activo: true })
           if (!activo) return
           setClientes(res.clients || [])
         }

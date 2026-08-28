@@ -495,7 +495,7 @@ export function PosView({ tiendaId, sesionId }: PosViewProps) {
       if (!clientesCaja.length && !cargandoClientesCaja) {
         setCargandoClientesCaja(true)
         try {
-          const data = await ClienteService.getClientes()
+          const data = await ClienteService.getClientes({ activo: true })
           // El servicio devuelve { clients: Cliente[], total, skip, limit }
           setClientesCaja(data.clients || [])
         } catch (error) {

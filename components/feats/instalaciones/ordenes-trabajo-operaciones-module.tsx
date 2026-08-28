@@ -739,7 +739,7 @@ export function OrdenesTrabajoOperacionesModule() {
     const loadClientes = async () => {
       setClientesLoading(true);
       try {
-        const response = await ClienteService.getClientes({});
+        const response = await ClienteService.getClientes({ activo: true });
         if (!cancelled) {
           setClientes(response.clients || []);
         }

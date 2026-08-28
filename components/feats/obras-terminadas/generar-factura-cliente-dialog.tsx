@@ -60,7 +60,7 @@ export function GenerarFacturaClienteDialog({
     }
     if (clientes.length > 0) return
     setLoadingClientes(true)
-    ClienteService.getClientes()
+    ClienteService.getClientes({ activo: true })
       .then((data) => setClientes(data.clients || []))
       .catch((error) => console.error("Error cargando clientes:", error))
       .finally(() => setLoadingClientes(false))
