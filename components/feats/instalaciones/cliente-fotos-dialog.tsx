@@ -146,6 +146,7 @@ const getTipoLabel = (tipo?: string) => {
   if (!tipo) return "Sin tipo";
   if (tipo === "instalacion") return "Instalación";
   if (tipo === "averia") return "Avería";
+  if (tipo === "visita") return "Visita";
   return tipo;
 };
 
@@ -164,7 +165,9 @@ export function ClienteFotosDialog({
 }: ClienteFotosDialogProps) {
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState("");
-  const [tipo, setTipo] = useState<"todos" | "instalacion" | "averia">("todos");
+  const [tipo, setTipo] = useState<
+    "todos" | "instalacion" | "averia" | "visita"
+  >("todos");
   const [fotosRemotas, setFotosRemotas] = useState<unknown[] | null>(null);
   const [loadingFotos, setLoadingFotos] = useState(false);
 
@@ -273,6 +276,7 @@ export function ClienteFotosDialog({
               <option value="todos">Todos ({mediaConUrl.length})</option>
               <option value="instalacion">Instalación</option>
               <option value="averia">Avería</option>
+              <option value="visita">Visita</option>
             </select>
           </div>
         </div>

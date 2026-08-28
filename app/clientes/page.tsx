@@ -30,6 +30,7 @@ import { SmartPagination } from "@/components/shared/molecule/smart-pagination";
 import type {
   Cliente,
   ClienteCreateData,
+  ClienteFoto,
   ClienteUpdateData,
   OfertaEmbebida,
 } from "@/lib/api-types";
@@ -759,10 +760,15 @@ export default function ClientesPage() {
   // diálogo permita reintentar solo esos sin duplicar los ya guardados.
   const handleUploadClientFoto = async (
     client: Cliente,
-    payload: { files: File[]; tipo: "instalacion" | "averia" },
+    payload: { files: File[]; tipo: ClienteFoto["tipo"] },
     onProgress?: (procesados: number) => void,
   ): Promise<UploadFotosResultado> => {
-    const tipoLabel = payload.tipo === "averia" ? "avería" : "instalación";
+    const tipoLabel =
+      payload.tipo === "averia"
+        ? "avería"
+        : payload.tipo === "visita"
+          ? "visita"
+          : "instalación";
 
     const { subidos, fallidos } = await subirFotosEnLote(
       payload.files,

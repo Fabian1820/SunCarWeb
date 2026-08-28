@@ -128,7 +128,7 @@ interface ClientsTableProps {
   onViewLocation: (client: Cliente) => void;
   onUploadFotos?: (
     client: Cliente,
-    payload: { files: File[]; tipo: "instalacion" | "averia" },
+    payload: { files: File[]; tipo: ClienteFoto["tipo"] },
     onProgress?: (completados: number) => void,
   ) => Promise<UploadFotosResultado>;
   onUpdatePrioridad?: (
@@ -809,9 +809,9 @@ export function ClientsTable({
   const [showUploadFotosDialog, setShowUploadFotosDialog] = useState(false);
   const [clientForUploadFotos, setClientForUploadFotos] =
     useState<Cliente | null>(null);
-  const [uploadFotoTipo, setUploadFotoTipo] = useState<
-    "instalacion" | "averia"
-  >("instalacion");
+  const [uploadFotoTipo, setUploadFotoTipo] = useState<ClienteFoto["tipo"]>(
+    "instalacion",
+  );
   const [uploadFotoFiles, setUploadFotoFiles] = useState<File[]>([]);
   const [uploadingFoto, setUploadingFoto] = useState(false);
   const [uploadFotoProgreso, setUploadFotoProgreso] = useState(0);
@@ -4286,7 +4286,7 @@ export function ClientsTable({
               <Label htmlFor="cliente-foto-tipo">Tipo</Label>
               <Select
                 value={uploadFotoTipo}
-                onValueChange={(value: "instalacion" | "averia") =>
+                onValueChange={(value: ClienteFoto["tipo"]) =>
                   setUploadFotoTipo(value)
                 }
                 disabled={uploadingFoto}
@@ -4297,6 +4297,7 @@ export function ClientsTable({
                 <SelectContent>
                   <SelectItem value="instalacion">Instalación</SelectItem>
                   <SelectItem value="averia">Avería</SelectItem>
+                  <SelectItem value="visita">Visita</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-gray-500">
