@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Package,
   Search,
@@ -94,6 +94,11 @@ const CODIGOS_BATERIA_DESCUENTO_20 = new Set([
 ]);
 const DESCUENTO_INVERSOR_BATERIA = 0.15;
 const DESCUENTO_BATERIA_EXCEPCION = 0.2;
+
+// Ventana de vida del borrador local. Sirve para no perder el trabajo si se
+// cierra la pestaña sin querer; pasado ese rato lo guardado ya no representa la
+// intención del comercial y no puede ganarle a lo que devuelve el servidor.
+const VENTANA_BORRADOR_MS = 2 * 60 * 60 * 1000;
 
 interface CostoExtra {
   id: string;
@@ -196,16 +201,26 @@ export function ConfeccionOfertasView({
   const { toast } = useToast();
   const { user } = useAuth();
 
-  // Clave única para localStorage basada en el modo
+  // Clave única para localStorage basada en el modo.
+  // La oferta nueva se separa por contacto: con una única clave global, el
+  // borrador abandonado de un cliente reaparecía dentro de la oferta de otro.
   const localStorageKey = useMemo(() => {
     if (modoEdicion && ofertaParaEditar?.id) {
       return `oferta-edicion-${ofertaParaEditar.id}`;
     } else if (ofertaParaDuplicar?.id) {
       return `oferta-duplicar-${ofertaParaDuplicar.id}`;
-    } else {
-      return "oferta-nueva";
     }
-  }, [modoEdicion, ofertaParaEditar?.id, ofertaParaDuplicar?.id]);
+    const contacto =
+      clienteIdInicial || leadIdInicial || (ofertaGenericaInicial === false ? "personalizada" : "generica");
+    return `oferta-nueva-${contacto}`;
+  }, [
+    modoEdicion,
+    ofertaParaEditar?.id,
+    ofertaParaDuplicar?.id,
+    clienteIdInicial,
+    leadIdInicial,
+    ofertaGenericaInicial,
+  ]);
 
   // Limpiar localStorage al entrar en modo edición para evitar datos desactualizados
   useEffect(() => {
@@ -215,22 +230,84 @@ export function ConfeccionOfertasView({
     }
   }, [modoEdicion, ofertaParaEditar?.id, localStorageKey]);
 
-  // Función para cargar estado desde localStorage
+  // Función para cargar estado desde localStorage.
+  // Un borrador solo sirve para retomar trabajo reciente: pasada la ventana,
+  // lo guardado es ruido que pisa datos frescos del servidor.
   const cargarEstadoGuardado = () => {
     try {
+      if (typeof window === "undefined") return null;
       const estadoGuardado = localStorage.getItem(localStorageKey);
-      if (estadoGuardado) {
-        return JSON.parse(estadoGuardado);
+      if (!estadoGuardado) return null;
+
+      const parsed = JSON.parse(estadoGuardado);
+      const guardadoEn = parsed?.timestamp
+        ? new Date(parsed.timestamp).getTime()
+        : Number.NaN;
+
+      if (
+        !Number.isFinite(guardadoEn) ||
+        Date.now() - guardadoEn > VENTANA_BORRADOR_MS
+      ) {
+        localStorage.removeItem(localStorageKey);
+        return null;
       }
+
+      return parsed;
     } catch (error) {
       console.error("Error cargando estado guardado:", error);
+      // Un borrador ilegible no se puede recuperar; borrarlo evita reintentarlo
+      // en cada montaje.
+      try {
+        localStorage.removeItem(localStorageKey);
+      } catch {}
+      return null;
     }
-    return null;
+  };
+
+  // Un borrador solo puede retomarse si es trabajo en curso sobre ESTA oferta
+  // origen y la original no se ha tocado desde que se guardó. Antes bastaba con
+  // que tuviera menos de 24h, así que un duplicado abandonado resucitaba
+  // materiales ya eliminados y el margen anterior, pisando la oferta recién
+  // editada.
+  const borradorEsUtilizable = (borrador: any) => {
+    if (!borrador) return false;
+    // Oferta nueva: no hay original con la que pueda chocar.
+    if (!ofertaParaDuplicar) return true;
+    if (borrador.ofertaOrigenId !== ofertaParaDuplicar.id) return false;
+
+    const actualizadaEn = new Date(
+      ofertaParaDuplicar.fecha_actualizacion ||
+        ofertaParaDuplicar.fecha_creacion ||
+        0,
+    ).getTime();
+    if (!Number.isFinite(actualizadaEn)) return true;
+
+    // cargarEstadoGuardado ya garantiza que el timestamp es válido y reciente.
+    return new Date(borrador.timestamp).getTime() > actualizadaEn;
   };
 
   // En modo edición, NUNCA usar localStorage: siempre cargar datos frescos de la API
-  // para evitar que valores stale (ej. margen_comercial) aparezcan al reabrir el diálogo
-  const estadoInicial = modoEdicion ? null : cargarEstadoGuardado();
+  // para evitar que valores stale (ej. margen_comercial) aparezcan al reabrir el diálogo.
+  //
+  // La validez se decide aquí, antes de sembrar nada: si el borrador se
+  // descartara más tarde, los estados que el efecto de carga no repone (la
+  // compensación, el paso activo) se quedarían con el valor del borrador.
+  const [estadoInicial] = useState<any>(() => {
+    if (modoEdicion) return null;
+
+    const borrador = cargarEstadoGuardado();
+    if (borradorEsUtilizable(borrador)) return borrador;
+
+    if (borrador) {
+      console.log(
+        "🧹 Borrador descartado: la oferta original cambió después de guardarlo",
+      );
+      try {
+        localStorage.removeItem(localStorageKey);
+      } catch {}
+    }
+    return null;
+  });
 
   const [items, setItems] = useState<OfertaItem[]>(estadoInicial?.items || []);
   const [ofertaGenerica, setOfertaGenerica] = useState(
@@ -486,9 +563,19 @@ export function ConfeccionOfertasView({
   const [porcentajeMargenPorItem, setPorcentajeMargenPorItem] = useState<
     Map<string, number>
   >(new Map());
+  // Se restaura del borrador: sin esto, retomar un duplicado perdía todos los
+  // márgenes editados a mano y los recalculaba con el reparto automático.
   const [porcentajeAsignadoPorItem, setPorcentajeAsignadoPorItem] = useState<
     Record<string, number>
-  >({});
+  >(estadoInicial?.porcentajeAsignadoPorItem || {});
+
+  // Testigo del bloqueo optimista: la fecha_actualizacion con la que se abrió la
+  // oferta. Se refresca tras cada guardado para que un segundo guardado sin
+  // cerrar el formulario no choque contra su propia escritura.
+  const fechaEsperadaRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    fechaEsperadaRef.current = ofertaParaEditar?.fecha_actualizacion || undefined;
+  }, [ofertaParaEditar?.fecha_actualizacion]);
   const [nombreCompletoBackend, setNombreCompletoBackend] =
     useState<string>("");
   const [terminosCondiciones, setTerminosCondiciones] = useState<string | null>(
@@ -758,20 +845,11 @@ export function ConfeccionOfertasView({
         console.log(
           "🔄 Modo edición: Cargando datos frescos de la oferta (ignorando localStorage)",
         );
-      } else {
-        // En modo duplicación, verificar si hay un estado guardado más reciente
-        const estadoGuardado = cargarEstadoGuardado();
-        if (estadoGuardado && estadoGuardado.timestamp) {
-          const tiempoGuardado = new Date(estadoGuardado.timestamp).getTime();
-          const tiempoActual = new Date().getTime();
-          const diferencia = tiempoActual - tiempoGuardado;
-
-          // Si el estado guardado es de hace menos de 24 horas, usarlo en lugar de la oferta
-          if (diferencia < 24 * 60 * 60 * 1000) {
-            console.log("📦 Usando estado guardado en localStorage");
-            return; // Ya se cargó en el estado inicial
-          }
-        }
+      } else if (estadoInicial) {
+        // El borrador ya sembró el estado y se validó contra esta oferta origen
+        // al montar: pisarlo con los datos de la original perdería el trabajo.
+        console.log("📦 Retomando borrador local de esta duplicación");
+        return;
       }
 
       console.log(
@@ -859,38 +937,57 @@ export function ConfeccionOfertasView({
         const porcentajeMap = new Map<string, number>();
         const porcentajeAsignadoMap: Record<string, number> = {};
 
+        // Una oferta cuyos items suman 0 de margen nunca llegó a tener reparto
+        // guardado (ofertas viejas, anteriores a margen_asignado). Ahí sí hay
+        // que dejar que el algoritmo automático lo calcule.
+        const tieneRepartoGuardado = ofertaACopiar.items.some((item: any) => {
+          const valor = Number(item?.margen_asignado);
+          return Number.isFinite(valor) && valor > 0;
+        });
+
         ofertaACopiar.items.forEach((item: any) => {
           const itemId = `${item.seccion}-${item.material_codigo}`;
-          const margenAsignado = Number(item.margen_asignado);
-          const margenAsignadoValido = Number.isFinite(margenAsignado)
-            ? margenAsignado
-            : 0;
+          const margenAsignadoRaw = item?.margen_asignado;
+          const margenAsignado = Number(margenAsignadoRaw);
+
+          // Un margen de 0 es una decisión del comercial, no un "sin dato".
+          // Tratarlo como ausente hacía que al reabrir la oferta el reparto
+          // automático le devolviera margen a ese material y apareciera un
+          // "⛔ Margen excedido" que nadie había provocado.
+          const tieneMargenGuardado =
+            tieneRepartoGuardado &&
+            margenAsignadoRaw !== null &&
+            margenAsignadoRaw !== undefined &&
+            margenAsignadoRaw !== "" &&
+            Number.isFinite(margenAsignado);
 
           console.log(`  Procesando item ${itemId}:`, {
             margen_asignado: item.margen_asignado,
-            margen_asignado_parseado: margenAsignadoValido,
+            margen_asignado_parseado: margenAsignado,
             tipo: typeof item.margen_asignado,
             precio: item.precio,
             cantidad: item.cantidad,
           });
 
-          if (margenAsignadoValido > 0) {
-            margenMap.set(itemId, margenAsignadoValido);
+          if (tieneMargenGuardado) {
+            margenMap.set(itemId, margenAsignado);
 
-            // Calcular porcentaje desde el margen asignado
-            const costoItem = item.precio * item.cantidad;
-            if (costoItem > 0) {
-              const porcentaje = (margenAsignadoValido / costoItem) * 100;
-              porcentajeMap.set(itemId, porcentaje);
+            // Calcular porcentaje desde el margen asignado. Un item sin costo
+            // no tiene porcentaje representable: se fija en 0 para que siga
+            // contando como asignado y el reparto no lo repueble.
+            const costoItem = Number(item.precio) * Number(item.cantidad);
+            const porcentaje =
+              costoItem > 0 ? (margenAsignado / costoItem) * 100 : 0;
 
-              // ✅ IMPORTANTE: Cargar también en porcentajeAsignadoPorItem
-              // para que se consideren como "editados manualmente" al recargar
-              porcentajeAsignadoMap[itemId] = porcentaje;
+            porcentajeMap.set(itemId, porcentaje);
 
-              console.log(
-                `    ✅ Margen guardado: ${margenAsignadoValido}, Porcentaje: ${porcentaje}%`,
-              );
-            }
+            // ✅ IMPORTANTE: Cargar también en porcentajeAsignadoPorItem
+            // para que se consideren como "editados manualmente" al recargar
+            porcentajeAsignadoMap[itemId] = porcentaje;
+
+            console.log(
+              `    ✅ Margen guardado: ${margenAsignado}, Porcentaje: ${porcentaje}%`,
+            );
           } else {
             console.log(`    ⚠️ No tiene margen_asignado válido`);
           }
@@ -1108,6 +1205,7 @@ export function ConfeccionOfertasView({
     leadIdInicial,
     clienteIdInicial,
     tipoContactoInicial,
+    estadoInicial,
     toast,
   ]);
 
@@ -1197,6 +1295,12 @@ export function ConfeccionOfertasView({
           justificacionAsumidoPorEmpresa,
           modoAsumidoPorEmpresa,
           porcentajeAsumidoPorEmpresa,
+          // Los márgenes editados a mano son parte del trabajo del comercial:
+          // si no viajan en el borrador, retomarlo los pierde en silencio.
+          porcentajeAsignadoPorItem,
+          // Permite comprobar que el borrador es de esta oferta origen antes de
+          // dejarle ganar a lo que devuelve el servidor.
+          ofertaOrigenId: ofertaParaDuplicar?.id ?? null,
           timestamp: new Date().toISOString(),
         };
         localStorage.setItem(
@@ -1248,6 +1352,8 @@ export function ConfeccionOfertasView({
     pagosAcordados,
     aplicaContribucion,
     porcentajeContribucion,
+    porcentajeAsignadoPorItem,
+    ofertaParaDuplicar?.id,
     ofertaCreada,
     localStorageKey,
   ]);
@@ -4255,6 +4361,22 @@ export function ConfeccionOfertasView({
     estadoOferta,
   ]);
 
+  // Borra los porcentajes de margen editados a mano de los items que coincidan.
+  // Se llama al quitar materiales para que el estado no acumule entradas de
+  // items que ya no están en la oferta.
+  const olvidarMargenesManuales = useCallback(
+    (coincide: (itemId: string) => boolean) => {
+      setPorcentajeAsignadoPorItem((prev) => {
+        const huerfanos = Object.keys(prev).filter(coincide);
+        if (huerfanos.length === 0) return prev;
+        const next = { ...prev };
+        huerfanos.forEach((id) => delete next[id]);
+        return next;
+      });
+    },
+    [],
+  );
+
   const agregarMaterial = (material: Material) => {
     if (ofertaCreada && !modoEdicion) {
       toast({
@@ -4349,6 +4471,13 @@ export function ConfeccionOfertasView({
         .map((item) => (item.id === id ? { ...item, cantidad } : item))
         .filter((item) => item.cantidad > 0),
     );
+
+    // Poner la cantidad a 0 saca el material de la oferta: su margen editado a
+    // mano se va con él. Si se quedaba huérfano, volver a añadir ese material
+    // resucitaba el porcentaje viejo en lugar del reparto automático.
+    if (cantidad <= 0) {
+      olvidarMargenesManuales((itemId) => itemId === id);
+    }
   };
 
   const actualizarPrecio = (id: string, nuevoPrecio: number) => {
@@ -4508,6 +4637,8 @@ export function ConfeccionOfertasView({
     );
     // Eliminar items de esta sección
     setItems((prev) => prev.filter((item) => item.seccion !== seccionId));
+    // ...y sus márgenes editados a mano, que si no quedan huérfanos en el estado
+    olvidarMargenesManuales((itemId) => itemId.startsWith(`${seccionId}-`));
 
     toast({
       title: "Sección eliminada",
@@ -5721,6 +5852,13 @@ export function ConfeccionOfertasView({
         ofertaData.precio_final = precioFinal;
         ofertaData.redondeo_manual = redondeoManual;
 
+        // Bloqueo optimista: se manda la fecha_actualizacion con la que se
+        // abrió la oferta. Si otro comercial guardó entretanto, el backend
+        // responde 409 en vez de dejar que este guardado pise su trabajo.
+        if (modoEdicion && fechaEsperadaRef.current) {
+          ofertaData.fecha_actualizacion_esperada = fechaEsperadaRef.current;
+        }
+
         console.log("💰 DEBUG - Datos de descuento que se envían:", {
           descuento_porcentaje: descuentoPorcentaje,
           monto_descuento: montoDescuento,
@@ -5882,6 +6020,11 @@ export function ConfeccionOfertasView({
         [key: string]: any;
       };
 
+      // Un 409 es un conflicto de edición, no un fallo del método: reintentarlo
+      // con PUT volvería a chocar y enmascararía el motivo real.
+      const esConflictoEdicion = (r: OfertaMutationResponse | null) =>
+        (r as any)?._httpStatus === 409;
+
       let response: OfertaMutationResponse;
       try {
         response = await apiRequest<OfertaMutationResponse>(endpoint, {
@@ -5900,7 +6043,11 @@ export function ConfeccionOfertasView({
         });
       }
 
-      if (modoEdicion && response.success === false) {
+      if (
+        modoEdicion &&
+        response.success === false &&
+        !esConflictoEdicion(response)
+      ) {
         console.warn(
           "⚠️ PATCH no fue aceptado. Reintentando actualización con PUT...",
           response,
@@ -5909,6 +6056,18 @@ export function ConfeccionOfertasView({
           method: "PUT",
           body: JSON.stringify(ofertaData),
         });
+      }
+
+      if (esConflictoEdicion(response)) {
+        toast({
+          title: "La oferta cambió mientras la editabas",
+          description:
+            typeof response.detail === "string"
+              ? response.detail
+              : "Otro usuario la guardó primero. Ciérrala y vuelve a abrirla para no perder sus cambios.",
+          variant: "destructive",
+        });
+        return; // el finally del guardado repone creandoOferta
       }
 
       console.log("✅ Respuesta del backend:", response);
@@ -6080,6 +6239,16 @@ export function ConfeccionOfertasView({
           await crearReservaDesdeEdicion(ofertaIdReserva);
           setReservandoEnGuardado(false);
         }
+
+        // Adelantar el testigo del bloqueo optimista a la versión que acaba de
+        // escribir el backend; si no, volver a guardar sin cerrar el formulario
+        // chocaría contra este mismo guardado. Tras reservar, la fecha del
+        // servidor ya no es la de esta respuesta: se suelta el testigo antes de
+        // arriesgar un 409 falso.
+        fechaEsperadaRef.current =
+          !debeReservarEnEdicion && responseData.fecha_actualizacion
+            ? String(responseData.fecha_actualizacion)
+            : undefined;
 
         // Guardar el nombre completo del backend para usar en exportaciones
         if (responseData.nombre_completo) {

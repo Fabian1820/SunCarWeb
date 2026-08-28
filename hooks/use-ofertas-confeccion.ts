@@ -32,6 +32,10 @@ export interface OfertaConfeccion {
   nombre_lead_sin_agregar?: string;
   foto_portada?: string;
   precio_final: number;
+  // Si es true, precio_final lo fijó el comercial a mano dentro de la banda
+  // [total sin redondear, redondeo al múltiplo de 10]. Sin este campo, reabrir
+  // o duplicar la oferta revertía el precio al redondeo automático.
+  redondeo_manual?: boolean;
   monto_pendiente?: number;
   total_materiales: number;
   margen_comercial: number;
@@ -238,6 +242,7 @@ export const normalizeOfertaConfeccion = (raw: any): OfertaConfeccion => {
     nombre_lead_sin_agregar: raw.nombre_lead_sin_agregar,
     foto_portada: raw.foto_portada ?? raw.foto_portada_url ?? raw.foto,
     precio_final: raw.precio_final ?? raw.precio ?? 0,
+    redondeo_manual: Boolean(raw.redondeo_manual ?? raw.redondeoManual),
     monto_pendiente: Number.isFinite(montoPendiente)
       ? montoPendiente
       : undefined,
