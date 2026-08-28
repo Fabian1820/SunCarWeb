@@ -177,6 +177,10 @@ export class ValeSalidaService {
       solicitud_material_id: solicitudMaterialId,
       solicitud_venta_id: solicitudVentaId,
       materiales: data.materiales,
+      ...(data.venta_excepcional && {
+        venta_excepcional: true,
+        motivo_venta_excepcional: data.motivo_venta_excepcional,
+      }),
     };
 
     const raw = await apiRequest<any>(`${BASE_ENDPOINT}/`, {

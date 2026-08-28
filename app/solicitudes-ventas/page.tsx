@@ -390,7 +390,12 @@ const [exportingPagos, setExportingPagos]           = useState(false);
         almacen_id: data.almacen_id!,
         materiales: data.materiales,
         ...(data.oferta_venta_id && { oferta_venta_id: data.oferta_venta_id }),
+        ...(data.reserva_id && { reserva_id: data.reserva_id }),
         ...(data.descuento_free && { descuento_free: data.descuento_free, motivo_descuento_free: (data as SolicitudVentaCreateData).motivo_descuento_free }),
+        ...((data as SolicitudVentaCreateData).venta_excepcional && {
+          venta_excepcional: true,
+          motivo_venta_excepcional: (data as SolicitudVentaCreateData).motivo_venta_excepcional,
+        }),
       });
       toast({ title: "Exito", description: "Solicitud de venta creada correctamente" });
       refreshAll();

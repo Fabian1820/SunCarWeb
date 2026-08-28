@@ -33,6 +33,8 @@ interface MaterialRow {
   codigo: string;
   nombre: string;
   um?: string;
+  /** Se agregó desde el catálogo completo y no está habilitado para venta web. */
+  no_vendible?: boolean;
 }
 
 interface EditReservaVentaDialogProps {
@@ -53,6 +55,13 @@ export function EditReservaVentaDialog({
   const [fechaExpiracion, setFechaExpiracion] = useState("");
   const [materialRows, setMaterialRows] = useState<MaterialRow[]>([]);
   const [materialesWeb, setMaterialesWeb] = useState<MaterialVentaWeb[]>([]);
+
+  // Reserva excepcional: busca en TODO el catálogo en vez de solo los
+  // habilitados para venta web. La autorización queda en la reserva.
+  const [incluirNoVendibles, setIncluirNoVendibles] = useState(false);
+  const [motivoVentaExcepcional, setMotivoVentaExcepcional] = useState("");
+  const [catalogoResults, setCatalogoResults] = useState<MaterialVentaWeb[]>([]);
+  const [catalogoLoading, setCatalogoLoading] = useState(false);
   const [loadingMateriales, setLoadingMateriales] = useState(false);
   const [showMaterialSearch, setShowMaterialSearch] = useState(false);
   const [materialSearch, setMaterialSearch] = useState("");
@@ -94,6 +103,11 @@ export function EditReservaVentaDialog({
     setErrors({});
     setShowMaterialSearch(false);
     setMaterialSearch("");
+    setIncluirNoVendibles(false);
+    setCatalogoResults([]);
+    // Se precarga el motivo original: si la reserva ya era excepcional y se le
+    // agrega otro material no vendible, el texto se extiende en vez de perderse.
+    setMotivoVentaExcepcional(reserva.motivo_venta_excepcional ?? "");
   }, [open, reserva]);
 
   // Reset on close
@@ -107,7 +121,40 @@ export function EditReservaVentaDialog({
     }
   }, [open]);
 
+  // Con el check activo la búsqueda es server-side contra el catálogo completo
+  // (incluye los no habilitados para venta web).
+  useEffect(() => {
+    const term = materialSearch.trim();
+    if (!incluirNoVendibles || !term) {
+      setCatalogoResults([]);
+      setCatalogoLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setCatalogoLoading(true);
+
+    const handler = setTimeout(() => {
+      SolicitudVentaService.buscarCatalogoCompleto(term, 30)
+        .then((results) => {
+          if (!cancelled) setCatalogoResults(results);
+        })
+        .catch(() => {
+          if (!cancelled) setCatalogoResults([]);
+        })
+        .finally(() => {
+          if (!cancelled) setCatalogoLoading(false);
+        });
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(handler);
+    };
+  }, [incluirNoVendibles, materialSearch]);
+
   const filteredMateriales = useMemo(() => {
+    if (incluirNoVendibles) return catalogoResults;
     if (!materialSearch.trim()) return materialesWeb.slice(0, 50);
     const term = materialSearch.toLowerCase();
     return materialesWeb
@@ -117,7 +164,15 @@ export function EditReservaVentaDialog({
           m.codigo.toLowerCase().includes(term),
       )
       .slice(0, 30);
-  }, [materialesWeb, materialSearch]);
+  }, [materialesWeb, materialSearch, incluirNoVendibles, catalogoResults]);
+
+  // Solo cuentan los agregados en esta edición: los materiales que ya venían en
+  // la reserva no traen el dato, y su autorización ya se dio al crearla.
+  const hayNoVendibles = useMemo(
+    () => materialRows.some((r) => r.no_vendible),
+    [materialRows],
+  );
+  const requiereMotivoExcepcional = incluirNoVendibles || hayNoVendibles;
 
   const addMaterial = (mat: MaterialVentaWeb) => {
     const existing = materialRows.find((r) => r.material_id === mat.id);
@@ -131,6 +186,7 @@ export function EditReservaVentaDialog({
         codigo: mat.codigo,
         nombre: mat.nombre,
         um: mat.um,
+        no_vendible: mat.habilitar_venta_web === false,
       },
     ]);
     setShowMaterialSearch(false);
@@ -159,6 +215,10 @@ export function EditReservaVentaDialog({
       newErrors.fechaExpiracion = "La fecha de expiración debe ser futura";
     if (materialRows.length === 0)
       newErrors.materiales = "Debe haber al menos un material";
+    if (requiereMotivoExcepcional && !motivoVentaExcepcional.trim()) {
+      newErrors.motivoExcepcional =
+        "Indica el motivo y quién autorizó la reserva de materiales no habilitados";
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -172,6 +232,10 @@ export function EditReservaVentaDialog({
         cantidad_reservada: r.cantidad_reservada,
         cantidad_consumida: r.cantidad_consumida,
       })),
+      ...(requiereMotivoExcepcional && {
+        venta_excepcional: true,
+        motivo_venta_excepcional: motivoVentaExcepcional.trim(),
+      }),
     };
     await onSubmit(reserva.id, data);
   };
@@ -259,12 +323,48 @@ export function EditReservaVentaDialog({
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
-                    placeholder="Buscar material..."
+                    placeholder={
+                      incluirNoVendibles
+                        ? "Buscar en todo el catalogo..."
+                        : "Buscar material..."
+                    }
                     value={materialSearch}
                     onChange={(e) => setMaterialSearch(e.target.value)}
                     className="pl-9"
                     autoFocus
                   />
+                  {catalogoLoading && (
+                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-amber-500" />
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = !incluirNoVendibles;
+                      setIncluirNoVendibles(next);
+                      setMaterialSearch("");
+                      setCatalogoResults([]);
+                    }}
+                    title={
+                      incluirNoVendibles
+                        ? "Volver a buscar solo materiales habilitados para venta web"
+                        : "Buscar en todo el catalogo, incluidos los no habilitados para venta web"
+                    }
+                    className={`text-xs px-3 py-1 rounded-full font-semibold transition-colors ${
+                      incluirNoVendibles
+                        ? "bg-amber-500 text-white"
+                        : "bg-gray-200 text-gray-500 hover:bg-amber-100 hover:text-amber-600"
+                    }`}
+                  >
+                    Incluir materiales no vendibles
+                  </button>
+                  {incluirNoVendibles && (
+                    <span className="text-xs text-amber-600 font-medium">
+                      Buscando en todo el catalogo
+                    </span>
+                  )}
                 </div>
                 <div className="max-h-48 overflow-y-auto space-y-1">
                   {filteredMateriales.length === 0 ? (
@@ -294,16 +394,47 @@ export function EditReservaVentaDialog({
                             </span>
                             {m.nombre}
                           </span>
-                          {m.um && (
-                            <Badge variant="outline" className="text-xs ml-2 shrink-0">
-                              {m.um}
-                            </Badge>
-                          )}
+                          <span className="flex items-center gap-2 ml-2 shrink-0">
+                            {m.habilitar_venta_web === false && (
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                                No vendible
+                              </span>
+                            )}
+                            {m.um && (
+                              <Badge variant="outline" className="text-xs">
+                                {m.um}
+                              </Badge>
+                            )}
+                          </span>
                         </button>
                       );
                     })
                   )}
                 </div>
+              </div>
+            )}
+
+            {requiereMotivoExcepcional && (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 space-y-1">
+                <label className="text-xs font-semibold text-amber-700 flex items-center gap-1">
+                  Motivo y quien autorizo <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={motivoVentaExcepcional}
+                  onChange={(e) => setMotivoVentaExcepcional(e.target.value)}
+                  placeholder="Ej: Reserva puntual para el cliente por rotura urgente - autorizado por Juan Perez, jefe comercial"
+                  className="w-full rounded-md border border-amber-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                />
+                {errors.motivoExcepcional ? (
+                  <p className="text-xs text-red-600">{errors.motivoExcepcional}</p>
+                ) : (
+                  !motivoVentaExcepcional.trim() && (
+                    <p className="text-xs text-amber-600">
+                      Campo obligatorio para reservar materiales no habilitados.
+                    </p>
+                  )
+                )}
               </div>
             )}
 

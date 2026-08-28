@@ -86,8 +86,10 @@ interface UseMaterialsReturn {
     materialCodigo: string,
     data: {
       codigo: string | number;
-      descripcion: string;
-      um: string;
+      // Opcionales: el backend acepta actualizaciones parciales
+      // (MaterialPartialUpdate) y solo persiste los campos enviados.
+      descripcion?: string;
+      um?: string;
       precio?: number;
       precio_instaladora?: number;
       porciento_rebajable_venta?: number;
@@ -590,8 +592,11 @@ export function useMaterials(options?: {
           return {
             ...m,
             codigo: String(payload.codigo),
-            descripcion: payload.descripcion,
-            um: payload.um,
+            // Tolerante a payloads parciales (p. ej. el toggle de venta web,
+            // que solo manda el flag): sin esto, el material quedaba en la
+            // lista con descripcion y um en undefined hasta recargar.
+            descripcion: payload.descripcion ?? m.descripcion,
+            um: payload.um ?? m.um,
             precio: payload.precio ?? m.precio,
             ubicacion_en_almacen:
               payload.ubicacion_en_almacen !== undefined

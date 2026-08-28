@@ -1,6 +1,7 @@
 ﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { apiRequest } from "../../../api-config";
+import { MaterialService } from "../materials/material-service";
 import type { VentasFacturaRow } from "../../../types/feats/solicitudes-ventas/solicitud-venta-types";
 import type {
   MaterialVentaWeb,
@@ -220,6 +221,37 @@ export class SolicitudVentaService {
   }
 
   /**
+   * Búsqueda server-side en TODO el catálogo, incluidos los materiales sin
+   * `habilitar_venta_web`. Es el buscador de solicitud de materiales
+   * (`/productos/materiales`), normalizado a la forma que consumen los
+   * diálogos de venta.
+   *
+   * Va contra el servidor y no en cliente porque el catálogo completo no se
+   * carga entero en el navegador: son más de 500 materiales.
+   */
+  static async buscarCatalogoCompleto(
+    term: string,
+    limit = 20,
+  ): Promise<MaterialVentaWeb[]> {
+    const q = term.trim();
+    if (!q) return [];
+
+    const results = await MaterialService.searchMaterialsByCode(q, limit);
+    return results.map((material) => ({
+      id: material.id,
+      codigo: String(material.codigo),
+      nombre: material.nombre || material.descripcion || String(material.codigo),
+      descripcion: material.descripcion,
+      um: material.um,
+      foto: material.foto,
+      precio: material.precio,
+      categoria: material.categoria,
+      habilitar_venta_web: material.habilitar_venta_web,
+      porciento_rebajable_venta: material.porciento_rebajable_venta,
+    }));
+  }
+
+  /**
    * List solicitudes summary (optimized for table views)
    * GET /api/operaciones/solicitudes-ventas/summary
    */
@@ -356,6 +388,20 @@ export class SolicitudVentaService {
       cliente_venta_id: clienteVentaId,
       cliente_venta: clienteVentaPayload,
       ...(data.oferta_venta_id && { oferta_venta_id: data.oferta_venta_id }),
+      // Sin reserva_id el backend intenta auto-vincular, pero se rinde si el
+      // cliente tiene más de una reserva activa en el almacén. El diálogo ya
+      // resolvió cuál es: hay que mandarla.
+      ...(data.reserva_id && { reserva_id: data.reserva_id }),
+      // Si no se propaga, la solicitud queda con descuento_free=false y sin
+      // motivo: se pierde la justificación del descuento por encima del tope.
+      ...(data.descuento_free && {
+        descuento_free: true,
+        motivo_descuento_free: data.motivo_descuento_free,
+      }),
+      ...(data.venta_excepcional && {
+        venta_excepcional: true,
+        motivo_venta_excepcional: data.motivo_venta_excepcional,
+      }),
     };
 
     const raw = await apiRequest<any>(`${BASE_ENDPOINT}/`, {

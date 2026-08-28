@@ -78,6 +78,8 @@ interface MaterialRow {
   faltante: number;
   /** Máximo % de descuento permitido para este material. undefined = sin límite */
   max_descuento?: number;
+  /** Se agregó desde el catálogo completo y no está habilitado para venta web. */
+  no_vendible?: boolean;
 }
 
 interface UpsertSolicitudVentaDialogProps {
@@ -216,6 +218,14 @@ export function UpsertSolicitudVentaDialog({
 
   const [materialSearch, setMaterialSearch] = useState("");
   const [showMaterialDropdown, setShowMaterialDropdown] = useState(false);
+
+  // Venta excepcional: busca en TODO el catálogo (mismo endpoint que solicitud
+  // de materiales) en vez de solo los habilitados para venta web. La
+  // autorización queda en la solicitud; el catálogo no se toca.
+  const [incluirNoVendibles, setIncluirNoVendibles] = useState(false);
+  const [motivoVentaExcepcional, setMotivoVentaExcepcional] = useState("");
+  const [catalogoResults, setCatalogoResults] = useState<MaterialVentaWeb[]>([]);
+  const [catalogoLoading, setCatalogoLoading] = useState(false);
 
   const [loadingData, setLoadingData] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -362,6 +372,9 @@ export function UpsertSolicitudVentaDialog({
     setMaterialRows(initialRows);
     setMaterialSearch("");
     setShowMaterialDropdown(false);
+    setIncluirNoVendibles(false);
+    setMotivoVentaExcepcional("");
+    setCatalogoResults([]);
     setShowReservaPanel(false);
     setReservasActivas([]);
     setReservaAplicada(null);
@@ -455,9 +468,52 @@ export function UpsertSolicitudVentaDialog({
     };
   }, [open, selectedClienteVenta?.id, ofertaAplicada, solicitud?.oferta_venta_id]);
 
+  // Con el check activo la búsqueda es server-side contra /productos/materiales
+  // (catálogo completo, sin filtro de habilitar_venta_web). No se puede filtrar
+  // en cliente como con los vendibles: la lista completa no está cargada.
+  useEffect(() => {
+    const term = materialSearch.trim();
+    if (!incluirNoVendibles || !term) {
+      setCatalogoResults([]);
+      setCatalogoLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setCatalogoLoading(true);
+
+    const handler = setTimeout(() => {
+      SolicitudVentaService.buscarCatalogoCompleto(term, 20)
+        .then((results) => {
+          if (!cancelled) setCatalogoResults(results);
+        })
+        .catch(() => {
+          if (!cancelled) setCatalogoResults([]);
+        })
+        .finally(() => {
+          if (!cancelled) setCatalogoLoading(false);
+        });
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(handler);
+    };
+  }, [incluirNoVendibles, materialSearch]);
+
   const filteredMateriales = useMemo(() => {
     const term = materialSearch.trim().toLowerCase();
     if (!term) return [];
+
+    if (incluirNoVendibles) {
+      // El backend ya filtró por el término (busca también por marca y N° de
+      // serie), así que aquí solo se descartan los ya agregados.
+      return catalogoResults
+        .filter((material) =>
+          !materialRows.some((row) => row.material_id === material.id),
+        )
+        .slice(0, 20);
+    }
 
     return materialesVendibles
       .filter((material) => {
@@ -477,11 +533,28 @@ export function UpsertSolicitudVentaDialog({
         return searchIndex.includes(term);
       })
       .slice(0, 20);
-  }, [materialSearch, materialesVendibles, materialRows]);
+  }, [
+    materialSearch,
+    materialesVendibles,
+    materialRows,
+    incluirNoVendibles,
+    catalogoResults,
+  ]);
 
   useEffect(() => {
     setShowMaterialDropdown(filteredMateriales.length > 0);
   }, [filteredMateriales]);
+
+  // El motivo sigue siendo obligatorio aunque el comercial apague el check
+  // después de agregar un no vendible: si no, el backend rechazaría la
+  // solicitud con un error que en pantalla no se explica.
+  const hayNoVendibles = useMemo(
+    () => materialRows.some((row) => row.no_vendible),
+    [materialRows],
+  );
+
+  const requiereMotivoExcepcional =
+    !isEdit && (incluirNoVendibles || hayNoVendibles);
 
   const validMaterials = useMemo(
     () =>
@@ -505,6 +578,7 @@ export function UpsertSolicitudVentaDialog({
     if (submitting || isLoading || loadingData) return false;
     if (hasDiscountError) return false;
     if (descuentoFree && !motivoDescuentoFree.trim()) return false;
+    if (requiereMotivoExcepcional && !motivoVentaExcepcional.trim()) return false;
     return true;
   }, [
     selectedClienteVenta,
@@ -516,6 +590,8 @@ export function UpsertSolicitudVentaDialog({
     hasDiscountError,
     descuentoFree,
     motivoDescuentoFree,
+    requiereMotivoExcepcional,
+    motivoVentaExcepcional,
   ]);
 
   const handleSelectCliente = (cliente: ClienteVenta) => {
@@ -641,6 +717,7 @@ export function UpsertSolicitudVentaDialog({
               max_descuento: typeof material.porciento_rebajable_venta === "number"
                 ? material.porciento_rebajable_venta
                 : undefined,
+              no_vendible: material.habilitar_venta_web === false,
             },
           ],
     );
@@ -1095,6 +1172,10 @@ export function UpsertSolicitudVentaDialog({
       ...(ofertaIdVinculada && { oferta_venta_id: ofertaIdVinculada }),
       ...(incluirReservaId && { reserva_id: reservaIdFinal }),
       ...(descuentoFree && { descuento_free: true, motivo_descuento_free: motivoDescuentoFree.trim() }),
+      ...(requiereMotivoExcepcional && {
+        venta_excepcional: true,
+        motivo_venta_excepcional: motivoVentaExcepcional.trim(),
+      }),
     };
 
     setSubmitting(true);
@@ -1715,11 +1796,18 @@ export function UpsertSolicitudVentaDialog({
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
-                placeholder="Buscar material vendible por codigo o nombre..."
+                placeholder={
+                  incluirNoVendibles
+                    ? "Buscar en todo el catalogo por codigo o nombre..."
+                    : "Buscar material vendible por codigo o nombre..."
+                }
                 value={materialSearch}
                 onChange={(event) => setMaterialSearch(event.target.value)}
                 className="pl-10"
               />
+              {catalogoLoading ? (
+                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-amber-500" />
+              ) : null}
 
               {showMaterialDropdown ? (
                 <div className="absolute z-50 mt-1 w-full max-h-56 overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg">
@@ -1738,12 +1826,74 @@ export function UpsertSolicitudVentaDialog({
                           {material.um ? ` - ${material.um}` : ""}
                         </p>
                       </div>
-                      <Plus className="h-4 w-4 text-green-600 flex-shrink-0" />
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {material.habilitar_venta_web === false ? (
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                            No vendible
+                          </span>
+                        ) : null}
+                        <Plus className="h-4 w-4 text-green-600" />
+                      </div>
                     </button>
                   ))}
                 </div>
               ) : null}
             </div>
+
+            {!isEdit && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !incluirNoVendibles;
+                    setIncluirNoVendibles(next);
+                    // Solo se limpia el motivo si ya no queda ningún no vendible
+                    // en la solicitud; si queda, sigue haciendo falta.
+                    if (!next && !hayNoVendibles) setMotivoVentaExcepcional("");
+                    setMaterialSearch("");
+                    setShowMaterialDropdown(false);
+                    setCatalogoResults([]);
+                  }}
+                  title={
+                    incluirNoVendibles
+                      ? "Volver a buscar solo materiales habilitados para venta web"
+                      : "Buscar en todo el catalogo, incluidos los no habilitados para venta web"
+                  }
+                  className={`text-xs px-3 py-1 rounded-full font-semibold transition-colors ${
+                    incluirNoVendibles
+                      ? "bg-amber-500 text-white"
+                      : "bg-gray-200 text-gray-500 hover:bg-amber-100 hover:text-amber-600"
+                  }`}
+                >
+                  Incluir materiales no vendibles
+                </button>
+                {incluirNoVendibles && (
+                  <span className="text-xs text-amber-600 font-medium">
+                    Buscando en todo el catalogo
+                  </span>
+                )}
+              </div>
+            )}
+
+            {requiereMotivoExcepcional && (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 space-y-1">
+                <label className="text-xs font-semibold text-amber-700 flex items-center gap-1">
+                  Motivo y quien autorizo <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={motivoVentaExcepcional}
+                  onChange={(e) => setMotivoVentaExcepcional(e.target.value)}
+                  placeholder="Ej: Venta puntual al cliente por rotura urgente - autorizado por Juan Perez, jefe comercial"
+                  className="w-full rounded-md border border-amber-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                />
+                {!motivoVentaExcepcional.trim() && (
+                  <p className="text-xs text-amber-600">
+                    Campo obligatorio para vender materiales no habilitados.
+                  </p>
+                )}
+              </div>
+            )}
 
             {!selectedAlmacenId && !loadingStock && (
               <p className="text-xs text-amber-600 flex items-center gap-1">

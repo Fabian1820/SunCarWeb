@@ -34,6 +34,10 @@ export interface Reserva {
   fecha_expiracion: string;
   fecha_cierre?: string | null;
   creado_por_ci: string;
+  /** La reserva incluye materiales no habilitados para venta web. */
+  venta_excepcional?: boolean;
+  /** Motivo y quién autorizó la reserva excepcional. */
+  motivo_venta_excepcional?: string | null;
   fecha_creacion: string;
   fecha_actualizacion: string;
   // Campos populados por el backend en GET
@@ -51,11 +55,20 @@ export interface ReservaCreateData {
   fecha_expiracion: string;
   oferta_id?: string;
   origen?: ReservaOrigen;
+  /**
+   * Autoriza incluir materiales sin `habilitar_venta_web` en ESTA reserva.
+   * No modifica el catálogo: el material no se publica en la tienda pública.
+   */
+  venta_excepcional?: boolean;
+  /** Obligatorio si `venta_excepcional`: motivo y quién autorizó, en un solo texto. */
+  motivo_venta_excepcional?: string;
 }
 
 export interface ReservaUpdateData {
   fecha_expiracion?: string;
   materiales?: MaterialReserva[];
+  venta_excepcional?: boolean;
+  motivo_venta_excepcional?: string;
 }
 
 export interface ReservaConsumirData {
