@@ -67,7 +67,7 @@ export function MaterialContableDetalle({ open, onOpenChange, material }: Materi
     setLoadingKardex(true)
     try {
       const [historial, listaAlmacenes] = await Promise.all([
-        KardexCostoService.getHistorial({ material_id: materialId, limit: 200 }),
+        KardexCostoService.getHistorial({ material_id: materialId }),
         InventarioService.getAlmacenes().catch(() => []),
       ])
       const mapa: Record<string, string> = {}

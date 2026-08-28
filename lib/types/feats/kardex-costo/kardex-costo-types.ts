@@ -20,17 +20,6 @@ export interface KardexCosto {
   nota?: string;
 }
 
-export interface KardexEntradaCreateData {
-  material_id: string;
-  almacen_id: string;
-  cantidad_entrada: number;
-  costo_entrada: number;
-  compra_id?: string;
-  movimiento_id?: string;
-  solicitud_entrada_id?: string;
-  nota?: string;
-}
-
 export interface KardexHistorialParams {
   material_id?: string;
   almacen_id?: string;

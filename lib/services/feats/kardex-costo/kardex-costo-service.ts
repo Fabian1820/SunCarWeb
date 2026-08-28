@@ -4,7 +4,6 @@ import { apiRequest } from "../../../api-config";
 import type {
   CostoActualResponse,
   KardexCosto,
-  KardexEntradaCreateData,
   KardexHistorialParams,
 } from "../../../types/feats/kardex-costo/kardex-costo-types";
 
@@ -60,19 +59,42 @@ const buildQuery = (params: KardexHistorialParams | undefined): string => {
   return entries.length > 0 ? `?${entries.join("&")}` : "";
 };
 
+const fetchHistorialPagina = async (params: KardexHistorialParams): Promise<KardexCosto[]> => {
+  const raw = await apiRequest<any>(`${BASE_ENDPOINT}/historial${buildQuery(params)}`);
+  const error = extractApiError(raw);
+  if (error) throw new Error(error);
+  const payload = unwrapPayload(raw);
+  const list = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.historial)
+      ? payload.historial
+      : [];
+  return list.map(mapKardex);
+};
+
 export class KardexCostoService {
+  /**
+   * Historial del kardex. Sin `limit` explícito pagina hasta traerlo completo.
+   *
+   * El endpoint valida `limit <= 500` y ordena por fecha DESCENDENTE, así que
+   * pedir una sola página no recorta "lo que sobra": deja fuera los movimientos
+   * MÁS ANTIGUOS, justo los que importan en una vista de auditoría de costos.
+   */
   static async getHistorial(params: KardexHistorialParams): Promise<KardexCosto[]> {
     try {
-      const raw = await apiRequest<any>(`${BASE_ENDPOINT}/historial${buildQuery(params)}`);
-      const error = extractApiError(raw);
-      if (error) throw new Error(error);
-      const payload = unwrapPayload(raw);
-      const list = Array.isArray(payload)
-        ? payload
-        : Array.isArray(payload?.historial)
-          ? payload.historial
-          : [];
-      return list.map(mapKardex);
+      if (params.limit != null) return await fetchHistorialPagina(params);
+
+      const PAGE = 500;
+      const todos: KardexCosto[] = [];
+      let skip = params.skip ?? 0;
+      let guard = 0;
+      while (guard++ < 20) {
+        const lote = await fetchHistorialPagina({ ...params, skip, limit: PAGE });
+        todos.push(...lote);
+        if (lote.length < PAGE) break;
+        skip += lote.length;
+      }
+      return todos;
     } catch {
       return [];
     }
@@ -96,30 +118,6 @@ export class KardexCostoService {
     } catch {
       return null;
     }
-  }
-
-  static async getHistorialPorCompra(compra_id: string): Promise<KardexCosto[]> {
-    if (!compra_id.trim()) return [];
-    try {
-      const raw = await apiRequest<any>(`${BASE_ENDPOINT}/compra/${encodeURIComponent(compra_id)}`);
-      const error = extractApiError(raw);
-      if (error) throw new Error(error);
-      const payload = unwrapPayload(raw);
-      const list = Array.isArray(payload) ? payload : Array.isArray(payload?.historial) ? payload.historial : [];
-      return list.map(mapKardex);
-    } catch {
-      return [];
-    }
-  }
-
-  static async crearEntrada(payload: KardexEntradaCreateData): Promise<KardexCosto> {
-    const raw = await apiRequest<any>(`${BASE_ENDPOINT}/entrada`, {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-    const error = extractApiError(raw);
-    if (error) throw new Error(error);
-    return mapKardex(unwrapPayload(raw));
   }
 
   /**

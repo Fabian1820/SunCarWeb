@@ -75,7 +75,7 @@ export function EstablecerCostoDialog({
     try {
       const codigo = mat.codigo != null ? String(mat.codigo) : ""
       const [historial, stockRes, almacenesRes] = await Promise.all([
-        KardexCostoService.getHistorial({ material_id: mat.material_id, limit: 200 }),
+        KardexCostoService.getHistorial({ material_id: mat.material_id }),
         InventarioService.getMaterialesStock({ q: codigo, limit: 25 }).catch(() => ({ data: [] }) as any),
         InventarioService.getAlmacenes().catch(() => [] as any[]),
       ])

@@ -39,7 +39,7 @@ export function useKardexCosto({
     setError(null);
     try {
       const [hist, costo] = await Promise.all([
-        KardexCostoService.getHistorial({ material_id: materialId, almacen_id: almacenId, limit: 200 }),
+        KardexCostoService.getHistorial({ material_id: materialId, almacen_id: almacenId }),
         KardexCostoService.getCostoActual(materialId, almacenId),
       ]);
       setHistorial(
