@@ -9,7 +9,7 @@ import type { Averia } from "../averias/averia-types";
 export interface ClienteFoto {
   url: string;
   fecha: string;
-  tipo: "instalacion" | "averia";
+  tipo: "instalacion" | "averia" | "visita";
 }
 
 export interface Cliente {

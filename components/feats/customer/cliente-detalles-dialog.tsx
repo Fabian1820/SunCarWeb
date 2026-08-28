@@ -422,7 +422,11 @@ export function ClienteDetallesDialog({
                       </div>
                       <div className="flex items-center justify-between gap-1">
                         <Badge className="border-blue-200 bg-blue-100 px-1.5 py-0 text-[10px] text-blue-700">
-                          {archivo.tipo === "instalacion" ? "Instalación" : "Avería"}
+                          {archivo.tipo === "instalacion"
+                            ? "Instalación"
+                            : archivo.tipo === "visita"
+                              ? "Visita"
+                              : "Avería"}
                         </Badge>
                         <span className="text-[10px] text-gray-500">{formatFechaArchivo(archivo.fecha)}</span>
                       </div>
