@@ -1,8 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
-import { Card, CardContent } from "@/components/shared/molecule/card"
+import { useParams } from "next/navigation"
+import { ModuleCard } from "@/components/shared/molecule/module-card"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import { InventarioService } from "@/lib/api-services"
@@ -11,7 +11,6 @@ import { BarChart3, FileOutput, PackagePlus } from "lucide-react"
 
 export default function AlmacenHubPage() {
   const params = useParams()
-  const router = useRouter()
   const almacenId = params.almacenId as string
 
   const [almacen, setAlmacen] = useState<Almacen | null>(null)
@@ -42,7 +41,6 @@ export default function AlmacenHubPage() {
       title: "Stock",
       description: "Ver y gestionar el inventario de este almacén",
       icon: BarChart3,
-      color: "blue",
       href: `/almacenes/${almacenId}`,
     },
     {
@@ -50,7 +48,6 @@ export default function AlmacenHubPage() {
       title: "Solicitudes de Entrada",
       description: "Aprobar o rechazar recepciones de mercancía",
       icon: PackagePlus,
-      color: "indigo",
       href: `/almacenes-suncar/${almacenId}/solicitudes-entrada`,
     },
     {
@@ -58,70 +55,32 @@ export default function AlmacenHubPage() {
       title: "Vales de Salida",
       description: "Gestionar vales de salida de materiales",
       icon: FileOutput,
-      color: "orange",
       href: `/almacenes-suncar/${almacenId}/vales-salida`,
     },
   ]
-
-  const getColorClasses = (color: string) => {
-    const colors: Record<string, { bg: string; border: string; icon: string; hover: string }> = {
-      blue: {
-        bg: "bg-blue-50",
-        border: "border-blue-200",
-        icon: "text-blue-600",
-        hover: "hover:bg-blue-100",
-      },
-      orange: {
-        bg: "bg-emerald-50",
-        border: "border-emerald-200",
-        icon: "text-emerald-600",
-        hover: "hover:bg-emerald-100",
-      },
-      indigo: {
-        bg: "bg-indigo-50",
-        border: "border-indigo-200",
-        icon: "text-indigo-600",
-        hover: "hover:bg-indigo-100",
-      },
-    }
-    return colors[color] || colors.blue
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title={almacen?.nombre || "Almacén"}
         subtitle={almacen?.direccion || "Gestión de stock y vales de salida"}
-        badge={{ text: "Almacenes", className: "bg-blue-100 text-blue-800" }}
-        className="bg-white shadow-sm border-b border-blue-100"
+        badge={{ text: "Gestión de Almacenes", className: "bg-sky-100 text-sky-800" }}
+        className="bg-white shadow-sm border-b border-sky-100"
         backButton={{ href: "/almacenes-suncar", label: "Volver a Almacenes" }}
       />
 
       <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {opciones.map((opcion) => {
-            const Icon = opcion.icon
-            const colors = getColorClasses(opcion.color)
-            return (
-              <Card
-                key={opcion.id}
-                className={`cursor-pointer transition-all duration-200 ${colors.border} ${colors.hover} border-2`}
-                onClick={() => router.push(opcion.href)}
-              >
-                <CardContent className="p-6">
-                  <div className="flex flex-col items-center text-center space-y-4">
-                    <div className={`${colors.bg} p-4 rounded-full`}>
-                      <Icon className={`h-8 w-8 ${colors.icon}`} />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">{opcion.title}</h3>
-                      <p className="text-sm text-gray-600">{opcion.description}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {opciones.map((opcion) => (
+            <ModuleCard
+              key={opcion.id}
+              href={opcion.href}
+              icon={opcion.icon}
+              iconClass="text-sky-700"
+              title={opcion.title}
+              description={opcion.description}
+            />
+          ))}
         </div>
       </main>
     </div>

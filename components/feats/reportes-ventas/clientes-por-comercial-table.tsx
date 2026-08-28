@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -18,6 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/shared/molecule/table";
+import { SmartPagination } from "@/components/shared/molecule/smart-pagination";
 import {
   Select,
   SelectContent,
@@ -46,6 +47,8 @@ interface ClientesPorComercialTableProps {
   onRefresh: () => void;
 }
 
+const POR_PAGINA = 20;
+
 export function ClientesPorComercialTable({
   clientes,
   loading,
@@ -54,6 +57,7 @@ export function ClientesPorComercialTable({
   const [searchTerm, setSearchTerm] = useState("");
   const [comercialFilter, setComercialFilter] = useState<string>("todos");
   const [tieneOfertasFilter, setTieneOfertasFilter] = useState<string>("todos");
+  const [page, setPage] = useState(1);
 
   const comerciales = useMemo(() => {
     const unique = new Set(
@@ -80,6 +84,18 @@ export function ClientesPorComercialTable({
       return true;
     });
   }, [clientes, searchTerm, comercialFilter, tieneOfertasFilter]);
+
+  // Se pagina en cliente: las estadisticas siguen calculandose sobre todo el
+  // filtrado, solo se recorta lo que se dibuja.
+  const totalPages = Math.max(1, Math.ceil(filtered.length / POR_PAGINA));
+  const clientesPagina = useMemo(
+    () => filtered.slice((page - 1) * POR_PAGINA, page * POR_PAGINA),
+    [filtered, page],
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, comercialFilter, tieneOfertasFilter]);
 
   const estadisticas = useMemo(() => {
     const stats = new Map<string, EstadisticaClientesVendedor>();
@@ -267,7 +283,7 @@ export function ClientesPorComercialTable({
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filtered.map((c) => {
+                  clientesPagina.map((c) => {
                     const comercial = c.comercial || "Sin asignar";
                     return (
                       <TableRow key={c.id}>
@@ -319,8 +335,23 @@ export function ClientesPorComercialTable({
           </div>
 
           {!loading && filtered.length > 0 && (
-            <div className="mt-4 text-sm text-gray-600">
-              Mostrando {filtered.length} de {clientes.length} clientes
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-sm text-gray-600">
+                Mostrando{" "}
+                <span className="font-medium">
+                  {(page - 1) * POR_PAGINA + 1}&ndash;
+                  {Math.min(page * POR_PAGINA, filtered.length)}
+                </span>{" "}
+                de <span className="font-medium">{filtered.length}</span> clientes
+                {filtered.length !== clientes.length && ` (de ${clientes.length} en total)`}
+              </div>
+              {totalPages > 1 && (
+                <SmartPagination
+                  currentPage={page}
+                  totalPages={totalPages}
+                  onPageChange={setPage}
+                />
+              )}
             </div>
           )}
         </CardContent>
