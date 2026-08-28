@@ -71,7 +71,13 @@ export function useInventario(options?: {
     setLoadingStock(true)
     setError(null)
     try {
-      const result = await InventarioService.getStock({ almacen_id: almacenId, limit: 200 })
+      // Con almacén: sin `limit`, porque este stock se usa para validar
+      // disponibilidad (POS, confección de ofertas) y un tope hacía que los
+      // materiales fuera del corte se leyeran como 0. Sin almacén es la carga
+      // global de arranque, que nadie usa para validar: ahí sí se acota.
+      const result = await InventarioService.getStock(
+        almacenId ? { almacen_id: almacenId } : { limit: 200 },
+      )
       setStock(Array.isArray(result.data) ? result.data : [])
     } catch (err) {
       console.error('Error fetching stock:', err)

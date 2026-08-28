@@ -878,10 +878,13 @@ export function CreateSolicitudMaterialDialog({
     void (async () => {
       setLoadingStock(true);
       try {
-        // Carga paralela: stock bruto + todas las reservas activas del almacén
+        // Carga paralela: stock bruto + todas las reservas activas del almacén.
+        // Sin `limit`: el mapa de stock debe cubrir TODO el almacén. Con un tope
+        // el backend paginaba (orden material_id asc) y los materiales fuera del
+        // corte aparecían como stock 0 → "falta" falso al buscarlos.
         const [{ data: items }, { data: todasReservas }] = await Promise.all([
-          InventarioService.getStock({ almacen_id: selectedAlmacenId, limit: 500 }),
-          ReservaVentaService.getReservas({ almacen_id: selectedAlmacenId, estado: "activa", limit: 500 }),
+          InventarioService.getStock({ almacen_id: selectedAlmacenId }),
+          ReservaVentaService.getReservas({ almacen_id: selectedAlmacenId, estado: "activa" }),
         ]);
 
         const map = buildStockMap(items);
