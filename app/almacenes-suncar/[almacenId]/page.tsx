@@ -88,7 +88,7 @@ export default function AlmacenHubPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title={almacen?.nombre || "Almacén"}
         subtitle={almacen?.direccion || "Gestión de stock y vales de salida"}

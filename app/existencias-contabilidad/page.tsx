@@ -1,18 +1,18 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import Link from "next/link"
 import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Label } from "@/components/shared/atom/label"
 import { Input } from "@/components/shared/molecule/input"
-import { ArrowLeft, PackageSearch, ClipboardList, Edit, Search } from "lucide-react"
+import { PackageSearch, ClipboardList, Edit, Search } from "lucide-react"
 import { ContabilidadTable } from "@/components/feats/contabilidad/contabilidad-table"
 import { EntradaManualDialog } from "@/components/feats/contabilidad/entrada-manual-dialog"
 import { CrearTicketDialog } from "@/components/feats/contabilidad/crear-ticket-dialog"
 import { SeleccionarMaterialDialog } from "@/components/feats/contabilidad/seleccionar-material-dialog"
 import { EditarDatosContabilidadDialog } from "@/components/feats/contabilidad/editar-datos-contabilidad-dialog"
 import { useContabilidad } from "@/hooks/use-contabilidad"
+import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/shared/molecule/toaster"
@@ -158,37 +158,14 @@ function ExistenciasContabilidadPageContent() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
-      {/* Header */}
-      <header className="fixed-header">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div className="flex items-center space-x-3">
-              <Link href="/">
-                <Button variant="ghost" size="sm">
-                  <ArrowLeft className="h-4 w-4" />
-                  Volver al Dashboard
-                </Button>
-              </Link>
-              <div className="rounded-xl bg-suncar-primary shadow-sm flex items-center justify-center h-9 w-9 sm:h-12 sm:w-12 shrink-0 p-1.5 sm:p-2">
-                <img
-                  src="/brand/suncar-v1-iso.png"
-                  alt="Logo Suncar"
-                  className="h-full w-full object-contain"
-                />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">Existencias Contabilidad</h1>
-                <p className="text-sm text-gray-600">
-                  Gestión de inventario contable y tickets de salida
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
+      <ModuleHeader
+        title="Existencias Contabilidad"
+        subtitle="Gestión de inventario contable y tickets de salida"
+        badge={{ text: "Economía", className: "bg-amber-100 text-amber-800" }}
+      />
 
       {/* Main Content */}
-      <main className="pt-32 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Error Banner */}
         {error && (
           <Card className="mb-6 border-red-200 bg-red-50">

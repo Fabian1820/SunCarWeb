@@ -893,7 +893,7 @@ function FichaCostoContent() {
   if (!envio) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       {/* ══════════════════════════════════════════════════════
           HEADER FIJO
       ══════════════════════════════════════════════════════ */}

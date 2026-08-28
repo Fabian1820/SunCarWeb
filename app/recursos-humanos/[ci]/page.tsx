@@ -965,7 +965,7 @@ export default function EmpleadoDetallePage() {
   ]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white via-[#E6F4EF]/30 to-white">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
 
       {/* Header fijo */}
       <header className="fixed-header bg-white/90 backdrop-blur border-b border-gray-100">

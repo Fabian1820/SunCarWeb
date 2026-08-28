@@ -9,8 +9,6 @@ export default function TodosTrabajosPage() {
     <RouteGuard requiredModule="trabajos:acceso-directo">
       <ModuleHeader
         title="Trabajos Diarios"
-        backHref="/"
-        backLabel="Volver al inicio"
       />
       <div className="container mx-auto px-4 py-6 content-with-fixed-header">
         <TrabajosDiariosTodosView />

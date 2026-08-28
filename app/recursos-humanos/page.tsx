@@ -417,12 +417,10 @@ export default function EmpleadosPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white via-[#E6F4EF]/30 to-white">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Empleados"
         subtitle="Gestión del personal de Suncar"
-        backHref="/"
-        backLabel="Volver al Dashboard"
         actions={
           <Button onClick={() => setShowCrear(true)} className="bg-suncar-primary hover:bg-suncar-primary/90 text-white gap-2">
             <Plus className="h-4 w-4" />

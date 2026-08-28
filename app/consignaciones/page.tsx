@@ -157,7 +157,7 @@ export default function ConsignacionesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Consignaciones"
         subtitle="Ventas entregadas al cliente sin pago completo. Se crean desde el módulo de pagos marcando el toggle “Consignación”."

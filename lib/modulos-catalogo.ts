@@ -191,6 +191,12 @@ export type ModuloCatalogo = {
   permission?: string
   /** Card siempre visible para usuarios autenticados, sin verificar permiso. */
   alwaysVisible?: boolean
+  /**
+   * El módulo no es una pantalla suelta: por dentro agrupa varias secciones o
+   * submódulos. El dashboard le pinta un detalle distinto (tarjeta apilada +
+   * etiqueta "Varias secciones") para que se note antes de entrar.
+   */
+  tieneSubmodulos?: boolean
   /** Solo visible en dashboard para SuperAdmin. */
   superAdminOnly?: boolean
   /**
@@ -505,6 +511,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-indigo-600",
     href: "/tiendas-suncarventas",
     grupo: "comercial-ventas",
+    tieneSubmodulos: true,
   },
   {
     key: "reportes-ventas",
@@ -611,6 +618,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-teal-600",
     href: "/instalaciones",
     grupo: "operaciones",
+    tieneSubmodulos: true,
     hideFromDashboard: true,
     // Una tarjeta = un sub-permiso (`instalaciones/<tarjeta>`). Tener el módulo
     // `instalaciones` completo concede todas (herencia padre→hijo por el `/`).
@@ -703,6 +711,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-amber-600",
     href: "/facturas",
     grupo: "economia",
+    tieneSubmodulos: true,
     hideFromDashboard: true,
     subPermisos: [
       {
@@ -740,6 +749,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-amber-600",
     href: "/compras-envios-costos",
     grupo: "economia",
+    tieneSubmodulos: true,
     hideFromDashboard: true,
     childKeys: ["envio-contenedores", "fichas-costo", "kardex-costo", "solicitudes-entrada-almacen"],
   },
@@ -835,6 +845,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-sky-700",
     href: "/almacenes-suncar",
     grupo: "gestion-almacenes",
+    tieneSubmodulos: true,
     subPermisos: [
       {
         key: "almacenes-suncar/admin",

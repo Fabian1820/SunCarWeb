@@ -115,7 +115,7 @@ export default function PreguntasFrecuentesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Preguntas Frecuentes"
         subtitle="Preguntas y respuestas oficiales que usa el asistente de WhatsApp para responder consultas fuera del catálogo de ofertas."

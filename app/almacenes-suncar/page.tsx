@@ -38,16 +38,12 @@ export default function AlmacenesSuncarPage() {
   )
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Almacenes Suncar"
         subtitle="Gestión de almacenes y control de inventario"
         badge={{ text: "Inventario", className: "bg-blue-100 text-blue-800" }}
         className="bg-white shadow-sm border-b border-blue-100"
-        backButton={{
-          href: "/",
-          label: "Volver al Dashboard"
-        }}
       />
 
       <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">

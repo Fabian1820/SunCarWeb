@@ -1,10 +1,10 @@
 "use client"
 
-import Link from "next/link"
 import { useState } from "react"
 import { Calculator, FileSpreadsheet, PackagePlus, Ship } from "lucide-react"
 import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent } from "@/components/shared/molecule/card"
+import { ModuleCard } from "@/components/shared/molecule/module-card"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { CalcPorcentajeDialog } from "@/components/feats/fichas-costo/calc-porcentaje-dialog"
 import { FichaCostoService } from "@/lib/api-services"
@@ -28,7 +28,7 @@ const SUB_MODULES: SubModule[] = [
     title: "Compras",
     description: "Registrar y monitorear compras y contenedores.",
     icon: Ship,
-    iconClass: "text-cyan-700",
+    iconClass: "text-amber-600",
   },
   {
     id: "solicitudes-entrada-almacen",
@@ -36,7 +36,7 @@ const SUB_MODULES: SubModule[] = [
     title: "Solicitudes de Entrada",
     description: "Recepción de materiales de compra al almacén con split por sector.",
     icon: PackagePlus,
-    iconClass: "text-blue-600",
+    iconClass: "text-amber-600",
   },
   {
     id: "kardex-costo",
@@ -44,7 +44,7 @@ const SUB_MODULES: SubModule[] = [
     title: "Historial de Costos",
     description: "Costo promedio de cada material por almacén, con el histórico de compras que lo formaron.",
     icon: Calculator,
-    iconClass: "text-violet-600",
+    iconClass: "text-amber-600",
   },
   {
     id: "fichas-costo",
@@ -52,7 +52,7 @@ const SUB_MODULES: SubModule[] = [
     title: "Fichas de Costo",
     description: "Gestión de fichas de costo de materiales.",
     icon: FileSpreadsheet,
-    iconClass: "text-teal-600",
+    iconClass: "text-amber-600",
   },
 ]
 
@@ -111,27 +111,17 @@ export default function ComprasEnviosCostosPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-            {visibleSubModules.map((mod) => {
-              const Icon = mod.icon
-              return (
-                <Link key={mod.id} href={mod.href}>
-                  <Card className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer h-full hover:-translate-y-2 bg-white/90 backdrop-blur-sm">
-                    <CardContent className="p-4 sm:p-6 flex flex-col items-center justify-center text-center h-full">
-                      <Icon
-                        className={`h-8 w-8 sm:h-10 sm:w-10 ${mod.iconClass} mb-3`}
-                      />
-                      <h4 className="text-lg font-semibold text-gray-900 mb-2">
-                        {mod.title}
-                      </h4>
-                      <p className="text-sm text-gray-600">
-                        {mod.description}
-                      </p>
-                    </CardContent>
-                  </Card>
-                </Link>
-              )
-            })}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {visibleSubModules.map((mod) => (
+              <ModuleCard
+                key={mod.id}
+                href={mod.href}
+                icon={mod.icon}
+                iconClass={mod.iconClass}
+                title={mod.title}
+                description={mod.description}
+              />
+            ))}
           </div>
         )}
       </main>

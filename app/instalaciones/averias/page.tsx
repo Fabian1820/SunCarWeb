@@ -166,8 +166,6 @@ export default function AveriasPage() {
         title="Averías"
         subtitle="Reportes de averías y mantenimiento"
         badge={{ text: "Averías", className: "bg-red-100 text-red-800" }}
-        backHref="/instalaciones"
-        backLabel="Volver a Instalaciones"
       />
 
       <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">

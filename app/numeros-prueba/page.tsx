@@ -86,7 +86,7 @@ export default function NumerosPruebaPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Números de Prueba"
         subtitle="Números de teléfono a los que el asistente de WhatsApp siempre responde, sin importar el historial. Los cambios tardan hasta 15 segundos en aplicar."

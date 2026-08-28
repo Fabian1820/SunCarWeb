@@ -1,16 +1,16 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
 import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card"
-import { ArrowLeft, Plus, Package, Users, Box, Layers, FileBarChart2 } from "lucide-react"
+import { Plus, Package, Users, Box, Layers, FileBarChart2 } from "lucide-react"
 import { useAsignaciones } from "@/hooks/use-asignaciones"
 import { TrabajadorAsignacionesTable } from "@/components/feats/asignaciones/trabajador-asignaciones-table"
 import { MediosBasicosTable } from "@/components/feats/asignaciones/medios-basicos-table"
 import { MedioBasicoDialog } from "@/components/feats/asignaciones/medio-basico-dialog"
 import { InstalacionAsignacionesTab } from "@/components/feats/asignaciones/instalacion-asignaciones-tab"
 import { MaterialesCatalogoReadonly } from "@/components/feats/asignaciones/materiales-catalogo-readonly"
+import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/shared/molecule/toaster"
@@ -119,29 +119,13 @@ function AsignacionesPageContent() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
-      <header className="fixed-header">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div className="flex items-center space-x-3">
-              <Link href="/">
-                <Button variant="ghost" size="sm">
-                  <ArrowLeft className="h-4 w-4 mr-1" />
-                  Volver
-                </Button>
-              </Link>
-              <div className="rounded-xl bg-suncar-primary shadow-sm flex items-center justify-center h-9 w-9 sm:h-12 sm:w-12 shrink-0 p-1.5 sm:p-2">
-                <img src="/brand/suncar-v1-iso.png" alt="Logo Suncar" className="h-full w-full object-contain" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">Asignaciones de Recursos</h1>
-                <p className="text-sm text-gray-600">Medios básicos y materiales asignados a trabajadores e instalaciones</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
+      <ModuleHeader
+        title="Asignaciones de Recursos"
+        subtitle="Medios básicos y materiales asignados a trabajadores e instalaciones"
+        badge={{ text: "Recursos Humanos", className: "bg-violet-100 text-violet-800" }}
+      />
 
-      <main className="pt-32 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
         {error && (
           <Card className="mb-6 border-red-200 bg-red-50">
             <CardContent className="p-4">

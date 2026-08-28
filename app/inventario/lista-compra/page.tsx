@@ -17,13 +17,11 @@ export default function ListaCompraPage() {
   }, [loadItems]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Lista de Compra"
         subtitle="Ítems curados manualmente a partir del análisis de stock, listos para pedir"
         badge={{ text: "Inventario", className: "bg-blue-100 text-blue-800" }}
-        backHref="/inventario"
-        backLabel="Volver a Inventario"
         className="bg-white shadow-sm border-b border-blue-100"
       />
 

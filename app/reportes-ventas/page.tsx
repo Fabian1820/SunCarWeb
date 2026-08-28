@@ -1,87 +1,128 @@
 "use client"
 
-import { useRouter } from "next/navigation"
-import { Card, CardContent } from "@/components/shared/molecule/card"
+import { useState, useEffect, useCallback } from "react"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
-import { TrendingUp } from "lucide-react"
+import { VentasPorComercialTable } from "@/components/feats/reportes-ventas/resultados-comercial-table"
+import { ClientesPorComercialTable } from "@/components/feats/reportes-ventas/clientes-por-comercial-table"
+import { ResultadosVentasService } from "@/lib/services/feats/reportes-ventas/resultados-comercial-service"
+import { useToast } from "@/hooks/use-toast"
+import { Receipt, Users } from "lucide-react"
+import type {
+  FacturaVentaConComercial,
+  ClienteVentaConResumen,
+} from "@/lib/types/feats/reportes-ventas/reportes-ventas-types"
+
+type TabId = "ventas" | "clientes"
+
+const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
+  { id: "ventas", label: "Ventas por Comercial", icon: Receipt },
+  { id: "clientes", label: "Clientes por Comercial", icon: Users },
+]
 
 export default function ReportesVentasPage() {
-  const router = useRouter()
+  const { toast } = useToast()
+  const [activeTab, setActiveTab] = useState<TabId>("ventas")
 
-  const opciones = [
-    {
-      id: 'resultados-comercial',
-      title: 'Resultados por Comercial',
-      description: 'Ofertas de ventas por vendedor: confirmadas, pagadas y montos cobrados',
-      icon: TrendingUp,
-      color: 'green',
-      href: '/reportes-ventas/resultados-comercial'
-    }
-  ]
+  const [facturas, setFacturas] = useState<FacturaVentaConComercial[]>([])
+  const [loadingFacturas, setLoadingFacturas] = useState(true)
 
-  const getColorClasses = (color: string) => {
-    const colors = {
-      blue: {
-        bg: 'bg-blue-50',
-        border: 'border-blue-200',
-        icon: 'text-blue-600',
-        hover: 'hover:bg-blue-100'
-      },
-      green: {
-        bg: 'bg-green-50',
-        border: 'border-green-200',
-        icon: 'text-green-600',
-        hover: 'hover:bg-green-100'
-      },
-      orange: {
-        bg: 'bg-emerald-50',
-        border: 'border-emerald-200',
-        icon: 'text-emerald-600',
-        hover: 'hover:bg-emerald-100'
-      }
+  const [clientes, setClientes] = useState<ClienteVentaConResumen[]>([])
+  const [loadingClientes, setLoadingClientes] = useState(false)
+  const [clientesLoaded, setClientesLoaded] = useState(false)
+
+  const fetchFacturas = useCallback(async () => {
+    setLoadingFacturas(true)
+    try {
+      const data = await ResultadosVentasService.getFacturasConComercial({ limit: 1000 })
+      setFacturas(data)
+    } catch (error: any) {
+      console.error('Error al cargar facturas:', error)
+      toast({
+        title: "Error",
+        description: error.message || "No se pudieron cargar las ventas",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingFacturas(false)
     }
-    return colors[color as keyof typeof colors] || colors.blue
+  }, [toast])
+
+  const fetchClientes = useCallback(async () => {
+    setLoadingClientes(true)
+    try {
+      const data = await ResultadosVentasService.getClientesConResumen({ limit: 1000 })
+      setClientes(data)
+      setClientesLoaded(true)
+    } catch (error: any) {
+      console.error('Error al cargar clientes:', error)
+      toast({
+        title: "Error",
+        description: error.message || "No se pudieron cargar los clientes",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingClientes(false)
+    }
+  }, [toast])
+
+  useEffect(() => {
+    fetchFacturas()
+  }, [fetchFacturas])
+
+  const handleTabChange = (tab: TabId) => {
+    setActiveTab(tab)
+    if (tab === "clientes" && !clientesLoaded) {
+      fetchClientes()
+    }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
-        title="Reportes de Ventas"
-        subtitle="Reportes y análisis del área de ventas"
-        badge={{ text: "Reportes", className: "bg-purple-100 text-purple-800" }}
+        title="Reportes Comercial Ventas"
+        subtitle="Facturas emitidas y clientes asignados por vendedor"
+        badge={{ text: "Comercial Ventas", className: "bg-indigo-100 text-indigo-800" }}
       />
 
-      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {opciones.map((opcion) => {
-            const Icon = opcion.icon
-            const colors = getColorClasses(opcion.color)
-
-            return (
-              <Card
-                key={opcion.id}
-                className={`cursor-pointer transition-all duration-200 ${colors.border} ${colors.hover} border-2`}
-                onClick={() => router.push(opcion.href)}
-              >
-                <CardContent className="p-6">
-                  <div className="flex flex-col items-center text-center space-y-4">
-                    <div className={`${colors.bg} p-4 rounded-full`}>
-                      <Icon className={`h-8 w-8 ${colors.icon}`} />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                        {opcion.title}
-                      </h3>
-                      <p className="text-sm text-gray-600">
-                        {opcion.description}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
+      <main className="content-with-fixed-header max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
+        <div className="mb-6">
+          <div className="flex flex-wrap gap-1 border-b border-gray-200">
+            {TABS.map((tab) => {
+              const Icon = tab.icon
+              const isActive = activeTab === tab.id
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => handleTabChange(tab.id)}
+                  className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                    isActive
+                      ? "border-indigo-600 text-indigo-700 bg-indigo-50"
+                      : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {tab.label}
+                </button>
+              )
+            })}
+          </div>
         </div>
+
+        {activeTab === "ventas" && (
+          <VentasPorComercialTable
+            facturas={facturas}
+            loading={loadingFacturas}
+            onRefresh={fetchFacturas}
+          />
+        )}
+
+        {activeTab === "clientes" && (
+          <ClientesPorComercialTable
+            clientes={clientes}
+            loading={loadingClientes}
+            onRefresh={fetchClientes}
+          />
+        )}
       </main>
     </div>
   )

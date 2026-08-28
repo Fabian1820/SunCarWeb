@@ -236,8 +236,6 @@ function ComprasContent() {
         title="Compras"
         subtitle="Registro y seguimiento de compras, contenedores y materiales"
         badge={{ text: "Logística", className: "bg-cyan-100 text-cyan-800" }}
-        backHref="/compras-envios-costos"
-        backLabel="Volver a Compras, Envíos y Costos"
         actions={
           <>
             <Button

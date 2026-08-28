@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, CardContent } from "@/components/shared/molecule/card";
+import { ModuleCard } from "@/components/shared/molecule/module-card";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import {
   Wrench,
@@ -11,7 +11,6 @@ import {
   CalendarDays,
   ClipboardList,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 
 // Sub-permisos `trabajos:*` que dan acceso a la tarjeta "Trabajos Diarios".
@@ -25,7 +24,6 @@ const TRABAJOS_MODULOS = [
 ];
 
 export default function InstalacionesPage() {
-  const router = useRouter();
   const { hasPermission } = useAuth();
 
   const opciones = [
@@ -34,7 +32,7 @@ export default function InstalacionesPage() {
       title: "Visitas",
       description: "Pendientes, realizadas y todas las visitas",
       icon: MapPin,
-      color: "orange",
+      iconClass: "text-teal-600",
       href: "/instalaciones/pendientes-visita",
     },
     {
@@ -42,7 +40,7 @@ export default function InstalacionesPage() {
       title: "Instalaciones en Proceso",
       description: "Clientes con instalación en proceso",
       icon: Clock,
-      color: "blue",
+      iconClass: "text-teal-600",
       href: "/instalaciones/en-proceso",
     },
     {
@@ -50,7 +48,7 @@ export default function InstalacionesPage() {
       title: "Instalaciones Nuevas",
       description: "Nuevas instalaciones por realizar",
       icon: Wrench,
-      color: "green",
+      iconClass: "text-teal-600",
       href: "/instalaciones/nuevas",
     },
     {
@@ -58,7 +56,7 @@ export default function InstalacionesPage() {
       title: "Trabajos Diarios",
       description: "Confirmar salida y entrega de materiales por vale",
       icon: CalendarDays,
-      color: "indigo",
+      iconClass: "text-teal-600",
       href: "/instalaciones/trabajos-diarios",
     },
     {
@@ -66,7 +64,7 @@ export default function InstalacionesPage() {
       title: "Averías",
       description: "Reportes de averías y mantenimiento",
       icon: AlertTriangle,
-      color: "red",
+      iconClass: "text-teal-600",
       href: "/instalaciones/averias",
     },
     {
@@ -74,7 +72,7 @@ export default function InstalacionesPage() {
       title: "Planificación Diaria de Trabajos",
       description: "Planifica trabajos del día siguiente por brigadas",
       icon: CalendarCheck,
-      color: "purple",
+      iconClass: "text-teal-600",
       href: "/instalaciones/planificacion-diaria-trabajos",
     },
     {
@@ -82,7 +80,7 @@ export default function InstalacionesPage() {
       title: "Órdenes de Trabajo",
       description: "Crear y gestionar órdenes de trabajo operativas",
       icon: ClipboardList,
-      color: "indigo",
+      iconClass: "text-teal-600",
       href: "/instalaciones/ordenes-trabajo",
     },
   ];
@@ -101,48 +99,6 @@ export default function InstalacionesPage() {
 
   const opcionesVisibles = opciones.filter((opcion) => puedeVerOpcion(opcion.id));
 
-  const getColorClasses = (color: string) => {
-    const colors = {
-      orange: {
-        bg: "bg-emerald-50",
-        border: "border-emerald-200",
-        icon: "text-emerald-600",
-        hover: "hover:bg-emerald-100",
-      },
-      blue: {
-        bg: "bg-blue-50",
-        border: "border-blue-200",
-        icon: "text-blue-600",
-        hover: "hover:bg-blue-100",
-      },
-      green: {
-        bg: "bg-green-50",
-        border: "border-green-200",
-        icon: "text-green-600",
-        hover: "hover:bg-green-100",
-      },
-      red: {
-        bg: "bg-red-50",
-        border: "border-red-200",
-        icon: "text-red-600",
-        hover: "hover:bg-red-100",
-      },
-      purple: {
-        bg: "bg-purple-50",
-        border: "border-purple-200",
-        icon: "text-purple-600",
-        hover: "hover:bg-purple-100",
-      },
-      indigo: {
-        bg: "bg-indigo-50",
-        border: "border-indigo-200",
-        icon: "text-indigo-600",
-        hover: "hover:bg-indigo-100",
-      },
-    };
-    return colors[color as keyof typeof colors] || colors.blue;
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
@@ -150,7 +106,7 @@ export default function InstalacionesPage() {
         subtitle="Administrar instalaciones, averías y mantenimiento"
         badge={{
           text: "Operaciones",
-          className: "bg-purple-100 text-purple-800",
+          className: "bg-teal-100 text-teal-800",
         }}
       />
 
@@ -163,35 +119,17 @@ export default function InstalacionesPage() {
             </p>
           </div>
         ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {opcionesVisibles.map((opcion) => {
-            const Icon = opcion.icon;
-            const colors = getColorClasses(opcion.color);
-
-            return (
-              <Card
-                key={opcion.id}
-                className={`cursor-pointer transition-all duration-200 ${colors.border} ${colors.hover} border-2`}
-                onClick={() => router.push(opcion.href)}
-              >
-                <CardContent className="p-6">
-                  <div className="flex flex-col items-center text-center space-y-4">
-                    <div className={`${colors.bg} p-4 rounded-full`}>
-                      <Icon className={`h-8 w-8 ${colors.icon}`} />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                        {opcion.title}
-                      </h3>
-                      <p className="text-sm text-gray-600">
-                        {opcion.description}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {opcionesVisibles.map((opcion) => (
+            <ModuleCard
+              key={opcion.id}
+              href={opcion.href}
+              icon={opcion.icon}
+              iconClass={opcion.iconClass}
+              title={opcion.title}
+              description={opcion.description}
+            />
+          ))}
         </div>
         )}
       </main>
