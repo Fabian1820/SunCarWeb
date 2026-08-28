@@ -36,7 +36,6 @@ interface ExportSelectionDialogProps {
     exportOptionsCompleto: any;
     exportOptionsSinPrecios: any;
     exportOptionsClienteConPrecios: any;
-    exportOptionsClienteConPreciosTasaCambio?: any;
     baseFilename: string;
   };
 }
@@ -247,23 +246,6 @@ export function ExportSelectionDialog({
       };
     });
 
-    const exportOptionsClienteConPrecios = {
-      title: "Oferta - Cliente con precios",
-      subtitle: oferta.nombre_completo || oferta.nombre,
-      columns: [
-        { header: "Material", key: "descripcion", width: 45 },
-        { header: "Cant", key: "cantidad", width: 10 },
-        { header: "P.Unit ($)", key: "precio_unitario", width: 12 },
-        { header: "Total ($)", key: "total", width: 14 },
-      ],
-      data: rowsClienteConPrecios,
-      logoUrl: "/brand/suncar-v1-iso.png",
-      clienteData,
-      leadData,
-      ofertaData,
-      incluirFotos: false,
-    };
-
     const tasaCambioNumero = Number(oferta.tasa_cambio || 0);
     const tieneMonedaCambio =
       oferta.moneda_pago &&
@@ -284,30 +266,37 @@ export function ExportSelectionDialog({
         : monto * tasaCambioNumero;
     };
 
-    const rowsClienteConPreciosTasaCambio = rowsClienteConPrecios.map(
-      (row: any) => ({
-        ...row,
-        precio_unitario:
-          row.precio_unitario !== undefined && row.precio_unitario !== ""
-            ? convertirMontoMonedaPago(Number(row.precio_unitario)).toFixed(2)
-            : row.precio_unitario,
-        total:
-          row.total !== undefined && row.total !== ""
-            ? convertirMontoMonedaPago(Number(row.total)).toFixed(2)
-            : row.total,
-      }),
-    );
+    // Los importes del documento del cliente van en la moneda con la que se
+    // guardó la oferta. Antes esto era una cuarta exportación aparte y la
+    // normal salía siempre en USD.
+    const rowsClienteConPreciosMonedaPago = !tieneMonedaCambio
+      ? rowsClienteConPrecios
+      : rowsClienteConPrecios.map((row: any) => ({
+          ...row,
+          precio_unitario:
+            row.precio_unitario !== undefined && row.precio_unitario !== ""
+              ? convertirMontoMonedaPago(Number(row.precio_unitario)).toFixed(2)
+              : row.precio_unitario,
+          total:
+            row.total !== undefined && row.total !== ""
+              ? convertirMontoMonedaPago(Number(row.total)).toFixed(2)
+              : row.total,
+        }));
 
-    const exportOptionsClienteConPreciosTasaCambio = {
-      title: "Oferta - Cliente con precios y tasa de cambio",
+    const exportOptionsClienteConPrecios = {
+      title: "Oferta - Cliente con precios",
       subtitle: oferta.nombre_completo || oferta.nombre,
       columns: [
         { header: "Material", key: "descripcion", width: 45 },
         { header: "Cant", key: "cantidad", width: 10 },
-        { header: "P.Unit", key: "precio_unitario", width: 12 },
+        {
+          header: `P.Unit (${codigoMonedaCambio})`,
+          key: "precio_unitario",
+          width: 12,
+        },
         { header: `Total (${codigoMonedaCambio})`, key: "total", width: 14 },
       ],
-      data: rowsClienteConPreciosTasaCambio,
+      data: rowsClienteConPreciosMonedaPago,
       logoUrl: "/brand/suncar-v1-iso.png",
       clienteData,
       leadData,
@@ -322,7 +311,6 @@ export function ExportSelectionDialog({
       exportOptionsCompleto,
       exportOptionsSinPrecios,
       exportOptionsClienteConPrecios,
-      exportOptionsClienteConPreciosTasaCambio,
       baseFilename,
     };
   };
@@ -610,14 +598,9 @@ export function ExportSelectionDialog({
         opcionesExportacion.exportOptionsSinPrecios?.sinPrecios,
       conPreciosCliente_original:
         opcionesExportacion.exportOptionsClienteConPrecios?.conPreciosCliente,
-      conPreciosClienteTasa_original:
-        opcionesExportacion.exportOptionsClienteConPreciosTasaCambio
-          ?.conPreciosCliente,
       columns_sinPrecios: opcionesExportacion.exportOptionsSinPrecios?.columns,
       columns_conPrecios:
         opcionesExportacion.exportOptionsClienteConPrecios?.columns,
-      columns_conPrecios_tasa:
-        opcionesExportacion.exportOptionsClienteConPreciosTasaCambio?.columns,
     });
 
     return {
@@ -639,16 +622,6 @@ export function ExportSelectionDialog({
           opcionesExportacion.exportOptionsClienteConPrecios?.data || [],
         ),
       },
-      exportOptionsClienteConPreciosTasaCambio:
-        opcionesExportacion.exportOptionsClienteConPreciosTasaCambio
-          ? {
-              ...opcionesExportacion.exportOptionsClienteConPreciosTasaCambio,
-              data: filtrarItems(
-                opcionesExportacion.exportOptionsClienteConPreciosTasaCambio
-                  ?.data || [],
-              ),
-            }
-          : undefined,
     };
   }, [
     opcionesExportacion,
@@ -670,11 +643,13 @@ export function ExportSelectionDialog({
       ?.terminosCondiciones
       ? "SÍ"
       : "NO",
-    clienteConPreciosTasa: opcionesExportacion
-      ?.exportOptionsClienteConPreciosTasaCambio?.terminosCondiciones
-      ? "SÍ"
-      : "NO",
   });
+
+  // Moneda con la que se guardó la oferta. Solo se aplica si además hay tasa:
+  // sin ella no se puede convertir y todo sale en USD, así que conviene decirlo
+  // en vez de dejar al comercial descubrirlo al abrir el PDF.
+  const monedaOferta: string = oferta?.moneda_pago || "USD";
+  const tieneTasaGuardada = Number(oferta?.tasa_cambio || 0) > 0;
 
   const totalMaterialesSeleccionados = materialesSeleccionados.size;
   const totalMateriales = oferta?.items?.length || 0;
@@ -957,7 +932,7 @@ export function ExportSelectionDialog({
               <div className="text-sm font-semibold text-slate-700">
                 Selecciona el tipo de exportación:
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {/* Opción 1: Completo */}
                 <div className="rounded-lg border-2 border-blue-200 bg-blue-50 p-4 space-y-3">
                   <div className="space-y-2">
@@ -993,7 +968,8 @@ export function ExportSelectionDialog({
                       </h4>
                     </div>
                     <p className="text-xs text-green-700 leading-relaxed">
-                      Solo materiales y cantidades. Ideal para presupuestos
+                      Solo materiales y cantidades. El precio final del bloque de
+                      pago va en la moneda de la oferta. Ideal para presupuestos
                       preliminares.
                     </p>
                   </div>
@@ -1016,8 +992,9 @@ export function ExportSelectionDialog({
                       </h4>
                     </div>
                     <p className="text-xs text-purple-700 leading-relaxed">
-                      Materiales con precios finales. Perfecto para enviar al
-                      cliente.
+                      Materiales con precios finales, en la moneda con la que se
+                      guardó la oferta y sin mostrar la tasa. Perfecto para
+                      enviar al cliente.
                     </p>
                   </div>
                   <ExportButtons
@@ -1029,33 +1006,26 @@ export function ExportSelectionDialog({
                   />
                 </div>
 
-                {/* Opción 4: Cliente con precios y tasa de cambio */}
-                {opcionesFiltradas.exportOptionsClienteConPreciosTasaCambio && (
-                  <div className="rounded-lg border-2 border-amber-200 bg-amber-50 p-4 space-y-3">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center justify-center w-6 h-6 rounded-full bg-amber-600 text-white text-xs font-bold">
-                          4
-                        </div>
-                        <h4 className="text-sm font-bold text-amber-900">
-                          Cliente con precios + cambio
-                        </h4>
-                      </div>
-                      <p className="text-xs text-amber-700 leading-relaxed">
-                        Misma exportación de cliente con precios, pero con la
-                        columna de importes en la moneda de la tasa de cambio.
-                      </p>
-                    </div>
-                    <ExportButtons
-                      exportOptions={
-                        opcionesFiltradas.exportOptionsClienteConPreciosTasaCambio
-                      }
-                      baseFilename={opcionesExportacion?.baseFilename || "oferta"}
-                      variant="compact"
-                    />
-                  </div>
-                )}
               </div>
+
+              {monedaOferta !== "USD" &&
+                (tieneTasaGuardada ? (
+                  <p className="text-xs text-slate-600 leading-relaxed rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+                    Esta oferta está guardada en{" "}
+                    <strong>{monedaOferta}</strong>: las dos exportaciones de
+                    cliente muestran el precio final en {monedaOferta}, sin la
+                    tasa de cambio. La exportación completa se mantiene en USD
+                    porque es la de uso interno. Antes esto era una cuarta
+                    opción aparte; ya no hace falta.
+                  </p>
+                ) : (
+                  <p className="text-xs text-amber-800 leading-relaxed rounded-md border border-amber-300 bg-amber-50 px-3 py-2">
+                    Esta oferta está en <strong>{monedaOferta}</strong> pero no
+                    tiene tasa de cambio guardada, así que todo se exporta en
+                    USD. Ábrela en edición, escribe la tasa y guarda para que
+                    los precios salgan en {monedaOferta}.
+                  </p>
+                ))}
             </div>
           )}
         </div>

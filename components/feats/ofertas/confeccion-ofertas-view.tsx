@@ -5544,6 +5544,18 @@ export function ConfeccionOfertasView({
       }
     }
 
+    // Sin tasa, una oferta en EUR o CUP no se puede convertir en ningún sitio:
+    // se guardaba "en EUR" pero el editor y las tres exportaciones seguían
+    // mostrando USD, sin un solo aviso.
+    if (monedaPago !== "USD" && tasaCambioNumero <= 0) {
+      toast({
+        title: "Falta la tasa de cambio",
+        description: `La oferta está en ${monedaPago}. Escribe la tasa de cambio para que el precio salga en esa moneda; si no, todo se exportaría en USD.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (redondeoManualFueraDeRango) {
       toast({
         title: "Precio ajustado inválido",
