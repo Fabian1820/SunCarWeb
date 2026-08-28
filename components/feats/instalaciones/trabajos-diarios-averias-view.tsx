@@ -207,7 +207,7 @@ function NuevaAveriaDialog({
       return;
     }
     setLoadingClientes(true);
-    ClienteService.getClientes({})
+    ClienteService.getClientes({ activo: true })
       .then((data) => setClientes(data.clients || []))
       .catch(() => setClientes([]))
       .finally(() => setLoadingClientes(false));

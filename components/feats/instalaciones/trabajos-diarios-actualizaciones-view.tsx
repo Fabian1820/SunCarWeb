@@ -145,7 +145,7 @@ export function TrabajosDiariosActualizacionesView() {
   const loadClientes = useCallback(async () => {
     setLoadingClientes(true);
     try {
-      const response = await ClienteService.getClientes({ limit: 1000 });
+      const response = await ClienteService.getClientes({ limit: 1000, activo: true });
       setClientes(response.clients || []);
     } catch {
       setClientes([]);
