@@ -251,6 +251,9 @@ export function CreateSolicitudMaterialDialog({
   );
   const [clienteLoading, setClienteLoading] = useState(false);
   const [showClienteDropdown, setShowClienteDropdown] = useState(false);
+  // Error devuelto por el backend al guardar (p.ej. cliente anulado). Se muestra
+  // en el propio diálogo para que el usuario vea el motivo sin perder el formulario.
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [materiales, setMateriales] = useState<MaterialRow[]>([]);
   const [materialesSinVinculo, setMaterialesSinVinculo] = useState<string[]>(
@@ -339,6 +342,7 @@ export function CreateSolicitudMaterialDialog({
       setShowMaterialDropdown(false);
       setShowResponsableDropdown(false);
       setLinkedOfertaId(null);
+      setSubmitError(null);
       return;
     }
 
@@ -357,6 +361,7 @@ export function CreateSolicitudMaterialDialog({
       setShowClienteDropdown(false);
       setShowMaterialDropdown(false);
       setShowResponsableDropdown(false);
+      setSubmitError(null);
       return;
     }
 
@@ -425,6 +430,9 @@ export function CreateSolicitudMaterialDialog({
       try {
         const data = await ClienteService.getClientes({
           nombre: clienteSearch,
+          // Los clientes anulados no admiten solicitudes de materiales; el
+          // backend las rechaza, así que tampoco deben aparecer aquí.
+          activo: true,
         });
         setClienteResults(data.clients || []);
         setShowClienteDropdown(true);
@@ -958,6 +966,7 @@ export function CreateSolicitudMaterialDialog({
     );
     if (validMaterials.length === 0) return;
 
+    setSubmitError(null);
     setSubmitting(true);
     try {
       const normalizedMateriales = validMaterials.map((m) => ({
@@ -1012,7 +1021,7 @@ export function CreateSolicitudMaterialDialog({
         isEditMode ? "Error updating solicitud:" : "Error creating solicitud:",
         error,
       );
-      alert(message);
+      setSubmitError(message);
     } finally {
       setSubmitting(false);
     }
@@ -1491,6 +1500,21 @@ export function CreateSolicitudMaterialDialog({
               </p>
             </div>
           </div>
+
+          {submitError && (
+            <div
+              role="alert"
+              className="flex items-start gap-3 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800"
+            >
+              <AlertTriangle className="h-5 w-5 shrink-0 text-red-600 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-semibold">
+                  No se pudo {isEditMode ? "actualizar" : "crear"} la solicitud
+                </p>
+                <p>{submitError}</p>
+              </div>
+            </div>
+          )}
 
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button
