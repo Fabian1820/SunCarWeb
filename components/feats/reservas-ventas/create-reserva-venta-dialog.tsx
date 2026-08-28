@@ -19,6 +19,7 @@ import {
 } from "@/components/shared/atom/select";
 import { Badge } from "@/components/shared/atom/badge";
 import {
+  AlertTriangle,
   BookmarkCheck,
   ChevronDown,
   ChevronUp,
@@ -575,10 +576,12 @@ export function CreateReservaVentaDialog({
     try {
       await onSubmit(data);
     } catch (err) {
-      // Backend rechazó (típicamente stock insuficiente por race condition con
-      // otra reserva creada entre la carga del dialog y el submit).
+      // El rechazo del backend no siempre es por stock: también puede ser, por
+      // ejemplo, un cliente anulado. Va a un aviso general en vez de colgarlo
+      // del campo de materiales, que lo haría parecer siempre un problema de
+      // existencias.
       const msg = err instanceof Error ? err.message : "No se pudo crear la reserva";
-      setErrors((prev) => ({ ...prev, materiales: msg }));
+      setErrors((prev) => ({ ...prev, general: msg }));
       throw err;
     }
   };
@@ -1050,6 +1053,19 @@ export function CreateReservaVentaDialog({
               <p className="text-xs text-red-500">{errors.materiales}</p>
             )}
           </div>
+
+          {errors.general && (
+            <div
+              role="alert"
+              className="flex items-start gap-3 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800"
+            >
+              <AlertTriangle className="h-5 w-5 shrink-0 text-red-600 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-semibold">No se pudo crear la reserva</p>
+                <p>{errors.general}</p>
+              </div>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-2 border-t">
