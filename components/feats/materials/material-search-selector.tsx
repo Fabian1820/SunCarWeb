@@ -5,6 +5,7 @@ import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { Button } from "@/components/shared/atom/button"
 import { Search, Package, X } from "lucide-react"
+import { normalizeSearchText } from '@/lib/utils/string-utils'
 
 interface Material {
   codigo: string
@@ -40,10 +41,10 @@ export function MaterialSearchSelector({
   const filteredMaterials = useMemo(() => {
     if (!searchTerm.trim()) return []
     
-    const search = searchTerm.toLowerCase()
+    const search = normalizeSearchText(searchTerm)
     return materials.filter(material => 
-      material.descripcion.toLowerCase().includes(search) ||
-      String(material.codigo).toLowerCase().includes(search)
+      normalizeSearchText(material.descripcion).includes(search) ||
+      normalizeSearchText(String(material.codigo)).includes(search)
     )
   }, [materials, searchTerm])
 

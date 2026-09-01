@@ -37,6 +37,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";
+import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 // ─── tipos locales ────────────────────────────────────────────────
 interface LineaCarrito {
@@ -235,16 +236,16 @@ export function AgregarOfertaDialog({
   // ── catálogo cruzado con stock ────────────────────────────────
   const materialesVisibles = useMemo(() => {
     void stockVersion;
-    const q = busqueda.trim().toLowerCase();
+    const q = normalizeSearchText(busqueda.trim());
     return catalogo
       .filter((m) => {
         if (filtroCategoria && m.categoria !== filtroCategoria) return false;
         if (!q) return true;
         return (
-          m.nombre?.toLowerCase().includes(q) ||
-          m.codigo?.toLowerCase().includes(q) ||
-          m.descripcion?.toLowerCase().includes(q) ||
-          m.categoria?.toLowerCase().includes(q)
+          normalizeSearchText(m.nombre).includes(q) ||
+          normalizeSearchText(m.codigo).includes(q) ||
+          normalizeSearchText(m.descripcion).includes(q) ||
+          normalizeSearchText(m.categoria).includes(q)
         );
       })
       .map((m) => ({

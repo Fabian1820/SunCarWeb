@@ -78,6 +78,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/shared/atom/select";
+import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 const parseNullableNumber = (value: unknown): number | null => {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -1097,7 +1098,7 @@ export function FacturasSection() {
     let resultado = facturasConsolidadas;
 
     // Filtro por búsqueda de texto
-    const term = (filters.nombre_cliente || "").trim().toLowerCase();
+    const term = normalizeSearchText((filters.nombre_cliente || "").trim());
     if (term) {
       resultado = resultado.filter((factura) => {
         const numeroFactura = (factura.numero_factura || "").toLowerCase();
@@ -1268,7 +1269,7 @@ export function FacturasSection() {
   }, [valesNoFacturados]);
 
   const valesNoFacturadosFiltrados = useMemo(() => {
-    const term = searchValesNoFacturados.trim().toLowerCase();
+    const term = normalizeSearchText(searchValesNoFacturados.trim());
 
     return valesNoFacturados.filter((vale) => {
       if (term) {

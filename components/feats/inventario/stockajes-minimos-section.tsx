@@ -18,6 +18,7 @@ import {
 } from "lucide-react"
 import { InventarioService, MaterialService, MarcaService } from "@/lib/api-services"
 import type { Almacen, StockItem } from "@/lib/inventario-types"
+import { normalizeSearchText } from '@/lib/utils/string-utils'
 
 interface StockComparison {
   almacen_id: string
@@ -129,7 +130,7 @@ export function StockajesMinimosSection({
 
   // Filtro local del buscador
   const materialResults = useMemo<MaterialBuscable[]>(() => {
-    const term = materialSearch.trim().toLowerCase()
+    const term = normalizeSearchText(materialSearch.trim())
     if (term.length < 2) return []
     if (selectedMaterial) {
       const sel = (selectedMaterial.nombre || selectedMaterial.descripcion || "").toLowerCase()

@@ -55,6 +55,7 @@ import type {
   SolicitudVentaUpdateData,
   StockItem,
 } from "@/lib/api-types";
+import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 interface MaterialRow {
   material_id: string;
@@ -522,7 +523,7 @@ export function UpsertSolicitudVentaDialog({
   }, [incluirNoVendibles, materialSearch]);
 
   const filteredMateriales = useMemo(() => {
-    const term = materialSearch.trim().toLowerCase();
+    const term = normalizeSearchText(materialSearch.trim());
     if (!term) return [];
 
     if (incluirNoVendibles) {

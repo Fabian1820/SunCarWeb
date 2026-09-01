@@ -49,6 +49,7 @@ import {
 import type { OfertaConfeccion } from "@/hooks/use-ofertas-confeccion";
 import { seleccionarOfertaConfirmada } from "@/hooks/use-ofertas-confeccion";
 import type { ClienteFoto } from "@/lib/api-types";
+import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 type ViewMode = "pendientes" | "realizadas";
 
@@ -602,13 +603,13 @@ export function PendientesVisitaTable({
         .toLowerCase();
 
       if (searchTerm) {
-        const search = searchTerm.toLowerCase();
+        const search = normalizeSearchText(searchTerm);
         const matchesSearch =
-          registro.nombre.toLowerCase().includes(search) ||
-          registro.telefono.toLowerCase().includes(search) ||
-          registro.direccion.toLowerCase().includes(search) ||
-          registro.comentario.toLowerCase().includes(search) ||
-          (registro.motivoVisita || "").toLowerCase().includes(search);
+          normalizeSearchText(registro.nombre).includes(search) ||
+          normalizeSearchText(registro.telefono).includes(search) ||
+          normalizeSearchText(registro.direccion).includes(search) ||
+          normalizeSearchText(registro.comentario).includes(search) ||
+          normalizeSearchText((registro.motivoVisita || "")).includes(search);
 
         if (!matchesSearch) return false;
       }

@@ -9,6 +9,7 @@ import { Search, Phone, MapPin, Package, User, FileText, Download } from "lucide
 import { Button } from "@/components/shared/atom/button"
 import type { InstalacionPendiente } from "@/lib/types/feats/reportes-comercial/reportes-comercial-types"
 import type ExcelJSImportType from "exceljs"
+import { normalizeSearchText } from '@/lib/utils/string-utils'
 
 interface PendientesInstalacionTableProps {
   instalaciones: InstalacionPendiente[]
@@ -33,13 +34,13 @@ export function PendientesInstalacionTable({
     return instalaciones.filter(instalacion => {
       // Filtro de búsqueda
       if (searchTerm) {
-        const search = searchTerm.toLowerCase()
+        const search = normalizeSearchText(searchTerm)
         const matchesSearch = 
-          instalacion.nombre.toLowerCase().includes(search) ||
-          instalacion.telefono.toLowerCase().includes(search) ||
-          instalacion.direccion.toLowerCase().includes(search) ||
-          instalacion.comentario.toLowerCase().includes(search) ||
-          instalacion.fuente.toLowerCase().includes(search)
+          normalizeSearchText(instalacion.nombre).includes(search) ||
+          normalizeSearchText(instalacion.telefono).includes(search) ||
+          normalizeSearchText(instalacion.direccion).includes(search) ||
+          normalizeSearchText(instalacion.comentario).includes(search) ||
+          normalizeSearchText(instalacion.fuente).includes(search)
         
         if (!matchesSearch) return false
       }

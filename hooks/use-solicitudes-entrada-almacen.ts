@@ -9,6 +9,7 @@ import type {
   SolicitudEntradaAlmacenCreateData,
   SolicitudEntradaAlmacenUpdateData,
 } from "@/lib/types/feats/solicitudes-entrada-almacen/solicitud-entrada-almacen-types";
+import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 interface UseSolicitudesEntradaAlmacenReturn {
   solicitudes: SolicitudEntradaAlmacen[];
@@ -143,7 +144,7 @@ export function useSolicitudesEntradaAlmacen(): UseSolicitudesEntradaAlmacenRetu
   }, []);
 
   const filteredSolicitudes = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
+    const term = normalizeSearchText(searchTerm.trim());
     return solicitudes.filter((sol) => {
       if (estadoFilter !== "todos" && sol.estado !== estadoFilter) return false;
       if (almacenFilter !== "todos" && sol.almacen_id !== almacenFilter) return false;

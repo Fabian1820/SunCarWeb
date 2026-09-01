@@ -38,6 +38,7 @@ import type {
   EstadisticaComercial,
 } from "@/lib/types/feats/reportes-comercial/reportes-comercial-types";
 import { useAuth } from "@/contexts/auth-context";
+import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 interface ResultadosComercialTableProps {
   resultados: ResultadoComercial[];
@@ -100,14 +101,14 @@ export function ResultadosComercialTable({
     return resultados.filter((resultado) => {
       // Filtro de búsqueda
       if (searchTerm) {
-        const search = searchTerm.toLowerCase();
+        const search = normalizeSearchText(searchTerm);
         const comercial = resultado.contacto.comercial || "";
         const matchesSearch =
-          resultado.numero_oferta.toLowerCase().includes(search) ||
-          resultado.nombre_completo.toLowerCase().includes(search) ||
-          resultado.contacto.nombre?.toLowerCase().includes(search) ||
+          normalizeSearchText(resultado.numero_oferta).includes(search) ||
+          normalizeSearchText(resultado.nombre_completo).includes(search) ||
+          normalizeSearchText(resultado.contacto.nombre).includes(search) ||
           false ||
-          comercial.toLowerCase().includes(search);
+          normalizeSearchText(comercial).includes(search);
 
         if (!matchesSearch) return false;
       }

@@ -17,6 +17,7 @@ import type {
   SolicitudVentaSummaryAgregados,
 } from "@/lib/api-types";
 import { Search, CreditCard, RefreshCw, AlertCircle, ExternalLink } from "lucide-react";
+import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 interface SolicitudesPendientesPagoTableProps {
   solicitudes: SolicitudVentaSummary[];
@@ -96,11 +97,11 @@ export function SolicitudesPendientesPagoTable({
     // Si el search lo controla la página (server-side), no filtramos de nuevo aquí.
     if (isSearchControlled) return true;
     if (!search.trim()) return true;
-    const term = search.toLowerCase();
+    const term = normalizeSearchText(search);
     return (
-      (s.codigo || "").toLowerCase().includes(term) ||
-      (s.cliente_venta_nombre || "").toLowerCase().includes(term) ||
-      (s.comercial || "").toLowerCase().includes(term)
+      normalizeSearchText((s.codigo || "")).includes(term) ||
+      normalizeSearchText((s.cliente_venta_nombre || "")).includes(term) ||
+      normalizeSearchText((s.comercial || "")).includes(term)
     );
   });
 

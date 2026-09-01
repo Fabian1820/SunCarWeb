@@ -35,6 +35,7 @@ import {
   CONSIGNACION_ESTADO_BADGE_CLASSES,
   CONSIGNACION_ESTADO_LABELS,
 } from "@/lib/types/feats/consignaciones/consignacion-types";
+import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 interface ConsignacionesTableProps {
   consignaciones: Consignacion[];
@@ -88,7 +89,7 @@ export function ConsignacionesTable({
   const [search, setSearch] = useState("");
 
   const filtradas = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = normalizeSearchText(search.trim());
     if (!q) return consignaciones;
     return consignaciones.filter((c) => {
       const target = [

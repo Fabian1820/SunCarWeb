@@ -6,6 +6,7 @@ import { Label } from "@/components/shared/atom/label";
 import { Button } from "@/components/shared/atom/button";
 import { Search, User, X } from "lucide-react";
 import type { Trabajador } from "@/lib/api-types";
+import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 interface TrabajadorSearchSelectorProps {
   label: string;
@@ -35,13 +36,13 @@ export function TrabajadorSearchSelector({
 
   const filteredTrabajadores = useMemo(() => {
     if (!searchTerm.trim()) return [];
-    const term = searchTerm.toLowerCase();
+    const term = normalizeSearchText(searchTerm);
     return trabajadores.filter(
       (trabajador) =>
-        (trabajador.nombre || "").toLowerCase().includes(term) ||
-        (trabajador.CI || "").toLowerCase().includes(term) ||
-        (trabajador.telefono || "").toLowerCase().includes(term) ||
-        (trabajador.email || "").toLowerCase().includes(term),
+        normalizeSearchText((trabajador.nombre || "")).includes(term) ||
+        normalizeSearchText((trabajador.CI || "")).includes(term) ||
+        normalizeSearchText((trabajador.telefono || "")).includes(term) ||
+        normalizeSearchText((trabajador.email || "")).includes(term),
     );
   }, [trabajadores, searchTerm]);
 

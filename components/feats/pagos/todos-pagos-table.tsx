@@ -42,6 +42,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { puedeEditarCobro } from "@/lib/constants/pagos-permisos";
 import { EditarPagoDialog } from "./editar-pago-dialog";
 import { PagoTrazabilidad } from "./pago-trazabilidad";
+import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 interface TodosPagosTableProps {
   ofertasConPagos: OfertaConPagos[];
@@ -255,7 +256,7 @@ export function TodosPagosTable({
   const filteredOfertas = useMemo(() => {
     if (!searchTerm) return ofertasConPagos;
 
-    const term = searchTerm.toLowerCase();
+    const term = normalizeSearchText(searchTerm);
     return ofertasConPagos.filter((oferta) => {
       const clienteNombre = oferta.contacto?.nombre || "";
       const clienteTelefono = oferta.contacto?.telefono || "";
@@ -263,11 +264,11 @@ export function TodosPagosTable({
       const estadoCliente = getEstadoCliente(oferta).toLowerCase();
 
       return (
-        oferta.numero_oferta.toLowerCase().includes(term) ||
-        clienteNombre.toLowerCase().includes(term) ||
+        normalizeSearchText(oferta.numero_oferta).includes(term) ||
+        normalizeSearchText(clienteNombre).includes(term) ||
         clienteTelefono.includes(term) ||
         clienteCarnet.includes(term) ||
-        oferta.almacen_nombre?.toLowerCase().includes(term) ||
+        normalizeSearchText(oferta.almacen_nombre).includes(term) ||
         estadoCliente.includes(term)
       );
     });

@@ -40,6 +40,7 @@ import type {
   ClienteVentaConResumen,
   EstadisticaClientesVendedor,
 } from "@/lib/types/feats/reportes-ventas/reportes-ventas-types";
+import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 interface ClientesPorComercialTableProps {
   clientes: ClienteVentaConResumen[];
@@ -69,12 +70,12 @@ export function ClientesPorComercialTable({
   const filtered = useMemo(() => {
     return clientes.filter((c) => {
       if (searchTerm) {
-        const s = searchTerm.toLowerCase();
+        const s = normalizeSearchText(searchTerm);
         const matches =
-          c.nombre.toLowerCase().includes(s) ||
-          (c.numero || "").toLowerCase().includes(s) ||
-          (c.telefono || "").toLowerCase().includes(s) ||
-          (c.comercial || "").toLowerCase().includes(s);
+          normalizeSearchText(c.nombre).includes(s) ||
+          normalizeSearchText((c.numero || "")).includes(s) ||
+          normalizeSearchText((c.telefono || "")).includes(s) ||
+          normalizeSearchText((c.comercial || "")).includes(s);
         if (!matches) return false;
       }
       const comercial = c.comercial || "Sin asignar";

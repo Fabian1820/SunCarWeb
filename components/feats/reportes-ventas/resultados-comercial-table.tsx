@@ -46,6 +46,7 @@ import type {
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { ExportFacturasComercialExcelService } from "@/lib/services/feats/reportes-ventas/export-facturas-comercial-excel-service";
+import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 interface VentasPorComercialTableProps {
   facturas: FacturaVentaConComercial[];
@@ -120,12 +121,12 @@ export function VentasPorComercialTable({
   const filteredFacturas = useMemo(() => {
     return facturas.filter((f) => {
       if (searchTerm) {
-        const s = searchTerm.toLowerCase();
+        const s = normalizeSearchText(searchTerm);
         const comercial = f.cliente.comercial || "";
         const matches =
-          (f.numero || "").toLowerCase().includes(s) ||
-          (f.cliente.nombre || "").toLowerCase().includes(s) ||
-          comercial.toLowerCase().includes(s);
+          normalizeSearchText((f.numero || "")).includes(s) ||
+          normalizeSearchText((f.cliente.nombre || "")).includes(s) ||
+          normalizeSearchText(comercial).includes(s);
         if (!matches) return false;
       }
 

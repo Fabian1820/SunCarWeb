@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { BlogService } from '@/lib/api-services'
 import type { Blog, BlogRequest } from '@/lib/blog-types'
+import { normalizeSearchText } from '@/lib/utils/string-utils'
 
 interface UseBlogReturn {
   blogs: Blog[]
@@ -60,13 +61,13 @@ export function useBlog(): UseBlogReturn {
 
     // Filter by search term (titulo, resumen, autor, tags)
     if (searchTerm.trim()) {
-      const searchLower = searchTerm.toLowerCase()
+      const searchLower = normalizeSearchText(searchTerm)
       result = result.filter(
         (blog) =>
-          blog.titulo?.toLowerCase().includes(searchLower) ||
-          blog.resumen?.toLowerCase().includes(searchLower) ||
-          blog.autor?.toLowerCase().includes(searchLower) ||
-          blog.tags?.some((tag) => tag.toLowerCase().includes(searchLower))
+          normalizeSearchText(blog.titulo).includes(searchLower) ||
+          normalizeSearchText(blog.resumen).includes(searchLower) ||
+          normalizeSearchText(blog.autor).includes(searchLower) ||
+          blog.tags?.some((tag) => normalizeSearchText(tag).includes(searchLower))
       )
     }
 

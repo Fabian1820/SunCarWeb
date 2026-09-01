@@ -45,6 +45,7 @@ import type { CalculoEnergeticoCategoria, TipoCarga } from "@/lib/types/calculo-
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 import { Download } from "lucide-react"
+import { normalizeSearchText } from '@/lib/utils/string-utils'
 
 const categoriaIconos: Record<string, string> = {
   "Electrodomésticos de Cocina": "🏠",
@@ -978,10 +979,10 @@ export default function CalculadoraPage() {
                       {categorias.map((categoria) => {
                         const equiposCategoria = (categoria.equipos || []).filter((equipo) => {
                           if (!busqueda.trim()) return true
-                          const busquedaLower = busqueda.toLowerCase()
+                          const busquedaLower = normalizeSearchText(busqueda)
                           return (
-                            equipo.nombre.toLowerCase().includes(busquedaLower) ||
-                            categoria.nombre.toLowerCase().includes(busquedaLower)
+                            normalizeSearchText(equipo.nombre).includes(busquedaLower) ||
+                            normalizeSearchText(categoria.nombre).includes(busquedaLower)
                           )
                         })
 

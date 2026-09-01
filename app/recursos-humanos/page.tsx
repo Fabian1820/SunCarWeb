@@ -21,6 +21,7 @@ import { Toaster }           from "@/components/shared/molecule/toaster"
 import { useRecursosHumanos } from "@/hooks/use-recursos-humanos"
 import { CrearTrabajadorForm } from "@/components/feats/recursos-humanos/crear-trabajador-form"
 import type { TrabajadorRRHH } from "@/lib/recursos-humanos-types"
+import { normalizeSearchText } from '@/lib/utils/string-utils'
 
 // ─── tipos ────────────────────────────────────────────────────────────────────
 
@@ -386,13 +387,13 @@ export default function EmpleadosPage() {
       if (filtroDpto !== "todos" && t.departamento_nombre !== filtroDpto) return false
       if (filtroSede !== "todos" && t.sede_nombre          !== filtroSede) return false
       if (search) {
-        const q = search.toLowerCase()
+        const q = normalizeSearchText(search)
         return (
-          t.nombre.toLowerCase().includes(q) ||
-          t.CI.toLowerCase().includes(q) ||
-          (t.cargo || "").toLowerCase().includes(q) ||
-          (t.departamento_nombre || "").toLowerCase().includes(q) ||
-          (t.sede_nombre || "").toLowerCase().includes(q)
+          normalizeSearchText(t.nombre).includes(q) ||
+          normalizeSearchText(t.CI).includes(q) ||
+          normalizeSearchText((t.cargo || "")).includes(q) ||
+          normalizeSearchText((t.departamento_nombre || "")).includes(q) ||
+          normalizeSearchText((t.sede_nombre || "")).includes(q)
         )
       }
       return true

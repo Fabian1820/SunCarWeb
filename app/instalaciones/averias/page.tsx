@@ -9,6 +9,7 @@ import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { AveriasTable } from "@/components/feats/instalaciones/averias-table"
 import { RouteGuard } from "@/components/auth/route-guard"
 import type { Cliente } from "@/lib/api-types"
+import { normalizeSearchText } from '@/lib/utils/string-utils'
 
 export default function AveriasPage() {
   const [clients, setClients] = useState<Cliente[]>([])
@@ -104,7 +105,7 @@ export default function AveriasPage() {
 
   // Clientes filtrados
   const filteredClients = useMemo(() => {
-    const search = appliedFilters.searchTerm.trim().toLowerCase()
+    const search = normalizeSearchText(appliedFilters.searchTerm.trim())
     const fechaDesde = parseDateValue(appliedFilters.fechaDesde)
     const fechaHasta = parseDateValue(appliedFilters.fechaHasta)
     const estadoAveria = appliedFilters.estadoAveria

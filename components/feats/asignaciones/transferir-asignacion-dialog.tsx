@@ -17,6 +17,7 @@ import type {
 } from "@/lib/types/feats/asignaciones/asignacion-types"
 import { AsignacionService } from "@/lib/api-services"
 import { RecursosHumanosService } from "@/lib/services/feats/recursos-humanos/recursos-humanos-service"
+import { normalizeSearchText } from '@/lib/utils/string-utils'
 
 type EntidadDestino = { id: string; nombre: string; subtitulo?: string }
 
@@ -91,12 +92,12 @@ export function TransferirAsignacionDialog({
   }, [open, tipoDestino, origenTipo, origenId])
 
   const filtrados = useMemo(() => {
-    const q = busqueda.trim().toLowerCase()
+    const q = normalizeSearchText(busqueda.trim())
     if (!q) return entidades.slice(0, 50)
     return entidades.filter(e =>
-      e.nombre.toLowerCase().includes(q) ||
-      e.id.toLowerCase().includes(q) ||
-      (e.subtitulo?.toLowerCase().includes(q) ?? false)
+      normalizeSearchText(e.nombre).includes(q) ||
+      normalizeSearchText(e.id).includes(q) ||
+      (normalizeSearchText(e.subtitulo).includes(q) ?? false)
     ).slice(0, 50)
   }, [entidades, busqueda])
 

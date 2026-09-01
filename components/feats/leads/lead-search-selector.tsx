@@ -5,6 +5,7 @@ import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { Button } from "@/components/shared/atom/button"
 import { Search, User, X } from "lucide-react"
+import { normalizeSearchText } from '@/lib/utils/string-utils'
 
 interface Lead {
   id: string
@@ -42,14 +43,14 @@ export function LeadSearchSelector({
 
   const filteredLeads = useMemo(() => {
     if (!searchTerm.trim()) return []
-    const term = searchTerm.toLowerCase()
+    const term = normalizeSearchText(searchTerm)
     return leads.filter(
       (lead) =>
-        (lead.nombre_completo || lead.nombre || "").toLowerCase().includes(term) ||
-        lead.id?.toLowerCase().includes(term) ||
-        lead.telefono?.toLowerCase().includes(term) ||
-        lead.email?.toLowerCase().includes(term) ||
-        lead.provincia?.toLowerCase().includes(term)
+        normalizeSearchText((lead.nombre_completo || lead.nombre || "")).includes(term) ||
+        normalizeSearchText(lead.id).includes(term) ||
+        normalizeSearchText(lead.telefono).includes(term) ||
+        normalizeSearchText(lead.email).includes(term) ||
+        normalizeSearchText(lead.provincia).includes(term)
     )
   }, [leads, searchTerm])
 

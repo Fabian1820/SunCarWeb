@@ -36,6 +36,7 @@ import {
 import { ExportFacturaClienteService } from "@/lib/services/feats/obras-terminadas/export-factura-cliente-service"
 import { AjustarSaldoDialog } from "./ajustar-saldo-dialog"
 import { FacturasClientePanel } from "./obras-terminadas-table"
+import { normalizeSearchText } from '@/lib/utils/string-utils'
 
 interface FacturasObrasTerminadasTableProps {
   obras: ObraTerminada[]
@@ -129,13 +130,13 @@ export function FacturasObrasTerminadasTable({
   const filtered = useMemo(() => {
     if (isSearchControlled) return obras
     if (!search.trim()) return obras
-    const term = search.toLowerCase()
+    const term = normalizeSearchText(search)
     return obras.filter((o) =>
-      (o.numero_factura || "").toLowerCase().includes(term) ||
-      (o.cliente_nombre || o.nombre_completo || "").toLowerCase().includes(term) ||
-      (o.cliente_numero || "").toLowerCase().includes(term) ||
-      (o.numero_oferta || "").toLowerCase().includes(term) ||
-      (o.comercial || "").toLowerCase().includes(term),
+      normalizeSearchText((o.numero_factura || "")).includes(term) ||
+      normalizeSearchText((o.cliente_nombre || o.nombre_completo || "")).includes(term) ||
+      normalizeSearchText((o.cliente_numero || "")).includes(term) ||
+      normalizeSearchText((o.numero_oferta || "")).includes(term) ||
+      normalizeSearchText((o.comercial || "")).includes(term),
     )
   }, [obras, search, isSearchControlled])
 

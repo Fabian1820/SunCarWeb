@@ -71,6 +71,7 @@ import type {
   WalletTransaction,
   WalletTransactionType,
 } from "@/lib/types/feats/wallet/wallet-types";
+import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 const formatMoney = (amount: number, currency = "USD"): string => {
   try {
@@ -728,11 +729,11 @@ function WalletPageContent() {
   );
 
   const filteredWallets = useMemo(() => {
-    const query = walletSearch.trim().toLowerCase();
+    const query = normalizeSearchText(walletSearch.trim());
     if (!query) return wallets;
     return wallets.filter((item) => {
-      const byName = item.user_nombre.toLowerCase().includes(query);
-      const byCi = item.user_ci.toLowerCase().includes(query);
+      const byName = normalizeSearchText(item.user_nombre).includes(query);
+      const byCi = normalizeSearchText(item.user_ci).includes(query);
       return byName || byCi;
     });
   }, [walletSearch, wallets]);

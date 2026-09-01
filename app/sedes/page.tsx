@@ -25,6 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/shared/molecule/toaster";
 import { SedeService } from "@/lib/api-services";
 import type { Sede, SedeUpsertRequest } from "@/lib/api-types";
+import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 type EstadoFiltro = "todos" | "activos" | "inactivos";
 
@@ -73,14 +74,14 @@ function SedesPageContent() {
   }, [loadSedes]);
 
   const filteredSedes = useMemo(() => {
-    const term = search.trim().toLowerCase();
+    const term = normalizeSearchText(search.trim());
     if (!term) return sedes;
     return sedes.filter((sede) => {
       return (
-        sede.nombre.toLowerCase().includes(term) ||
-        (sede.provincia_nombre || "").toLowerCase().includes(term) ||
-        (sede.provincia_codigo || "").toLowerCase().includes(term) ||
-        sede.tipo.toLowerCase().includes(term)
+        normalizeSearchText(sede.nombre).includes(term) ||
+        normalizeSearchText((sede.provincia_nombre || "")).includes(term) ||
+        normalizeSearchText((sede.provincia_codigo || "")).includes(term) ||
+        normalizeSearchText(sede.tipo).includes(term)
       );
     });
   }, [search, sedes]);

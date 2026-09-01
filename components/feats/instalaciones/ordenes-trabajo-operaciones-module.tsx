@@ -57,6 +57,7 @@ import type { Brigada } from "@/lib/types/feats/brigade/brigade-types";
 import type { Material } from "@/lib/material-types";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 type MaterialRow = {
   id: string;
@@ -767,7 +768,7 @@ export function OrdenesTrabajoOperacionesModule() {
   }, [toast]);
 
   const filteredOrders = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
+    const q = normalizeSearchText(searchTerm.trim());
     if (!q) return orders;
     return orders.filter((order) => {
       const trabajador = workersLabel(

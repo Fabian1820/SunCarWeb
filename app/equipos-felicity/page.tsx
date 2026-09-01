@@ -32,6 +32,7 @@ import {
   Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 function EstadoDot({ estado }: { estado?: string | null }) {
   const normal = estado === "NM";
@@ -77,14 +78,14 @@ function EquiposFelicityContent() {
   }, [errorDispositivos, toast]);
 
   const grupos = useMemo(() => {
-    const q = busqueda.trim().toLowerCase();
+    const q = normalizeSearchText(busqueda.trim());
     const filtrados = q
       ? dispositivos.filter(
           (d) =>
-            d.sn.toLowerCase().includes(q) ||
-            (d.alias || "").toLowerCase().includes(q) ||
-            (d.modelo || "").toLowerCase().includes(q) ||
-            (d.planta_nombre || "").toLowerCase().includes(q),
+            normalizeSearchText(d.sn).includes(q) ||
+            normalizeSearchText((d.alias || "")).includes(q) ||
+            normalizeSearchText((d.modelo || "")).includes(q) ||
+            normalizeSearchText((d.planta_nombre || "")).includes(q),
         )
       : dispositivos;
 

@@ -38,6 +38,7 @@ import { useKardexCosto } from "@/hooks/use-kardex-costo";
 import { InventarioService } from "@/lib/api-services";
 import type { Almacen } from "@/lib/types/feats/inventario/inventario-types";
 import type { KardexCosto } from "@/lib/types/feats/kardex-costo/kardex-costo-types";
+import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -194,7 +195,7 @@ function KardexCostoContent() {
   });
 
   const materialesFiltrados = useMemo(() => {
-    const term = materialBusqueda.trim().toLowerCase();
+    const term = normalizeSearchText(materialBusqueda.trim());
     if (!term) return materials.slice(0, 30);
     return materials
       .filter((m) => {

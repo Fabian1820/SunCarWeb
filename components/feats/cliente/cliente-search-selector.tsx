@@ -6,6 +6,7 @@ import { Label } from "@/components/shared/atom/label"
 import { Button } from "@/components/shared/atom/button"
 import { Search, User, X } from "lucide-react"
 import type { Cliente } from "@/lib/types/feats/customer/cliente-types"
+import { normalizeSearchText } from '@/lib/utils/string-utils'
 
 interface ClienteSearchSelectorProps {
   label: string
@@ -35,12 +36,12 @@ export function ClienteSearchSelector({
 
   const filteredClientes = useMemo(() => {
     if (!searchTerm.trim()) return []
-    const term = searchTerm.toLowerCase()
+    const term = normalizeSearchText(searchTerm)
     return clients.filter(
       (cliente) =>
-        cliente.nombre?.toLowerCase().includes(term) ||
-        cliente.numero?.toLowerCase().includes(term) ||
-        cliente.direccion?.toLowerCase().includes(term)
+        normalizeSearchText(cliente.nombre).includes(term) ||
+        normalizeSearchText(cliente.numero).includes(term) ||
+        normalizeSearchText(cliente.direccion).includes(term)
     )
   }, [clients, searchTerm])
 

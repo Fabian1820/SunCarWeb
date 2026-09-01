@@ -25,6 +25,7 @@ import type {
   Reserva,
   ReservaUpdateData,
 } from "@/lib/api-types";
+import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 interface MaterialRow {
   material_id: string;
@@ -156,7 +157,7 @@ export function EditReservaVentaDialog({
   const filteredMateriales = useMemo(() => {
     if (incluirNoVendibles) return catalogoResults;
     if (!materialSearch.trim()) return materialesWeb.slice(0, 50);
-    const term = materialSearch.toLowerCase();
+    const term = normalizeSearchText(materialSearch);
     return materialesWeb
       .filter(
         (m) =>

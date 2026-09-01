@@ -15,6 +15,7 @@ import {
   extractContactoEntregaKeysFromEntity,
   extractOfertaIdsFromEntity,
 } from "@/lib/utils/oferta-id";
+import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 type ServicioComponente = "inversores" | "paneles" | "baterias";
 
@@ -453,7 +454,7 @@ export default function InstalacionesEnProcesoPage() {
 
   // Clientes filtrados
   const filteredClients = useMemo(() => {
-    const search = appliedFilters.searchTerm.trim().toLowerCase();
+    const search = normalizeSearchText(appliedFilters.searchTerm.trim());
     const fechaDesde = parseDateValue(appliedFilters.fechaDesde);
     const fechaHasta = parseDateValue(appliedFilters.fechaHasta);
 

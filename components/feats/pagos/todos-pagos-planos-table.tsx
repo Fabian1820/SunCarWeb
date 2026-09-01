@@ -25,6 +25,7 @@ import { EditarPagoDialog } from "./editar-pago-dialog";
 import { useAuth } from "@/contexts/auth-context";
 import { puedeEditarCobro } from "@/lib/constants/pagos-permisos";
 import { PagoTrazabilidad } from "./pago-trazabilidad";
+import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 interface TodosPagosPlanosTableProps {
   ofertasConPagos: OfertaConPagos[];
@@ -204,7 +205,7 @@ export function TodosPagosPlanosTable({
   const filteredPagos = useMemo(() => {
     if (!searchTerm) return pagosConPendiente;
 
-    const term = searchTerm.toLowerCase();
+    const term = normalizeSearchText(searchTerm);
     return pagosConPendiente.filter((pago) => {
       const clienteNombre = pago.contacto?.nombre || "";
       const clienteTelefono = pago.contacto?.telefono || "";
@@ -213,14 +214,14 @@ export function TodosPagosPlanosTable({
       const carnetPagador = pago.carnet_pagador || "";
 
       return (
-        pago.oferta.numero_oferta.toLowerCase().includes(term) ||
-        pago.oferta.nombre_completo.toLowerCase().includes(term) ||
-        clienteNombre.toLowerCase().includes(term) ||
+        normalizeSearchText(pago.oferta.numero_oferta).includes(term) ||
+        normalizeSearchText(pago.oferta.nombre_completo).includes(term) ||
+        normalizeSearchText(clienteNombre).includes(term) ||
         clienteTelefono.includes(term) ||
         clienteCarnet.includes(term) ||
-        nombrePagador.toLowerCase().includes(term) ||
+        normalizeSearchText(nombrePagador).includes(term) ||
         carnetPagador.includes(term) ||
-        pago.id.toLowerCase().includes(term)
+        normalizeSearchText(pago.id).includes(term)
       );
     });
   }, [pagosConPendiente, searchTerm]);

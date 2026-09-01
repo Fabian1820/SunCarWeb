@@ -55,6 +55,7 @@ import {
   QuickMaterialCreateDialog,
   type QuickMaterialData,
 } from "./quick-material-create-dialog";
+import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 interface MaterialSeleccionado {
   material_id: string;
@@ -273,7 +274,7 @@ export function CompraFormDialog({
   }, [open, initialData?.id]);
 
   useEffect(() => {
-    const term = materialSearch.trim().toLowerCase();
+    const term = normalizeSearchText(materialSearch.trim());
     if (!term) {
       setMaterialResults([]);
       setShowMaterialDropdown(false);

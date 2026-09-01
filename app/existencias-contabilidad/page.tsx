@@ -22,6 +22,7 @@ import type { ExportColumn } from "@/lib/export-service"
 import type { Material } from "@/lib/api-types"
 import type { CrearTicketSalidaData } from "@/components/feats/contabilidad/crear-ticket-dialog"
 import { ReciboService } from "@/lib/services/feats/caja/recibo-service"
+import { normalizeSearchText } from '@/lib/utils/string-utils'
 
 export default function ExistenciasContabilidadPage() {
   return (
@@ -134,7 +135,7 @@ function ExistenciasContabilidadPageContent() {
   ]
 
   const materialesFiltrados = useMemo(() => {
-    const term = searchCodigoContabilidad.trim().toLowerCase()
+    const term = normalizeSearchText(searchCodigoContabilidad.trim())
     const base = !term
       ? materiales
       : materiales.filter((material) =>
