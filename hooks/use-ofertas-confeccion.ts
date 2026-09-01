@@ -6,6 +6,10 @@ import {
   buildApiUrl,
   getCommonHeaders,
 } from "@/lib/api-endpoints";
+import {
+  normalizarEsquemaPago,
+  type EsquemaPago,
+} from "@/lib/utils/esquema-pago";
 
 export interface OfertaConfeccion {
   id: string;
@@ -80,6 +84,7 @@ export interface OfertaConfeccion {
   tasa_cambio?: number;
   pago_transferencia?: boolean;
   datos_cuenta?: string;
+  esquema_pago?: EsquemaPago | null;
   formas_pago_acordadas?: boolean;
   cantidad_pagos_acordados?: number;
   pagos_acordados?: PagoAcordadoOferta[];
@@ -270,6 +275,7 @@ export const normalizeOfertaConfeccion = (raw: any): OfertaConfeccion => {
     tasa_cambio: raw.tasa_cambio ?? 0,
     pago_transferencia: raw.pago_transferencia ?? false,
     datos_cuenta: raw.datos_cuenta ?? "",
+    esquema_pago: normalizarEsquemaPago(raw.esquema_pago),
     formas_pago_acordadas: formasPagoAcordadas,
     cantidad_pagos_acordados: formasPagoAcordadas
       ? Math.max(0, cantidadPagosAcordados)

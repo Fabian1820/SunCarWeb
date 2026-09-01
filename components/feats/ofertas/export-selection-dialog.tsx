@@ -20,6 +20,18 @@ import { Checkbox } from "@/components/shared/molecule/checkbox";
 import { Separator } from "@/components/shared/molecule/separator";
 import { ScrollArea } from "@/components/shared/molecule/scroll-area";
 import { ExportButtons } from "@/components/shared/molecule/export-buttons";
+import { apiRequest } from "@/lib/api-config";
+import { useToast } from "@/hooks/use-toast";
+import { EsquemaPagoSelector } from "@/components/feats/ofertas/esquema-pago-selector";
+import {
+  ESQUEMA_PAGO_PERSONALIZADO,
+  ESQUEMA_PAGO_POR_DEFECTO,
+  ESQUEMAS_PAGO_PRESETS,
+  esEsquemaPagoValido,
+  identificarEsquemaPago,
+  normalizarEsquemaPago,
+  type EsquemaPago,
+} from "@/lib/utils/esquema-pago";
 import {
   ChevronDown,
   ChevronRight,
@@ -35,6 +47,12 @@ interface ExportSelectionDialogProps {
     exportOptionsClienteConPrecios: any;
     baseFilename: string;
   };
+  /**
+   * Se llama tras guardar el esquema de pago en la oferta. El padre debe
+   * refrescar su copia para que el PDF se regenere con los porcentajes nuevos
+   * y para que al reabrir el diálogo no se vea el valor viejo.
+   */
+  onOfertaActualizada?: (oferta: any) => void;
 }
 
 export function ExportSelectionDialog({
@@ -42,7 +60,92 @@ export function ExportSelectionDialog({
   onOpenChange,
   oferta,
   exportOptions,
+  onOfertaActualizada,
 }: ExportSelectionDialogProps) {
+  const { toast } = useToast();
+
+  // --- Esquema de pago -----------------------------------------------------
+  // Los porcentajes se guardan en la oferta, no solo en esta exportación: al
+  // volver a exportar desde aquí, desde Clientes o desde Leads salen los mismos.
+  const esquemaPagoOferta = normalizarEsquemaPago(oferta?.esquema_pago);
+  const [esquemaPagoId, setEsquemaPagoId] = useState<string>(
+    ESQUEMA_PAGO_POR_DEFECTO,
+  );
+  const [esquemaPagoPersonalizado, setEsquemaPagoPersonalizado] =
+    useState<EsquemaPago>({
+      anticipo: 50,
+      entrega_suministros: 30,
+      puesta_marcha: 20,
+    });
+  const [guardandoEsquemaPago, setGuardandoEsquemaPago] = useState(false);
+
+  // Al abrir (o al cambiar de oferta) se parte de lo que tiene guardado.
+  useEffect(() => {
+    if (!open) return;
+    const guardado = normalizarEsquemaPago(oferta?.esquema_pago);
+    setEsquemaPagoId(identificarEsquemaPago(guardado));
+    if (guardado) setEsquemaPagoPersonalizado(guardado);
+  }, [open, oferta?.id, oferta?.esquema_pago]);
+
+  const guardarEsquemaPago = async (esquema: EsquemaPago | null) => {
+    const ofertaId = oferta?.id || oferta?._id;
+    if (!ofertaId) return;
+
+    setGuardandoEsquemaPago(true);
+    try {
+      const response = await apiRequest<{
+        success?: boolean;
+        message?: string;
+      }>(`/ofertas/confeccion/${ofertaId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ esquema_pago: esquema }),
+      });
+
+      if (response?.success === false) {
+        throw new Error(response.message || "No se pudo guardar el esquema");
+      }
+
+      // Se parchea la oferta que ya tiene el padre en vez de usar la respuesta:
+      // el backend devuelve el documento crudo (nombre_automatico, ...) y el
+      // padre trabaja con la forma normalizada (nombre, ...).
+      onOfertaActualizada?.({ ...oferta, esquema_pago: esquema });
+      toast({
+        title: "Esquema de pago guardado",
+        description: esquema
+          ? `La oferta usará ${esquema.anticipo} / ${esquema.entrega_suministros} / ${esquema.puesta_marcha}.`
+          : "La oferta vuelve a usar el esquema de los términos y condiciones.",
+      });
+    } catch (error) {
+      console.error("Error guardando esquema de pago de la oferta", error);
+      // Se revierte el select para no dejarlo mostrando algo que no se guardó.
+      setEsquemaPagoId(identificarEsquemaPago(esquemaPagoOferta));
+      toast({
+        title: "No se pudo guardar el esquema de pago",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Revisa la conexión e inténtalo de nuevo.",
+        variant: "destructive",
+      });
+    } finally {
+      setGuardandoEsquemaPago(false);
+    }
+  };
+
+  const handleEsquemaPagoChange = (value: string) => {
+    setEsquemaPagoId(value);
+    if (value === ESQUEMA_PAGO_POR_DEFECTO) {
+      void guardarEsquemaPago(null);
+      return;
+    }
+    if (value === ESQUEMA_PAGO_PERSONALIZADO) {
+      // El personalizado se guarda al confirmar, no en cada tecla.
+      return;
+    }
+    const preset = ESQUEMAS_PAGO_PRESETS.find((p) => p.id === value);
+    if (preset) void guardarEsquemaPago(preset.esquema);
+  };
+
   // Generar opciones de exportación si no se proporcionan
   const generarOpcionesExportacionSimple = (oferta: any) => {
     if (!oferta) return null;
@@ -687,6 +790,36 @@ export function ExportSelectionDialog({
         </DialogHeader>
 
         <div className="flex-1 min-h-0 flex flex-col gap-4">
+          {/* Esquema de pago: se guarda en la oferta, no solo en este export */}
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <EsquemaPagoSelector
+              value={esquemaPagoId}
+              onValueChange={handleEsquemaPagoChange}
+              personalizado={esquemaPagoPersonalizado}
+              onPersonalizadoChange={setEsquemaPagoPersonalizado}
+              disabled={guardandoEsquemaPago}
+              hayPagosAcordados={Boolean(oferta?.formas_pago_acordadas)}
+              idPrefix="export-esquema-pago"
+            />
+            {esquemaPagoId === ESQUEMA_PAGO_PERSONALIZADO && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="mt-2 h-8"
+                disabled={
+                  guardandoEsquemaPago ||
+                  !esEsquemaPagoValido(esquemaPagoPersonalizado)
+                }
+                onClick={() => void guardarEsquemaPago(esquemaPagoPersonalizado)}
+              >
+                {guardandoEsquemaPago
+                  ? "Guardando..."
+                  : "Guardar esquema personalizado"}
+              </Button>
+            )}
+          </div>
+
           {/* Controles de selección */}
           <div className="flex items-center justify-between gap-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
             <div className="flex items-center gap-3">

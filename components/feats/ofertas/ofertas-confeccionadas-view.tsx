@@ -1869,6 +1869,10 @@ export function OfertasConfeccionadasView() {
           onOpenChange={setMostrarDialogoExportar}
           oferta={ofertaParaExportar}
           exportOptions={generarOpcionesExportacion(ofertaParaExportar)}
+          onOfertaActualizada={(ofertaActualizada) => {
+            setOfertaParaExportar(ofertaActualizada);
+            refetch?.();
+          }}
         />
       )}
 

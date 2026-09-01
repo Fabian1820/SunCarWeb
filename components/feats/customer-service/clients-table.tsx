@@ -5756,6 +5756,10 @@ export function ClientsTable({
           onOpenChange={setMostrarDialogoExportar}
           oferta={ofertaParaExportar}
           exportOptions={generarOpcionesExportacion(ofertaParaExportar)}
+          onOfertaActualizada={(ofertaActualizada) => {
+            setOfertaParaExportar(ofertaActualizada);
+            refetchOfertas?.();
+          }}
         />
       )}
 
