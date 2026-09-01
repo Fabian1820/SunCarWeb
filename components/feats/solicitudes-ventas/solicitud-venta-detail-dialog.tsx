@@ -7,7 +7,6 @@ import {
   DialogTitle,
 } from "@/components/shared/molecule/dialog";
 import { Badge } from "@/components/shared/atom/badge";
-import { Button } from "@/components/shared/atom/button";
 import {
   ClipboardList,
   Package,
@@ -15,7 +14,6 @@ import {
   Warehouse,
   Ban,
   RotateCcw,
-  CreditCard,
 } from "lucide-react";
 import type { SolicitudVenta } from "@/lib/api-types";
 import { GenerarLinkPagoSolicitudButton } from "./generar-link-pago-solicitud-button";

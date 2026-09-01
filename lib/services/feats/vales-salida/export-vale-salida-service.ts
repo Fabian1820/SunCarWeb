@@ -1,7 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import ExcelJS from "exceljs";
-import { InventarioService } from "../inventario/inventario-service";
 import { MaterialService } from "../../../api-services";
 import type {
   ValeSalida,
@@ -208,49 +207,6 @@ const getMaterialPrice = (material: ValeSalidaMaterialItemDetalle): number => {
   );
 };
 
-const getMaterialExistencia = (
-  material: ValeSalidaMaterialItemDetalle,
-  stockByCode?: Map<string, number>,
-): number | null => {
-  const record = material as unknown as Record<string, unknown>;
-  const nestedMaterial = material.material as unknown as
-    | Record<string, unknown>
-    | undefined;
-
-  const inlineExistencia =
-    toNumberOrNull(record.saldo_existencia) ??
-    toNumberOrNull(record.stock_restante) ??
-    toNumberOrNull(record.stock_disponible) ??
-    toNumberOrNull(record.stock_actual) ??
-    toNumberOrNull(record.existencia_actual) ??
-    toNumberOrNull(record.existencia_disponible) ??
-    toNumberOrNull(record.cantidad_existencia) ??
-    toNumberOrNull(record.cantidad_disponible) ??
-    toNumberOrNull(record.existencia) ??
-    toNumberOrNull(record.saldo) ??
-    toNumberOrNull(record.stock) ??
-    toNumberOrNull(nestedMaterial?.saldo_existencia) ??
-    toNumberOrNull(nestedMaterial?.stock_restante) ??
-    toNumberOrNull(nestedMaterial?.stock_disponible) ??
-    toNumberOrNull(nestedMaterial?.stock_actual) ??
-    toNumberOrNull(nestedMaterial?.existencia_actual) ??
-    toNumberOrNull(nestedMaterial?.existencia_disponible) ??
-    toNumberOrNull(nestedMaterial?.cantidad_existencia) ??
-    toNumberOrNull(nestedMaterial?.cantidad_disponible) ??
-    toNumberOrNull(nestedMaterial?.existencia) ??
-    toNumberOrNull(nestedMaterial?.saldo) ??
-    toNumberOrNull(nestedMaterial?.stock) ??
-    null;
-
-  if (inlineExistencia !== null) return inlineExistencia;
-  if (!stockByCode) return null;
-
-  const materialCode = normalizeMaterialCode(getMaterialCode(material));
-  if (!materialCode || materialCode === "-") return null;
-  const stock = stockByCode.get(materialCode);
-  return typeof stock === "number" && Number.isFinite(stock) ? stock : null;
-};
-
 const formatMoney = (value: number): string =>
   new Intl.NumberFormat("es-ES", {
     minimumFractionDigits: 2,
@@ -316,39 +272,6 @@ const loadLogoBase64 = async (): Promise<string | null> => {
   return null;
 };
 
-const getValeAlmacenId = (vale: ValeSalida): string | null =>
-  vale.solicitud_material?.almacen?.id ||
-  vale.solicitud_venta?.almacen?.id ||
-  vale.solicitud?.almacen?.id ||
-  null;
-
-const loadStockByCode = async (
-  vale: ValeSalida,
-): Promise<Map<string, number>> => {
-  const stockByCode = new Map<string, number>();
-  const almacenId = getValeAlmacenId(vale);
-  if (!almacenId) return stockByCode;
-
-  try {
-    // Sin `limit`: el mapa por código debe cubrir TODO el almacén. Con un tope
-    // el backend paginaba y los materiales fuera del corte se exportaban con
-    // stock 0.
-    const { data: stockRows } = await InventarioService.getStock({
-      almacen_id: almacenId,
-    });
-    stockRows.forEach((row) => {
-      const code = normalizeMaterialCode(String(row.material_codigo || ""));
-      if (!code) return;
-      const cantidad = toNumberOrNull(row.cantidad);
-      if (cantidad === null) return;
-      stockByCode.set(code, cantidad);
-    });
-  } catch (error) {
-  }
-
-  return stockByCode;
-};
-
 /** Mapa código(normalizado MAYÚS) -> precios del material desde el catálogo. */
 const loadPreciosByCodigo = async (): Promise<
   Map<string, MaterialPreciosVale>
@@ -393,7 +316,6 @@ export class ExportValeSalidaService {
     const header = getValeHeaderInfo(vale);
     const cliente = getClienteInfo(vale);
     const materiales = vale.materiales || [];
-    const stockByCode = await loadStockByCode(vale);
 
     const marginLeft = 14;
     const marginRight = 14;
@@ -665,7 +587,6 @@ export class ExportValeSalidaService {
     const cliente = getClienteInfo(vale);
     const materiales = vale.materiales || [];
     const logo = await loadLogoBase64();
-    const stockByCode = await loadStockByCode(vale);
     const preciosByCodigo = await loadPreciosByCodigo();
 
     worksheet.columns = [

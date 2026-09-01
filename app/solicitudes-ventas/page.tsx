@@ -12,7 +12,6 @@ import {
   CardTitle,
 } from "@/components/shared/molecule/card";
 import { Input } from "@/components/shared/molecule/input";
-import { Label } from "@/components/shared/atom/label";
 import {
   Select,
   SelectContent,
@@ -1301,7 +1300,7 @@ const [exportingPagos, setExportingPagos]           = useState(false);
                 error={errorSolicitudes}
                 onRefresh={() => fetchSolicitudesPendientes(f2Params)}
                 onPagar={handlePagar}
-                onVerStripe={(s) => { setStripePagosOpen(true); }}
+                onVerStripe={() => { setStripePagosOpen(true); }}
                 variant="embedded"
                 searchValue={f2Search}
                 onSearchChange={setF2Search}
