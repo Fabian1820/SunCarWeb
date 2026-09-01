@@ -26,6 +26,7 @@ export type {
 
 export type {
   Cliente,
+  CapacidadEquipos,
   ClienteFoto,
   ClienteResponse,
   ClienteCreateData,

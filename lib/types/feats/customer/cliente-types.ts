@@ -12,6 +12,23 @@ export interface ClienteFoto {
   tipo: "instalacion" | "averia" | "visita";
 }
 
+/**
+ * Equipo principal del cliente, acumulando todas sus ofertas confirmadas: una
+ * ampliación posterior suma sobre la instalación original.
+ *
+ * `fuente` dice de dónde salió el dato — "ofertas_confirmadas" (el sistema
+ * vivo), "snapshot_cliente" (el legado congelado en `ofertas[0]`, para
+ * clientes anteriores al módulo de confección), "mixta", o `null` cuando no
+ * hay equipo registrado. Un componente en `null` significa "no se sabe", no
+ * "cero": esos clientes quedan fuera de cualquier filtro por capacidad.
+ */
+export interface CapacidadEquipos {
+  inversor_kw: number | null;
+  bateria_kwh: number | null;
+  paneles: number | null;
+  fuente: "ofertas_confirmadas" | "snapshot_cliente" | "mixta" | null;
+}
+
 export interface Cliente {
   id?: string; // ID de MongoDB (transformado desde _id por el backend)
   numero: string;
@@ -49,6 +66,7 @@ export interface Cliente {
   motivo_visita?: string; // Campo temporal para crear visita automática cuando estado = "Pendiente de visita"
   tipo_persona?: string;
   oferta_confeccion?: OfertaConfeccionResumen | null;
+  capacidad_equipos?: CapacidadEquipos | null;
   es_trabajador_suncar?: boolean;
   activo?: boolean;
 }
