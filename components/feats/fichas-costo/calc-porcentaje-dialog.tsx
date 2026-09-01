@@ -25,6 +25,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import type { MaterialFichaResumen } from "@/lib/types/feats/fichas-costo/ficha-costo-types"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
+import { normalizeSearchText } from '@/lib/utils/string-utils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -69,7 +70,7 @@ function MaterialSearchPanel({
   const [query, setQuery] = useState("")
 
   const results = useMemo(() => {
-    const q = query.trim().toLowerCase()
+    const q = normalizeSearchText(query.trim())
     if (q.length < 2) return []
     return materiales
       .filter((m) => {

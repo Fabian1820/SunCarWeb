@@ -59,3 +59,32 @@ export function compareStrings(str1: string, str2: string): boolean {
 export function containsString(haystack: string, needle: string): boolean {
   return normalizeString(haystack).includes(normalizeString(needle))
 }
+
+/**
+ * Normaliza texto para búsquedas: minúsculas y sin tildes.
+ *
+ * A diferencia de `normalizeString`, conserva espacios y puntuación, de modo
+ * que el comportamiento del buscador es el mismo de siempre salvo por las
+ * tildes: "fabian" encuentra "Fabián" y "Fabián" encuentra "fabian".
+ *
+ * @example
+ * normalizeSearchText("Fabián Rodríguez") // "fabian rodriguez"
+ */
+export function normalizeSearchText(value: unknown): string {
+  if (value === null || value === undefined) return ''
+
+  return String(value)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+}
+
+/**
+ * ¿`haystack` contiene `needle`, ignorando mayúsculas y tildes?
+ *
+ * @example
+ * matchesSearch("Fabián Rodríguez", "fabian rod") // true
+ */
+export function matchesSearch(haystack: unknown, needle: unknown): boolean {
+  return normalizeSearchText(haystack).includes(normalizeSearchText(needle))
+}

@@ -67,6 +67,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { TasaCambioService } from "@/lib/api-services";
 import type { TasaCambio } from "@/lib/types/feats/tasa-cambio/tasa-cambio-types";
+import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 type ViewMode =
   | "anticipos-pendientes"
@@ -285,7 +286,7 @@ export default function PagosClientesPage() {
   const filteredFacturasEmitidas = useMemo(() => {
     if (!searchTerm) return facturasEmitidas;
 
-    const term = searchTerm.toLowerCase();
+    const term = normalizeSearchText(searchTerm);
     return facturasEmitidas.filter((factura) => {
       const numeroFactura = (factura.numero_factura || "").toLowerCase();
       const emitidaPor = (factura.emitida_por || "").toLowerCase();

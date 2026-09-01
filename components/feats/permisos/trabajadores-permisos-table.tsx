@@ -7,6 +7,7 @@ import { TrabajadorService, PermisosService } from "@/lib/api-services"
 import { Trabajador } from "@/lib/api-types"
 import { Search, Shield, Loader2, Key } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { normalizeSearchText } from '@/lib/utils/string-utils'
 
 interface TrabajadoresPermisosTableProps {
   onEditPermisos: (ci: string, nombre: string) => void
@@ -60,12 +61,12 @@ export function TrabajadoresPermisosTable({
 
   // Filtrar y ordenar trabajadores
   const trabajadoresFiltrados = useMemo(() => {
-    const searchLower = searchTerm.toLowerCase().trim()
+    const searchLower = normalizeSearchText(searchTerm).trim()
 
     // Filtrar por búsqueda
     let filtered = trabajadores.filter(
       (t) =>
-        t.nombre.toLowerCase().includes(searchLower) ||
+        normalizeSearchText(t.nombre).includes(searchLower) ||
         t.CI.includes(searchLower)
     )
 

@@ -17,6 +17,7 @@ import type {
   PlanDepreciacionFiltros,
   TipoEntidad,
 } from "@/lib/types/feats/asignaciones/asignacion-types"
+import { normalizeSearchText } from '@/lib/utils/string-utils'
 
 const money = (n?: number | null) =>
   n == null || isNaN(Number(n)) ? "—" : `$${Number(n).toFixed(2)}`
@@ -69,14 +70,14 @@ export function PlanDepreciacionView() {
 
   // Búsqueda local (sobre nombre, entidad, n/s, descripción)
   const filtrado = useMemo(() => {
-    const q = busqueda.trim().toLowerCase()
+    const q = normalizeSearchText(busqueda.trim())
     if (!q) return data
     return data.filter(f =>
-      f.nombre.toLowerCase().includes(q) ||
-      (f.entidad_nombre?.toLowerCase().includes(q) ?? false) ||
-      f.entidad_id.toLowerCase().includes(q) ||
-      (f.numero_serie?.toLowerCase().includes(q) ?? false) ||
-      (f.descripcion?.toLowerCase().includes(q) ?? false)
+      normalizeSearchText(f.nombre).includes(q) ||
+      (normalizeSearchText(f.entidad_nombre).includes(q) ?? false) ||
+      normalizeSearchText(f.entidad_id).includes(q) ||
+      (normalizeSearchText(f.numero_serie).includes(q) ?? false) ||
+      (normalizeSearchText(f.descripcion).includes(q) ?? false)
     )
   }, [data, busqueda])
 

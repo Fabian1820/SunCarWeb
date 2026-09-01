@@ -9,6 +9,7 @@ import { Loader2, FileCheck, Search, Image as ImageIcon, Zap, Battery, Sun, Cabl
 import type { OfertaConfeccion } from "@/hooks/use-ofertas-confeccion"
 import type { Cliente } from "@/lib/api-types"
 import Image from "next/image"
+import { normalizeSearchText } from '@/lib/utils/string-utils'
 
 interface AsignarOfertaGenericaDialogProps {
   open: boolean
@@ -174,12 +175,12 @@ export function AsignarOfertaGenericaDialog({
   const ofertasFiltradas = useMemo(() => {
     if (!searchQuery.trim()) return ofertas
 
-    const query = searchQuery.toLowerCase()
+    const query = normalizeSearchText(searchQuery)
     return ofertas.filter((oferta) => {
       return (
-        oferta.nombre?.toLowerCase().includes(query) ||
-        oferta.nombre_completo?.toLowerCase().includes(query) ||
-        oferta.numero_oferta?.toLowerCase().includes(query) ||
+        normalizeSearchText(oferta.nombre).includes(query) ||
+        normalizeSearchText(oferta.nombre_completo).includes(query) ||
+        normalizeSearchText(oferta.numero_oferta).includes(query) ||
         oferta.precio_final.toString().includes(query)
       )
     })

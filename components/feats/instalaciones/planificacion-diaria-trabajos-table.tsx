@@ -69,6 +69,7 @@ import {
   ofertaTieneEntregas,
   seleccionarOfertaTrabajoConfirmada,
 } from "./planificacion/oferta-utils";
+import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 interface PlanificacionDiariaTrabajosTableProps {
   trabajos: TrabajoPlanificable[];
@@ -265,7 +266,7 @@ export function PlanificacionDiariaTrabajosTable({
   const trabajosFiltrados = useMemo(() => {
     if (!busqueda.trim()) return trabajosDelTipoActivo;
     
-    const busquedaLower = busqueda.toLowerCase().trim();
+    const busquedaLower = normalizeSearchText(busqueda).trim();
     return trabajosDelTipoActivo.filter((trabajo) => {
       const nombre = (trabajo.nombre || "").toLowerCase();
       const direccion = (trabajo.direccion || "").toLowerCase();

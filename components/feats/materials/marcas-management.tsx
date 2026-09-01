@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Search } from "lucide-react"
 import { MarcasTable } from "./marcas-table"
 import type { Marca, TipoMaterial } from "@/lib/types/feats/marcas/marca-types"
+import { normalizeSearchText } from '@/lib/utils/string-utils'
 
 const TIPOS_MATERIAL: TipoMaterial[] = ['BATERÍAS', 'INVERSORES', 'PANELES', 'OTRO']
 
@@ -24,7 +25,7 @@ export function MarcasManagement({ marcas, loading, onEdit, onDelete }: MarcasMa
 
   // Filtrar marcas
   const filteredMarcas = marcas.filter((marca) => {
-    const matchesSearch = marca.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch = normalizeSearchText(marca.nombre).includes(normalizeSearchText(searchTerm)) ||
                          marca.descripcion?.toLowerCase().includes(searchTerm.toLowerCase())
     
     const matchesTipo = tipoFilter === "all" || marca.tipos_material.includes(tipoFilter as TipoMaterial)

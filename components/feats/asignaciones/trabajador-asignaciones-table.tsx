@@ -14,6 +14,7 @@ import { AsignacionRecursosDialog } from "./asignacion-recursos-dialog"
 import { TrabajadorDetalleModal } from "./trabajador-detalle-modal"
 import { AjustarCostoDialog } from "./ajustar-costo-dialog"
 import { TransferirAsignacionDialog } from "./transferir-asignacion-dialog"
+import { normalizeSearchText } from '@/lib/utils/string-utils'
 
 interface TrabajadorAsignacionesTableProps {
   trabajadores: TrabajadorConAsignaciones[]
@@ -44,13 +45,13 @@ export function TrabajadorAsignacionesTable({
   const [filtroEstado, setFiltroEstado] = useState<"" | "con-recursos" | "sin-recursos" | "depreciados">("")
 
   const trabajadoresFiltrados = useMemo(() => {
-    const q = busqueda.trim().toLowerCase()
+    const q = normalizeSearchText(busqueda.trim())
     return trabajadores.filter(t => {
       // Búsqueda
       if (q && !(
-        t.nombre.toLowerCase().includes(q) ||
-        t.CI.toLowerCase().includes(q) ||
-        (t.cargo?.toLowerCase().includes(q) ?? false)
+        normalizeSearchText(t.nombre).includes(q) ||
+        normalizeSearchText(t.CI).includes(q) ||
+        (normalizeSearchText(t.cargo).includes(q) ?? false)
       )) return false
       // Estado
       if (filtroEstado === "con-recursos" && t.asignaciones.length === 0) return false

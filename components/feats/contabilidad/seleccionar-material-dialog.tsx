@@ -19,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/shared/molecule/table"
+import { normalizeSearchText } from '@/lib/utils/string-utils'
 
 interface SeleccionarMaterialDialogProps {
   open: boolean
@@ -41,13 +42,13 @@ export function SeleccionarMaterialDialog({
   const filteredMateriales = useMemo(() => {
     if (!searchTerm.trim()) return materiales
 
-    const term = searchTerm.toLowerCase()
+    const term = normalizeSearchText(searchTerm)
     return materiales.filter(
       (material) =>
-        material.nombre?.toLowerCase().includes(term) ||
-        material.descripcion?.toLowerCase().includes(term) ||
-        material.codigo?.toLowerCase().includes(term) ||
-        material.codigo_contabilidad?.toLowerCase().includes(term)
+        normalizeSearchText(material.nombre).includes(term) ||
+        normalizeSearchText(material.descripcion).includes(term) ||
+        normalizeSearchText(material.codigo).includes(term) ||
+        normalizeSearchText(material.codigo_contabilidad).includes(term)
     )
   }, [materiales, searchTerm])
 

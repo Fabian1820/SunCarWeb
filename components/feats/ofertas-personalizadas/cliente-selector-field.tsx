@@ -15,6 +15,7 @@ import {
 import { ClienteService } from '@/lib/services/feats/customer/cliente-service'
 import { LeadService } from '@/lib/api-services'
 import type { Cliente, Lead } from '@/lib/api-types'
+import { normalizeSearchText } from '@/lib/utils/string-utils'
 
 type ContactType = 'cliente' | 'lead'
 
@@ -87,7 +88,7 @@ export function ClienteSelectorField({
   const filteredClientes = useMemo(() => {
     if (!clienteSearch.trim()) return clientes
 
-    const term = clienteSearch.toLowerCase()
+    const term = normalizeSearchText(clienteSearch)
     return clientes.filter(
       (cliente) =>
         cliente.nombre?.toLowerCase().includes(term) ||
@@ -100,7 +101,7 @@ export function ClienteSelectorField({
   const filteredLeads = useMemo(() => {
     if (!leadSearch.trim()) return leads
 
-    const term = leadSearch.toLowerCase()
+    const term = normalizeSearchText(leadSearch)
     return leads.filter(
       (lead) =>
         lead.nombre?.toLowerCase().includes(term) ||

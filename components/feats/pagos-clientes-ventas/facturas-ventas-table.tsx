@@ -17,6 +17,7 @@ import type {
   FacturaVentaAgregados,
 } from "@/lib/types/feats/pagos-clientes-ventas/pago-cliente-venta-types";
 import { Search, RefreshCw, AlertCircle, Trash2, Eye, FileDown, Receipt, Files, Loader2, FileSpreadsheet, Ban } from "lucide-react";
+import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 interface FacturasVentasTableProps {
   facturas: FacturaClienteVenta[];
@@ -150,17 +151,17 @@ export function FacturasVentasTable({
     }
     if (isSearchControlled) return true;
     if (!search.trim()) return true;
-    const term = search.toLowerCase();
+    const term = normalizeSearchText(search);
     return (
-      f.numero_factura.toLowerCase().includes(term) ||
-      (f.cliente || "").toLowerCase().includes(term) ||
-      (f.cliente_nombre || "").toLowerCase().includes(term) ||
-      (f.cliente_numero || "").toLowerCase().includes(term) ||
-      (f.comercial || "").toLowerCase().includes(term) ||
-      (f.emitida_por || "").toLowerCase().includes(term) ||
-      (f.emitida_por_nombre || "").toLowerCase().includes(term) ||
-      getSolicitudId(f).toLowerCase().includes(term) ||
-      getSolicitudesDisplay(f).toLowerCase().includes(term)
+      normalizeSearchText(f.numero_factura).includes(term) ||
+      normalizeSearchText((f.cliente || "")).includes(term) ||
+      normalizeSearchText((f.cliente_nombre || "")).includes(term) ||
+      normalizeSearchText((f.cliente_numero || "")).includes(term) ||
+      normalizeSearchText((f.comercial || "")).includes(term) ||
+      normalizeSearchText((f.emitida_por || "")).includes(term) ||
+      normalizeSearchText((f.emitida_por_nombre || "")).includes(term) ||
+      normalizeSearchText(getSolicitudId(f)).includes(term) ||
+      normalizeSearchText(getSolicitudesDisplay(f)).includes(term)
     );
   }), [facturas, search, monedaFilter, metodoFilter, isSearchControlled]);
 

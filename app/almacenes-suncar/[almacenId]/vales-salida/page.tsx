@@ -80,6 +80,7 @@ export default function ValesSalidaPage() {
     vales,
     filteredVales,
     loading,
+    initialLoading,
     isSearching, // Nueva bandera de búsqueda
     searchTerm,
     setSearchTerm,
@@ -176,7 +177,10 @@ export default function ValesSalidaPage() {
   // ← Ya no necesitamos filtrar en el frontend, el backend lo hace
   const valesAlmacen = filteredVales;
 
-  if (loading && vales.length === 0) {
+  // Solo la carga inicial reemplaza la página completa. Si se mostrara también
+  // durante las búsquedas, cada tecleo con 0 resultados desmontaría el buscador
+  // (se perdía el foco y la página saltaba al inicio).
+  if (initialLoading) {
     return <PageLoader moduleName="Vales de Salida" text="Cargando vales..." />;
   }
 

@@ -32,6 +32,7 @@ import {
   ChevronRight,
   RotateCcw,
 } from "lucide-react";
+import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 interface TodosPagosVentasTableProps {
   pagos: PagoVenta[];
@@ -225,15 +226,15 @@ export function TodosPagosVentasTable({
         // Si el search lo controla la página (server-side), no filtramos aquí.
         if (isSearchControlled) return true;
         if (!search.trim()) return true;
-        const term = search.toLowerCase();
+        const term = normalizeSearchText(search);
         return (
-          getSolicitudId(p).toLowerCase().includes(term) ||
-          (p.solicitud_codigo || "").toLowerCase().includes(term) ||
-          (p.factura_numero || "").toLowerCase().includes(term) ||
-          (p.cliente_nombre || "").toLowerCase().includes(term) ||
-          (p.comercial || "").toLowerCase().includes(term) ||
-          (p.recibido_por || "").toLowerCase().includes(term) ||
-          (p.notas || "").toLowerCase().includes(term)
+          normalizeSearchText(getSolicitudId(p)).includes(term) ||
+          normalizeSearchText((p.solicitud_codigo || "")).includes(term) ||
+          normalizeSearchText((p.factura_numero || "")).includes(term) ||
+          normalizeSearchText((p.cliente_nombre || "")).includes(term) ||
+          normalizeSearchText((p.comercial || "")).includes(term) ||
+          normalizeSearchText((p.recibido_por || "")).includes(term) ||
+          normalizeSearchText((p.notas || "")).includes(term)
         );
       }),
     [pagos, search, isSearchControlled],

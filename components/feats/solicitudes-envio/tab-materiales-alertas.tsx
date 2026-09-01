@@ -15,6 +15,7 @@ import { useSolicitudesEnvio } from "@/hooks/use-solicitudes-envio";
 
 import { CrearSolicitudEnvioDialog } from "@/components/feats/solicitudes-envio/crear-solicitud-envio-dialog";
 import { IgnorarAlertaDialog } from "@/components/feats/solicitudes-envio/ignorar-alerta-dialog";
+import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 type CarritoItem = MaterialSolicitudEnvio;
 
@@ -54,13 +55,13 @@ export function TabMaterialesAlertas() {
   const [crearOpen, setCrearOpen] = useState(false);
 
   const filtrados = useMemo(() => {
-    const q = busqueda.trim().toLowerCase();
+    const q = normalizeSearchText(busqueda.trim());
     if (!q) return alerts.materiales;
     return alerts.materiales.filter(
       (m) =>
-        m.codigo.toLowerCase().includes(q) ||
-        m.nombre.toLowerCase().includes(q) ||
-        (m.descripcion ?? "").toLowerCase().includes(q),
+        normalizeSearchText(m.codigo).includes(q) ||
+        normalizeSearchText(m.nombre).includes(q) ||
+        normalizeSearchText((m.descripcion ?? "")).includes(q),
     );
   }, [alerts.materiales, busqueda]);
 

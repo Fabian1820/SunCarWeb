@@ -20,6 +20,7 @@ import { usePreguntasFrecuentes } from "@/hooks/use-preguntas-frecuentes";
 import { PreguntaFrecuenteFormDialog } from "@/components/feats/preguntas-frecuentes/pregunta-frecuente-form-dialog";
 import { useToast } from "@/hooks/use-toast";
 import type { PreguntaFrecuente } from "@/lib/types/feats/preguntas-frecuentes/preguntas-frecuentes-types";
+import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 export default function PreguntasFrecuentesPage() {
   const {
@@ -39,12 +40,12 @@ export default function PreguntasFrecuentesPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [busqueda, setBusqueda] = useState("");
 
-  const termino = busqueda.trim().toLowerCase();
+  const termino = normalizeSearchText(busqueda.trim());
   const preguntasVisibles = termino
     ? preguntas.filter(
         (p) =>
-          p.pregunta.toLowerCase().includes(termino) ||
-          p.respuesta.toLowerCase().includes(termino)
+          normalizeSearchText(p.pregunta).includes(termino) ||
+          normalizeSearchText(p.respuesta).includes(termino)
       )
     : preguntas;
 

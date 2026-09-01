@@ -13,6 +13,7 @@ import {
   extractContactoEntregaKeysFromEntity,
   extractOfertaIdsFromEntity,
 } from "@/lib/utils/oferta-id";
+import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 const SPANISH_MONTHS: Record<string, number> = {
   enero: 0,
@@ -398,7 +399,7 @@ export default function InstalacionesNuevasPage() {
 
   // Instalaciones filtradas
   const filteredInstalaciones = useMemo(() => {
-    const search = appliedFilters.searchTerm.trim().toLowerCase();
+    const search = normalizeSearchText(appliedFilters.searchTerm.trim());
     const fechaHasta = parseDateValue(appliedFilters.fechaHasta);
 
     if (fechaHasta) fechaHasta.setHours(23, 59, 59, 999);

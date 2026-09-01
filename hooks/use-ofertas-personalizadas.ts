@@ -7,6 +7,7 @@ import type {
   OfertaPersonalizadaCreateRequest,
   OfertaPersonalizadaUpdateRequest,
 } from '@/lib/types/feats/ofertas-personalizadas/oferta-personalizada-types'
+import { normalizeSearchText } from '@/lib/utils/string-utils'
 
 interface OfertaFilters {
   clienteId?: string
@@ -199,11 +200,11 @@ export function useOfertasPersonalizadas(
 
     // Filtro por término de búsqueda (busca en ID de cliente)
     if (searchTerm) {
-      const term = searchTerm.toLowerCase()
+      const term = normalizeSearchText(searchTerm)
       filtered = filtered.filter(
         (oferta) =>
-          oferta.cliente_id?.toLowerCase().includes(term) ||
-          oferta.lead_id?.toLowerCase().includes(term)
+          normalizeSearchText(oferta.cliente_id).includes(term) ||
+          normalizeSearchText(oferta.lead_id).includes(term)
       )
     }
 

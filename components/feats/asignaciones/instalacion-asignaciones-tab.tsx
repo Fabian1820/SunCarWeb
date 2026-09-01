@@ -24,6 +24,7 @@ import type {
   MedioBasico,
 } from "@/lib/types/feats/asignaciones/asignacion-types"
 import { useToast } from "@/hooks/use-toast"
+import { normalizeSearchText } from '@/lib/utils/string-utils'
 
 interface SeccionColores {
   borderL: string
@@ -180,11 +181,11 @@ export function InstalacionAsignacionesTab({ mediosBasicos }: InstalacionAsignac
 
   // Filtrado por búsqueda
   const dataFiltrada = useMemo(() => {
-    const q = busqueda.trim().toLowerCase()
+    const q = normalizeSearchText(busqueda.trim())
     if (!q) return data
     const matches = (inst: InstalacionConAsignaciones) =>
-      inst.nombre.toLowerCase().includes(q) ||
-      (inst.codigo?.toLowerCase().includes(q) ?? false)
+      normalizeSearchText(inst.nombre).includes(q) ||
+      (normalizeSearchText(inst.codigo).includes(q) ?? false)
     return {
       almacen: data.almacen.filter(matches),
       tienda: data.tienda.filter(matches),

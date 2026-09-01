@@ -38,6 +38,7 @@ import {
   formatFechaRecogida,
   getFechaRecogidaBadge,
 } from "@/lib/utils/fecha-recogida";
+import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 interface MaterialRow {
   material_id: string;
@@ -189,7 +190,7 @@ export function CreateValeSalidaDialog({
   const [submitting, setSubmitting] = useState(false);
 
   const filteredSolicitudes = useMemo(() => {
-    const term = solicitudSearch.trim().toLowerCase();
+    const term = normalizeSearchText(solicitudSearch.trim());
     if (!term) return solicitudes.slice(0, 20);
 
     return solicitudes
@@ -358,7 +359,7 @@ export function CreateValeSalidaDialog({
       selectedSolicitud?.tipo_solicitud === "venta" && !incluirNoVendibles;
 
     if (isVenta) {
-      const term = materialSearch.toLowerCase();
+      const term = normalizeSearchText(materialSearch);
       const filtered = materialCatalogVenta
         .filter(
           (m) =>

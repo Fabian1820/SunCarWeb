@@ -32,6 +32,7 @@ import {
 import type { Almacen, SolicitudTransferencia, StockItem } from "@/lib/inventario-types"
 import type { Material } from "@/lib/material-types"
 import { InventarioService } from "@/lib/api-services"
+import { normalizeSearchText } from '@/lib/utils/string-utils'
 
 interface ItemRow {
   material_id: string
@@ -216,7 +217,7 @@ export function SolicitudTransferenciaDialog({
     }
 
     const handler = setTimeout(() => {
-      const term = materialSearch.toLowerCase()
+      const term = normalizeSearchText(materialSearch)
       const filtered = materiales
         .filter(
           (m) =>

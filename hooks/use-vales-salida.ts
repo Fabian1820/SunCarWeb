@@ -10,6 +10,8 @@ interface UseValesSalidaReturn {
   vales: ValeSalidaSummary[];
   filteredVales: ValeSalidaSummary[];
   loading: boolean;
+  /** Solo true mientras se resuelve la primera carga. Evita desmontar la página en cada búsqueda. */
+  initialLoading: boolean;
   isSearching: boolean; // Nueva bandera para indicar búsqueda en progreso
   error: string | null;
   searchTerm: string;
@@ -42,6 +44,7 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
   const [skip, setSkip] = useState(0); // Contador de registros cargados
   const [hasMore, setHasMore] = useState(true); // Hay más registros por cargar
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true); // Solo la primera carga
   const [isSearching, setIsSearching] = useState(false); // Búsqueda en progreso
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -58,8 +61,11 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
 
   // Ref para evitar recrear loadVales en cada render
   const isFirstRender = useRef(true);
+  // Contador de peticiones: descarta respuestas de búsquedas ya obsoletas
+  const requestIdRef = useRef(0);
 
   const loadVales = useCallback(async (filterAlmacenId?: string) => {
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     setError(null);
     try {
@@ -106,12 +112,16 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
 
       const response = await ValeSalidaService.getValesSummary(params);
 
+      // Descartar respuestas de búsquedas que ya fueron reemplazadas por otra más nueva
+      if (requestId !== requestIdRef.current) return;
+
       // REEMPLAZAR vales (no concatenar)
       setVales(response.data || []);
       setTotal(response.total || 0);
       setSkip(100); // Ya cargamos los primeros 100
       setHasMore((response.data?.length || 0) < (response.total || 0)); // Hay más si no cargamos todo
     } catch (err) {
+      if (requestId !== requestIdRef.current) return;
       setError(
         err instanceof Error
           ? err.message
@@ -122,7 +132,10 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
       setSkip(0);
       setHasMore(false);
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+        setInitialLoading(false);
+      }
     }
   }, [estadoFilter, tipoFilter, searchTerm, creadorSolicitudFilter, fechaDesdeFilter, fechaHastaFilter, almacenId]);
 
@@ -132,6 +145,8 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
   const loadMore = useCallback(async () => {
     if (loading || !hasMore) return; // No cargar si ya está cargando o no hay más
 
+    // Si mientras se pagina llega una búsqueda nueva, este resultado se descarta
+    const requestId = requestIdRef.current;
     setLoading(true);
     setError(null);
     try {
@@ -177,6 +192,8 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
 
       const response = await ValeSalidaService.getValesSummary(params);
 
+      if (requestId !== requestIdRef.current) return;
+
       // CONCATENAR nuevos vales al array existente
       const newVales = [...vales, ...response.data];
       setVales(newVales);
@@ -185,6 +202,7 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
       setSkip(newSkip);
       setHasMore(newVales.length < response.total); // Usar el array actualizado
     } catch (err) {
+      if (requestId !== requestIdRef.current) return;
       setError(
         err instanceof Error
           ? err.message
@@ -253,15 +271,18 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
     // Activar indicador de búsqueda
     setIsSearching(true);
 
+    let cancelado = false;
     const timer = setTimeout(() => {
       void loadVales(almacenId).finally(() => {
-        setIsSearching(false); // Desactivar indicador cuando termine
+        // Solo apaga el indicador la búsqueda vigente; si el usuario siguió
+        // escribiendo, el spinner se mantiene hasta que responda la última.
+        if (!cancelado) setIsSearching(false);
       });
     }, 500);
 
     return () => {
+      cancelado = true;
       clearTimeout(timer);
-      setIsSearching(false); // Limpiar indicador si se cancela
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estadoFilter, tipoFilter, searchTerm, creadorSolicitudFilter, fechaDesdeFilter, fechaHastaFilter, almacenId]); // ← Agregar almacenId, creador y fechas como dependencias
@@ -270,6 +291,7 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
     vales,
     filteredVales,
     loading,
+    initialLoading,
     isSearching, // Nueva bandera
     error,
     searchTerm,

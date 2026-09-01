@@ -56,6 +56,7 @@ import {
   Zap,
 } from "lucide-react";
 import { TrabajoDiarioForm } from "./trabajo-diario-form";
+import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 type Worker = {
   CI?: string;
@@ -189,13 +190,13 @@ function NuevaAveriaDialog({
 
   const clientesFiltrados = useMemo(() => {
     if (!searchCliente.trim()) return [];
-    const q = searchCliente.toLowerCase();
+    const q = normalizeSearchText(searchCliente);
     return clientes.filter(
       (c) =>
-        c.nombre.toLowerCase().includes(q) ||
-        c.numero.toLowerCase().includes(q) ||
-        c.telefono?.toLowerCase().includes(q) ||
-        c.direccion?.toLowerCase().includes(q),
+        normalizeSearchText(c.nombre).includes(q) ||
+        normalizeSearchText(c.numero).includes(q) ||
+        normalizeSearchText(c.telefono).includes(q) ||
+        normalizeSearchText(c.direccion).includes(q),
     );
   }, [clientes, searchCliente]);
 
@@ -519,12 +520,12 @@ export function TrabajosDiariosAveriasView() {
       base = base.filter(({ averia }) => averia.estado === "Pendiente");
     }
     if (!searchCliente.trim()) return base;
-    const q = searchCliente.toLowerCase();
+    const q = normalizeSearchText(searchCliente);
     return base.filter(
       ({ cliente, averia }) =>
-        safeText(cliente.nombre).toLowerCase().includes(q) ||
-        safeText(cliente.numero).toLowerCase().includes(q) ||
-        safeText(averia.descripcion).toLowerCase().includes(q),
+        normalizeSearchText(safeText(cliente.nombre)).includes(q) ||
+        normalizeSearchText(safeText(cliente.numero)).includes(q) ||
+        normalizeSearchText(safeText(averia.descripcion)).includes(q),
     );
   }, [clientesConAverias, searchCliente, soloPendientes]);
 

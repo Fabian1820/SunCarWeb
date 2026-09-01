@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { BrigadaService } from '@/lib/api-services'
 import type { Brigada, BrigadaRequest, TeamMember } from '@/lib/brigade-types'
+import { normalizeSearchText } from '@/lib/utils/string-utils'
 
 interface UseBrigadasReturn {
   brigadas: Brigada[]
@@ -48,22 +49,22 @@ export function useBrigadas(): UseBrigadasReturn {
       return brigadas
     }
     
-    const searchLower = searchTerm.toLowerCase()
+    const searchLower = normalizeSearchText(searchTerm)
     return brigadas.filter(brigada => {
       // Buscar en el nombre del líder
-      if (brigada.lider?.nombre?.toLowerCase().includes(searchLower)) {
+      if (normalizeSearchText(brigada.lider?.nombre).includes(searchLower)) {
         return true
       }
       
       // Buscar en el CI del líder
-      if (brigada.lider?.CI?.toLowerCase().includes(searchLower)) {
+      if (normalizeSearchText(brigada.lider?.CI).includes(searchLower)) {
         return true
       }
       
       // Buscar en los nombres de los integrantes
       if (brigada.integrantes?.some((trabajador: any) => 
-        trabajador.nombre?.toLowerCase().includes(searchLower) ||
-        trabajador.CI?.toLowerCase().includes(searchLower)
+        normalizeSearchText(trabajador.nombre).includes(searchLower) ||
+        normalizeSearchText(trabajador.CI).includes(searchLower)
       )) {
         return true
       }

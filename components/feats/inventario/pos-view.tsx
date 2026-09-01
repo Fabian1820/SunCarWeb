@@ -22,6 +22,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/s
 import { cajaService } from "@/lib/services/feats/caja/caja-service"
 import type { ItemOrden as ItemOrdenBackend, OrdenCompra } from "@/lib/types/feats/caja-types"
 import { ReciboService } from "@/lib/services/feats/caja/recibo-service"
+import { normalizeSearchText } from '@/lib/utils/string-utils'
 
 interface Producto {
   id: string
@@ -524,7 +525,7 @@ export function PosView({ tiendaId, sesionId }: PosViewProps) {
   )
 
   const ordenesFiltradas = useMemo(() => {
-    const search = ordenSearch.trim().toLowerCase()
+    const search = normalizeSearchText(ordenSearch.trim())
     const estado = ordenEstado === "todas" ? "" : ordenEstado
 
     return ordenesBackend

@@ -17,6 +17,7 @@ import {
   FileText,
   FileSpreadsheet,
   Download,
+  Loader2,
 } from "lucide-react";
 import type { ValeSalidaSummary } from "@/lib/api-types";
 
@@ -78,6 +79,17 @@ export function ValesSalidaTable({
   };
 
   if (vales.length === 0) {
+    // Mientras se resuelve una búsqueda no anunciamos "sin resultados": evita
+    // el parpadeo del mensaje entre tecla y tecla.
+    if (isSearching) {
+      return (
+        <div className="flex items-center justify-center gap-2 py-12 text-gray-500">
+          <Loader2 className="h-5 w-5 animate-spin text-emerald-600" />
+          Buscando vales...
+        </div>
+      );
+    }
+
     const hasActiveSearch = searchTerm.trim().length > 0;
     return (
       <div className="text-center py-12">

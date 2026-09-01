@@ -11,6 +11,7 @@ import { AveriaService, ClienteService } from "@/lib/api-services"
 import { useToast } from "@/hooks/use-toast"
 import type { Cliente } from "@/lib/api-types"
 import { AVERIA_CODIGOS } from "@/lib/constants/averia-codigos"
+import { normalizeSearchText } from '@/lib/utils/string-utils'
 
 interface CrearAveriaDialogProps {
   open: boolean
@@ -43,12 +44,12 @@ export function CrearAveriaDialog({
   const clientesFiltrados = useMemo(() => {
     if (!searchCliente.trim()) return []
     
-    const search = searchCliente.toLowerCase()
+    const search = normalizeSearchText(searchCliente)
     return clientes.filter(cliente => 
-      cliente.nombre.toLowerCase().includes(search) ||
-      cliente.numero.toLowerCase().includes(search) ||
-      cliente.telefono?.toLowerCase().includes(search) ||
-      cliente.direccion?.toLowerCase().includes(search)
+      normalizeSearchText(cliente.nombre).includes(search) ||
+      normalizeSearchText(cliente.numero).includes(search) ||
+      normalizeSearchText(cliente.telefono).includes(search) ||
+      normalizeSearchText(cliente.direccion).includes(search)
     )
   }, [clientes, searchCliente])
 

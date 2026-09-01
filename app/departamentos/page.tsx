@@ -25,6 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/shared/molecule/toaster";
 import { DepartamentoService } from "@/lib/api-services";
 import type { Departamento, DepartamentoUpsertRequest } from "@/lib/api-types";
+import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 type EstadoFiltro = "todos" | "activos" | "inactivos";
 
@@ -73,10 +74,10 @@ function DepartamentosPageContent() {
   }, [loadDepartamentos]);
 
   const filteredDepartamentos = useMemo(() => {
-    const term = search.trim().toLowerCase();
+    const term = normalizeSearchText(search.trim());
     if (!term) return departamentos;
     return departamentos.filter((item) =>
-      item.nombre.toLowerCase().includes(term),
+      normalizeSearchText(item.nombre).includes(term),
     );
   }, [departamentos, search]);
 

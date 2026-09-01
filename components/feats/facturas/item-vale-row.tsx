@@ -14,6 +14,7 @@ import {
 import { Trash2, Search } from "lucide-react";
 import type { ItemVale } from "@/lib/types/feats/facturas/factura-types";
 import type { Material } from "@/lib/material-types";
+import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 const CODIGOS_BATERIA_DESCUENTO_20 = new Set([
   "FLS48100SMG01",
@@ -84,11 +85,11 @@ export function ItemValeRow({
   const filteredMateriales = useMemo(() => {
     if (!searchQuery.trim()) return materiales;
 
-    const query = searchQuery.toLowerCase();
+    const query = normalizeSearchText(searchQuery);
     return materiales.filter(
       (material) =>
-        material.descripcion.toLowerCase().includes(query) ||
-        material.codigo.toString().toLowerCase().includes(query),
+        normalizeSearchText(material.descripcion).includes(query) ||
+        normalizeSearchText(material.codigo.toString()).includes(query),
     );
   }, [materiales, searchQuery]);
 

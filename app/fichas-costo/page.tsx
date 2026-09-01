@@ -50,6 +50,7 @@ import { useMarcas } from "@/hooks/use-marcas"
 import { useAuth } from "@/contexts/auth-context"
 import { exportToExcel, generateFilename } from "@/lib/export-service"
 import type { Material } from "@/lib/material-types"
+import { normalizeSearchText } from '@/lib/utils/string-utils'
 
 const PAGE_SIZE = 20
 
@@ -133,7 +134,7 @@ function FichasCostoPageContent() {
   }, [marcasSimplificadas])
 
   const filtered = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase()
+    const q = normalizeSearchText(searchTerm.trim())
     const min = precioMin.trim() === "" ? null : Number(precioMin)
     const max = precioMax.trim() === "" ? null : Number(precioMax)
 
@@ -143,12 +144,12 @@ function FichasCostoPageContent() {
         if (q) {
           const marca = (m.marca_id ? marcaPorId.get(m.marca_id) : "") || ""
           const hay =
-            String(m.codigo || "").toLowerCase().includes(q) ||
-            (m.descripcion || "").toLowerCase().includes(q) ||
-            (m.nombre || "").toLowerCase().includes(q) ||
-            (m.categoria || "").toLowerCase().includes(q) ||
-            marca.toLowerCase().includes(q) ||
-            (typeof m.numero_serie === "string" && m.numero_serie.toLowerCase().includes(q))
+            normalizeSearchText(String(m.codigo || "")).includes(q) ||
+            normalizeSearchText((m.descripcion || "")).includes(q) ||
+            normalizeSearchText((m.nombre || "")).includes(q) ||
+            normalizeSearchText((m.categoria || "")).includes(q) ||
+            normalizeSearchText(marca).includes(q) ||
+            (typeof m.numero_serie === "string" && normalizeSearchText(m.numero_serie).includes(q))
           if (!hay) return false
         }
         // Categoría

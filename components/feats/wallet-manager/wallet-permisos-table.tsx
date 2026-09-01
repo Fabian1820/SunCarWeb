@@ -9,6 +9,7 @@ import { Trabajador } from "@/lib/api-types"
 import { Search, Loader2, Wallet, Shield, Eye, Landmark } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useWalletPermisos } from "@/hooks/use-wallet-permisos"
+import { normalizeSearchText } from '@/lib/utils/string-utils'
 
 export function WalletPermisosTable() {
   const { toast } = useToast()
@@ -48,10 +49,10 @@ export function WalletPermisosTable() {
   }, [permisos])
 
   const trabajadoresFiltrados = useMemo(() => {
-    const search = searchTerm.toLowerCase().trim()
+    const search = normalizeSearchText(searchTerm).trim()
     let filtered = trabajadores.filter(
       (t) =>
-        t.nombre.toLowerCase().includes(search) || t.CI.includes(search)
+        normalizeSearchText(t.nombre).includes(search) || t.CI.includes(search)
     )
 
     filtered.sort((a, b) => {
