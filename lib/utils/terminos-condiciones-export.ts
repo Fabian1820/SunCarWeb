@@ -213,11 +213,26 @@ const aplicarEsquemaPago = (
     return textoBd;
   }
 
+  // Un hito en 0 no se imprime: un "0 %" suelto en el PDF queda mal y no dice
+  // nada. Pasa con repartos de dos tramos, p. ej. 50 / 0 / 50.
+  const hayHitoPrevio = anticipo > 0 || suministros > 0;
   const vinetas = [
-    `• ${formatearPorcentaje(anticipo)} % del importe total de la oferta en concepto de anticipo, al momento de la aceptación y firma del presupuesto.`,
-    `• ${formatearPorcentaje(suministros)} % a la entrega de los suministros.`,
-    `• ${formatearPorcentaje(puestaMarcha)} % restante con la puesta en marcha del sistema.`,
-  ];
+    anticipo > 0
+      ? `• ${formatearPorcentaje(anticipo)} % del importe total de la oferta en concepto de anticipo, al momento de la aceptación y firma del presupuesto.`
+      : null,
+    suministros > 0
+      ? `• ${formatearPorcentaje(suministros)} % a la entrega de los suministros.`
+      : null,
+    // "restante" solo tiene sentido si antes se enumeró algún otro pago.
+    puestaMarcha > 0
+      ? `• ${formatearPorcentaje(puestaMarcha)} % ${
+          hayHitoPrevio ? "restante " : ""
+        }con la puesta en marcha del sistema.`
+      : null,
+  ].filter((vineta): vineta is string => vineta !== null);
+
+  // Reparto degenerado (todo a cero): se deja el texto de la BD como estaba.
+  if (vinetas.length === 0) return textoBd;
 
   const esVineta = (linea: string) => /^\s*[•\-\u2022]/.test(linea);
   const lineas = textoBd.split("\n");
