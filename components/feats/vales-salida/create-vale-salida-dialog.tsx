@@ -503,14 +503,6 @@ export function CreateValeSalidaDialog({
     );
   };
 
-  const handleNumeroSerieChange = (index: number, value: string) => {
-    setMateriales((prev) =>
-      prev.map((material, i) =>
-        i === index ? { ...material, numero_serie: value.trim() || undefined } : material,
-      ),
-    );
-  };
-
   const handleOpenSerialNumberDialog = (index: number) => {
     const material = materiales[index];
     if (!material) return;

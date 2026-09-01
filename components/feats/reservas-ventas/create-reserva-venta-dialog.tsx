@@ -46,7 +46,6 @@ import type {
   ClienteVenta,
   MaterialVentaWeb,
   OfertaVenta,
-  Reserva,
   ReservaCreateData,
   StockItem,
 } from "@/lib/api-types";

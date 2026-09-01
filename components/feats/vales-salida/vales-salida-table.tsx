@@ -77,12 +77,6 @@ export function ValesSalidaTable({
     }
   };
 
-  const parseMaterialesCount = (resumen?: string): number => {
-    if (!resumen) return 0;
-    const match = resumen.match(/^(\d+)/);
-    return match ? parseInt(match[1], 10) : 0;
-  };
-
   if (vales.length === 0) {
     const hasActiveSearch = searchTerm.trim().length > 0;
     return (
@@ -137,9 +131,6 @@ export function ValesSalidaTable({
           {vales.map((vale) => {
             const solicitudTipo = getSolicitudTipo(vale);
             const isAnulado = vale.estado === "anulado";
-            const cantidadMateriales = parseMaterialesCount(
-              vale.materiales_resumen,
-            );
             const tipoStyles = getTipoStyles(solicitudTipo);
             return (
               <tr

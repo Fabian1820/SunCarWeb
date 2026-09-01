@@ -27,7 +27,6 @@ import {
   TableRow,
 } from "@/components/shared/molecule/table"
 import { ExternalLink, Loader2, RefreshCw, CreditCard } from "lucide-react"
-import { apiRequest } from "@/lib/api-config"
 
 interface StripePagoListado {
   sessionId: string

@@ -14,7 +14,6 @@ import type {
   SolicitudVentaPlanPagosData,
   SolicitudVentaSummary,
   SolicitudVentaSummaryAgregados,
-  SolicitudVentaSummaryResponse,
 } from "../../../api-types";
 
 const BASE_ENDPOINT = "/operaciones/solicitudes-ventas";

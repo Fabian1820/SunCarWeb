@@ -1059,7 +1059,6 @@ export function CreateSolicitudMaterialDialog({
     }
   };
 
-  const hasSinVinculo = materiales.some((m) => m.sinVinculo);
   const validCount = materiales.filter(
     (m) => m.material_id && !m.sinVinculo && !m.entregado && m.cantidad > 0,
   ).length;
