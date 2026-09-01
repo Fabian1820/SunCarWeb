@@ -11,7 +11,6 @@ import {
   Loader2,
   Pencil,
 } from "lucide-react"
-import { Button } from "@/components/shared/atom/button"
 import { MaterialImage } from "@/components/shared/molecule/material-image"
 import { SmartPagination } from "@/components/shared/molecule/smart-pagination"
 import {

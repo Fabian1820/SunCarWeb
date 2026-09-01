@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { Button } from "@/components/shared/atom/button"
 import { MaterialImage } from "@/components/shared/molecule/material-image"
-import { Input } from "@/components/shared/molecule/input"
 import { Textarea } from "@/components/shared/molecule/textarea"
 import {
   Select,
@@ -35,7 +34,6 @@ import type {
   Almacen,
   MaterialFaltante,
   SolicitudTransferencia,
-  SolicitudTransferenciaEstado,
 } from "@/lib/inventario-types"
 import type { Material } from "@/lib/material-types"
 import { useAuth } from "@/contexts/auth-context"

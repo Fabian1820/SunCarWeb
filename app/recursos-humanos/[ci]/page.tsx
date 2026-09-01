@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
 import {
   ArrowLeft, User, Briefcase, Coins, Pencil, Check, X,
-  Building, Phone, HardHat, Shield, CalendarDays, FileText,
+  Phone, HardHat, Shield, CalendarDays, FileText,
   AlertCircle, UserCog, ChevronDown, Camera, Trash2, Upload, Eye,
 } from "lucide-react"
 import { Button }  from "@/components/shared/atom/button"

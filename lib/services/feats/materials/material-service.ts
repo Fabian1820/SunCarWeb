@@ -5,7 +5,6 @@ import type { BackendCatalogoProductos } from "../../../api-types";
 import type {
   Material,
   CreateCategoryRequest,
-  CreateMaterialRequest,
   UpdateCategoryRequest,
   AddMaterialToCategoryRequest,
 } from "../../../material-types";

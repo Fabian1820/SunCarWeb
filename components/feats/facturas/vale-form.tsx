@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import { Button } from "@/components/shared/atom/button"
 import { Label } from "@/components/shared/atom/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card"

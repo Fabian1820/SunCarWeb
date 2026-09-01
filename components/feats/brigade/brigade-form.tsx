@@ -3,10 +3,8 @@
 import type React from "react"
 import { useState } from "react"
 import { Button } from "@/components/shared/atom/button"
-import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
-import { Save, X, Crown, Users, Eye, EyeOff } from "lucide-react"
+import { Save, X, Crown, Users } from "lucide-react"
 import type { Brigade, BrigadeFormData } from "@/lib/brigade-types"
 
 interface BrigadeFormProps {

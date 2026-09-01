@@ -19,7 +19,6 @@ import {
   Ban,
   PlusCircle,
 } from "lucide-react";
-import { EstadoBadge } from "./estado-badge";
 import type { FacturaConsolidada } from "@/lib/types/feats/facturas/factura-types";
 import { ClienteDetallesDialog } from "@/components/feats/customer/cliente-detalles-dialog";
 import type { Cliente } from "@/lib/api-types";

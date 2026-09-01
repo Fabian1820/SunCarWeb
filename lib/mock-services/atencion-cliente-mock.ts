@@ -1,5 +1,5 @@
 import type { MensajeCliente } from '../api-types'
-import { mockMensajes, mockEstadisticas, delay, generateId } from '../mock-data/customer-service'
+import { mockMensajes, delay, generateId } from '../mock-data/customer-service'
 
 // Copia local de los datos que se puede modificar
 let localMensajes = [...mockMensajes]

@@ -4,7 +4,6 @@ import type {
   ArchivoNominaSimplificado,
   CrearArchivoNominaRequest,
   CrearArchivoNominaResponse,
-  ListaArchivosNominaResponse,
 } from '../../../types/feats/recursos-humanos/archivo-rh-types'
 
 /**

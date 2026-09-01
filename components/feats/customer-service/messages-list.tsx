@@ -6,7 +6,6 @@ import { Badge } from "@/components/shared/atom/badge"
 import { Button } from "@/components/shared/atom/button"
 import { Input } from "@/components/shared/molecule/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
-import { Separator } from "@/components/shared/molecule/separator"
 import { 
   MessageCircle, 
   AlertTriangle, 
@@ -14,8 +13,6 @@ import {
   FileText, 
   Clock, 
   User, 
-  Phone,
-  Mail,
   CheckCircle,
   XCircle,
   AlertCircle,

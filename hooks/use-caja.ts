@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { cajaService } from '@/lib/services/feats/caja/caja-service';
 import type {
   SesionCaja,
-  OrdenCompra,
   ItemOrden,
   MetodoPago,
   PagoDetalle,

@@ -8,7 +8,7 @@ import { GeoJSON, MapContainer, Marker, TileLayer, ZoomControl, useMap } from "r
 import {
   Users, Sun, Cpu, Battery, Clock,
   Eye, CheckCircle, UserPlus, Building2, Calendar,
-  Activity, RefreshCw, Wrench, PlayCircle, Phone, Shield, ArrowLeft,
+  Activity, RefreshCw, Wrench, Phone, Shield, ArrowLeft,
   X, MapPin, Zap, ChevronDown, ChevronUp, TrendingUp, Users2,
   HardHat, TriangleAlert, CalendarClock, ExternalLink, Filter,
   XCircle, Bookmark, UserCheck, ShoppingCart, Package, Truck,
@@ -20,7 +20,7 @@ import type { MunicipioDetallado } from "@/lib/types/feats/centro-control/centro
 import type { Cliente } from "@/lib/api-types"
 import type { Lead } from "@/lib/types/feats/leads/lead-types"
 import type { Brigada } from "@/lib/types/feats/brigade/brigade-types"
-import type { ClienteSlim, LeadSlim, ClienteVentaSlim, SolicitudVentaSlim, PeriodoStats, AnalisisRegionalData, ClientesPorMesItem, PeriodoMunicipios, PeriodoMunicipioTrabajo, PeriodoMunicipioAveriaCliente, ModoPeriodoMunicipio } from "@/lib/services/feats/centro-control/centro-control-service"
+import type { ClienteSlim, LeadSlim, ClienteVentaSlim, SolicitudVentaSlim, PeriodoStats, AnalisisRegionalData, ClientesPorMesItem, PeriodoMunicipios } from "@/lib/services/feats/centro-control/centro-control-service"
 import "leaflet/dist/leaflet.css"
 
 // ─── Types ───────────────────────────────────────────────────────────────────

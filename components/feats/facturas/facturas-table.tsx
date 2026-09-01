@@ -11,7 +11,7 @@ import {
 } from "@/components/shared/molecule/table"
 import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent } from "@/components/shared/molecule/card"
-import { Edit, Trash2, Eye, ArrowUpDown } from "lucide-react"
+import { Edit, Eye, ArrowUpDown } from "lucide-react"
 import { EstadoBadge } from "./estado-badge"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"

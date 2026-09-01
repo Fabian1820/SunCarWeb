@@ -41,7 +41,6 @@ import type {
   AnalisisStockMinimoResponse,
   ProductoAnalisisStock,
   EstadoStock,
-  ResumenAnalisisStock,
 } from "@/lib/types/feats/inventario/inventario-types";
 import { useListaCompra } from "@/hooks/use-lista-compra";
 import type { UrgenciaCompra } from "@/lib/types/feats/lista-compra/lista-compra-types";

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/shared/atom/button"
 import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"

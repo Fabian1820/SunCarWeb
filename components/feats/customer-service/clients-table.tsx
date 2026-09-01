@@ -47,7 +47,6 @@ import {
   Phone,
   Edit,
   Trash2,
-  ListChecks,
   Plus,
   Search,
   ChevronDown,

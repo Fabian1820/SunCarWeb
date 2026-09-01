@@ -1,6 +1,6 @@
 "use client"
 
-import { Calendar, DollarSign, Users, FileText, Download } from "lucide-react"
+import { Calendar, DollarSign, Users, FileText } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import {
   Table,
@@ -10,7 +10,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/shared/molecule/table"
-import { Button } from "@/components/shared/atom/button"
 import { ExportButtons } from "@/components/shared/molecule/export-buttons"
 import type { ArchivoNominaRH } from "@/lib/types/feats/recursos-humanos/archivo-rh-types"
 import type { ExportOptions } from "@/lib/export-service"

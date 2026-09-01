@@ -1,16 +1,14 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef } from "react"
 import { Button } from "@/components/shared/atom/button"
 import { Badge } from "@/components/shared/atom/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, ConfirmDeleteDialog } from "@/components/shared/molecule/dialog"
-import { Edit, Trash2, Users, Crown, Phone, Mail, UserMinus, Eye, Power, Calendar, FileText, ChevronDown, ChevronUp } from "lucide-react"
+import { Trash2, Users, Crown, Phone, Mail, UserMinus, Eye, Calendar, FileText, ChevronDown, ChevronUp } from "lucide-react"
 import type { Brigade } from "@/lib/brigade-types"
-import { BrigadaService, TrabajadorService } from "@/lib/api-services"
+import { BrigadaService } from "@/lib/api-services"
 import { useToast } from "@/hooks/use-toast"
-import { DialogTrigger } from "@/components/shared/molecule/dialog"
-import { API_BASE_URL } from "@/lib/api-config"
 
 interface BrigadesTableProps {
   brigades: Brigade[]
