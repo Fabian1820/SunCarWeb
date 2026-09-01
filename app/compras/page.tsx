@@ -43,6 +43,7 @@ import type { Almacen } from "@/lib/types/feats/inventario/inventario-types";
 import type { QuickMaterialData } from "@/components/feats/compras/quick-material-create-dialog";
 import { CompraFormDialog } from "@/components/feats/compras/compra-form-dialog";
 import { ComprasTable } from "@/components/feats/compras/compras-table";
+import { SmartPagination } from "@/components/shared/molecule/smart-pagination";
 import { CompraDocumentosPanel } from "@/components/feats/compras/compra-documentos-panel";
 import { CrearSolicitudEntradaDialog } from "@/components/feats/solicitudes-entrada-almacen/crear-solicitud-entrada-dialog";
 import { CancelarCompraDialog } from "@/components/feats/compras/cancelar-compra-dialog";
@@ -77,7 +78,11 @@ function ComprasContent() {
 
   const {
     compras,
-    filteredCompras,
+    total: totalCompras,
+    page,
+    pageSize,
+    setPage,
+    initialLoading,
     loading,
     creating,
     updating,
@@ -225,7 +230,7 @@ function ComprasContent() {
     }
   };
 
-  if (loading && compras.length === 0) {
+  if (initialLoading) {
     return <PageLoader moduleName="Compras" text="Cargando compras..." />;
   }
 
@@ -359,16 +364,22 @@ function ComprasContent() {
                 <span className="text-gray-400">Sin filtros aplicados</span>
               )}
               <span className="ml-auto text-gray-500 font-medium">
-                {filteredCompras.length} de {compras.length} compra{compras.length !== 1 ? "s" : ""}
+                {totalCompras === 0
+                  ? "Sin compras"
+                  : `${compras.length} de ${totalCompras} compra${totalCompras !== 1 ? "s" : ""}`}
               </span>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border border-gray-200 shadow-none mb-6">
+        <Card
+          className={`border border-gray-200 shadow-none mb-6 transition-opacity ${
+            loading ? "opacity-60 pointer-events-none" : ""
+          }`}
+        >
           <CardContent className="p-0">
             <ComprasTable
-              compras={filteredCompras}
+              compras={compras}
               onDelete={handleDelete}
               onEdit={(compra) => setEditTarget(compra)}
               onDocs={handleOpenDocs}
@@ -377,6 +388,15 @@ function ComprasContent() {
             />
           </CardContent>
         </Card>
+
+        {totalCompras > pageSize && (
+          <SmartPagination
+            currentPage={page}
+            totalPages={Math.ceil(totalCompras / pageSize)}
+            onPageChange={setPage}
+            className="pb-6"
+          />
+        )}
       </main>
 
       <CompraFormDialog

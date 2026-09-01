@@ -66,7 +66,7 @@ function SolicitudesEntradaAlmacenContent() {
     setRefsLoading(true);
     try {
       const [comprasData, almacenesData] = await Promise.all([
-        CompraService.getCompras(),
+        CompraService.getAllCompras(),
         InventarioService.getAlmacenes(),
       ]);
       setCompras(comprasData);
@@ -177,7 +177,7 @@ function SolicitudesEntradaAlmacenContent() {
     await aprobarSolicitud(id, payload);
     toast({ title: "Solicitud aprobada", description: "Se generaron los movimientos de entrada y se registró el costo." });
     // Refrescar compras para reflejar nuevo cantidad_entrada_aprobada y estado
-    void CompraService.getCompras().then(setCompras);
+    void CompraService.getAllCompras().then(setCompras);
   };
 
   const handleDenegar = async (id: string, payload: Parameters<typeof denegarSolicitud>[1]) => {
