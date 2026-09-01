@@ -123,17 +123,41 @@ const calculateStockAlert = (
   };
 };
 
-/** Construye un mapa material_id/codigo → cantidad bruta de stock (sin descontar reservas). */
-const buildStockMap = (items: StockItem[]): Map<string, number> => {
+/**
+ * Mapa material_id/codigo → cantidad bruta CONSUMIBLE por este sector, sin
+ * descontar reservas.
+ *
+ * No es `item.cantidad`: ese total suma los tres pools, y el backend solo deja
+ * despachar desde el pool del sector + indistinto (ver
+ * `solicitud_material_service._construir_material`). Usar el total inflaba el
+ * disponible en cuanto hubiera existencia apartada al otro sector, y además
+ * contradecía a los badges "Instaladora"/"Ambos" de la propia fila.
+ *
+ * Si el item viene sin `pools` (documento legacy), se cae a `cantidad` para no
+ * inventar un cero.
+ */
+const buildStockMap = (
+  items: StockItem[],
+  sectorKey: "instaladora" | "ventas",
+): Map<string, number> => {
   const map = new Map<string, number>();
   for (const item of items) {
-    if (item.material_id) map.set(item.material_id, item.cantidad);
+    const consumible = item.pools
+      ? (item.pools[sectorKey]?.cantidad ?? 0) + (item.pools.indistinto?.cantidad ?? 0)
+      : item.cantidad;
+    if (item.material_id) map.set(item.material_id, consumible);
     if (item.material_codigo) {
-      map.set(`c:${item.material_codigo.trim().toLowerCase()}`, item.cantidad);
+      map.set(`c:${item.material_codigo.trim().toLowerCase()}`, consumible);
     }
   }
   return map;
 };
+
+/**
+ * Sector de este flujo. Una solicitud de material alimenta vales de instalación,
+ * así que el backend solo deja consumir del pool `instaladora` + `indistinto`.
+ */
+const SECTOR_POOL = "instaladora" as const;
 
 type PoolReservaBreakdown = { ventas: number; instaladora: number; indistinto: number };
 
@@ -187,18 +211,31 @@ const buildCodigoToIdMap = (items: StockItem[]): Map<string, string> => {
   return map;
 };
 
+type ReservaLike = {
+  materiales?: {
+    material_id: string;
+    cantidad_reservada: number;
+    cantidad_consumida?: number;
+    pool?: string | null;
+  }[];
+};
+
 /**
- * Construye un mapa material_id → cantidad neta reservada a partir de una lista de Reservas.
- * Si se pasa un clienteId, excluye sus reservas del total (para poder aplicar el bonus aparte).
+ * Mapa material_id → cantidad neta reservada que compite con este sector.
+ *
+ * Solo cuentan las reservas contra el pool del sector o contra indistinto: una
+ * reserva apartada al otro sector no sale del stock que este flujo puede
+ * despachar, y restarla apretaba el disponible de más.
  */
 const buildReservaMap = (
-  reservas: { materiales?: { material_id: string; cantidad_reservada: number; cantidad_consumida?: number }[] }[],
-  excludeClienteId?: string,
-  excludeAlmacenId?: string,
+  reservas: ReservaLike[],
+  sectorKey: "instaladora" | "ventas",
 ): Map<string, number> => {
   const map = new Map<string, number>();
   for (const reserva of reservas) {
     for (const mat of reserva.materiales ?? []) {
+      const pool = mat.pool === "ventas" || mat.pool === "instaladora" ? mat.pool : "indistinto";
+      if (pool !== sectorKey && pool !== "indistinto") continue;
       const neta = Math.max(0, mat.cantidad_reservada - (mat.cantidad_consumida ?? 0));
       if (neta > 0) map.set(mat.material_id, (map.get(mat.material_id) ?? 0) + neta);
     }
@@ -453,13 +490,7 @@ export function CreateSolicitudMaterialDialog({
       const buildCMap = (): Map<string, number> => {
         if (!almacenId) return new Map();
         const reservasCliente = todasReservasRef.current.filter((r) => r.cliente_id === clienteId);
-        const cMap = new Map<string, number>();
-        for (const reserva of reservasCliente) {
-          for (const mat of reserva.materiales ?? []) {
-            const neta = Math.max(0, mat.cantidad_reservada - (mat.cantidad_consumida ?? 0));
-            if (neta > 0) cMap.set(mat.material_id, (cMap.get(mat.material_id) ?? 0) + neta);
-          }
-        }
+        const cMap = buildReservaMap(reservasCliente, SECTOR_POOL);
         clientReservaMapRef.current = cMap;
         return cMap;
       };
@@ -719,10 +750,15 @@ export function CreateSolicitudMaterialDialog({
         let filtered: CatalogMaterial[] = [];
         if (selectedAlmacenId) {
           // Buscar en el inventario del almacén: devuelve material_id como ObjectId real
+          // Sin `limit` y ordenando por nombre: el orden por defecto del
+          // endpoint es material_id asc (ObjectId monótono), así que un tope
+          // dejaba fuera SIEMPRE lo dado de alta más recientemente. Con 104
+          // coincidencias para "cable", los cuatro cables solares nuevos caían
+          // en las posiciones 101-104 y eran inalcanzables desde el buscador.
           const { data: stockItems } = await InventarioService.getStock({
             almacen_id: selectedAlmacenId,
             q: materialSearch.trim(),
-            limit: 15,
+            sort_by: "nombre",
           });
           filtered = stockItems
             .filter((s) => s.material_id && !materiales.some((row) => row.material_id === s.material_id))
@@ -895,14 +931,14 @@ export function CreateSolicitudMaterialDialog({
           ReservaVentaService.getReservas({ almacen_id: selectedAlmacenId, estado: "activa" }),
         ]);
 
-        const map = buildStockMap(items);
+        const map = buildStockMap(items, SECTOR_POOL);
         setStockMap(map);
         stockMapRef.current = map;
         codigoToIdRef.current = buildCodigoToIdMap(items);
 
         // Guardar lista raw y construir mapa total
         todasReservasRef.current = todasReservas;
-        const tMap = buildReservaMap(todasReservas);
+        const tMap = buildReservaMap(todasReservas, SECTOR_POOL);
 
         // Mapa por pool para los badges de disponibilidad sector/Común
         const pMap = new Map<string, PoolReservaBreakdown>();
@@ -919,22 +955,18 @@ export function CreateSolicitudMaterialDialog({
             }
           }
         }
-        setPoolsDispMap(buildPoolsDispMap(items, "instaladora", pMap));
+        setPoolsDispMap(buildPoolsDispMap(items, SECTOR_POOL, pMap));
         totalReservaMapRef.current = tMap;
 
         // Mapa de reservas solo del cliente seleccionado (filtrado del total ya cargado)
         const currentCliente = selectedClienteRef.current;
         const clienteId = currentCliente?.id || currentCliente?._id;
-        const cMap = new Map<string, number>();
-        if (clienteId) {
-          const reservasCliente = todasReservas.filter((r) => r.cliente_id === clienteId);
-          for (const reserva of reservasCliente) {
-            for (const mat of reserva.materiales ?? []) {
-              const neta = Math.max(0, mat.cantidad_reservada - (mat.cantidad_consumida ?? 0));
-              if (neta > 0) cMap.set(mat.material_id, (cMap.get(mat.material_id) ?? 0) + neta);
-            }
-          }
-        }
+        const cMap = clienteId
+          ? buildReservaMap(
+              todasReservas.filter((r) => r.cliente_id === clienteId),
+              SECTOR_POOL,
+            )
+          : new Map<string, number>();
         clientReservaMapRef.current = cMap;
 
         // stock_visible = bruto − total_reservado + reservado_por_cliente

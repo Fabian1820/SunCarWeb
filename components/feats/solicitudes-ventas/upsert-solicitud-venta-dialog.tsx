@@ -114,12 +114,32 @@ const calculateStockAlertV = (
   };
 };
 
+/**
+ * Sector de este flujo. Una solicitud de venta alimenta vales de venta, así que
+ * el backend solo deja consumir del pool `ventas` + `indistinto`.
+ */
+const SECTOR_POOL_V = "ventas" as const;
+
+/**
+ * Mapa material_id/codigo → cantidad bruta CONSUMIBLE por este sector.
+ *
+ * No es `item.cantidad`: ese total suma los tres pools, y el vale solo puede
+ * salir del pool del sector + indistinto. Usar el total inflaba el disponible
+ * en cuanto hubiera existencia apartada al otro sector, y contradecía a los
+ * badges "Ventas"/"Ambos" de la propia fila.
+ *
+ * Si el item viene sin `pools` (documento legacy), se cae a `cantidad` para no
+ * inventar un cero.
+ */
 const buildStockMapV = (items: StockItem[]): Map<string, number> => {
   const map = new Map<string, number>();
   for (const item of items) {
-    if (item.material_id) map.set(item.material_id, item.cantidad);
+    const consumible = item.pools
+      ? (item.pools[SECTOR_POOL_V]?.cantidad ?? 0) + (item.pools.indistinto?.cantidad ?? 0)
+      : item.cantidad;
+    if (item.material_id) map.set(item.material_id, consumible);
     if (item.material_codigo) {
-      map.set(`c:${item.material_codigo.trim().toLowerCase()}`, item.cantidad);
+      map.set(`c:${item.material_codigo.trim().toLowerCase()}`, consumible);
     }
   }
   return map;
@@ -827,7 +847,9 @@ export function UpsertSolicitudVentaDialog({
 
         todasReservasVRef.current = todasReservas;
 
-        // Mapa total (todos los sectores sumados) para el stock visible principal
+        // Mapa de lo reservado que compite con este sector (pool ventas +
+        // indistinto). Antes sumaba los tres pools: una reserva apartada a
+        // instaladora apretaba el disponible de una venta sin motivo.
         const tMap = new Map<string, number>();
         // Mapa por sector para los badges de disponibilidad sector/Común
         const pMap = new Map<string, PoolReservaBrkV>();
@@ -835,10 +857,12 @@ export function UpsertSolicitudVentaDialog({
           for (const mat of reserva.materiales ?? []) {
             const neta = Math.max(0, mat.cantidad_reservada - (mat.cantidad_consumida ?? 0));
             if (neta > 0) {
-              tMap.set(mat.material_id, (tMap.get(mat.material_id) ?? 0) + neta);
               const rawPool = mat.pool ?? "indistinto";
               const pool: keyof PoolReservaBrkV =
                 rawPool === "ventas" || rawPool === "instaladora" ? rawPool : "indistinto";
+              if (pool === SECTOR_POOL_V || pool === "indistinto") {
+                tMap.set(mat.material_id, (tMap.get(mat.material_id) ?? 0) + neta);
+              }
               const curr = pMap.get(mat.material_id) ?? { ventas: 0, instaladora: 0, indistinto: 0 };
               curr[pool] = (curr[pool] ?? 0) + neta;
               pMap.set(mat.material_id, curr);
@@ -846,7 +870,7 @@ export function UpsertSolicitudVentaDialog({
           }
         }
         totalReservaVMapRef.current = tMap;
-        setPoolsDispMap(buildPoolsDispMapV(items, "ventas", pMap));
+        setPoolsDispMap(buildPoolsDispMapV(items, SECTOR_POOL_V, pMap));
 
         // Mapa de reservas del cliente seleccionado (filtrado del total)
         const currentCliente = selectedClienteVentaRef.current;
@@ -858,6 +882,9 @@ export function UpsertSolicitudVentaDialog({
           setReservasDelCliente(reservasCliente);
           for (const reserva of reservasCliente) {
             for (const mat of reserva.materiales ?? []) {
+              const rawPool = mat.pool ?? "indistinto";
+              const pool = rawPool === "ventas" || rawPool === "instaladora" ? rawPool : "indistinto";
+              if (pool !== SECTOR_POOL_V && pool !== "indistinto") continue;
               const neta = Math.max(0, mat.cantidad_reservada - (mat.cantidad_consumida ?? 0));
               if (neta > 0) cMap.set(mat.material_id, (cMap.get(mat.material_id) ?? 0) + neta);
             }
