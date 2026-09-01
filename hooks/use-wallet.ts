@@ -6,7 +6,6 @@ import type {
   WalletCounterpart,
   Wallet,
   WalletTransferCreateData,
-  WalletTransferResult,
   WalletsFilters,
   WalletTransaction,
   WalletTransactionCreateData,

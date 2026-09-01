@@ -32,7 +32,6 @@ import {
 import { UploadComprobanteDialog } from "@/components/shared/molecule/upload-comprobante-dialog";
 import { downloadFile } from "@/lib/utils/download-file";
 import { LeadService } from "@/lib/api-services";
-import MapPicker from "@/components/shared/organism/MapPickerNoSSR";
 import { useAuth } from "@/contexts/auth-context";
 import {
   formatFuenteConReferencia,
@@ -53,10 +52,8 @@ import {
   Eye,
   Calendar,
   MapPin,
-  Building,
   UserPlus,
   UserCheck,
-  Package,
   ListChecks,
   Loader2,
   Download,
@@ -98,11 +95,6 @@ import type {
   OfertaPersonalizadaUpdateRequest,
 } from "@/lib/types/feats/ofertas-personalizadas/oferta-personalizada-types";
 import type { OfertaConfeccion } from "@/hooks/use-ofertas-confeccion";
-import {
-  seleccionarOfertaConfirmada,
-  normalizeOfertaConfeccion,
-} from "@/hooks/use-ofertas-confeccion";
-import { apiRequest } from "@/lib/api-config";
 import { useToast } from "@/hooks/use-toast";
 import { useComercialEquipoMap } from "@/hooks/use-comercial-equipo-map";
 import {

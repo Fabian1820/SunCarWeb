@@ -37,7 +37,6 @@ import type {
   AnalisisStockMinimoResponse,
   ProductoAnalisisStock,
   EstadoStock,
-  ResumenAnalisisStock,
 } from "@/lib/types/feats/inventario/inventario-types";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
-import { Button } from "@/components/shared/atom/button";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +9,6 @@ import {
   DialogTitle,
   ConfirmDeleteDialog,
 } from "@/components/shared/molecule/dialog";
-import { User } from "lucide-react";
 import { ClienteService } from "@/lib/api-services";
 import { ClientsTable } from "@/components/feats/customer-service/clients-table";
 import {

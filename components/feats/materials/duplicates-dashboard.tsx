@@ -1,9 +1,8 @@
 "use client"
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
-import { Button } from "@/components/shared/atom/button"
 import { Badge } from "@/components/shared/atom/badge"
-import { AlertTriangle, X, Package } from "lucide-react"
+import { AlertTriangle, Package } from "lucide-react"
 import type { Material } from "@/lib/material-types"
 
 interface DuplicateGroup {

@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/shared/atom/button"
 import { Input } from "@/components/shared/molecule/input"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/shared/molecule/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
 import { Calculator, Check, Calendar } from "lucide-react"
 import { CalendarDiasSelector } from "./calendar-dias-selector"
 import type { TrabajadorRRHH } from "@/lib/recursos-humanos-types"

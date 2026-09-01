@@ -6,7 +6,6 @@ import { Badge } from "@/components/shared/atom/badge"
 import { Button } from "@/components/shared/atom/button"
 import { Textarea } from "@/components/shared/molecule/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
-import { Separator } from "@/components/shared/molecule/separator"
 import { Avatar, AvatarFallback } from "@/components/shared/atom/avatar"
 import { 
   MessageCircle, 
@@ -23,7 +22,6 @@ import {
   Send,
   Calendar,
   Edit,
-  Save,
   X
 } from "lucide-react"
 import type { MensajeCliente } from "@/lib/api-types"

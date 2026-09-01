@@ -36,7 +36,6 @@ import {
   DialogDescription,
 } from "@/components/shared/molecule/dialog";
 import { Textarea } from "@/components/shared/molecule/textarea";
-import { ExportButtons } from "@/components/shared/molecule/export-buttons";
 import { useMaterials } from "@/hooks/use-materials";
 import { useInventario } from "@/hooks/use-inventario";
 import { useMarcas } from "@/hooks/use-marcas";
@@ -1978,7 +1977,7 @@ export function ConfeccionOfertasView({
 
       // Identificar items que pueden recibir excesos
       const receptoresExceso = new Set<number>();
-      items.forEach((item, index) => {
+      items.forEach((_item, index) => {
         const categoriaNorm = categoriasNormalizadas[index];
         if (CATEGORIAS_PRIORITARIAS.includes(categoriaNorm)) {
           receptoresExceso.add(index);
@@ -7221,7 +7220,7 @@ export function ConfeccionOfertasView({
                                         </span>
                                         <span></span>
                                       </div>
-                                      {itemsDeSeccion.map((item, itemIndex) => {
+                                      {itemsDeSeccion.map((item, _itemIndex) => {
                                         const costoItem =
                                           item.precio * item.cantidad;
                                         const porcentajeItem =

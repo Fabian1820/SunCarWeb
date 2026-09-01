@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/shared/molecule/dialog"
-import { Users, Plus, Search, Loader2 } from "lucide-react"
+import { Plus, Search, Loader2 } from "lucide-react"
 import { BrigadesTable } from "@/components/feats/brigade/brigades-table"
 import { BrigadeForm } from "@/components/feats/brigade/brigade-form"
 import { useBrigadas } from "@/hooks/use-brigadas"
@@ -138,7 +138,7 @@ function BrigadasPageContent() {
     }
   };
 
-  const openEditDialog = (brigade: Brigade) => {
+  const openEditDialog = (_brigade: Brigade) => {
     // Función inhabilitada para MVP
     console.log('Función de editar brigada inhabilitada para MVP')
   }

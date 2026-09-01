@@ -1,4 +1,4 @@
-import type { MensajeCliente, RespuestaMensaje } from '../api-types'
+import type { MensajeCliente } from '../api-types'
 
 // Datos mock para mensajes de atención al cliente
 export const mockMensajes: MensajeCliente[] = [

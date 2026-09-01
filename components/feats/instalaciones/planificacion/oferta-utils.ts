@@ -1,4 +1,4 @@
-import type { OfertaTrabajo, OfertaTrabajoItem } from "./types";
+import type { OfertaTrabajo } from "./types";
 
 export const toNumber = (value: unknown) => {
   const parsed = Number(value);

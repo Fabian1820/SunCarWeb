@@ -38,7 +38,7 @@ function calcularSalario(
   trabajador: TrabajadorRRHH,
   montoTotalEstimulos: number,
   totalTrabajadores: number,
-  trabajadoresDestacados: number
+  _trabajadoresDestacados: number
 ): number | null {
   if (
     trabajador.salario_fijo === undefined || trabajador.salario_fijo === null ||

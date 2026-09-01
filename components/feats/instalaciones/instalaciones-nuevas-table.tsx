@@ -41,7 +41,6 @@ import { ClienteFotosDialog } from "@/components/feats/instalaciones/cliente-fot
 import { EntregaCelebrationAnimation } from "@/components/feats/instalaciones/entrega-celebration-animation";
 import { apiRequest } from "@/lib/api-config";
 import { extractOfertaIdsFromEntity } from "@/lib/utils/oferta-id";
-import { seleccionarOfertaConfirmada } from "@/hooks/use-ofertas-confeccion";
 import {
   formatCostoItem,
   formatCostoTotal,

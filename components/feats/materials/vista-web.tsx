@@ -6,7 +6,6 @@ import { MaterialImage } from "@/components/shared/molecule/material-image";
 import { Input } from "@/components/shared/molecule/input";
 import { Label } from "@/components/shared/atom/label";
 import { Badge } from "@/components/shared/atom/badge";
-import { Switch } from "@/components/shared/molecule/switch";
 import { Card, CardContent } from "@/components/shared/molecule/card";
 import {
   Select,

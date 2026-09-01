@@ -6,9 +6,6 @@ import { Button } from "@/components/shared/atom/button";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from "@/components/shared/molecule/card";
 import { Input } from "@/components/shared/molecule/input";
 import {
@@ -32,7 +29,7 @@ import {
 } from "@/components/shared/molecule/popover";
 import { Checkbox } from "@/components/shared/molecule/checkbox";
 import { Label } from "@/components/shared/atom/label";
-import { Plus, Search, Loader2, ChevronDown } from "lucide-react";
+import { Plus, Search, ChevronDown } from "lucide-react";
 import { LeadsTable } from "@/components/feats/leads/leads-table";
 import { SmartPagination } from "@/components/shared/molecule/smart-pagination";
 import { CreateLeadDialog } from "@/components/feats/leads/create-lead-dialog";

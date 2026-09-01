@@ -32,7 +32,6 @@ import {
 import { EditarOfertaDialog } from "./editar-oferta-dialog";
 import { ExportSelectionDialog } from "./export-selection-dialog";
 import {
-  useOfertasConfeccion,
   normalizeOfertaConfeccion,
   type OfertaConfeccion,
 } from "@/hooks/use-ofertas-confeccion";
@@ -68,7 +67,7 @@ import {
   Trash2,
   Copy,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 

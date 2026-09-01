@@ -26,7 +26,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/shared/molecule/toaster"
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import { Home, BookOpen, Plus, Search, AlertCircle, Loader2 } from "lucide-react"
-import type { Blog, BlogFormData, Categoria, Estado } from "@/lib/blog-types"
+import type { Blog, BlogFormData } from "@/lib/blog-types"
 import { convertFormToRequest } from "@/lib/blog-types"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
 

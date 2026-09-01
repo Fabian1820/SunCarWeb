@@ -21,7 +21,6 @@ import {
 import { PrioritySelect } from "@/components/shared/molecule/priority-select";
 import { FuenteSelector } from "@/components/feats/leads/fuente-selector";
 import { Loader2 } from "lucide-react";
-import { MaterialSearchSelector } from "@/components/feats/materials/material-search-selector";
 import type { Lead, LeadUpdateData } from "@/lib/api-types";
 import { useAuth } from "@/contexts/auth-context";
 import { API_BASE_URL, apiRequest } from "@/lib/api-config";

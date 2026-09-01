@@ -13,12 +13,10 @@ import { Badge } from "@/components/shared/atom/badge"
 import { Button } from "@/components/shared/atom/button"
 import {
   DollarSign,
-  Percent,
   Tag,
   TrendingUp,
   Calculator,
   Loader2,
-  Package,
   CalendarDays,
   Warehouse,
   ShoppingCart,

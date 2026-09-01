@@ -1,9 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
+import { Card, CardContent } from "@/components/shared/molecule/card"
 import { Badge } from "@/components/shared/atom/badge"
-import { Button } from "@/components/shared/atom/button"
 import { MessageCircle, TrendingUp, Clock, CheckCircle, AlertTriangle } from "lucide-react"
 import MessagesList from "@/components/feats/customer-service/messages-list"
 import MessageDetail from "@/components/feats/customer-service/message-detail"
