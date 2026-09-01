@@ -43,10 +43,17 @@ export interface PagoAcordadoExportPayload {
   justificacion?: string | null;
 }
 
+export interface EsquemaPagoExportPayload {
+  anticipo?: number | null;
+  entrega_suministros?: number | null;
+  puesta_marcha?: number | null;
+}
+
 export interface OfertaTerminosCondicionesContext {
   formas_pago_acordadas?: boolean | null;
   cantidad_pagos_acordados?: number | null;
   pagos_acordados?: PagoAcordadoExportPayload[] | null;
+  esquema_pago?: EsquemaPagoExportPayload | null;
 }
 
 export interface BuildTerminosCondicionesOptions {
@@ -177,6 +184,57 @@ const construirTextoPagosAcordados = (
   return lineas.join("\n");
 };
 
+/** Quita ceros de cola: 50 -> "50", 33.5 -> "33.5". */
+const formatearPorcentaje = (valor: number): string =>
+  String(Number(valor.toFixed(2)));
+
+/**
+ * Reescribe las viñetas de "Formas de pago" con los porcentajes de la oferta.
+ *
+ * De la BD se conserva todo lo que no sea viñeta (la frase introductoria y el
+ * párrafo de la moneda), de modo que ese texto se pueda seguir editando sin
+ * tocar código. Solo el reparto de los tres hitos se genera aquí, porque es lo
+ * único que cambia por oferta.
+ */
+const aplicarEsquemaPago = (
+  textoBd: string,
+  esquema?: EsquemaPagoExportPayload | null,
+): string => {
+  if (!esquema) return textoBd;
+
+  const anticipo = Number(esquema.anticipo);
+  const suministros = Number(esquema.entrega_suministros);
+  const puestaMarcha = Number(esquema.puesta_marcha);
+  if (
+    !Number.isFinite(anticipo) ||
+    !Number.isFinite(suministros) ||
+    !Number.isFinite(puestaMarcha)
+  ) {
+    return textoBd;
+  }
+
+  const vinetas = [
+    `• ${formatearPorcentaje(anticipo)} % del importe total de la oferta en concepto de anticipo, al momento de la aceptación y firma del presupuesto.`,
+    `• ${formatearPorcentaje(suministros)} % a la entrega de los suministros.`,
+    `• ${formatearPorcentaje(puestaMarcha)} % restante con la puesta en marcha del sistema.`,
+  ];
+
+  const esVineta = (linea: string) => /^\s*[•\-\u2022]/.test(linea);
+  const lineas = textoBd.split("\n");
+  const primeraVineta = lineas.findIndex(esVineta);
+
+  // Si el texto de la BD no tiene viñetas, se insertan tras la primera línea.
+  if (primeraVineta === -1) {
+    const [intro, ...resto] = lineas;
+    return [intro, ...vinetas, ...resto].join("\n");
+  }
+
+  const sinVinetas = lineas.filter((linea) => !esVineta(linea));
+  const anteriores = sinVinetas.slice(0, primeraVineta);
+  const posteriores = sinVinetas.slice(primeraVineta);
+  return [...anteriores, ...vinetas, ...posteriores].join("\n");
+};
+
 export function buildTerminosCondicionesHtml(
   payload?: TerminosCondicionesPayload | null,
   options?: BuildTerminosCondicionesOptions,
@@ -185,9 +243,14 @@ export function buildTerminosCondicionesHtml(
 
   const titulo = resolverCampo(payload, ["titulo"]);
   const formasPagoAcordadas = construirTextoPagosAcordados(options?.oferta);
+  // Los pagos acordados (con montos y fechas) mandan sobre el esquema
+  // porcentual: si se negocio un plan concreto, ese es el acuerdo real.
   const formasPago =
     formasPagoAcordadas ||
-    resolverCampo(payload, ["formas_pago", "formasPago"]);
+    aplicarEsquemaPago(
+      resolverCampo(payload, ["formas_pago", "formasPago"]),
+      options?.oferta?.esquema_pago,
+    );
   const reservaEquipos = resolverCampo(payload, [
     "reserva_equipos",
     "reservaEquipos",

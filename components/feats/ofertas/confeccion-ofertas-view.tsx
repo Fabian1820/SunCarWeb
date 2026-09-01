@@ -42,6 +42,7 @@ import { useInventario } from "@/hooks/use-inventario";
 import { useMarcas } from "@/hooks/use-marcas";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
+import { EsquemaPagoSelector } from "@/components/feats/ofertas/esquema-pago-selector";
 import { ClienteSearchSelector } from "@/components/feats/cliente/cliente-search-selector";
 import { LeadSearchSelector } from "@/components/feats/leads/lead-search-selector";
 import { ClienteService } from "@/lib/services/feats/customer/cliente-service";
@@ -50,6 +51,17 @@ import { ReservaVentaService } from "@/lib/api-services";
 import type { Reserva } from "@/lib/types/feats/reservas-ventas/reserva-venta-types";
 import type { Material } from "@/lib/material-types";
 import type { Cliente } from "@/lib/types/feats/customer/cliente-types";
+import {
+  ESQUEMAS_PAGO_PRESETS,
+  ESQUEMA_PAGO_PERSONALIZADO,
+  ESQUEMA_PAGO_POR_DEFECTO,
+  HITOS_ESQUEMA_PAGO,
+  esEsquemaPagoValido,
+  identificarEsquemaPago,
+  normalizarEsquemaPago,
+  sumaEsquemaPago,
+  type EsquemaPago,
+} from "@/lib/utils/esquema-pago";
 import {
   buildTerminosCondicionesHtml,
   type TerminosCondicionesPayload,
@@ -500,6 +512,36 @@ export function ConfeccionOfertasView({
   const [datosCuenta, setDatosCuenta] = useState(
     estadoInicial?.datosCuenta || "",
   );
+  // Reparto porcentual que se imprime en la oferta. `esquemaPagoId` puede ser
+  // un preset, "personalizado" o "por_defecto" (hereda el texto de la BD).
+  const [esquemaPagoId, setEsquemaPagoId] = useState<string>(() =>
+    identificarEsquemaPago(
+      normalizarEsquemaPago(estadoInicial?.esquemaPago),
+    ),
+  );
+  const [esquemaPagoPersonalizado, setEsquemaPagoPersonalizado] =
+    useState<EsquemaPago>(
+      () =>
+        normalizarEsquemaPago(estadoInicial?.esquemaPago) ?? {
+          anticipo: 50,
+          entrega_suministros: 30,
+          puesta_marcha: 20,
+        },
+    );
+
+  /** El esquema efectivo a guardar: null cuando se hereda el de los términos. */
+  const esquemaPagoSeleccionado = useMemo<EsquemaPago | null>(() => {
+    if (esquemaPagoId === ESQUEMA_PAGO_POR_DEFECTO) return null;
+    if (esquemaPagoId === ESQUEMA_PAGO_PERSONALIZADO) {
+      return esEsquemaPagoValido(esquemaPagoPersonalizado)
+        ? esquemaPagoPersonalizado
+        : null;
+    }
+    return (
+      ESQUEMAS_PAGO_PRESETS.find((p) => p.id === esquemaPagoId)?.esquema ?? null
+    );
+  }, [esquemaPagoId, esquemaPagoPersonalizado]);
+
   const [formasPagoAcordadas, setFormasPagoAcordadas] = useState(() => {
     const pagosGuardados = Array.isArray(estadoInicial?.pagosAcordados)
       ? estadoInicial.pagosAcordados
@@ -1160,6 +1202,12 @@ export function ConfeccionOfertasView({
         ? cantidadPagosOfertaRaw
         : pagosAcordadosOferta.length;
 
+      const esquemaPagoOferta = normalizarEsquemaPago(
+        ofertaACopiar.esquema_pago,
+      );
+      setEsquemaPagoId(identificarEsquemaPago(esquemaPagoOferta));
+      if (esquemaPagoOferta) setEsquemaPagoPersonalizado(esquemaPagoOferta);
+
       setFormasPagoAcordadas(formasPagoAcordadasOferta);
       setPagosAcordados(formasPagoAcordadasOferta ? pagosAcordadosOferta : []);
       setCantidadPagosAcordados(
@@ -1280,6 +1328,7 @@ export function ConfeccionOfertasView({
           tasaCambio,
           pagoTransferencia,
           datosCuenta,
+          esquemaPago: esquemaPagoSeleccionado,
           formasPagoAcordadas,
           cantidadPagosAcordados,
           pagosAcordados,
@@ -1347,6 +1396,7 @@ export function ConfeccionOfertasView({
     tieneAsumidoPorEmpresa,
     montoAsumidoPorEmpresa,
     justificacionAsumidoPorEmpresa,
+    esquemaPagoSeleccionado,
     formasPagoAcordadas,
     cantidadPagosAcordados,
     pagosAcordados,
@@ -5624,6 +5674,22 @@ export function ConfeccionOfertasView({
       return;
     }
 
+    // Sin esto un personalizado que no suma 100 se guardaria en silencio como
+    // "por defecto", porque esquemaPagoSeleccionado devuelve null.
+    if (
+      esquemaPagoId === ESQUEMA_PAGO_PERSONALIZADO &&
+      !esEsquemaPagoValido(esquemaPagoPersonalizado)
+    ) {
+      toast({
+        title: "Esquema de pago inválido",
+        description: `Los porcentajes del esquema de pago deben sumar 100 % (suman ${sumaEsquemaPago(
+          esquemaPagoPersonalizado,
+        )} %).`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     const cantidadPagosAcordadosNormalizada = Math.max(
       0,
       Math.floor(Number(cantidadPagosAcordados) || 0),
@@ -5962,6 +6028,8 @@ export function ConfeccionOfertasView({
           monedaPago !== "USD" ? Number.parseFloat(tasaCambio) || 0 : 0;
         ofertaData.pago_transferencia = pagoTransferencia;
         ofertaData.datos_cuenta = pagoTransferencia ? datosCuenta : "";
+        // null = sin esquema propio: la exportacion usa el texto de la BD.
+        ofertaData.esquema_pago = esquemaPagoSeleccionado;
         ofertaData.formas_pago_acordadas = formasPagoAcordadas;
         ofertaData.cantidad_pagos_acordados = formasPagoAcordadas
           ? cantidadPagosAcordadosNormalizada
@@ -8489,6 +8557,15 @@ export function ConfeccionOfertasView({
                           </div>
                         )}
                       </div>
+                      <EsquemaPagoSelector
+                        value={esquemaPagoId}
+                        onValueChange={setEsquemaPagoId}
+                        personalizado={esquemaPagoPersonalizado}
+                        onPersonalizadoChange={setEsquemaPagoPersonalizado}
+                        hayPagosAcordados={formasPagoAcordadas}
+                        idPrefix="confeccion-esquema-pago"
+                      />
+
                       <div className="space-y-2">
                         <label className="flex items-center gap-2 text-sm text-slate-700">
                           <input

@@ -3416,6 +3416,10 @@ export function LeadsTable({
           onOpenChange={setMostrarDialogoExportar}
           oferta={ofertaParaExportar}
           exportOptions={generarOpcionesExportacion(ofertaParaExportar)}
+          onOfertaActualizada={(ofertaActualizada) => {
+            setOfertaParaExportar(ofertaActualizada);
+            refetchOfertas?.();
+          }}
         />
       )}
 
