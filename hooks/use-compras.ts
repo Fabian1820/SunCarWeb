@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { CompraService } from "@/lib/api-services";
 import type {
   CancelarCompraRequest,
@@ -8,9 +8,25 @@ import type {
   TipoCompra,
 } from "@/lib/types/feats/compras/compra-types";
 
+const PAGE_SIZE_DEFAULT = 20;
+
+type PagadoFilter = "todos" | "pagado" | "pendiente";
+
+interface ComprasFilters {
+  estado: "todos" | EstadoCompra;
+  tipo: "todos" | TipoCompra;
+  pagado: PagadoFilter;
+  skip: number;
+  limit: number;
+}
+
 interface UseComprasReturn {
   compras: Compra[];
-  filteredCompras: Compra[];
+  total: number;
+  page: number;
+  pageSize: number;
+  setPage: (page: number) => void;
+  initialLoading: boolean;
   loading: boolean;
   creating: boolean;
   updating: boolean;
@@ -22,8 +38,8 @@ interface UseComprasReturn {
   setEstadoFilter: (value: "todos" | EstadoCompra) => void;
   tipoFilter: "todos" | TipoCompra;
   setTipoFilter: (value: "todos" | TipoCompra) => void;
-  pagadoFilter: "todos" | "pagado" | "pendiente";
-  setPagadoFilter: (value: "todos" | "pagado" | "pendiente") => void;
+  pagadoFilter: PagadoFilter;
+  setPagadoFilter: (value: PagadoFilter) => void;
   loadCompras: () => Promise<void>;
   createCompra: (data: CompraCreateData) => Promise<Compra>;
   updateCompra: (id: string, data: Partial<CompraCreateData>) => Promise<Compra>;
@@ -34,55 +50,104 @@ interface UseComprasReturn {
 
 export function useCompras(): UseComprasReturn {
   const [compras, setCompras] = useState<Compra[]>([]);
+  const [total, setTotal] = useState(0);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [estadoFilter, setEstadoFilter] = useState<"todos" | EstadoCompra>("todos");
-  const [tipoFilter, setTipoFilter] = useState<"todos" | TipoCompra>("todos");
-  const [pagadoFilter, setPagadoFilter] = useState<"todos" | "pagado" | "pendiente">("todos");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+  const [filters, setFilters] = useState<ComprasFilters>({
+    estado: "todos",
+    tipo: "todos",
+    pagado: "todos",
+    skip: 0,
+    limit: PAGE_SIZE_DEFAULT,
+  });
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm.trim());
+    }, 350);
+    return () => window.clearTimeout(timeoutId);
+  }, [searchTerm]);
 
   const loadCompras = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await CompraService.getCompras();
-      setCompras(
-        [...data].sort((a, b) => {
-          const dateA = new Date(a.fecha_llegada_aproximada || a.fecha_envio || 0).getTime();
-          const dateB = new Date(b.fecha_llegada_aproximada || b.fecha_envio || 0).getTime();
-          return dateB - dateA;
-        }),
-      );
+      const { compras: data, total: totalCompras } = await CompraService.getComprasPaginadas({
+        q: debouncedSearchTerm || undefined,
+        estado: filters.estado !== "todos" ? filters.estado : undefined,
+        tipo: filters.tipo !== "todos" ? filters.tipo : undefined,
+        pagado: filters.pagado === "todos" ? undefined : filters.pagado === "pagado",
+        skip: filters.skip,
+        limit: filters.limit,
+      });
+      setCompras(data);
+      setTotal(totalCompras);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar las compras");
       setCompras([]);
+      setTotal(0);
     } finally {
       setLoading(false);
+      setInitialLoading(false);
     }
-  }, []);
+  }, [debouncedSearchTerm, filters]);
 
   useEffect(() => {
     void loadCompras();
   }, [loadCompras]);
 
-  const createCompra = useCallback(async (data: CompraCreateData) => {
-    setCreating(true);
-    setError(null);
-    try {
-      const created = await CompraService.createCompra(data);
-      setCompras((prev) => [created, ...prev]);
-      return created;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "No se pudo registrar la compra";
-      setError(message);
-      throw new Error(message);
-    } finally {
-      setCreating(false);
-    }
+  // Cualquier cambio de filtro o de búsqueda vuelve a la primera página: si no,
+  // el usuario se queda mirando una página que ya no existe en el nuevo total.
+  const setEstadoFilter = useCallback((value: "todos" | EstadoCompra) => {
+    setFilters((prev) => ({ ...prev, estado: value, skip: 0 }));
   }, []);
+
+  const setTipoFilter = useCallback((value: "todos" | TipoCompra) => {
+    setFilters((prev) => ({ ...prev, tipo: value, skip: 0 }));
+  }, []);
+
+  const setPagadoFilter = useCallback((value: PagadoFilter) => {
+    setFilters((prev) => ({ ...prev, pagado: value, skip: 0 }));
+  }, []);
+
+  const handleSetSearchTerm = useCallback(
+    (value: string) => {
+      setSearchTerm(value);
+      setFilters((prev) => (prev.skip === 0 ? prev : { ...prev, skip: 0 }));
+    },
+    [],
+  );
+
+  const setPage = useCallback((nextPage: number) => {
+    setFilters((prev) => ({ ...prev, skip: Math.max(nextPage - 1, 0) * prev.limit }));
+  }, []);
+
+  const createCompra = useCallback(
+    async (data: CompraCreateData) => {
+      setCreating(true);
+      setError(null);
+      try {
+        const created = await CompraService.createCompra(data);
+        // La compra nueva puede caer en cualquier página según su fecha de
+        // llegada, así que se recarga en vez de insertarla a mano.
+        await loadCompras();
+        return created;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "No se pudo registrar la compra";
+        setError(message);
+        throw new Error(message);
+      } finally {
+        setCreating(false);
+      }
+    },
+    [loadCompras],
+  );
 
   const updateCompra = useCallback(async (id: string, data: Partial<CompraCreateData>) => {
     setUpdating(true);
@@ -100,79 +165,64 @@ export function useCompras(): UseComprasReturn {
     }
   }, []);
 
-  const deleteCompra = useCallback(async (id: string) => {
-    setError(null);
-    try {
-      await CompraService.deleteCompra(id);
-      setCompras((prev) => prev.filter((c) => c.id !== id));
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "No se pudo eliminar la compra";
-      setError(message);
-      throw new Error(message);
-    }
-  }, []);
+  const deleteCompra = useCallback(
+    async (id: string) => {
+      setError(null);
+      try {
+        await CompraService.deleteCompra(id);
+        await loadCompras();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "No se pudo eliminar la compra";
+        setError(message);
+        throw new Error(message);
+      }
+    },
+    [loadCompras],
+  );
 
-  const cancelarCompra = useCallback(async (id: string, payload: CancelarCompraRequest = {}) => {
-    setCancelling(true);
-    setError(null);
-    try {
-      const updated = await CompraService.cancelarCompra(id, payload);
-      setCompras((prev) => prev.map((c) => (c.id === id ? updated : c)));
-      return updated;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "No se pudo cancelar la compra";
-      setError(message);
-      throw new Error(message);
-    } finally {
-      setCancelling(false);
-    }
-  }, []);
-
-  const filteredCompras = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
-    return compras.filter((compra) => {
-      if (estadoFilter !== "todos" && compra.estado !== estadoFilter) return false;
-      if (tipoFilter !== "todos" && compra.tipo !== tipoFilter) return false;
-      if (pagadoFilter === "pagado" && !compra.pagado) return false;
-      if (pagadoFilter === "pendiente" && compra.pagado) return false;
-      if (!term) return true;
-      const index = [
-        compra.nombre,
-        compra.descripcion,
-        compra.proveedor,
-        compra.cliente,
-        compra.fecha_envio,
-        compra.fecha_llegada_aproximada,
-        compra.datos_maritimo?.bl,
-        compra.datos_maritimo?.buque,
-        compra.datos_maritimo?.puerto_origen,
-        ...compra.materiales.map((m) => m.material_nombre),
-        ...compra.materiales.map((m) => m.material_codigo),
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return index.includes(term);
-    });
-  }, [compras, searchTerm, estadoFilter, tipoFilter, pagadoFilter]);
+  const cancelarCompra = useCallback(
+    async (id: string, payload: CancelarCompraRequest = {}) => {
+      setCancelling(true);
+      setError(null);
+      try {
+        const updated = await CompraService.cancelarCompra(id, payload);
+        setCompras((prev) => prev.map((c) => (c.id === id ? updated : c)));
+        return updated;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "No se pudo cancelar la compra";
+        setError(message);
+        throw new Error(message);
+      } finally {
+        setCancelling(false);
+      }
+    },
+    [],
+  );
 
   const clearError = useCallback(() => setError(null), []);
 
+  const pageSize = filters.limit;
+  const page = pageSize > 0 ? Math.floor(filters.skip / pageSize) + 1 : 1;
+
   return {
     compras,
-    filteredCompras,
+    total,
+    page,
+    pageSize,
+    setPage,
+    initialLoading,
     loading,
     creating,
     updating,
     cancelling,
     error,
     searchTerm,
-    setSearchTerm,
-    estadoFilter,
+    setSearchTerm: handleSetSearchTerm,
+    estadoFilter: filters.estado,
     setEstadoFilter,
-    tipoFilter,
+    tipoFilter: filters.tipo,
     setTipoFilter,
-    pagadoFilter,
+    pagadoFilter: filters.pagado,
     setPagadoFilter,
     loadCompras,
     createCompra,

@@ -48,7 +48,7 @@ export default function SolicitudesEntradaPorAlmacenPage() {
   useEffect(() => {
     let cancelled = false;
     setRefsLoading(true);
-    Promise.all([InventarioService.getAlmacenes(), CompraService.getCompras()])
+    Promise.all([InventarioService.getAlmacenes(), CompraService.getAllCompras()])
       .then(([almacenesData, comprasData]) => {
         if (cancelled) return;
         const found = almacenesData.find((a) => a.id === almacenId) ?? null;
@@ -107,7 +107,7 @@ export default function SolicitudesEntradaPorAlmacenPage() {
   const handleAprobar = async (id: string, payload: Parameters<typeof aprobarSolicitud>[1]) => {
     await aprobarSolicitud(id, payload);
     toast({ title: "Solicitud aprobada", description: "Se generaron los movimientos de entrada y se registró el costo." });
-    void CompraService.getCompras().then(setCompras);
+    void CompraService.getAllCompras().then(setCompras);
   };
 
   const handleDenegar = async (id: string, payload: Parameters<typeof denegarSolicitud>[1]) => {

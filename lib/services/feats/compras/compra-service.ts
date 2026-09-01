@@ -165,9 +165,20 @@ export interface ListComprasParams {
   q?: string;
   estado?: EstadoCompra;
   tipo?: TipoCompra;
+  pagado?: boolean;
   skip?: number;
   limit?: number;
 }
+
+export interface ComprasPage {
+  compras: Compra[];
+  total: number;
+  skip: number;
+  limit: number;
+}
+
+/** Tope del backend (`limit` <= 200); se usa al traer la colección completa. */
+const MAX_PAGE_SIZE = 200;
 
 const buildQuery = (params: ListComprasParams | undefined): string => {
   if (!params) return "";
@@ -175,9 +186,16 @@ const buildQuery = (params: ListComprasParams | undefined): string => {
   if (params.q) entries.push(`q=${encodeURIComponent(params.q)}`);
   if (params.estado) entries.push(`estado=${encodeURIComponent(params.estado)}`);
   if (params.tipo) entries.push(`tipo=${encodeURIComponent(params.tipo)}`);
+  if (params.pagado != null) entries.push(`pagado=${params.pagado}`);
   if (params.skip != null) entries.push(`skip=${params.skip}`);
   if (params.limit != null) entries.push(`limit=${params.limit}`);
   return entries.length > 0 ? `?${entries.join("&")}` : "";
+};
+
+const extractComprasList = (payload: any): any[] => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.compras)) return payload.compras;
+  return [];
 };
 
 export class CompraService {
@@ -186,16 +204,61 @@ export class CompraService {
       const raw = await apiRequest<any>(`${COLLECTION_ENDPOINT}${buildQuery(params)}`);
       const error = extractApiError(raw);
       if (error) throw new Error(error);
-      const payload = unwrapPayload(raw);
-      const list = Array.isArray(payload)
-        ? payload
-        : Array.isArray(payload?.compras)
-          ? payload.compras
-          : [];
-      return list.map(mapCompra);
+      return extractComprasList(unwrapPayload(raw)).map(mapCompra);
     } catch {
       return [];
     }
+  }
+
+  /**
+   * Igual que getCompras pero conservando el `total` del backend, necesario
+   * para paginar del lado del servidor.
+   */
+  static async getComprasPaginadas(params?: ListComprasParams): Promise<ComprasPage> {
+    const skipSolicitado = params?.skip ?? 0;
+    const limitSolicitado = params?.limit ?? 50;
+    try {
+      const raw = await apiRequest<any>(`${COLLECTION_ENDPOINT}${buildQuery(params)}`);
+      const error = extractApiError(raw);
+      if (error) throw new Error(error);
+      const compras = extractComprasList(unwrapPayload(raw)).map(mapCompra);
+      return {
+        compras,
+        total: typeof raw?.total === "number" ? raw.total : compras.length,
+        skip: typeof raw?.skip === "number" ? raw.skip : skipSolicitado,
+        limit: typeof raw?.limit === "number" ? raw.limit : limitSolicitado,
+      };
+    } catch {
+      return { compras: [], total: 0, skip: skipSolicitado, limit: limitSolicitado };
+    }
+  }
+
+  /**
+   * Trae TODAS las compras recorriendo las páginas del backend. Para selectores
+   * y mapas id→nombre, donde una lista truncada esconde las compras viejas.
+   */
+  static async getAllCompras(
+    params?: Omit<ListComprasParams, "skip" | "limit">,
+  ): Promise<Compra[]> {
+    const primera = await CompraService.getComprasPaginadas({
+      ...params,
+      skip: 0,
+      limit: MAX_PAGE_SIZE,
+    });
+    const acumulado = [...primera.compras];
+    const pageSize = primera.limit || MAX_PAGE_SIZE;
+
+    for (let skip = pageSize; skip < primera.total; skip += pageSize) {
+      const pagina = await CompraService.getComprasPaginadas({
+        ...params,
+        skip,
+        limit: pageSize,
+      });
+      if (pagina.compras.length === 0) break;
+      acumulado.push(...pagina.compras);
+    }
+
+    return acumulado;
   }
 
   static async createCompra(data: CompraCreateData): Promise<Compra> {
