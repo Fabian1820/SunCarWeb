@@ -29,6 +29,14 @@ type ClienteListParams = {
   materialCodigo?: string;
   esTrabajadorSuncar?: boolean;
   ofertas_filtro?: "con_ofertas" | "sin_ofertas" | "confirmadas" | "pendientes";
+  // Capacidad acumulada del equipo del cliente. Para un valor exacto se manda
+  // el mismo número en min y max.
+  inversorKwMin?: number;
+  inversorKwMax?: number;
+  bateriaKwhMin?: number;
+  bateriaKwhMax?: number;
+  panelesMin?: number;
+  panelesMax?: number;
 };
 
 export type EquipoEnOferta = {
@@ -39,6 +47,17 @@ export type EquipoEnOferta = {
   modelo?: string | null;
   cantidad_clientes: number;
 };
+
+export const CAPACIDAD_PARAM_KEYS = [
+  "inversorKwMin",
+  "inversorKwMax",
+  "bateriaKwhMin",
+  "bateriaKwhMax",
+  "panelesMin",
+  "panelesMax",
+] as const;
+
+export type CapacidadParamKey = (typeof CAPACIDAD_PARAM_KEYS)[number];
 
 export type ClienteFotoUploadPayload = {
   file: File;
@@ -166,6 +185,15 @@ export class ClienteService {
     if (params.ofertas_filtro) {
       search.append("ofertas_filtro", params.ofertas_filtro);
     }
+
+    // Se comprueba contra undefined/null y no por truthiness: un 0 es un
+    // límite válido (p.ej. panelesMax=0 para buscar clientes sin paneles).
+    CAPACIDAD_PARAM_KEYS.forEach((key) => {
+      const value = params[key];
+      if (value !== undefined && value !== null && Number.isFinite(value)) {
+        search.append(key, String(value));
+      }
+    });
 
     const endpoint = `/clientes/${search.toString() ? `?${search.toString()}` : ""}`;
     const response = await apiRequest<ClienteResponse | Cliente[]>(endpoint);

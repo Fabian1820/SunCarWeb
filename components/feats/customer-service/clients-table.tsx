@@ -94,7 +94,7 @@ import type {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
 import { useComercialEquipoMap } from "@/hooks/use-comercial-equipo-map";
-import type { Cliente, ClienteFoto } from "@/lib/api-types";
+import type { CapacidadEquipos, Cliente, ClienteFoto } from "@/lib/api-types";
 import { extraerComponentesDeOfertaConfeccion } from "@/lib/utils/oferta-confeccion-items";
 import {
   construirMarcasMap,
@@ -149,6 +149,12 @@ interface ClientsTableProps {
     ofertas: string;
     tiempo: string;
     mostrarAnulados: boolean;
+    inversorKwMin: string;
+    inversorKwMax: string;
+    bateriaKwhMin: string;
+    bateriaKwhMax: string;
+    panelesMin: string;
+    panelesMax: string;
   }) => void;
   exportButtons?: React.ReactNode;
   initialSearchTerm?: string;
@@ -167,6 +173,83 @@ const CLIENT_ESTADOS = [
   "Pendiente de visitarnos",
   "No interesado",
 ];
+
+const CAPACIDAD_FILTER_GROUPS = [
+  {
+    label: "Inversor (kW)",
+    minKey: "inversorKwMin",
+    maxKey: "inversorKwMax",
+    step: 0.5,
+  },
+  {
+    label: "Baterías (kWh)",
+    minKey: "bateriaKwhMin",
+    maxKey: "bateriaKwhMax",
+    step: 0.1,
+  },
+  {
+    label: "Paneles (cantidad)",
+    minKey: "panelesMin",
+    maxKey: "panelesMax",
+    step: 1,
+  },
+] as const;
+
+const CAPACIDAD_FILTER_KEYS = CAPACIDAD_FILTER_GROUPS.flatMap((grupo) => [
+  grupo.minKey,
+  grupo.maxKey,
+]);
+
+const formatKw = (valor: number): string =>
+  Number.isInteger(valor) ? String(valor) : valor.toFixed(2).replace(/0$/, "");
+
+/**
+ * Equipo acumulado del cliente (todas sus ofertas confirmadas sumadas). Es lo
+ * que miden los filtros de capacidad, y no coincide con el detalle de abajo
+ * cuando el cliente amplió: ese detalle muestra una sola oferta.
+ */
+const ResumenCapacidadEquipos = ({
+  capacidad,
+}: {
+  capacidad?: CapacidadEquipos | null;
+}) => {
+  if (!capacidad || !capacidad.fuente) return null;
+  const partes = [
+    capacidad.inversor_kw !== null
+      ? `${formatKw(capacidad.inversor_kw)} kW`
+      : null,
+    capacidad.bateria_kwh !== null
+      ? `${formatKw(capacidad.bateria_kwh)} kWh`
+      : null,
+    capacidad.paneles !== null
+      ? `${capacidad.paneles} panel${capacidad.paneles === 1 ? "" : "es"}`
+      : null,
+  ].filter(Boolean);
+  if (partes.length === 0) return null;
+
+  return (
+    <div
+      className="inline-flex items-center gap-1 rounded bg-sky-50 border border-sky-200 px-1.5 py-0.5 text-[12px] text-sky-800"
+      title={
+        capacidad.fuente === "snapshot_cliente"
+          ? "Total acumulado, tomado del registro antiguo del cliente (no hay oferta confirmada)"
+          : "Total acumulado de las ofertas confirmadas del cliente"
+      }
+    >
+      <span className="font-medium">Equipo:</span>
+      <span>{partes.join(" · ")}</span>
+    </div>
+  );
+};
+
+const CAPACIDAD_FILTROS_VACIOS = {
+  inversorKwMin: "",
+  inversorKwMax: "",
+  bateriaKwhMin: "",
+  bateriaKwhMax: "",
+  panelesMin: "",
+  panelesMax: "",
+};
 
 const LEAD_FUENTES = [
   "Página Web",
@@ -888,6 +971,12 @@ export function ClientsTable({
     ofertas: "",
     tiempo: "",
     mostrarAnulados: false,
+    inversorKwMin: "",
+    inversorKwMax: "",
+    bateriaKwhMin: "",
+    bateriaKwhMax: "",
+    panelesMin: "",
+    panelesMax: "",
   });
   const {
     equipos: equiposComerciales,
@@ -1057,6 +1146,34 @@ export function ClientsTable({
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
+  // Los límites de capacidad se teclean dígito a dígito: sin debounce,
+  // escribir "25" dispararía primero una consulta por "2 kWh".
+  const capacidadFilters = useMemo(
+    () => ({
+      inversorKwMin: filters.inversorKwMin,
+      inversorKwMax: filters.inversorKwMax,
+      bateriaKwhMin: filters.bateriaKwhMin,
+      bateriaKwhMax: filters.bateriaKwhMax,
+      panelesMin: filters.panelesMin,
+      panelesMax: filters.panelesMax,
+    }),
+    [
+      filters.inversorKwMin,
+      filters.inversorKwMax,
+      filters.bateriaKwhMin,
+      filters.bateriaKwhMax,
+      filters.panelesMin,
+      filters.panelesMax,
+    ],
+  );
+  const [debouncedCapacidad, setDebouncedCapacidad] = useState(capacidadFilters);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedCapacidad(capacidadFilters);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [capacidadFilters]);
+
   // Notificar al padre cuando cambien los filtros
   useEffect(() => {
     if (onFiltersChange) {
@@ -1074,9 +1191,15 @@ export function ClientsTable({
         ofertas: filters.ofertas,
         tiempo: filters.tiempo,
         mostrarAnulados: filters.mostrarAnulados,
+        inversorKwMin: debouncedCapacidad.inversorKwMin,
+        inversorKwMax: debouncedCapacidad.inversorKwMax,
+        bateriaKwhMin: debouncedCapacidad.bateriaKwhMin,
+        bateriaKwhMax: debouncedCapacidad.bateriaKwhMax,
+        panelesMin: debouncedCapacidad.panelesMin,
+        panelesMax: debouncedCapacidad.panelesMax,
       });
     }
-  }, [debouncedSearchTerm, filters, onFiltersChange]);
+  }, [debouncedSearchTerm, filters, debouncedCapacidad, onFiltersChange]);
 
   const sortedClients = useMemo(() => {
     const ordered = [...clients].sort((a, b) => {
@@ -1405,6 +1528,10 @@ export function ClientsTable({
     };
   }, [cargarClientesConOfertas]);
 
+  const tieneFiltroCapacidad = CAPACIDAD_FILTER_KEYS.some((key) =>
+    Boolean(filters[key]?.trim()),
+  );
+
   const hasActiveFilters =
     searchTerm.trim() ||
     filters.estado.length > 0 ||
@@ -1417,7 +1544,15 @@ export function ClientsTable({
     filters.provincia.length > 0 ||
     filters.municipio.length > 0 ||
     filters.ofertas ||
-    filters.tiempo;
+    filters.tiempo ||
+    tieneFiltroCapacidad;
+
+  // El debounce se adelanta a mano al limpiar: si no, quedaría medio segundo
+  // consultando todavía con los kW anteriores.
+  const limpiarFiltrosCapacidad = () => {
+    setFilters((prev) => ({ ...prev, ...CAPACIDAD_FILTROS_VACIOS }));
+    setDebouncedCapacidad(CAPACIDAD_FILTROS_VACIOS);
+  };
 
   const handleClearFilters = () => {
     setSearchTerm("");
@@ -1435,7 +1570,9 @@ export function ClientsTable({
       ofertas: "",
       tiempo: "",
       mostrarAnulados: false,
+      ...CAPACIDAD_FILTROS_VACIOS,
     });
+    setDebouncedCapacidad(CAPACIDAD_FILTROS_VACIOS);
     setEquipoSeleccionado("todos");
   };
 
@@ -3651,13 +3788,79 @@ export function ClientsTable({
             </div>
           </div>
 
+          <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50/60 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <div>
+                <Label className="text-sm font-medium text-gray-800">
+                  Equipo instalado
+                </Label>
+                <p className="text-xs text-gray-500">
+                  Suma de todas las ofertas confirmadas del cliente. Para un
+                  valor exacto, pon el mismo número en ambas casillas. Los
+                  clientes sin equipo registrado no aparecen.
+                </p>
+              </div>
+              {tieneFiltroCapacidad && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={limpiarFiltrosCapacidad}
+                >
+                  Limpiar equipo
+                </Button>
+              )}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {CAPACIDAD_FILTER_GROUPS.map((grupo) => (
+                <div key={grupo.minKey}>
+                  <Label className="text-xs text-gray-600">{grupo.label}</Label>
+                  <div className="mt-1 flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={0}
+                      step={grupo.step}
+                      inputMode="decimal"
+                      aria-label={`${grupo.label} mínimo`}
+                      placeholder="Mín"
+                      value={filters[grupo.minKey]}
+                      onChange={(event) =>
+                        setFilters((prev) => ({
+                          ...prev,
+                          [grupo.minKey]: event.target.value,
+                        }))
+                      }
+                    />
+                    <span className="text-xs text-gray-400">a</span>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={grupo.step}
+                      inputMode="decimal"
+                      aria-label={`${grupo.label} máximo`}
+                      placeholder="Máx"
+                      value={filters[grupo.maxKey]}
+                      onChange={(event) =>
+                        setFilters((prev) => ({
+                          ...prev,
+                          [grupo.maxKey]: event.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {(filters.fechaDesde ||
             filters.fechaHasta ||
             filters.mes ||
             filters.provincia.length > 0 ||
             filters.municipio.length > 0 ||
             filters.ofertas ||
-            filters.tiempo) &&
+            filters.tiempo ||
+            tieneFiltroCapacidad) &&
             typeof totalClients === "number" && (
               <div className="mt-4 text-sm text-gray-700">
                 Total de clientes filtrados:{" "}
@@ -3940,8 +4143,11 @@ export function ClientsTable({
 
                             if (sinComponentes && !oc) {
                               return (
-                                <div>
+                                <div className="space-y-1.5">
                                   <div className="text-[14px] text-gray-400">Sin ofertas</div>
+                                  <ResumenCapacidadEquipos
+                                    capacidad={client.capacidad_equipos}
+                                  />
                                   {faltaInfo}
                                 </div>
                               );
@@ -3952,6 +4158,9 @@ export function ClientsTable({
 
                             return (
                               <div className="space-y-1.5">
+                                <ResumenCapacidadEquipos
+                                  capacidad={client.capacidad_equipos}
+                                />
                                 {oc && (
                                   <div className="flex flex-wrap gap-1">
                                     <span className="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-[13px] font-medium text-gray-700">
