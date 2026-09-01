@@ -60,6 +60,13 @@ type ClientesFilters = {
   bateriaKwhMax: string;
   panelesMin: string;
   panelesMax: string;
+  // Modelo exacto de cada componente principal y su cantidad acumulada.
+  inversorCodigo: string;
+  inversorCantidad: string;
+  bateriaCodigo: string;
+  bateriaCantidad: string;
+  panelCodigo: string;
+  panelCantidad: string;
   skip: number;
   limit: number;
 };
@@ -87,6 +94,33 @@ const capacidadParams = (
   Object.fromEntries(
     CAPACIDAD_FILTER_KEYS.map((key) => [key, parseLimiteCapacidad(filters[key])]),
   );
+
+const MODELO_FILTER_KEYS = [
+  "inversorCodigo",
+  "inversorCantidad",
+  "bateriaCodigo",
+  "bateriaCantidad",
+  "panelCodigo",
+  "panelCantidad",
+] as const;
+
+const equipoParams = (
+  filters: Pick<ClientesFilters, (typeof MODELO_FILTER_KEYS)[number]>,
+): Record<string, string | number | undefined> => ({
+  inversorCodigo: filters.inversorCodigo || undefined,
+  bateriaCodigo: filters.bateriaCodigo || undefined,
+  panelCodigo: filters.panelCodigo || undefined,
+  // La cantidad se ignora si no hay modelo elegido: por si sola no filtra nada.
+  inversorCantidad: filters.inversorCodigo
+    ? parseLimiteCapacidad(filters.inversorCantidad)
+    : undefined,
+  bateriaCantidad: filters.bateriaCodigo
+    ? parseLimiteCapacidad(filters.bateriaCantidad)
+    : undefined,
+  panelCantidad: filters.panelCodigo
+    ? parseLimiteCapacidad(filters.panelCantidad)
+    : undefined,
+});
 
 const TIEMPO_RANGES: Record<string, (dias: number) => boolean> = {
   "1_5": (d) => d >= 1 && d < 5,
@@ -337,6 +371,12 @@ export default function ClientesPage() {
     bateriaKwhMax: "",
     panelesMin: "",
     panelesMax: "",
+    inversorCodigo: "",
+    inversorCantidad: "",
+    bateriaCodigo: "",
+    bateriaCantidad: "",
+    panelCodigo: "",
+    panelCantidad: "",
     skip: 0,
     limit: 20,
   });
@@ -365,9 +405,8 @@ export default function ClientesPage() {
           prev.ofertas !== newFilters.ofertas ||
           prev.tiempo !== newFilters.tiempo ||
           prev.mostrarAnulados !== newFilters.mostrarAnulados ||
-          CAPACIDAD_FILTER_KEYS.some(
-            (key) => prev[key] !== newFilters[key],
-          );
+          CAPACIDAD_FILTER_KEYS.some((key) => prev[key] !== newFilters[key]) ||
+          MODELO_FILTER_KEYS.some((key) => prev[key] !== newFilters[key]);
 
         if (!filtersChanged) return prev;
 
@@ -414,6 +453,12 @@ export default function ClientesPage() {
       bateriaKwhMax?: number;
       panelesMin?: number;
       panelesMax?: number;
+      inversorCodigo?: string;
+      inversorCantidad?: number;
+      bateriaCodigo?: string;
+      bateriaCantidad?: number;
+      panelCodigo?: string;
+      panelCantidad?: number;
     }): Promise<Cliente[]> => {
       const cacheKey = JSON.stringify({
         q: baseParams.q || "",
@@ -428,6 +473,9 @@ export default function ClientesPage() {
         // Sin esto la caché de 1 minuto devolvería el resultado del filtro
         // de capacidad anterior al cambiar sólo los kW.
         capacidad: CAPACIDAD_FILTER_KEYS.map((key) =>
+          baseParams[key] === undefined ? "" : baseParams[key],
+        ),
+        equipo: MODELO_FILTER_KEYS.map((key) =>
           baseParams[key] === undefined ? "" : baseParams[key],
         ),
       });
@@ -535,6 +583,7 @@ export default function ClientesPage() {
           fechaHasta: filters.fechaHasta || undefined,
           activo: filters.mostrarAnulados ? undefined : true,
           ...capacidadParams(filters),
+          ...equipoParams(filters),
         };
 
         if (hasLocalOnlyFilter) {
@@ -613,6 +662,7 @@ export default function ClientesPage() {
       fechaHasta: appliedFilters.fechaHasta || undefined,
       activo: appliedFilters.mostrarAnulados ? undefined : true,
       ...capacidadParams(appliedFilters),
+      ...equipoParams(appliedFilters),
     });
 
     const localProvinciaExport = appliedFilters.provincia.length > 1 ? appliedFilters.provincia : [];

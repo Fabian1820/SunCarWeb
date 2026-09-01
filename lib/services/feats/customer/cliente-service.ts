@@ -37,6 +37,13 @@ type ClienteListParams = {
   bateriaKwhMax?: number;
   panelesMin?: number;
   panelesMax?: number;
+  // Modelo exacto de cada componente principal, con su cantidad acumulada.
+  inversorCodigo?: string;
+  inversorCantidad?: number;
+  bateriaCodigo?: string;
+  bateriaCantidad?: number;
+  panelCodigo?: string;
+  panelCantidad?: number;
 };
 
 export type EquipoEnOferta = {
@@ -45,6 +52,8 @@ export type EquipoEnOferta = {
   nombre?: string | null;
   marca?: string | null;
   modelo?: string | null;
+  /** kW para inversores, kWh para baterías, kWp para paneles. */
+  potencia_kw?: number | null;
   cantidad_clientes: number;
 };
 
@@ -58,6 +67,18 @@ export const CAPACIDAD_PARAM_KEYS = [
 ] as const;
 
 export type CapacidadParamKey = (typeof CAPACIDAD_PARAM_KEYS)[number];
+
+export const MODELO_PARAM_KEYS = [
+  "inversorCodigo",
+  "bateriaCodigo",
+  "panelCodigo",
+] as const;
+
+export const MODELO_CANTIDAD_PARAM_KEYS = [
+  "inversorCantidad",
+  "bateriaCantidad",
+  "panelCantidad",
+] as const;
 
 export type ClienteFotoUploadPayload = {
   file: File;
@@ -94,21 +115,10 @@ const cleanPayload = <T extends object>(payload: T): Partial<T> => {
 };
 
 export class ClienteService {
-  /** Total histórico de instalaciones terminadas (liviano, para la bienvenida). */
-  static async getTotalInstalaciones(): Promise<number> {
-    try {
-      const res = await apiRequest<{ success?: boolean; total?: number }>(
-        "/clientes/total-instalaciones",
-      );
-      return res?.total ?? 0;
-    } catch {
-      return 0;
-    }
-  }
-
   /**
-   * Modelos presentes en ofertas confirmadas por clientes. Se usa como
-   * fuente del selector "equipo" del módulo Clientes.
+   * Modelos presentes en ofertas confirmadas por clientes. Es la fuente del
+   * selector de equipo del módulo Clientes: sólo los modelos realmente
+   * vendidos, no todo el catálogo.
    */
   static async getEquiposEnOfertas(): Promise<EquipoEnOferta[]> {
     try {
@@ -119,6 +129,18 @@ export class ClienteService {
     } catch (error) {
       console.error("[ClienteService] Error al obtener equipos-en-ofertas:", error);
       return [];
+    }
+  }
+
+  /** Total histórico de instalaciones terminadas (liviano, para la bienvenida). */
+  static async getTotalInstalaciones(): Promise<number> {
+    try {
+      const res = await apiRequest<{ success?: boolean; total?: number }>(
+        "/clientes/total-instalaciones",
+      );
+      return res?.total ?? 0;
+    } catch {
+      return 0;
     }
   }
 
@@ -191,6 +213,17 @@ export class ClienteService {
     CAPACIDAD_PARAM_KEYS.forEach((key) => {
       const value = params[key];
       if (value !== undefined && value !== null && Number.isFinite(value)) {
+        search.append(key, String(value));
+      }
+    });
+    MODELO_PARAM_KEYS.forEach((key) => {
+      const value = params[key];
+      if (value) search.append(key, value);
+    });
+    MODELO_CANTIDAD_PARAM_KEYS.forEach((key) => {
+      const value = params[key];
+      // La cantidad solo viaja acompanada de su modelo: sola no significa nada.
+      if (value !== undefined && value !== null && Number.isFinite(value) && value > 0) {
         search.append(key, String(value));
       }
     });
