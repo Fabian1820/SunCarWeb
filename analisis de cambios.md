@@ -2,6 +2,87 @@
 
 ---
 
+## 📅 31 de Agosto, 2026
+
+### Resumen de cambios (últimas 24h)
+
+Sin commits nuevos de código. El único commit del período es "Analisis diario Claude" (generado automáticamente). No hay cambios en producción en SunCarWeb.
+
+---
+
+### Puede dar bateo
+
+Sin cambios nuevos — sin riesgos nuevos.
+
+---
+
+## 📅 30 de Agosto, 2026
+
+### Resumen de cambios (últimas 24h)
+
+Sin commits nuevos de código. El único commit del período es "Analisis diario Claude" (generado automáticamente). No hay cambios en producción en SunCarWeb.
+
+---
+
+### Puede dar bateo
+
+Sin cambios nuevos — sin riesgos nuevos.
+
+---
+
+## 📅 29 de Agosto, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**3 commits reales** — Fabian1820 (co-authored Claude Opus 5). Sesión nocturna con foco en clientes anulados y el flujo de venta de materiales no vendibles: se extiende el filtro de anulados a 11 selectores, se introduce el check de "no vendibles" en los diálogos de venta/reserva/vale, y se corrige el manejo de errores del backend en reservas para que el motivo real sea visible.
+
+---
+
+### Área 1: fix(clientes-anulados) — filtra anulados en 11 selectores de cliente (23:21)
+
+- **`fix(clientes-anulados): filtra anulados en los selectores de cliente`** — Once dropdowns cargaban la lista completa y ofrecían clientes anulados para crear trabajo nuevo. Sitios cubiertos: ofertas personalizadas y de confección, facturas, generar factura de obra, pago y POS de inventario, crear avería, averías y actualizaciones de trabajos diarios, órdenes de trabajo y fuente de lead.
+
+  Quedan sin filtrar intencionalmente: lista-planificaciones, facturas-section, ofertas-confeccionadas y los trabajos-diarios de "todos" y "registro", donde el backend ya rechaza la creación con un motivo claro y esconder al anulado rompería la vista de sus registros.
+
+---
+
+### Área 2: feat(ventas) — check para vender material no vendible sin publicarlo en la web (23:29)
+
+- **`feat(ventas): check para vender material no vendible sin publicarlo en la web`** — El comercial tenía que encender `habilitar_venta_web` para que un material de catálogo le saliera en el buscador (lo que además lo publicaba en la tienda pública) y acordarse de apagarlo después. Con varios materiales a la vez era pesado y fácil de olvidar.
+
+  1. **Nuevo check "Incluir materiales no vendibles"** en los diálogos de solicitud de venta, crear/editar reserva y vale de salida. Cambia el buscador al catálogo completo (server-side, mismo endpoint que solicitud de materiales), marca los resultados no vendibles y abre un campo obligatorio de motivo y quién autorizó.
+  2. **El motivo sigue exigido aunque se apague el check** después de haber agregado un no vendible, para que el backend no rechace la operación con un error inexplicado.
+  3. **Fix adicional — toggle "Vista Web"**: mandaba el material completo en cada clic, reenviando precio, nombre, foto y especificaciones con lo que tuviera cargado esa pestaña, revirtiendo ediciones hechas en paralelo desde otra sesión. Ahora manda solo el campo que cambia, igual que guardar especificaciones y precios por cantidad.
+  4. **El merge optimista de `use-materials` pasa a tolerar payloads parciales**.
+
+---
+
+### Área 3: fix(reservas-ventas) — el rechazo del backend deja de parecer falta de stock (23:34)
+
+- **`fix(reservas-ventas): el rechazo del backend deja de parecer falta de stock`** — El `catch` del diálogo colgaba cualquier error del backend del campo de materiales, asumiendo que siempre era stock insuficiente por race condition. Con la validación de cliente anulado ese supuesto se rompió: el mensaje "el cliente está anulado" aparecía bajo la lista de materiales.
+
+  Ahora va a un aviso general sobre los botones, con el mismo formato que el de solicitudes de materiales. `validate()` reemplaza el objeto de errores al empezar cada submit, así que el aviso se limpia solo entre intentos.
+
+---
+
+### Puede dar bateo
+
+1. **fix(clientes-anulados) — cobertura de los 11 selectores sin confirmar exhaustividad**: El commit lista explícitamente los sitios cubiertos y los excluidos. Confirmar que no quedan otros selectores de cliente en módulos no mencionados (ej. instalaciones internas, flujos de histórico) que sigan ofreciendo anulados.
+
+2. **fix(clientes-anulados) — 5 sitios excluidos delegan en el rechazo del backend**: Confirmar que todos tienen manejo de error visible (no `alert()`) para que el usuario vea el motivo del rechazo al intentar crear trabajo sobre un anulado.
+
+3. **feat(ventas) motivo exigido aunque se desactive el check**: Un comercial puede activar el check, agregar un material no vendible, desactivarlo y aún necesitar rellenar el motivo. Verificar que el mensaje de error en ese caso es claro y señala correctamente el campo.
+
+4. **feat(ventas) catálogo completo server-side**: El endpoint del catálogo completo es el mismo que usa solicitud de materiales. Confirmar que devuelve resultados correctamente para los 3 diálogos nuevos (solicitud de venta, reserva y vale de salida) y que `habilitar_venta_web` no afecta a lo que ese endpoint devuelve.
+
+5. **feat(ventas) toggle "Vista Web" PATCH de campo único**: El fix cambia el contrato de datos enviados. Confirmar que el backend PATCH acepta payloads de un solo campo (con `exclude_unset`) y no sobrescribe con `null` los demás campos cuando no se envían.
+
+6. **feat(ventas) merge optimista tolerante a payloads parciales en `use-materials`**: Si el merge asume que todos los campos existen, un material sin algún campo opcional puede mostrar valores desactualizados sin error visible. Confirmar cobertura de edge cases.
+
+7. **fix(reservas-ventas) aviso general**: Confirmar que todos los errores del backend (no solo "stock insuficiente" y "cliente anulado") llegan al aviso general y no quedan silenciados por el catch.
+
+---
+
 ## 📅 28 de Agosto, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -104,13 +185,13 @@
 
 4. **fix(ofertas-confeccion) borradores con caducidad 2h — puede ser corta en sesiones largas**: Un comercial que trabaje en una oferta compleja con pausas puede ver su borrador invalidado. Confirmar si 2h es suficiente para los flujos reales de trabajo.
 
-5. **fix(ofertas-confeccion) margen_asignado = 0 restaurado — confirmar que ofertas viejas sin reparto siguen usando el algoritmo automático**: El commit dice que "ofertas viejas sin reparto (todos los ítems a 0) siguen calculándose con el algoritmo automático". Verificar que la detección de "oferta sin reparto previo" no clasifica incorrectamente como tal a una oferta donde el comercial decidió dar 0% a todos los ítems intencionalmente.
+5. **fix(ofertas-confeccion) margen_asignado = 0 restaurado — confirmar que ofertas viejas sin reparto siguen usando el algoritmo automático**: Verificar que la detección de "oferta sin reparto previo" no clasifica incorrectamente como tal a una oferta donde el comercial decidió dar 0% a todos los ítems intencionalmente.
 
-6. **feat(clientes) tipo "visita" — dependencia de backend sin confirmar en producción**: El commit lo indica explícitamente. Si el backend no tiene "visita" en el Literal del endpoint `POST /clientes/{numero}/fotos`, cualquier intento de subir una foto de visita dará 422.
+6. **feat(clientes) tipo "visita" — dependencia de backend sin confirmar en producción**: Si el backend no tiene "visita" en el Literal del endpoint `POST /clientes/{numero}/fotos`, cualquier intento de subir una foto de visita dará 422.
 
 7. **feat(navegacion) "Volver" — módulos no registrados en MODULOS_CATALOGO siguen volviendo a "/"**: Si algún módulo o subpágina futura no se registra en el catálogo, el botón atrás vuelve al inicio sin aviso. Confirmar cobertura completa, especialmente para pantallas de detalle dinámico (`/clientes/[id]`, etc.).
 
-8. **fix(solicitudes-materiales) — filtro de anulados solo cubre este diálogo**: El selector de cliente en otros flujos (crear oferta, factura, etc.) puede seguir mostrando clientes anulados. El concern del 26 de Agosto sigue vigente para los demás selectors.
+8. **fix(solicitudes-materiales) — filtro de anulados solo cubre este diálogo**: El selector de cliente en otros flujos puede seguir mostrando clientes anulados. El concern sigue vigente para los demás selectores (ver fix(clientes-anulados) del 29 de Agosto).
 
 9. **feat(almacenes,tiendas) paginación de 20 en 20 — confirmar que stats y totales son sobre el conjunto completo**: El commit lo afirma, pero si alguna estadística o total se calcula accidentalmente sobre `data.slice(0,20)` en lugar del array completo, dará valores incorrectos sin error visible.
 
@@ -132,7 +213,7 @@
 
 ### Área 1: feat(materiales) — nombre de catálogo en lugar de descripción libre (18:42)
 
-- **`feat(materiales): muestra el nombre de catalogo en vez de la descripcion`** — El operador reportó que el breaker de 80A 3P aparecía como "PROTECCION" y el de 2P como "BREAKER", sin poder distinguirlos salvo por la foto. Causa: `descripcion` es texto libre y 27 materiales la comparten con otro artículo; además uno tiene como descripción el nombre de su categoría. El `nombre` sí los distingue.
+- **`feat(materiales): muestra el nombre de catalogo en vez de la descripcion`** — El operador reportó que el breaker de 80A 3P aparecía como "PROTECCION" y el de 2P como "BREAKER", sin poder distinguirlos salvo por la foto. Causa: `descripcion` es texto libre y 27 materiales la comparten con otro artículo.
 
   1. **Orden unificado en todas las pantallas**: `material_nombre` → `material.nombre` → `material_descripcion`. El backend ya publica `material_nombre` resuelto del catálogo.
   2. **`material_nombre` añadido a StockItem**: hasta ahora StockItem solo exponía la descripción embebida.
@@ -143,48 +224,42 @@
 
 ### Área 2: feat(ofertas) — descuento y total a pagar en tabla y PDF (21:51)
 
-- **`feat(ofertas): muestra el descuento y el total a pagar en tabla y PDF`** — `asumido_por_empresa` y `compensacion` no estaban dentro de `precio_final`; solo bajaban `monto_pendiente`, así que ni la tabla ni las exportaciones los reflejaban. Una oferta de 16.870 con 6.000 asumidos se exportaba como 16.870.
+- **`feat(ofertas): muestra el descuento y el total a pagar en tabla y PDF`** — `asumido_por_empresa` y `compensacion` no estaban dentro de `precio_final`; solo bajaban `monto_pendiente`, así que ni la tabla ni las exportaciones los reflejaban.
 
-  1. **"Monto asumido por empresa" renombrado a "Descuento"** en el formulario. Admite monto fijo o % sobre el precio final y exige justificación. El "Descuento (%)" anterior queda en solo lectura y solo aparece en las ofertas que ya lo tienen guardado.
+  1. **"Monto asumido por empresa" renombrado a "Descuento"** en el formulario. Admite monto fijo o % sobre el precio final y exige justificación.
   2. **Tabla con nuevas columnas "Descuento" y "Total a pagar"**.
   3. **Exportaciones**: bajo cada precio final, el desglose del descuento y la compensación con su justificación y el total a pagar. La conversión a EUR/CUP pasa a calcularse sobre el total a pagar.
-  4. **Unificación del generador de opciones de exportación**: estaba triplicado en `ofertas-confeccionadas-view`, `clients-table` y `leads-table`. Las copias de clientes y leads calculaban el subtotal sin `margen_materiales`, por lo que la nota "(Redondeado desde X $)" imprimía un importe ~18% menor que el real: acertaban en 5 de 46 ofertas frente a 46 de 46 de la versión de ofertas, que es la conservada.
+  4. **Unificación del generador de opciones de exportación**: estaba triplicado en tres vistas. Las copias de clientes y leads calculaban el subtotal sin `margen_materiales`, imprimiendo un importe ~18% menor que el real.
 
 ---
 
 ### Área 3: fix(ofertas) — descuento debajo del precio final en el PDF (22:13)
 
-- **`fix(ofertas): coloca el descuento bajo el precio final en el PDF`** — El renderizador agrupaba las filas por `tipo` e ignoraba el orden del array, así que el descuento se pintaba ANTES del precio final (junto al descuento porcentual antiguo) y la fila del neto nunca se dibujaba porque el bloque final solo usa `totales[0]`.
+- **`fix(ofertas): coloca el descuento bajo el precio final en el PDF`** — El renderizador agrupaba las filas por `tipo` e ignoraba el orden del array, así que el descuento se pintaba ANTES del precio final.
 
   1. **Nuevos tipos de fila `DescuentoNeto` y `TotalAPagar`**: pintados dentro del bloque resaltado, debajo del precio final.
   2. **Añadidos a `tipoNoMaterial`**: para que la tabla de materiales no los duplique como sección.
-  3. **Importe formateado consistentemente** con el resto del bloque.
-  4. Resultado en PDF:
-     ```
-     Precio Final                                    16870,00 $
-     Descuento — Recogida del equipamiento Huawei   - 6000,00 $
-     Total a pagar                                   10870,00 $
-     ```
+  3. Resultado en PDF: `Precio Final` → `Descuento — [justificación]` → `Total a pagar`.
 
 ---
 
 ### Puede dar bateo
 
-1. **Facturas históricas con `descripcion` embebida — nombre incorrecto en vista**: Las líneas de factura creadas antes del deploy guardan la descripción libre, no el nombre de catálogo. Si la vista prioriza `material_nombre` del catálogo y no tiene fallback a la descripción embebida histórica, esas facturas mostrarán el campo vacío o el nombre incorrecto.
+1. **Facturas históricas con `descripcion` embebida — nombre incorrecto en vista**: Las líneas de factura creadas antes del deploy guardan la descripción libre. Si la vista prioriza `material_nombre` del catálogo y no tiene fallback, esas facturas mostrarán el campo vacío o el nombre incorrecto.
 
-2. **27 materiales con descripciones compartidas — confirmación de mapeo correcto en producción**: El fix asume que `material_nombre` del catálogo distingue correctamente los artículos con descripciones idénticas. Confirmar con el catálogo real en producción que ningún `material_nombre` está también duplicado o vacío.
+2. **27 materiales con descripciones compartidas — confirmación de mapeo correcto en producción**: Confirmar que ningún `material_nombre` del catálogo está también duplicado o vacío.
 
-3. **StockItem con `material_nombre` nuevo — consumidores sin actualizar**: Si algún componente consume `StockItem` y accedía directamente a `descripcion` sin pasar por la prioridad de campos, el nombre seguirá siendo el antiguo hasta que se recargue con el nuevo campo. Confirmar que todos los consumidores de `StockItem` fueron actualizados.
+3. **StockItem con `material_nombre` nuevo — consumidores sin actualizar**: Confirmar que todos los consumidores de `StockItem` fueron actualizados y no acceden directamente a `descripcion`.
 
-4. **Conversión EUR/CUP ahora sobre "Total a pagar" — posible desincronía con backend**: Si el backend calculaba la conversión sobre `precio_final` y el frontend la calcula ahora sobre `total_a_pagar`, puede haber diferencia entre el monto en EUR/CUP mostrado en la UI y el que el backend devuelve en exportaciones serverside.
+4. **Conversión EUR/CUP ahora sobre "Total a pagar" — posible desincronía con backend**: Si el backend calculaba la conversión sobre `precio_final` y el frontend la calcula ahora sobre `total_a_pagar`, puede haber diferencia entre montos.
 
-5. **"Descuento (%)" antiguo en solo lectura — confirmar que no se pierde en borradores**: El % de descuento anterior es visible solo en ofertas "que ya lo tienen guardado". Si un borrador con este campo no guardado se edita y se guarda de nuevo, el valor puede perderse sin aviso.
+5. **"Descuento (%)" antiguo en solo lectura — confirmar que no se pierde en borradores**: El % de descuento anterior es visible solo en ofertas "que ya lo tienen guardado". Si un borrador no guardado se edita y se guarda de nuevo, el valor puede perderse sin aviso.
 
-6. **~18% de subimporte erróneo en exportaciones históricas**: Las exportaciones de clientes/leads generadas antes del deploy muestran importes ~18% menores que el real. Los documentos impresos o guardados tienen datos incorrectos; no hay forma de regenerarlos automáticamente.
+6. **~18% de subimporte erróneo en exportaciones históricas**: Los documentos impresos o guardados antes del deploy tienen datos incorrectos; no hay forma de regenerarlos automáticamente.
 
 7. **`tipoNoMaterial` como mecanismo de exclusión frágil**: Si en el futuro se añade otro tipo especial sin recordar actualizar `tipoNoMaterial`, se duplicará silenciosamente en el PDF.
 
-8. **Signo del descuento en el PDF — doble negativo en edge case**: El PDF prefija "- " al monto del descuento. Si el campo de descuento puede llegar negativo desde el backend, el PDF mostrará "- -6000,00 $". Confirmar que el campo siempre llega como valor positivo.
+8. **Signo del descuento en el PDF — doble negativo en edge case**: El PDF prefija "- " al monto del descuento. Si el campo puede llegar negativo desde el backend, el PDF mostrará "- -6000,00 $". Confirmar que el campo siempre llega como valor positivo.
 
 9. **Nuevas columnas en tabla — impacto en exportaciones Excel por posición de columna**: Cualquier importación externa que lea el Excel de ofertas por índice de columna quedará desalineada.
 
@@ -200,44 +275,43 @@
 
 ### Área 1: fix(clientes-ventas) — paginación completa, buscador multicampo y anular/reactivar (18:35)
 
-- **`fix(clientes-ventas): carga completa, buscador y anulacion`** — El módulo cargaba una sola página de 500 clientes y filtraba en memoria. Al superar los 500 documentos el 2026-07-31, los 67 clientes más antiguos (orden fecha_creacion DESC) quedaron invisibles para la UI: 66 de ellos con historial (85 ofertas, 199 solicitudes, 84 facturas). No salían en la tabla, el buscador ni en los selectores de oferta, y los comerciales los recreaban como nuevos.
+- **`fix(clientes-ventas): carga completa, buscador y anulacion`** — El módulo cargaba una sola página de 500 clientes y filtraba en memoria. Al superar los 500 documentos el 2026-07-31, los 67 clientes más antiguos quedaron invisibles para la UI: 66 de ellos con historial (85 ofertas, 199 solicitudes, 84 facturas).
 
-  1. **Paginación completa en `getAllClientes()`**: pagina hasta agotar el `total` que la API ya devolvía pero que el servicio descartaba. El contador "Mostrando X de Y clientes" en la cabecera ahora delata cualquier truncamiento futuro.
+  1. **Paginación completa en `getAllClientes()`**: pagina hasta agotar el `total` que la API ya devolvía pero que el servicio descartaba.
   2. **`normalizeText` colapsa espacios repetidos**: corrige casos como "Antonio Rivero  Garcia" que antes no coincidían en búsquedas locales.
   3. **Selectores de cliente con búsqueda multicampo en backend**: nombre, número, CI, teléfono y ubicación, sin distinguir tildes. Límite subido de 20 a 50 resultados.
-  4. **CI duplicada**: el diálogo deja de tragarse el error; marca el campo CI en rojo y muestra el mensaje del backend junto al formulario.
+  4. **CI duplicada**: el diálogo deja de tragarse el error; marca el campo CI en rojo y muestra el mensaje del backend.
   5. **Anular/Reactivar en lugar de Eliminar**: badge de estado, fila atenuada para anulados, enlace para mostrarlos. El borrado definitivo solo aparece sobre un cliente ya anulado; el backend lo rechaza si tiene historial.
 
 ---
 
 ### Área 2: feat(ofertas) — check de redondeo manual de precio final (16:20)
 
-- **`feat(ofertas): check para ajustar el redondeo del precio final a mano`** — El precio final siempre se redondeaba al múltiplo de 10 hacia arriba sin posibilidad de dejarlo en el valor real de la oferta.
+- **`feat(ofertas): check para ajustar el redondeo del precio final a mano`** — El precio final siempre se redondeaba al múltiplo de 10 hacia arriba sin posibilidad de dejarlo en el valor real.
 
-  1. **Nuevo check "Ajustar redondeo manual"** en el resumen de precios: al activarlo carga el precio del redondeo automático y habilita el campo para que el comercial lo baje.
+  1. **Nuevo check "Ajustar redondeo manual"**: al activarlo carga el precio del redondeo automático y habilita el campo para bajarlo.
   2. **Atajos**: sin redondeo, múltiplo de 5, múltiplo de 10.
   3. **Rango acotado** a [precio real, redondeo automático]: fuera de rango se marca en rojo y bloquea el guardado.
   4. **Check deshabilitado** automáticamente cuando el total ya es múltiplo de 10.
   5. **Estado conservado** en borrador, edición y al duplicar.
-  6. Sin activarlo, el comportamiento es exactamente igual al anterior.
 
 ---
 
 ### Puede dar bateo
 
-1. **67 clientes invisibles ~26 días — posibles duplicados en BD**: Los clientes que no aparecían en tabla, buscador ni selectores desde el 31 de julio pueden haber sido recreados por comerciales que no los encontraban. Ahora son visibles con paginación completa pero puede haber duplicados activos con historial dividido. Verificar manualmente por CI o teléfono.
+1. **67 clientes invisibles ~26 días — posibles duplicados en BD**: Los clientes no encontrables desde el 31 de julio pueden haber sido recreados por comerciales. Verificar manualmente por CI o teléfono.
 
-2. **Clientes anulados — confirmar exclusión en selectores de oferta/solicitud/factura**: La fila atenuada y el badge "Anulado" son visuales. El fix del 28 de Agosto cubre solicitudes de materiales; confirmar los demás flujos de creación.
+2. **Clientes anulados — confirmar exclusión en selectores de oferta/solicitud/factura**: El fix del 29 de Agosto cubre 11 selectores adicionales; confirmar que ya no quedan más.
 
-3. **Delete definitivo — confirmar que la restricción "con historial" está en backend, no solo en frontend**: El botón "Eliminar" solo se muestra sobre clientes ya anulados y sin historial. Si esta lógica solo vive en frontend, un DELETE directo a la API puede eliminar un cliente con historial.
+3. **Delete definitivo — confirmar que la restricción "con historial" está en backend, no solo en frontend**: Si esta lógica solo vive en frontend, un DELETE directo a la API puede eliminar un cliente con historial.
 
-4. **Paginación completa puede ser lenta en colecciones grandes**: Si la colección sigue creciendo, cargar todos los clientes al entrar al módulo incrementará el tiempo de carga linealmente. No hay lazy loading ni paginación virtual en la tabla.
+4. **Paginación completa puede ser lenta en colecciones grandes**: Si la colección sigue creciendo, cargar todos los clientes al entrar al módulo incrementará el tiempo de carga linealmente.
 
-5. **Precio manual sin trazabilidad**: El comercial puede bajar el precio final sin que quede registro de quién lo ajustó ni por qué. Si el sistema tiene audit log de cambios de oferta, confirmar que el precio manual se registra con usuario y motivo.
+5. **Precio manual sin trazabilidad**: El comercial puede bajar el precio final sin que quede registro de quién lo ajustó ni por qué.
 
-6. **Estado del check al duplicar con catálogo cambiado**: Al duplicar una oferta con precio manual, el precio heredado puede quedar fuera del rango [precio real, redondeo automático] si los precios del catálogo cambiaron desde que se creó la original. Confirmar que el rango se recalcula al duplicar, no se hereda del borrador original.
+6. **Estado del check al duplicar con catálogo cambiado**: Al duplicar una oferta con precio manual, el precio heredado puede quedar fuera del rango si los precios del catálogo cambiaron. Confirmar que el rango se recalcula al duplicar.
 
-7. **Atajo "sin redondeo" puede producir precios con decimales**: Si el precio real del cálculo tiene decimales (ej. $1234.56), el atajo "sin redondeo" lo ofrece tal cual. Verificar que el backend acepta precios con decimales en ofertas o si espera enteros.
+7. **Atajo "sin redondeo" puede producir precios con decimales**: Si el precio real tiene decimales (ej. $1234.56), verificar que el backend acepta precios con decimales en ofertas.
 
 ---
 
@@ -251,13 +325,13 @@
 
 ### Área 1: feat(compras) — sub-permiso `envio-contenedores/ficha-precios` separado (16:39)
 
-- **`feat(compras): separa el permiso de precios de la ficha de costo`** — Se introduce el sub-permiso ADITIVO `envio-contenedores/ficha-precios` para controlar quién puede ver y aplicar precios de venta en la ficha de costo de una compra:
+- **`feat(compras): separa el permiso de precios de la ficha de costo`** — Se introduce el sub-permiso ADITIVO `envio-contenedores/ficha-precios` para controlar quién puede ver y aplicar precios de venta en la ficha de costo de una compra.
 
-  1. **Sin el sub-permiso** (solo el padre `envio-contenedores`): la ficha muestra únicamente CIF, % recargo, costo, stock y el botón "Actualizar costos". Se ocultan márgenes, columnas de precios (catálogo, sugeridos y finales) y el botón "Aplicar precios".
+  1. **Sin el sub-permiso**: la ficha muestra únicamente CIF, % recargo, costo, stock y "Actualizar costos". Se ocultan márgenes, columnas de precios y el botón "Aplicar precios".
   2. **Con el sub-permiso**: la ficha completa, igual que antes del cambio.
-  3. **Guardados en modo solo-costos**: los campos de precio y los márgenes globales se omiten del PATCH, aprovechando `exclude_unset` en el backend (`PATCH /compras/{id}` y `/ficha`), para que el usuario de costos no pise el borrador del económico al pulsar "Actualizar costos".
+  3. **Guardados en modo solo-costos**: los campos de precio y los márgenes globales se omiten del PATCH, aprovechando `exclude_unset` en el backend.
   4. **Backfill**: `scripts/backfill_permiso_ficha_precios.py` en SunCarBackend para los 10 usuarios que ya ejercían el permiso completo — necesita ejecutarse en producción.
-  5. **Fix visual adicional**: la fila de totales tenía 13 celdas para 14 columnas; la tabla salía corrida una columna a partir del grupo "Actuales". Corregido.
+  5. **Fix visual adicional**: la fila de totales tenía 13 celdas para 14 columnas; la tabla salía corrida una columna. Corregido.
 
 ---
 
@@ -265,37 +339,37 @@
 
 - **`feat(clientes,leads): permite subir varias fotos/videos a la vez`** — El diálogo de "agregar foto" aceptaba un solo archivo por vez. Ahora:
 
-  1. **Input múltiple con acumulación**: la selección se acumula entre tandas (el usuario puede agregar más antes de subir). Lista los archivos elegidos con su tamaño y permite quitar cualquiera antes de subir.
-  2. **Progreso archivo por archivo**: se muestra el avance durante la subida.
-  3. **Subida secuencial** (uno a uno), ya que el backend acepta un archivo por petición (`POST /clientes/{numero}/fotos` y `POST /leads/{id}/fotos`).
-  4. **Resiliencia a fallos parciales**: si un archivo falla, los demás continúan. Los archivos fallidos permanecen en el diálogo para reintentarlos sin duplicar los ya guardados. La lista se refresca una sola vez al final.
+  1. **Input múltiple con acumulación**: la selección se acumula entre tandas.
+  2. **Progreso archivo por archivo** durante la subida.
+  3. **Subida secuencial** (uno a uno), ya que el backend acepta un archivo por petición.
+  4. **Resiliencia a fallos parciales**: los archivos fallidos permanecen en el diálogo para reintentarlos sin duplicar los ya guardados.
   5. **Lógica común extraída** a `lib/utils/upload-fotos-lote.ts`, compartida entre ambos módulos.
 
 ---
 
 ### Área 3: chore(tiendas) — elimina ruta vacía /tiendas/[tiendaId]/ventas (16:58)
 
-- **`chore(tiendas): elimina la ruta vacía /tiendas/[tiendaId]/ventas`** — El archivo entró vacío (0 bytes) en el commit `0e8ff594` junto con los módulos de POS y caja, y nunca llegó a tener contenido. Next lo registraba igual como ruta y, al no exportar nada, rompía el typecheck con 3 errores TS2306 (ignorados por `next.config.mjs` en el build). Ningún archivo enlazaba a esa ruta: la ficha de tienda solo apunta a `/caja`.
+- **`chore(tiendas): elimina la ruta vacía /tiendas/[tiendaId]/ventas`** — El archivo entró vacío (0 bytes) y nunca llegó a tener contenido. Next lo registraba como ruta y rompía el typecheck con 3 errores TS2306.
 
 ---
 
 ### Puede dar bateo
 
-1. **Backfill de `envio-contenedores/ficha-precios` sin confirmar ejecución**: El script `backfill_permiso_ficha_precios.py` está en SunCarBackend pero no hay confirmación de que se ejecutó en producción. Hasta que se ejecute, los 10 usuarios que ya tenían acceso completo verán solo la ficha de costos — perderán visibilidad de precios y el botón "Aplicar precios" sin aviso previo.
+1. **Backfill de `envio-contenedores/ficha-precios` sin confirmar ejecución**: Hasta que se ejecute, los 10 usuarios que ya tenían acceso completo verán solo la ficha de costos — perderán visibilidad de precios y el botón "Aplicar precios" sin aviso previo.
 
-2. **Ventana de degradación entre deploy de frontend y ejecución del backfill**: Si el frontend se desplegó antes de ejecutar el script, hubo (o hay) una ventana donde usuarios con acceso previo no pueden usar la funcionalidad de precios. Confirmar el orden de operaciones real en producción.
+2. **Ventana de degradación entre deploy de frontend y ejecución del backfill**: Confirmar el orden de operaciones real en producción.
 
-3. **`exclude_unset` en PATCH `/compras/{id}` y `/ficha` — confirmar en backend de producción**: El commit asume que el backend tiene `exclude_unset=True` en los endpoints de compra. Si la versión deployada no lo tiene, pulsar "Actualizar costos" en modo solo-costos silenciosamente borrará los precios del económico con `null` o valores vacíos.
+3. **`exclude_unset` en PATCH `/compras/{id}` y `/ficha` — confirmar en backend de producción**: Si la versión deployada no lo tiene, pulsar "Actualizar costos" en modo solo-costos silenciosamente borrará los precios del económico.
 
-4. **Lote de fotos: archivos fallidos se pierden si el usuario cierra el diálogo**: Si el usuario cierra el diálogo de subida antes de ver el resumen de errores, los archivos fallidos se descartan sin confirmación. No hay persistencia del estado de reintento entre aperturas del diálogo.
+4. **Lote de fotos: archivos fallidos se pierden si el usuario cierra el diálogo**: Si el usuario cierra antes de ver el resumen de errores, los archivos fallidos se descartan sin confirmación.
 
-5. **Subida secuencial lenta en lotes grandes**: Con 10+ archivos, la subida de uno en uno puede tardar considerablemente. Si el usuario navega fuera de la página durante la subida, las peticiones en curso pueden quedar huérfanas.
+5. **Subida secuencial lenta en lotes grandes**: Con 10+ archivos, la subida puede tardar considerablemente. Si el usuario navega fuera, las peticiones en curso pueden quedar huérfanas.
 
-6. **`lib/utils/upload-fotos-lote.ts` compartida — un bug afecta ambos módulos simultáneamente**: Cualquier regresión en la lógica compartida rompe la subida tanto en leads como en clientes a la vez. Confirmar que hay cobertura de pruebas o que el cambio fue verificado en ambos módulos.
+6. **`lib/utils/upload-fotos-lote.ts` compartida — un bug afecta ambos módulos simultáneamente**: Confirmar que el cambio fue verificado en ambos módulos.
 
-7. **Ruta /tiendas/[tiendaId]/ventas eliminada — bookmarks y links externos darán 404**: Aunque nadie enlazaba desde el código, pueden existir bookmarks de usuarios o links en WhatsApp/correo. Confirmar que el 404 muestra una página de error manejada y no una pantalla en blanco de Next.
+7. **Ruta /tiendas/[tiendaId]/ventas eliminada — bookmarks y links externos darán 404**: Confirmar que el 404 muestra una página de error manejada.
 
-8. **3 errores TS2306 ignorados durante la vida de la ruta vacía — confirmar que no quedan otras rutas vacías**: El archivo entró en producción en `0e8ff594` y pasó desapercibido. Verificar si hay otros archivos de ruta vacíos en el directorio `app/` que puedan generar el mismo patrón.
+8. **3 errores TS2306 ignorados durante la vida de la ruta vacía — confirmar que no quedan otras rutas vacías**: Verificar si hay otros archivos de ruta vacíos en `app/`.
 
 ---
 
@@ -309,22 +383,19 @@
 
 ### Área 1: fix(types) — alineación de tipos con backend (237 → 0 errores) (14:17–14:31)
 
-- **`fix(types): alinea los tipos con lo que devuelve el backend (190 → 0 errores)`** — Campaña exhaustiva verificada endpoint por endpoint contra `openapi.json` del backend desplegado. Bugs reales encontrados en el proceso:
+- **`fix(types): alinea los tipos con lo que devuelve el backend (190 → 0 errores)`** — Campaña exhaustiva verificada endpoint por endpoint contra `openapi.json` del backend desplegado. Bugs reales encontrados:
   1. **PDF de oferta mostraba provincia en blanco**: `Lead` no tiene `nombre_completo`, `email` ni `provincia`; el campo correcto es `provincia_montaje`.
   2. **TypeError al hacer clic en mapa**: `MapPicker.onSelect` era obligatorio; el diálogo "Ubicación del cliente" no lo pasaba.
-  3. **Compras: filtro de estado roto**: Se comparaba con `"recibida_parcial"` (alias legacy) cuando el backend normaliza a `"recibido_parcial"` — el filtro nunca coincidía.
+  3. **Compras: filtro de estado roto**: Se comparaba con `"recibida_parcial"` (alias legacy) cuando el backend normaliza a `"recibido_parcial"`.
   4. **Transferencias**: Faltaba el estado `"procesando"` en el union de tipos.
   5. **Marcas**: Alta rápida no mandaba `tipos_material` (obligatorio) → 422.
   6. **Nóminas**: Mensaje de error interpolaba `mes`/`anio`, campos que el request no tiene → se mostraba `"undefined/undefined"`.
-  7. **`OfertaInstalacion` duplicada**: Dos definiciones incompatibles en servicios y types; ahora el servicio reexporta la canónica.
+  7. **`OfertaInstalacion` duplicada**: Dos definiciones incompatibles; ahora el servicio reexporta la canónica.
   8. **Barrels rotos**: `material-types` e `inventario-types` habían perdido sus reexports.
-  9. **Stripe `route.ts`**: Duplicaba la constante de versión en lugar de importarla. Pin mantenido en `2024-12-18.acacia` como decisión de negocio.
-  10. **Fallbacks imposibles removidos**: Fotos en planificación, `fecha_creacion` en solicitud del vale, `codigo_cliente`/`numero_cliente`/`referencia_cliente` en clientes — verificados contra backend como campos que no existen en el response model.
+  9. **Stripe `route.ts`**: Duplicaba la constante de versión. Pin mantenido en `2024-12-18.acacia` como decisión de negocio.
+  10. **Fallbacks imposibles removidos**: verificados contra backend como campos que no existen en el response model.
 
-- **`chore: elimina cuatro archivos huérfanos`** — Sin imports entrantes detectados en análisis estático:
-  - `category-management.tsx` y `category-form.tsx` (llamaban a `MaterialService.createCategoryWithPhoto/updateCategoryWithPhoto`, métodos que no existen).
-  - `venta-form.tsx` (daría 422 al backend por falta de `almacen_id` por item).
-  - `local-storage-ordenes.ts` (placeholder previo al backend de órdenes de trabajo; sus tipos ya no existían).
+- **`chore: elimina cuatro archivos huérfanos`**: `category-management.tsx`, `category-form.tsx`, `venta-form.tsx`, `local-storage-ordenes.ts`.
 
 ---
 
@@ -332,109 +403,52 @@
 
 - **`fix(brigadas): editar/eliminar brigada y trabajadores llamaban a métodos inexistentes`** — `BrigadaService` no definía `updateBrigada`, `deleteBrigada`, `addTrabajador` ni `removeTrabajador`; cualquier consumidor del hook reventaba con TypeError. Los DELETE pasaban el `ObjectId` de la brigada, pero el backend busca por `lider_ci`. El backend devolvía `success:false` con HTTP 200 y la UI mostraba "Éxito" sin haber borrado nada.
 
-- **`fix(brigadas): el informe de materiales usados apuntaba a rutas inexistentes`** — Rutas correctas: `/reportes/materiales-usados/brigada` y `.../todas-brigadas` (las anteriores daban 404). El endpoint pide `lider_ci`, no el `ObjectId`. La respuesta es `{success, message, materiales}`, no `data.data`. Las columnas de la tabla también se corrigen: **UM** en lugar de Categoría (que no existe en el response).
+- **`fix(brigadas): el informe de materiales usados apuntaba a rutas inexistentes`** — Rutas correctas: `/reportes/materiales-usados/brigada` y `.../todas-brigadas`. El endpoint pide `lider_ci`, no el `ObjectId`. La respuesta es `{success, message, materiales}`, no `data.data`.
 
 ---
 
 ### Área 3: fix(pagos-ventas) — emitir factura daba 422 (14:16–14:28)
 
-- **`fix(pagos-ventas): emitir factura desde pagos-clientes-ventas omitía los campos obligatorios`** — `POST /facturas-ventas` exige `numero`, `fecha`, `cliente_venta_id` y `solicitudes`. La llamada anterior solo mandaba campos legacy (`numero_factura`, `emitida_por`, `fecha_emision`) → 422. El endpoint del catch usaba el mismo esquema, por lo que el reintento tampoco salvaba. Verificado en producción: las 576 facturas existentes llevan los 4 campos obligatorios. Fix: `cliente_venta_id` sale de `selectedSolicitud` (766/766 solicitudes lo tienen).
+- **`fix(pagos-ventas): emitir factura desde pagos-clientes-ventas omitía los campos obligatorios`** — `POST /facturas-ventas` exige `numero`, `fecha`, `cliente_venta_id` y `solicitudes`. La llamada anterior solo mandaba campos legacy → 422. Fix: `cliente_venta_id` sale de `selectedSolicitud` (766/766 solicitudes lo tienen).
 
 ---
 
 ### Área 4: chore(ofertas) — retira catálogo viejo de producción (16:11–16:21)
 
-- **`chore(ofertas): retira el catalogo viejo de produccion y arregla las coordenadas`** — Porta a main lo que dev hizo el 20 de agosto. La cadena del catálogo viejo estaba muerta en main (ningún archivo fuera de ella la referenciaba). Se eliminan los 4 eslabones: `ofertas-embebidas-fields.tsx`, `ofertas-asignacion-fields.tsx`, `hooks/use-ofertas.ts`, y `OfertaService` de `api-services.ts`/`feats/ofertas/oferta-service.ts`. Aportaban 45 de los 47 errores TypeScript restantes.
-  - **Fix adicional**: `cliente-detalles-dialog` — el estrechamiento de `hasLocation` no alcanzaba a `parseFloat` (recibía `string | undefined`). Se extrae a helper `toCoord` que comprueba en el punto de uso.
+- **`chore(ofertas): retira el catalogo viejo de produccion y arregla las coordenadas`** — Se eliminan los 4 eslabones del catálogo viejo: `ofertas-embebidas-fields.tsx`, `ofertas-asignacion-fields.tsx`, `hooks/use-ofertas.ts`, y `OfertaService`. Aportaban 45 de los 47 errores TypeScript restantes.
+  - **Fix adicional**: `cliente-detalles-dialog` — estrechamiento de `hasLocation` no alcanzaba a `parseFloat`. Se extrae a helper `toCoord`.
   - **CLAUDE.md desactualizado (señalado en el commit)**: La sección que describe `OfertasAsignacionFields` como componente en uso quedó obsoleta.
 
 ---
 
 ### Puede dar bateo
 
-1. **Catálogo viejo eliminado — imports dinámicos no detectados**: El análisis de dependencias fue estático. Si hay `React.lazy()` o `dynamic(() => import(...))` apuntando a los archivos eliminados en algún path no analizado, la app rompe en runtime.
+1. **Catálogo viejo eliminado — imports dinámicos no detectados**: Si hay `React.lazy()` o `dynamic(() => import(...))` apuntando a los archivos eliminados en algún path no analizado, la app rompe en runtime.
 
-2. **Fallbacks removidos — datos inesperados del backend**: Se retiraron fallbacks verificados como "imposibles" contra el openapi. Si el backend en producción tiene una versión ligeramente distinta y devuelve alguno de esos campos, el renderizado puede romper o perder datos silenciosamente.
+2. **Fallbacks removidos — datos inesperados del backend**: Si el backend en producción tiene una versión ligeramente distinta, el renderizado puede romper o perder datos silenciosamente.
 
-3. **Fix emitir factura — `selectedSolicitud` puede ser null**: El fix asume que `selectedSolicitud` siempre tiene `cliente_venta_id` (verificado contra 766/766 solicitudes en producción). Si el estado de la UI permite abrir el diálogo de factura sin solicitud seleccionada, el payload tendrá `cliente_venta_id: undefined` y seguirá dando 422.
+3. **Fix emitir factura — `selectedSolicitud` puede ser null**: Si el estado de la UI permite abrir el diálogo de factura sin solicitud seleccionada, el payload tendrá `cliente_venta_id: undefined` y seguirá dando 422.
 
-4. **Fix brigadas DELETE por lider_ci — múltiples brigadas con mismo lider**: Raro pero posible si la BD tiene inconsistencias históricas. Si hay dos brigadas con el mismo `lider_ci`, el DELETE puede afectar la primera que encuentre el backend, no la seleccionada en UI.
+4. **Fix brigadas DELETE por lider_ci — múltiples brigadas con mismo lider**: Si hay dos brigadas con el mismo `lider_ci`, el DELETE puede afectar la primera que encuentre el backend.
 
-5. **Stripe pin `2024-12-18.acacia` mantenido explícitamente**: Si Stripe depreca este pin o tiene vulnerabilidades en esta versión de API, el endpoint de pagos podría fallar o quedar expuesto sin una alerta clara. Es una deuda técnica activa por decisión de negocio.
+5. **Stripe pin `2024-12-18.acacia` mantenido explícitamente**: Deuda técnica activa por decisión de negocio. Revisión pendiente si Stripe depreca el pin.
 
 6. **CLAUDE.md desactualizado (señalado en el commit, no corregido)**: La sección del CLAUDE.md describe `OfertasAsignacionFields` como componente en uso activo. Cualquier sesión de Claude Code que la lea puede tomar decisiones erróneas.
 
 ---
 
-## 📅 23 de Agosto, 2026
-
-### Resumen de cambios (últimas 24h)
-
-Sin commits nuevos de código. El único commit del período es "Analisis diario Claude" (generado automáticamente). No hay cambios en producción en SunCarWeb.
-
----
-
-### Puede dar bateo
-
-Sin cambios nuevos — sin riesgos nuevos.
-
----
-
-## 📅 22 de Agosto, 2026
-
-### Resumen de cambios (últimas 24h)
-
-Sin commits nuevos de código. El único commit del período es "Analisis diario Claude" (generado automáticamente). No hay cambios en producción en SunCarWeb.
-
----
-
-### Puede dar bateo
-
-Sin cambios nuevos — sin riesgos nuevos.
-
----
-
-## 📅 21 de Agosto, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**1 commit** — Fabian1820. Nueva funcionalidad en el módulo de visitas: opción de marcar una visita como realizada sin registrar toda la información, con flujo para completarla después. También corrige la creación de visitas para clientes (antes fallaba con "No se encontró una visita para este registro").
-
----
-
-### Área 1: feat(visitas) — marcar visita como realizada sin info + fix creación para clientes (Fabian1820, 14:26)
-
-- **`feat(visitas): permite marcar una visita como realizada sin registrar la info`** — Co-authored con Claude Opus 5. Cambios principales:
-
-  1. **Nuevo paso previo en "Completar"**: antes de abrir el formulario completo, se elige entre "marcar sin información" (solo fecha + comentario opcional) o "rellenar datos completos".
-  2. **Visitas `marcada_sin_info` diferenciadas en la pestaña de realizadas**: fila ámbar en cursiva, badge "Sin info" y botón "Rellenar info" que reabre el formulario completo sobre la misma visita.
-  3. **Creación de visita extraída a helpers compartidos**: antes el helper solo creaba visitas para leads; ahora también para clientes. Elimina el error "No se encontró una visita para este registro" al completar desde el módulo de clientes.
-  4. **Requiere backend con resultado `marcada_sin_info` ya deployado**.
-
----
-
-### Puede dar bateo
-
-1. **Dependencia dura de `marcada_sin_info` en backend — sin confirmar en producción**: Si el backend no tiene ese resultado, cualquier intento de marcar sin info fallará (422 o 500).
-
-2. **Transición `marcada_sin_info` → completa — confirmar soporte de backend**: Confirmar que el backend acepta actualizar una visita con estado `marcada_sin_info` a estado completo (PATCH sin restricciones de estado previo).
-
-3. **Fix de creación para clientes — confirmar que no rompe leads**: Si la lógica de detección de tipo (lead vs cliente) falla en algún edge case, la creación de visita puede intentar un endpoint incorrecto.
-
-4. **Comentario opcional sin validación de longitud**: Un comentario muy largo puede llegar al backend sin restricción.
-
-5. **Visitas `marcada_sin_info` en exportaciones y reportes**: Las visitas con este estado nuevo pueden aparecer en reportes o exportaciones con campos vacíos o errores de serialización.
-
----
-
 #### Seguimientos vigentes
 
+- **fix(clientes-anulados) — confirmar que los 11 selectores cubiertos son exhaustivos; verificar módulos de instalaciones, órdenes de trabajo internas y otros flujos no listados en el commit (Ago 29)**.
+- **fix(clientes-anulados) — 5 sitios excluidos: confirmar que todos tienen manejo de error visible del backend al intentar crear trabajo sobre un cliente anulado (Ago 29)**.
+- **feat(ventas) check no vendibles — motivo exigido aunque el check se desactive tras agregar material: confirmar que el mensaje de error es claro en ese flujo (Ago 29)**.
+- **feat(ventas) toggle "Vista Web" PATCH de campo único — confirmar `exclude_unset` en backend para no sobrescribir null en campos no enviados (Ago 29)**.
+- **fix(reservas-ventas) aviso general — confirmar que todos los errores del backend (no solo stock y anulado) llegan al aviso general y no quedan silenciados (Ago 29)**.
 - **feat(clientes) tipo "visita" — confirmar deploy de backend con "visita" en Literal del endpoint POST /clientes/{numero}/fotos antes de usar en producción (Ago 28)**.
 - **fix(ofertas-confeccion) bloqueo optimista — confirmar UX cuando el comercial recibe 409: ¿puede ver los cambios del otro y fusionarlos o solo ve un error opaco? (Ago 28)**.
 - **fix(ofertas-confeccion) borradores con caducidad 2h — verificar si es suficiente para sesiones largas de confección (Ago 28)**.
 - **fix(ofertas-confeccion) moneda — ofertas existentes con tasa 0 sin migración automática — requieren edición manual por el comercial para exportar en moneda correcta (Ago 28)**.
 - **feat(navegacion) "Volver" deducido de MODULOS_CATALOGO — confirmar cobertura completa: módulos no registrados siguen volviendo a "/" (Ago 28)**.
-- **fix(solicitudes-materiales) anulados — el filtro solo cubre el diálogo de solicitudes; confirmar que selectores de oferta, factura y otros flujos también excluyen clientes anulados (Ago 28)**.
 - **feat(materiales): facturas históricas con `descripcion` embebida — verificar vista de facturas anteriores al 27 de Agosto para detectar campos vacíos o nombres incorrectos (Ago 27)**.
 - **feat(materiales): StockItem con `material_nombre` nuevo — confirmar que todos los consumidores de StockItem manejan el nuevo campo y no tienen referencias al campo viejo (Ago 27)**.
 - **feat(ofertas): conversión EUR/CUP ahora sobre "Total a pagar" — confirmar que backend también calcula la conversión sobre el total con descuento y no sobre `precio_final` (Ago 27)**.
@@ -448,8 +462,6 @@ Sin cambios nuevos — sin riesgos nuevos.
 - **Lote de fotos — diálogo de reintento se pierde si el usuario cierra el diálogo antes de ver el resumen de archivos fallidos (Ago 25)**.
 - **CLAUDE.md desactualizado — sección de `OfertasAsignacionFields` describe componente ya eliminado como en uso activo; puede confundir sesiones futuras de Claude Code (Ago 24)**.
 - **Stripe pin `2024-12-18.acacia` mantenido explícitamente por decisión de negocio — revisión pendiente si Stripe depreca el pin (Ago 24)**.
-- **Visitas `marcada_sin_info` — confirmar deploy de backend con resultado `marcada_sin_info` antes de usar en producción (Ago 21)**.
-- **"Rellenar info" en visitas sin info — confirmar que backend acepta PATCH sin restricción de estado previo (Ago 21)**.
 - **`/solicitudes-envio` sin RouteGuard confirmado — accesible por URL directa (Ago 20)**.
 - **Alertas de stock silenciables — confirmar persistencia en backend vs localStorage (Ago 20)**.
 - **Permisos de "Preguntas Frecuentes" y "Datos a Averiguar" para comerciales — confirmar asignaciones explícitas en BD (Ago 15)**.
@@ -479,7 +491,7 @@ Sin cambios nuevos — sin riesgos nuevos.
 - **Sub-permiso `informe-direccion/cobros-pendientes` no aditivo — datos financieros visibles a todos los usuarios con `informe-direccion` sin asignación explícita (Ago 6)**.
 - **`sanitizarTelefono()` modifica el input silenciosamente (Ago 5)**.
 - **Botón "Eliminar" leads sin gatear con permisos — visible para todos (Ago 5)**.
-- **Backfill de sub-permisos leads — confirmar ejecución para los 26 trabajadores en producción (Ago 5)**.
+- **Backfill de sub-permisos leads — confirmar ejecución para los 26 trabajadores en producción (Ago 5)**. 
 - **`telefono_adicional_nombre` — confirmar soporte en endpoints POST/PATCH /leads/{id} (Ago 5)**.
 - **Módulo distribucion-comerciales sin permisos asignados — invisible para todos hasta configuración (Ago 4)**.
 - **Filtro equipo_comercial en Leads/Clientes — confirmar que el campo llega desde el backend (Ago 4)**.
@@ -512,8 +524,7 @@ Sin cambios nuevos — sin riesgos nuevos.
 - **`pool=indistinto` para split automático — backend debe implementarlo**.
 - **BMS como categoría reservable — docs sin `.pools` bloquean el 100% de reservas BMS**.
 - **AdminPass 123456 hardcodeado**.
-- **Badge de estado calculado en frontend con flotantes**.
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. La entrada del **28 de Julio** fue eliminada el 5 de Agosto al superar los 7 días. La entrada del **30 de Julio** fue eliminada el 7 de Agosto al superar los 7 días. La entrada del **31 de Julio** fue eliminada el 8 de Agosto al superar los 7 días. Las entradas del **1, 2 y 3 de Agosto** fueron eliminadas el 10 de Agosto al superar los 7 días. La entrada del **4 de Agosto** fue eliminada el 12 de Agosto al superar los 7 días. La entrada del **5 de Agosto** fue eliminada el 13 de Agosto al superar los 7 días. La entrada del **6 de Agosto** fue eliminada el 14 de Agosto al superar los 7 días. La entrada del **7 de Agosto** fue eliminada el 15 de Agosto al superar los 7 días. La entrada del **8 de Agosto** fue eliminada el 17 de Agosto al superar los 7 días. La entrada del **10 de Agosto** fue eliminada el 18 de Agosto al superar los 7 días. La entrada del **11 de Agosto** fue eliminada el 19 de Agosto al superar los 7 días. La entrada del **12 de Agosto** fue eliminada el 20 de Agosto al superar los 7 días. La entrada del **13 de Agosto** fue eliminada el 21 de Agosto al superar los 7 días. La entrada del **14 de Agosto** fue eliminada el 22 de Agosto al superar los 7 días. La entrada del **15 de Agosto** fue eliminada el 23 de Agosto al superar los 7 días. La entrada del **17 de Agosto** fue eliminada el 25 de Agosto al superar los 7 días. La entrada del **18 de Agosto** fue eliminada el 26 de Agosto al superar los 7 días. La entrada del **19 de Agosto** fue eliminada el 27 de Agosto al superar los 7 días. La entrada del **20 de Agosto** fue eliminada el 28 de Agosto al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. La entrada del **28 de Julio** fue eliminada el 5 de Agosto al superar los 7 días. La entrada del **30 de Julio** fue eliminada el 7 de Agosto al superar los 7 días. La entrada del **31 de Julio** fue eliminada el 8 de Agosto al superar los 7 días. Las entradas del **1, 2 y 3 de Agosto** fueron eliminadas el 10 de Agosto al superar los 7 días. La entrada del **4 de Agosto** fue eliminada el 12 de Agosto al superar los 7 días. La entrada del **5 de Agosto** fue eliminada el 13 de Agosto al superar los 7 días. La entrada del **6 de Agosto** fue eliminada el 14 de Agosto al superar los 7 días. La entrada del **7 de Agosto** fue eliminada el 15 de Agosto al superar los 7 días. La entrada del **8 de Agosto** fue eliminada el 17 de Agosto al superar los 7 días. La entrada del **10 de Agosto** fue eliminada el 18 de Agosto al superar los 7 días. La entrada del **11 de Agosto** fue eliminada el 19 de Agosto al superar los 7 días. La entrada del **12 de Agosto** fue eliminada el 20 de Agosto al superar los 7 días. La entrada del **13 de Agosto** fue eliminada el 21 de Agosto al superar los 7 días. La entrada del **14 de Agosto** fue eliminada el 22 de Agosto al superar los 7 días. La entrada del **15 de Agosto** fue eliminada el 23 de Agosto al superar los 7 días. La entrada del **17 de Agosto** fue eliminada el 25 de Agosto al superar los 7 días. La entrada del **18 de Agosto** fue eliminada el 26 de Agosto al superar los 7 días. La entrada del **19 de Agosto** fue eliminada el 27 de Agosto al superar los 7 días. La entrada del **20 de Agosto** fue eliminada el 28 de Agosto al superar los 7 días. La entrada del **21 de Agosto** fue eliminada el 29 de Agosto al superar los 7 días. La entrada del **22 de Agosto** fue eliminada el 30 de Agosto al superar los 7 días. La entrada del **23 de Agosto** fue eliminada el 31 de Agosto al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
