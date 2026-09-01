@@ -62,6 +62,13 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { ClienteService } from "@/lib/api-services";
+import type { EquipoEnOferta } from "@/lib/services/feats/customer/cliente-service";
+import { SearchableSelect } from "@/components/shared/molecule/searchable-select";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/shared/molecule/collapsible";
 import { apiRequest } from "@/lib/api-config";
 import { compareStrings } from "@/lib/utils/string-utils";
 import MapPicker from "@/components/shared/organism/MapPickerNoSSR";
@@ -155,6 +162,12 @@ interface ClientsTableProps {
     bateriaKwhMax: string;
     panelesMin: string;
     panelesMax: string;
+    inversorCodigo: string;
+    inversorCantidad: string;
+    bateriaCodigo: string;
+    bateriaCantidad: string;
+    panelCodigo: string;
+    panelCantidad: string;
   }) => void;
   exportButtons?: React.ReactNode;
   initialSearchTerm?: string;
@@ -236,6 +249,33 @@ const ResumenCapacidadEquipos = ({
       <span>{partes.join(" · ")}</span>
     </div>
   );
+};
+
+const MODELO_FILTER_GROUPS = [
+  { label: "Inversor", placeholder: "Cualquier inversor", categoria: "INVERSORES", codigoKey: "inversorCodigo", cantidadKey: "inversorCantidad", unidad: "kW" },
+  { label: "Baterías", placeholder: "Cualquier batería", categoria: "BATERIAS", codigoKey: "bateriaCodigo", cantidadKey: "bateriaCantidad", unidad: "kWh" },
+  { label: "Paneles", placeholder: "Cualquier panel", categoria: "PANELES", codigoKey: "panelCodigo", cantidadKey: "panelCantidad", unidad: "W" },
+] as const;
+
+const MODELO_FILTER_KEYS = MODELO_FILTER_GROUPS.flatMap((g) => [
+  g.codigoKey,
+  g.cantidadKey,
+]);
+
+const MODELO_FILTROS_VACIOS = {
+  inversorCodigo: "",
+  inversorCantidad: "",
+  bateriaCodigo: "",
+  bateriaCantidad: "",
+  panelCodigo: "",
+  panelCantidad: "",
+};
+
+/** Los paneles se listan en W, que es como los nombra comercial. */
+const etiquetaPotencia = (kw: number | null | undefined, unidad: string): string => {
+  if (!kw) return "";
+  const valor = unidad === "W" ? Math.round(kw * 1000) : kw;
+  return `${formatKw(valor)} ${unidad}`;
 };
 
 const CAPACIDAD_FILTROS_VACIOS = {
@@ -933,6 +973,7 @@ export function ClientsTable({
     bateriaKwhMax: "",
     panelesMin: "",
     panelesMax: "",
+    ...MODELO_FILTROS_VACIOS,
   });
   const {
     equipos: equiposComerciales,
@@ -940,6 +981,7 @@ export function ClientsTable({
     comercialesDeEquipo,
   } = useComercialEquipoMap();
   const [equipoSeleccionado, setEquipoSeleccionado] = useState<string>("todos");
+  const [masFiltrosEquipoAbierto, setMasFiltrosEquipoAbierto] = useState(false);
 
   // Provincias / municipios para filtros
   const [provinciasList, setProvinciasList] = useState<
@@ -1130,6 +1172,69 @@ export function ClientsTable({
     return () => clearTimeout(timer);
   }, [capacidadFilters]);
 
+  // Modelos realmente vendidos, para no ofrecer todo el catalogo.
+  const [equiposDisponibles, setEquiposDisponibles] = useState<EquipoEnOferta[]>(
+    [],
+  );
+  useEffect(() => {
+    let vivo = true;
+    ClienteService.getEquiposEnOfertas()
+      .then((equipos) => {
+        if (vivo) setEquiposDisponibles(equipos);
+      })
+      .catch(() => {
+        if (vivo) setEquiposDisponibles([]);
+      });
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
+  const opcionesPorCategoria = useMemo(() => {
+    const mapa: Record<string, { value: string; label: string }[]> = {};
+    MODELO_FILTER_GROUPS.forEach((grupo) => {
+      mapa[grupo.categoria] = equiposDisponibles
+        .filter((e) => e.categoria === grupo.categoria)
+        .map((e) => {
+          const potencia = etiquetaPotencia(e.potencia_kw, grupo.unidad);
+          return {
+            value: e.material_codigo,
+            // La potencia va delante porque un mismo kW son varios modelos:
+            // asi se ve de un vistazo que hay que elegir cual.
+            label: `${potencia ? `${potencia} · ` : ""}${e.nombre || e.material_codigo} (${e.cantidad_clientes})`,
+          };
+        });
+    });
+    return mapa;
+  }, [equiposDisponibles]);
+
+  // Las cantidades tambien se teclean, asi que comparten debounce.
+  const modeloFilters = useMemo(
+    () => ({
+      inversorCodigo: filters.inversorCodigo,
+      inversorCantidad: filters.inversorCantidad,
+      bateriaCodigo: filters.bateriaCodigo,
+      bateriaCantidad: filters.bateriaCantidad,
+      panelCodigo: filters.panelCodigo,
+      panelCantidad: filters.panelCantidad,
+    }),
+    [
+      filters.inversorCodigo,
+      filters.inversorCantidad,
+      filters.bateriaCodigo,
+      filters.bateriaCantidad,
+      filters.panelCodigo,
+      filters.panelCantidad,
+    ],
+  );
+  const [debouncedModelo, setDebouncedModelo] = useState(modeloFilters);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedModelo(modeloFilters);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [modeloFilters]);
+
   // Notificar al padre cuando cambien los filtros
   useEffect(() => {
     if (onFiltersChange) {
@@ -1153,9 +1258,21 @@ export function ClientsTable({
         bateriaKwhMax: debouncedCapacidad.bateriaKwhMax,
         panelesMin: debouncedCapacidad.panelesMin,
         panelesMax: debouncedCapacidad.panelesMax,
+        inversorCodigo: debouncedModelo.inversorCodigo,
+        inversorCantidad: debouncedModelo.inversorCantidad,
+        bateriaCodigo: debouncedModelo.bateriaCodigo,
+        bateriaCantidad: debouncedModelo.bateriaCantidad,
+        panelCodigo: debouncedModelo.panelCodigo,
+        panelCantidad: debouncedModelo.panelCantidad,
       });
     }
-  }, [debouncedSearchTerm, filters, debouncedCapacidad, onFiltersChange]);
+  }, [
+    debouncedSearchTerm,
+    filters,
+    debouncedCapacidad,
+    debouncedModelo,
+    onFiltersChange,
+  ]);
 
   const sortedClients = useMemo(() => {
     const ordered = [...clients].sort((a, b) => {
@@ -1487,6 +1604,10 @@ export function ClientsTable({
   const tieneFiltroCapacidad = CAPACIDAD_FILTER_KEYS.some((key) =>
     Boolean(filters[key]?.trim()),
   );
+  const tieneFiltroModelo = MODELO_FILTER_KEYS.some((key) =>
+    Boolean(filters[key]?.trim()),
+  );
+  const tieneFiltroEquipo = tieneFiltroCapacidad || tieneFiltroModelo;
 
   const hasActiveFilters =
     searchTerm.trim() ||
@@ -1501,13 +1622,18 @@ export function ClientsTable({
     filters.municipio.length > 0 ||
     filters.ofertas ||
     filters.tiempo ||
-    tieneFiltroCapacidad;
+    tieneFiltroEquipo;
 
   // El debounce se adelanta a mano al limpiar: si no, quedaría medio segundo
   // consultando todavía con los kW anteriores.
-  const limpiarFiltrosCapacidad = () => {
-    setFilters((prev) => ({ ...prev, ...CAPACIDAD_FILTROS_VACIOS }));
+  const limpiarFiltrosEquipo = () => {
+    setFilters((prev) => ({
+      ...prev,
+      ...CAPACIDAD_FILTROS_VACIOS,
+      ...MODELO_FILTROS_VACIOS,
+    }));
     setDebouncedCapacidad(CAPACIDAD_FILTROS_VACIOS);
+    setDebouncedModelo(MODELO_FILTROS_VACIOS);
   };
 
   const handleClearFilters = () => {
@@ -1527,8 +1653,10 @@ export function ClientsTable({
       tiempo: "",
       mostrarAnulados: false,
       ...CAPACIDAD_FILTROS_VACIOS,
+      ...MODELO_FILTROS_VACIOS,
     });
     setDebouncedCapacidad(CAPACIDAD_FILTROS_VACIOS);
+    setDebouncedModelo(MODELO_FILTROS_VACIOS);
     setEquipoSeleccionado("todos");
   };
 
@@ -3720,55 +3848,57 @@ export function ClientsTable({
                   Equipo instalado
                 </Label>
                 <p className="text-xs text-gray-500">
-                  Suma de todas las ofertas confirmadas del cliente. Para un
-                  valor exacto, pon el mismo número en ambas casillas. Los
-                  clientes sin equipo registrado no aparecen.
+                  Elige el modelo y, si quieres, la cantidad exacta. Se cuenta
+                  el equipo acumulado del cliente, sumando todas sus ofertas
+                  confirmadas. Los clientes sin equipo registrado no aparecen.
                 </p>
               </div>
-              {tieneFiltroCapacidad && (
+              {tieneFiltroEquipo && (
                 <Button
                   variant="ghost"
                   size="sm"
                   className="h-7 px-2 text-xs"
-                  onClick={limpiarFiltrosCapacidad}
+                  onClick={limpiarFiltrosEquipo}
                 >
                   Limpiar equipo
                 </Button>
               )}
             </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {CAPACIDAD_FILTER_GROUPS.map((grupo) => (
-                <div key={grupo.minKey}>
+              {MODELO_FILTER_GROUPS.map((grupo) => (
+                <div key={grupo.codigoKey}>
                   <Label className="text-xs text-gray-600">{grupo.label}</Label>
-                  <div className="mt-1 flex items-center gap-2">
-                    <Input
-                      type="number"
-                      min={0}
-                      step={grupo.step}
-                      inputMode="decimal"
-                      aria-label={`${grupo.label} mínimo`}
-                      placeholder="Mín"
-                      value={filters[grupo.minKey]}
-                      onChange={(event) =>
+                  <div className="mt-1 space-y-2">
+                    <SearchableSelect
+                      options={opcionesPorCategoria[grupo.categoria] ?? []}
+                      value={filters[grupo.codigoKey]}
+                      onValueChange={(value) =>
                         setFilters((prev) => ({
                           ...prev,
-                          [grupo.minKey]: event.target.value,
+                          [grupo.codigoKey]: value,
+                          // Sin modelo la cantidad no significa nada.
+                          ...(value ? {} : { [grupo.cantidadKey]: "" }),
                         }))
                       }
+                      placeholder={grupo.placeholder}
+                      searchPlaceholder="Buscar modelo..."
+                      truncateSelected
+                      truncateOptions
                     />
-                    <span className="text-xs text-gray-400">a</span>
                     <Input
                       type="number"
-                      min={0}
-                      step={grupo.step}
-                      inputMode="decimal"
-                      aria-label={`${grupo.label} máximo`}
-                      placeholder="Máx"
-                      value={filters[grupo.maxKey]}
+                      min={1}
+                      step={1}
+                      inputMode="numeric"
+                      aria-label={`Cantidad exacta de ${grupo.label}`}
+                      placeholder="Cantidad exacta (opcional)"
+                      disabled={!filters[grupo.codigoKey]}
+                      value={filters[grupo.cantidadKey]}
                       onChange={(event) =>
                         setFilters((prev) => ({
                           ...prev,
-                          [grupo.maxKey]: event.target.value,
+                          [grupo.cantidadKey]: event.target.value,
                         }))
                       }
                     />
@@ -3776,6 +3906,79 @@ export function ClientsTable({
                 </div>
               ))}
             </div>
+
+            <Collapsible
+              open={masFiltrosEquipoAbierto}
+              onOpenChange={setMasFiltrosEquipoAbierto}
+              className="mt-4 border-t border-gray-200 pt-3"
+            >
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs text-gray-600"
+                >
+                  <ChevronDown
+                    className={`h-3.5 w-3.5 mr-1 transition-transform ${masFiltrosEquipoAbierto ? "rotate-180" : ""}`}
+                  />
+                  Más filtros
+                  {tieneFiltroCapacidad && !masFiltrosEquipoAbierto && (
+                    <span className="ml-1.5 rounded bg-emerald-100 px-1.5 text-[11px] text-emerald-700">
+                      activo
+                    </span>
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <p className="mt-2 mb-3 text-xs text-gray-500">
+                  Por capacidad, sin importar la marca: útil porque un mismo kW
+                  se reparte entre varios modelos. Para un valor exacto, pon el
+                  mismo número en ambas casillas.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {CAPACIDAD_FILTER_GROUPS.map((grupo) => (
+                    <div key={grupo.minKey}>
+                      <Label className="text-xs text-gray-600">
+                        {grupo.label}
+                      </Label>
+                      <div className="mt-1 flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min={0}
+                          step={grupo.step}
+                          inputMode="decimal"
+                          aria-label={`${grupo.label} mínimo`}
+                          placeholder="Mín"
+                          value={filters[grupo.minKey]}
+                          onChange={(event) =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              [grupo.minKey]: event.target.value,
+                            }))
+                          }
+                        />
+                        <span className="text-xs text-gray-400">a</span>
+                        <Input
+                          type="number"
+                          min={0}
+                          step={grupo.step}
+                          inputMode="decimal"
+                          aria-label={`${grupo.label} máximo`}
+                          placeholder="Máx"
+                          value={filters[grupo.maxKey]}
+                          onChange={(event) =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              [grupo.maxKey]: event.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
           </div>
 
           {(filters.fechaDesde ||
@@ -3785,7 +3988,7 @@ export function ClientsTable({
             filters.municipio.length > 0 ||
             filters.ofertas ||
             filters.tiempo ||
-            tieneFiltroCapacidad) &&
+            tieneFiltroEquipo) &&
             typeof totalClients === "number" && (
               <div className="mt-4 text-sm text-gray-700">
                 Total de clientes filtrados:{" "}
