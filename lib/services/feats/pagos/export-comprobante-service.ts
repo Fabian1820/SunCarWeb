@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import type { Pago } from "./pago-service";
+import { nombreArchivoComprobante } from "./nombre-archivo-comprobante";
 
 interface ComprobanteData {
   pago: Pago;
@@ -48,9 +49,14 @@ export class ExportComprobanteService {
     this.dibujarComprobante(doc, data, 150);
 
     // Descargar PDF
-    const fecha = new Date(data.pago.fecha).toISOString().split("T")[0];
-    const nombreArchivo = `Comprobante_Pago_${data.oferta.numero_oferta}_${fecha}.pdf`;
-    doc.save(nombreArchivo);
+    doc.save(
+      nombreArchivoComprobante({
+        documento: "Comprobante de Pago",
+        nombreContacto: data.contacto.nombre,
+        numeroOferta: data.oferta.numero_oferta,
+        fecha: data.pago.fecha,
+      }),
+    );
   }
 
   /**

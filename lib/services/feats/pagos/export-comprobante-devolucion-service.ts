@@ -3,6 +3,7 @@ import type {
   DevolucionPago,
   OfertaConPagos,
 } from "@/lib/services/feats/pagos/pago-service";
+import { nombreArchivoComprobante } from "@/lib/services/feats/pagos/nombre-archivo-comprobante";
 
 interface ComprobanteDevolucionData {
   oferta: OfertaConPagos;
@@ -28,9 +29,14 @@ export class ExportComprobanteDevolucionService {
     this.dibujarLineaCorte(doc, 140);
     this.dibujarComprobante(doc, data, 150);
 
-    const fecha = new Date(data.devolucion.fecha).toISOString().split("T")[0];
-    const nombreArchivo = `Comprobante_Devolucion_Cobro_${data.oferta.numero_oferta}_${fecha}.pdf`;
-    doc.save(nombreArchivo);
+    doc.save(
+      nombreArchivoComprobante({
+        documento: "Comprobante de Devolución de Cobro",
+        nombreContacto: data.oferta.contacto?.nombre,
+        numeroOferta: data.oferta.numero_oferta,
+        fecha: data.devolucion.fecha,
+      }),
+    );
   }
 
   private static dibujarComprobante(
