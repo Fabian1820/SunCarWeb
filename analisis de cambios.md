@@ -2,6 +2,96 @@
 
 ---
 
+## 📅 1 de Septiembre, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**9 commits reales** — Fabian1820 (co-authored Claude Opus 5). Sesión muy activa: saneamiento de código (imports muertos, código muerto, race conditions), corrección de búsquedas sin tildes en toda la app, paginación de compras, esquema de pago configurable por oferta, dos fixes de stock en solicitudes, y dos features de filtrado de clientes por equipo instalado (rangos + modelo exacto).
+
+---
+
+### Área 1: fix(solicitudes) — buscador de materiales truncado y disponible ciego a los pools (16:01)
+
+- **`fix(solicitudes): buscador de materiales truncado y disponible ciego a los pools`** — Dos defectos en el flujo de solicitudes de materiales:
+
+  1. **Buscador con `limit: 15` ordenado por `material_id`**: el orden por defecto del endpoint es `material_id` asc (ObjectId monotono), así que el corte descartaba siempre los materiales añadidos más recientemente. Buscando "cable" en el Almacén de Insumos coincidían 104 materiales y solo salían 15; los cuatro cables solares nuevos ocupaban las posiciones 101–104 y no aparecían. Se quita el tope y se ordena por nombre.
+
+  2. **"Stock disponible" calculado sobre `item.cantidad` (suma de los tres pools)**: el backend solo deja consumir el pool del sector + indistinto. La cifra de cabecera contradecía los badges Instaladora/Ambos y habría dado un falso "sí hay" en cuanto hubiera existencia apartada al otro sector. Se alinea con los pools consumibles. Fallback a `cantidad` si el item viene sin pools.
+
+---
+
+### Área 2: chore(vales-solicitudes) — elimina código muerto verificado (16:24)
+
+- **`chore: elimina codigo muerto verificado en los flujos de vales y solicitudes`** — Lo más relevante: una cadena entera en el exportador de vales (`getMaterialExistencia` + `loadStockByCode`) hacía un `getStock` del almacén completo en cada exportación de PDF y tiraba el resultado. Con el `limit` quitado en e3b2aa23, esa llamada pasó de 200 a 567 filas. Se eliminan también `handleNumeroSerieChange`, `parseMaterialesCount`, `cantidadMateriales` y varios imports/tipos sin usar.
+
+---
+
+### Área 3: fix(busqueda) — buscadores sin tildes y arregla el de vales de salida (17:19)
+
+- **`fix(busqueda): buscadores sin tildes y arregla el de vales de salida`** — Dos grupos de fixes:
+
+  1. **Vales de salida — UX rota en búsqueda**: `if (loading && vales.length === 0)` devolvía el PageLoader de pantalla completa; una búsqueda intermedia que daba 0 resultados desmontaba el buscador, se perdía el foco y el scroll saltaba arriba. El loader de página ahora solo aparece en la carga inicial. Además, dos condiciones de carrera en el mismo hook (respuesta vieja pisando la nueva, `loadMore` concatenando páginas de búsqueda ya sustituida) se resuelven con contador de petición.
+
+  2. **Normalización de tildes en 61 módulos**: los filtros en cliente comparaban con `.toLowerCase().includes()`, que ignora mayúsculas pero no tildes. Se añade `normalizeSearchText` a `lib/utils/string-utils.ts` y se aplica en los 61 módulos que filtran en cliente. No se reutiliza `containsString` existente para no cambiar el comportamiento de coincidencia de espacios y puntuación.
+
+---
+
+### Área 4: chore(typescript) — quita imports, tipos y parámetros sin usar en todo el repo (17:40)
+
+- **`chore: quita imports, tipos y parametros sin usar en todo el repo`** — Barrido de avisos de `tsc --noUnusedLocals --noUnusedParameters` fuera de los flujos ya limpiados. Solo se toca lo inequívoco: imports y especificadores sin usar (borrados), tipos e interfaces locales sin usar (borrados), parámetros sin usar (prefijados con `_`, nunca borrados). 45 archivos, 110 ediciones. Quedan 121 avisos pendientes sobre declaraciones con cuerpo (funciones, constantes, estado de React) que requieren decisión humana.
+
+---
+
+### Área 5: feat(compras) — paginación en el listado y lista completa en los selectores (18:12)
+
+- **`feat(compras): paginacion en el listado y lista completa en los selectores`** — El hook pedía las compras sin parámetros, recibía solo las 50 más recientes por defecto y filtraba en cliente. Con 129 compras vivas, 79 eran invisibles. Pasa a paginación de servidor (páginas de 20, búsqueda con debounce, filtros de estado/tipo/pago al backend, cualquier cambio de filtro vuelve a la primera página) siguiendo el modelo de `useLeads` + `SmartPagination`. Los selectores de solicitudes de entrada usan ahora `getAllCompras()`, que recorre las páginas.
+
+---
+
+### Área 6: feat(ofertas) — elegir el esquema de pago al confeccionar y al exportar (18:24)
+
+- **`feat(ofertas): elegir el esquema de pago de la oferta al confeccionar y al exportar`** — Los porcentajes de "Formas de pago" salían fijos del texto de `terminos_condiciones`. Ahora la oferta lleva su propio reparto. Selector con tres esquemas fijos (50/30/20, 40/40/20, 50/40/10), un personalizado que valida que sume 100, y "por defecto" para heredar el texto de la BD. Disponible en la confección (y por tanto en edición y duplicado) y en el diálogo de exportación, donde hace PATCH sobre la oferta. El render está en `buildTerminosCondicionesHtml`, que ya recibe la oferta desde los tres caminos de exportación. Si la oferta tiene pagos acordados, esa sección sigue mandando.
+
+---
+
+### Área 7: feat(clientes) — filtro por capacidad del equipo instalado (19:59)
+
+- **`feat(clientes): filtro por capacidad del equipo instalado`** — Añade tres rangos al panel de filtros de Clientes: inversor en kW, baterías en kWh y número de paneles, resueltos en el backend con los nuevos parámetros `inversorKwMin/Max`, `bateriaKwhMin/Max` y `panelesMin/Max`. Para un valor exacto se pone el mismo número en ambas casillas. Cada fila muestra el equipo acumulado del cliente (suma de todas sus ofertas confirmadas). Los límites llevan debounce propio; se guardan como texto para no confundir "sin límite" con el 0. Un cliente cuyo equipo no se puede resolver no aparece en el filtro.
+
+---
+
+### Área 8: fix(ofertas) — no imprimir hitos de pago en 0 % (20:50)
+
+- **`fix(ofertas): no imprimir los hitos de pago que van en 0 %`** — Al usar un reparto de dos tramos (ej. 50/0/50), el PDF mostraba "0 % a la entrega de los suministros". La viñeta de un hito en 0 ya no se genera. La palabra "restante" en el último tramo solo aparece si antes se enumeró algún otro hito; sin nada delante, "restante" no tiene referente. Si el reparto llegara todo a 0 se devuelve el texto de la BD sin modificar.
+
+---
+
+### Área 9: feat(clientes) — selector de modelo de equipo y rangos en "Más filtros" (21:09)
+
+- **`feat(clientes): selector de modelo de equipo y rangos en "Mas filtros"`** — El comercial pidió elegir el material concreto de inversor, batería y panel con la cantidad exacta, como en confección de ofertas. Ese selector pasa a ser el filtro principal de equipo. Los rangos de capacidad se recogen en un plegable "Más filtros" (siguen siendo necesarios: un mismo kW se reparte entre varios modelos). Cada opción del selector lleva delante la potencia y detrás cuántos clientes la tienen. La casilla de cantidad se habilita solo con un modelo elegido (sola no filtra nada) y comparte el debounce con los rangos.
+
+---
+
+### Puede dar bateo
+
+1. **feat(clientes) selector de modelo — parámetros nuevos en backend**: El selector envía `modelo_codigo` y opcionalmente `cantidad_exacta` al endpoint de clientes. Confirmar que el backend tiene estos parámetros deployados; si no, el selector devuelve silenciosamente todos los clientes sin filtrar.
+
+2. **feat(clientes) filtros de rango — texto vacío vs "0" como límite**: Los límites se guardan como texto para distinguir "sin límite" (`""`) de 0 kW. Confirmar que el frontend serializa y el backend deserializa estos casos de forma consistente; un `""` que llega como `0` en el backend aplicaría un filtro de `>= 0 kW` que excluiría clientes sin equipo resuelto.
+
+3. **feat(ofertas) esquema de pago — PATCH permanente desde el diálogo de exportación**: El diálogo de exportación hace PATCH sobre la oferta al confirmar. El comercial puede entrar al diálogo, cambiar el esquema "para esta exportación" y salir sin exportar, habiendo modificado el dato persistido sin saberlo. Confirmar si el PATCH se emite al cambiar el selector o solo al pulsar "Exportar".
+
+4. **fix(ofertas) hito 0% — "restante" con un solo hito no-cero**: Si el único hito no-cero es el de puesta en marcha (ej. 0/0/100), el texto generado sería "100% restante con la puesta en marcha" sin que haya habido pagos anteriores. Confirmar que el texto tiene sentido comercialmente en ese edge case.
+
+5. **feat(compras) `getAllCompras()` para selectores — sin cota de páginas**: La función pagina todas las compras sin límite. Si la colección crece mucho, esta precarga puede volverse lenta para los diálogos de solicitudes de entrada. Considerar una cota de seguridad.
+
+6. **fix(busqueda) `normalizeSearchText` en 61 módulos — superficie de cambio amplia**: Confirmar que ninguno de los 61 módulos hacía coincidencia exacta que se rompa con la normalización, especialmente en filtros donde el texto del criterio tiene significado técnico (códigos, referencias alfanuméricas con tilde).
+
+7. **fix(solicitudes) dropdown sin límite — rendimiento con 100+ resultados**: El buscador del diálogo ahora puede devolver 100+ items (104 cables documentados). Si el dropdown no está virtualizado, renderizar todos puede ser lento en dispositivos móviles.
+
+8. **chore imports — 121 avisos de declaraciones sin usar pendientes en `confeccion-ofertas-view`**: Los 32 avisos en ese archivo incluyen cálculos de margen por material, constantes de descuento y helpers de exportación que pueden ser features a medio cablear. Confirmar cuáles son código muerto real y cuáles son funcionalidad en pausa antes de eliminar.
+
+---
+
 ## 📅 31 de Agosto, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -253,7 +343,7 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 4. **Conversión EUR/CUP ahora sobre "Total a pagar" — posible desincronía con backend**: Si el backend calculaba la conversión sobre `precio_final` y el frontend la calcula ahora sobre `total_a_pagar`, puede haber diferencia entre montos.
 
-5. **"Descuento (%)" antiguo en solo lectura — confirmar que no se pierde en borradores**: El % de descuento anterior es visible solo en ofertas "que ya lo tienen guardado". Si un borrador no guardado se edita y se guarda de nuevo, el valor puede perderse sin aviso.
+5. **"Descuento (%)\" antiguo en solo lectura — confirmar que no se pierde en borradores**: El % de descuento anterior es visible solo en ofertas "que ya lo tienen guardado". Si un borrador no guardado se edita y se guarda de nuevo, el valor puede perderse sin aviso.
 
 6. **~18% de subimporte erróneo en exportaciones históricas**: Los documentos impresos o guardados antes del deploy tienen datos incorrectos; no hay forma de regenerarlos automáticamente.
 
@@ -373,72 +463,13 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 24 de Agosto, 2026
+## Seguimientos vigentes
 
-### Resumen de cambios (últimas 24h)
-
-**7 commits reales** — Fabian1820 (co-authored Claude Opus 5). Sesión masiva de saneamiento: errores TypeScript en main: **237 → 0** en dos etapas (47 intermedios). Se eliminan archivos huérfanos del catálogo viejo de ofertas, se alinean todos los tipos con el backend real, y se corrigen tres bugs de comportamiento críticos en brigadas y facturación.
-
----
-
-### Área 1: fix(types) — alineación de tipos con backend (237 → 0 errores) (14:17–14:31)
-
-- **`fix(types): alinea los tipos con lo que devuelve el backend (190 → 0 errores)`** — Campaña exhaustiva verificada endpoint por endpoint contra `openapi.json` del backend desplegado. Bugs reales encontrados:
-  1. **PDF de oferta mostraba provincia en blanco**: `Lead` no tiene `nombre_completo`, `email` ni `provincia`; el campo correcto es `provincia_montaje`.
-  2. **TypeError al hacer clic en mapa**: `MapPicker.onSelect` era obligatorio; el diálogo "Ubicación del cliente" no lo pasaba.
-  3. **Compras: filtro de estado roto**: Se comparaba con `"recibida_parcial"` (alias legacy) cuando el backend normaliza a `"recibido_parcial"`.
-  4. **Transferencias**: Faltaba el estado `"procesando"` en el union de tipos.
-  5. **Marcas**: Alta rápida no mandaba `tipos_material` (obligatorio) → 422.
-  6. **Nóminas**: Mensaje de error interpolaba `mes`/`anio`, campos que el request no tiene → se mostraba `"undefined/undefined"`.
-  7. **`OfertaInstalacion` duplicada**: Dos definiciones incompatibles; ahora el servicio reexporta la canónica.
-  8. **Barrels rotos**: `material-types` e `inventario-types` habían perdido sus reexports.
-  9. **Stripe `route.ts`**: Duplicaba la constante de versión. Pin mantenido en `2024-12-18.acacia` como decisión de negocio.
-  10. **Fallbacks imposibles removidos**: verificados contra backend como campos que no existen en el response model.
-
-- **`chore: elimina cuatro archivos huérfanos`**: `category-management.tsx`, `category-form.tsx`, `venta-form.tsx`, `local-storage-ordenes.ts`.
-
----
-
-### Área 2: fix(brigadas) — tres bugs de comportamiento en CRUD y reportes (14:16–14:28)
-
-- **`fix(brigadas): editar/eliminar brigada y trabajadores llamaban a métodos inexistentes`** — `BrigadaService` no definía `updateBrigada`, `deleteBrigada`, `addTrabajador` ni `removeTrabajador`; cualquier consumidor del hook reventaba con TypeError. Los DELETE pasaban el `ObjectId` de la brigada, pero el backend busca por `lider_ci`. El backend devolvía `success:false` con HTTP 200 y la UI mostraba "Éxito" sin haber borrado nada.
-
-- **`fix(brigadas): el informe de materiales usados apuntaba a rutas inexistentes`** — Rutas correctas: `/reportes/materiales-usados/brigada` y `.../todas-brigadas`. El endpoint pide `lider_ci`, no el `ObjectId`. La respuesta es `{success, message, materiales}`, no `data.data`.
-
----
-
-### Área 3: fix(pagos-ventas) — emitir factura daba 422 (14:16–14:28)
-
-- **`fix(pagos-ventas): emitir factura desde pagos-clientes-ventas omitía los campos obligatorios`** — `POST /facturas-ventas` exige `numero`, `fecha`, `cliente_venta_id` y `solicitudes`. La llamada anterior solo mandaba campos legacy → 422. Fix: `cliente_venta_id` sale de `selectedSolicitud` (766/766 solicitudes lo tienen).
-
----
-
-### Área 4: chore(ofertas) — retira catálogo viejo de producción (16:11–16:21)
-
-- **`chore(ofertas): retira el catalogo viejo de produccion y arregla las coordenadas`** — Se eliminan los 4 eslabones del catálogo viejo: `ofertas-embebidas-fields.tsx`, `ofertas-asignacion-fields.tsx`, `hooks/use-ofertas.ts`, y `OfertaService`. Aportaban 45 de los 47 errores TypeScript restantes.
-  - **Fix adicional**: `cliente-detalles-dialog` — estrechamiento de `hasLocation` no alcanzaba a `parseFloat`. Se extrae a helper `toCoord`.
-  - **CLAUDE.md desactualizado (señalado en el commit)**: La sección que describe `OfertasAsignacionFields` como componente en uso quedó obsoleta.
-
----
-
-### Puede dar bateo
-
-1. **Catálogo viejo eliminado — imports dinámicos no detectados**: Si hay `React.lazy()` o `dynamic(() => import(...))` apuntando a los archivos eliminados en algún path no analizado, la app rompe en runtime.
-
-2. **Fallbacks removidos — datos inesperados del backend**: Si el backend en producción tiene una versión ligeramente distinta, el renderizado puede romper o perder datos silenciosamente.
-
-3. **Fix emitir factura — `selectedSolicitud` puede ser null**: Si el estado de la UI permite abrir el diálogo de factura sin solicitud seleccionada, el payload tendrá `cliente_venta_id: undefined` y seguirá dando 422.
-
-4. **Fix brigadas DELETE por lider_ci — múltiples brigadas con mismo lider**: Si hay dos brigadas con el mismo `lider_ci`, el DELETE puede afectar la primera que encuentre el backend.
-
-5. **Stripe pin `2024-12-18.acacia` mantenido explícitamente**: Deuda técnica activa por decisión de negocio. Revisión pendiente si Stripe depreca el pin.
-
-6. **CLAUDE.md desactualizado (señalado en el commit, no corregido)**: La sección del CLAUDE.md describe `OfertasAsignacionFields` como componente en uso activo. Cualquier sesión de Claude Code que la lea puede tomar decisiones erróneas.
-
----
-
-#### Seguimientos vigentes
-
+- **feat(clientes) selector de modelo y filtro de rangos — confirmar parámetros `modelo_codigo`/`cantidad_exacta`/`inversorKwMin/Max`/etc. deployados en backend (Sep 1)**.
+- **feat(ofertas) esquema de pago — PATCH al exportar es permanente: confirmar si se emite al cambiar el selector o solo al pulsar "Exportar" (Sep 1)**.
+- **fix(busqueda) `normalizeSearchText` en 61 módulos — confirmar que ningún módulo hacía coincidencia exacta que se rompa con la normalización (Sep 1)**.
+- **fix(solicitudes) dropdown sin límite — confirmar rendimiento con 100+ resultados en dispositivos móviles (Sep 1)**.
+- **chore — 121 avisos de declaraciones sin usar en `confeccion-ofertas-view`: confirmar cuáles son features en pausa y cuáles código muerto antes de eliminar (Sep 1)**.
 - **fix(clientes-anulados) — confirmar que los 11 selectores cubiertos son exhaustivos; verificar módulos de instalaciones, órdenes de trabajo internas y otros flujos no listados en el commit (Ago 29)**.
 - **fix(clientes-anulados) — 5 sitios excluidos: confirmar que todos tienen manejo de error visible del backend al intentar crear trabajo sobre un cliente anulado (Ago 29)**.
 - **feat(ventas) check no vendibles — motivo exigido aunque el check se desactive tras agregar material: confirmar que el mensaje de error es claro en ese flujo (Ago 29)**.
@@ -460,8 +491,6 @@ Sin cambios nuevos — sin riesgos nuevos.
 - **Backfill de `envio-contenedores/ficha-precios` — confirmar ejecución del script para los 10 usuarios existentes en producción (Ago 25)**.
 - **PATCH /compras y /ficha — confirmar `exclude_unset` en backend de producción para que modo solo-costos no pise datos del económico (Ago 25)**.
 - **Lote de fotos — diálogo de reintento se pierde si el usuario cierra el diálogo antes de ver el resumen de archivos fallidos (Ago 25)**.
-- **CLAUDE.md desactualizado — sección de `OfertasAsignacionFields` describe componente ya eliminado como en uso activo; puede confundir sesiones futuras de Claude Code (Ago 24)**.
-- **Stripe pin `2024-12-18.acacia` mantenido explícitamente por decisión de negocio — revisión pendiente si Stripe depreca el pin (Ago 24)**.
 - **`/solicitudes-envio` sin RouteGuard confirmado — accesible por URL directa (Ago 20)**.
 - **Alertas de stock silenciables — confirmar persistencia en backend vs localStorage (Ago 20)**.
 - **Permisos de "Preguntas Frecuentes" y "Datos a Averiguar" para comerciales — confirmar asignaciones explícitas en BD (Ago 15)**.
@@ -491,7 +520,7 @@ Sin cambios nuevos — sin riesgos nuevos.
 - **Sub-permiso `informe-direccion/cobros-pendientes` no aditivo — datos financieros visibles a todos los usuarios con `informe-direccion` sin asignación explícita (Ago 6)**.
 - **`sanitizarTelefono()` modifica el input silenciosamente (Ago 5)**.
 - **Botón "Eliminar" leads sin gatear con permisos — visible para todos (Ago 5)**.
-- **Backfill de sub-permisos leads — confirmar ejecución para los 26 trabajadores en producción (Ago 5)**. 
+- **Backfill de sub-permisos leads — confirmar ejecución para los 26 trabajadores en producción (Ago 5)**.
 - **`telefono_adicional_nombre` — confirmar soporte en endpoints POST/PATCH /leads/{id} (Ago 5)**.
 - **Módulo distribucion-comerciales sin permisos asignados — invisible para todos hasta configuración (Ago 4)**.
 - **Filtro equipo_comercial en Leads/Clientes — confirmar que el campo llega desde el backend (Ago 4)**.
@@ -514,7 +543,6 @@ Sin cambios nuevos — sin riesgos nuevos.
 - **`costos-materiales-cliente` en instalaciones — ningún usuario lo tiene hasta asignación manual de SuperAdmin (Jul 10)**.
 - **`creado_por` → `creado_por_ci` — reservas históricas con campo incorrecto muestran creador vacío (Jul 10)**.
 - **Herencia `instalaciones` → 7 sub-permisos solo en runtime, no persistida en BD (Jul 5)**.
-- **`lib/export-multi-sheet-service.ts` eliminado — confirmar sin imports residuales (Jul 3)**.
 - **`compensacion`/`asumido_por_empresa` en OfertaConPagos — confirmar campos en backend (Jun 29)**.
 - **Módulo Asistencia — endpoints de backend sin confirmar (Jun 26)**.
 - **`hasExactPermission` — usuarios con almacenes-suncar sin subpermiso admin explícito perderán acceso (Jun 26)**.
@@ -527,4 +555,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. La entrada del **28 de Julio** fue eliminada el 5 de Agosto al superar los 7 días. La entrada del **30 de Julio** fue eliminada el 7 de Agosto al superar los 7 días. La entrada del **31 de Julio** fue eliminada el 8 de Agosto al superar los 7 días. Las entradas del **1, 2 y 3 de Agosto** fueron eliminadas el 10 de Agosto al superar los 7 días. La entrada del **4 de Agosto** fue eliminada el 12 de Agosto al superar los 7 días. La entrada del **5 de Agosto** fue eliminada el 13 de Agosto al superar los 7 días. La entrada del **6 de Agosto** fue eliminada el 14 de Agosto al superar los 7 días. La entrada del **7 de Agosto** fue eliminada el 15 de Agosto al superar los 7 días. La entrada del **8 de Agosto** fue eliminada el 17 de Agosto al superar los 7 días. La entrada del **10 de Agosto** fue eliminada el 18 de Agosto al superar los 7 días. La entrada del **11 de Agosto** fue eliminada el 19 de Agosto al superar los 7 días. La entrada del **12 de Agosto** fue eliminada el 20 de Agosto al superar los 7 días. La entrada del **13 de Agosto** fue eliminada el 21 de Agosto al superar los 7 días. La entrada del **14 de Agosto** fue eliminada el 22 de Agosto al superar los 7 días. La entrada del **15 de Agosto** fue eliminada el 23 de Agosto al superar los 7 días. La entrada del **17 de Agosto** fue eliminada el 25 de Agosto al superar los 7 días. La entrada del **18 de Agosto** fue eliminada el 26 de Agosto al superar los 7 días. La entrada del **19 de Agosto** fue eliminada el 27 de Agosto al superar los 7 días. La entrada del **20 de Agosto** fue eliminada el 28 de Agosto al superar los 7 días. La entrada del **21 de Agosto** fue eliminada el 29 de Agosto al superar los 7 días. La entrada del **22 de Agosto** fue eliminada el 30 de Agosto al superar los 7 días. La entrada del **23 de Agosto** fue eliminada el 31 de Agosto al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. La entrada del **28 de Julio** fue eliminada el 5 de Agosto al superar los 7 días. La entrada del **30 de Julio** fue eliminada el 7 de Agosto al superar los 7 días. La entrada del **31 de Julio** fue eliminada el 8 de Agosto al superar los 7 días. Las entradas del **1, 2 y 3 de Agosto** fueron eliminadas el 10 de Agosto al superar los 7 días. La entrada del **4 de Agosto** fue eliminada el 12 de Agosto al superar los 7 días. La entrada del **5 de Agosto** fue eliminada el 13 de Agosto al superar los 7 días. La entrada del **6 de Agosto** fue eliminada el 14 de Agosto al superar los 7 días. La entrada del **7 de Agosto** fue eliminada el 15 de Agosto al superar los 7 días. La entrada del **8 de Agosto** fue eliminada el 17 de Agosto al superar los 7 días. La entrada del **10 de Agosto** fue eliminada el 18 de Agosto al superar los 7 días. La entrada del **11 de Agosto** fue eliminada el 19 de Agosto al superar los 7 días. La entrada del **12 de Agosto** fue eliminada el 20 de Agosto al superar los 7 días. La entrada del **13 de Agosto** fue eliminada el 21 de Agosto al superar los 7 días. La entrada del **14 de Agosto** fue eliminada el 22 de Agosto al superar los 7 días. La entrada del **15 de Agosto** fue eliminada el 23 de Agosto al superar los 7 días. La entrada del **17 de Agosto** fue eliminada el 25 de Agosto al superar los 7 días. La entrada del **18 de Agosto** fue eliminada el 26 de Agosto al superar los 7 días. La entrada del **19 de Agosto** fue eliminada el 27 de Agosto al superar los 7 días. La entrada del **20 de Agosto** fue eliminada el 28 de Agosto al superar los 7 días. La entrada del **21 de Agosto** fue eliminada el 29 de Agosto al superar los 7 días. La entrada del **22 de Agosto** fue eliminada el 30 de Agosto al superar los 7 días. La entrada del **23 de Agosto** fue eliminada el 31 de Agosto al superar los 7 días. La entrada del **24 de Agosto** fue eliminada el 1 de Septiembre al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.

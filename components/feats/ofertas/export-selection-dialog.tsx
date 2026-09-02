@@ -21,6 +21,7 @@ import { Separator } from "@/components/shared/molecule/separator";
 import { ScrollArea } from "@/components/shared/molecule/scroll-area";
 import { ExportButtons } from "@/components/shared/molecule/export-buttons";
 import { apiRequest } from "@/lib/api-config";
+import type { generarOpcionesExportacionOferta } from "@/lib/services/feats/ofertas/generar-opciones-exportacion-oferta";
 import { useToast } from "@/hooks/use-toast";
 import { EsquemaPagoSelector } from "@/components/feats/ofertas/esquema-pago-selector";
 import {
@@ -41,12 +42,13 @@ interface ExportSelectionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   oferta: any;
-  exportOptions?: {
-    exportOptionsCompleto: any;
-    exportOptionsSinPrecios: any;
-    exportOptionsClienteConPrecios: any;
-    baseFilename: string;
-  };
+  /**
+   * Opciones ya construidas por `generarOpcionesExportacionOferta`. Es
+   * obligatorio a propósito: aquí vivía una copia simplificada como respaldo
+   * que había divergido de la buena (salía siempre en USD y sin fotos) y a la
+   * que no llegaba ningún llamador, porque los tres pasan esto siempre.
+   */
+  exportOptions: ReturnType<typeof generarOpcionesExportacionOferta>;
   /**
    * Se llama tras guardar el esquema de pago en la oferta. El padre debe
    * refrescar su copia para que el PDF se regenere con los porcentajes nuevos
@@ -145,279 +147,6 @@ export function ExportSelectionDialog({
     const preset = ESQUEMAS_PAGO_PRESETS.find((p) => p.id === value);
     if (preset) void guardarEsquemaPago(preset.esquema);
   };
-
-  // Generar opciones de exportación si no se proporcionan
-  const generarOpcionesExportacionSimple = (oferta: any) => {
-    if (!oferta) return null;
-
-    const itemsOrdenados = oferta.items || [];
-
-    // Nombre base del archivo
-    let baseFilename = (oferta.nombre || "oferta")
-      .replace(/[<>:"/\\|?*]/g, "")
-      .replace(/\s+/g, "_")
-      .trim();
-
-    // Datos básicos de la oferta
-    const ofertaData = {
-      numero_oferta: oferta.numero_oferta || oferta.id,
-      nombre_oferta: oferta.nombre_completo || oferta.nombre,
-      tipo_oferta: oferta.tipo === "generica" ? "Genérica" : "Personalizada",
-    };
-
-    // Datos del cliente/lead si es personalizada
-    let clienteData = undefined;
-    let leadData = undefined;
-
-    if (oferta.tipo === "personalizada") {
-      if (oferta.cliente_nombre) {
-        clienteData = {
-          numero: oferta.cliente_numero || oferta.cliente_id,
-          nombre: oferta.cliente_nombre,
-          telefono: oferta.cliente_telefono,
-          direccion: oferta.cliente_direccion,
-          atencion_de: oferta.cliente_nombre,
-        };
-      } else if (oferta.lead_nombre) {
-        leadData = {
-          id: oferta.lead_id,
-          nombre: oferta.lead_nombre,
-          telefono: oferta.lead_telefono,
-          direccion: oferta.lead_direccion,
-          atencion_de: oferta.lead_nombre,
-        };
-      }
-    }
-
-    // EXPORTACIÓN COMPLETA
-    const rowsCompleto: any[] = [];
-    itemsOrdenados.forEach((item: any) => {
-      const margenAsignado = item.margen_asignado || 0;
-      const costoItem = item.precio * item.cantidad;
-      const porcentajeMargen =
-        costoItem > 0 && margenAsignado > 0
-          ? (margenAsignado / costoItem) * 100
-          : 0;
-
-      rowsCompleto.push({
-        material_codigo: item.material_codigo,
-        seccion: item.seccion,
-        tipo: "Material",
-        descripcion: item.descripcion,
-        cantidad: item.cantidad,
-        precio_unitario: item.precio.toFixed(2),
-        porcentaje_margen: `${porcentajeMargen.toFixed(2)}%`,
-        margen: margenAsignado.toFixed(2),
-        total: (costoItem + margenAsignado).toFixed(2),
-      });
-    });
-
-    // Total de materiales
-    const totalMateriales = itemsOrdenados.reduce((sum: number, item: any) => {
-      const margenAsignado = item.margen_asignado || 0;
-      const costoItem = item.precio * item.cantidad;
-      return sum + costoItem + margenAsignado;
-    }, 0);
-
-    rowsCompleto.push({
-      material_codigo: "",
-      seccion: "Totales",
-      tipo: "Subtotal",
-      descripcion: "Total de materiales",
-      cantidad: "",
-      precio_unitario: "",
-      porcentaje_margen: "",
-      margen: "",
-      total: totalMateriales.toFixed(2),
-    });
-
-    // Servicio de instalación
-    if (oferta.margen_instalacion && oferta.margen_instalacion > 0) {
-      rowsCompleto.push({
-        material_codigo: "",
-        seccion: "Servicios",
-        tipo: "Servicio",
-        descripcion: "Costo de instalación y puesta en marcha",
-        cantidad: 1,
-        precio_unitario: oferta.margen_instalacion.toFixed(2),
-        porcentaje_margen: "",
-        margen: "",
-        total: oferta.margen_instalacion.toFixed(2),
-      });
-    }
-
-    // Transportación
-    if (oferta.costo_transportacion && oferta.costo_transportacion > 0) {
-      rowsCompleto.push({
-        material_codigo: "",
-        seccion: "Logística",
-        tipo: "Transportación",
-        descripcion: "Costo de transportación",
-        cantidad: 1,
-        precio_unitario: oferta.costo_transportacion.toFixed(2),
-        porcentaje_margen: "",
-        margen: "",
-        total: oferta.costo_transportacion.toFixed(2),
-      });
-    }
-
-    // Descuento
-    if (oferta.descuento_porcentaje && oferta.descuento_porcentaje > 0) {
-      const montoDescuento = oferta.monto_descuento || 0;
-      rowsCompleto.push({
-        material_codigo: "",
-        seccion: "Descuento",
-        tipo: "Descuento",
-        descripcion: `Descuento aplicado (${oferta.descuento_porcentaje}%)`,
-        cantidad: 1,
-        precio_unitario: "",
-        porcentaje_margen: "",
-        margen: "",
-        total: `- ${montoDescuento.toFixed(2)}`,
-      });
-    }
-
-    // Total final
-    rowsCompleto.push({
-      material_codigo: "",
-      seccion: "Totales",
-      tipo: "TOTAL",
-      descripcion: "Precio final",
-      cantidad: "",
-      precio_unitario: "",
-      porcentaje_margen: "",
-      margen: "",
-      total: (oferta.precio_final || 0).toFixed(2),
-    });
-
-    const exportOptionsCompleto = {
-      title: "Oferta - Exportación completa",
-      subtitle: oferta.nombre_completo || oferta.nombre,
-      columns: [
-        { header: "Sección", key: "seccion", width: 18 },
-        { header: "Tipo", key: "tipo", width: 12 },
-        { header: "Descripción", key: "descripcion", width: 45 },
-        { header: "Cant", key: "cantidad", width: 8 },
-        { header: "P.Unit ($)", key: "precio_unitario", width: 12 },
-        { header: "% Margen", key: "porcentaje_margen", width: 8 },
-        { header: "Margen ($)", key: "margen", width: 14 },
-        { header: "Total ($)", key: "total", width: 14 },
-      ],
-      data: rowsCompleto,
-      logoUrl: "/brand/suncar-v1-iso.png",
-      clienteData,
-      leadData,
-      ofertaData,
-      incluirFotos: false,
-    };
-
-    // EXPORTACIÓN SIN PRECIOS (simplificada)
-    const rowsSinPrecios: any[] = itemsOrdenados.map((item: any) => ({
-      material_codigo: item.material_codigo,
-      descripcion: item.descripcion,
-      cantidad: item.cantidad,
-    }));
-
-    const exportOptionsSinPrecios = {
-      title: "Oferta - Cliente sin precios",
-      subtitle: oferta.nombre_completo || oferta.nombre,
-      columns: [
-        { header: "Material", key: "descripcion", width: 60 },
-        { header: "Cant", key: "cantidad", width: 10 },
-      ],
-      data: rowsSinPrecios,
-      logoUrl: "/brand/suncar-v1-iso.png",
-      clienteData,
-      leadData,
-      ofertaData,
-      incluirFotos: false,
-    };
-
-    // EXPORTACIÓN CLIENTE CON PRECIOS (simplificada)
-    const rowsClienteConPrecios: any[] = itemsOrdenados.map((item: any) => {
-      const margenAsignado = item.margen_asignado || 0;
-      const costoItem = item.precio * item.cantidad;
-      return {
-        material_codigo: item.material_codigo,
-        descripcion: item.descripcion,
-        cantidad: item.cantidad,
-        precio_unitario: item.precio.toFixed(2),
-        total: (costoItem + margenAsignado).toFixed(2),
-      };
-    });
-
-    const tasaCambioNumero = Number(oferta.tasa_cambio || 0);
-    const tieneMonedaCambio =
-      oferta.moneda_pago &&
-      oferta.moneda_pago !== "USD" &&
-      tasaCambioNumero > 0;
-    const codigoMonedaCambio = tieneMonedaCambio ? oferta.moneda_pago : "USD";
-    const simboloMonedaCambio =
-      oferta.moneda_pago === "EUR"
-        ? "€"
-        : oferta.moneda_pago === "CUP"
-          ? "CUP"
-          : "$";
-
-    const convertirMontoMonedaPago = (monto: number) => {
-      if (!tieneMonedaCambio) return monto;
-      return oferta.moneda_pago === "EUR"
-        ? monto / tasaCambioNumero
-        : monto * tasaCambioNumero;
-    };
-
-    // Los importes del documento del cliente van en la moneda con la que se
-    // guardó la oferta. Antes esto era una cuarta exportación aparte y la
-    // normal salía siempre en USD.
-    const rowsClienteConPreciosMonedaPago = !tieneMonedaCambio
-      ? rowsClienteConPrecios
-      : rowsClienteConPrecios.map((row: any) => ({
-          ...row,
-          precio_unitario:
-            row.precio_unitario !== undefined && row.precio_unitario !== ""
-              ? convertirMontoMonedaPago(Number(row.precio_unitario)).toFixed(2)
-              : row.precio_unitario,
-          total:
-            row.total !== undefined && row.total !== ""
-              ? convertirMontoMonedaPago(Number(row.total)).toFixed(2)
-              : row.total,
-        }));
-
-    const exportOptionsClienteConPrecios = {
-      title: "Oferta - Cliente con precios",
-      subtitle: oferta.nombre_completo || oferta.nombre,
-      columns: [
-        { header: "Material", key: "descripcion", width: 45 },
-        { header: "Cant", key: "cantidad", width: 10 },
-        {
-          header: `P.Unit (${codigoMonedaCambio})`,
-          key: "precio_unitario",
-          width: 12,
-        },
-        { header: `Total (${codigoMonedaCambio})`, key: "total", width: 14 },
-      ],
-      data: rowsClienteConPreciosMonedaPago,
-      logoUrl: "/brand/suncar-v1-iso.png",
-      clienteData,
-      leadData,
-      ofertaData,
-      incluirFotos: false,
-      conPreciosCliente: true,
-      simboloMoneda: simboloMonedaCambio,
-      codigoMoneda: codigoMonedaCambio,
-    };
-
-    return {
-      exportOptionsCompleto,
-      exportOptionsSinPrecios,
-      exportOptionsClienteConPrecios,
-      baseFilename,
-    };
-  };
-
-  // Usar exportOptions proporcionado o generar uno simple
-  const opcionesExportacion =
-    exportOptions || generarOpcionesExportacionSimple(oferta);
 
   // Agrupar items por sección
   const itemsPorSeccion = useMemo(() => {
@@ -630,8 +359,6 @@ export function ExportSelectionDialog({
 
   // Generar opciones de exportación filtradas
   const opcionesFiltradas = useMemo(() => {
-    if (!opcionesExportacion) return null;
-
     const filtrarItems = (items: any[]) => {
       console.log("🔍 Filtrando items:", {
         total_items: items.length,
@@ -710,14 +437,12 @@ export function ExportSelectionDialog({
       return itemsFiltrados;
     };
 
-    console.log("🔍 DEBUG opcionesExportacion:", {
-      sinPrecios_original:
-        opcionesExportacion.exportOptionsSinPrecios?.sinPrecios,
+    console.log("🔍 DEBUG exportOptions:", {
+      sinPrecios_original: exportOptions.exportOptionsSinPrecios?.sinPrecios,
       conPreciosCliente_original:
-        opcionesExportacion.exportOptionsClienteConPrecios?.conPreciosCliente,
-      columns_sinPrecios: opcionesExportacion.exportOptionsSinPrecios?.columns,
-      columns_conPrecios:
-        opcionesExportacion.exportOptionsClienteConPrecios?.columns,
+        exportOptions.exportOptionsClienteConPrecios?.conPreciosCliente,
+      columns_sinPrecios: exportOptions.exportOptionsSinPrecios?.columns,
+      columns_conPrecios: exportOptions.exportOptionsClienteConPrecios?.columns,
     });
 
     const aplicarOpcionesContenido = (opciones: any) => {
@@ -734,17 +459,17 @@ export function ExportSelectionDialog({
 
     return {
       exportOptionsCompleto: aplicarOpcionesContenido(
-        opcionesExportacion.exportOptionsCompleto,
+        exportOptions.exportOptionsCompleto,
       ),
       exportOptionsSinPrecios: aplicarOpcionesContenido(
-        opcionesExportacion.exportOptionsSinPrecios,
+        exportOptions.exportOptionsSinPrecios,
       ),
       exportOptionsClienteConPrecios: aplicarOpcionesContenido(
-        opcionesExportacion.exportOptionsClienteConPrecios,
+        exportOptions.exportOptionsClienteConPrecios,
       ),
     };
   }, [
-    opcionesExportacion,
+    exportOptions,
     materialesSeleccionados,
     seccionesEspecialesSeleccionadas,
     oferta,
@@ -756,14 +481,13 @@ export function ExportSelectionDialog({
 
   // Debug: verificar que los términos se están pasando
   console.log("🔍 ExportSelectionDialog - Términos en exportOptions:", {
-    completo: opcionesExportacion?.exportOptionsCompleto?.terminosCondiciones
+    completo: exportOptions.exportOptionsCompleto?.terminosCondiciones
       ? "SÍ"
       : "NO",
-    sinPrecios: opcionesExportacion?.exportOptionsSinPrecios
-      ?.terminosCondiciones
+    sinPrecios: exportOptions.exportOptionsSinPrecios?.terminosCondiciones
       ? "SÍ"
       : "NO",
-    clienteConPrecios: opcionesExportacion?.exportOptionsClienteConPrecios
+    clienteConPrecios: exportOptions.exportOptionsClienteConPrecios
       ?.terminosCondiciones
       ? "SÍ"
       : "NO",
@@ -1146,7 +870,7 @@ export function ExportSelectionDialog({
                   </div>
                   <ExportButtons
                     exportOptions={opcionesFiltradas.exportOptionsCompleto}
-                    baseFilename={opcionesExportacion?.baseFilename || "oferta"}
+                    baseFilename={exportOptions.baseFilename || "oferta"}
                     variant="compact"
                   />
                 </div>
@@ -1163,7 +887,7 @@ export function ExportSelectionDialog({
                   </div>
                   <ExportButtons
                     exportOptions={opcionesFiltradas.exportOptionsSinPrecios}
-                    baseFilename={opcionesExportacion?.baseFilename || "oferta"}
+                    baseFilename={exportOptions.baseFilename || "oferta"}
                     variant="compact"
                   />
                 </div>
@@ -1182,7 +906,7 @@ export function ExportSelectionDialog({
                     exportOptions={
                       opcionesFiltradas.exportOptionsClienteConPrecios
                     }
-                    baseFilename={opcionesExportacion?.baseFilename || "oferta"}
+                    baseFilename={exportOptions.baseFilename || "oferta"}
                     variant="compact"
                   />
                 </div>
