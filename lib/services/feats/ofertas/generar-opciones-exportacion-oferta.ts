@@ -43,6 +43,72 @@ const seccionLabelMap = new Map<string, string>(
   SECCION_LABELS.map(([id, label]) => [id, label]),
 );
 
+/** Componentes que dan nombre al sistema. Todos opcionales: hay ofertas sin baterías. */
+interface ComponentesPrincipalesNombre {
+  inversor?: { cantidad?: number; potencia?: number };
+  bateria?: { cantidad?: number; capacidad?: number };
+  panel?: { cantidad?: number };
+}
+
+/** 16, 10,5 — sin los ceros de relleno que deja toFixed. */
+const formatearMagnitud = (valor: number) =>
+  Number.parseFloat(valor.toFixed(2)).toString();
+
+/** "a", "a y b", "a, b y c". */
+const unirConY = (partes: string[]) =>
+  partes.length <= 1
+    ? partes.join("")
+    : `${partes.slice(0, -1).join(", ")} y ${partes[partes.length - 1]}`;
+
+/**
+ * Descripción legible del sistema, SOLO para el nombre del PDF exportado.
+ *
+ * El nombre corto de la oferta ("I-2x8kW+B-1x10kWh+P-12x590W") es interno: al
+ * cliente le llega un archivo que no sabe leer. Aquí las cantidades se suman
+ * (dos inversores de 8 kW son 16 kW de inversor) y los paneles van por
+ * unidades, que es como los cuenta el cliente. Dentro del PDF y en pantalla la
+ * oferta se sigue llamando igual que siempre.
+ *
+ * Devuelve "" si no hay ningún componente reconocido, para que quien llama
+ * pueda caer al nombre corto.
+ */
+export function nombreDescriptivoSistema(
+  componentes: ComponentesPrincipalesNombre | null | undefined,
+): string {
+  const partes: string[] = [];
+
+  const inversor = componentes?.inversor;
+  const potenciaInversor =
+    (inversor?.cantidad || 0) * (inversor?.potencia || 0);
+  if (potenciaInversor > 0) {
+    partes.push(`${formatearMagnitud(potenciaInversor)}kW de inversor`);
+  }
+
+  const bateria = componentes?.bateria;
+  const capacidadBaterias =
+    (bateria?.cantidad || 0) * (bateria?.capacidad || 0);
+  if (capacidadBaterias > 0) {
+    partes.push(
+      `${formatearMagnitud(capacidadBaterias)}kWh de respaldo en baterías`,
+    );
+  }
+
+  const cantidadPaneles = componentes?.panel?.cantidad || 0;
+  if (cantidadPaneles > 0) {
+    partes.push(`${cantidadPaneles} ${cantidadPaneles === 1 ? "panel" : "paneles"}`);
+  }
+
+  if (partes.length === 0) return "";
+  return `Sistema fotovoltaico de ${unirConY(partes)}`;
+}
+
+/** Quita lo que ningún sistema de archivos acepta y colapsa espacios. */
+const limpiarParaNombreArchivo = (valor: string) =>
+  (valor || "")
+    .replace(/[<>:"/\\|?*]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
 const ESTADO_LABELS: Record<string, string> = {
   en_revision: "En Revisión",
   aprobada_para_enviar: "Aprobada",
@@ -191,36 +257,6 @@ export function generarOpcionesExportacionOferta({
     }
   });
 
-  // Generar nombre base del archivo usando el mismo formato que en confección
-  let baseFilename = oferta.nombre
-    .replace(/[<>:"/\\|?*]/g, "") // Eliminar caracteres no válidos en nombres de archivo
-    .replace(/\s+/g, "_") // Reemplazar espacios con guiones bajos
-    .replace(/,\s*/g, "+") // Reemplazar comas con + para el formato I-1x10kW+B-1x10kWh+P-14x590W
-    .replace(/_+/g, "_") // Reemplazar múltiples guiones bajos con uno solo
-    .trim();
-
-  // Si es personalizada, agregar nombre del cliente/lead
-  if (oferta.tipo === "personalizada") {
-    let nombreContacto = "";
-
-    if (cliente?.nombre) {
-      nombreContacto = cliente.nombre;
-    } else if (lead?.nombre_completo || lead?.nombre) {
-      nombreContacto = lead.nombre_completo || lead.nombre;
-    } else if (oferta.nombre_lead_sin_agregar) {
-      nombreContacto = oferta.nombre_lead_sin_agregar;
-    }
-
-    if (nombreContacto) {
-      const nombreLimpio = nombreContacto
-        .replace(/[<>:"/\\|?*]/g, "")
-        .replace(/\s+/g, "_")
-        .replace(/_+/g, "_")
-        .trim();
-      baseFilename = `${baseFilename}-${nombreLimpio}`;
-    }
-  }
-
   // Calcular margen por material (simplificado - en la oferta guardada ya viene calculado)
   const margenPorMaterial = new Map<string, number>();
   itemsOrdenados.forEach((item) => {
@@ -235,6 +271,73 @@ export function generarOpcionesExportacionOferta({
   // explícitamente para mostrar lo que realmente paga el cliente.
   const descuentosOferta = calcularDescuentosOferta(oferta as any);
 
+  const tieneMonedaCambio =
+    oferta.moneda_pago !== "USD" && tasaCambioNumero > 0;
+  const codigoMonedaCambio = tieneMonedaCambio ? oferta.moneda_pago : "USD";
+  const simboloMonedaCambio =
+    oferta.moneda_pago === "EUR"
+      ? "€"
+      : oferta.moneda_pago === "CUP"
+        ? "CUP"
+        : "$";
+  const convertirMontoMonedaPago = (monto: number) => {
+    if (!tieneMonedaCambio) return monto;
+    return oferta.moneda_pago === "EUR"
+      ? monto / tasaCambioNumero
+      : monto * tasaCambioNumero;
+  };
+
+  /**
+   * Paso con el que se fijó el precio final en USD, para volver a aplicarlo
+   * sobre el importe ya convertido.
+   *
+   * El redondeo del backend es `ceil(total_sin_redondeo / 10) * 10`, pero el
+   * comercial puede fijar el precio a mano, así que el paso NO se asume: se
+   * deduce del propio precio final. En CUP la conversión multiplica y el
+   * número sigue saliendo redondo, pero en EUR divide entre la tasa y 8.500 $
+   * se convertían en 7.870,37 € — el redondeo se perdía por el camino.
+   *
+   * Si el precio final tiene céntimos, el comercial eligió no redondear y el
+   * convertido tampoco se toca.
+   */
+  const pasoRedondeoPrecio = (precio: number) => {
+    if (!Number.isFinite(precio) || precio <= 0) return 0;
+    const centavos = Math.round(precio * 100);
+    if (centavos % 1000 === 0) return 10;
+    if (centavos % 500 === 0) return 5;
+    if (centavos % 100 === 0) return 1;
+    return 0;
+  };
+  const pasoRedondeo = pasoRedondeoPrecio(descuentosOferta.precioFinal);
+  const redondearMontoMonedaPago = (monto: number) =>
+    tieneMonedaCambio && pasoRedondeo > 0
+      ? Math.ceil(monto / pasoRedondeo) * pasoRedondeo
+      : monto;
+
+  /**
+   * Importes del bloque de totales, ya en la moneda de pago.
+   *
+   * Solo se redondea el bruto, una vez; el descuento y la compensación se
+   * convierten exactos y el neto se deriva restándolos. Así el desglose del
+   * documento del cliente sigue cuadrando (bruto − descuentos = total a pagar)
+   * en vez de redondear cada línea por separado y descuadrar la resta.
+   */
+  const precioFinalMonedaPago = redondearMontoMonedaPago(
+    convertirMontoMonedaPago(descuentosOferta.precioFinal),
+  );
+  const montoDescuentoMonedaPago = convertirMontoMonedaPago(
+    descuentosOferta.montoDescuento,
+  );
+  const montoCompensacionMonedaPago = convertirMontoMonedaPago(
+    descuentosOferta.montoCompensacion,
+  );
+  const precioRealMonedaPago = Math.max(
+    0,
+    precioFinalMonedaPago -
+      montoDescuentoMonedaPago -
+      montoCompensacionMonedaPago,
+  );
+
   /**
    * Filas que van justo debajo de cada "Precio final": el desglose de lo que
    * se descuenta y el neto resultante. Van marcadas como sección "Descuento"
@@ -242,10 +345,22 @@ export function generarOpcionesExportacionOferta({
    * gobierne en bloque; al desmarcarlo el PDF vuelve a mostrar solo el bruto.
    *
    * `detallado` añade las columnas extra que solo existen en el export
-   * completo (precio unitario, margen).
+   * completo (precio unitario, margen). `enMonedaPago` emite los importes ya
+   * convertidos y coherentes con el bruto redondeado, para los documentos del
+   * cliente; el export completo los quiere en USD.
    */
-  const filasDescuentoPdf = (detallado: boolean) => {
+  const filasDescuentoPdf = (detallado: boolean, enMonedaPago = false) => {
     if (!descuentosOferta.tieneDescuento) return [];
+
+    const montoDescuento = enMonedaPago
+      ? montoDescuentoMonedaPago
+      : descuentosOferta.montoDescuento;
+    const montoCompensacion = enMonedaPago
+      ? montoCompensacionMonedaPago
+      : descuentosOferta.montoCompensacion;
+    const precioReal = enMonedaPago
+      ? precioRealMonedaPago
+      : descuentosOferta.precioReal;
 
     const base: Record<string, any> = {
       material_codigo: "",
@@ -263,25 +378,25 @@ export function generarOpcionesExportacionOferta({
     // descuento porcentual antiguo, que se pinta ANTES del precio final, y con
     // "TOTAL" la fila del neto quedaba como totales[1], que nadie dibuja.
     // Con estos dos tipos, export-service las pinta bajo el precio final.
-    if (descuentosOferta.montoDescuento > 0) {
+    if (montoDescuento > 0) {
       filas.push({
         ...base,
         tipo: "DescuentoNeto",
         descripcion: descuentosOferta.justificacionDescuento
           ? `Descuento — ${descuentosOferta.justificacionDescuento}`
           : "Descuento",
-        total: `- ${descuentosOferta.montoDescuento.toFixed(2)}`,
+        total: `- ${montoDescuento.toFixed(2)}`,
       });
     }
 
-    if (descuentosOferta.montoCompensacion > 0) {
+    if (montoCompensacion > 0) {
       filas.push({
         ...base,
         tipo: "DescuentoNeto",
         descripcion: descuentosOferta.justificacionCompensacion
           ? `Compensación — ${descuentosOferta.justificacionCompensacion}`
           : "Compensación",
-        total: `- ${descuentosOferta.montoCompensacion.toFixed(2)}`,
+        total: `- ${montoCompensacion.toFixed(2)}`,
       });
     }
 
@@ -289,35 +404,15 @@ export function generarOpcionesExportacionOferta({
       ...base,
       tipo: "TotalAPagar",
       descripcion: "Total a pagar",
-      total: descuentosOferta.precioReal.toFixed(2),
+      total: precioReal.toFixed(2),
     });
 
     return filas;
   };
 
-  // Se convierte el precio real, no el bruto: es el importe que el cliente
-  // va a pagar en la moneda acordada. Sin descuentos ambos coinciden.
-  const montoConvertido =
-    tasaCambioNumero > 0 && oferta.moneda_pago !== "USD"
-      ? oferta.moneda_pago === "EUR"
-        ? descuentosOferta.precioReal / tasaCambioNumero
-        : descuentosOferta.precioReal * tasaCambioNumero
-      : 0;
-  const tieneMonedaCambio =
-    oferta.moneda_pago !== "USD" && tasaCambioNumero > 0;
-  const codigoMonedaCambio = tieneMonedaCambio ? oferta.moneda_pago : "USD";
-  const simboloMonedaCambio =
-    oferta.moneda_pago === "EUR"
-      ? "€"
-      : oferta.moneda_pago === "CUP"
-        ? "CUP"
-        : "$";
-  const convertirMontoMonedaPago = (monto: number) => {
-    if (!tieneMonedaCambio) return monto;
-    return oferta.moneda_pago === "EUR"
-      ? monto / tasaCambioNumero
-      : monto * tasaCambioNumero;
-  };
+  // Se muestra el precio real, no el bruto: es el importe que el cliente va a
+  // pagar en la moneda acordada. Sin descuentos ambos coinciden.
+  const montoConvertido = tieneMonedaCambio ? precioRealMonedaPago : 0;
   const convertirTextoTotalMonedaPago = (valor: unknown) => {
     if (
       !tieneMonedaCambio ||
@@ -345,21 +440,26 @@ export function generarOpcionesExportacionOferta({
     return convertido < 0 ? `- ${textoMonto}` : textoMonto;
   };
 
-  // Filas cuyo `total` no es un importe convertible. "Datos" lleva el número de
+  // Filas cuyo `total` no hay que convertir aquí. "Datos" lleva el número de
   // cuenta: al convertirlo, el limpiado de no-dígitos lo transformaba en una
-  // cifra y el cliente recibía la cuenta destrozada. "Conversión" ya viene en la
-  // moneda de pago y volver a convertirla la elevaría al cuadrado.
-  const TIPOS_TOTAL_NO_MONETARIO = new Set([
+  // cifra y el cliente recibía la cuenta destrozada. "Conversión" ya viene en
+  // la moneda de pago y volver a convertirla la elevaría al cuadrado. Los tres
+  // tipos del bloque de totales llegan ya convertidos y redondeados desde
+  // `precioFinalMonedaPago` / `filasDescuentoPdf`.
+  const TIPOS_TOTAL_SIN_CONVERTIR = new Set([
     "Info",
     "Tasa",
     "Conversión",
     "Datos",
+    "TOTAL",
+    "DescuentoNeto",
+    "TotalAPagar",
   ]);
 
   const convertirFilasAMonedaPago = (filas: any[]) => {
     if (!tieneMonedaCambio) return filas;
     return filas.map((fila) =>
-      TIPOS_TOTAL_NO_MONETARIO.has(fila?.tipo)
+      TIPOS_TOTAL_SIN_CONVERTIR.has(fila?.tipo)
         ? fila
         : { ...fila, total: convertirTextoTotalMonedaPago(fila?.total) },
     );
@@ -600,6 +700,37 @@ export function generarOpcionesExportacionOferta({
       cantidad: cantidadPanel,
       potencia: potencia,
     };
+  }
+
+  // Nombre del archivo exportado. Se calcula aquí, y no arriba, porque necesita
+  // los componentes principales ya resueltos contra el catálogo de materiales.
+  let baseFilename = limpiarParaNombreArchivo(
+    nombreDescriptivoSistema(componentesPrincipales) ||
+      // Sin componentes reconocidos queda el nombre corto de siempre. Las
+      // comas se sustituyen ANTES que los espacios: al revés salía "+_".
+      oferta.nombre
+        .replace(/[<>:"/\\|?*]/g, "")
+        .replace(/,\s*/g, "+")
+        .replace(/\s+/g, "_")
+        .replace(/_+/g, "_"),
+  );
+
+  // Si es personalizada, agregar nombre del cliente/lead
+  if (oferta.tipo === "personalizada") {
+    let nombreContacto = "";
+
+    if (cliente?.nombre) {
+      nombreContacto = cliente.nombre;
+    } else if (lead?.nombre_completo || lead?.nombre) {
+      nombreContacto = lead.nombre_completo || lead.nombre;
+    } else if (oferta.nombre_lead_sin_agregar) {
+      nombreContacto = oferta.nombre_lead_sin_agregar;
+    }
+
+    const nombreLimpio = limpiarParaNombreArchivo(nombreContacto);
+    if (nombreLimpio) {
+      baseFilename = `${baseFilename} - ${nombreLimpio}`;
+    }
   }
 
   // EXPORTACIÓN COMPLETA
@@ -1101,9 +1232,9 @@ export function generarOpcionesExportacionOferta({
     tipo: "TOTAL",
     descripcion: "Precio Total",
     cantidad: "",
-    total: (oferta.precio_final || 0).toFixed(2),
+    total: precioFinalMonedaPago.toFixed(2),
   });
-  rowsSinPrecios.push(...filasDescuentoPdf(false));
+  rowsSinPrecios.push(...filasDescuentoPdf(false, true));
 
   // Datos de pago para sin precios
   if (
@@ -1148,9 +1279,9 @@ export function generarOpcionesExportacionOferta({
       tipo: "TOTAL",
       descripcion: "Precio Final",
       cantidad: "",
-      total: (oferta.precio_final || 0).toFixed(2),
+      total: precioFinalMonedaPago.toFixed(2),
     });
-    rowsSinPrecios.push(...filasDescuentoPdf(false));
+    rowsSinPrecios.push(...filasDescuentoPdf(false, true));
 
     const totalesCalc = calcularTotalesDetalle(oferta);
     // La nota del redondeo va en USD; en un documento ya convertido confunde.
@@ -1249,6 +1380,10 @@ export function generarOpcionesExportacionOferta({
     incluirFotos: true,
     fotosMap,
     sinPrecios: true,
+    // Aunque no lleve columna de importes, el bloque de precio final sí los
+    // pinta, y sin esto salían convertidos a euros pero rotulados con "$".
+    simboloMoneda: tieneMonedaCambio ? simboloMonedaCambio : "$",
+    codigoMoneda: codigoMonedaCambio,
     componentesPrincipales,
     terminosCondiciones: terminosCondicionesExport || undefined,
     seccionesPersonalizadas: seccionesPersonalizadasOferta.filter(
@@ -1428,9 +1563,9 @@ export function generarOpcionesExportacionOferta({
     tipo: "TOTAL",
     descripcion: "PRECIO TOTAL",
     cantidad: "",
-    total: (oferta.precio_final || 0).toFixed(2),
+    total: precioFinalMonedaPago.toFixed(2),
   });
-  rowsClienteConPrecios.push(...filasDescuentoPdf(false));
+  rowsClienteConPrecios.push(...filasDescuentoPdf(false, true));
 
   // Datos de pago para cliente con precios
   if (
@@ -1479,11 +1614,11 @@ export function generarOpcionesExportacionOferta({
     rowsClienteConPrecios.push({
       descripcion: "Precio Final",
       cantidad: "",
-      total: (oferta.precio_final || 0).toFixed(2),
+      total: precioFinalMonedaPago.toFixed(2),
       seccion: "PAGO",
       tipo: "TOTAL",
     });
-    rowsClienteConPrecios.push(...filasDescuentoPdf(false));
+    rowsClienteConPrecios.push(...filasDescuentoPdf(false, true));
 
     const totalesCalc = calcularTotalesDetalle(oferta);
     // La nota del redondeo va en USD; en un documento ya convertido confunde.
