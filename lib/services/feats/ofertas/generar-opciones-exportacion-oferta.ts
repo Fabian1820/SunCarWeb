@@ -69,6 +69,11 @@ const unirConY = (partes: string[]) =>
  * unidades, que es como los cuenta el cliente. Dentro del PDF y en pantalla la
  * oferta se sigue llamando igual que siempre.
  *
+ * Va en telegrama a propósito ("SFV 3kW Inversor, 5.12kWh Baterías y 4
+ * Paneles"): con la frase entera y el nombre del cliente detrás, el archivo
+ * salía tan largo que en el gestor de descargas y en los adjuntos de correo se
+ * cortaba antes de llegar a la parte útil.
+ *
  * Devuelve "" si no hay ningún componente reconocido, para que quien llama
  * pueda caer al nombre corto.
  */
@@ -81,25 +86,26 @@ export function nombreDescriptivoSistema(
   const potenciaInversor =
     (inversor?.cantidad || 0) * (inversor?.potencia || 0);
   if (potenciaInversor > 0) {
-    partes.push(`${formatearMagnitud(potenciaInversor)}kW de inversor`);
+    // Siempre en singular: es la potencia sumada, no el número de inversores.
+    partes.push(`${formatearMagnitud(potenciaInversor)}kW Inversor`);
   }
 
   const bateria = componentes?.bateria;
   const capacidadBaterias =
     (bateria?.cantidad || 0) * (bateria?.capacidad || 0);
   if (capacidadBaterias > 0) {
-    partes.push(
-      `${formatearMagnitud(capacidadBaterias)}kWh de respaldo en baterías`,
-    );
+    partes.push(`${formatearMagnitud(capacidadBaterias)}kWh Baterías`);
   }
 
   const cantidadPaneles = componentes?.panel?.cantidad || 0;
   if (cantidadPaneles > 0) {
-    partes.push(`${cantidadPaneles} ${cantidadPaneles === 1 ? "panel" : "paneles"}`);
+    partes.push(
+      `${cantidadPaneles} ${cantidadPaneles === 1 ? "Panel" : "Paneles"}`,
+    );
   }
 
   if (partes.length === 0) return "";
-  return `Sistema fotovoltaico de ${unirConY(partes)}`;
+  return `SFV ${unirConY(partes)}`;
 }
 
 /** Quita lo que ningún sistema de archivos acepta y colapsa espacios. */
