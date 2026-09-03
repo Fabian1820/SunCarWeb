@@ -2,6 +2,66 @@
 
 ---
 
+## 📅 2 de Septiembre, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**3 commits reales** — Fabian1820 (co-authored Claude Opus 5). Sesión enfocada en exportaciones: limpieza de código muerto de exportación que quedaba duplicado y divergente, nombre de comprobantes de pago más descriptivo, y nombre legible del PDF de ofertas con corrección de moneda al exportar en EUR.
+
+---
+
+### Área 1: refactor(ofertas) — eliminar exportación muerta y duplicada (20:23)
+
+- **`refactor(ofertas): eliminar la exportación muerta y la duplicada`** — Dos copias de la lógica de exportación que no consumía nadie:
+
+  1. **`confeccion-ofertas-view`** construía `exportOptionsCompleto`, `exportOptionsSinPrecios`, `exportOptionsClienteConPrecios` y `baseFilenameExport` (1.464 líneas) que nadie consumía. Estaba enteramente en USD (divergente). Con ella se van los helpers que solo la alimentaban (`formatNumberForExport`, `seccionLabelMap`, `obtenerLabelEstadoOferta`, `nombreCompletoExportable`, `nombreCompletoBackend`, `limpiarNombreSinPaneles`) y el estado `terminosCondiciones` con su efecto (que pedía `/terminos-condiciones/activo` en cada montaje sin que nadie leyera el resultado).
+
+  2. **`export-selection-dialog`** tenía `generarOpcionesExportacionSimple` como respaldo por si no llegaban las opciones. También había divergido (siempre en USD, sin fotos) y ningún llamador la alcanzaba: los tres pasan `exportOptions` siempre.
+
+  El prop `exportOptions` pasa a ser **obligatorio** y tipado como `ReturnType`. Cambio futuro en el servicio de exportación saltará aquí en vez de producir una tercera copia.
+
+  ⚠️ **Nota:** La eliminación del estado `nombreCompletoBackend` (que capturaba `response.data.nombre_completo` del backend y lo usaba para exportaciones) implica que el frontend ya no sobreescribe el nombre generado localmente con el del backend. Esto debería **resolver el bug de la batería** documentado en CLAUDE.md, donde el backend regeneraba el nombre con conversión incorrecta (16kWh → 0.01kWh). El nombre ahora viene exclusivamente del frontend, que ya calculaba correctamente.
+
+---
+
+### Área 2: feat(pagos) — nombre de comprobantes con cliente y oferta (20:22)
+
+- **`feat(pagos): nombre de los comprobantes con el cliente y la oferta`** — Los comprobantes se descargaban como `Comprobante_Pago__.pdf`. Ahora llevan nombre del cliente y número de oferta: `"Comprobante de Pago - Juan Pérez - 2026-09-02 (OF-1234).pdf"`. La fecha distingue dos comprobantes de la misma oferta. El comprobante de devolución de cobro usa el mismo formato. Ambos comparten un helper para no volver a divergir.
+
+---
+
+### Área 3: feat(ofertas) — nombre legible del PDF y arreglo de moneda al exportar (20:22)
+
+- **`feat(ofertas): nombre legible del PDF y arreglo de moneda al exportar`** — Dos grupos de cambios:
+
+  1. **Nombre del PDF**: Pasaba el nombre corto interno (`I-2x8kW+B-1x10kWh+P-12x590W_20260902.pdf`). Ahora se compone de los componentes principales resueltos contra el catálogo, sumando cantidades e indicando paneles por unidades: `"Sistema fotovoltaico de 16kW de inversor, 10kWh de respaldo en baterías y 12 paneles"`. Solo cambia el nombre del archivo; el contenido del PDF y la pantalla no cambian.
+
+  2. **Arreglos de moneda al exportar**:
+     - **Exportación "Sin precios"** no recibía `símboloMoneda`, así que rotulaba con "$" aunque la moneda acordada fuera CUP o EUR.
+     - **Redondeo en EUR**: el backend redondea en USD (`ceil(total / 10) * 10`); en EUR se divide y 8.500$ → 7.870,37€ (con decimales). Ahora el step de redondeo se deduce del precio final en USD y se vuelve a aplicar sobre el importe convertido. Si el comercial dejó céntimos, eligió no redondear y el convertido tampoco se toca. Con descuento o compensación, solo el bruto se redondea; los descuentos se convierten exactos.
+
+---
+
+### Puede dar bateo
+
+1. **refactor(ofertas) prop `exportOptions` obligatorio — TypeScript falla en build si algún llamador no lo pasa**: El tipado como obligatorio es la garantía, pero si hay rutas que se cargan dinámicamente (lazy import) y no pasan el prop, el error solo aparece en runtime. Confirmar que los tres sitios conocidos (clientes, leads, confección) pasan el prop siempre.
+
+2. **refactor(ofertas) eliminación de `nombreCompletoBackend` — exportaciones que dependían del nombre del backend podrían cambiar en apariencia**: El nombre ahora viene 100% del frontend. Si el nombre frontend y el backend divergían antes, algunos documentos generados a partir de hoy tendrán un nombre diferente al de documentos anteriores de la misma oferta.
+
+3. **refactor(ofertas) eliminación de efecto `/terminos-condiciones/activo` — confirmar que ningún otro componente dependía de ese estado**: El estado `terminosCondiciones` se elimina junto con el efecto. Si algún subcomponente lo recibía como prop (no documentado en el commit), fallará en runtime sin error de compilación.
+
+4. **feat(pagos) nombre con caracteres especiales — comportamiento en descarga**: El nombre del cliente puede contener ñ, tildes, comas o apóstrofes. Algunos navegadores o sistemas de archivos sanitizan el nombre de descarga de forma diferente. Confirmar que el helper sanitiza el nombre antes de usarlo como nombre de archivo.
+
+5. **feat(pagos) número de oferta disponible siempre — confirmar que el campo está presente en todos los contextos donde se genera el comprobante**: Si el comprobante se puede generar desde un contexto donde el número de oferta aún no se ha asignado (oferta en borrador), el nombre resultante podría ser `"Comprobante de Pago - Juan Pérez - 2026-09-02 (OF-).pdf"`.
+
+6. **feat(ofertas) nombre del PDF generado desde catálogo — comportamiento cuando algún material no se resuelve**: Si un material de la oferta ya no existe en el catálogo al momento de exportar (fue eliminado del catálogo), el componente podría quedar vacío o producir un nombre incompleto como `"Sistema fotovoltaico de kW de inversor"`. Confirmar fallback.
+
+7. **feat(ofertas) `símboloMoneda` en "Sin precios" — confirmar firma actualizada en todos los sitios que llaman la función**: El fix añade `símboloMoneda` como parámetro. Si algún llamador no lo pasaba (asumiendo valor por defecto), ahora recibirá el símbolo correcto, pero confirmar que no hay llamador que pase `undefined` explícitamente.
+
+8. **feat(ofertas) redondeo derivado del precio final en USD — consistencia con redondeo manual**: Si el comercial usó el check de "ajustar redondeo manual" (feature del 26 de Agosto), el precio final en USD ya no es un múltiplo de 10. El step de redondeo deducido será 0 (o irregular), lo que puede producir precios convertidos sin redondear. Verificar que este edge case es el comportamiento esperado.
+
+---
+
 ## 📅 1 de Septiembre, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -88,7 +148,7 @@
 
 7. **fix(solicitudes) dropdown sin límite — rendimiento con 100+ resultados**: El buscador del diálogo ahora puede devolver 100+ items (104 cables documentados). Si el dropdown no está virtualizado, renderizar todos puede ser lento en dispositivos móviles.
 
-8. **chore imports — 121 avisos de declaraciones sin usar pendientes en `confeccion-ofertas-view`**: Los 32 avisos en ese archivo incluyen cálculos de margen por material, constantes de descuento y helpers de exportación que pueden ser features a medio cablear. Confirmar cuáles son código muerto real y cuáles son funcionalidad en pausa antes de eliminar.
+8. **chore imports — 121 avisos de declaraciones sin usar pendientes en `confeccion-ofertas-view`**: Los 32 avisos en ese archivo incluyen cálculos de margen por material, constantes de descuento y helpers de exportación que pueden ser features a medio cablear. Confirmar cuáles son código muerto real y cuáles son funcionalidad en pausa antes de eliminar. (Nota: el refactor del 2 de Sep eliminó parte de estos helpers; el recuento puede haber bajado.)
 
 ---
 
@@ -343,7 +403,7 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 4. **Conversión EUR/CUP ahora sobre "Total a pagar" — posible desincronía con backend**: Si el backend calculaba la conversión sobre `precio_final` y el frontend la calcula ahora sobre `total_a_pagar`, puede haber diferencia entre montos.
 
-5. **"Descuento (%)\" antiguo en solo lectura — confirmar que no se pierde en borradores**: El % de descuento anterior es visible solo en ofertas "que ya lo tienen guardado". Si un borrador no guardado se edita y se guarda de nuevo, el valor puede perderse sin aviso.
+5. **"Descuento (%)" antiguo en solo lectura — confirmar que no se pierde en borradores**: El % de descuento anterior es visible solo en ofertas "que ya lo tienen guardado". Si un borrador no guardado se edita y se guarda de nuevo, el valor puede perderse sin aviso.
 
 6. **~18% de subimporte erróneo en exportaciones históricas**: Los documentos impresos o guardados antes del deploy tienen datos incorrectos; no hay forma de regenerarlos automáticamente.
 
@@ -405,71 +465,19 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 25 de Agosto, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**3 commits reales** — Fabian1820 (co-authored Claude Opus 5). Dos features y una limpieza: separación del sub-permiso de precios en la ficha de costo de compras, subida de lote de fotos/videos en clientes y leads, y eliminación de una ruta vacía de tiendas que generaba errores TypeScript silenciosos.
-
----
-
-### Área 1: feat(compras) — sub-permiso `envio-contenedores/ficha-precios` separado (16:39)
-
-- **`feat(compras): separa el permiso de precios de la ficha de costo`** — Se introduce el sub-permiso ADITIVO `envio-contenedores/ficha-precios` para controlar quién puede ver y aplicar precios de venta en la ficha de costo de una compra.
-
-  1. **Sin el sub-permiso**: la ficha muestra únicamente CIF, % recargo, costo, stock y "Actualizar costos". Se ocultan márgenes, columnas de precios y el botón "Aplicar precios".
-  2. **Con el sub-permiso**: la ficha completa, igual que antes del cambio.
-  3. **Guardados en modo solo-costos**: los campos de precio y los márgenes globales se omiten del PATCH, aprovechando `exclude_unset` en el backend.
-  4. **Backfill**: `scripts/backfill_permiso_ficha_precios.py` en SunCarBackend para los 10 usuarios que ya ejercían el permiso completo — necesita ejecutarse en producción.
-  5. **Fix visual adicional**: la fila de totales tenía 13 celdas para 14 columnas; la tabla salía corrida una columna. Corregido.
-
----
-
-### Área 2: feat(clientes,leads) — subida de lote de fotos/videos (16:47)
-
-- **`feat(clientes,leads): permite subir varias fotos/videos a la vez`** — El diálogo de "agregar foto" aceptaba un solo archivo por vez. Ahora:
-
-  1. **Input múltiple con acumulación**: la selección se acumula entre tandas.
-  2. **Progreso archivo por archivo** durante la subida.
-  3. **Subida secuencial** (uno a uno), ya que el backend acepta un archivo por petición.
-  4. **Resiliencia a fallos parciales**: los archivos fallidos permanecen en el diálogo para reintentarlos sin duplicar los ya guardados.
-  5. **Lógica común extraída** a `lib/utils/upload-fotos-lote.ts`, compartida entre ambos módulos.
-
----
-
-### Área 3: chore(tiendas) — elimina ruta vacía /tiendas/[tiendaId]/ventas (16:58)
-
-- **`chore(tiendas): elimina la ruta vacía /tiendas/[tiendaId]/ventas`** — El archivo entró vacío (0 bytes) y nunca llegó a tener contenido. Next lo registraba como ruta y rompía el typecheck con 3 errores TS2306.
-
----
-
-### Puede dar bateo
-
-1. **Backfill de `envio-contenedores/ficha-precios` sin confirmar ejecución**: Hasta que se ejecute, los 10 usuarios que ya tenían acceso completo verán solo la ficha de costos — perderán visibilidad de precios y el botón "Aplicar precios" sin aviso previo.
-
-2. **Ventana de degradación entre deploy de frontend y ejecución del backfill**: Confirmar el orden de operaciones real en producción.
-
-3. **`exclude_unset` en PATCH `/compras/{id}` y `/ficha` — confirmar en backend de producción**: Si la versión deployada no lo tiene, pulsar "Actualizar costos" en modo solo-costos silenciosamente borrará los precios del económico.
-
-4. **Lote de fotos: archivos fallidos se pierden si el usuario cierra el diálogo**: Si el usuario cierra antes de ver el resumen de errores, los archivos fallidos se descartan sin confirmación.
-
-5. **Subida secuencial lenta en lotes grandes**: Con 10+ archivos, la subida puede tardar considerablemente. Si el usuario navega fuera, las peticiones en curso pueden quedar huérfanas.
-
-6. **`lib/utils/upload-fotos-lote.ts` compartida — un bug afecta ambos módulos simultáneamente**: Confirmar que el cambio fue verificado en ambos módulos.
-
-7. **Ruta /tiendas/[tiendaId]/ventas eliminada — bookmarks y links externos darán 404**: Confirmar que el 404 muestra una página de error manejada.
-
-8. **3 errores TS2306 ignorados durante la vida de la ruta vacía — confirmar que no quedan otras rutas vacías**: Verificar si hay otros archivos de ruta vacíos en `app/`.
-
----
-
 ## Seguimientos vigentes
 
-- **feat(clientes) selector de modelo y filtro de rangos — confirmar parámetros `modelo_codigo`/`cantidad_exacta`/`inversorKwMin/Max`/etc. deployados en backend (Sep 1)**.
+- **refactor(ofertas) prop `exportOptions` obligatorio — confirmar que los tres sitios que lo usan (confección, clientes, leads) siempre lo pasan; lazy imports no detectados por TS pueden fallar en runtime (Sep 2)**.
+- **feat(pagos) nombre de comprobante — confirmar que el helper sanitiza caracteres especiales (ñ, tildes, apóstrofes) antes de usarlos como nombre de archivo de descarga (Sep 2)**.
+- **feat(pagos) número de oferta en el nombre — confirmar disponibilidad del campo en todos los contextos donde se genera el comprobante; borrador sin número asignado produce nombre malformado (Sep 2)**.
+- **feat(ofertas) nombre del PDF desde catálogo — confirmar fallback cuando un material de la oferta ya no existe en el catálogo al momento de exportar (Sep 2)**.
+- **feat(ofertas) `símboloMoneda` en "Sin precios" — confirmar que la firma actualizada se propagó a todos los callers; un caller que pase `undefined` explícitamente producirá símbolo vacío (Sep 2)**.
+- **feat(ofertas) redondeo en EUR con precio manual — verificar que el step de redondeo derivado del precio en USD es 0 cuando el comercial usó redondeo manual, y que el resultado en EUR sin redondear es el comportamiento esperado (Sep 2)**.
+- **feat(clientes) selector de modelo — confirmar parámetros `modelo_codigo`/`cantidad_exacta`/`inversorKwMin/Max`/etc. deployados en backend (Sep 1)**.
 - **feat(ofertas) esquema de pago — PATCH al exportar es permanente: confirmar si se emite al cambiar el selector o solo al pulsar "Exportar" (Sep 1)**.
 - **fix(busqueda) `normalizeSearchText` en 61 módulos — confirmar que ningún módulo hacía coincidencia exacta que se rompa con la normalización (Sep 1)**.
 - **fix(solicitudes) dropdown sin límite — confirmar rendimiento con 100+ resultados en dispositivos móviles (Sep 1)**.
-- **chore — 121 avisos de declaraciones sin usar en `confeccion-ofertas-view`: confirmar cuáles son features en pausa y cuáles código muerto antes de eliminar (Sep 1)**.
+- **chore — avisos de declaraciones sin usar en `confeccion-ofertas-view`: confirmar cuáles son features en pausa y cuáles código muerto antes de eliminar; el refactor del 2 de Sep eliminó algunos helpers, revisar el recuento actualizado (Sep 1 / Sep 2)**.
 - **fix(clientes-anulados) — confirmar que los 11 selectores cubiertos son exhaustivos; verificar módulos de instalaciones, órdenes de trabajo internas y otros flujos no listados en el commit (Ago 29)**.
 - **fix(clientes-anulados) — 5 sitios excluidos: confirmar que todos tienen manejo de error visible del backend al intentar crear trabajo sobre un cliente anulado (Ago 29)**.
 - **feat(ventas) check no vendibles — motivo exigido aunque el check se desactive tras agregar material: confirmar que el mensaje de error es claro en ese flujo (Ago 29)**.
@@ -555,4 +563,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. La entrada del **28 de Julio** fue eliminada el 5 de Agosto al superar los 7 días. La entrada del **30 de Julio** fue eliminada el 7 de Agosto al superar los 7 días. La entrada del **31 de Julio** fue eliminada el 8 de Agosto al superar los 7 días. Las entradas del **1, 2 y 3 de Agosto** fueron eliminadas el 10 de Agosto al superar los 7 días. La entrada del **4 de Agosto** fue eliminada el 12 de Agosto al superar los 7 días. La entrada del **5 de Agosto** fue eliminada el 13 de Agosto al superar los 7 días. La entrada del **6 de Agosto** fue eliminada el 14 de Agosto al superar los 7 días. La entrada del **7 de Agosto** fue eliminada el 15 de Agosto al superar los 7 días. La entrada del **8 de Agosto** fue eliminada el 17 de Agosto al superar los 7 días. La entrada del **10 de Agosto** fue eliminada el 18 de Agosto al superar los 7 días. La entrada del **11 de Agosto** fue eliminada el 19 de Agosto al superar los 7 días. La entrada del **12 de Agosto** fue eliminada el 20 de Agosto al superar los 7 días. La entrada del **13 de Agosto** fue eliminada el 21 de Agosto al superar los 7 días. La entrada del **14 de Agosto** fue eliminada el 22 de Agosto al superar los 7 días. La entrada del **15 de Agosto** fue eliminada el 23 de Agosto al superar los 7 días. La entrada del **17 de Agosto** fue eliminada el 25 de Agosto al superar los 7 días. La entrada del **18 de Agosto** fue eliminada el 26 de Agosto al superar los 7 días. La entrada del **19 de Agosto** fue eliminada el 27 de Agosto al superar los 7 días. La entrada del **20 de Agosto** fue eliminada el 28 de Agosto al superar los 7 días. La entrada del **21 de Agosto** fue eliminada el 29 de Agosto al superar los 7 días. La entrada del **22 de Agosto** fue eliminada el 30 de Agosto al superar los 7 días. La entrada del **23 de Agosto** fue eliminada el 31 de Agosto al superar los 7 días. La entrada del **24 de Agosto** fue eliminada el 1 de Septiembre al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. La entrada del **28 de Julio** fue eliminada el 5 de Agosto al superar los 7 días. La entrada del **30 de Julio** fue eliminada el 7 de Agosto al superar los 7 días. La entrada del **31 de Julio** fue eliminada el 8 de Agosto al superar los 7 días. Las entradas del **1, 2 y 3 de Agosto** fueron eliminadas el 10 de Agosto al superar los 7 días. La entrada del **4 de Agosto** fue eliminada el 12 de Agosto al superar los 7 días. La entrada del **5 de Agosto** fue eliminada el 13 de Agosto al superar los 7 días. La entrada del **6 de Agosto** fue eliminada el 14 de Agosto al superar los 7 días. La entrada del **7 de Agosto** fue eliminada el 15 de Agosto al superar los 7 días. La entrada del **8 de Agosto** fue eliminada el 17 de Agosto al superar los 7 días. La entrada del **10 de Agosto** fue eliminada el 18 de Agosto al superar los 7 días. La entrada del **11 de Agosto** fue eliminada el 19 de Agosto al superar los 7 días. La entrada del **12 de Agosto** fue eliminada el 20 de Agosto al superar los 7 días. La entrada del **13 de Agosto** fue eliminada el 21 de Agosto al superar los 7 días. La entrada del **14 de Agosto** fue eliminada el 22 de Agosto al superar los 7 días. La entrada del **15 de Agosto** fue eliminada el 25 de Agosto al superar los 7 días. La entrada del **17 de Agosto** fue eliminada el 25 de Agosto al superar los 7 días. La entrada del **18 de Agosto** fue eliminada el 26 de Agosto al superar los 7 días. La entrada del **19 de Agosto** fue eliminada el 27 de Agosto al superar los 7 días. La entrada del **20 de Agosto** fue eliminada el 28 de Agosto al superar los 7 días. La entrada del **21 de Agosto** fue eliminada el 29 de Agosto al superar los 7 días. La entrada del **22 de Agosto** fue eliminada el 30 de Agosto al superar los 7 días. La entrada del **23 de Agosto** fue eliminada el 31 de Agosto al superar los 7 días. La entrada del **24 de Agosto** fue eliminada el 1 de Septiembre al superar los 7 días. La entrada del **25 de Agosto** fue eliminada el 2 de Septiembre al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
