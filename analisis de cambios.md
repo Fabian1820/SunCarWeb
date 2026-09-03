@@ -2,6 +2,34 @@
 
 ---
 
+## 📅 3 de Septiembre, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**1 commit real** — Fabian1820 (co-authored Claude Opus 5). Ajuste de UX menor: acortar el nombre del archivo PDF y Excel de ofertas para que no se corte en gestores de descargas y adjuntos de correo.
+
+---
+
+### Área 1: feat(ofertas) — acortar el nombre del PDF y el Excel exportados (13:13)
+
+- **`feat(ofertas): acortar el nombre del PDF y el Excel exportados`** — El nombre de archivo generado por `nombreDescriptivoSistema()` más el nombre del cliente resultaba demasiado largo. Ejemplo anterior: `"Sistema fotovoltaico de 3kW de inversor, 5.12kWh de respaldo en baterías y 4 paneles - Loammi González Martínez_20260903"`. Nuevo formato telegrama: `"SFV 3kW Inversor, 5.12kWh Baterías y 4 Paneles - Loammi González Martínez_20260903"`.
+
+  Solo cambia `nombreDescriptivoSistema()` en `lib/services/feats/ofertas/generar-opciones-exportacion-oferta.ts`. El contenido del PDF y el Excel, y lo que se muestra en pantalla, no cambian — solo el nombre del archivo de descarga.
+
+---
+
+### Puede dar bateo
+
+1. **Inconsistencia con documentos anteriores**: archivos generados antes del deploy llevan el nombre largo; los nuevos llevan el nombre corto. En carpetas de cliente o sistemas de almacenamiento ordenados por nombre puede ser confuso. No hay migración de archivos ya generados.
+
+2. **Acrónimo "SFV" no universalmente reconocido**: clientes no familiarizados con "sistema fotovoltaico" pueden no entender el nombre del archivo. Confirmar con el equipo comercial si el acrónimo es adecuado en documentos que recibe el cliente.
+
+3. **Confirmar que `nombreDescriptivoSistema()` solo se usa para nombrar archivos**: si la función se reutiliza en otro sitio (título dentro del PDF, asunto de correo, etc.), ese sitio también recibirá el formato corto sin haberlo pedido.
+
+4. **Fallback cuando la función devuelve ""**: confirmar que el fallback al nombre corto interno de la oferta sigue funcionando correctamente tras el cambio.
+
+---
+
 ## 📅 2 de Septiembre, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -415,56 +443,6 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 26 de Agosto, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**2 commits reales** — Fabian1820 (co-authored Claude Opus 5). Fix crítico de paginación de clientes: 67 clientes invisibles desde el 31 de julio ahora son visibles, con buscador multicampo y flujo de anular/reactivar. También nueva opción de redondeo manual de precio final en ofertas.
-
----
-
-### Área 1: fix(clientes-ventas) — paginación completa, buscador multicampo y anular/reactivar (18:35)
-
-- **`fix(clientes-ventas): carga completa, buscador y anulacion`** — El módulo cargaba una sola página de 500 clientes y filtraba en memoria. Al superar los 500 documentos el 2026-07-31, los 67 clientes más antiguos quedaron invisibles para la UI: 66 de ellos con historial (85 ofertas, 199 solicitudes, 84 facturas).
-
-  1. **Paginación completa en `getAllClientes()`**: pagina hasta agotar el `total` que la API ya devolvía pero que el servicio descartaba.
-  2. **`normalizeText` colapsa espacios repetidos**: corrige casos como "Antonio Rivero  Garcia" que antes no coincidían en búsquedas locales.
-  3. **Selectores de cliente con búsqueda multicampo en backend**: nombre, número, CI, teléfono y ubicación, sin distinguir tildes. Límite subido de 20 a 50 resultados.
-  4. **CI duplicada**: el diálogo deja de tragarse el error; marca el campo CI en rojo y muestra el mensaje del backend.
-  5. **Anular/Reactivar en lugar de Eliminar**: badge de estado, fila atenuada para anulados, enlace para mostrarlos. El borrado definitivo solo aparece sobre un cliente ya anulado; el backend lo rechaza si tiene historial.
-
----
-
-### Área 2: feat(ofertas) — check de redondeo manual de precio final (16:20)
-
-- **`feat(ofertas): check para ajustar el redondeo del precio final a mano`** — El precio final siempre se redondeaba al múltiplo de 10 hacia arriba sin posibilidad de dejarlo en el valor real.
-
-  1. **Nuevo check "Ajustar redondeo manual"**: al activarlo carga el precio del redondeo automático y habilita el campo para bajarlo.
-  2. **Atajos**: sin redondeo, múltiplo de 5, múltiplo de 10.
-  3. **Rango acotado** a [precio real, redondeo automático]: fuera de rango se marca en rojo y bloquea el guardado.
-  4. **Check deshabilitado** automáticamente cuando el total ya es múltiplo de 10.
-  5. **Estado conservado** en borrador, edición y al duplicar.
-
----
-
-### Puede dar bateo
-
-1. **67 clientes invisibles ~26 días — posibles duplicados en BD**: Los clientes no encontrables desde el 31 de julio pueden haber sido recreados por comerciales. Verificar manualmente por CI o teléfono.
-
-2. **Clientes anulados — confirmar exclusión en selectores de oferta/solicitud/factura**: El fix del 29 de Agosto cubre 11 selectores adicionales; confirmar que ya no quedan más.
-
-3. **Delete definitivo — confirmar que la restricción "con historial" está en backend, no solo en frontend**: Si esta lógica solo vive en frontend, un DELETE directo a la API puede eliminar un cliente con historial.
-
-4. **Paginación completa puede ser lenta en colecciones grandes**: Si la colección sigue creciendo, cargar todos los clientes al entrar al módulo incrementará el tiempo de carga linealmente.
-
-5. **Precio manual sin trazabilidad**: El comercial puede bajar el precio final sin que quede registro de quién lo ajustó ni por qué.
-
-6. **Estado del check al duplicar con catálogo cambiado**: Al duplicar una oferta con precio manual, el precio heredado puede quedar fuera del rango si los precios del catálogo cambiaron. Confirmar que el rango se recalcula al duplicar.
-
-7. **Atajo "sin redondeo" puede producir precios con decimales**: Si el precio real tiene decimales (ej. $1234.56), verificar que el backend acepta precios con decimales en ofertas.
-
----
-
 ## Seguimientos vigentes
 
 - **refactor(ofertas) prop `exportOptions` obligatorio — confirmar que los tres sitios que lo usan (confección, clientes, leads) siempre lo pasan; lazy imports no detectados por TS pueden fallar en runtime (Sep 2)**.
@@ -563,4 +541,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. La entrada del **28 de Julio** fue eliminada el 5 de Agosto al superar los 7 días. La entrada del **30 de Julio** fue eliminada el 7 de Agosto al superar los 7 días. La entrada del **31 de Julio** fue eliminada el 8 de Agosto al superar los 7 días. Las entradas del **1, 2 y 3 de Agosto** fueron eliminadas el 10 de Agosto al superar los 7 días. La entrada del **4 de Agosto** fue eliminada el 12 de Agosto al superar los 7 días. La entrada del **5 de Agosto** fue eliminada el 13 de Agosto al superar los 7 días. La entrada del **6 de Agosto** fue eliminada el 14 de Agosto al superar los 7 días. La entrada del **7 de Agosto** fue eliminada el 15 de Agosto al superar los 7 días. La entrada del **8 de Agosto** fue eliminada el 17 de Agosto al superar los 7 días. La entrada del **10 de Agosto** fue eliminada el 18 de Agosto al superar los 7 días. La entrada del **11 de Agosto** fue eliminada el 19 de Agosto al superar los 7 días. La entrada del **12 de Agosto** fue eliminada el 20 de Agosto al superar los 7 días. La entrada del **13 de Agosto** fue eliminada el 21 de Agosto al superar los 7 días. La entrada del **14 de Agosto** fue eliminada el 22 de Agosto al superar los 7 días. La entrada del **15 de Agosto** fue eliminada el 25 de Agosto al superar los 7 días. La entrada del **17 de Agosto** fue eliminada el 25 de Agosto al superar los 7 días. La entrada del **18 de Agosto** fue eliminada el 26 de Agosto al superar los 7 días. La entrada del **19 de Agosto** fue eliminada el 27 de Agosto al superar los 7 días. La entrada del **20 de Agosto** fue eliminada el 28 de Agosto al superar los 7 días. La entrada del **21 de Agosto** fue eliminada el 29 de Agosto al superar los 7 días. La entrada del **22 de Agosto** fue eliminada el 30 de Agosto al superar los 7 días. La entrada del **23 de Agosto** fue eliminada el 31 de Agosto al superar los 7 días. La entrada del **24 de Agosto** fue eliminada el 1 de Septiembre al superar los 7 días. La entrada del **25 de Agosto** fue eliminada el 2 de Septiembre al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. La entrada del **28 de Julio** fue eliminada el 5 de Agosto al superar los 7 días. La entrada del **30 de Julio** fue eliminada el 7 de Agosto al superar los 7 días. La entrada del **31 de Julio** fue eliminada el 8 de Agosto al superar los 7 días. Las entradas del **1, 2 y 3 de Agosto** fueron eliminadas el 10 de Agosto al superar los 7 días. La entrada del **4 de Agosto** fue eliminada el 12 de Agosto al superar los 7 días. La entrada del **5 de Agosto** fue eliminada el 13 de Agosto al superar los 7 días. La entrada del **6 de Agosto** fue eliminada el 14 de Agosto al superar los 7 días. La entrada del **7 de Agosto** fue eliminada el 15 de Agosto al superar los 7 días. La entrada del **8 de Agosto** fue eliminada el 17 de Agosto al superar los 7 días. La entrada del **10 de Agosto** fue eliminada el 18 de Agosto al superar los 7 días. La entrada del **11 de Agosto** fue eliminada el 19 de Agosto al superar los 7 días. La entrada del **12 de Agosto** fue eliminada el 20 de Agosto al superar los 7 días. La entrada del **13 de Agosto** fue eliminada el 21 de Agosto al superar los 7 días. La entrada del **14 de Agosto** fue eliminada el 22 de Agosto al superar los 7 días. La entrada del **15 de Agosto** fue eliminada el 25 de Agosto al superar los 7 días. La entrada del **17 de Agosto** fue eliminada el 25 de Agosto al superar los 7 días. La entrada del **18 de Agosto** fue eliminada el 26 de Agosto al superar los 7 días. La entrada del **19 de Agosto** fue eliminada el 27 de Agosto al superar los 7 días. La entrada del **20 de Agosto** fue eliminada el 28 de Agosto al superar los 7 días. La entrada del **21 de Agosto** fue eliminada el 29 de Agosto al superar los 7 días. La entrada del **22 de Agosto** fue eliminada el 30 de Agosto al superar los 7 días. La entrada del **23 de Agosto** fue eliminada el 31 de Agosto al superar los 7 días. La entrada del **24 de Agosto** fue eliminada el 1 de Septiembre al superar los 7 días. La entrada del **25 de Agosto** fue eliminada el 2 de Septiembre al superar los 7 días. La entrada del **26 de Agosto** fue eliminada el 3 de Septiembre al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
