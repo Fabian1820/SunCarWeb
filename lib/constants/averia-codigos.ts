@@ -15,7 +15,14 @@ const CAUSAS: Record<number, string> = {
   7: "Falla de nivel inferior",
   8: "Agentes medioambientales",
   9: "Agentes externos",
+  10: "Comunicación",
 };
+
+// El código es la concatenación de columna y fila: Equipos(1) + Inversor(1) = "11".
+//
+// OJO al agregar una causa nueva: la 11 está quemada. Equipos ya llegó a la
+// subcausa 11 (MPPT = "111"), y la causa 11 con su primera subcausa daría ese
+// mismo "111". La próxima causa que se cree debe ser la 12.
 
 // [columna, fila, subcausa]
 const ENTRADAS: [number, number, string][] = [
@@ -30,6 +37,7 @@ const ENTRADAS: [number, number, string][] = [
   [1, 8, "Fusibles"],
   [1, 9, "Transferenciales"],
   [1, 10, "Sobrecargas"],
+  [1, 11, "MPPT"],
   // Columna 2 – Conductor
   [2, 1, "Mal estado"],
   [2, 2, "Calibre inadecuado"],
@@ -48,6 +56,7 @@ const ENTRADAS: [number, number, string][] = [
   // Columna 6 – Operación defectuosa o errónea
   [6, 1, "Mala coordinación"],
   [6, 2, "Mala programación"],
+  [6, 3, "Actualización"],
   // Columna 7 – Falla de nivel inferior
   [7, 1, "Fallas causadas por el cliente"],
   // Columna 8 – Agentes medioambientales
@@ -58,6 +67,11 @@ const ENTRADAS: [number, number, string][] = [
   // Columna 9 – Agentes externos
   [9, 1, "Derrumbes"],
   [9, 2, "Incendios"],
+  [9, 3, "Rayos"],
+  [9, 4, "Problemas de la red"],
+  // Columna 10 – Comunicación
+  [10, 1, "Antena"],
+  [10, 2, "Cables de comunicación"],
 ];
 
 export const AVERIA_CODIGOS: AveriaCodigoOption[] = ENTRADAS.map(([col, fila, subcausa]) => {
