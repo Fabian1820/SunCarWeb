@@ -84,7 +84,11 @@ export interface Asignacion {
   fecha_actualizacion?: string | null
   historial?: MovimientoAsignacion[]
   // ── Derivados contables (devueltos por el backend, no se editan) ───────────
+  costo_total?: number
+  /** Cuota mensual POR UNIDAD. Para sumar usa `depreciacion_mensual_total`. */
   depreciacion_mensual?: number
+  /** Cuota mensual del LOTE (unitaria × cantidad) — la que se suma. */
+  depreciacion_mensual_total?: number
   valor_depreciado?: number
   valor_residual?: number
   meses_transcurridos?: number
@@ -163,7 +167,11 @@ export interface AsignacionInstalacion {
   activo?: boolean
   fecha_actualizacion?: string | null
   historial?: MovimientoAsignacion[]
+  costo_total?: number
+  /** Cuota mensual POR UNIDAD. Para sumar usa `depreciacion_mensual_total`. */
   depreciacion_mensual?: number
+  /** Cuota mensual del LOTE (unitaria × cantidad) — la que se suma. */
+  depreciacion_mensual_total?: number
   valor_depreciado?: number
   valor_residual?: number
   meses_transcurridos?: number
@@ -219,7 +227,10 @@ export interface PlanDepreciacionFila {
   fecha_fin_asignacion?: string | null
   asignado_por?: string | null
   asignado_por_nombre?: string | null
+  /** Cuota mensual POR UNIDAD. Para sumar usa `depreciacion_mensual_total`. */
   depreciacion_mensual: number
+  /** Cuota mensual del LOTE. Opcional: falta si el backend aún no está desplegado. */
+  depreciacion_mensual_total?: number
   valor_depreciado: number
   valor_residual: number
   meses_transcurridos: number

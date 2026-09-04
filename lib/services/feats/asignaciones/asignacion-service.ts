@@ -57,6 +57,8 @@ const normalizeAsignacionFlat = (raw: any): Asignacion & { ci?: string; instalac
   fecha_actualizacion: raw?.fecha_actualizacion ?? null,
   historial: Array.isArray(raw?.historial) ? raw.historial : [],
   depreciacion_mensual: typeof raw?.depreciacion_mensual === 'number' ? raw.depreciacion_mensual : 0,
+  depreciacion_mensual_total: typeof raw?.depreciacion_mensual_total === 'number' ? raw.depreciacion_mensual_total : undefined,
+  costo_total: typeof raw?.costo_total === 'number' ? raw.costo_total : undefined,
   valor_depreciado: typeof raw?.valor_depreciado === 'number' ? raw.valor_depreciado : 0,
   valor_residual: typeof raw?.valor_residual === 'number' ? raw.valor_residual : 0,
   meses_transcurridos: typeof raw?.meses_transcurridos === 'number' ? raw.meses_transcurridos : 0,

@@ -18,6 +18,7 @@ import type {
   TipoEntidad,
 } from "@/lib/types/feats/asignaciones/asignacion-types"
 import { normalizeSearchText } from '@/lib/utils/string-utils'
+import { depMensualLote } from '@/lib/utils/asignacion-depreciacion'
 
 const money = (n?: number | null) =>
   n == null || isNaN(Number(n)) ? "—" : `$${Number(n).toFixed(2)}`
@@ -101,6 +102,7 @@ export function PlanDepreciacionView() {
           { header: "Fecha asignación", key: "fasig", width: 14 },
           { header: "Inicio depreciación", key: "fdep", width: 14 },
           { header: "Meses transcurridos", key: "meses", width: 10 },
+          { header: "Dep./mes unit.", key: "dmenu", width: 12 },
           { header: "Dep. mensual", key: "dmen", width: 12 },
           { header: "Valor depreciado", key: "vdep", width: 14 },
           { header: "Valor residual", key: "vres", width: 14 },
@@ -117,7 +119,8 @@ export function PlanDepreciacionView() {
           fasig: fmtFecha(f.fecha_asignacion),
           fdep: fmtFecha(f.fecha_inicio_depreciacion),
           meses: f.meses_transcurridos,
-          dmen: f.depreciacion_mensual,
+          dmenu: f.depreciacion_mensual,
+          dmen: depMensualLote(f),
           vdep: f.valor_depreciado,
           vres: f.valor_residual,
         })),
@@ -357,7 +360,12 @@ export function PlanDepreciacionView() {
                         <td className="py-2 pr-2 text-center align-top">
                           <span className="text-gray-500">{f.meses_transcurridos}/60</span>
                         </td>
-                        <td className="py-2 pr-2 text-right text-amber-700 align-top">{money(f.depreciacion_mensual)}</td>
+                        <td className="py-2 pr-2 text-right text-amber-700 align-top">
+                          <p>{money(depMensualLote(f))}</p>
+                          {f.cantidad > 1 && (
+                            <p className="text-[10px] text-gray-400">{money(f.depreciacion_mensual)}/u</p>
+                          )}
+                        </td>
                         <td className="py-2 pr-2 text-right text-amber-700 align-top">{money(f.valor_depreciado)}</td>
                         <td className="py-2 pr-2 text-right text-emerald-700 font-semibold align-top">{money(f.valor_residual)}</td>
                       </tr>
@@ -373,7 +381,7 @@ export function PlanDepreciacionView() {
                     </td>
                     <td colSpan={2}></td>
                     <td className="py-2 pr-2 text-right text-amber-700">
-                      {money(filtrado.reduce((s, f) => s + f.depreciacion_mensual * f.cantidad, 0))}
+                      {money(filtrado.reduce((s, f) => s + depMensualLote(f), 0))}
                     </td>
                     <td className="py-2 pr-2 text-right text-amber-700">
                       {money(filtrado.reduce((s, f) => s + f.valor_depreciado, 0))}

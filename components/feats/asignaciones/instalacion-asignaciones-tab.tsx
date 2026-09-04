@@ -25,6 +25,7 @@ import type {
 } from "@/lib/types/feats/asignaciones/asignacion-types"
 import { useToast } from "@/hooks/use-toast"
 import { normalizeSearchText } from '@/lib/utils/string-utils'
+import { depMensualLote } from '@/lib/utils/asignacion-depreciacion'
 
 interface SeccionColores {
   borderL: string
@@ -401,7 +402,9 @@ function InstalacionCard({ inst, colores, loading, onAdd, onEdit, onDelete, onAd
                   <span>Asig.: <span className="text-gray-700">{fmtFecha(a.fecha_asignacion)}</span></span>
                   <span>Costo u.: <span className="text-gray-700">{money(a.costo)}</span></span>
                   <span>Total: <span className="text-gray-700">{money(costoTotal)}</span></span>
-                  <span>Dep./mes: <span className="text-amber-700">{money(a.depreciacion_mensual)}</span></span>
+                  <span>Dep./mes: <span className="text-amber-700">{money(depMensualLote(a))}</span>
+                    {a.cantidad > 1 && <span className="text-[10px] text-gray-400"> ({money(a.depreciacion_mensual)}/u)</span>}
+                  </span>
                   <span>Deprec.: <span className="text-amber-700">{money(a.valor_depreciado)}</span></span>
                   <span>Residual: <span className="text-emerald-700 font-semibold">{money(a.valor_residual)}</span></span>
                   {a.asignado_por && (

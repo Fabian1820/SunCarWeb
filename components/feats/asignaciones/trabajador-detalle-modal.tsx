@@ -10,6 +10,7 @@ import {
 } from "lucide-react"
 import type { TrabajadorConAsignaciones, Asignacion } from "@/lib/types/feats/asignaciones/asignacion-types"
 import { HistorialAsignacion } from "./historial-asignacion"
+import { depMensualLote } from '@/lib/utils/asignacion-depreciacion'
 
 interface TrabajadorDetalleModalProps {
   open: boolean
@@ -48,7 +49,7 @@ export function TrabajadorDetalleModal({
       (acc, a) => {
         const costoTotal = (a.costo ?? 0) * a.cantidad
         acc.costo += costoTotal
-        acc.depMensual += (a.depreciacion_mensual ?? 0) * a.cantidad
+        acc.depMensual += depMensualLote(a)
         acc.depAcum += a.valor_depreciado ?? 0
         acc.residual += a.valor_residual ?? 0
         return acc
@@ -119,7 +120,10 @@ export function TrabajadorDetalleModal({
                             Costo unit.: <span className="font-medium text-gray-700">{money(a.costo)}</span>
                           </span>
                           <span className="text-gray-500">
-                            Dep. mensual: <span className="font-medium text-amber-700">{money(a.depreciacion_mensual)}</span>
+                            Dep. mensual: <span className="font-medium text-amber-700">{money(depMensualLote(a))}</span>
+                            {a.cantidad > 1 && (
+                              <span className="text-[10px] text-gray-400"> ({money(a.depreciacion_mensual)}/u)</span>
+                            )}
                           </span>
                           <span className="text-gray-500">
                             Depreciado: <span className="font-medium text-amber-700">{money(a.valor_depreciado)}</span>
