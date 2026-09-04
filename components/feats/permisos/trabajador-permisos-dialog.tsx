@@ -207,10 +207,19 @@ export function TrabajadorPermisosDialog({
   const modulosPorGrupo = useMemo(() => {
     const map = new Map<ModuloGrupoKey, ModuloCatalogo[]>()
     for (const grupo of MODULO_GRUPOS) {
-      map.set(
-        grupo.key,
-        MODULOS_CATALOGO.filter((m) => m.grupo === grupo.key),
-      )
+      // Dedupe por key: una entrada repetida en el catálogo pintaba la misma
+      // fila dos veces, con la misma `key` de React y las dos casillas atadas
+      // al mismo permiso. De las repetidas se conserva la que declara más
+      // sub-permisos: la copia pobre dejaría sus casillas fuera del panel.
+      const porKey = new Map<string, ModuloCatalogo>()
+      for (const m of MODULOS_CATALOGO) {
+        if (m.grupo !== grupo.key) continue
+        const previo = porKey.get(m.key)
+        if (!previo || (m.subPermisos?.length ?? 0) > (previo.subPermisos?.length ?? 0)) {
+          porKey.set(m.key, m)
+        }
+      }
+      map.set(grupo.key, Array.from(porKey.values()))
     }
     return map
   }, [])

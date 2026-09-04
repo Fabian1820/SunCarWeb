@@ -297,9 +297,17 @@ export default function Dashboard() {
     tieneSubmodulos: m.tieneSubmodulos,
   });
 
-  const allModules: DashboardModule[] = MODULOS_CATALOGO.filter(
-    (m) => !m.hideFromDashboard,
-  ).map(catalogoToDashboard);
+  // Dedupe por id: si el catálogo trae dos entradas con la misma key (ha
+  // pasado al fusionar ramas), el módulo salía dos veces en su área y, peor,
+  // React reconciliaba mal la rejilla —dos hijos con la misma `key`— y la
+  // tarjeta repetida se quedaba pegada al cambiar de área.
+  const allModules: DashboardModule[] = Array.from(
+    new globalThis.Map(
+      MODULOS_CATALOGO.filter((m) => !m.hideFromDashboard)
+        .map(catalogoToDashboard)
+        .map((m) => [m.id, m] as const),
+    ).values(),
+  );
 
   type ModuleGroup = {
     id: string;
@@ -308,23 +316,21 @@ export default function Dashboard() {
     moduleIds: string[];
   };
 
-  const moduleGroups: ModuleGroup[] = MODULO_GRUPOS.map((grupo) => ({
-    id: grupo.key,
-    title: grupo.title,
-    subtitle: grupo.subtitle,
-    moduleIds:
+  const moduleGroups: ModuleGroup[] = MODULO_GRUPOS.map((grupo) => {
+    const delCatalogo = MODULOS_CATALOGO.filter(
+      (m) => m.grupo === grupo.key && !m.hideFromDashboard,
+    ).map((m) => m.dashboardId ?? m.key);
+    const ids =
       grupo.key === "area-direccion"
-        ? [
-            ...MODULOS_CATALOGO.filter(
-              (m) => m.grupo === grupo.key && !m.hideFromDashboard,
-            ).map((m) => m.dashboardId ?? m.key),
-            "wallet-manager",
-            "permisos",
-          ]
-        : MODULOS_CATALOGO.filter(
-            (m) => m.grupo === grupo.key && !m.hideFromDashboard,
-          ).map((m) => m.dashboardId ?? m.key),
-  }));
+        ? [...delCatalogo, "wallet-manager", "permisos"]
+        : delCatalogo;
+    return {
+      id: grupo.key,
+      title: grupo.title,
+      subtitle: grupo.subtitle,
+      moduleIds: Array.from(new Set(ids)),
+    };
+  });
 
   const superAdminModules: DashboardModule[] = user?.is_superAdmin
     ? [
