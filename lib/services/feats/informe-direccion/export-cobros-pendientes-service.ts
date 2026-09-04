@@ -52,12 +52,31 @@ export function resumirCobrosPendientes(filas: ObraTerminada[]): ResumenCobrosPe
   return { clientes: clientes.size, obras: filas.length, totalPendiente, totalCobrado };
 }
 
+/** Filtros activos en pantalla, para dejarlos escritos en el propio PDF. */
+export interface FiltrosCobrosPendientes {
+  /** Texto del alcance de estado ("Obras terminadas", "Todos los estados", …). */
+  estado: string;
+  /** Comercial seleccionado, o null si son todos. */
+  comercial?: string | null;
+  /**
+   * Añade la columna "Estado" al detalle. Solo tiene sentido cuando el informe
+   * abarca varios estados: en el informe por defecto todas las filas son
+   * "Equipo instalado con éxito" y la columna sería ruido.
+   */
+  mostrarEstadoCliente?: boolean;
+}
+
 /**
- * PDF con las obras ya terminadas (cliente en estado "Equipo instalado con
- * éxito") que todavía tienen saldo por cobrar. Una fila por oferta, ordenadas
- * de mayor a menor deuda.
+ * PDF con las obras que todavía tienen saldo por cobrar. Por defecto son las
+ * ya terminadas (cliente en estado "Equipo instalado con éxito"), pero el
+ * informe se puede acotar por estado del cliente y por comercial: los filtros
+ * aplicados se imprimen en la portada para que el PDF no se lea fuera de
+ * contexto. Una fila por oferta, ordenadas de mayor a menor deuda.
  */
-export function generarCobrosPendientesPdf(filas: ObraTerminada[]): void {
+export function generarCobrosPendientesPdf(
+  filas: ObraTerminada[],
+  filtros: FiltrosCobrosPendientes = { estado: "Obras terminadas" },
+): void {
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const anchoPagina = doc.internal.pageSize.getWidth();
   const resumen = resumirCobrosPendientes(filas);
@@ -75,11 +94,11 @@ export function generarCobrosPendientesPdf(filas: ObraTerminada[]): void {
   doc.text("SUNCAR · INFORME INTERNO", 14, 14);
   doc.setFontSize(17);
   doc.setFont("helvetica", "bold");
-  doc.text("Cobros pendientes de obras terminadas", 14, 25);
+  doc.text("Cobros pendientes", 14, 25);
   doc.setFontSize(9.5);
   doc.setFont("helvetica", "normal");
   doc.text(
-    "Clientes con la instalación ya terminada que todavía tienen saldo por cobrar.",
+    `Estado del cliente: ${filtros.estado}  ·  Comercial: ${filtros.comercial || "Todos"}`,
     14,
     33,
   );
@@ -123,6 +142,10 @@ export function generarCobrosPendientesPdf(filas: ObraTerminada[]): void {
   doc.line(14, y + 2, anchoPagina - 14, y + 2);
   y += 8;
 
+  // Con varios estados en juego hace falta la columna "Estado"; el ancho sale
+  // de la columna "Oferta", la única con holgura de sobra.
+  const conEstado = filtros.mostrarEstadoCliente === true;
+
   autoTable(doc, {
     startY: y,
     margin: { left: 14, right: 14 },
@@ -133,6 +156,7 @@ export function generarCobrosPendientesPdf(filas: ObraTerminada[]): void {
         "Cód. cliente",
         "Oferta",
         "Cód. oferta",
+        ...(conEstado ? ["Estado"] : []),
         "Instalado el",
         "Comercial",
         "Precio final",
@@ -148,6 +172,7 @@ export function generarCobrosPendientesPdf(filas: ObraTerminada[]): void {
       f.cliente_numero || "—",
       f.nombre_completo || "—",
       f.numero_oferta || "—",
+      ...(conEstado ? [f.estado_cliente || "—"] : []),
       fmtFecha(f.fecha_equipo_instalado),
       f.comercial || "—",
       fmtMoney(Number(f.precio_final ?? 0)),
@@ -164,18 +189,32 @@ export function generarCobrosPendientesPdf(filas: ObraTerminada[]): void {
     headStyles: { fillColor: C.verdeClaro, textColor: C.ink, fontStyle: "bold" },
     alternateRowStyles: { fillColor: [248, 250, 249] },
     // Anchos fijos: suman los 269 mm utiles de un A4 apaisado con margenes de 14.
-    columnStyles: {
-      0: { cellWidth: 7, halign: "right" },
-      1: { cellWidth: 40 },
-      2: { cellWidth: 22 },
-      3: { cellWidth: 62 },
-      4: { cellWidth: 28 },
-      5: { cellWidth: 18, halign: "center" },
-      6: { cellWidth: 32 },
-      7: { cellWidth: 20, halign: "right" },
-      8: { cellWidth: 19, halign: "right" },
-      9: { cellWidth: 21, halign: "right", fontStyle: "bold", textColor: C.rojo },
-    },
+    columnStyles: conEstado
+      ? {
+          0: { cellWidth: 7, halign: "right" },
+          1: { cellWidth: 40 },
+          2: { cellWidth: 22 },
+          3: { cellWidth: 34 },
+          4: { cellWidth: 28 },
+          5: { cellWidth: 28 },
+          6: { cellWidth: 18, halign: "center" },
+          7: { cellWidth: 32 },
+          8: { cellWidth: 20, halign: "right" },
+          9: { cellWidth: 19, halign: "right" },
+          10: { cellWidth: 21, halign: "right", fontStyle: "bold", textColor: C.rojo },
+        }
+      : {
+          0: { cellWidth: 7, halign: "right" },
+          1: { cellWidth: 40 },
+          2: { cellWidth: 22 },
+          3: { cellWidth: 62 },
+          4: { cellWidth: 28 },
+          5: { cellWidth: 18, halign: "center" },
+          6: { cellWidth: 32 },
+          7: { cellWidth: 20, halign: "right" },
+          8: { cellWidth: 19, halign: "right" },
+          9: { cellWidth: 21, halign: "right", fontStyle: "bold", textColor: C.rojo },
+        },
   });
 
   // Pie con numeración
@@ -198,5 +237,8 @@ export function generarCobrosPendientesPdf(filas: ObraTerminada[]): void {
   }
 
   const hoy = new Date().toISOString().slice(0, 10);
-  doc.save(`Cobros_pendientes_obras_terminadas_${hoy}.pdf`);
+  const sufijo = filtros.comercial
+    ? `_${filtros.comercial.replace(/[^\p{L}\p{N}]+/gu, "_")}`
+    : "";
+  doc.save(`Cobros_pendientes${sufijo}_${hoy}.pdf`);
 }

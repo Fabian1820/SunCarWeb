@@ -797,7 +797,8 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
   {
     key: "informe-direccion",
     label: "Informe de Dirección",
-    descripcion: "Genera un informe comparativo de desempeño entre dos periodos cualesquiera.",
+    descripcion:
+      "Comparativo de desempeño entre dos periodos y cobros pendientes de los clientes.",
     icon: BarChart3,
     iconClass: "text-emerald-800",
     href: "/informe-direccion",
@@ -827,7 +828,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
         key: "informe-direccion/cobros-pendientes",
         label: "Cobros pendientes",
         descripcion:
-          "Permite generar el informe de clientes con obra terminada que aún tienen saldo por cobrar.",
+          "Ver los clientes con saldo por cobrar (filtrables por comercial y estado) y exportarlos a PDF. Asignado solo, da acceso a este informe y a ningún otro del módulo.",
       },
     ],
   },

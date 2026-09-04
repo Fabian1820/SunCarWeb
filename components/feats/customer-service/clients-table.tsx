@@ -103,6 +103,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { useComercialEquipoMap } from "@/hooks/use-comercial-equipo-map";
 import type { CapacidadEquipos, Cliente, ClienteFoto } from "@/lib/api-types";
 import { extraerComponentesDeOfertaConfeccion } from "@/lib/utils/oferta-confeccion-items";
+import { ESTADOS_CLIENTE } from "@/lib/constants/estados-cliente";
 import {
   construirMarcasMap,
   generarOpcionesExportacionOferta,
@@ -173,15 +174,7 @@ interface ClientsTableProps {
   initialSearchTerm?: string;
 }
 
-const CLIENT_ESTADOS = [
-  "Equipo instalado con éxito",
-  "Esperando equipo",
-  "Pendiente de instalación",
-  "Instalación en Proceso",
-  "Pendiente de visita",
-  "Pendiente de visitarnos",
-  "No interesado",
-];
+const CLIENT_ESTADOS = ESTADOS_CLIENTE;
 
 const CAPACIDAD_FILTER_GROUPS = [
   {
