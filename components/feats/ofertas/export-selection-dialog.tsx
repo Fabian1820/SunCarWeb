@@ -18,7 +18,6 @@ import {
 import { Button } from "@/components/shared/atom/button";
 import { Checkbox } from "@/components/shared/molecule/checkbox";
 import { Separator } from "@/components/shared/molecule/separator";
-import { ScrollArea } from "@/components/shared/molecule/scroll-area";
 import { ExportButtons } from "@/components/shared/molecule/export-buttons";
 import { apiRequest } from "@/lib/api-config";
 import type { generarOpcionesExportacionOferta } from "@/lib/services/feats/ofertas/generar-opciones-exportacion-oferta";
@@ -509,7 +508,7 @@ export function ExportSelectionDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 min-h-0 flex flex-col gap-4">
+        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 pr-2">
           {/* Esquema de pago: se guarda en la oferta, no solo en este export */}
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
             <EsquemaPagoSelector
@@ -573,7 +572,6 @@ export function ExportSelectionDialog({
           </div>
 
           {/* Lista de categorías y materiales */}
-          <ScrollArea className="flex-1 pr-4">
             <div className="space-y-2">
               {Array.from(itemsPorSeccion.entries()).map(
                 ([seccionId, items]) => {
@@ -772,7 +770,6 @@ export function ExportSelectionDialog({
                 </>
               )}
             </div>
-          </ScrollArea>
 
           <Separator />
 
