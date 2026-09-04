@@ -359,6 +359,45 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     grupo: "comercial-instaladora",
   },
   {
+    key: "citas",
+    label: "Citas",
+    descripcion:
+      "Agenda de visitas de clientes y leads con las comerciales, y quién vino realmente.",
+    icon: CalendarCheck,
+    iconClass: "text-emerald-600",
+    href: "/citas",
+    grupo: "comercial-instaladora",
+    // De momento solo superAdmin, mientras se rueda el módulo. Para abrirlo a
+    // las comerciales: quitar esta línea y asignar los sub-permisos de abajo.
+    superAdminOnly: true,
+    // El módulo base da acceso de VER: la agenda del día y el listado, con
+    // filtros. Todo lo que escribe es ADITIVO y hay que asignarlo aparte.
+    // Hoy no hacen falta: superAdmin los tiene todos por bypass.
+    subPermisos: [
+      {
+        key: "citas/agendar",
+        label: "Agendar citas",
+        descripcion:
+          "Reservar horarios y registrar a quien llega sin cita. No se hereda del módulo padre.",
+        aditivo: true,
+      },
+      {
+        key: "citas/gestionar",
+        label: "Gestionar citas",
+        descripcion:
+          "Confirmar si vino, marcar que no vino, posponer, reasignar a otra comercial y cancelar.",
+        aditivo: true,
+      },
+      {
+        key: "citas/configurar",
+        label: "Configurar la semana",
+        descripcion:
+          "Definir horarios por día y qué comerciales reciben visitas o atienden WhatsApp.",
+        aditivo: true,
+      },
+    ],
+  },
+  {
     key: "ofertas-gestion",
     label: "Gestionar Ofertas Instaladora",
     descripcion: "Confección de ofertas y herramientas de ventas.",
