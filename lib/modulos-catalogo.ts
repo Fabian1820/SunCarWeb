@@ -588,7 +588,19 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     grupo: "economia",
     tieneSubmodulos: true,
     subPermisos: [
-      { key: "facturas/pagos-clientes", label: "Pagos Clientes" },
+      {
+        key: "facturas/pagos-clientes",
+        label: "Pagos Clientes",
+        subPermisos: [
+          {
+            key: "facturas/pagos-clientes/cancelar-cobro",
+            label: "Cancelar cobros",
+            descripcion:
+              "Habilita el botón 'Cancelar pago' en la tabla 'Todos los cobros'. Cancelar revierte el monto pendiente de la oferta y el depósito en wallet si el cobro fue en efectivo. ADITIVO: tener 'facturas' o 'facturas/pagos-clientes' NO lo concede; hay que asignarlo explícitamente.",
+            aditivo: true,
+          },
+        ],
+      },
       {
         key: "facturas/vales-facturas-instaladora",
         label: "Vales y Facturas de Instaladora",

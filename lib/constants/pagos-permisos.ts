@@ -22,3 +22,17 @@ export function puedeEditarCobro(
   if (!ci) return false;
   return CIS_AUTORIZADOS_EDITAR_COBRO.includes(ci.trim());
 }
+
+/**
+ * Sub-permiso ADITIVO que habilita el botón "Cancelar pago" en la tabla
+ * "Todos los cobros" (`facturas/pagos-clientes`).
+ *
+ * Es aditivo a propósito: se verifica con `hasExactPermission`, así que tener
+ * el módulo padre (`facturas` o `facturas/pagos-clientes`) NO lo concede. Se
+ * asigna y se quita desde el panel /permisos, sin tocar código.
+ *
+ * Declarado en el catálogo (`lib/modulos-catalogo.ts`, sub-permiso de
+ * `facturas/pagos-clientes`), que es quien lo sincroniza con la colección
+ * `modulos` de la BD.
+ */
+export const PERMISO_CANCELAR_COBRO = "facturas/pagos-clientes/cancelar-cobro";
