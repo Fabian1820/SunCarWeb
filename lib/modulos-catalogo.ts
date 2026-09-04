@@ -251,17 +251,8 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
 
   // ───────── Comercial Instaladora ─────────
   {
-    key: "reservas-instaladora",
-    label: "Reservas Instaladora",
-    descripcion: "Ver reservas de materiales de proyectos de instalación (se crean desde la oferta de confección).",
-    icon: BookmarkCheck,
-    iconClass: "text-orange-600",
-    href: "/reservas-ventas?vista=instaladora",
-    grupo: "comercial-instaladora",
-  },
-  {
     key: "leads",
-    label: "Gestionar Leads Instaladora",
+    label: "Leads",
     descripcion: "Administrar leads y oportunidades de venta.",
     icon: Phone,
     iconClass: "text-emerald-600",
@@ -333,7 +324,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
   },
   {
     key: "clientes",
-    label: "Gestionar Clientes Instaladora",
+    label: "Clientes",
     descripcion: "Administrar información y reportes de clientes.",
     icon: User,
     iconClass: "text-emerald-600",
@@ -350,12 +341,33 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     ],
   },
   {
-    key: "distribucion-comerciales",
-    label: "Distribución de Comerciales",
-    descripcion: "Organizar en equipos a los comerciales de instaladora y a las de ventas que apoyan.",
-    icon: Users,
+    key: "ofertas-gestion",
+    label: "Ofertas",
+    descripcion: "Confección de ofertas y herramientas de ventas.",
+    icon: Zap,
     iconClass: "text-emerald-600",
-    href: "/distribucion-comerciales",
+    href: "/ofertas-gestion",
+    grupo: "comercial-instaladora",
+    subPermisos: [
+      {
+        // Aditivo: el texto sale en TODAS las ofertas exportadas, así que
+        // tener el módulo de ofertas no debe bastar para reescribirlo.
+        // Sin asignar a nadie todavía: hoy solo entra superAdmin.
+        key: "ofertas-gestion/terminos-condiciones",
+        label: "Editar términos y condiciones",
+        descripcion:
+          "Permite ver y editar los términos y condiciones generales que se imprimen al final de cada oferta exportada.",
+        aditivo: true,
+      },
+    ],
+  },
+  {
+    key: "reservas-instaladora",
+    label: "Reservas",
+    descripcion: "Ver reservas de materiales de proyectos de instalación (se crean desde la oferta de confección).",
+    icon: BookmarkCheck,
+    iconClass: "text-orange-600",
+    href: "/reservas-ventas?vista=instaladora",
     grupo: "comercial-instaladora",
   },
   {
@@ -398,33 +410,21 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     ],
   },
   {
-    key: "ofertas-gestion",
-    label: "Gestionar Ofertas Instaladora",
-    descripcion: "Confección de ofertas y herramientas de ventas.",
-    icon: Zap,
-    iconClass: "text-emerald-600",
-    href: "/ofertas-gestion",
-    grupo: "comercial-instaladora",
-    subPermisos: [
-      {
-        // Aditivo: el texto sale en TODAS las ofertas exportadas, así que
-        // tener el módulo de ofertas no debe bastar para reescribirlo.
-        // Sin asignar a nadie todavía: hoy solo entra superAdmin.
-        key: "ofertas-gestion/terminos-condiciones",
-        label: "Editar términos y condiciones",
-        descripcion:
-          "Permite ver y editar los términos y condiciones generales que se imprimen al final de cada oferta exportada.",
-        aditivo: true,
-      },
-    ],
-  },
-  {
     key: "reportes-comercial",
-    label: "Reportes Comercial Instaladora",
+    label: "Reportes",
     descripcion: "Reportes y análisis del área comercial.",
     icon: BarChart3,
     iconClass: "text-emerald-600",
     href: "/reportes-comercial",
+    grupo: "comercial-instaladora",
+  },
+  {
+    key: "distribucion-comerciales",
+    label: "Distribución de Comerciales",
+    descripcion: "Organizar en equipos a los comerciales de instaladora y a las de ventas que apoyan.",
+    icon: Users,
+    iconClass: "text-emerald-600",
+    href: "/distribucion-comerciales",
     grupo: "comercial-instaladora",
   },
   {
@@ -473,7 +473,6 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     grupo: "comercial-instaladora",
     superAdminOnly: true,
   },
-
   // ───────── Comercial Ventas ─────────
   {
     key: "clientes-ventas",
