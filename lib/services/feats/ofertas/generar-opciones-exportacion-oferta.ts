@@ -36,6 +36,7 @@ const SECCION_LABELS: ReadonlyArray<readonly [string, string]> = [
   ["CANALIZACION", "Canalización"],
   ["TIERRA", "Tierra"],
   ["PROTECCIONES_ELECTRICAS", "Protecciones Eléctricas y Gabinetes"],
+  ["TRANSFORMADORES_MEDIDORES", "Transformadores y Medidores"],
   ["MATERIAL_VARIO", "Material vario"],
 ];
 
@@ -225,6 +226,7 @@ export function generarOpcionesExportacionOferta({
     "CANALIZACION",
     "TIERRA",
     "PROTECCIONES_ELECTRICAS",
+    "TRANSFORMADORES_MEDIDORES",
     "MATERIAL_VARIO",
   ];
 

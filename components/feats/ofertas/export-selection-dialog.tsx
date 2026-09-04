@@ -305,6 +305,10 @@ export function ExportSelectionDialog({
         id: "PROTECCIONES_ELECTRICAS",
         label: "Protecciones Eléctricas y Gabinetes",
       },
+      {
+        id: "TRANSFORMADORES_MEDIDORES",
+        label: "Transformadores y Medidores",
+      },
       { id: "MATERIAL_VARIO", label: "Material vario" },
     ];
 

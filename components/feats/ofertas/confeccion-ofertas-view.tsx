@@ -18,6 +18,7 @@ import { Badge } from "@/components/shared/atom/badge";
 import { Input } from "@/components/shared/atom/input";
 import { Label } from "@/components/shared/atom/label";
 import { Button } from "@/components/shared/atom/button";
+import { Checkbox } from "@/components/shared/molecule/checkbox";
 import { MaterialImage } from "@/components/shared/molecule/material-image";
 import { Card, CardContent } from "@/components/shared/molecule/card";
 import {
@@ -94,6 +95,64 @@ interface SeccionPersonalizada {
 }
 
 const SECCION_AMPLIACION_ID = "AMPLIACION_SISTEMA";
+const SECCION_ACCIONES_ID = "ACCIONES_A_REALIZAR";
+const SECCION_ACCIONES_LABEL = "Acciones a Realizar";
+
+// El texto de una accion predefinida es lo que lee el cliente en la oferta, asi
+// que no se edita: solo su precio, que se decide oferta por oferta. El id es
+// determinista a proposito -- es lo unico que se persiste de la linea, y por el
+// se reconoce al reabrir la oferta que ese texto viene del catalogo y va
+// bloqueado. Si manana hay que mantener esta lista sin desplegar, se cambia la
+// constante por un fetch y el resto del componente no se entera.
+const ACCIONES_PREDEFINIDAS: ReadonlyArray<{ id: string; descripcion: string }> =
+  [
+    {
+      id: "ACC_ESTUDIO_INGENIERIA",
+      descripcion: "Estudio de ingenier\u00eda y dimensionamiento del sistema",
+    },
+    {
+      id: "ACC_INSTALACION_ELECTRICA",
+      descripcion: "Instalaci\u00f3n el\u00e9ctrica (inversor, bater\u00edas)",
+    },
+    {
+      id: "ACC_INSTALACION_PANELES",
+      descripcion: "Instalaci\u00f3n de placas solares",
+    },
+    {
+      id: "ACC_ACCESO_MONITOREO",
+      descripcion: "Acceso a plataforma de monitoreo FELICITY SOLAR",
+    },
+    {
+      id: "ACC_LICENCIAS_MONITOREO",
+      descripcion:
+        "Licencias avanzadas de plataforma de monitoreo FELICITY SOLAR",
+    },
+    {
+      id: "ACC_SISTEMAS_AUTOMATICAS",
+      descripcion: "Sistemas de autom\u00e1ticas",
+    },
+    {
+      id: "ACC_PUESTA_EN_MARCHA",
+      descripcion: "Configuraci\u00f3n y Puesta en Marcha",
+    },
+  ];
+
+const crearSeccionAcciones = (): SeccionPersonalizada => ({
+  id: SECCION_ACCIONES_ID,
+  label: SECCION_ACCIONES_LABEL,
+  tipo: "extra",
+  tipoExtra: "costo",
+  costosExtras: [],
+});
+
+// La seccion de acciones es de sistema, no la crea el comercial. Las ofertas
+// guardadas antes de que existiera no la traen, asi que se inyecta al cargar.
+const garantizarSeccionAcciones = (
+  secciones: SeccionPersonalizada[],
+): SeccionPersonalizada[] =>
+  secciones.some((seccion) => seccion.id === SECCION_ACCIONES_ID)
+    ? secciones
+    : [...secciones, crearSeccionAcciones()];
 const CODIGO_BATERIA_ESPECIAL_NOMBRE = "FLS48100SCG01";
 const CODIGOS_BATERIA_DESCUENTO_20 = new Set([
   "FLS48100SMG01",
@@ -407,14 +466,16 @@ export function ConfeccionOfertasView({
   const [seccionesPersonalizadas, setSeccionesPersonalizadas] = useState<
     SeccionPersonalizada[]
   >(
-    estadoInicial?.seccionesPersonalizadas || [
-      {
-        id: SECCION_AMPLIACION_ID,
-        label: "Ampliación de Sistema",
-        tipo: "materiales",
-        categoriasMateriales: ["*"],
-      },
-    ],
+    garantizarSeccionAcciones(
+      estadoInicial?.seccionesPersonalizadas || [
+        {
+          id: SECCION_AMPLIACION_ID,
+          label: "Ampliación de Sistema",
+          tipo: "materiales",
+          categoriasMateriales: ["*"],
+        },
+      ],
+    ),
   );
   const [mostrarDialogoSeccion, setMostrarDialogoSeccion] = useState(false);
   const [tipoSeccionNueva, setTipoSeccionNueva] = useState<
@@ -639,6 +700,10 @@ export function ConfeccionOfertasView({
     return Number.isFinite(parsed) ? parsed : 0;
   };
 
+  const seccionAcciones = seccionesPersonalizadas.find(
+    (seccion) => seccion.id === SECCION_ACCIONES_ID,
+  );
+
   const steps = [
     {
       id: "INVERSORES",
@@ -702,28 +767,50 @@ export function ConfeccionOfertasView({
       esPersonalizada: false,
     },
     {
+      id: "TRANSFORMADORES_MEDIDORES",
+      label: "Transformadores y Medidores",
+      match: (categoria: string) => categoria.includes("TRANSFORMADOR"),
+      esPersonalizada: false,
+    },
+    {
       id: "MATERIAL_VARIO",
       label: "Material vario",
       match: (categoria: string) =>
         categoria.includes("VARIO") || categoria.includes("PEQUENO"),
       esPersonalizada: false,
     },
+    // Sección de sistema: vive dentro de seccionesPersonalizadas para heredar
+    // gratis su persistencia y su exportación, pero se coloca aquí a mano
+    // porque las personalizadas se concatenan todas al final.
+    ...(seccionAcciones
+      ? [
+          {
+            id: SECCION_ACCIONES_ID,
+            label: seccionAcciones.label,
+            match: (_categoria: string) => false,
+            esPersonalizada: false,
+            seccionData: seccionAcciones,
+          },
+        ]
+      : []),
     // Agregar secciones personalizadas
-    ...seccionesPersonalizadas.map((seccion) => ({
-      id: seccion.id,
-      label: seccion.label,
-      match: (categoria: string) => {
-        if (seccion.tipo === "materiales" && seccion.categoriasMateriales) {
-          if (seccion.categoriasMateriales.includes("*")) return true;
-          return seccion.categoriasMateriales.some((cat) =>
-            normalizeText(categoria).includes(normalizeText(cat)),
-          );
-        }
-        return false;
-      },
-      esPersonalizada: true,
-      seccionData: seccion,
-    })),
+    ...seccionesPersonalizadas
+      .filter((seccion) => seccion.id !== SECCION_ACCIONES_ID)
+      .map((seccion) => ({
+        id: seccion.id,
+        label: seccion.label,
+        match: (categoria: string) => {
+          if (seccion.tipo === "materiales" && seccion.categoriasMateriales) {
+            if (seccion.categoriasMateriales.includes("*")) return true;
+            return seccion.categoriasMateriales.some((cat) =>
+              normalizeText(categoria).includes(normalizeText(cat)),
+            );
+          }
+          return false;
+        },
+        esPersonalizada: true,
+        seccionData: seccion,
+      })),
   ];
 
   const activeStep = steps[activeStepIndex] ?? steps[0];
@@ -1044,7 +1131,9 @@ export function ConfeccionOfertasView({
             })),
           }),
         );
-        setSeccionesPersonalizadas(seccionesCargadas);
+        setSeccionesPersonalizadas(
+          garantizarSeccionAcciones(seccionesCargadas),
+        );
       }
 
       // Cargar componentes principales
@@ -1743,8 +1832,19 @@ export function ConfeccionOfertasView({
         (map.get(item.seccion) ?? 0) + item.precio * item.cantidad + margenItem,
       );
     });
+    // Las secciones de costos (acciones a realizar y las que cree el comercial)
+    // no tienen items del catálogo: su subtotal son sus propias líneas.
+    seccionesPersonalizadas.forEach((seccion) => {
+      if (seccion.tipo !== "extra" || seccion.tipoExtra !== "costo") return;
+      const subtotal = (seccion.costosExtras ?? []).reduce(
+        (sum, costo) => sum + costo.cantidad * costo.precioUnitario,
+        0,
+      );
+      if (subtotal === 0) return;
+      map.set(seccion.id, (map.get(seccion.id) ?? 0) + subtotal);
+    });
     return map;
-  }, [items, margenPorMaterialCalculado]);
+  }, [items, margenPorMaterialCalculado, seccionesPersonalizadas]);
 
   const totalMateriales = useMemo(() => {
     return items.reduce((sum, item) => sum + item.precio * item.cantidad, 0);
@@ -3066,6 +3166,14 @@ export function ConfeccionOfertasView({
   };
 
   const eliminarSeccionPersonalizada = (seccionId: string) => {
+    if (seccionId === SECCION_ACCIONES_ID) {
+      toast({
+        title: "Sección protegida",
+        description: "La sección de Acciones a Realizar no se puede eliminar",
+        variant: "destructive",
+      });
+      return;
+    }
     if (seccionId === SECCION_AMPLIACION_ID) {
       toast({
         title: "Sección protegida",
@@ -3155,6 +3263,101 @@ export function ConfeccionOfertasView({
       }),
     );
   };
+
+  const accionesDeLaOferta = seccionAcciones?.costosExtras ?? [];
+
+  const accionesPredefinidasMarcadas = useMemo(
+    () => new Map(accionesDeLaOferta.map((accion) => [accion.id, accion])),
+    [accionesDeLaOferta],
+  );
+
+  const accionesLibres = accionesDeLaOferta.filter(
+    (accion) => !ACCIONES_PREDEFINIDAS.some((p) => p.id === accion.id),
+  );
+
+  // Las marcadas se muestran en el orden del catálogo, no en el orden en que el
+  // comercial las fue marcando; las libres van después, como las escribió.
+  const ordenarAcciones = (acciones: CostoExtra[]) => {
+    const indiceCatalogo = new Map(
+      ACCIONES_PREDEFINIDAS.map((accion, index) => [accion.id, index]),
+    );
+    return [...acciones].sort((a, b) => {
+      const posA = indiceCatalogo.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+      const posB = indiceCatalogo.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+      return posA - posB;
+    });
+  };
+
+  const actualizarAcciones = (
+    transformar: (acciones: CostoExtra[]) => CostoExtra[],
+  ) => {
+    setSeccionesPersonalizadas((prev) =>
+      prev.map((seccion) =>
+        seccion.id === SECCION_ACCIONES_ID
+          ? {
+              ...seccion,
+              costosExtras: ordenarAcciones(
+                transformar(seccion.costosExtras ?? []),
+              ),
+            }
+          : seccion,
+      ),
+    );
+  };
+
+  const alternarAccionPredefinida = (accionId: string) => {
+    const definicion = ACCIONES_PREDEFINIDAS.find((a) => a.id === accionId);
+    if (!definicion) return;
+
+    actualizarAcciones((acciones) =>
+      acciones.some((accion) => accion.id === accionId)
+        ? acciones.filter((accion) => accion.id !== accionId)
+        : [
+            ...acciones,
+            {
+              id: definicion.id,
+              descripcion: definicion.descripcion,
+              cantidad: 1,
+              precioUnitario: 0,
+            },
+          ],
+    );
+  };
+
+  const agregarAccionLibre = () => {
+    actualizarAcciones((acciones) => [
+      ...acciones,
+      {
+        id: `ACCION_LIBRE_${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        descripcion: "",
+        cantidad: 1,
+        precioUnitario: 0,
+      },
+    ]);
+  };
+
+  const actualizarAccion = (
+    accionId: string,
+    field: "descripcion" | "cantidad" | "precioUnitario",
+    value: string | number,
+  ) => {
+    actualizarAcciones((acciones) =>
+      acciones.map((accion) =>
+        accion.id === accionId ? { ...accion, [field]: value } : accion,
+      ),
+    );
+  };
+
+  const eliminarAccion = (accionId: string) => {
+    actualizarAcciones((acciones) =>
+      acciones.filter((accion) => accion.id !== accionId),
+    );
+  };
+
+  const totalAcciones = accionesDeLaOferta.reduce(
+    (sum, accion) => sum + accion.cantidad * accion.precioUnitario,
+    0,
+  );
 
   // Obtener categorías únicas de materiales
   const categoriasDisponibles = useMemo(() => {
@@ -4872,6 +5075,7 @@ export function ConfeccionOfertasView({
         tipo: "materiales",
         categoriasMateriales: ["*"],
       },
+      crearSeccionAcciones(),
     ]);
 
     toast({
@@ -5470,9 +5674,15 @@ export function ConfeccionOfertasView({
                                 </span>
                               ) : (
                                 <span className="text-xs text-slate-400">
-                                  {esActual
-                                    ? "Selecciona materiales"
-                                    : "Sin materiales"}
+                                  {seccionData?.tipo === "extra"
+                                    ? seccionData.tipoExtra === "escritura"
+                                      ? "Sin contenido"
+                                      : step.id === SECCION_ACCIONES_ID
+                                        ? "Sin acciones marcadas"
+                                        : "Sin costos"
+                                    : esActual
+                                      ? "Selecciona materiales"
+                                      : "Sin materiales"}
                                 </span>
                               )}
                               {puedeEliminar && (
@@ -5516,8 +5726,181 @@ export function ConfeccionOfertasView({
                                   </div>
                                 )}
 
+                              {/* Acciones a realizar */}
+                              {step.id === SECCION_ACCIONES_ID && (
+                                <div className="space-y-3">
+                                  <div className="grid grid-cols-[24px_minmax(0,1fr)_80px_100px_110px] text-sm text-slate-500 gap-2">
+                                    <span></span>
+                                    <span>Acción</span>
+                                    <span className="text-center">Cant</span>
+                                    <span className="text-right">P. Unit</span>
+                                    <span className="text-right">Total</span>
+                                  </div>
+                                  <div className="space-y-1">
+                                    {ACCIONES_PREDEFINIDAS.map((accion) => {
+                                      const marcada =
+                                        accionesPredefinidasMarcadas.get(
+                                          accion.id,
+                                        );
+                                      return (
+                                        <div
+                                          key={accion.id}
+                                          className="grid grid-cols-[24px_minmax(0,1fr)_80px_100px_110px] items-center gap-2"
+                                        >
+                                          <Checkbox
+                                            checked={Boolean(marcada)}
+                                            onCheckedChange={() =>
+                                              alternarAccionPredefinida(
+                                                accion.id,
+                                              )
+                                            }
+                                          />
+                                          <span
+                                            className={`text-sm ${
+                                              marcada
+                                                ? "text-slate-900"
+                                                : "text-slate-500"
+                                            }`}
+                                          >
+                                            {accion.descripcion}
+                                          </span>
+                                          {marcada ? (
+                                            <>
+                                              <Input
+                                                type="number"
+                                                min="0"
+                                                value={marcada.cantidad}
+                                                onChange={(e) =>
+                                                  actualizarAccion(
+                                                    accion.id,
+                                                    "cantidad",
+                                                    Number(e.target.value) || 0,
+                                                  )
+                                                }
+                                                className="h-8 text-center text-sm"
+                                              />
+                                              <Input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                value={marcada.precioUnitario}
+                                                onChange={(e) =>
+                                                  actualizarAccion(
+                                                    accion.id,
+                                                    "precioUnitario",
+                                                    Number(e.target.value) || 0,
+                                                  )
+                                                }
+                                                className="h-8 text-right text-sm"
+                                              />
+                                              <span className="text-sm font-semibold text-slate-900 text-right">
+                                                {formatCurrency(
+                                                  marcada.cantidad *
+                                                    marcada.precioUnitario,
+                                                )}
+                                              </span>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <span />
+                                              <span />
+                                              <span />
+                                            </>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+
+                                  {accionesLibres.length > 0 && (
+                                    <div className="space-y-2 border-t border-slate-200 pt-2">
+                                      {accionesLibres.map((accion) => (
+                                        <div
+                                          key={accion.id}
+                                          className="grid grid-cols-[24px_minmax(0,1fr)_80px_100px_110px_40px] items-center gap-2"
+                                        >
+                                          <span />
+                                          <Input
+                                            type="text"
+                                            value={accion.descripcion}
+                                            onChange={(e) =>
+                                              actualizarAccion(
+                                                accion.id,
+                                                "descripcion",
+                                                e.target.value,
+                                              )
+                                            }
+                                            placeholder="Describe la acción"
+                                            className="h-8 text-sm"
+                                          />
+                                          <Input
+                                            type="number"
+                                            min="0"
+                                            value={accion.cantidad}
+                                            onChange={(e) =>
+                                              actualizarAccion(
+                                                accion.id,
+                                                "cantidad",
+                                                Number(e.target.value) || 0,
+                                              )
+                                            }
+                                            className="h-8 text-center text-sm"
+                                          />
+                                          <Input
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            value={accion.precioUnitario}
+                                            onChange={(e) =>
+                                              actualizarAccion(
+                                                accion.id,
+                                                "precioUnitario",
+                                                Number(e.target.value) || 0,
+                                              )
+                                            }
+                                            className="h-8 text-right text-sm"
+                                          />
+                                          <span className="text-sm font-semibold text-slate-900 text-right">
+                                            {formatCurrency(
+                                              accion.cantidad *
+                                                accion.precioUnitario,
+                                            )}
+                                          </span>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              eliminarAccion(accion.id)
+                                            }
+                                            className="text-red-600 hover:text-red-700 text-sm"
+                                          >
+                                            ✕
+                                          </button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+
+                                  <div className="flex items-center justify-between border-t border-slate-200 pt-2">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={agregarAccionLibre}
+                                      className="h-8 text-xs"
+                                    >
+                                      <Plus className="h-3 w-3 mr-1" />
+                                      Agregar acción
+                                    </Button>
+                                    <span className="text-sm font-semibold text-slate-900">
+                                      Subtotal: {formatCurrency(totalAcciones)}
+                                    </span>
+                                  </div>
+                                </div>
+                              )}
+
                               {/* Sección de costos extras */}
-                              {seccionData?.tipo === "extra" &&
+                              {step.id !== SECCION_ACCIONES_ID &&
+                                seccionData?.tipo === "extra" &&
                                 seccionData.tipoExtra === "costo" && (
                                   <div className="space-y-3">
                                     {seccionData.costosExtras &&
@@ -8058,7 +8441,9 @@ export function ConfeccionOfertasView({
                           : activeStep &&
                               "seccionData" in activeStep &&
                               activeStep.seccionData?.tipo === "extra"
-                            ? `Esta es una sección de ${activeStep.seccionData.tipoExtra === "escritura" ? "texto" : "costos extras"}`
+                            ? activeStep.id === SECCION_ACCIONES_ID
+                              ? "Marca las acciones en el panel de la izquierda"
+                              : `Esta es una sección de ${activeStep.seccionData.tipoExtra === "escritura" ? "texto" : "costos extras"}`
                             : `No hay materiales en ${activeStep?.label ?? "esta categoria"}`}
                       </p>
                     </div>
