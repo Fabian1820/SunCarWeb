@@ -2,6 +2,128 @@
 
 ---
 
+## 📅 4 de Septiembre, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**16 commits reales** (+ 1 merge) — Fabian1820. Sesión muy activa: nuevo módulo de agenda de citas (solo superAdmin), tres secciones nuevas en confección de ofertas (Transformadores, Medidores, Acciones a Realizar), pestañas BTB/BTC en términos con selector persistido por oferta, tipo_negocio BTB/BTC propio por cliente/lead, permisos aditivos para cancelar y editar cobros, separación de permisos del Informe de Dirección, seis códigos nuevos de avería con causa Comunicación, edición de términos y condiciones desde la UI, y fixes de depreciación en asignaciones, duplicado en dashboard, responsive en exportación de ofertas y en peticiones, y claridad en la tasa EUR.
+
+---
+
+### Área 1: feat(citas) — módulo de agenda de citas solo superAdmin
+
+- **`feat(citas): módulo de agenda de citas (solo superAdmin de momento)`** — Nuevo módulo de agenda de citas accesible solo para superAdmin en este primer despliegue. Permite gestionar citas/reuniones programadas. Los endpoints de backend que lo respaldan deben confirmarse en producción antes de habilitarlo para usuarios no-superAdmin.
+
+---
+
+### Área 2: feat(ofertas) — secciones Transformadores, Medidores y Acciones a Realizar
+
+- **`feat(ofertas): secciones Transformadores y Medidores y Acciones a Realizar`** — La confección de ofertas suma tres secciones nuevas: Transformadores, Medidores y Acciones a Realizar. Amplía el alcance del sistema fotovoltaico estándar para incluir infraestructura eléctrica adicional.
+
+---
+
+### Área 3: feat(ofertas,terminos) — pestañas BTB/BTC en términos + selector persistido
+
+- **`feat(ofertas,terminos): pestañas BTB/BTC en términos + selector persistido por oferta`** — Los términos y condiciones se organizan en pestañas por tipo de negocio (BTB/BTC). El selector activo se persiste en localStorage por oferta, de modo que reabrir la oferta recuerda la última pestaña.
+
+---
+
+### Área 4: feat(clientes,leads) — tipo_negocio BTB/BTC propio, ya no del comercial
+
+- **`feat(clientes,leads): tipo_negocio (BTB/BTC) propio, ya no el del comercial`** — Clientes y leads tienen ahora su propio campo `tipo_negocio` (BTB/BTC), independiente del tipo del comercial asignado. Permite que un comercial BTB atienda clientes BTC y viceversa.
+
+---
+
+### Área 5: feat(pagos) — permiso aditivo para cancelar cobros
+
+- **`feat(pagos): permiso aditivo para cancelar cobros`** — El permiso de cancelar cobros se convierte en sub-permiso aditivo. Solo los usuarios con el sub-permiso explícito pueden cancelar; tener acceso al módulo de cobros ya no basta.
+
+---
+
+### Área 6: refactor(pagos) — editar cobros por permiso, no por lista de CI
+
+- **`refactor(pagos): editar cobros por permiso, no por lista de CI`** — El control de edición de cobros migra de una lista hardcodeada de CI a un sistema de permisos. Más mantenible y auditable, pero requiere migración explícita de usuarios.
+
+---
+
+### Área 7: feat(informe-direccion) — permisos separados y filtro de cobros
+
+- **`feat(informe-direccion): separa los permisos de los dos informes y filtra los cobros`** — Los dos sub-módulos del Informe de Dirección tienen ahora permisos independientes. El informe de cobros filtra según el permiso del usuario activo.
+
+---
+
+### Área 8: feat(averias) — seis códigos nuevos y la causa Comunicación
+
+- **`feat(averias): seis códigos nuevos y la causa Comunicación`** — Se añaden seis nuevos códigos de avería y la categoría de causa "Comunicación". Amplía la taxonomía de averías para cubrir fallos de conectividad y comunicación entre componentes del sistema.
+
+---
+
+### Área 9: feat(ofertas-gestion) — editar términos y condiciones desde la UI
+
+- **`feat(ofertas-gestion): editar términos y condiciones desde la UI`** — Los términos y condiciones generales son ahora editables desde la interfaz de gestión de ofertas, sin acceso directo a la base de datos. Los cambios afectan a todas las ofertas que no tengan esquema de términos propio.
+
+---
+
+### Área 10: fix(asignaciones) — depreciación mensual del lote, no la unitaria
+
+- **`fix(asignaciones): sumar la depreciación mensual del lote, no la unitaria`** — Fix crítico de cálculo financiero: se sumaba la depreciación mensual unitaria en lugar de la del lote completo. Las asignaciones con múltiples unidades mostraban depreciación incorrecta (subestimada).
+
+---
+
+### Área 11: fix(pagos) — pedir la tasa del EUR como "USD por 1 EUR"
+
+- **`fix(pagos): pedir la tasa del EUR como "USD por 1 EUR"`** — La interfaz ahora solicita la tasa en el sentido correcto: cuántos USD valen 1 EUR. Antes podía interpretarse en sentido inverso, generando conversiones incorrectas.
+
+---
+
+### Área 12: fix(dashboard) — Informe de Dirección duplicado y en áreas incorrectas
+
+- **`fix(dashboard): Informe de Dirección salía duplicado y se colaba en otras áreas`** — Fix de visualización: el módulo aparecía dos veces en el dashboard y se mostraba en áreas de permisos donde no correspondía.
+
+---
+
+### Área 13: refactor(dashboard) — nombres cortos, orden y descripciones en dos líneas
+
+- **`refactor(dashboard): nombres cortos y nuevo orden en Comercial Instaladora`** + **`refactor(dashboard): descripciones de Comercial Instaladora a dos líneas`** — Limpieza visual del área Comercial Instaladora: nombres de módulos más cortos y reordenados, descripciones que envuelven en dos líneas para mayor legibilidad.
+
+---
+
+### Área 14: fix(ofertas) — lista de secciones al exportar desaparecía en pantallas bajas
+
+- **`fix(ofertas): la lista de secciones al exportar desaparecía en pantallas bajas`** — Fix responsive: el panel de selección de secciones en el diálogo de exportación quedaba oculto en pantallas con poco alto o dispositivos pequeños.
+
+---
+
+### Área 15: fix(peticiones) — contenido tapado por el header fijo
+
+- **`fix(peticiones): contenido tapado por el header fijo`** — Fix responsive: el contenido del módulo de peticiones quedaba parcialmente cubierto por el header fijo de la aplicación.
+
+---
+
+### Puede dar bateo
+
+1. **feat(pagos) permiso aditivo + refactor(pagos) por permiso — migración de usuarios existentes**: Los usuarios que editaban/cancelaban cobros por estar en la lista de CI hardcodeada pierden ese acceso al deploy. Confirmar migración de permisos en BD antes de que los comerciales lleguen a trabajar.
+
+2. **feat(clientes,leads) tipo_negocio propio — registros existentes sin el campo**: Si `tipo_negocio` no se pre-popula desde el tipo del comercial asignado, todos los clientes y leads existentes quedarán con campo vacío. Confirmar script de backfill o que el campo es opcional en UI sin romper filtros BTB/BTC.
+
+3. **feat(citas) solo superAdmin — endpoints de backend sin confirmar**: El módulo es nuevo. Confirmar que los endpoints del backend para crear/listar/editar/eliminar citas están deployados antes de habilitar el módulo a usuarios no-superAdmin.
+
+4. **feat(ofertas) secciones nuevas — schema del backend**: Transformadores, Medidores y Acciones a Realizar son secciones nuevas en el payload de oferta. Si el backend no acepta estos campos, el guardado fallará silenciosamente o con 422 en producción.
+
+5. **feat(informe-direccion) permisos separados — usuarios con permiso único pierden sub-acceso**: Al dividir el permiso en dos, los usuarios que tenían el permiso único pueden no tener el del segundo informe. Confirmar migración o que el backend asigna ambos automáticamente.
+
+6. **fix(asignaciones) depreciación del lote — valores históricos incorrectos sin recalcular**: Las asignaciones previas muestran depreciación subestimada. No hay recálculo automático. Usuarios notarán diferencias entre activos creados antes y después del fix sin explicación visible.
+
+7. **feat(ofertas,terminos) selector persistido en localStorage — desincronía entre sesiones**: El selector BTB/BTC vive en localStorage por oferta. Si el mismo usuario abre la oferta en dos pestañas del navegador, los estados pueden desincronizarse.
+
+8. **feat(ofertas-gestion) editar términos sin control de concurrencia — último guardado pisa al otro**: Si dos usuarios editan los términos simultáneamente, el segundo pisa al primero sin aviso. Los cambios son inmediatos en todas las ofertas sin esquema propio.
+
+9. **fix(pagos) tasa EUR en sentido "USD por 1 EUR" — ofertas existentes con tasa en sentido inverso**: Las ofertas guardadas con la tasa en el formato antiguo tendrán conversión incorrecta. Confirmar qué ofertas en producción tienen tasa EUR guardada y si requieren corrección manual.
+
+10. **feat(averias) seis códigos nuevos + Comunicación — confirmar soporte en backend**: Los nuevos valores deben estar en el Enum/lista del endpoint de averías. Si no están deployados, las averías con esos valores retornarán 422.
+
+---
+
 ## 📅 2 de Septiembre, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -353,120 +475,18 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 27 de Agosto, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**3 commits reales** — Fabian1820 (co-authored Claude Opus 5). Sesión centrada en el módulo de ofertas y materiales: se unifica el nombre de catálogo en todas las pantallas de materiales, y se agrega el flujo completo de descuento / total a pagar en tabla y PDF (feature + fix de orden de renderizado).
-
----
-
-### Área 1: feat(materiales) — nombre de catálogo en lugar de descripción libre (18:42)
-
-- **`feat(materiales): muestra el nombre de catalogo en vez de la descripcion`** — El operador reportó que el breaker de 80A 3P aparecía como "PROTECCION" y el de 2P como "BREAKER", sin poder distinguirlos salvo por la foto. Causa: `descripcion` es texto libre y 27 materiales la comparten con otro artículo.
-
-  1. **Orden unificado en todas las pantallas**: `material_nombre` → `material.nombre` → `material_descripcion`. El backend ya publica `material_nombre` resuelto del catálogo.
-  2. **`material_nombre` añadido a StockItem**: hasta ahora StockItem solo exponía la descripción embebida.
-  3. **Pantallas afectadas**: inventario (stock, editar stock, salida por lote), solicitudes de materiales, vales y devolución de vale, facturas, pagos de ventas, solicitudes de ventas, consignaciones, centro de control y trabajos diarios.
-  4. **Efecto en facturas**: la línea de factura armada desde el vale pasa a guardar el nombre de catálogo en lugar de la descripción (antes escribía "PROTECCION").
-
----
-
-### Área 2: feat(ofertas) — descuento y total a pagar en tabla y PDF (21:51)
-
-- **`feat(ofertas): muestra el descuento y el total a pagar en tabla y PDF`** — `asumido_por_empresa` y `compensacion` no estaban dentro de `precio_final`; solo bajaban `monto_pendiente`, así que ni la tabla ni las exportaciones los reflejaban.
-
-  1. **"Monto asumido por empresa" renombrado a "Descuento"** en el formulario. Admite monto fijo o % sobre el precio final y exige justificación.
-  2. **Tabla con nuevas columnas "Descuento" y "Total a pagar"**.
-  3. **Exportaciones**: bajo cada precio final, el desglose del descuento y la compensación con su justificación y el total a pagar. La conversión a EUR/CUP pasa a calcularse sobre el total a pagar.
-  4. **Unificación del generador de opciones de exportación**: estaba triplicado en tres vistas. Las copias de clientes y leads calculaban el subtotal sin `margen_materiales`, imprimiendo un importe ~18% menor que el real.
-
----
-
-### Área 3: fix(ofertas) — descuento debajo del precio final en el PDF (22:13)
-
-- **`fix(ofertas): coloca el descuento bajo el precio final en el PDF`** — El renderizador agrupaba las filas por `tipo` e ignoraba el orden del array, así que el descuento se pintaba ANTES del precio final.
-
-  1. **Nuevos tipos de fila `DescuentoNeto` y `TotalAPagar`**: pintados dentro del bloque resaltado, debajo del precio final.
-  2. **Añadidos a `tipoNoMaterial`**: para que la tabla de materiales no los duplique como sección.
-  3. Resultado en PDF: `Precio Final` → `Descuento — [justificación]` → `Total a pagar`.
-
----
-
-### Puede dar bateo
-
-1. **Facturas históricas con `descripcion` embebida — nombre incorrecto en vista**: Las líneas de factura creadas antes del deploy guardan la descripción libre. Si la vista prioriza `material_nombre` del catálogo y no tiene fallback, esas facturas mostrarán el campo vacío o el nombre incorrecto.
-
-2. **27 materiales con descripciones compartidas — confirmación de mapeo correcto en producción**: Confirmar que ningún `material_nombre` del catálogo está también duplicado o vacío.
-
-3. **StockItem con `material_nombre` nuevo — consumidores sin actualizar**: Confirmar que todos los consumidores de `StockItem` fueron actualizados y no acceden directamente a `descripcion`.
-
-4. **Conversión EUR/CUP ahora sobre "Total a pagar" — posible desincronía con backend**: Si el backend calculaba la conversión sobre `precio_final` y el frontend la calcula ahora sobre `total_a_pagar`, puede haber diferencia entre montos.
-
-5. **"Descuento (%)" antiguo en solo lectura — confirmar que no se pierde en borradores**: El % de descuento anterior es visible solo en ofertas "que ya lo tienen guardado". Si un borrador no guardado se edita y se guarda de nuevo, el valor puede perderse sin aviso.
-
-6. **~18% de subimporte erróneo en exportaciones históricas**: Los documentos impresos o guardados antes del deploy tienen datos incorrectos; no hay forma de regenerarlos automáticamente.
-
-7. **`tipoNoMaterial` como mecanismo de exclusión frágil**: Si en el futuro se añade otro tipo especial sin recordar actualizar `tipoNoMaterial`, se duplicará silenciosamente en el PDF.
-
-8. **Signo del descuento en el PDF — doble negativo en edge case**: El PDF prefija "- " al monto del descuento. Si el campo puede llegar negativo desde el backend, el PDF mostrará "- -6000,00 $". Confirmar que el campo siempre llega como valor positivo.
-
-9. **Nuevas columnas en tabla — impacto en exportaciones Excel por posición de columna**: Cualquier importación externa que lea el Excel de ofertas por índice de columna quedará desalineada.
-
----
-
-## 📅 26 de Agosto, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**2 commits reales** — Fabian1820 (co-authored Claude Opus 5). Fix crítico de paginación de clientes: 67 clientes invisibles desde el 31 de julio ahora son visibles, con buscador multicampo y flujo de anular/reactivar. También nueva opción de redondeo manual de precio final en ofertas.
-
----
-
-### Área 1: fix(clientes-ventas) — paginación completa, buscador multicampo y anular/reactivar (18:35)
-
-- **`fix(clientes-ventas): carga completa, buscador y anulacion`** — El módulo cargaba una sola página de 500 clientes y filtraba en memoria. Al superar los 500 documentos el 2026-07-31, los 67 clientes más antiguos quedaron invisibles para la UI: 66 de ellos con historial (85 ofertas, 199 solicitudes, 84 facturas).
-
-  1. **Paginación completa en `getAllClientes()`**: pagina hasta agotar el `total` que la API ya devolvía pero que el servicio descartaba.
-  2. **`normalizeText` colapsa espacios repetidos**: corrige casos como "Antonio Rivero  Garcia" que antes no coincidían en búsquedas locales.
-  3. **Selectores de cliente con búsqueda multicampo en backend**: nombre, número, CI, teléfono y ubicación, sin distinguir tildes. Límite subido de 20 a 50 resultados.
-  4. **CI duplicada**: el diálogo deja de tragarse el error; marca el campo CI en rojo y muestra el mensaje del backend.
-  5. **Anular/Reactivar en lugar de Eliminar**: badge de estado, fila atenuada para anulados, enlace para mostrarlos. El borrado definitivo solo aparece sobre un cliente ya anulado; el backend lo rechaza si tiene historial.
-
----
-
-### Área 2: feat(ofertas) — check de redondeo manual de precio final (16:20)
-
-- **`feat(ofertas): check para ajustar el redondeo del precio final a mano`** — El precio final siempre se redondeaba al múltiplo de 10 hacia arriba sin posibilidad de dejarlo en el valor real.
-
-  1. **Nuevo check "Ajustar redondeo manual"**: al activarlo carga el precio del redondeo automático y habilita el campo para bajarlo.
-  2. **Atajos**: sin redondeo, múltiplo de 5, múltiplo de 10.
-  3. **Rango acotado** a [precio real, redondeo automático]: fuera de rango se marca en rojo y bloquea el guardado.
-  4. **Check deshabilitado** automáticamente cuando el total ya es múltiplo de 10.
-  5. **Estado conservado** en borrador, edición y al duplicar.
-
----
-
-### Puede dar bateo
-
-1. **67 clientes invisibles ~26 días — posibles duplicados en BD**: Los clientes no encontrables desde el 31 de julio pueden haber sido recreados por comerciales. Verificar manualmente por CI o teléfono.
-
-2. **Clientes anulados — confirmar exclusión en selectores de oferta/solicitud/factura**: El fix del 29 de Agosto cubre 11 selectores adicionales; confirmar que ya no quedan más.
-
-3. **Delete definitivo — confirmar que la restricción "con historial" está en backend, no solo en frontend**: Si esta lógica solo vive en frontend, un DELETE directo a la API puede eliminar un cliente con historial.
-
-4. **Paginación completa puede ser lenta en colecciones grandes**: Si la colección sigue creciendo, cargar todos los clientes al entrar al módulo incrementará el tiempo de carga linealmente.
-
-5. **Precio manual sin trazabilidad**: El comercial puede bajar el precio final sin que quede registro de quién lo ajustó ni por qué.
-
-6. **Estado del check al duplicar con catálogo cambiado**: Al duplicar una oferta con precio manual, el precio heredado puede quedar fuera del rango si los precios del catálogo cambiaron. Confirmar que el rango se recalcula al duplicar.
-
-7. **Atajo "sin redondeo" puede producir precios con decimales**: Si el precio real tiene decimales (ej. $1234.56), verificar que el backend acepta precios con decimales en ofertas.
-
----
-
 ## Seguimientos vigentes
 
+- **feat(pagos) permiso aditivo cancelar + refactor(pagos) editar por permiso — confirmar migración explícita de permisos en BD antes del deploy; usuarios en lista hardcodeada pierden acceso sin migración (Sep 4)**.
+- **feat(clientes,leads) tipo_negocio propio — confirmar script de backfill para registros existentes; sin backfill, todos los clientes/leads existentes quedarán con tipo_negocio vacío (Sep 4)**.
+- **feat(citas) solo superAdmin — confirmar endpoints de backend deployados antes de habilitar el módulo a usuarios no-superAdmin (Sep 4)**.
+- **feat(ofertas) secciones Transformadores/Medidores/Acciones — confirmar que el schema del backend acepta los nuevos campos; sin soporte, el guardado fallará en producción (Sep 4)**.
+- **feat(informe-direccion) permisos separados — confirmar migración de usuarios con permiso único al nuevo sub-permiso del segundo informe (Sep 4)**.
+- **fix(asignaciones) depreciación del lote — activos creados antes del fix muestran depreciación subestimada sin recálculo automático; informar a quién audite asignaciones históricas (Sep 4)**.
+- **feat(ofertas,terminos) selector BTB/BTC en localStorage — verificar comportamiento cuando la oferta se abre en dos sesiones simultáneas del mismo usuario (Sep 4)**.
+- **feat(ofertas-gestion) editar términos sin control de concurrencia — confirmar comportamiento esperado si dos usuarios editan términos generales simultáneamente (Sep 4)**.
+- **fix(pagos) tasa EUR en nuevo sentido "USD por 1 EUR" — identificar ofertas en producción con tasa guardada en formato antiguo y corregirlas manualmente (Sep 4)**.
+- **feat(averias) seis nuevos códigos + Comunicación — confirmar que los nuevos valores están en el Enum del endpoint de averías en producción (Sep 4)**.
 - **refactor(ofertas) prop `exportOptions` obligatorio — confirmar que los tres sitios que lo usan (confección, clientes, leads) siempre lo pasan; lazy imports no detectados por TS pueden fallar en runtime (Sep 2)**.
 - **feat(pagos) nombre de comprobante — confirmar que el helper sanitiza caracteres especiales (ñ, tildes, apóstrofes) antes de usarlos como nombre de archivo de descarga (Sep 2)**.
 - **feat(pagos) número de oferta en el nombre — confirmar disponibilidad del campo en todos los contextos donde se genera el comprobante; borrador sin número asignado produce nombre malformado (Sep 2)**.
@@ -488,14 +508,6 @@ Sin cambios nuevos — sin riesgos nuevos.
 - **fix(ofertas-confeccion) borradores con caducidad 2h — verificar si es suficiente para sesiones largas de confección (Ago 28)**.
 - **fix(ofertas-confeccion) moneda — ofertas existentes con tasa 0 sin migración automática — requieren edición manual por el comercial para exportar en moneda correcta (Ago 28)**.
 - **feat(navegacion) "Volver" deducido de MODULOS_CATALOGO — confirmar cobertura completa: módulos no registrados siguen volviendo a "/" (Ago 28)**.
-- **feat(materiales): facturas históricas con `descripcion` embebida — verificar vista de facturas anteriores al 27 de Agosto para detectar campos vacíos o nombres incorrectos (Ago 27)**.
-- **feat(materiales): StockItem con `material_nombre` nuevo — confirmar que todos los consumidores de StockItem manejan el nuevo campo y no tienen referencias al campo viejo (Ago 27)**.
-- **feat(ofertas): conversión EUR/CUP ahora sobre "Total a pagar" — confirmar que backend también calcula la conversión sobre el total con descuento y no sobre `precio_final` (Ago 27)**.
-- **feat(ofertas): descuento % antiguo en solo lectura — confirmar que no se pierde en borradores o duplicaciones sin guardar (Ago 27)**.
-- **fix(ofertas) PDF: `tipoNoMaterial` como mecanismo de exclusión frágil — nuevos tipos especiales deben agregarse explícitamente o se duplicarán como secciones de materiales (Ago 27)**.
-- **67 clientes invisibles ~26 días — verificar si se crearon duplicados de los 67 clientes en el período 31 Jul – 26 Ago; buscar por CI o teléfono (Ago 26)**.
-- **Delete definitivo de clientes — confirmar que la restricción "con historial" está en backend y no solo en frontend (Ago 26)**.
-- **Precio manual en ofertas — confirmar que el rango se recalcula al duplicar y que el backend acepta precios con decimales si el atajo "sin redondeo" los produce (Ago 26)**.
 - **Backfill de `envio-contenedores/ficha-precios` — confirmar ejecución del script para los 10 usuarios existentes en producción (Ago 25)**.
 - **PATCH /compras y /ficha — confirmar `exclude_unset` en backend de producción para que modo solo-costos no pise datos del económico (Ago 25)**.
 - **Lote de fotos — diálogo de reintento se pierde si el usuario cierra el diálogo antes de ver el resumen de archivos fallidos (Ago 25)**.
