@@ -623,7 +623,10 @@ export function StripePagosModal({
       tipo_pago: tipoPago,
       metodo_pago: "stripe",
       moneda: currency,
-      tasa_cambio: currency === "USD" ? 1 : currency === "EUR" ? 1.1 : 0.0083,
+      // Orientación del formulario de RegistrarPagoDialog:
+      // EUR -> USD por 1 EUR; CUP -> CUP por 1 USD. (El diálogo la sobrescribe
+      // con la tasa diaria registrada si existe para la fecha.)
+      tasa_cambio: currency === "USD" ? 1 : currency === "EUR" ? 1.1 : 550,
       pago_cliente: true,
       comprobante_transferencia:
         pago.receiptUrl || pago.invoiceUrl || pago.invoicePdf || "",

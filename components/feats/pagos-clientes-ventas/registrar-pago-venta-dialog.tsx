@@ -92,6 +92,29 @@ const DENOMINACIONES_CUP = ["1000", "500", "200", "100", "50", "20", "10", "5", 
 const DENOMINACIONES_USD = ["100", "50", "20", "10", "5", "2", "1"];
 const DENOMINACIONES_EUR = ["500", "200", "100", "50", "20", "10", "5"];
 
+// Orientacion en que la operadora escribe la tasa en el formulario:
+// EUR -> "USD por 1 EUR" (~1.14, valor que se sabe de memoria)
+// CUP -> "CUP por 1 USD" (~550)
+// El backend siempre recibe "USD por 1 moneda".
+const TASA_SE_ESCRIBE_EN_USD_POR_MONEDA: Record<"USD" | "CUP" | "EUR", boolean> = {
+  USD: true,
+  EUR: true,
+  CUP: false,
+};
+
+// Tasa del formulario -> "USD por 1 moneda" (formato del backend)
+const getUsdPorMoneda = (moneda: "USD" | "CUP" | "EUR", tasaFormulario: number): number => {
+  if (moneda === "USD") return 1;
+  if (!(tasaFormulario > 0)) return 0;
+  return TASA_SE_ESCRIBE_EN_USD_POR_MONEDA[moneda] ? tasaFormulario : 1 / tasaFormulario;
+};
+
+// Tasa del formulario -> "moneda por 1 USD", que es como se guarda cambio_real_tasa
+const getMonedaPorUsd = (moneda: "USD" | "CUP" | "EUR", tasaFormulario: number): number => {
+  const usdPorMoneda = getUsdPorMoneda(moneda, tasaFormulario);
+  return usdPorMoneda > 0 ? 1 / usdPorMoneda : 0;
+};
+
 export function RegistrarPagoVentaDialog({
   open,
   onOpenChange,
@@ -133,7 +156,8 @@ export function RegistrarPagoVentaDialog({
   const [cambioRealTasa, setCambioRealTasa] = useState("");
 
   // Autocompletar tasa del cambio real cuando coincide con la dirección de la tasa principal
-  // (cambio en USD + pago en no-USD → misma dirección "no-USD por 1 USD")
+  // (cambio en USD + pago en no-USD → la moneda no-USD es la misma, así que
+  //  ambos campos se escriben en la misma orientación)
   useEffect(() => {
     if (cambioRealMoneda === "USD" && moneda !== "USD" && tasaCambio && !cambioRealTasa) {
       setCambioRealTasa(tasaCambio);
@@ -195,9 +219,10 @@ export function RegistrarPagoVentaDialog({
   );
   const montoNum = Number(monto);
   const tasaCambioNum = Number(tasaCambio) || 0;
-  // usuario ingresa "moneda por 1 USD"; se invierte al enviar → backend calcula monto*tasa = monto_usd
-  const montoEnUSD =
-    moneda !== "USD" && tasaCambioNum > 0 ? montoNum / tasaCambioNum : montoNum;
+  // Unica fuente de verdad: backend calcula monto * tasa = monto_usd
+  const usdPorMoneda = getUsdPorMoneda(moneda, tasaCambioNum);
+  const tasaEnUsdPorMoneda = TASA_SE_ESCRIBE_EN_USD_POR_MONEDA[moneda];
+  const montoEnUSD = usdPorMoneda > 0 ? montoNum * usdPorMoneda : montoNum;
 
   const montoCubreTodo = pendiente != null && montoEnUSD > 0 && montoEnUSD >= pendiente;
 
@@ -321,9 +346,7 @@ export function RegistrarPagoVentaDialog({
       setError("El monto debe ser mayor a 0");
       return;
     }
-    const tasaNum = Number(tasaCambio) || 0;
-    const montoUSD =
-      moneda !== "USD" && tasaNum > 0 ? montoNum / tasaNum : montoNum;
+    const montoUSD = usdPorMoneda > 0 ? montoNum * usdPorMoneda : montoNum;
     if (pendiente != null && montoUSD > pendiente + 0.01) {
       setError(`El monto no puede superar el saldo pendiente (${formatCurrency(pendiente)})`);
       return;
@@ -380,10 +403,10 @@ export function RegistrarPagoVentaDialog({
         solicitud_venta_id: solicitud.id,
         monto: montoNum,
         moneda,
-        // Convertir de "moneda por 1 USD" (UI) a "USD por moneda" (backend)
-        tasa_cambio: tasaCambio && Number(tasaCambio) > 0 && moneda !== "USD"
-          ? 1 / Number(tasaCambio)
-          : tasaCambio ? Number(tasaCambio) : undefined,
+        // Backend espera "USD por 1 moneda"
+        tasa_cambio: tasaCambio && tasaCambioNum > 0
+          ? (moneda !== "USD" ? usdPorMoneda : tasaCambioNum)
+          : undefined,
         metodo_pago: metodoPago,
         desglose_billetes:
           metodoPago === "efectivo" ? buildDesgloseBilletes() : undefined,
@@ -399,7 +422,19 @@ export function RegistrarPagoVentaDialog({
         })(),
         cambio_real_monto: cambioRealMonto && Number(cambioRealMonto) > 0 ? Number(cambioRealMonto) : undefined,
         cambio_real_moneda: cambioRealMonto && Number(cambioRealMonto) > 0 ? cambioRealMoneda : undefined,
-        cambio_real_tasa: cambioRealMonto && Number(cambioRealMonto) > 0 && cambioRealTasa ? Number(cambioRealTasa) : undefined,
+        // Se guarda como "no-USD por 1 USD" (el formulario la pide en la
+        // orientacion comoda de la moneda no-USD implicada)
+        cambio_real_tasa: cambioRealMonto && Number(cambioRealMonto) > 0 && cambioRealTasa
+          ? (() => {
+              const t = Number(cambioRealTasa) || 0;
+              if (t <= 0) return undefined;
+              if (cambioRealMoneda === moneda) return t;
+              const usdInvolucrado = cambioRealMoneda === "USD" || moneda === "USD";
+              if (!usdInvolucrado) return t;
+              const nonUsd = cambioRealMoneda === "USD" ? moneda : cambioRealMoneda;
+              return getMonedaPorUsd(nonUsd, t);
+            })()
+          : undefined,
         stripe_link: stripeLink || undefined,
         monto_comision: (metodoPago === "stripe" || metodoPago === "transferencia_bancaria") && montoComision
           ? Number(montoComision)
@@ -614,14 +649,18 @@ export function RegistrarPagoVentaDialog({
 
           {moneda !== "USD" && (
             <div className="space-y-1">
-              <Label>Tasa de cambio ({moneda} por 1 USD)</Label>
+              <Label>
+                Tasa de cambio ({tasaEnUsdPorMoneda
+                  ? `USD por 1 ${moneda}`
+                  : `${moneda} por 1 USD`})
+              </Label>
               <Input
                 type="number"
                 min="0"
                 step="1"
                 value={tasaCambio}
                 onChange={(e) => setTasaCambio(e.target.value)}
-                placeholder={moneda === "EUR" ? "Ej: 0.87" : "Ej: 550"}
+                placeholder={moneda === "EUR" ? "Ej: 1.14 (1 EUR = 1.14 USD)" : "Ej: 550 (1 USD = 550 CUP)"}
               />
               {tasaCambioNum > 0 && montoNum > 0 && (
                 <p className="text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded px-2 py-1">
@@ -786,31 +825,43 @@ export function RegistrarPagoVentaDialog({
               return cambioRealMoneda === moneda;
             }
 
-            // Tasa siempre expresada como "no-USD por 1 USD" (igual que la tasa principal)
-            // Si cambioRealMoneda=USD: result = monto_usd × tasa  (ej: 78 USD × 0.92 = 71.76 EUR)
-            // Si moneda=USD:           result = monto_noUSD ÷ tasa (ej: 72 EUR ÷ 0.92 = 78.26 USD)
+            // La operadora escribe la tasa en la orientacion comoda de la moneda
+            // no-USD implicada; internamente se normaliza a "no-USD por 1 USD",
+            // que es como se guarda cambio_real_tasa.
+            const usdInvolucrado = cambioRealMoneda === "USD" || moneda === "USD";
+            const nonUsdMoneda = cambioRealMoneda === "USD" ? moneda : cambioRealMoneda;
+            const cambioRealNonUsdPorUsd = usdInvolucrado
+              ? getMonedaPorUsd(nonUsdMoneda, cambioRealTasaNum)
+              : cambioRealTasaNum;
+
+            // Si cambioRealMoneda=USD: result = monto_usd × tasa  (ej: 78 USD × 0.88 = 68.42 EUR)
+            // Si moneda=USD:           result = monto_noUSD ÷ tasa (ej: 72 EUR ÷ 0.88 = 82.08 USD)
             // Si ninguna es USD:       result = monto × tasa (caso CUP↔EUR, menos habitual)
             const cambioRealEnMonedaOriginal: number | null = (() => {
               if (cambioRealMonedaEsIgual()) return cambioRealMontoNum;
-              if (cambioRealTasaNum <= 0) return null;
-              if (cambioRealMoneda === "USD") return cambioRealMontoNum * cambioRealTasaNum;
-              if (moneda === "USD") return cambioRealMontoNum / cambioRealTasaNum;
-              return cambioRealMontoNum * cambioRealTasaNum;
+              if (cambioRealNonUsdPorUsd <= 0) return null;
+              if (cambioRealMoneda === "USD") return cambioRealMontoNum * cambioRealNonUsdPorUsd;
+              if (moneda === "USD") return cambioRealMontoNum / cambioRealNonUsdPorUsd;
+              return cambioRealMontoNum * cambioRealNonUsdPorUsd;
             })();
 
             const equivalenciaOk =
               cambioRealEnMonedaOriginal !== null &&
               Math.abs(cambioRealEnMonedaOriginal - cambioOriginal) <= cambioOriginal * 0.02 + 0.01;
 
-            // Etiqueta de la tasa: siempre "no-USD por 1 USD"
-            const usdInvolucrado = cambioRealMoneda === "USD" || moneda === "USD";
-            const nonUsdMoneda = cambioRealMoneda === "USD" ? moneda : cambioRealMoneda;
-            const tasaLabel = usdInvolucrado
-              ? `${nonUsdMoneda} por 1 USD`
-              : `${moneda} por 1 ${cambioRealMoneda}`;
-            const tasaPlaceholder = usdInvolucrado
-              ? `Ej: 0.92 (1 USD = 0.92 ${nonUsdMoneda})`
-              : `Cuántos ${moneda} vale 1 ${cambioRealMoneda}`;
+            // Etiqueta de la tasa, en la orientacion comoda de la moneda no-USD
+            const cambioRealEnUsdPorMoneda =
+              usdInvolucrado && TASA_SE_ESCRIBE_EN_USD_POR_MONEDA[nonUsdMoneda];
+            const tasaLabel = !usdInvolucrado
+              ? `${moneda} por 1 ${cambioRealMoneda}`
+              : cambioRealEnUsdPorMoneda
+              ? `USD por 1 ${nonUsdMoneda}`
+              : `${nonUsdMoneda} por 1 USD`;
+            const tasaPlaceholder = !usdInvolucrado
+              ? `Cuántos ${moneda} vale 1 ${cambioRealMoneda}`
+              : cambioRealEnUsdPorMoneda
+              ? `Ej: 1.14 (1 ${nonUsdMoneda} = 1.14 USD)`
+              : `Ej: 550 (1 USD = 550 ${nonUsdMoneda})`;
 
             return (
               <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
@@ -871,8 +922,8 @@ export function RegistrarPagoVentaDialog({
                         value={cambioRealMoneda}
                         onValueChange={(v) => {
                           setCambioRealMoneda(v as "USD" | "CUP" | "EUR");
-                          // Si el cambio es en USD y el pago es en no-USD,
-                          // la tasa tiene la misma dirección que la de arriba → autocompletar
+                          // Si el cambio es en USD y el pago es en no-USD, la moneda
+                          // no-USD es la misma → misma orientación que la de arriba
                           if (v === "USD" && moneda !== "USD" && tasaCambio) {
                             setCambioRealTasa(tasaCambio);
                           } else {
@@ -918,11 +969,9 @@ export function RegistrarPagoVentaDialog({
                         <span>
                           {cambioRealMonedaEsIgual()
                             ? `${cambioRealMontoNum.toFixed(2)} ${cambioRealMoneda}`
-                            : cambioRealMoneda === "USD"
-                            ? `${cambioRealMontoNum.toFixed(2)} USD × ${cambioRealTasaNum} = ${(cambioRealMontoNum * cambioRealTasaNum).toFixed(2)} ${moneda}`
-                            : moneda === "USD"
-                            ? `${cambioRealMontoNum.toFixed(2)} ${cambioRealMoneda} ÷ ${cambioRealTasaNum} = ${cambioRealTasaNum > 0 ? (cambioRealMontoNum / cambioRealTasaNum).toFixed(2) : "?"} USD`
-                            : `${cambioRealMontoNum.toFixed(2)} ${cambioRealMoneda} × ${cambioRealTasaNum} = ${(cambioRealMontoNum * cambioRealTasaNum).toFixed(2)} ${moneda}`}
+                            : cambioRealEnMonedaOriginal !== null
+                            ? `${cambioRealMontoNum.toFixed(2)} ${cambioRealMoneda} = ${cambioRealEnMonedaOriginal.toFixed(2)} ${moneda} (tasa ${cambioRealTasaNum} ${tasaLabel})`
+                            : `${cambioRealMontoNum.toFixed(2)} ${cambioRealMoneda}`}
                         </span>
                         <span>
                           {equivalenciaOk

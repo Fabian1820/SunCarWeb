@@ -73,22 +73,40 @@ const getErrorMessage = (error: unknown, fallback: string) => {
     return fallback
 }
 
-const getUsdPerCurrencyFromDailyRate = (
+// Orientacion en que la operadora escribe la tasa en el formulario:
+// EUR -> "USD por 1 EUR" (~1.14, valor que se sabe de memoria)
+// CUP -> "CUP por 1 USD" (~550)
+// El backend siempre recibe "USD por 1 moneda".
+const TASA_SE_ESCRIBE_EN_USD_POR_MONEDA: Record<'USD' | 'EUR' | 'CUP', boolean> = {
+    USD: true,
+    EUR: true,
+    CUP: false,
+}
+
+// Convierte la tasa del formulario a "USD por 1 moneda" (formato del backend).
+const getUsdPorMoneda = (moneda: 'USD' | 'EUR' | 'CUP', tasaFormulario: number): number => {
+    if (moneda === 'USD') return 1
+    if (!(tasaFormulario > 0)) return 0
+    return TASA_SE_ESCRIBE_EN_USD_POR_MONEDA[moneda] ? tasaFormulario : 1 / tasaFormulario
+}
+
+// Tasa diaria registrada, expresada en la orientacion del formulario.
+const getTasaFormularioDesdeTasaDiaria = (
     moneda: 'USD' | 'EUR' | 'CUP',
     tasaDiaria: TasaCambio | null,
 ): number | null => {
-    if (!tasaDiaria) return null
     if (moneda === 'USD') return 1
+    if (!tasaDiaria) return null
 
     if (moneda === 'EUR') {
-        const usdToEur = Number(tasaDiaria.usd_a_eur || 0)
-        if (usdToEur <= 0) return null
-        return 1 / usdToEur
+        const eurPorUsd = Number(tasaDiaria.usd_a_eur || 0)
+        if (eurPorUsd <= 0) return null
+        return 1 / eurPorUsd
     }
 
-    const usdToCup = Number(tasaDiaria.usd_a_cup || 0)
-    if (usdToCup <= 0) return null
-    return 1 / usdToCup
+    const cupPorUsd = Number(tasaDiaria.usd_a_cup || 0)
+    if (cupPorUsd <= 0) return null
+    return cupPorUsd
 }
 
 const roundTo4Decimals = (value: number): number =>
@@ -178,7 +196,8 @@ export function RegistrarPagoDialog({
     }, [formData.fecha, open])
 
     // Actualizar tasa cuando cambia moneda o fecha/tasa diaria
-    // tasa_cambio se almacena como "moneda por 1 USD" (ej: 550 para CUP, 0.93 para EUR)
+    // tasa_cambio se almacena en la orientacion del formulario
+    // (EUR: USD por 1 EUR; CUP: CUP por 1 USD)
     useEffect(() => {
         if (formData.moneda === "USD") {
             setFormData((prev) => (prev.tasa_cambio === 1 ? prev : { ...prev, tasa_cambio: 1 }))
@@ -187,15 +206,7 @@ export function RegistrarPagoDialog({
 
         if (loadingTasaDiaria) return
 
-        // Leer la tasa directamente en formato "moneda por 1 USD"
-        let tasaUsuario: number | null = null
-        if (formData.moneda === "CUP") {
-            const v = Number(tasaDiaria?.usd_a_cup || 0)
-            if (v > 0) tasaUsuario = v
-        } else if (formData.moneda === "EUR") {
-            const v = Number(tasaDiaria?.usd_a_eur || 0)
-            if (v > 0) tasaUsuario = v
-        }
+        const tasaUsuario = getTasaFormularioDesdeTasaDiaria(formData.moneda, tasaDiaria)
 
         if (tasaUsuario && Number.isFinite(tasaUsuario)) {
             const tasaNormalizada = roundTo4Decimals(tasaUsuario)
@@ -252,18 +263,15 @@ export function RegistrarPagoDialog({
         }).format(value)
     }
 
-    // tasaRegistradaMoneda en formato "moneda por 1 USD"
-    const tasaRegistradaMoneda: number | null =
-        formData.moneda === "USD"
-            ? 1
-            : formData.moneda === "CUP"
-            ? (Number(tasaDiaria?.usd_a_cup || 0) > 0 ? Number(tasaDiaria?.usd_a_cup) : null)
-            : formData.moneda === "EUR"
-            ? (Number(tasaDiaria?.usd_a_eur || 0) > 0 ? Number(tasaDiaria?.usd_a_eur) : null)
-            : null
+    // tasaRegistradaMoneda ya en la orientacion del formulario
+    const tasaRegistradaMoneda = getTasaFormularioDesdeTasaDiaria(formData.moneda, tasaDiaria)
     const tasaBloqueadaPorFecha =
         formData.moneda !== "USD" &&
         Boolean(tasaRegistradaMoneda && Number.isFinite(tasaRegistradaMoneda))
+
+    // Unica fuente de verdad para convertir a USD: monto * usdPorMoneda
+    const usdPorMoneda = getUsdPorMoneda(formData.moneda, formData.tasa_cambio)
+    const tasaEnUsdPorMoneda = TASA_SE_ESCRIBE_EN_USD_POR_MONEDA[formData.moneda]
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
@@ -331,10 +339,8 @@ export function RegistrarPagoDialog({
             return
         }
 
-        // Calcular monto en USD para comparar con el pendiente (tasa = moneda por 1 USD)
-        const montoEnUSD = formData.moneda === 'USD' || formData.tasa_cambio <= 0
-            ? monto
-            : monto / formData.tasa_cambio
+        // Calcular monto en USD para comparar con el pendiente
+        const montoEnUSD = usdPorMoneda > 0 ? monto * usdPorMoneda : monto
         const excedePendiente = montoEnUSD > oferta.monto_pendiente
 
         if (excedePendiente && !formData.justificacion_diferencia.trim()) {
@@ -388,10 +394,8 @@ export function RegistrarPagoDialog({
                 tipo_pago: formData.tipo_pago,
                 metodo_pago: formData.metodo_pago,
                 moneda: formData.moneda,
-                // Backend espera "USD por 1 moneda"; el formulario almacena "moneda por 1 USD"
-                tasa_cambio: formData.moneda !== 'USD' && formData.tasa_cambio > 0
-                    ? 1 / formData.tasa_cambio
-                    : formData.tasa_cambio,
+                // Backend espera "USD por 1 moneda"
+                tasa_cambio: usdPorMoneda > 0 ? usdPorMoneda : formData.tasa_cambio,
                 pago_cliente: formData.pago_cliente,
                 notas: formData.notas || undefined,
             }
@@ -418,9 +422,7 @@ export function RegistrarPagoDialog({
             }
 
             // Agregar diferencia si el monto excede el pendiente
-            const montoEnUSD = formData.moneda === 'USD' || formData.tasa_cambio <= 0
-                ? monto
-                : monto / formData.tasa_cambio
+            const montoEnUSD = usdPorMoneda > 0 ? monto * usdPorMoneda : monto
             console.log('🔍 Validación diferencia:')
             console.log('  - Monto en USD:', montoEnUSD)
             console.log('  - Monto pendiente:', oferta.monto_pendiente)
@@ -539,6 +541,8 @@ export function RegistrarPagoDialog({
                             <Label htmlFor="tasa_cambio">
                                 {formData.moneda === 'USD'
                                     ? 'Tasa de cambio'
+                                    : tasaEnUsdPorMoneda
+                                    ? `1 ${formData.moneda} equivale a (USD)`
                                     : `1 USD equivale a (${formData.moneda})`}
                                 {' '}<span className="text-red-500">*</span>
                             </Label>
@@ -582,7 +586,9 @@ export function RegistrarPagoDialog({
                             )}
                             {formData.moneda !== 'USD' && formData.tasa_cambio > 0 && (
                                 <p className="text-xs text-gray-600 bg-gray-50 p-2 rounded border border-gray-200">
-                                    💡 {formData.tasa_cambio.toFixed(2)} {formData.moneda} = 1 USD
+                                    💡 {tasaEnUsdPorMoneda
+                                        ? `1 ${formData.moneda} = ${formData.tasa_cambio.toFixed(2)} USD`
+                                        : `${formData.tasa_cambio.toFixed(2)} ${formData.moneda} = 1 USD`}
                                 </p>
                             )}
                         </div>
@@ -602,13 +608,13 @@ export function RegistrarPagoDialog({
                                 placeholder="0.00"
                                 required
                             />
-                            {formData.moneda !== 'USD' && formData.monto && formData.tasa_cambio > 0 && (
+                            {formData.moneda !== 'USD' && formData.monto && usdPorMoneda > 0 && (
                                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
                                     <p className="text-sm text-blue-700">
-                                        Equivalente en USD: ${(parseFloat(formData.monto) / formData.tasa_cambio).toFixed(2)}
+                                        Equivalente en USD: ${(parseFloat(formData.monto) * usdPorMoneda).toFixed(2)}
                                     </p>
                                     <p className="text-xs text-gray-600 mt-1">
-                                        {formData.monto} {formData.moneda} ÷ {formData.tasa_cambio} = {(parseFloat(formData.monto) / formData.tasa_cambio).toFixed(2)} USD
+                                        {formData.monto} {formData.moneda} {tasaEnUsdPorMoneda ? '×' : '÷'} {formData.tasa_cambio} = {(parseFloat(formData.monto) * usdPorMoneda).toFixed(2)} USD
                                     </p>
                                 </div>
                             )}
@@ -620,8 +626,7 @@ export function RegistrarPagoDialog({
                         {/* Justificación de diferencia (solo si excede el pendiente) */}
                         {formData.monto && (() => {
                             const m = parseFloat(formData.monto)
-                            const usd = formData.moneda === 'USD' || formData.tasa_cambio <= 0
-                                ? m : m / formData.tasa_cambio
+                            const usd = usdPorMoneda > 0 ? m * usdPorMoneda : m
                             return usd > oferta.monto_pendiente
                         })() && (
                             <div className="space-y-2 border-l-4 border-emerald-400 pl-4 bg-emerald-50 p-3 rounded">
@@ -635,8 +640,7 @@ export function RegistrarPagoDialog({
                                         <p className="text-sm font-semibold text-emerald-800 mb-1">
                                             El monto excede el pendiente en {formatCurrency((() => {
                                                 const m = parseFloat(formData.monto)
-                                                const usd = formData.moneda === 'USD' || formData.tasa_cambio <= 0
-                                                    ? m : m / formData.tasa_cambio
+                                                const usd = usdPorMoneda > 0 ? m * usdPorMoneda : m
                                                 return usd - oferta.monto_pendiente
                                             })())}
                                         </p>
