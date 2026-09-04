@@ -1,20 +1,28 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plus, RefreshCw } from "lucide-react";
+import { FileText, Plus, RefreshCw } from "lucide-react";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { OfertasConfeccionadasView } from "@/components/feats/ofertas/ofertas-confeccionadas-view";
 import { Button } from "@/components/shared/atom/button";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { actualizarPreciosOfertasGenericas } from "@/lib/services/feats/ofertas/actualizar-precios-ofertas-service";
+import { TerminosCondicionesDialog } from "@/components/feats/ofertas/terminos-condiciones-dialog";
+import { useAuth } from "@/contexts/auth-context";
 
 export default function OfertasGestionPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [refreshKey, setRefreshKey] = useState(0);
   const [actualizando, setActualizando] = useState(false);
+  const [terminosAbierto, setTerminosAbierto] = useState(false);
   const { toast } = useToast();
+  const { hasExactPermission } = useAuth();
+
+  // Aditivo: tener "ofertas-gestion" no lo concede. Hoy solo lo cumple superAdmin,
+  // porque el sub-permiso aun no esta asignado a nadie mas.
+  const puedeEditarTerminos = hasExactPermission("ofertas-gestion/terminos-condiciones");
 
   // Detectar cuando volvemos de crear una oferta
   useEffect(() => {
@@ -74,6 +82,16 @@ export default function OfertasGestionPage() {
         badge={{ text: "Ventas", className: "bg-amber-100 text-amber-800" }}
         actions={
           <div className="flex gap-2">
+            {puedeEditarTerminos && (
+              <Button
+                onClick={() => setTerminosAbierto(true)}
+                variant="outline"
+                className="border-emerald-600 text-emerald-700 hover:bg-emerald-50"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Términos y Condiciones
+              </Button>
+            )}
             <Button
               onClick={handleActualizarPrecios}
               disabled={actualizando}
@@ -97,6 +115,13 @@ export default function OfertasGestionPage() {
       <main className="content-with-fixed-header max-w-[96rem] mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
         <OfertasConfeccionadasView key={refreshKey} />
       </main>
+
+      {puedeEditarTerminos && (
+        <TerminosCondicionesDialog
+          open={terminosAbierto}
+          onOpenChange={setTerminosAbierto}
+        />
+      )}
     </div>
   );
 }

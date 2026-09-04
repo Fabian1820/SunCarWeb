@@ -375,6 +375,18 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-emerald-600",
     href: "/ofertas-gestion",
     grupo: "comercial-instaladora",
+    subPermisos: [
+      {
+        // Aditivo: el texto sale en TODAS las ofertas exportadas, así que
+        // tener el módulo de ofertas no debe bastar para reescribirlo.
+        // Sin asignar a nadie todavía: hoy solo entra superAdmin.
+        key: "ofertas-gestion/terminos-condiciones",
+        label: "Editar términos y condiciones",
+        descripcion:
+          "Permite ver y editar los términos y condiciones generales que se imprimen al final de cada oferta exportada.",
+        aditivo: true,
+      },
+    ],
   },
   {
     key: "reportes-comercial",
