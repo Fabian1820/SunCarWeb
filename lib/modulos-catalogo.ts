@@ -364,7 +364,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
   {
     key: "reservas-instaladora",
     label: "Reservas",
-    descripcion: "Ver reservas de materiales de proyectos de instalación (se crean desde la oferta de confección).",
+    descripcion: "Reservas de materiales de instalación, creadas desde la oferta.",
     icon: BookmarkCheck,
     iconClass: "text-orange-600",
     href: "/reservas-ventas?vista=instaladora",
@@ -373,8 +373,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
   {
     key: "citas",
     label: "Citas",
-    descripcion:
-      "Agenda de visitas de clientes y leads con las comerciales, y quién vino realmente.",
+    descripcion: "Agenda de visitas con las comerciales y quién vino realmente.",
     icon: CalendarCheck,
     iconClass: "text-emerald-600",
     href: "/citas",
@@ -421,7 +420,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
   {
     key: "distribucion-comerciales",
     label: "Distribución de Comerciales",
-    descripcion: "Organizar en equipos a los comerciales de instaladora y a las de ventas que apoyan.",
+    descripcion: "Equipos de comerciales, con las de ventas que apoyan.",
     icon: Users,
     iconClass: "text-emerald-600",
     href: "/distribucion-comerciales",
@@ -448,7 +447,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
   {
     key: "preguntas-frecuentes",
     label: "Preguntas Frecuentes",
-    descripcion: "Preguntas y respuestas oficiales que usa el asistente de WhatsApp para responder a los clientes.",
+    descripcion: "Respuestas oficiales que usa el asistente de WhatsApp.",
     icon: HelpCircle,
     iconClass: "text-emerald-600",
     href: "/preguntas-frecuentes",
@@ -457,7 +456,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
   {
     key: "datos-a-averiguar",
     label: "Datos a Averiguar",
-    descripcion: "Lo que el asistente de WhatsApp debe averiguarle al cliente para recomendar mejor y adelantarle trabajo al comercial.",
+    descripcion: "Datos que el asistente de WhatsApp debe averiguarle al cliente.",
     icon: ClipboardList,
     iconClass: "text-emerald-600",
     href: "/datos-a-averiguar",
@@ -466,7 +465,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
   {
     key: "numeros-prueba",
     label: "Números de Prueba",
-    descripcion: "Números de teléfono a los que el asistente de WhatsApp siempre responde, para probar el flujo sin importar el historial.",
+    descripcion: "Teléfonos con los que probar el asistente sin importar el historial.",
     icon: FlaskConical,
     iconClass: "text-emerald-600",
     href: "/numeros-prueba",
