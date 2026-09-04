@@ -630,6 +630,13 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
         label: "Pagos Clientes",
         subPermisos: [
           {
+            key: "facturas/pagos-clientes/editar-cobro",
+            label: "Editar cobros",
+            descripcion:
+              "Habilita el botón 'Editar cobro' en 'Todos los cobros' y en 'Cobros por oferta'. Permite reescribir monto, moneda, tasa, fecha, tipo y método de pago, pagador, quién lo recibió, comprobante y notas; al cambiar el monto se recalcula el pendiente de la oferta. ADITIVO: tener 'facturas' o 'facturas/pagos-clientes' NO lo concede; hay que asignarlo explícitamente.",
+            aditivo: true,
+          },
+          {
             key: "facturas/pagos-clientes/cancelar-cobro",
             label: "Cancelar cobros",
             descripcion:

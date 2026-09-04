@@ -39,7 +39,7 @@ import { ExportComprobanteDevolucionService } from "@/lib/services/feats/pagos/e
 import { FacturaContabilidadService } from "@/lib/services/feats/facturas/factura-contabilidad-service";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
-import { puedeEditarCobro } from "@/lib/constants/pagos-permisos";
+import { PERMISO_EDITAR_COBRO } from "@/lib/constants/pagos-permisos";
 import { EditarPagoDialog } from "./editar-pago-dialog";
 import { PagoTrazabilidad } from "./pago-trazabilidad";
 import { normalizeSearchText } from "@/lib/utils/string-utils";
@@ -217,8 +217,9 @@ export function TodosPagosTable({
   onPagoUpdated,
 }: TodosPagosTableProps) {
   const { toast } = useToast();
-  const { user } = useAuth();
-  const puedeEditar = puedeEditarCobro(user?.ci, user?.is_superAdmin);
+  const { user, hasExactPermission } = useAuth();
+  // Aditivo: el módulo padre no lo concede; se asigna desde /permisos.
+  const puedeEditar = hasExactPermission(PERMISO_EDITAR_COBRO);
   const [expandedOfertas, setExpandedOfertas] = useState<Set<string>>(
     new Set(),
   );

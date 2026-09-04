@@ -24,7 +24,7 @@ import { CancelarPagoDialog } from "./cancelar-pago-dialog";
 import { EditarPagoDialog } from "./editar-pago-dialog";
 import { useAuth } from "@/contexts/auth-context";
 import {
-  puedeEditarCobro,
+  PERMISO_EDITAR_COBRO,
   PERMISO_CANCELAR_COBRO,
 } from "@/lib/constants/pagos-permisos";
 import { PagoTrazabilidad } from "./pago-trazabilidad";
@@ -92,10 +92,10 @@ export function TodosPagosPlanosTable({
   onPagoUpdated,
   showSearch = true,
 }: TodosPagosPlanosTableProps) {
-  const { user, hasExactPermission } = useAuth();
-  const puedeEditar = puedeEditarCobro(user?.ci, user?.is_superAdmin);
-  // Aditivo: tener `facturas` / `facturas/pagos-clientes` no alcanza, hay que
-  // tener el sub-permiso exacto (o ser superAdmin). Se asigna desde /permisos.
+  const { hasExactPermission } = useAuth();
+  // Aditivos: tener `facturas` / `facturas/pagos-clientes` no alcanza, hay que
+  // tener el sub-permiso exacto (o ser superAdmin). Se asignan desde /permisos.
+  const puedeEditar = hasExactPermission(PERMISO_EDITAR_COBRO);
   const puedeCancelar = hasExactPermission(PERMISO_CANCELAR_COBRO);
 
   const [devolucionDialogOpen, setDevolucionDialogOpen] = useState(false);
