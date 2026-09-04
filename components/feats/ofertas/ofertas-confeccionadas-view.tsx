@@ -52,6 +52,7 @@ import {
   buildTerminosCondicionesHtml,
   type TerminosCondicionesPayload,
 } from "@/lib/utils/terminos-condiciones-export";
+import { obtenerTerminosActivosCompletos } from "@/lib/services/feats/terminos-service";
 import { ClienteService } from "@/lib/services/feats/customer/cliente-service";
 import { LeadService } from "@/lib/services/feats/leads/lead-service";
 import { InventarioService } from "@/lib/services/feats/inventario/inventario-service";
@@ -126,7 +127,11 @@ export function OfertasConfeccionadasView() {
   const [ofertaParaEliminar, setOfertaParaEliminar] =
     useState<OfertaListadoItem | null>(null);
   const [eliminandoOferta, setEliminandoOferta] = useState(false);
-  const [terminosCondicionesPayload, setTerminosCondicionesPayload] =
+  // BTB y BTC se cargan por separado: cada oferta puede exportar con
+  // cualquiera de los dos, sin importar el tipo_negocio del cliente/lead.
+  const [terminosCondicionesPayloadBTB, setTerminosCondicionesPayloadBTB] =
+    useState<TerminosCondicionesPayload | null>(null);
+  const [terminosCondicionesPayloadBTC, setTerminosCondicionesPayloadBTC] =
     useState<TerminosCondicionesPayload | null>(null);
 
   const getEstadoBadge = (estado: string) => {
@@ -266,27 +271,21 @@ export function OfertasConfeccionadasView() {
     setFiltros,
   ]);
 
-  // Cargar términos y condiciones
+  // Cargar términos y condiciones (BTB y BTC)
   useEffect(() => {
     const cargarTerminos = async () => {
       try {
-        const result = await apiRequest<{
-          success: boolean;
-          data?: TerminosCondicionesPayload;
-        }>("/terminos-condiciones/activo", {
-          method: "GET",
-        });
-
-        if (result.success && result.data) {
-          console.log("✅ Términos y condiciones cargados");
-          setTerminosCondicionesPayload(result.data);
-        } else {
-          console.warn("⚠️ No se encontraron términos y condiciones activos");
-          setTerminosCondicionesPayload(null);
-        }
+        const [btb, btc] = await Promise.all([
+          obtenerTerminosActivosCompletos("BTB"),
+          obtenerTerminosActivosCompletos("BTC"),
+        ]);
+        console.log("✅ Términos y condiciones (BTB/BTC) cargados");
+        setTerminosCondicionesPayloadBTB(btb);
+        setTerminosCondicionesPayloadBTC(btc);
       } catch (error) {
         console.error("❌ Error cargando términos y condiciones:", error);
-        setTerminosCondicionesPayload(null);
+        setTerminosCondicionesPayloadBTB(null);
+        setTerminosCondicionesPayloadBTC(null);
       }
     };
     cargarTerminos();
@@ -468,8 +467,10 @@ export function OfertasConfeccionadasView() {
         clientePorOferta.get(oferta.cliente_id || "") ||
         clientePorOferta.get(oferta.cliente_numero || ""),
       lead: oferta.lead_id ? leadPorId.get(oferta.lead_id) : null,
+      // Por defecto BTC (comportamiento previo); el diálogo de exportación
+      // sustituye esto por el tipo que la oferta tenga guardado.
       terminosCondicionesExport: buildTerminosCondicionesHtml(
-        terminosCondicionesPayload,
+        terminosCondicionesPayloadBTC,
         { oferta },
       ),
     });
@@ -1873,6 +1874,24 @@ export function OfertasConfeccionadasView() {
             setOfertaParaExportar(ofertaActualizada);
             refetch?.();
           }}
+          terminosHtmlBTB={buildTerminosCondicionesHtml(
+            terminosCondicionesPayloadBTB,
+            { oferta: ofertaParaExportar },
+          )}
+          terminosHtmlBTC={buildTerminosCondicionesHtml(
+            terminosCondicionesPayloadBTC,
+            { oferta: ofertaParaExportar },
+          )}
+          tipoNegocioCliente={
+            (
+              clientePorOferta.get(ofertaParaExportar.cliente_id || "") ||
+              clientePorOferta.get(ofertaParaExportar.cliente_numero || "")
+            )?.tipo_negocio ??
+            (ofertaParaExportar.lead_id
+              ? leadPorId.get(ofertaParaExportar.lead_id)?.tipo_negocio
+              : null) ??
+            null
+          }
         />
       )}
 

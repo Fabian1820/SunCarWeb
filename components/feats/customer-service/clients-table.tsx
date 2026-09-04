@@ -92,6 +92,7 @@ import {
   buildTerminosCondicionesHtml,
   type TerminosCondicionesPayload,
 } from "@/lib/utils/terminos-condiciones-export";
+import { obtenerTerminosActivosCompletos } from "@/lib/services/feats/terminos-service";
 import type { OfertaConfeccion } from "@/hooks/use-ofertas-confeccion";
 import type {
   OfertaPersonalizada,
@@ -942,7 +943,11 @@ export function ClientsTable({
   const [mostrarDialogoExportar, setMostrarDialogoExportar] = useState(false);
   const [ofertaParaExportar, setOfertaParaExportar] =
     useState<OfertaConfeccion | null>(null);
-  const [terminosCondicionesPayload, setTerminosCondicionesPayload] =
+  // BTB y BTC se cargan por separado: cada oferta puede exportar con
+  // cualquiera de los dos, sin importar el tipo_negocio del cliente/lead.
+  const [terminosCondicionesPayloadBTB, setTerminosCondicionesPayloadBTB] =
+    useState<TerminosCondicionesPayload | null>(null);
+  const [terminosCondicionesPayloadBTC, setTerminosCondicionesPayloadBTC] =
     useState<TerminosCondicionesPayload | null>(null);
 
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
@@ -1932,28 +1937,21 @@ export function ClientsTable({
     }
   }, [fetchOfertasGenericasAprobadas]);
 
-  // Cargar términos y condiciones al montar el componente
+  // Cargar términos y condiciones (BTB y BTC) al montar el componente
   useEffect(() => {
     const cargarTerminosCondiciones = async () => {
       try {
-        const { apiRequest } = await import("@/lib/api-config");
-        const result = await apiRequest<{
-          success: boolean;
-          data?: TerminosCondicionesPayload;
-        }>("/terminos-condiciones/activo", {
-          method: "GET",
-        });
-
-        if (result.success && result.data) {
-          console.log("✅ Términos y condiciones cargados en clients-table");
-          setTerminosCondicionesPayload(result.data);
-        } else {
-          console.warn("⚠️ No se encontraron términos y condiciones activos");
-          setTerminosCondicionesPayload(null);
-        }
+        const [btb, btc] = await Promise.all([
+          obtenerTerminosActivosCompletos("BTB"),
+          obtenerTerminosActivosCompletos("BTC"),
+        ]);
+        console.log("✅ Términos y condiciones (BTB/BTC) cargados en clients-table");
+        setTerminosCondicionesPayloadBTB(btb);
+        setTerminosCondicionesPayloadBTC(btc);
       } catch (error) {
         console.error("❌ Error cargando términos y condiciones:", error);
-        setTerminosCondicionesPayload(null);
+        setTerminosCondicionesPayloadBTB(null);
+        setTerminosCondicionesPayloadBTC(null);
       }
     };
 
@@ -3126,12 +3124,14 @@ export function ClientsTable({
           (c) =>
             c.id === oferta.cliente_id || c.numero === oferta.cliente_numero,
         ),
+        // Por defecto BTC (comportamiento previo); el diálogo de exportación
+        // sustituye esto por el tipo que la oferta tenga guardado.
         terminosCondicionesExport: buildTerminosCondicionesHtml(
-          terminosCondicionesPayload,
+          terminosCondicionesPayloadBTC,
           { oferta },
         ),
       }),
-    [clients, materials, marcas, terminosCondicionesPayload],
+    [clients, materials, marcas, terminosCondicionesPayloadBTC],
   );
 
   const handleExportarOferta = (oferta: OfertaConfeccion) => {
@@ -6164,6 +6164,21 @@ export function ClientsTable({
             setOfertaParaExportar(ofertaActualizada);
             refetchOfertas?.();
           }}
+          terminosHtmlBTB={buildTerminosCondicionesHtml(
+            terminosCondicionesPayloadBTB,
+            { oferta: ofertaParaExportar },
+          )}
+          terminosHtmlBTC={buildTerminosCondicionesHtml(
+            terminosCondicionesPayloadBTC,
+            { oferta: ofertaParaExportar },
+          )}
+          tipoNegocioCliente={
+            clients.find(
+              (c) =>
+                c.id === ofertaParaExportar.cliente_id ||
+                c.numero === ofertaParaExportar.cliente_numero,
+            )?.tipo_negocio ?? null
+          }
         />
       )}
 
