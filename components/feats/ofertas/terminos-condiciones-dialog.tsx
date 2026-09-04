@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/shared/molecule/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/shared/molecule/tabs";
 import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/atom/input";
 import { Label } from "@/components/shared/atom/label";
@@ -22,6 +23,7 @@ import {
   SECCIONES_TERMINOS,
   type SeccionTerminosKey,
   type TerminosCondicionesEditables,
+  type TipoNegocioTerminos,
 } from "@/lib/services/feats/terminos-service";
 
 /**
@@ -90,17 +92,31 @@ const VACIO: TerminosCondicionesEditables = SECCIONES_TERMINOS.reduce(
   {} as TerminosCondicionesEditables,
 );
 
-interface TerminosCondicionesDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+const ETIQUETA_TIPO: Record<TipoNegocioTerminos, string> = {
+  BTB: "BTB",
+  BTC: "BTC",
+};
+
+interface TerminosTabFormProps {
+  tipoNegocio: TipoNegocioTerminos;
+  /** El padre solo carga la pestaña activa la primera vez que se muestra. */
+  activo: boolean;
+  onDirtyChange: (dirty: boolean) => void;
 }
 
-export function TerminosCondicionesDialog({
-  open,
-  onOpenChange,
-}: TerminosCondicionesDialogProps) {
+/**
+ * Formulario de una sola pestaña (BTB o BTC). Cada una tiene su propio
+ * documento activo en el backend, independiente de la otra: cargar,
+ * editar o guardar en una no afecta a la otra.
+ */
+function TerminosTabForm({
+  tipoNegocio,
+  activo,
+  onDirtyChange,
+}: TerminosTabFormProps) {
   const { toast } = useToast();
   const [cargando, setCargando] = useState(false);
+  const [cargadoAlMenosUnaVez, setCargadoAlMenosUnaVez] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
   const [terminosId, setTerminosId] = useState<string | null>(null);
@@ -113,9 +129,10 @@ export function TerminosCondicionesDialog({
     setCargando(true);
     setErrorCarga(null);
     try {
-      const data = await obtenerTerminosActivosCompletos();
+      const data = await obtenerTerminosActivosCompletos(tipoNegocio);
       if (!data) {
-        // Aún no hay ninguna versión: el formulario arranca vacío y al guardar se crea.
+        // Aún no hay ninguna versión para este tipo: el formulario arranca
+        // vacío y al guardar se crea la primera.
         setTerminosId(null);
         setVersion(null);
         setActualizadoEn(null);
@@ -136,19 +153,25 @@ export function TerminosCondicionesDialog({
       setErrorCarga(e?.message ?? "No se pudieron cargar los términos y condiciones.");
     } finally {
       setCargando(false);
+      setCargadoAlMenosUnaVez(true);
     }
-  }, []);
+  }, [tipoNegocio]);
 
+  // Carga perezosa: solo la primera vez que esta pestaña se muestra.
   useEffect(() => {
-    if (open) cargar();
-  }, [open, cargar]);
+    if (activo && !cargadoAlMenosUnaVez && !cargando) cargar();
+  }, [activo, cargadoAlMenosUnaVez, cargando, cargar]);
 
   const vacios = SECCIONES_TERMINOS.filter((k) => !valores[k].trim());
   const hayCambios = SECCIONES_TERMINOS.some((k) => valores[k] !== iniciales[k]);
   const puedeGuardar = !cargando && !guardando && hayCambios && vacios.length === 0;
 
-  const handleGuardar = async () => {
-    if (!puedeGuardar) return;
+  useEffect(() => {
+    onDirtyChange(hayCambios);
+  }, [hayCambios, onDirtyChange]);
+
+  const handleGuardar = useCallback(async (): Promise<boolean> => {
+    if (!hayCambios || vacios.length > 0) return true; // nada que guardar, no bloquea el cierre
     setGuardando(true);
     try {
       const limpios = SECCIONES_TERMINOS.reduce(
@@ -159,35 +182,30 @@ export function TerminosCondicionesDialog({
       if (terminosId) {
         await actualizarTerminos(terminosId, limpios);
       } else {
-        await crearTerminos(limpios);
+        await crearTerminos(tipoNegocio, limpios);
       }
 
       toast({
-        title: "Términos actualizados",
+        title: `Términos ${ETIQUETA_TIPO[tipoNegocio]} actualizados`,
         description:
-          "Las próximas ofertas que exportes ya salen con este texto. Las exportadas antes no cambian.",
+          "Las próximas ofertas de este tipo que exportes ya salen con este texto. Las exportadas antes no cambian.",
       });
-      onOpenChange(false);
+      setIniciales(limpios);
+      setValores(limpios);
+      // Recarga silenciosa: refresca versión/fecha con lo que devolvió el backend.
+      await cargar();
+      return true;
     } catch (e: any) {
       toast({
         title: "No se pudo guardar",
         description: e?.message ?? "Inténtalo de nuevo.",
         variant: "destructive",
       });
+      return false;
     } finally {
       setGuardando(false);
     }
-  };
-
-  const handleCerrar = (abierto: boolean) => {
-    if (!abierto && hayCambios && !guardando) {
-      const confirmar = window.confirm(
-        "Tienes cambios sin guardar en los términos y condiciones. ¿Cerrar y descartarlos?",
-      );
-      if (!confirmar) return;
-    }
-    onOpenChange(abierto);
-  };
+  }, [hayCambios, vacios.length, valores, terminosId, tipoNegocio, toast, cargar]);
 
   const fechaLegible = actualizadoEn
     ? new Date(actualizadoEn).toLocaleDateString("es-ES", {
@@ -198,6 +216,123 @@ export function TerminosCondicionesDialog({
     : null;
 
   return (
+    <div className="space-y-4">
+      {version !== null && fechaLegible && (
+        <p className="text-xs text-gray-500">
+          Versión {version} · actualizada el {fechaLegible}
+        </p>
+      )}
+
+      <div className="max-h-[52vh] overflow-y-auto pr-1 space-y-5">
+        {cargando ? (
+          <div className="flex items-center justify-center py-16 text-gray-500">
+            <Loader2 className="h-5 w-5 animate-spin mr-2" />
+            Cargando términos {ETIQUETA_TIPO[tipoNegocio]}...
+          </div>
+        ) : errorCarga ? (
+          <div className="flex flex-col items-center gap-3 py-12 text-center">
+            <AlertCircle className="h-8 w-8 text-red-500" />
+            <p className="text-sm text-gray-600">{errorCarga}</p>
+            <Button variant="outline" onClick={cargar}>
+              Reintentar
+            </Button>
+          </div>
+        ) : (
+          <>
+            {!terminosId && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                Todavía no hay términos {ETIQUETA_TIPO[tipoNegocio]} configurados. Al
+                guardar se creará la primera versión.
+              </div>
+            )}
+            {CAMPOS.map((campo) => (
+              <div key={campo.key} className="space-y-1.5">
+                <Label htmlFor={`terminos-${tipoNegocio}-${campo.key}`}>
+                  {campo.label}
+                </Label>
+                {campo.multilinea ? (
+                  <Textarea
+                    id={`terminos-${tipoNegocio}-${campo.key}`}
+                    rows={campo.filas ?? 4}
+                    value={valores[campo.key]}
+                    onChange={(e) =>
+                      setValores((v) => ({ ...v, [campo.key]: e.target.value }))
+                    }
+                    className="resize-y"
+                  />
+                ) : (
+                  <Input
+                    id={`terminos-${tipoNegocio}-${campo.key}`}
+                    value={valores[campo.key]}
+                    onChange={(e) =>
+                      setValores((v) => ({ ...v, [campo.key]: e.target.value }))
+                    }
+                  />
+                )}
+                <p className="text-xs text-gray-500">{campo.ayuda}</p>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-t pt-3">
+        <span className="text-xs text-gray-500">
+          {vacios.length > 0
+            ? `Faltan ${vacios.length} ${vacios.length === 1 ? "sección" : "secciones"} por rellenar.`
+            : hayCambios
+              ? "Hay cambios sin guardar en esta pestaña."
+              : "Sin cambios."}
+        </span>
+        <Button
+          onClick={handleGuardar}
+          disabled={!puedeGuardar}
+          size="sm"
+          className="bg-emerald-600 hover:bg-emerald-700 text-white"
+        >
+          {guardando && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+          {guardando ? "Guardando..." : `Guardar ${ETIQUETA_TIPO[tipoNegocio]}`}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+interface TerminosCondicionesDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export function TerminosCondicionesDialog({
+  open,
+  onOpenChange,
+}: TerminosCondicionesDialogProps) {
+  const [tab, setTab] = useState<TipoNegocioTerminos>("BTC");
+  const [dirtyBTB, setDirtyBTB] = useState(false);
+  const [dirtyBTC, setDirtyBTC] = useState(false);
+
+  // Al abrir, siempre se empieza en BTC (la pestaña que ya existía).
+  useEffect(() => {
+    if (open) setTab("BTC");
+  }, [open]);
+
+  const hayCambiosSinGuardar = dirtyBTB || dirtyBTC;
+
+  const handleCerrar = async (abierto: boolean) => {
+    if (abierto) {
+      onOpenChange(true);
+      return;
+    }
+    if (hayCambiosSinGuardar) {
+      const confirmar = window.confirm(
+        "Tienes cambios sin guardar en los términos y condiciones. ¿Cerrar y descartarlos?",
+      );
+      if (!confirmar) return;
+    }
+    onOpenChange(false);
+  };
+
+  return (
     <Dialog open={open} onOpenChange={handleCerrar}>
       <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
         <DialogHeader>
@@ -206,92 +341,50 @@ export function TerminosCondicionesDialog({
             Términos y condiciones
           </DialogTitle>
           <DialogDescription>
-            Es el texto que se imprime al final de cada oferta exportada. Se aplica a
-            todas las ofertas por igual.
-            {version !== null && fechaLegible && (
-              <span className="block mt-1 text-xs text-gray-500">
-                Versión {version} · actualizada el {fechaLegible}
-              </span>
-            )}
+            Es el texto que se imprime al final de cada oferta exportada. BTB y BTC
+            tienen su propio texto: cada oferta usa el de su tipo de negocio (o el que
+            se elija manualmente al exportar).
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto pr-1 space-y-5">
-          {cargando ? (
-            <div className="flex items-center justify-center py-16 text-gray-500">
-              <Loader2 className="h-5 w-5 animate-spin mr-2" />
-              Cargando términos...
-            </div>
-          ) : errorCarga ? (
-            <div className="flex flex-col items-center gap-3 py-12 text-center">
-              <AlertCircle className="h-8 w-8 text-red-500" />
-              <p className="text-sm text-gray-600">{errorCarga}</p>
-              <Button variant="outline" onClick={cargar}>
-                Reintentar
-              </Button>
-            </div>
-          ) : (
-            <>
-              {!terminosId && (
-                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                  Todavía no hay términos configurados. Al guardar se creará la primera
-                  versión.
-                </div>
-              )}
-              {CAMPOS.map((campo) => (
-                <div key={campo.key} className="space-y-1.5">
-                  <Label htmlFor={`terminos-${campo.key}`}>{campo.label}</Label>
-                  {campo.multilinea ? (
-                    <Textarea
-                      id={`terminos-${campo.key}`}
-                      rows={campo.filas ?? 4}
-                      value={valores[campo.key]}
-                      onChange={(e) =>
-                        setValores((v) => ({ ...v, [campo.key]: e.target.value }))
-                      }
-                      className="resize-y"
-                    />
-                  ) : (
-                    <Input
-                      id={`terminos-${campo.key}`}
-                      value={valores[campo.key]}
-                      onChange={(e) =>
-                        setValores((v) => ({ ...v, [campo.key]: e.target.value }))
-                      }
-                    />
-                  )}
-                  <p className="text-xs text-gray-500">{campo.ayuda}</p>
-                </div>
-              ))}
-            </>
-          )}
-        </div>
+        <Tabs value={tab} onValueChange={(v) => setTab(v as TipoNegocioTerminos)} className="flex-1 min-h-0 flex flex-col">
+          <TabsList>
+            <TabsTrigger value="BTC">
+              BTC {dirtyBTC && <span className="ml-1 text-amber-500">●</span>}
+            </TabsTrigger>
+            <TabsTrigger value="BTB">
+              BTB {dirtyBTB && <span className="ml-1 text-amber-500">●</span>}
+            </TabsTrigger>
+          </TabsList>
 
-        <DialogFooter className="border-t pt-4 flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <span className="text-xs text-gray-500 order-2 sm:order-1">
-            {vacios.length > 0
-              ? `Faltan ${vacios.length} ${vacios.length === 1 ? "sección" : "secciones"} por rellenar.`
-              : hayCambios
-                ? "Hay cambios sin guardar."
-                : "Sin cambios."}
-          </span>
-          <div className="flex gap-2 order-1 sm:order-2">
-            <Button
-              variant="outline"
-              onClick={() => handleCerrar(false)}
-              disabled={guardando}
-            >
-              Cancelar
-            </Button>
-            <Button
-              onClick={handleGuardar}
-              disabled={!puedeGuardar}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
-            >
-              {guardando && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {guardando ? "Guardando..." : "Guardar cambios"}
-            </Button>
+          <div className="flex-1 min-h-0 overflow-y-auto pt-3">
+            {/*
+              forceMount + ocultar por CSS (en vez de dejar que Radix desmonte
+              la pestaña inactiva): si no, cambiar de pestaña con ediciones sin
+              guardar las perdía, porque el formulario se remonta desde cero
+              cada vez que su TabsContent vuelve a activarse.
+            */}
+            <TabsContent value="BTC" forceMount className="mt-0 data-[state=inactive]:hidden">
+              <TerminosTabForm
+                tipoNegocio="BTC"
+                activo={tab === "BTC"}
+                onDirtyChange={setDirtyBTC}
+              />
+            </TabsContent>
+            <TabsContent value="BTB" forceMount className="mt-0 data-[state=inactive]:hidden">
+              <TerminosTabForm
+                tipoNegocio="BTB"
+                activo={tab === "BTB"}
+                onDirtyChange={setDirtyBTB}
+              />
+            </TabsContent>
           </div>
+        </Tabs>
+
+        <DialogFooter className="border-t pt-3">
+          <Button variant="outline" onClick={() => handleCerrar(false)}>
+            Cerrar
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

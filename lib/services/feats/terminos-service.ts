@@ -4,8 +4,15 @@
 
 import { apiRequest } from "../../api-config"
 
+/**
+ * BTB y BTC tienen texto legal distinto: cada uno vive en su propio
+ * documento "activo" e independiente (versionado por separado).
+ */
+export type TipoNegocioTerminos = "BTB" | "BTC"
+
 export interface TerminosCondiciones {
   id: string
+  tipo_negocio?: TipoNegocioTerminos
   /** Texto consolidado que el backend regenera solo; no se edita a mano. */
   texto: string
   titulo: string
@@ -43,12 +50,14 @@ interface TerminosActivosResponse {
 }
 
 /**
- * Obtiene los terminos y condiciones activos.
+ * Obtiene los terminos y condiciones activos de un tipo_negocio (BTB/BTC).
  */
-export async function obtenerTerminosActivos(): Promise<string | null> {
+export async function obtenerTerminosActivos(
+  tipoNegocio: TipoNegocioTerminos,
+): Promise<string | null> {
   try {
     const result = await apiRequest<TerminosActivosResponse>(
-      "/terminos-condiciones/activo",
+      `/terminos-condiciones/activo?tipo_negocio=${tipoNegocio}`,
       { method: "GET" },
     )
 
@@ -145,12 +154,15 @@ export function parseTerminosHTML(html: string): SeccionTerminos[] {
 }
 
 /**
- * Obtiene los terminos activos completos (todas las secciones), no solo el texto.
- * Devuelve null si aun no hay ninguno configurado.
+ * Obtiene los terminos activos completos (todas las secciones) de un
+ * tipo_negocio (BTB/BTC), no solo el texto. Devuelve null si aun no hay
+ * ninguno configurado para ese tipo.
  */
-export async function obtenerTerminosActivosCompletos(): Promise<TerminosCondiciones | null> {
+export async function obtenerTerminosActivosCompletos(
+  tipoNegocio: TipoNegocioTerminos,
+): Promise<TerminosCondiciones | null> {
   const result = await apiRequest<TerminosActivosResponse>(
-    "/terminos-condiciones/activo",
+    `/terminos-condiciones/activo?tipo_negocio=${tipoNegocio}`,
     { method: "GET" },
   )
 
@@ -180,15 +192,21 @@ export async function actualizarTerminos(
 }
 
 /**
- * Crea la primera version de terminos cuando la base aun no tiene ninguna.
- * El backend desactiva las anteriores y asigna numero de version.
+ * Crea la primera version de terminos para un tipo_negocio (BTB/BTC) cuando
+ * ese tipo aun no tiene ninguna. El backend desactiva las versiones
+ * anteriores DEL MISMO tipo_negocio y asigna numero de version (BTB y BTC
+ * se versionan por separado).
  */
 export async function crearTerminos(
+  tipoNegocio: TipoNegocioTerminos,
   secciones: TerminosCondicionesEditables,
 ): Promise<void> {
   const result = await apiRequest<{ success?: boolean; message?: string }>(
     "/terminos-condiciones/",
-    { method: "POST", body: JSON.stringify(secciones) },
+    {
+      method: "POST",
+      body: JSON.stringify({ ...secciones, tipo_negocio: tipoNegocio }),
+    },
   )
 
   if (result?.success === false) {

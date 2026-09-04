@@ -24,6 +24,14 @@ import type { generarOpcionesExportacionOferta } from "@/lib/services/feats/ofer
 import { useToast } from "@/hooks/use-toast";
 import { EsquemaPagoSelector } from "@/components/feats/ofertas/esquema-pago-selector";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/shared/atom/select";
+import type { TipoNegocioTerminos } from "@/lib/services/feats/terminos-service";
+import {
   ESQUEMA_PAGO_PERSONALIZADO,
   ESQUEMA_PAGO_POR_DEFECTO,
   ESQUEMAS_PAGO_PRESETS,
@@ -49,11 +57,23 @@ interface ExportSelectionDialogProps {
    */
   exportOptions: ReturnType<typeof generarOpcionesExportacionOferta>;
   /**
-   * Se llama tras guardar el esquema de pago en la oferta. El padre debe
-   * refrescar su copia para que el PDF se regenere con los porcentajes nuevos
-   * y para que al reabrir el diálogo no se vea el valor viejo.
+   * Se llama tras guardar el esquema de pago (o el tipo de términos) en la
+   * oferta. El padre debe refrescar su copia para que el PDF se regenere y
+   * para que al reabrir el diálogo no se vea el valor viejo.
    */
   onOfertaActualizada?: (oferta: any) => void;
+  /**
+   * HTML de términos y condiciones BTB/BTC ya construidos (via
+   * buildTerminosCondicionesHtml) por el padre. Si alguno falta, se usa el
+   * que ya venía en `exportOptions` (comportamiento anterior).
+   */
+  terminosHtmlBTB?: string | null;
+  terminosHtmlBTC?: string | null;
+  /**
+   * tipo_negocio del cliente/lead asociado a esta oferta. Es el valor por
+   * defecto quisiera cuando la oferta todavía no tiene un override propio.
+   */
+  tipoNegocioCliente?: string | null;
 }
 
 export function ExportSelectionDialog({
@@ -62,8 +82,82 @@ export function ExportSelectionDialog({
   oferta,
   exportOptions,
   onOfertaActualizada,
+  terminosHtmlBTB,
+  terminosHtmlBTC,
+  tipoNegocioCliente,
 }: ExportSelectionDialogProps) {
   const { toast } = useToast();
+
+  // --- Tipo de términos y condiciones (BTB/BTC) -----------------------------
+  // Se guarda en la oferta (igual que esquema_pago): así no hay que
+  // reseleccionarlo cada vez que se exporta. Por defecto usa el override ya
+  // guardado en la oferta, y si no tiene, el tipo_negocio del cliente/lead.
+  const normalizarTipoNegocio = (
+    valor: unknown,
+  ): TipoNegocioTerminos | null => {
+    if (typeof valor !== "string") return null;
+    const tipo = valor.trim().toUpperCase();
+    return tipo === "BTB" || tipo === "BTC" ? (tipo as TipoNegocioTerminos) : null;
+  };
+  const [tipoNegocioTerminos, setTipoNegocioTerminos] =
+    useState<TipoNegocioTerminos>("BTC");
+  const [guardandoTipoNegocioTerminos, setGuardandoTipoNegocioTerminos] =
+    useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const sugerido =
+      normalizarTipoNegocio(oferta?.tipo_negocio_terminos) ||
+      normalizarTipoNegocio(tipoNegocioCliente) ||
+      "BTC";
+    setTipoNegocioTerminos(sugerido);
+  }, [open, oferta?.id, oferta?.tipo_negocio_terminos, tipoNegocioCliente]);
+
+  const guardarTipoNegocioTerminos = async (tipo: TipoNegocioTerminos) => {
+    const anterior = tipoNegocioTerminos;
+    setTipoNegocioTerminos(tipo);
+    const ofertaId = oferta?.id || oferta?._id;
+    if (!ofertaId) return;
+
+    setGuardandoTipoNegocioTerminos(true);
+    try {
+      const response = await apiRequest<{
+        success?: boolean;
+        message?: string;
+      }>(`/ofertas/confeccion/${ofertaId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ tipo_negocio_terminos: tipo }),
+      });
+
+      if (response?.success === false) {
+        throw new Error(
+          response.message || "No se pudo guardar el tipo de términos",
+        );
+      }
+
+      onOfertaActualizada?.({ ...oferta, tipo_negocio_terminos: tipo });
+      toast({
+        title: "Términos y condiciones actualizados",
+        description: `Esta oferta usará el texto de ${tipo}.`,
+      });
+    } catch (error) {
+      console.error("Error guardando tipo_negocio_terminos de la oferta", error);
+      setTipoNegocioTerminos(anterior);
+      toast({
+        title: "No se pudo guardar el tipo de términos",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Revisa la conexión e inténtalo de nuevo.",
+        variant: "destructive",
+      });
+    } finally {
+      setGuardandoTipoNegocioTerminos(false);
+    }
+  };
+
+  const terminosHtmlSeleccionado =
+    tipoNegocioTerminos === "BTB" ? terminosHtmlBTB : terminosHtmlBTC;
 
   // --- Esquema de pago -----------------------------------------------------
   // Los porcentajes se guardan en la oferta, no solo en esta exportación: al
@@ -427,20 +521,30 @@ export function ExportSelectionDialog({
       columns_conPrecios: exportOptions.exportOptionsClienteConPrecios?.columns,
     });
 
+    // Si el padre pasó el HTML del tipo seleccionado, sustituye al que ya
+    // traía exportOptions; si no (props no provistas), se respeta el
+    // original tal cual venía antes de este selector.
+    const overrideTerminos = terminosHtmlSeleccionado != null
+      ? { terminosCondiciones: terminosHtmlSeleccionado }
+      : {};
+
     return {
       exportOptionsCompleto: {
         ...exportOptions.exportOptionsCompleto,
         data: filtrarItems(exportOptions.exportOptionsCompleto?.data || []),
+        ...overrideTerminos,
       },
       exportOptionsSinPrecios: {
         ...exportOptions.exportOptionsSinPrecios,
         data: filtrarItems(exportOptions.exportOptionsSinPrecios?.data || []),
+        ...overrideTerminos,
       },
       exportOptionsClienteConPrecios: {
         ...exportOptions.exportOptionsClienteConPrecios,
         data: filtrarItems(
           exportOptions.exportOptionsClienteConPrecios?.data || [],
         ),
+        ...overrideTerminos,
       },
     };
   }, [
@@ -448,6 +552,7 @@ export function ExportSelectionDialog({
     materialesSeleccionados,
     seccionesEspecialesSeleccionadas,
     oferta,
+    terminosHtmlSeleccionado,
   ]);
 
   // Debug: verificar que los términos se están pasando
@@ -537,6 +642,38 @@ export function ExportSelectionDialog({
                   : "Guardar esquema personalizado"}
               </Button>
             )}
+          </div>
+
+          {/* Tipo de términos y condiciones: se guarda en la oferta, no solo en este export */}
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <label
+              htmlFor="export-tipo-negocio-terminos"
+              className="text-sm font-medium text-slate-700 mb-1.5 block"
+            >
+              Términos y condiciones a imprimir
+            </label>
+            <Select
+              value={tipoNegocioTerminos}
+              onValueChange={(value) =>
+                void guardarTipoNegocioTerminos(value as TipoNegocioTerminos)
+              }
+              disabled={guardandoTipoNegocioTerminos}
+            >
+              <SelectTrigger
+                id="export-tipo-negocio-terminos"
+                className="h-9 bg-white"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="BTC">BTC</SelectItem>
+                <SelectItem value="BTB">BTB</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-slate-500 mt-1.5">
+              Se guarda en la oferta: no hay que volver a elegirlo en cada
+              exportación.
+            </p>
           </div>
 
           {/* Controles de selección */}
