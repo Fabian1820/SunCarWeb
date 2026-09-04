@@ -96,7 +96,6 @@ import type {
 } from "@/lib/types/feats/ofertas-personalizadas/oferta-personalizada-types";
 import type { OfertaConfeccion } from "@/hooks/use-ofertas-confeccion";
 import { useToast } from "@/hooks/use-toast";
-import { useComercialEquipoMap } from "@/hooks/use-comercial-equipo-map";
 import {
   Popover,
   PopoverContent,
@@ -241,7 +240,6 @@ export function LeadsTable({
   const canAnularLead = hasExactPermission("leads/anular");
   const canConvertirLead = hasExactPermission("leads/convertir");
   const canSubirFotosLead = hasExactPermission("leads/fotos");
-  const { nombreEquipo } = useComercialEquipoMap();
   const {
     ofertas,
     loading: ofertasLoading,
@@ -1647,15 +1645,11 @@ export function LeadsTable({
                           <span className="truncate">{lead.comercial}</span>
                         </div>
                       )}
-                      {(() => {
-                        const equipo = nombreEquipo(lead.comercial);
-                        if (!equipo) return null;
-                        return (
-                          <div className="text-[11px] text-gray-400 mt-0.5 truncate">
-                            {equipo}
-                          </div>
-                        );
-                      })()}
+                      {lead.tipo_negocio && (
+                        <div className="text-[11px] text-gray-400 mt-0.5 truncate">
+                          {lead.tipo_negocio}
+                        </div>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-3min-w-[220px] max-w-[280px]">

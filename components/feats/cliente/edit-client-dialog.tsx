@@ -164,6 +164,7 @@ export function EditClientDialog({
     prioridad: client.prioridad || "Baja",
     motivo_visita: client.motivo_visita || "",
     tipo_persona: normalizeTipoPersona(client.tipo_persona || ""),
+    tipo_negocio: client.tipo_negocio || "",
     es_trabajador_suncar: client.es_trabajador_suncar ?? false,
   });
 
@@ -224,6 +225,7 @@ export function EditClientDialog({
         prioridad: client.prioridad || "Baja",
         motivo_visita: client.motivo_visita || "",
         tipo_persona: normalizeTipoPersona(client.tipo_persona || ""),
+        tipo_negocio: client.tipo_negocio || "",
         es_trabajador_suncar: client.es_trabajador_suncar ?? false,
       });
 
@@ -742,6 +744,26 @@ export function EditClientDialog({
                       <SelectContent>
                         <SelectItem value="Natural">Natural</SelectItem>
                         <SelectItem value="Jurídica">Jurídica</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="tipo_negocio">Tipo de Negocio</Label>
+                    <Select
+                      value={formData.tipo_negocio || ""}
+                      onValueChange={(value) =>
+                        handleInputChange("tipo_negocio", value)
+                      }
+                    >
+                      <SelectTrigger
+                        id="tipo_negocio"
+                        className="text-gray-900"
+                      >
+                        <SelectValue placeholder="Sin definir" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="BTB">BTB</SelectItem>
+                        <SelectItem value="BTC">BTC</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

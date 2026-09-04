@@ -88,6 +88,7 @@ export interface Lead {
   provincia_montaje?: string;
   municipio?: string;
   comercial?: string;
+  tipo_negocio?: string; // "BTB" | "BTC", del lead en sí (no del equipo del comercial)
   ofertas?: OfertaEmbebida[];
   fotos?: LeadFoto[];
   elementos_personalizados?: ElementoPersonalizado[];
@@ -125,6 +126,7 @@ export interface LeadCreateData {
   provincia_montaje?: string;
   municipio?: string;
   comercial?: string;
+  tipo_negocio?: string; // "BTB" | "BTC", del lead en sí (no del equipo del comercial)
   ofertas?: OfertaAsignacion[]; // Al crear: solo enviar oferta_id + cantidad
   elementos_personalizados?: ElementoPersonalizado[];
   comprobante_pago_url?: string;
@@ -150,6 +152,7 @@ export interface LeadUpdateData {
   provincia_montaje?: string;
   municipio?: string;
   comercial?: string;
+  tipo_negocio?: string; // "BTB" | "BTC", del lead en sí (no del equipo del comercial)
   ofertas?: OfertaAsignacion[]; // Al actualizar: solo enviar oferta_id + cantidad
   elementos_personalizados?: ElementoPersonalizado[];
   comprobante_pago_url?: string;

@@ -166,6 +166,7 @@ export function CreateLeadDialog({
     provincia_montaje: "",
     municipio: "",
     comercial: user?.nombre || "", // Asignar automáticamente el nombre del usuario actual
+    tipo_negocio: "",
     ofertas: [],
     elementos_personalizados: [],
     metodo_pago: "",
@@ -752,6 +753,23 @@ export function CreateLeadDialog({
                   value={formData.prioridad}
                   onChange={(value) => handleInputChange("prioridad", value)}
                 />
+                <div>
+                  <Label htmlFor="tipo_negocio">Tipo de Negocio</Label>
+                  <Select
+                    value={formData.tipo_negocio || ""}
+                    onValueChange={(value) =>
+                      handleInputChange("tipo_negocio", value)
+                    }
+                  >
+                    <SelectTrigger id="tipo_negocio">
+                      <SelectValue placeholder="Sin definir" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="BTB">BTB</SelectItem>
+                      <SelectItem value="BTC">BTC</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
           </section>

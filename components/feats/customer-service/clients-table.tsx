@@ -977,7 +977,6 @@ export function ClientsTable({
   });
   const {
     equipos: equiposComerciales,
-    nombreEquipo,
     comercialesDeEquipo,
   } = useComercialEquipoMap();
   const [equipoSeleccionado, setEquipoSeleccionado] = useState<string>("todos");
@@ -4202,9 +4201,9 @@ export function ClientsTable({
                                 {client.comercial}
                               </div>
                             )}
-                            {nombreEquipo(client.comercial) && (
+                            {client.tipo_negocio && (
                               <div className="text-xs text-gray-400 truncate">
-                                {nombreEquipo(client.comercial)}
+                                {client.tipo_negocio}
                               </div>
                             )}
                             {client.fuente && (

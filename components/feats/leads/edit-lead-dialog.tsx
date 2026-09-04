@@ -223,6 +223,7 @@ export function EditLeadDialog({
     provincia_montaje: lead.provincia_montaje || "",
     municipio: lead.municipio || "",
     comercial: lead.comercial || user?.nombre || "",
+    tipo_negocio: lead.tipo_negocio || "",
     metodo_pago: lead.metodo_pago || "",
     moneda: lead.moneda || "",
     prioridad: lead.prioridad || "Baja",
@@ -264,6 +265,7 @@ export function EditLeadDialog({
         provincia_montaje: lead.provincia_montaje || "",
         municipio: lead.municipio || "",
         comercial: lead.comercial || user?.nombre || "",
+        tipo_negocio: lead.tipo_negocio || "",
         metodo_pago: lead.metodo_pago || "",
         moneda: lead.moneda || "",
         prioridad: lead.prioridad || "Baja",
@@ -920,6 +922,23 @@ export function EditLeadDialog({
                         handleInputChange("prioridad", value)
                       }
                     />
+                    <div>
+                      <Label htmlFor="tipo_negocio">Tipo de Negocio</Label>
+                      <Select
+                        value={formData.tipo_negocio || ""}
+                        onValueChange={(value) =>
+                          handleInputChange("tipo_negocio", value)
+                        }
+                      >
+                        <SelectTrigger id="tipo_negocio">
+                          <SelectValue placeholder="Sin definir" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="BTB">BTB</SelectItem>
+                          <SelectItem value="BTC">BTC</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
               </section>

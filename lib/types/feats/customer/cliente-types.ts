@@ -65,6 +65,7 @@ export interface Cliente {
   prioridad?: "Ninguna" | "Urgente" | "Alta" | "Media" | "Baja";
   motivo_visita?: string; // Campo temporal para crear visita automática cuando estado = "Pendiente de visita"
   tipo_persona?: string;
+  tipo_negocio?: string; // "BTB" | "BTC", del cliente en sí (no del equipo del comercial)
   oferta_confeccion?: OfertaConfeccionResumen | null;
   capacidad_equipos?: CapacidadEquipos | null;
   es_trabajador_suncar?: boolean;
@@ -113,6 +114,7 @@ export interface ClienteCreateData {
   prioridad?: "Ninguna" | "Urgente" | "Alta" | "Media" | "Baja";
   motivo_visita?: string; // Campo temporal para crear visita automática cuando estado = "Pendiente de visita"
   tipo_persona?: string;
+  tipo_negocio?: string; // "BTB" | "BTC", del cliente en sí (no del equipo del comercial)
 }
 
 export interface ClienteSimpleCreateData {
