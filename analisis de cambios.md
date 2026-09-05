@@ -2,6 +2,128 @@
 
 ---
 
+## 📅 5 de Septiembre, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**17 commits reales** (1 del Sep 3, 16 del Sep 4) — Fabian1820. Sesión extremadamente productiva: nuevo módulo de agenda de citas, refactor de permisos de cobros eliminando la lista de CIs hardcodeada, separación de permisos del Informe de Dirección, tipo de negocio BTB/BTC propio para clientes/leads, nuevas secciones en ofertas (Transformadores, Medidores, Acciones a Realizar), pestañas BTB/BTC en términos de oferta, editar términos desde la UI, seis nuevos códigos de avería, fix crítico de depreciación en asignaciones, y varios refactors de dashboard.
+
+---
+
+### Área 1: refactor(pagos) — editar cobros por permiso, no por lista de CI (Sep 4)
+
+- **`refactor(pagos): editar cobros por permiso, no por lista de CI`** — Elimina la lista de CIs hardcodeada en frontend que controlaba quién podía editar cobros (riesgo documentado desde Jun 23). Pasa a verificar un permiso del sistema igual que el resto de los módulos. Cualquier usuario con el permiso correspondiente puede ahora editar cobros, independientemente de su CI.
+
+---
+
+### Área 2: feat(pagos) — permiso aditivo para cancelar cobros (Sep 4)
+
+- **`feat(pagos): permiso aditivo para cancelar cobros`** — Cancelar cobros ahora es un subpermiso aditivo separado del permiso base de pagos. Antes la cancelación podía estar disponible a todos los usuarios del módulo; ahora solo quienes tengan el subpermiso explícitamente asignado pueden cancelar.
+
+---
+
+### Área 3: fix(pagos) — tasa EUR solicitada como "USD por 1 EUR" (Sep 4)
+
+- **`fix(pagos): pedir la tasa del EUR como "USD por 1 EUR"`** — Corrección en la forma en que se solicita/muestra la tasa de conversión EUR. Antes el campo podía inducir al operador a introducir el valor invertido ("cuántos EUR vale 1 USD" en lugar de "cuántos USD vale 1 EUR"), produciendo importes en EUR incorrectos.
+
+---
+
+### Área 4: feat(ofertas) — secciones Transformadores, Medidores y Acciones a Realizar (Sep 4)
+
+- **`feat(ofertas): secciones Transformadores y Medidores y Acciones a Realizar`** — Tres nuevas secciones opcionales en la confección de ofertas, además de las ya existentes (inversor, baterías, paneles). Permiten incluir en la oferta equipos de transformación, medidores y una sección de acciones a realizar (ej. instalación, mano de obra, documentación).
+
+---
+
+### Área 5: feat(ofertas, terminos) — pestañas BTB/BTC en términos + selector persistido (Sep 4)
+
+- **`feat(ofertas,terminos): pestañas BTB/BTC en términos + selector persistido por oferta`** — Los términos y condiciones se dividen en dos variantes (BTB y BTC) seleccionables en la confección. El selector se persiste por oferta individualmente, no como configuración global. Impacta la exportación del PDF: el bloque de términos incluido depende de la pestaña seleccionada al guardar.
+
+---
+
+### Área 6: feat(informe-direccion) — separar permisos de los dos informes (Sep 4)
+
+- **`feat(informe-direccion): separa los permisos de los dos informes y filtra los cobros`** — El módulo "Informe de Dirección" tenía un único permiso que daba acceso a ambos informes internos. Ahora cada informe tiene su permiso propio. Además, se filtra la vista de cobros según el permiso activo, evitando que se filtren en frontend datos a los que no se tiene acceso.
+
+---
+
+### Área 7: fix(dashboard) — Informe de Dirección duplicado (Sep 4)
+
+- **`fix(dashboard): Informe de Dirección salía duplicado y se colaba en otras áreas`** — Bug visual donde la tarjeta del módulo aparecía dos veces y en áreas incorrectas del dashboard. Fix puro de UI.
+
+---
+
+### Área 8: refactor(dashboard) — Comercial Instaladora, nombres y orden (Sep 4)
+
+- **`refactor(dashboard): nombres cortos y nuevo orden en Comercial Instaladora`** y **`refactor(dashboard): descripciones de Comercial Instaladora a dos líneas`** — Refactor estético del área "Comercial Instaladora" del dashboard: nombres más cortos para las tarjetas de módulo y descripciones reformateadas a dos líneas para mejorar la lectura en pantallas pequeñas.
+
+---
+
+### Área 9: feat(clientes, leads) — tipo_negocio BTB/BTC propio (Sep 4)
+
+- **`feat(clientes,leads): tipo_negocio (BTB/BTC) propio, ya no el del comercial`** — Clientes y leads tienen ahora su propio campo `tipo_negocio` (BTB/BTC) desacoplado del tipo de negocio del comercial asignado. Al crear/editar, el comercial elige explícitamente el tipo. Los registros históricos sin este campo usarán el valor que el backend defina como default.
+
+---
+
+### Área 10: fix(asignaciones) — depreciación mensual del lote, no unitaria (Sep 4)
+
+- **`fix(asignaciones): sumar la depreciación mensual del lote, no la unitaria`** — Bug de cálculo: la depreciación acumulada sumaba el valor unitario de cada unidad del lote en lugar del valor total del lote. Para un lote de 5 unidades con depreciación de $10/mes, antes sumaba $10 en vez de $50. Afecta al cálculo del valor contable de los activos en asignaciones.
+
+---
+
+### Área 11: feat(citas) — módulo de agenda de citas (Sep 4)
+
+- **`feat(citas): módulo de agenda de citas (solo superAdmin de momento)`** — Nuevo módulo de gestión de citas/agenda. Por ahora solo visible para superAdmin en el dashboard. Incluye endpoints de backend propios. La restricción de superAdmin está aplicada a nivel de UI/dashboard; confirmar que hay RouteGuard en la ruta del frontend.
+
+---
+
+### Área 12: feat(averias) — seis códigos nuevos y causa Comunicación (Sep 4)
+
+- **`feat(averias): seis códigos nuevos y la causa Comunicación`** — Se añaden seis nuevos códigos de avería al catálogo y una nueva causa "Comunicación". El frontend los ofrece en el selector; si el backend no los ha añadido a su lista de valores válidos, intentar guardar una avería con estos códigos resultará en error de validación.
+
+---
+
+### Área 13: fix(peticiones) — contenido tapado por header fijo (Sep 4)
+
+- **`fix(peticiones): contenido tapado por el header fijo`** — Fix de layout: el contenido del módulo de peticiones quedaba parcialmente oculto bajo el header fijo. Ajuste de padding/margin sin impacto funcional.
+
+---
+
+### Área 14: feat(ofertas-gestion) — editar términos y condiciones desde UI (Sep 4)
+
+- **`feat(ofertas-gestion): editar términos y condiciones desde la UI`** — Permite editar los términos y condiciones directamente desde la interfaz de gestión de ofertas. Los términos editados son globales: afectan a todas las ofertas que los usen al momento de exportar (no están embebidos por oferta individual).
+
+---
+
+### Área 15: feat(ofertas) — nombre corto del PDF y Excel (Sep 3)
+
+- **`feat(ofertas): acortar el nombre del PDF y el Excel exportados`** — Reduce la longitud del nombre de archivo generado al exportar una oferta como PDF o Excel. Mejora de UX en la descarga; sin impacto funcional.
+
+---
+
+### Puede dar bateo
+
+1. **refactor(pagos) lista CI → permiso — confirmar migración de permisos antes de deploy**: El cambio elimina la lista blanca de CIs. Sin asignar el nuevo permiso a todos los usuarios que antes estaban en la lista, perderán acceso a editar cobros sin aviso (el botón quedará desactivado o recibirán 403).
+
+2. **feat(pagos) subpermiso cancelar cobros — confirmar nombre exacto del permiso en backend y asignación a usuarios existentes**: Si el permiso no está creado en BD, la funcionalidad de cancelar cobros quedará inaccesible para todos.
+
+3. **feat(citas) módulo nuevo solo superAdmin — confirmar RouteGuard y endpoints en backend de producción**: Sin RouteGuard en la ruta del frontend, cualquier usuario autenticado puede acceder por URL directa aunque no aparezca en su dashboard.
+
+4. **feat(ofertas) secciones nuevas (Transformadores, Medidores, Acciones a Realizar) — confirmar soporte en backend**: Si el backend no reconoce los nuevos tipos de sección, una oferta guardada con ellas puede aparentar guardarse pero perder los datos de esas secciones silenciosamente.
+
+5. **feat(ofertas,terminos) pestañas BTB/BTC — ofertas históricas sin `tipo_terminos`**: Al reabrir o exportar una oferta creada antes de este cambio, el frontend no sabrá qué pestaña de términos usar. Confirmar el fallback (BTB por defecto, o la pestaña existente antes del split).
+
+6. **feat(informe-direccion) dos permisos separados — confirmar backfill en BD**: Los usuarios que tenían el permiso unificado necesitan recibir ambos permisos nuevos. Sin backfill, perderán acceso a uno o ambos informes al hacer deploy.
+
+7. **feat(clientes,leads) tipo_negocio propio — registros históricos sin el campo**: Leads y clientes creados antes de este commit no tienen `tipo_negocio` propio en BD. Confirmar valor por defecto del backend y que el frontend no muestra erróneamente el tipo del comercial.
+
+8. **fix(asignaciones) depreciación — valores históricos ya persistidos siguen siendo incorrectos**: El fix corrige el cálculo prospectivo pero no recalcula asignaciones pasadas. Evaluar si se necesita un script de corrección sobre los registros existentes.
+
+9. **feat(averias) nuevos códigos — confirmar en backend antes de usar en producción**: Si el backend valida los códigos contra un enum/lista de valores permitidos y no se ha actualizado, crear una avería con los nuevos códigos devolverá error de validación.
+
+10. **feat(ofertas-gestion) editar términos — confirmar gate de permisos y ausencia de locking concurrente**: Sin un permiso explícito de edición, cualquier usuario de ofertas-gestion puede modificar los términos globales. Sin locking optimista, dos ediciones simultáneas producirán pérdida de datos.
+
+---
+
 ## 📅 2 de Septiembre, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -233,240 +355,17 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-## 📅 28 de Agosto, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**9 commits reales** — Fabian1820 (co-authored Claude Opus 5). Sesión muy activa: fixes críticos de inventario y kardex (límites de paginación que truncaban datos silenciosamente), refactors de código muerto, corrección profunda de bugs en la confección de ofertas (margen, duplicados, borradores, bloqueo optimista), y cuatro features: tipo "visita" en fotos de clientes, navegación "Volver" contextual, unificación de tarjetas de almacenes/tiendas, y fix crítico del flujo de exportación en moneda de la oferta.
-
----
-
-### Área 1: fix(inventario) — stock del almacén truncado silenciosamente (14:11)
-
-- **`fix(inventario): no truncar el stock del almacen al validar disponibilidad`** — Los diálogos que arman el mapa de stock completo de un almacén pedían `getStock({ almacen_id, limit: 500 })`. El Almacén de Insumos tiene 566 materiales; los 66 más recientes (por `material_id` asc) quedaban fuera del corte. El frontend devuelve 0 cuando no encuentra la clave, así que 52 materiales con existencia real se mostraban como "Stock: 0 | Falta: N", bloqueando reservas y vales de salida.
-
-  1. **`limit` quitado donde el mapa debe cubrir el almacén entero**: el endpoint devuelve todo si se omite. También se quitó el limit en las reservas activas que descuentan de ese stock.
-  2. **`limit` conservado** en listas paginadas de la vista de almacén y en selectores de UI.
-  3. **El backend nunca se equivocó**: `get_stock_item` es una consulta directa al documento, no afectada por el truncamiento del frontend.
-
----
-
-### Área 2: refactor(fichas-costo) — elimina método muerto (15:17)
-
-- **`refactor(fichas-costo): elimina FichaCostoService.editPreciosCosto sin uso`** — El método no lo llamaba nadie (la edición rápida de precios va por `updateMaterial` en `app/fichas-costo/page.tsx`). Se elimina también `EditarPreciosCostoPayload`, que solo existía para este método.
-
----
-
-### Área 3: fix(kardex-costo) — historial cortado en 200 filas + código muerto (15:16)
-
-- **`fix(kardex-costo): el historial se cortaba en 200 filas, y borra 2 métodos muertos`** — El historial del kardex se pedía con `limit: 200` fijo desde los 3 sitios que lo consultan, sin paginar. El endpoint ordena DESCENDENTE, así que los movimientos MÁS ANTIGUOS (los importantes en auditoría) eran los truncados.
-
-  1. **`getHistorial` pagina hasta traer el historial completo** cuando no se le pasa `limit`, con PAGE=500 (tope del endpoint) y guard de 20 páginas (máx 10 000 filas). Un `limit` explícito sigue haciendo una sola petición.
-  2. **Eliminados 3 artefactos muertos**: `KardexCostoService.crearEntrada`, `KardexCostoService.getHistorialPorCompra`, y `KardexEntradaCreateData`.
-  3. Con los volúmenes actuales (968 filas totales, 46 en el material más movido) sigue siendo 1 sola petición.
-
----
-
-### Área 4: fix(ofertas-confeccion) — margen y duplicados que cambiaban solos (20:53)
-
-- **`fix(ofertas-confeccion): margen y duplicados que cambiaban solos`** — Dos incidencias intermitentes reportadas por comercial, más varios bugs detectados al investigarlas:
-
-  1. **`margen_asignado = 0` no se restauraba como asignado** (el guard era `> 0`). Al reabrir, el reparto automático le devolvía margen y aparecía un desbalance sin que nadie lo provocara. Un 0 es decisión del comercial, no "sin dato". Las ofertas viejas donde todos los ítems son 0 (sin reparto previo) siguen usando el algoritmo automático.
-  2. **Borrador de duplicado tomaba la copia antigua**: el borrador del localStorage ganaba a la oferta del servidor si tenía menos de 24h. Ahora solo se retoma si es de la misma oferta origen, tiene menos de 2h y la original no fue modificada desde que se guardó. La decisión se toma antes de sembrar el estado para no mezclar valores.
-  3. **`redondeo_manual` no viajaba en `normalizeOfertaConfeccion`**: reabrir o duplicar revertía el precio ajustado a mano al redondeo automático, y el siguiente guardado lo persistía.
-  4. **Borrador de oferta nueva con clave global sin caducidad**: el borrador abandonado de un cliente reaparecía en la oferta de otro. Ahora la clave va por contacto y caduca como el resto.
-  5. **Porcentajes editados a mano no se guardaban en borrador** ni se limpiaban al quitar un material.
-  6. **Bloqueo optimista**: se envía `fecha_actualizacion_esperada` y el backend responde 409 si otro comercial guardó entretanto, en vez de pisar el trabajo en silencio.
-
----
-
-### Área 5: feat(clientes) — tipo "visita" al adjuntar fotos (21:04)
-
-- **`feat(clientes): agrega el tipo "visita" al adjuntar fotos`** — El diálogo de evidencias solo ofrecía Instalación y Avería; no había donde dejar la constancia de una visita previa. Se agrega la opción al select, al filtro por tipo del visor y a las etiquetas de las tarjetas. Los sitios que repetían la unión de tipos ahora la derivan de `ClienteFoto["tipo"]` para evitar desincronizaciones futuras.
-
-  - ⚠️ **Requiere el backend con "visita" en el Literal del endpoint `POST /clientes/{numero}/fotos`**.
-
----
-
-### Área 6: feat(navegacion) — "Volver" sube un nivel en vez de saltar al inicio (21:20)
-
-- **`feat(navegacion): volver sube un nivel en vez de saltar al inicio`** — El botón atrás era un enlace fijo a "/"; desde cualquier módulo o submodulo sacaba al usuario al inicio. Ahora el destino se deduce de `MODULOS_CATALOGO`:
-  - Módulo con tarjeta propia → su área de la barra lateral (`/?area=...`)
-  - Submódulo sin tarjeta → el hub/módulo padre del que cuelga
-  - Hijos de Compras/Envíos/Costos, Facturación e Instalaciones vuelven a su hub.
-
-  Además: tarjeta de módulo única compartida por dashboard y hubs (antes tres diseños distintos); módulos con submodules etiquetados "Varias secciones"; fondo unificado al degradado SunCar en páginas que iban por libre; Reportes Comercial Ventas abre el contenido directo (se elimina el paso intermedio del hub con una sola tarjeta).
-
----
-
-### Área 7: fix(solicitudes-materiales) — no permite elegir clientes anulados (21:37)
-
-- **`fix(solicitudes-materiales): no permite elegir clientes anulados`** — El selector de cliente del diálogo no filtraba por activo, así que ofrecía clientes anulados y se podían crear solicitudes contra ellos. Ahora pide solo activos. Además el error de guardado pasa de un `alert()` a un aviso dentro del diálogo que conserva el formulario y explica el motivo.
-
----
-
-### Área 8: feat(almacenes,tiendas,reportes-ventas) — unifica tarjetas y pagina el reporte (22:06)
-
-- **`feat(almacenes,tiendas,reportes-ventas): unifica sus tarjetas y pagina el reporte`** — Almacenes y tiendas usaban la tarjeta vieja en sus listados y pantallas internas. Ahora usan `ModuleCard` como el resto. La tarjeta gana `clampDescription` (la dirección del usuario puede ser larga), con las tarjetas de una fila parejas y la etiqueta "Varias secciones" anclada abajo.
-
-  Reportes Comercial Ventas cargaba lento (600+ facturas de golpe). Se pagina en cliente de 20 en 20 con `SmartPagination`. Los filtros, estadísticas, totales y el export a Excel siguen sobre el conjunto completo; solo se recorta lo que se dibuja. Al cambiar un filtro vuelve a la página 1.
-
----
-
-### Área 9: fix(ofertas-confeccion) — precio exportado en la moneda de la oferta (22:34)
-
-- **`fix(ofertas-confeccion): el precio exportado va en la moneda de la oferta`** — Fix crítico de exportaciones. Dos problemas independientes:
-
-  1. **Exportaciones de cliente forzadas en USD**: "Precio final" escribía `oferta.precio_final` (USD) y el importe en moneda acordada solo aparecía como línea suelta al final del PDF. Ahora las dos exportaciones de cliente (sin precios y con precios) llevan los importes en la moneda con la que se guardó la oferta. La cuarta exportación "Cliente con precios + cambio" desaparece por redundante. La completa se queda en USD (es la interna). Se quita también la fila de tasa de cambio en las de cliente (al cliente se le da su importe, no cómo se calculó) y la nota "(Redondeado desde X $)" dentro de un documento ya convertido.
-
-  2. **Tasa 0 no validada — bugs confirmados en código**: el frontend mandaba `parseFloat(tasaCambio) || 0` sin validar y el backend solo comprobaba `is None`. Consecuencias: CUP + tasa 0 → oferta guardada con tasa 0, toda conversión condicionada a `tasa > 0`, editor y exportaciones seguían en USD sin aviso. EUR + tasa 0 → ZeroDivisionError al calcular el monto convertido (500 opaco al guardar). **Ahora validado en ambas capas**: toast específico antes de guardar, y `ValueError` en el backend que cierra la división por cero.
-
-  Además, la conversión se aplicaba a la fila "Datos" (número de cuenta): al limpiar los no-dígitos la convertía en una cifra. Ahora los tipos no monetarios quedan fuera de la conversión.
-
----
-
-### Puede dar bateo
-
-1. **fix(inventario) — carga del mapa de stock más pesada con el tiempo**: Quitar el `limit` para obtener el stock completo es correcto hoy (566 materiales), pero si la colección crece mucho la petición sin límite puede ralentizar la apertura de diálogos de reserva y vales. No hay paginación interna para esos diálogos.
-
-2. **fix(kardex-costo) — guard de 20 páginas (máx 10 000 filas) — historial silenciosamente incompleto en materiales muy movidos**: Si algún material llega a más de 10 000 movimientos, el historial se trunca sin aviso al usuario. Actualmente el máximo es 46, pero es una deuda a documentar.
-
-3. **fix(ofertas-confeccion) bloqueo optimista 409 — UX de conflicto sin flujo de resolución**: Cuando dos comerciales editan la misma oferta, el segundo recibe un 409. Si no hay UI para mostrar los cambios del otro comercial ni una opción de fusión, el usuario ve un error sin poder recuperar sus cambios fácilmente. Confirmar qué ve el usuario ante el 409.
-
-4. **fix(ofertas-confeccion) borradores con caducidad 2h — puede ser corta en sesiones largas**: Un comercial que trabaje en una oferta compleja con pausas puede ver su borrador invalidado. Confirmar si 2h es suficiente para los flujos reales de trabajo.
-
-5. **fix(ofertas-confeccion) margen_asignado = 0 restaurado — confirmar que ofertas viejas sin reparto siguen usando el algoritmo automático**: Verificar que la detección de "oferta sin reparto previo" no clasifica incorrectamente como tal a una oferta donde el comercial decidió dar 0% a todos los ítems intencionalmente.
-
-6. **feat(clientes) tipo "visita" — dependencia de backend sin confirmar en producción**: Si el backend no tiene "visita" en el Literal del endpoint `POST /clientes/{numero}/fotos`, cualquier intento de subir una foto de visita dará 422.
-
-7. **feat(navegacion) "Volver" — módulos no registrados en MODULOS_CATALOGO siguen volviendo a "/"**: Si algún módulo o subpágina futura no se registra en el catálogo, el botón atrás vuelve al inicio sin aviso. Confirmar cobertura completa, especialmente para pantallas de detalle dinámico (`/clientes/[id]`, etc.).
-
-8. **fix(solicitudes-materiales) — filtro de anulados solo cubre este diálogo**: El selector de cliente en otros flujos puede seguir mostrando clientes anulados. El concern sigue vigente para los demás selectores (ver fix(clientes-anulados) del 29 de Agosto).
-
-9. **feat(almacenes,tiendas) paginación de 20 en 20 — confirmar que stats y totales son sobre el conjunto completo**: El commit lo afirma, pero si alguna estadística o total se calcula accidentalmente sobre `data.slice(0,20)` en lugar del array completo, dará valores incorrectos sin error visible.
-
-10. **fix(ofertas-confeccion) moneda — ofertas existentes con tasa 0 sin migración automática**: Las ofertas guardadas con tasa 0 antes del deploy siguen teniendo tasa 0. El diálogo de exportación avisa de esto, pero la corrección requiere que el comercial edite cada oferta manualmente y agregue la tasa. No hay migración ni script de backfill.
-
-11. **fix(ofertas-confeccion) moneda — cuarta exportación eliminada — usuarios que la usaban pierden funcionalidad**: "Cliente con precios + cambio" se elimina por redundante. Si había usuarios que la preferían explícitamente, deben adaptarse a las nuevas exportaciones de cliente en moneda acordada.
-
-12. **fix(ofertas-confeccion) moneda — datos no monetarios excluidos de la conversión — confirmar cobertura completa**: El fix menciona la fila "Datos" (número de cuenta). Verificar que no hay otras filas de tipo texto que pudieran estar pasando por la conversión en edge cases.
-
----
-
-## 📅 27 de Agosto, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**3 commits reales** — Fabian1820 (co-authored Claude Opus 5). Sesión centrada en el módulo de ofertas y materiales: se unifica el nombre de catálogo en todas las pantallas de materiales, y se agrega el flujo completo de descuento / total a pagar en tabla y PDF (feature + fix de orden de renderizado).
-
----
-
-### Área 1: feat(materiales) — nombre de catálogo en lugar de descripción libre (18:42)
-
-- **`feat(materiales): muestra el nombre de catalogo en vez de la descripcion`** — El operador reportó que el breaker de 80A 3P aparecía como "PROTECCION" y el de 2P como "BREAKER", sin poder distinguirlos salvo por la foto. Causa: `descripcion` es texto libre y 27 materiales la comparten con otro artículo.
-
-  1. **Orden unificado en todas las pantallas**: `material_nombre` → `material.nombre` → `material_descripcion`. El backend ya publica `material_nombre` resuelto del catálogo.
-  2. **`material_nombre` añadido a StockItem**: hasta ahora StockItem solo exponía la descripción embebida.
-  3. **Pantallas afectadas**: inventario (stock, editar stock, salida por lote), solicitudes de materiales, vales y devolución de vale, facturas, pagos de ventas, solicitudes de ventas, consignaciones, centro de control y trabajos diarios.
-  4. **Efecto en facturas**: la línea de factura armada desde el vale pasa a guardar el nombre de catálogo en lugar de la descripción (antes escribía "PROTECCION").
-
----
-
-### Área 2: feat(ofertas) — descuento y total a pagar en tabla y PDF (21:51)
-
-- **`feat(ofertas): muestra el descuento y el total a pagar en tabla y PDF`** — `asumido_por_empresa` y `compensacion` no estaban dentro de `precio_final`; solo bajaban `monto_pendiente`, así que ni la tabla ni las exportaciones los reflejaban.
-
-  1. **"Monto asumido por empresa" renombrado a "Descuento"** en el formulario. Admite monto fijo o % sobre el precio final y exige justificación.
-  2. **Tabla con nuevas columnas "Descuento" y "Total a pagar"**.
-  3. **Exportaciones**: bajo cada precio final, el desglose del descuento y la compensación con su justificación y el total a pagar. La conversión a EUR/CUP pasa a calcularse sobre el total a pagar.
-  4. **Unificación del generador de opciones de exportación**: estaba triplicado en tres vistas. Las copias de clientes y leads calculaban el subtotal sin `margen_materiales`, imprimiendo un importe ~18% menor que el real.
-
----
-
-### Área 3: fix(ofertas) — descuento debajo del precio final en el PDF (22:13)
-
-- **`fix(ofertas): coloca el descuento bajo el precio final en el PDF`** — El renderizador agrupaba las filas por `tipo` e ignoraba el orden del array, así que el descuento se pintaba ANTES del precio final.
-
-  1. **Nuevos tipos de fila `DescuentoNeto` y `TotalAPagar`**: pintados dentro del bloque resaltado, debajo del precio final.
-  2. **Añadidos a `tipoNoMaterial`**: para que la tabla de materiales no los duplique como sección.
-  3. Resultado en PDF: `Precio Final` → `Descuento — [justificación]` → `Total a pagar`.
-
----
-
-### Puede dar bateo
-
-1. **Facturas históricas con `descripcion` embebida — nombre incorrecto en vista**: Las líneas de factura creadas antes del deploy guardan la descripción libre. Si la vista prioriza `material_nombre` del catálogo y no tiene fallback, esas facturas mostrarán el campo vacío o el nombre incorrecto.
-
-2. **27 materiales con descripciones compartidas — confirmación de mapeo correcto en producción**: Confirmar que ningún `material_nombre` del catálogo está también duplicado o vacío.
-
-3. **StockItem con `material_nombre` nuevo — consumidores sin actualizar**: Confirmar que todos los consumidores de `StockItem` fueron actualizados y no acceden directamente a `descripcion`.
-
-4. **Conversión EUR/CUP ahora sobre "Total a pagar" — posible desincronía con backend**: Si el backend calculaba la conversión sobre `precio_final` y el frontend la calcula ahora sobre `total_a_pagar`, puede haber diferencia entre montos.
-
-5. **"Descuento (%)" antiguo en solo lectura — confirmar que no se pierde en borradores**: El % de descuento anterior es visible solo en ofertas "que ya lo tienen guardado". Si un borrador no guardado se edita y se guarda de nuevo, el valor puede perderse sin aviso.
-
-6. **~18% de subimporte erróneo en exportaciones históricas**: Los documentos impresos o guardados antes del deploy tienen datos incorrectos; no hay forma de regenerarlos automáticamente.
-
-7. **`tipoNoMaterial` como mecanismo de exclusión frágil**: Si en el futuro se añade otro tipo especial sin recordar actualizar `tipoNoMaterial`, se duplicará silenciosamente en el PDF.
-
-8. **Signo del descuento en el PDF — doble negativo en edge case**: El PDF prefija "- " al monto del descuento. Si el campo puede llegar negativo desde el backend, el PDF mostrará "- -6000,00 $". Confirmar que el campo siempre llega como valor positivo.
-
-9. **Nuevas columnas en tabla — impacto en exportaciones Excel por posición de columna**: Cualquier importación externa que lea el Excel de ofertas por índice de columna quedará desalineada.
-
----
-
-## 📅 26 de Agosto, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**2 commits reales** — Fabian1820 (co-authored Claude Opus 5). Fix crítico de paginación de clientes: 67 clientes invisibles desde el 31 de julio ahora son visibles, con buscador multicampo y flujo de anular/reactivar. También nueva opción de redondeo manual de precio final en ofertas.
-
----
-
-### Área 1: fix(clientes-ventas) — paginación completa, buscador multicampo y anular/reactivar (18:35)
-
-- **`fix(clientes-ventas): carga completa, buscador y anulacion`** — El módulo cargaba una sola página de 500 clientes y filtraba en memoria. Al superar los 500 documentos el 2026-07-31, los 67 clientes más antiguos quedaron invisibles para la UI: 66 de ellos con historial (85 ofertas, 199 solicitudes, 84 facturas).
-
-  1. **Paginación completa en `getAllClientes()`**: pagina hasta agotar el `total` que la API ya devolvía pero que el servicio descartaba.
-  2. **`normalizeText` colapsa espacios repetidos**: corrige casos como "Antonio Rivero  Garcia" que antes no coincidían en búsquedas locales.
-  3. **Selectores de cliente con búsqueda multicampo en backend**: nombre, número, CI, teléfono y ubicación, sin distinguir tildes. Límite subido de 20 a 50 resultados.
-  4. **CI duplicada**: el diálogo deja de tragarse el error; marca el campo CI en rojo y muestra el mensaje del backend.
-  5. **Anular/Reactivar en lugar de Eliminar**: badge de estado, fila atenuada para anulados, enlace para mostrarlos. El borrado definitivo solo aparece sobre un cliente ya anulado; el backend lo rechaza si tiene historial.
-
----
-
-### Área 2: feat(ofertas) — check de redondeo manual de precio final (16:20)
-
-- **`feat(ofertas): check para ajustar el redondeo del precio final a mano`** — El precio final siempre se redondeaba al múltiplo de 10 hacia arriba sin posibilidad de dejarlo en el valor real.
-
-  1. **Nuevo check "Ajustar redondeo manual"**: al activarlo carga el precio del redondeo automático y habilita el campo para bajarlo.
-  2. **Atajos**: sin redondeo, múltiplo de 5, múltiplo de 10.
-  3. **Rango acotado** a [precio real, redondeo automático]: fuera de rango se marca en rojo y bloquea el guardado.
-  4. **Check deshabilitado** automáticamente cuando el total ya es múltiplo de 10.
-  5. **Estado conservado** en borrador, edición y al duplicar.
-
----
-
-### Puede dar bateo
-
-1. **67 clientes invisibles ~26 días — posibles duplicados en BD**: Los clientes no encontrables desde el 31 de julio pueden haber sido recreados por comerciales. Verificar manualmente por CI o teléfono.
-
-2. **Clientes anulados — confirmar exclusión en selectores de oferta/solicitud/factura**: El fix del 29 de Agosto cubre 11 selectores adicionales; confirmar que ya no quedan más.
-
-3. **Delete definitivo — confirmar que la restricción "con historial" está en backend, no solo en frontend**: Si esta lógica solo vive en frontend, un DELETE directo a la API puede eliminar un cliente con historial.
-
-4. **Paginación completa puede ser lenta en colecciones grandes**: Si la colección sigue creciendo, cargar todos los clientes al entrar al módulo incrementará el tiempo de carga linealmente.
-
-5. **Precio manual sin trazabilidad**: El comercial puede bajar el precio final sin que quede registro de quién lo ajustó ni por qué.
-
-6. **Estado del check al duplicar con catálogo cambiado**: Al duplicar una oferta con precio manual, el precio heredado puede quedar fuera del rango si los precios del catálogo cambiaron. Confirmar que el rango se recalcula al duplicar.
-
-7. **Atajo "sin redondeo" puede producir precios con decimales**: Si el precio real tiene decimales (ej. $1234.56), verificar que el backend acepta precios con decimales en ofertas.
-
----
-
 ## Seguimientos vigentes
 
+- **refactor(pagos) lista CI → permiso — confirmar que todos los CIs de la lista blanca tienen el nuevo permiso asignado antes de deploy; sin migración, usuarios pierden acceso a editar cobros (Sep 5)**.- **feat(pagos) subpermiso cancelar cobros — confirmar nombre del permiso en backend y asignación a usuarios existentes (Sep 5)**.
+- **feat(citas) módulo nuevo — confirmar RouteGuard en ruta frontend y todos los endpoints de `/citas/` deployados en backend de producción (Sep 5)**.
+- **feat(ofertas) secciones Transformadores/Medidores/Acciones — confirmar soporte en backend; datos de secciones nuevas pueden perderse silenciosamente si el backend no las reconoce (Sep 5)**.
+- **feat(ofertas,terminos) pestañas BTB/BTC — ofertas históricas sin `tipo_terminos` en BD; confirmar fallback y comportamiento al exportar PDF (Sep 5)**.
+- **feat(informe-direccion) dos permisos separados — confirmar backfill de ambos permisos para usuarios con el permiso unificado anterior (Sep 5)**.
+- **feat(clientes,leads) tipo_negocio propio — confirmar valor por defecto del backend para registros históricos sin el campo (Sep 5)**.
+- **fix(asignaciones) depreciación del lote — valores históricos ya persistidos en BD siguen siendo incorrectos; evaluar script de corrección (Sep 5)**.
+- **feat(averias) nuevos códigos y causa Comunicación — confirmar que backend tiene los nuevos valores en su lista válida antes de usar en producción (Sep 5)**.
+- **feat(ofertas-gestion) editar términos — confirmar gate de permisos (cualquier usuario de ofertas-gestion puede editar términos globales) y ausencia de locking concurrente (Sep 5)**.
 - **refactor(ofertas) prop `exportOptions` obligatorio — confirmar que los tres sitios que lo usan (confección, clientes, leads) siempre lo pasan; lazy imports no detectados por TS pueden fallar en runtime (Sep 2)**.
 - **feat(pagos) nombre de comprobante — confirmar que el helper sanitiza caracteres especiales (ñ, tildes, apóstrofes) antes de usarlos como nombre de archivo de descarga (Sep 2)**.
 - **feat(pagos) número de oferta en el nombre — confirmar disponibilidad del campo en todos los contextos donde se genera el comprobante; borrador sin número asignado produce nombre malformado (Sep 2)**.
@@ -555,7 +454,6 @@ Sin cambios nuevos — sin riesgos nuevos.
 - **Módulo Asistencia — endpoints de backend sin confirmar (Jun 26)**.
 - **`hasExactPermission` — usuarios con almacenes-suncar sin subpermiso admin explícito perderán acceso (Jun 26)**.
 - **Reservas expiradas reactivadas — conflicto con materiales reasignados entre expiración y nueva fecha (Jun 23)**.
-- **Lista blanca de CIs de pagos hardcodeada en frontend (Jun 23)**.
 - **Race condition en el cálculo de disponible de reservas**.
 - **`pool=indistinto` para split automático — backend debe implementarlo**.
 - **BMS como categoría reservable — docs sin `.pools` bloquean el 100% de reservas BMS**.
@@ -563,4 +461,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. La entrada del **28 de Julio** fue eliminada el 5 de Agosto al superar los 7 días. La entrada del **30 de Julio** fue eliminada el 7 de Agosto al superar los 7 días. La entrada del **31 de Julio** fue eliminada el 8 de Agosto al superar los 7 días. Las entradas del **1, 2 y 3 de Agosto** fueron eliminadas el 10 de Agosto al superar los 7 días. La entrada del **4 de Agosto** fue eliminada el 12 de Agosto al superar los 7 días. La entrada del **5 de Agosto** fue eliminada el 13 de Agosto al superar los 7 días. La entrada del **6 de Agosto** fue eliminada el 14 de Agosto al superar los 7 días. La entrada del **7 de Agosto** fue eliminada el 15 de Agosto al superar los 7 días. La entrada del **8 de Agosto** fue eliminada el 17 de Agosto al superar los 7 días. La entrada del **10 de Agosto** fue eliminada el 18 de Agosto al superar los 7 días. La entrada del **11 de Agosto** fue eliminada el 19 de Agosto al superar los 7 días. La entrada del **12 de Agosto** fue eliminada el 20 de Agosto al superar los 7 días. La entrada del **13 de Agosto** fue eliminada el 21 de Agosto al superar los 7 días. La entrada del **14 de Agosto** fue eliminada el 22 de Agosto al superar los 7 días. La entrada del **15 de Agosto** fue eliminada el 25 de Agosto al superar los 7 días. La entrada del **17 de Agosto** fue eliminada el 25 de Agosto al superar los 7 días. La entrada del **18 de Agosto** fue eliminada el 26 de Agosto al superar los 7 días. La entrada del **19 de Agosto** fue eliminada el 27 de Agosto al superar los 7 días. La entrada del **20 de Agosto** fue eliminada el 28 de Agosto al superar los 7 días. La entrada del **21 de Agosto** fue eliminada el 29 de Agosto al superar los 7 días. La entrada del **22 de Agosto** fue eliminada el 30 de Agosto al superar los 7 días. La entrada del **23 de Agosto** fue eliminada el 31 de Agosto al superar los 7 días. La entrada del **24 de Agosto** fue eliminada el 1 de Septiembre al superar los 7 días. La entrada del **25 de Agosto** fue eliminada el 2 de Septiembre al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. La entrada del **28 de Julio** fue eliminada el 5 de Agosto al superar los 7 días. La entrada del **30 de Julio** fue eliminada el 7 de Agosto al superar los 7 días. La entrada del **31 de Julio** fue eliminada el 8 de Agosto al superar los 7 días. Las entradas del **1, 2 y 3 de Agosto** fueron eliminadas el 10 de Agosto al superar los 7 días. La entrada del **4 de Agosto** fue eliminada el 12 de Agosto al superar los 7 días. La entrada del **5 de Agosto** fue eliminada el 13 de Agosto al superar los 7 días. La entrada del **6 de Agosto** fue eliminada el 14 de Agosto al superar los 7 días. La entrada del **7 de Agosto** fue eliminada el 15 de Agosto al superar los 7 días. La entrada del **8 de Agosto** fue eliminada el 17 de Agosto al superar los 7 días. La entrada del **10 de Agosto** fue eliminada el 18 de Agosto al superar los 7 días. La entrada del **11 de Agosto** fue eliminada el 19 de Agosto al superar los 7 días. La entrada del **12 de Agosto** fue eliminada el 20 de Agosto al superar los 7 días. La entrada del **13 de Agosto** fue eliminada el 21 de Agosto al superar los 7 días. La entrada del **14 de Agosto** fue eliminada el 22 de Agosto al superar los 7 días. La entrada del **15 de Agosto** fue eliminada el 25 de Agosto al superar los 7 días. La entrada del **17 de Agosto** fue eliminada el 25 de Agosto al superar los 7 días. La entrada del **18 de Agosto** fue eliminada el 26 de Agosto al superar los 7 días. La entrada del **19 de Agosto** fue eliminada el 27 de Agosto al superar los 7 días. La entrada del **20 de Agosto** fue eliminada el 28 de Agosto al superar los 7 días. La entrada del **21 de Agosto** fue eliminada el 29 de Agosto al superar los 7 días. La entrada del **22 de Agosto** fue eliminada el 30 de Agosto al superar los 7 días. La entrada del **23 de Agosto** fue eliminada el 31 de Agosto al superar los 7 días. La entrada del **24 de Agosto** fue eliminada el 1 de Septiembre al superar los 7 días. La entrada del **25 de Agosto** fue eliminada el 2 de Septiembre al superar los 7 días. Las entradas del **26, 27 y 28 de Agosto** fueron eliminadas el 5 de Septiembre al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
