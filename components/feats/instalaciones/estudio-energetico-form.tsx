@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Label } from "@/components/shared/atom/label";
 import { Input } from "@/components/shared/molecule/input";
 import { Textarea } from "@/components/shared/molecule/textarea";
@@ -14,7 +14,7 @@ import {
 } from "@/components/shared/atom/select";
 import { Card, CardContent } from "@/components/shared/molecule/card";
 import { Button } from "@/components/shared/atom/button";
-import { Camera, Plus, Trash2, X } from "lucide-react";
+import { Camera, MapPin, Plus, Trash2, X } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Tipos — deben calzar EXACTO (mismos nombres de campo) con
@@ -370,6 +370,43 @@ export function EstudioEnergeticoForm({
   const esEdificioOBiplanta =
     value.vivienda?.tipo === "edificio" || value.vivienda?.tipo === "biplanta";
 
+  const [gpsStatus, setGpsStatus] = useState<
+    "obteniendo" | "ok" | "error" | "sin_soporte"
+  >("obteniendo");
+  // Refs para leer el value/onChange más recientes desde el callback de
+  // geolocalización sin tener que re-suscribirlo en cada cambio del form.
+  const valueRef = useRef(value);
+  valueRef.current = value;
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  // Captura la ubicación automáticamente una sola vez al abrir el
+  // formulario (no se pide al técnico, y no bloquea nada si falla).
+  useEffect(() => {
+    if (valueRef.current.ubicacion_gps?.latitud != null) {
+      setGpsStatus("ok");
+      return;
+    }
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setGpsStatus("sin_soporte");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        onChangeRef.current({
+          ...valueRef.current,
+          ubicacion_gps: {
+            latitud: pos.coords.latitude,
+            longitud: pos.coords.longitude,
+          },
+        });
+        setGpsStatus("ok");
+      },
+      () => setGpsStatus("error"),
+      { enableHighAccuracy: true, timeout: 8000 },
+    );
+  }, []);
+
   const desbalancePreview = useMemo(() => {
     const f = value.consumo_acometida?.corriente_por_fase;
     if (!f || f.a == null || f.b == null || f.c == null) return null;
@@ -400,6 +437,23 @@ export function EstudioEnergeticoForm({
       <p className="text-xs text-gray-500">
         Todos los campos son opcionales — rellena lo que se pueda obtener en la visita.
       </p>
+
+      <div className="flex items-center gap-1.5 text-xs text-gray-500">
+        <MapPin className="h-3.5 w-3.5" />
+        {gpsStatus === "obteniendo" && "Obteniendo ubicación..."}
+        {gpsStatus === "ok" && value.ubicacion_gps && (
+          <span>
+            Ubicación capturada ({value.ubicacion_gps.latitud?.toFixed(5)},{" "}
+            {value.ubicacion_gps.longitud?.toFixed(5)})
+          </span>
+        )}
+        {gpsStatus === "error" && (
+          <span>No se pudo obtener la ubicación (revisa el permiso del navegador)</span>
+        )}
+        {gpsStatus === "sin_soporte" && (
+          <span>Este navegador no soporta geolocalización</span>
+        )}
+      </div>
 
       {/* Foto general */}
       <FieldGroup title="Foto de la fachada">
