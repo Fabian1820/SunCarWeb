@@ -1076,6 +1076,13 @@ export default function ClientesPage() {
         className="bg-white shadow-sm border-b border-emerald-100"
         actions={
           <div className="flex items-center gap-2">
+            {totalClients > 0 && (
+              <ExportButtons
+                getExportOptions={getExportOptions}
+                baseFilename="clientes"
+                variant="compact"
+              />
+            )}
             <FuentesManager />
           </div>
         }
@@ -1094,15 +1101,6 @@ export default function ClientesPage() {
             loading={loading}
             onFiltersChange={handleFiltersChange}
             initialSearchTerm={buscarParam}
-            exportButtons={
-              totalClients > 0 ? (
-                <ExportButtons
-                  getExportOptions={getExportOptions}
-                  baseFilename="clientes"
-                  variant="compact"
-                />
-              ) : undefined
-            }
           />
           {totalClients > appliedFilters.limit && appliedFilters.limit > 0 && (
             <SmartPagination

@@ -13,13 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/shared/atom/select";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/shared/molecule/card";
+import { Card, CardContent } from "@/components/shared/molecule/card";
 import {
   Dialog,
   DialogContent,
@@ -170,7 +164,6 @@ interface ClientsTableProps {
     panelCodigo: string;
     panelCantidad: string;
   }) => void;
-  exportButtons?: React.ReactNode;
   initialSearchTerm?: string;
 }
 
@@ -729,7 +722,6 @@ export function ClientsTable({
   onUpdatePrioridad,
   loading = false,
   onFiltersChange,
-  exportButtons,
   initialSearchTerm = "",
 }: ClientsTableProps) {
   const { toast } = useToast();
@@ -3963,23 +3955,7 @@ export function ClientsTable({
       </Card>
 
       <Card className="border-l-4 border-l-emerald-600">
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
-            <div>
-              <CardTitle>Clientes</CardTitle>
-              <CardDescription>
-                Mostrando {sortedClients.length} cliente
-                {sortedClients.length === 1 ? "" : "s"}
-              </CardDescription>
-            </div>
-
-            {/* Botones de exportación */}
-            {exportButtons && sortedClients.length > 0 && (
-              <div className="flex-shrink-0">{exportButtons}</div>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="relative min-h-[16rem]">
+        <CardContent className="relative min-h-[16rem] pt-6">
           {loading && sortedClients.length > 0 && (
             <div className="absolute inset-0 z-10 flex items-center justify-center rounded-b-lg bg-white/80 backdrop-blur-sm">
               <Loader label="Aplicando filtros..." />
