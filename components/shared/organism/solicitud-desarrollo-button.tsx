@@ -12,17 +12,35 @@ import {
   Clock,
   XCircle,
   MinusCircle,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
+import { useToast } from "@/hooks/use-toast";
 import { useSolicitudesDesarrollo } from "@/hooks/use-solicitudes-desarrollo";
 import { Button } from "@/components/shared/atom/button";
 import { Textarea } from "@/components/shared/molecule/textarea";
+import { Checkbox } from "@/components/shared/molecule/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/shared/atom/select";
 import type {
   CategoriaSolicitud,
   EstadoSolicitud,
+  ResolucionSolicitud,
   SolicitudDesarrollo,
 } from "@/lib/types/feats/solicitudes-desarrollo/solicitud-desarrollo-types";
+import { ETIQUETA_ESTADO } from "@/lib/types/feats/solicitudes-desarrollo/solicitud-desarrollo-types";
+
+const RESOLUCIONES: { key: ResolucionSolicitud; label: string }[] = [
+  { key: "posible", label: "Sí, es posible" },
+  { key: "no_posible", label: "No, no es posible" },
+  { key: "no_aplica", label: "No tiene que ver con desarrollo" },
+];
 
 const CATEGORIAS: { key: CategoriaSolicitud; label: string }[] = [
   { key: "bug", label: "Error" },
@@ -99,6 +117,7 @@ export function SolicitudDesarrolloButton() {
   const { user } = useAuth();
   const pathname = usePathname();
   const habilitado = Boolean(user);
+  const { toast } = useToast();
   const {
     solicitudes,
     conteo,
@@ -106,6 +125,8 @@ export function SolicitudDesarrolloButton() {
     enviando,
     cargarSolicitudes,
     crearSolicitud,
+    resolver,
+    marcarTerminada,
     marcarVistas,
   } = useSolicitudesDesarrollo(habilitado);
 
@@ -113,6 +134,15 @@ export function SolicitudDesarrolloButton() {
   const [tab, setTab] = useState<"nueva" | "historial">("nueva");
   const [categoria, setCategoria] = useState<CategoriaSolicitud>("mejora");
   const [mensaje, setMensaje] = useState("");
+
+  // Responder sin salir de la burbuja: se expande inline debajo de la
+  // petición en vez de abrir un diálogo aparte, que en un panel de w-96
+  // quedaría muy apretado.
+  const [respondiendoId, setRespondiendoId] = useState<string | null>(null);
+  const [resolucion, setResolucion] = useState<ResolucionSolicitud>("posible");
+  const [comentario, setComentario] = useState("");
+  const [guardandoRespuesta, setGuardandoRespuesta] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -135,6 +165,7 @@ export function SolicitudDesarrolloButton() {
     cargarSolicitudes();
     if (!esSuperAdmin) marcarVistas();
     setTab("nueva");
+    setRespondiendoId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, habilitado]);
 
@@ -150,6 +181,58 @@ export function SolicitudDesarrolloButton() {
   };
 
   const historialLabel = esSuperAdmin ? "Todas" : "Mis peticiones";
+
+  const abrirRespuesta = (s: SolicitudDesarrollo) => {
+    setRespondiendoId(s.id);
+    setResolucion(s.estado === "pendiente" ? "posible" : (s.estado as ResolucionSolicitud));
+    setComentario(s.respuesta ?? "");
+  };
+
+  const cerrarRespuesta = () => {
+    setRespondiendoId(null);
+    setComentario("");
+  };
+
+  const handleGuardarRespuesta = async () => {
+    if (!respondiendoId) return;
+    if (!comentario.trim()) {
+      toast({
+        title: "Falta el comentario",
+        description: "Escribe un comentario explicando la resolución.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setGuardandoRespuesta(true);
+    const ok = await resolver(respondiendoId, resolucion, comentario.trim());
+    setGuardandoRespuesta(false);
+    if (ok) {
+      toast({
+        title: "Petición resuelta",
+        description: `Se marcó como ${ETIQUETA_ESTADO[resolucion]}.`,
+      });
+      cerrarRespuesta();
+    } else {
+      toast({
+        title: "No se pudo resolver",
+        description: "Intenta de nuevo.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleToggleTerminada = async (s: SolicitudDesarrollo, terminada: boolean) => {
+    setTogglingId(s.id);
+    const ok = await marcarTerminada(s.id, terminada);
+    setTogglingId(null);
+    if (!ok) {
+      toast({
+        title: "No se pudo actualizar",
+        description: "Intenta de nuevo.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="fixed bottom-24 right-6 z-[59]">
@@ -326,6 +409,85 @@ export function SolicitudDesarrolloButton() {
                             </p>
                             <p className="text-sm text-gray-800">{s.respuesta}</p>
                           </div>
+                        )}
+
+                        {esSuperAdmin && s.estado === "posible" && (
+                          <label className="flex items-center gap-1.5 mb-1.5 text-xs text-gray-600">
+                            <Checkbox
+                              checked={s.terminada}
+                              disabled={togglingId === s.id}
+                              onCheckedChange={(checked) =>
+                                handleToggleTerminada(s, checked === true)
+                              }
+                            />
+                            Ya está implementada
+                          </label>
+                        )}
+
+                        {esSuperAdmin && (
+                          <>
+                            {respondiendoId === s.id ? (
+                              <div className="space-y-2 rounded-md border border-indigo-200 bg-indigo-50/50 p-2.5 mt-1">
+                                <Select
+                                  value={resolucion}
+                                  onValueChange={(v) => setResolucion(v as ResolucionSolicitud)}
+                                  disabled={guardandoRespuesta}
+                                >
+                                  <SelectTrigger className="h-8 bg-white text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {RESOLUCIONES.map((r) => (
+                                      <SelectItem key={r.key} value={r.key}>
+                                        {r.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <Textarea
+                                  value={comentario}
+                                  onChange={(e) => setComentario(e.target.value)}
+                                  placeholder="Comentario explicando la decisión..."
+                                  className="min-h-[70px] text-xs bg-white"
+                                  disabled={guardandoRespuesta}
+                                />
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
+                                    onClick={handleGuardarRespuesta}
+                                    disabled={guardandoRespuesta || !comentario.trim()}
+                                  >
+                                    {guardandoRespuesta && (
+                                      <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                                    )}
+                                    Guardar
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 text-xs"
+                                    onClick={cerrarRespuesta}
+                                    disabled={guardandoRespuesta}
+                                  >
+                                    Cancelar
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant={s.estado === "pendiente" ? "default" : "outline"}
+                                className={cn(
+                                  "h-7 text-xs mt-1",
+                                  s.estado === "pendiente" && "bg-indigo-600 hover:bg-indigo-700",
+                                )}
+                                onClick={() => abrirRespuesta(s)}
+                              >
+                                {s.estado === "pendiente" ? "Responder" : "Cambiar respuesta"}
+                              </Button>
+                            )}
+                          </>
                         )}
                       </li>
                     ))}
