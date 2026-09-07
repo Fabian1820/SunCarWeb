@@ -94,4 +94,31 @@ export const NotificacionService = {
       return 0
     }
   },
+
+  /**
+   * Envía el mismo aviso a uno o varios trabajadores (les llega por la
+   * campana). Solo superAdmin puede llamarlo; a diferencia de los métodos de
+   * arriba SÍ propaga el error — quien publica un aviso necesita saber si de
+   * verdad se envió, no que se silencie como el polling en segundo plano.
+   */
+  async enviarManual(
+    destinatariosCi: string[],
+    titulo: string,
+    mensaje: string,
+    tipo = "aviso_sistema",
+  ): Promise<number> {
+    const r = await apiRequest<{ success: boolean; enviadas: number }>(
+      "/notificaciones/manual",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          destinatarios_ci: destinatariosCi,
+          titulo,
+          mensaje,
+          tipo,
+        }),
+      },
+    )
+    return r.enviadas
+  },
 }

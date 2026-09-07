@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Bell, X, CheckCheck, ExternalLink, Trash2, Handshake, Hourglass, CheckCircle2, Wallet, Receipt } from "lucide-react"
+import { Bell, X, CheckCheck, ExternalLink, Trash2, Handshake, Hourglass, CheckCircle2, Wallet, Receipt, Megaphone } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/contexts/auth-context"
 import {
@@ -68,7 +68,7 @@ function getGrupoFecha(fechaStr: string): Grupo {
 const ORDEN_GRUPOS: Grupo[] = ["Hoy", "Ayer", "Esta semana", "Anteriores"]
 
 // ── Pestañas por tipo ────────────────────────────────────────────────────────
-type TabKey = "nuevos" | "atrasados" | "instaladas" | "reservas" | "facturas"
+type TabKey = "nuevos" | "atrasados" | "instaladas" | "reservas" | "facturas" | "avisos"
 
 const TABS: { key: TabKey; label: string; tipo: string }[] = [
   { key: "nuevos",     label: "Nuevos",     tipo: "lead_convertido"        },
@@ -76,6 +76,7 @@ const TABS: { key: TabKey; label: string; tipo: string }[] = [
   { key: "instaladas", label: "Instaladas", tipo: "instalacion_exitosa"    },
   { key: "reservas",   label: "Reservas",   tipo: "reserva_pendiente"     },
   { key: "facturas",   label: "Facturar",   tipo: "factura_multiple_ofertas" },
+  { key: "avisos",     label: "Avisos",     tipo: "aviso_sistema"          },
 ]
 
 function tipoToTab(tipo: string): TabKey {
@@ -135,6 +136,13 @@ function visualPorTipo(tipo: string): TipoVisual {
         iconClass: "text-rose-600",
         bgClass: "bg-rose-50",
         ringClass: "ring-rose-100",
+      }
+    case "aviso_sistema":
+      return {
+        Icon: Megaphone,
+        iconClass: "text-indigo-600",
+        bgClass: "bg-indigo-50",
+        ringClass: "ring-indigo-100",
       }
     default:
       return {
@@ -398,7 +406,7 @@ export function NotificationBell() {
   const grupos      = agruparNotificaciones(visibles)
 
   // Conteo de no leídas por pestaña
-  const conteoPorTab: Record<TabKey, number> = { nuevos: 0, atrasados: 0, instaladas: 0, reservas: 0, facturas: 0 }
+  const conteoPorTab: Record<TabKey, number> = { nuevos: 0, atrasados: 0, instaladas: 0, reservas: 0, facturas: 0, avisos: 0 }
   for (const n of notificaciones) {
     if (!n.leida) conteoPorTab[tipoToTab(n.tipo)]++
   }

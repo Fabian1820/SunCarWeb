@@ -55,6 +55,7 @@ import { WorkerAvatar } from "@/components/feats/worker/worker-avatar";
 import ContactosDashboard from "@/components/feats/contactos/contactos-dashboard";
 import { TicketManualDialog } from "@/components/feats/dashboard/ticket-manual-dialog";
 import { WeatherWidget } from "@/components/feats/dashboard/weather-widget";
+import { SystemUpdatesPanel } from "@/components/feats/dashboard/system-updates-panel";
 import { EstadoOficinaSidebar } from "@/components/feats/equipos-felicity/estado-oficina-sidebar";
 import { ConfigurarEquipoOficinaButton } from "@/components/feats/equipos-felicity/configurar-equipo-oficina-button";
 import { Toaster } from "@/components/shared/molecule/toaster";
@@ -823,6 +824,8 @@ export default function Dashboard() {
                   </p>
                 )}
 
+                {/* Actualizaciones del sistema (hoy y ayer) */}
+                <SystemUpdatesPanel />
 
                 {/* Clima La Habana */}
                 <WeatherWidget />
