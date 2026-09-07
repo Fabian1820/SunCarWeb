@@ -35,6 +35,7 @@ import {
   ContabilidadService,
 } from "@/lib/api-services";
 import { apiRequest } from "@/lib/api-config";
+import { StockInsuficienteError } from "@/lib/services/feats/contabilidad/contabilidad-service";
 import { usePaginatedVentasFactura } from "@/hooks/use-paginated-ventas-factura";
 import type { Cliente } from "@/lib/types/feats/customer/cliente-types";
 import type { VentasFacturaRow } from "@/lib/types/feats/solicitudes-ventas/solicitud-venta-types";
@@ -76,6 +77,7 @@ interface EditableConceptMaterial extends FacturaValeItem {
   categoriaReal?: string;
   codigoContabilidad: string;
   cantidadExistente: number;
+  nombreCatalogo?: string;
   precioContabilidad: number;
   sinVinculo: boolean;
 }
@@ -1235,6 +1237,7 @@ function FacturasSolarCarrosPageContent() {
           : "panel") as "inversor" | "bateria" | "panel",
         categoriaReal: catalogMatch?.categoria || undefined,
         codigoContabilidad: String(catalogMatch?.codigo_contabilidad || ""),
+        nombreCatalogo: String(catalogMatch?.nombre || catalogMatch?.descripcion || ""),
         cantidadExistente: parseNumero(catalogMatch?.cantidad_contabilidad),
         precioContabilidad: parseNumero(catalogMatch?.precio_contabilidad),
         sinVinculo,
@@ -1563,25 +1566,8 @@ function FacturasSolarCarrosPageContent() {
 
     setPreviewSaving(true);
     try {
-      const bloqueados = editableConceptItems.filter(
-        (item) => parseNumero(item.cantidad) > 0 && parseNumero(item.cantidadExistente) <= 0,
-      );
-      if (bloqueados.length > 0) {
-        toast({
-          title: "Material no disponible",
-          description:
-            "Hay materiales con existencia contable 0. Debe cambiarlos por otro o quitarlos antes de guardar.",
-          variant: "destructive",
-        });
-        return;
-      }
-
       const materialesSalida = editableConceptItems
-        .filter(
-          (item) =>
-            parseNumero(item.cantidad) > 0 &&
-            parseNumero(item.cantidadExistente) > 0,
-        )
+        .filter((item) => parseNumero(item.cantidad) > 0)
         .map((item) => ({
           material_id: String(item.material_id || "").trim(),
           cantidad: parseNumero(item.cantidad),
@@ -1617,6 +1603,21 @@ function FacturasSolarCarrosPageContent() {
         return;
       }
 
+      // Se compara contra la existencia real, no contra cero: facturar 200
+      // teniendo 5 hacía que el backend rechazara la rebaja completa y la
+      // factura se emitiera sin descontar nada. Va después de los chequeos de
+      // vínculo porque un material sin vincular tiene existencia 0 y merece el
+      // mensaje de "vincúlelo", no el de "faltan unidades".
+      const bloqueados = editableConceptItems.filter(existenciaInsuficiente);
+      if (bloqueados.length > 0) {
+        toast({
+          title: "Existencia contable insuficiente",
+          description: `${describirFaltantes(bloqueados)}. Ajuste las cantidades, registre la entrada del material o quítelo de la factura.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
       if (materialesSalida.length === 0) {
         toast({
           title: "Sin materiales válidos",
@@ -1641,17 +1642,23 @@ function FacturasSolarCarrosPageContent() {
       );
 
       const nowIso = new Date().toISOString();
-      const materialesPayload = adjustedItems.map((item) => {
+      // Un mismo material puede llegar en varias líneas: la oferta lo lista en
+      // más de una sección (el sistema base y la AMPLIACIÓN), o varios ítems se
+      // vincularon al mismo material del catálogo. Se agrupan por material para
+      // que la factura diga "5x INVERSOR 8KW" y no "4x Inversor" + "1x Capacity:
+      // 8KW Normal input Voltage...". El nombre sale del catálogo, que es el
+      // único texto canónico; el de la oferta a veces trae la ficha técnica.
+      const agrupados = new Map<string, ReturnType<typeof lineaBase>>();
+
+      function lineaBase(item: (typeof adjustedItems)[number]) {
         const editable = editableConceptItems.find(
-          (e) =>
-            normalizeKey(e.codigo) === normalizeKey(item.codigo) &&
-            normalizeKey(e.descripcion) === normalizeKey(item.descripcion),
+          (e) => String(e.material_id || "") === String(item.material_id || ""),
         );
         return {
           material_id: item.material_id,
           categoria_principal: detectCategory(item),
           codigo: item.codigo,
-          nombre_descripcion: item.descripcion,
+          nombre_descripcion: editable?.nombreCatalogo || item.descripcion,
           cantidad: parseNumero(item.cantidad),
           codigo_contabilidad: editable?.codigoContabilidad || null,
           cantidad_contabilidad_disponible:
@@ -1667,7 +1674,26 @@ function FacturasSolarCarrosPageContent() {
             editable && parseNumero(editable.cantidadExistente) <= 0,
           ),
         };
-      });
+      }
+
+      for (const item of adjustedItems) {
+        const clave = String(item.material_id || "").trim() || `sin-id:${item.codigo}:${item.descripcion}`;
+        const previo = agrupados.get(clave);
+        if (!previo) {
+          agrupados.set(clave, lineaBase(item));
+          continue;
+        }
+        // El precio unitario se pondera por cantidad para que el importe
+        // implícito de la línea (cantidad × precio) no cambie al fusionar.
+        const cantidadNueva = parseNumero(item.cantidad);
+        const totalPrevio = previo.cantidad * previo.precio_unitario_usd;
+        const totalNuevo = cantidadNueva * parseNumero(item.precio);
+        previo.cantidad += cantidadNueva;
+        previo.precio_unitario_usd =
+          previo.cantidad > 0 ? (totalPrevio + totalNuevo) / previo.cantidad : 0;
+      }
+
+      const materialesPayload = Array.from(agrupados.values());
 
       const payload = {
         no_factura: previewDraft.numero_factura,
@@ -1756,6 +1782,24 @@ function FacturasSolarCarrosPageContent() {
       await ensureFacturasLoaded(true);
       setTab("facturas");
     } catch (error) {
+      // Si el backend rechaza la rebaja (por ejemplo, otro usuario consumió el
+      // stock mientras se llenaba la factura), la factura NO se guarda y aquí
+      // se dice exactamente qué material la bloqueó.
+      if (error instanceof StockInsuficienteError) {
+        const detalle = error.faltantes
+          .map((f) =>
+            f.disponible !== null
+              ? `${f.nombre}: pide ${f.solicitado}, hay ${f.disponible}`
+              : `${f.nombre}: sin existencia suficiente`,
+          )
+          .join(" · ");
+        toast({
+          title: "Factura no guardada: existencia insuficiente",
+          description: `${detalle}. No se descontó nada. Ajuste las cantidades o registre la entrada del material.`,
+          variant: "destructive",
+        });
+        return;
+      }
       toast({
         title: "Error guardando factura",
         description:
@@ -1832,6 +1876,24 @@ function FacturasSolarCarrosPageContent() {
     if (value <= 10) return "text-emerald-600 font-semibold";
     return "text-gray-900";
   };
+
+  // Un material está corto cuando se factura más de lo que hay en contabilidad.
+  const existenciaInsuficiente = (item: { cantidad: number | string; cantidadExistente: number }) =>
+    parseNumero(item.cantidad) > 0 &&
+    parseNumero(item.cantidad) > parseNumero(item.cantidadExistente);
+
+  // Mensaje con cuánto se pide y cuánto hay, para que se pueda arreglar sin adivinar.
+  const describirFaltantes = (
+    items: Array<{ descripcion?: string; codigo?: string; cantidad: number | string; cantidadExistente: number }>,
+  ) =>
+    items
+      .map((item) => {
+        const pide = parseNumero(item.cantidad);
+        const hay = parseNumero(item.cantidadExistente);
+        const nombre = item.descripcion || item.codigo || "Material";
+        return `${nombre}: pide ${pide}, hay ${hay} (faltan ${pide - hay})`;
+      })
+      .join(" · ");
 
   const materialesCatalogPorCategoria = useMemo(() => {
     const out = {
@@ -3030,11 +3092,15 @@ function FacturasSolarCarrosPageContent() {
                             <td className="px-2 py-1.5 text-right">
                               {formatMoney(item.precioContabilidad, "CUP")}
                             </td>
-                            <td className={`px-2 py-1.5 text-right ${getExistenciaClass(item.cantidadExistente)}`}>
+                            <td className={`px-2 py-1.5 text-right ${existenciaInsuficiente(item) ? "text-red-600 font-semibold" : getExistenciaClass(item.cantidadExistente)}`}>
                               <div>{item.cantidadExistente.toFixed(2)}</div>
-                              {parseNumero(item.cantidadExistente) <= 0 && (
-                                <div className="text-[10px] text-red-600">No se puede agregar</div>
-                              )}
+                              {parseNumero(item.cantidadExistente) <= 0 ? (
+                                <div className="text-[10px] text-red-600">Sin existencia</div>
+                              ) : existenciaInsuficiente(item) ? (
+                                <div className="text-[10px] text-red-600">
+                                  Faltan {parseNumero(item.cantidad) - parseNumero(item.cantidadExistente)}
+                                </div>
+                              ) : null}
                             </td>
                             <td className="px-2 py-1.5">
                               {item.sinVinculo ? (
