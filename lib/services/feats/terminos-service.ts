@@ -37,6 +37,14 @@ export interface TerminosCondiciones {
   sobre_nosotros: string
   /** Secciones extra agregadas a mano, además de las 7 fijas de arriba. */
   secciones_personalizadas: SeccionPersonalizada[]
+  /**
+   * Orden real de impresión (fijas + personalizadas mezcladas), ya resuelto
+   * por el backend — nunca viene vacío en lo que devuelve la API, aunque el
+   * campo pueda estar vacío en documentos legacy sin tocar.
+   */
+  orden_secciones: string[]
+  /** Subconjunto de SECCIONES_FIJAS_KEYS que no sale en el export. */
+  secciones_fijas_desactivadas: string[]
   fecha_creacion: string
   fecha_actualizacion: string
   version: number
@@ -57,6 +65,49 @@ export const SECCIONES_TERMINOS = [
 export type SeccionTerminosKey = (typeof SECCIONES_TERMINOS)[number]
 
 export type TerminosCondicionesEditables = Record<SeccionTerminosKey, string>
+
+/**
+ * Las 6 secciones fijas que se pueden reordenar/apagar (mismo orden y
+ * exclusión de "titulo" que en el backend: es el encabezado del documento,
+ * no una sección con su propio label).
+ */
+export const SECCIONES_FIJAS_KEYS = [
+  "formas_pago",
+  "reserva_equipos",
+  "garantia",
+  "validez_presupuesto",
+  "servicio_atencion_cliente",
+  "sobre_nosotros",
+] as const
+
+export type SeccionFijaKey = (typeof SECCIONES_FIJAS_KEYS)[number]
+
+export const SECCIONES_FIJAS_LABELS: Record<SeccionFijaKey, string> = {
+  formas_pago: "Formas de pago",
+  reserva_equipos: "Reserva de equipos",
+  garantia: "Garantía",
+  validez_presupuesto: "Validez del presupuesto",
+  servicio_atencion_cliente: "Servicio de atención al cliente",
+  sobre_nosotros: "Sobre nosotros",
+}
+
+function esSeccionFija(clave: string): clave is SeccionFijaKey {
+  return (SECCIONES_FIJAS_KEYS as readonly string[]).includes(clave)
+}
+
+/**
+ * Etiqueta legible de cualquier clave del orden de secciones (fija o
+ * personalizada), para listarlas en el selector de "insertar después de".
+ */
+export function etiquetaDeClaveSeccion(
+  clave: string,
+  terminos: Pick<TerminosCondiciones, "secciones_personalizadas">,
+): string {
+  if (esSeccionFija(clave)) return SECCIONES_FIJAS_LABELS[clave]
+  return (
+    terminos.secciones_personalizadas.find((s) => s.id === clave)?.titulo ?? clave
+  )
+}
 
 interface TerminosActivosResponse {
   success?: boolean
@@ -236,17 +287,56 @@ function extraerTerminos(result: TerminosActivosResponse, mensajePorDefecto: str
   return result.data
 }
 
-/** Agrega una sección nueva con una única variante inicial ("Estándar"). */
+/**
+ * Agrega una sección nueva con una única variante inicial ("Estándar").
+ *
+ * `insertarDespues` decide dónde queda en el orden de impresión: sin
+ * pasarlo = al final, "" = al principio, o la clave de otra sección (fija o
+ * personalizada) para quedar justo después de ella.
+ */
 export async function agregarSeccionPersonalizada(
   terminosId: string,
   titulo: string,
   texto: string,
+  insertarDespues?: string,
 ): Promise<TerminosCondiciones> {
   const result = await apiRequest<TerminosActivosResponse>(
     `/terminos-condiciones/${terminosId}/secciones`,
-    { method: "POST", body: JSON.stringify({ titulo, texto }) },
+    {
+      method: "POST",
+      body: JSON.stringify({
+        titulo,
+        texto,
+        ...(insertarDespues !== undefined ? { insertar_despues: insertarDespues } : {}),
+      }),
+    },
   )
   return extraerTerminos(result, "No se pudo agregar la sección")
+}
+
+/** Reemplaza el orden completo de impresión (fijas + personalizadas). */
+export async function reordenarSecciones(
+  terminosId: string,
+  orden: string[],
+): Promise<TerminosCondiciones> {
+  const result = await apiRequest<TerminosActivosResponse>(
+    `/terminos-condiciones/${terminosId}/orden-secciones`,
+    { method: "PUT", body: JSON.stringify({ orden }) },
+  )
+  return extraerTerminos(result, "No se pudo actualizar el orden")
+}
+
+/** Prende o apaga una de las 6 secciones fijas (formas_pago, garantia...). */
+export async function alternarSeccionFija(
+  terminosId: string,
+  clave: SeccionFijaKey,
+  activa: boolean,
+): Promise<TerminosCondiciones> {
+  const result = await apiRequest<TerminosActivosResponse>(
+    `/terminos-condiciones/${terminosId}/secciones-fijas/${clave}`,
+    { method: "PATCH", body: JSON.stringify({ activa }) },
+  )
+  return extraerTerminos(result, "No se pudo actualizar la sección")
 }
 
 /** Renombra el título de la sección y/o la prende o apaga para exportación. */

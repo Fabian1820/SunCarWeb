@@ -18,21 +18,40 @@ import { Textarea } from "@/components/shared/molecule/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, FileText, AlertCircle, Plus, Trash2 } from "lucide-react";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/shared/atom/select";
+import {
   actualizarTerminos,
   agregarSeccionPersonalizada,
   agregarVarianteSeccion,
+  alternarSeccionFija,
   crearTerminos,
   editarSeccionPersonalizada,
   editarVarianteSeccion,
   eliminarSeccionPersonalizada,
   eliminarVarianteSeccion,
+  etiquetaDeClaveSeccion,
   obtenerTerminosActivosCompletos,
+  SECCIONES_FIJAS_KEYS,
   SECCIONES_TERMINOS,
+  type SeccionFijaKey,
   type SeccionPersonalizada,
   type SeccionTerminosKey,
+  type TerminosCondiciones,
   type TerminosCondicionesEditables,
   type TipoNegocioTerminos,
 } from "@/lib/services/feats/terminos-service";
+
+/** Sentinel de UI para "insertar al final"; el backend lo entiende como
+ * `insertar_despues` sin pasar (undefined), que ya es su default. */
+const INSERTAR_AL_FINAL = "__fin__";
+// Radix Select prohíbe value="" en un Item (lo reserva para "sin selección"),
+// así que "al principio" también necesita su propio sentinel no vacío.
+const INSERTAR_AL_PRINCIPIO = "__inicio__";
 
 /**
  * Secciones tal y como salen impresas al final del PDF de la oferta.
@@ -111,7 +130,7 @@ interface VarianteEditorProps {
   identificadorOriginal: string;
   texto: string;
   puedeEliminar: boolean;
-  onCambio: (secciones: SeccionPersonalizada[]) => void;
+  onCambio: (terminos: TerminosCondiciones) => void;
 }
 
 /**
@@ -153,7 +172,7 @@ function VarianteEditor({
         identificador: nuevoId !== identificadorOriginal ? nuevoId : undefined,
         texto: nuevoTexto !== textoOriginal ? nuevoTexto : undefined,
       });
-      onCambio(actualizado.secciones_personalizadas);
+      onCambio(actualizado);
     } catch (e: any) {
       toast({
         title: "No se pudo guardar la variante",
@@ -172,7 +191,7 @@ function VarianteEditor({
     setEliminando(true);
     try {
       const actualizado = await eliminarVarianteSeccion(terminosId, seccionId, identificadorOriginal);
-      onCambio(actualizado.secciones_personalizadas);
+      onCambio(actualizado);
     } catch (e: any) {
       toast({
         title: "No se pudo eliminar la variante",
@@ -227,7 +246,7 @@ function VarianteEditor({
 interface SeccionPersonalizadaCardProps {
   terminosId: string;
   seccion: SeccionPersonalizada;
-  onCambio: (secciones: SeccionPersonalizada[]) => void;
+  onCambio: (terminos: TerminosCondiciones) => void;
 }
 
 function SeccionPersonalizadaCard({
@@ -255,7 +274,7 @@ function SeccionPersonalizadaCard({
       const actualizado = await editarSeccionPersonalizada(terminosId, seccion.id, {
         titulo: nuevo,
       });
-      onCambio(actualizado.secciones_personalizadas);
+      onCambio(actualizado);
     } catch (e: any) {
       toast({
         title: "No se pudo renombrar la sección",
@@ -274,7 +293,7 @@ function SeccionPersonalizadaCard({
       const actualizado = await editarSeccionPersonalizada(terminosId, seccion.id, {
         activa: !seccion.activa,
       });
-      onCambio(actualizado.secciones_personalizadas);
+      onCambio(actualizado);
     } catch (e: any) {
       toast({
         title: "No se pudo cambiar el estado de la sección",
@@ -296,7 +315,7 @@ function SeccionPersonalizadaCard({
     setEliminandoSeccion(true);
     try {
       const actualizado = await eliminarSeccionPersonalizada(terminosId, seccion.id);
-      onCambio(actualizado.secciones_personalizadas);
+      onCambio(actualizado);
     } catch (e: any) {
       toast({
         title: "No se pudo eliminar la sección",
@@ -320,7 +339,7 @@ function SeccionPersonalizadaCard({
         identificador,
         texto,
       );
-      onCambio(actualizado.secciones_personalizadas);
+      onCambio(actualizado);
       setNuevoIdentificador("");
       setNuevoTexto("");
       setNuevaVarianteAbierta(false);
@@ -465,9 +484,18 @@ function TerminosTabForm({
   const [seccionesPersonalizadas, setSeccionesPersonalizadas] = useState<
     SeccionPersonalizada[]
   >([]);
+  const [ordenSecciones, setOrdenSecciones] = useState<string[]>([]);
+  const [seccionesFijasDesactivadas, setSeccionesFijasDesactivadas] = useState<
+    string[]
+  >([]);
+  const [guardandoSeccionFija, setGuardandoSeccionFija] = useState<string | null>(
+    null,
+  );
   const [nuevaSeccionAbierta, setNuevaSeccionAbierta] = useState(false);
   const [nuevoTituloSeccion, setNuevoTituloSeccion] = useState("");
   const [nuevoTextoSeccion, setNuevoTextoSeccion] = useState("");
+  const [nuevaSeccionInsertarDespues, setNuevaSeccionInsertarDespues] =
+    useState<string>(INSERTAR_AL_FINAL);
   const [guardandoNuevaSeccion, setGuardandoNuevaSeccion] = useState(false);
 
   const cargar = useCallback(async () => {
@@ -484,6 +512,8 @@ function TerminosTabForm({
         setValores(VACIO);
         setIniciales(VACIO);
         setSeccionesPersonalizadas([]);
+        setOrdenSecciones([]);
+        setSeccionesFijasDesactivadas([]);
         return;
       }
       const cargados = SECCIONES_TERMINOS.reduce(
@@ -496,6 +526,8 @@ function TerminosTabForm({
       setValores(cargados);
       setIniciales(cargados);
       setSeccionesPersonalizadas(data.secciones_personalizadas ?? []);
+      setOrdenSecciones(data.orden_secciones ?? []);
+      setSeccionesFijasDesactivadas(data.secciones_fijas_desactivadas ?? []);
     } catch (e: any) {
       setErrorCarga(e?.message ?? "No se pudieron cargar los términos y condiciones.");
     } finally {
@@ -592,11 +624,52 @@ function TerminosTabForm({
                 guardar se creará la primera versión.
               </div>
             )}
-            {CAMPOS.map((campo) => (
+            {CAMPOS.map((campo) => {
+              const esFijaAlternable = SECCIONES_FIJAS_KEYS.includes(
+                campo.key as SeccionFijaKey,
+              );
+              const desactivada = seccionesFijasDesactivadas.includes(campo.key);
+              return (
               <div key={campo.key} className="space-y-1.5">
-                <Label htmlFor={`terminos-${tipoNegocio}-${campo.key}`}>
-                  {campo.label}
-                </Label>
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor={`terminos-${tipoNegocio}-${campo.key}`}>
+                    {campo.label}
+                  </Label>
+                  {esFijaAlternable && (
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <Switch
+                        checked={!desactivada}
+                        onCheckedChange={async (checked) => {
+                          if (!terminosId) return;
+                          setGuardandoSeccionFija(campo.key);
+                          try {
+                            const actualizado = await alternarSeccionFija(
+                              terminosId,
+                              campo.key as SeccionFijaKey,
+                              checked,
+                            );
+                            setSeccionesFijasDesactivadas(
+                              actualizado.secciones_fijas_desactivadas,
+                            );
+                          } catch (e: any) {
+                            toast({
+                              title: "No se pudo cambiar el estado de la sección",
+                              description: e?.message ?? "Inténtalo de nuevo.",
+                              variant: "destructive",
+                            });
+                          } finally {
+                            setGuardandoSeccionFija(null);
+                          }
+                        }}
+                        disabled={!terminosId || guardandoSeccionFija === campo.key}
+                        aria-label={desactivada ? "Sección apagada" : "Sección activa"}
+                      />
+                      <span className="text-xs text-gray-500">
+                        {desactivada ? "Apagada" : "Activa"}
+                      </span>
+                    </div>
+                  )}
+                </div>
                 {campo.multilinea ? (
                   <Textarea
                     id={`terminos-${tipoNegocio}-${campo.key}`}
@@ -618,7 +691,8 @@ function TerminosTabForm({
                 )}
                 <p className="text-xs text-gray-500">{campo.ayuda}</p>
               </div>
-            ))}
+              );
+            })}
 
             <div className="space-y-3 border-t pt-4">
               <div>
@@ -639,12 +713,23 @@ function TerminosTabForm({
                 </p>
               ) : (
                 <>
-                  {seccionesPersonalizadas.map((seccion) => (
+                  {/* En el orden real de impresión, no el de creación: si no,
+                      "insertar después de X" quedaría visualmente inconsistente
+                      con dónde termina apareciendo la sección en el export. */}
+                  {[...seccionesPersonalizadas]
+                    .sort(
+                      (a, b) =>
+                        ordenSecciones.indexOf(a.id) - ordenSecciones.indexOf(b.id),
+                    )
+                    .map((seccion) => (
                     <SeccionPersonalizadaCard
                       key={seccion.id}
                       terminosId={terminosId}
                       seccion={seccion}
-                      onCambio={setSeccionesPersonalizadas}
+                      onCambio={(terminos) => {
+                        setSeccionesPersonalizadas(terminos.secciones_personalizadas);
+                        setOrdenSecciones(terminos.orden_secciones);
+                      }}
                     />
                   ))}
 
@@ -675,6 +760,31 @@ function TerminosTabForm({
                           disabled={guardandoNuevaSeccion}
                         />
                       </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`nueva-seccion-ubicacion-${tipoNegocio}`}>
+                          Ubicación
+                        </Label>
+                        <Select
+                          value={nuevaSeccionInsertarDespues}
+                          onValueChange={setNuevaSeccionInsertarDespues}
+                          disabled={guardandoNuevaSeccion}
+                        >
+                          <SelectTrigger id={`nueva-seccion-ubicacion-${tipoNegocio}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={INSERTAR_AL_PRINCIPIO}>Al principio</SelectItem>
+                            {ordenSecciones.map((clave) => (
+                              <SelectItem key={clave} value={clave}>
+                                Después de: {etiquetaDeClaveSeccion(clave, {
+                                  secciones_personalizadas: seccionesPersonalizadas,
+                                })}
+                              </SelectItem>
+                            ))}
+                            <SelectItem value={INSERTAR_AL_FINAL}>Al final</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                       <div className="flex gap-2">
                         <Button
                           size="sm"
@@ -690,12 +800,19 @@ function TerminosTabForm({
                                 terminosId,
                                 nuevoTituloSeccion.trim(),
                                 nuevoTextoSeccion.trim(),
+                                nuevaSeccionInsertarDespues === INSERTAR_AL_FINAL
+                                  ? undefined
+                                  : nuevaSeccionInsertarDespues === INSERTAR_AL_PRINCIPIO
+                                    ? ""
+                                    : nuevaSeccionInsertarDespues,
                               );
                               setSeccionesPersonalizadas(
                                 actualizado.secciones_personalizadas,
                               );
+                              setOrdenSecciones(actualizado.orden_secciones);
                               setNuevoTituloSeccion("");
                               setNuevoTextoSeccion("");
+                              setNuevaSeccionInsertarDespues(INSERTAR_AL_FINAL);
                               setNuevaSeccionAbierta(false);
                             } catch (e: any) {
                               toast({
@@ -716,7 +833,10 @@ function TerminosTabForm({
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => setNuevaSeccionAbierta(false)}
+                          onClick={() => {
+                            setNuevaSeccionAbierta(false);
+                            setNuevaSeccionInsertarDespues(INSERTAR_AL_FINAL);
+                          }}
                           disabled={guardandoNuevaSeccion}
                         >
                           Cancelar

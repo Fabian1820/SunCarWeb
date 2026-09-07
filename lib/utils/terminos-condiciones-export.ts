@@ -34,7 +34,22 @@ export interface TerminosCondicionesPayload {
     consideracionesGenerales?: string | null;
   } | null;
   secciones_personalizadas?: SeccionPersonalizadaExportPayload[] | null;
+  /** Orden real de impresión (fijas + personalizadas mezcladas). */
+  orden_secciones?: string[] | null;
+  /** Subconjunto de las 6 claves fijas reordenables que no sale en el export. */
+  secciones_fijas_desactivadas?: string[] | null;
 }
+
+/** Mismo orden que en el backend (SECCIONES_FIJAS_KEYS); "titulo" queda
+ * fuera porque es el encabezado del documento, no una sección con label. */
+const CLAVES_SECCIONES_FIJAS = [
+  "formas_pago",
+  "reserva_equipos",
+  "garantia",
+  "validez_presupuesto",
+  "servicio_atencion_cliente",
+  "sobre_nosotros",
+] as const;
 
 export interface VarianteSeccionExportPayload {
   identificador: string;
@@ -326,66 +341,104 @@ export function buildTerminosCondicionesHtml(
     !!payload.secciones ||
     !!payload.secciones_personalizadas?.length;
 
-  const secciones = [
-    {
+  // Contenido de cada una de las 6 secciones fijas, por su clave. Se arma
+  // igual que antes; lo que cambia es que ahora el ORDEN en que se imprimen
+  // (y si se imprimen) lo decide `orden_secciones` / `secciones_fijas_desactivadas`,
+  // no un array fijo.
+  const contenidoPorClaveFija: Record<(typeof CLAVES_SECCIONES_FIJAS)[number], { label: string; value: string }> = {
+    formas_pago: {
       label: formasPagoAcordadas ? "PAGOS ACORDADOS" : "FORMAS DE PAGO",
       value: formasPagoAcordadas
         ? formasPagoAcordadas
         : limpiarContenidoSeccion(formasPago, "formas?\\s+de\\s+pago"),
     },
-    {
+    reserva_equipos: {
       label: "RESERVA DE EQUIPOS",
-      value: limpiarContenidoSeccion(
-        reservaEquipos,
-        "reserva\\s+de\\s+equipos?",
-      ),
+      value: limpiarContenidoSeccion(reservaEquipos, "reserva\\s+de\\s+equipos?"),
     },
-    {
+    garantia: {
       label: "GARANTÍA",
       value: limpiarContenidoSeccion(garantia, "garant[ií]a"),
     },
-    {
+    validez_presupuesto: {
       label: "VALIDEZ DEL PRESUPUESTO",
       value: limpiarContenidoSeccion(
         validezPresupuesto,
         "validez\\s+del?\\s+presupuesto",
       ),
     },
-    {
+    servicio_atencion_cliente: {
       label: "SERVICIO DE ATENCIÓN AL CLIENTE",
       value: limpiarContenidoSeccion(
         servicioAtencionCliente,
         "servicio\\s+de\\s+atenci[oó]n\\s+al\\s+cliente",
       ),
     },
-    {
+    sobre_nosotros: {
       label: "SOBRE NOSOTROS",
       value: limpiarContenidoSeccion(sobreNosotros, "sobre\\s+nosotros"),
     },
-    {
+  };
+
+  const seccionesPersonalizadas = payload.secciones_personalizadas ?? [];
+  const desactivadas = new Set(payload.secciones_fijas_desactivadas ?? []);
+
+  // Orden por defecto: las 6 fijas en su orden de siempre, luego las
+  // personalizadas en el orden en que se crearon. Documentos que nunca
+  // tocaron el orden (o vienen de antes de esta funcionalidad) usan esto.
+  const ordenPorDefecto = [
+    ...CLAVES_SECCIONES_FIJAS,
+    ...seccionesPersonalizadas.map((s) => s.id),
+  ];
+  const clavesValidas = new Set(ordenPorDefecto);
+  const guardado = (payload.orden_secciones ?? []).filter((clave) =>
+    clavesValidas.has(clave),
+  );
+  const ordenEfectivo = [
+    ...guardado,
+    ...ordenPorDefecto.filter((clave) => !guardado.includes(clave)),
+  ];
+
+  const seccionesPersonalizadasPorId = new Map(
+    seccionesPersonalizadas.map((s) => [s.id, s]),
+  );
+
+  const secciones: { label: string; value: string }[] = [];
+  ordenEfectivo.forEach((clave) => {
+    if ((CLAVES_SECCIONES_FIJAS as readonly string[]).includes(clave)) {
+      if (desactivadas.has(clave)) return;
+      const entrada = contenidoPorClaveFija[clave as (typeof CLAVES_SECCIONES_FIJAS)[number]];
+      if (entrada.value) secciones.push(entrada);
+      return;
+    }
+
+    // Sección personalizada: apagada no sale; de las que tienen varias
+    // variantes se usa la elegida al exportar, o si no se eligió ninguna,
+    // la primera de la lista.
+    const seccion = seccionesPersonalizadasPorId.get(clave);
+    if (!seccion || seccion.activa === false || seccion.variantes.length === 0) return;
+    const elegida = options?.variantesElegidas?.[seccion.id];
+    const variante =
+      seccion.variantes.find((v) => v.identificador === elegida) ??
+      seccion.variantes[0];
+    secciones.push({
+      label: seccion.titulo.toUpperCase(),
+      value: normalizarTexto(variante.texto),
+    });
+  });
+
+  // "Consideraciones generales" es un campo legacy que ningún flujo actual
+  // llena; se mantiene por compatibilidad con payloads antiguos que sí lo
+  // traían, siempre al final (no participa del reordenamiento).
+  if (consideracionesGenerales) {
+    secciones.push({
       label: "CONSIDERACIONES GENERALES",
       value: limpiarContenidoSeccion(
         consideracionesGenerales,
         "consideraciones?\\s+generales?",
       ),
-    },
-  ].filter((section) => section.value);
-
-  // Secciones agregadas a mano, además de las 7 fijas de arriba. Las
-  // apagadas no se imprimen; de las que tienen varias variantes se usa la
-  // elegida al exportar, o si no se eligió ninguna, la primera de la lista.
-  (payload.secciones_personalizadas ?? [])
-    .filter((seccion) => seccion.activa !== false && seccion.variantes.length > 0)
-    .forEach((seccion) => {
-      const elegida = options?.variantesElegidas?.[seccion.id];
-      const variante =
-        seccion.variantes.find((v) => v.identificador === elegida) ??
-        seccion.variantes[0];
-      secciones.push({
-        label: seccion.titulo.toUpperCase(),
-        value: normalizarTexto(variante.texto),
-      });
     });
+  }
 
   if (tieneEstructura) {
     const partes: string[] = [];
