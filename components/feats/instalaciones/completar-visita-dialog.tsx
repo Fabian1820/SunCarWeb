@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -148,14 +148,19 @@ const extraerVisitaId = (payload: any): string | null => {
   );
 };
 
-/** Elige la visita aún no completada del registro, o la más reciente como último recurso. */
+/**
+ * Elige la visita aún no completada del registro (si existe una realmente
+ * abierta). NUNCA cae en "agarrar cualquiera" (ej. visitas[0]) porque eso
+ * podía reutilizar y sobrescribir una visita antigua ya completada de un
+ * ciclo anterior del mismo cliente/lead. Si no hay ninguna visita abierta,
+ * devuelve undefined para que el llamador cree una visita nueva.
+ */
 const seleccionarVisitaPendiente = (visitas: any[]): any =>
   visitas.find((v) => String(v?.estado || "").toLowerCase() === "programada") ??
   visitas.find((v) => {
     const estado = String(v?.estado || "").toLowerCase();
     return estado !== "completada" && estado !== "cancelada";
-  }) ??
-  visitas[0];
+  });
 
 export function CompletarVisitaDialog({
   open,
@@ -166,6 +171,9 @@ export function CompletarVisitaDialog({
 }: CompletarVisitaDialogProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  // Bandera síncrona (no depende de re-render) para evitar doble envío por
+  // doble clic rápido en "Guardar" antes de que React deshabilite el botón.
+  const submittingRef = useRef(false);
   const [modo, setModo] = useState<ModoDialogo>("eleccion");
 
   const [tieneOferta, setTieneOferta] = useState<boolean | null>(null);
@@ -668,11 +676,16 @@ export function CompletarVisitaDialog({
       const visitas = parseVisitas(await response.json());
       if (visitas.length === 0) continue;
 
+      // Solo reutilizamos si hay una visita realmente abierta para este
+      // cliente/lead. Si todas las que existen ya están completadas o
+      // canceladas, no hay nada que reutilizar aquí: seguimos probando
+      // otros endpoints y, si ninguno tiene una abierta, se creará una
+      // visita nueva (ver `return null` al final de esta función).
       const visita = seleccionarVisitaPendiente(visitas);
+      if (!visita) continue;
+
       const visitaId = visita?.id || visita?._id || visita?.visita_id;
-      if (!visitaId) {
-        throw new Error("La visita encontrada no tiene identificador válido");
-      }
+      if (!visitaId) continue;
       return String(visitaId);
     }
 
@@ -704,6 +717,7 @@ export function CompletarVisitaDialog({
 
   const handleMarcarSinInfo = async () => {
     if (!pendiente) return;
+    if (submittingRef.current) return;
 
     if (!fechaVisitaCompletada) {
       toast({
@@ -714,6 +728,7 @@ export function CompletarVisitaDialog({
       return;
     }
 
+    submittingRef.current = true;
     setLoading(true);
     try {
       setSubmitProgress({
@@ -776,11 +791,14 @@ export function CompletarVisitaDialog({
         variant: "destructive",
       });
     } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   };
 
   const handleSubmit = async () => {
+    if (submittingRef.current) return;
+
     const leadId = pendiente?.id;
     const clienteIdentificador = pendiente?.id || pendiente?.numero;
     if (
@@ -863,6 +881,7 @@ export function CompletarVisitaDialog({
       }
     }
 
+    submittingRef.current = true;
     setLoading(true);
     try {
       const totalFiles = estudioEnergetico.length + evidenciaArchivos.length;
@@ -996,6 +1015,7 @@ export function CompletarVisitaDialog({
         variant: "destructive",
       });
     } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   };
