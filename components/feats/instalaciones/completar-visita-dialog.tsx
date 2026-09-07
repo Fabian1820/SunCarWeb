@@ -33,6 +33,11 @@ import { MaterialService } from "@/lib/api-services";
 import { optimizarImagenParaWeb } from "@/lib/utils/image-optimizer";
 import type { PendienteVisita } from "@/lib/types/feats/instalaciones/instalaciones-types";
 import type { Material } from "@/lib/material-types";
+import {
+  EstudioEnergeticoForm,
+  type EstudioEnergeticoData,
+  type FotoSeleccionada,
+} from "@/components/feats/instalaciones/estudio-energetico-form";
 
 interface CompletarVisitaDialogProps {
   open: boolean;
@@ -184,9 +189,14 @@ export function CompletarVisitaDialog({
   > | null>(null);
 
   // Campos del formulario
-  const [estudioEnergetico, setEstudioEnergetico] = useState<ArchivoSubido[]>(
-    [],
-  );
+  const [estudioEnergeticoData, setEstudioEnergeticoData] =
+    useState<EstudioEnergeticoData>({});
+  const [fotoFachada, setFotoFachada] = useState<FotoSeleccionada | null>(null);
+  const [fotoMetrocontador, setFotoMetrocontador] =
+    useState<FotoSeleccionada | null>(null);
+  const [fotoPgd, setFotoPgd] = useState<FotoSeleccionada | null>(null);
+  const [fotoAreaInstalacion, setFotoAreaInstalacion] =
+    useState<FotoSeleccionada | null>(null);
   const [evidenciaArchivos, setEvidenciaArchivos] = useState<ArchivoSubido[]>(
     [],
   );
@@ -329,17 +339,21 @@ export function CompletarVisitaDialog({
   };
 
   const resetForm = () => {
-    estudioEnergetico.forEach((archivo) => {
-      if (archivo.url.startsWith("blob:")) {
-        URL.revokeObjectURL(archivo.url);
-      }
-    });
     evidenciaArchivos.forEach((archivo) => {
       if (archivo.url.startsWith("blob:")) {
         URL.revokeObjectURL(archivo.url);
       }
     });
-    setEstudioEnergetico([]);
+    [fotoFachada, fotoMetrocontador, fotoPgd, fotoAreaInstalacion].forEach(
+      (foto) => {
+        if (foto) URL.revokeObjectURL(foto.previewUrl);
+      },
+    );
+    setEstudioEnergeticoData({});
+    setFotoFachada(null);
+    setFotoMetrocontador(null);
+    setFotoPgd(null);
+    setFotoAreaInstalacion(null);
     setEvidenciaArchivos([]);
     setEvidenciaTexto("");
     setResultado("");
@@ -355,10 +369,7 @@ export function CompletarVisitaDialog({
     setModo("eleccion");
   };
 
-  const handleFileUpload = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    tipo: "estudio" | "evidencia",
-  ) => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
 
@@ -391,31 +402,17 @@ export function CompletarVisitaDialog({
       });
     });
 
-    if (tipo === "estudio") {
-      setEstudioEnergetico((prev) => [...prev, ...nuevosArchivos]);
-    } else {
-      setEvidenciaArchivos((prev) => [...prev, ...nuevosArchivos]);
-    }
+    setEvidenciaArchivos((prev) => [...prev, ...nuevosArchivos]);
   };
 
-  const removeArchivo = (index: number, tipo: "estudio" | "evidencia") => {
-    if (tipo === "estudio") {
-      setEstudioEnergetico((prev) => {
-        const removed = prev[index];
-        if (removed?.url?.startsWith("blob:")) {
-          URL.revokeObjectURL(removed.url);
-        }
-        return prev.filter((_, i) => i !== index);
-      });
-    } else {
-      setEvidenciaArchivos((prev) => {
-        const removed = prev[index];
-        if (removed?.url?.startsWith("blob:")) {
-          URL.revokeObjectURL(removed.url);
-        }
-        return prev.filter((_, i) => i !== index);
-      });
-    }
+  const removeArchivo = (index: number) => {
+    setEvidenciaArchivos((prev) => {
+      const removed = prev[index];
+      if (removed?.url?.startsWith("blob:")) {
+        URL.revokeObjectURL(removed.url);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
   const agregarMaterial = () => {
@@ -825,15 +822,6 @@ export function CompletarVisitaDialog({
     }
 
     // Validaciones
-    if (estudioEnergetico.length === 0) {
-      toast({
-        title: "Campo requerido",
-        description: "Debe subir al menos un archivo de estudio energético",
-        variant: "destructive",
-      });
-      return;
-    }
-
     if (evidenciaArchivos.length === 0 && !evidenciaTexto.trim()) {
       toast({
         title: "Campo requerido",
@@ -884,9 +872,23 @@ export function CompletarVisitaDialog({
     submittingRef.current = true;
     setLoading(true);
     try {
-      const totalFiles = estudioEnergetico.length + evidenciaArchivos.length;
+      const fotosEtiquetadas: { etiqueta: string; foto: FotoSeleccionada }[] = [
+        fotoFachada && { etiqueta: "fachada", foto: fotoFachada },
+        fotoMetrocontador && {
+          etiqueta: "metrocontador",
+          foto: fotoMetrocontador,
+        },
+        fotoPgd && { etiqueta: "pgd", foto: fotoPgd },
+        fotoAreaInstalacion && {
+          etiqueta: "area_instalacion",
+          foto: fotoAreaInstalacion,
+        },
+      ].filter(Boolean) as { etiqueta: string; foto: FotoSeleccionada }[];
+
+      const totalFiles =
+        fotosEtiquetadas.length + evidenciaArchivos.length;
       const totalBatches =
-        Math.ceil(estudioEnergetico.length / FILES_PER_UPLOAD_REQUEST) +
+        fotosEtiquetadas.length +
         Math.ceil(evidenciaArchivos.length / FILES_PER_UPLOAD_REQUEST);
 
       setSubmitProgress({
@@ -934,6 +936,9 @@ export function CompletarVisitaDialog({
           createPayload.evidencia_texto = evidenciaTexto.trim();
           createPayload.notas = evidenciaTexto.trim();
         }
+        if (Object.keys(estudioEnergeticoData).length > 0) {
+          createPayload.estudio_energetico = estudioEnergeticoData;
+        }
 
         visitaIdParaArchivos = await crearVisita(createPayload);
       } else {
@@ -963,6 +968,9 @@ export function CompletarVisitaDialog({
             nombre: m.nombre?.trim() || m.codigo,
           }));
         }
+        if (Object.keys(estudioEnergeticoData).length > 0) {
+          updatePayload.estudio_energetico = estudioEnergeticoData;
+        }
 
         await apiRequest(`/visitas/${visitaId}`, {
           method: "PUT",
@@ -977,11 +985,32 @@ export function CompletarVisitaDialog({
         );
       }
 
-      await uploadCategoryFiles(
-        visitaIdParaArchivos,
-        "estudio_energetico",
-        estudioEnergetico,
-      );
+      for (const { etiqueta, foto } of fotosEtiquetadas) {
+        setSubmitProgress((prev) => ({
+          ...prev,
+          step: "subiendo",
+          currentCategory: "estudio_energetico",
+          message: `Subiendo foto (${etiqueta})...`,
+        }));
+
+        const optimizado = await optimizeFile(foto.file);
+        const formData = new FormData();
+        formData.append("file", optimizado, foto.nombre);
+        await apiRequest(
+          `/visitas/${visitaIdParaArchivos}/archivos/upload?categoria=estudio_energetico&etiqueta=${encodeURIComponent(etiqueta)}`,
+          { method: "POST", body: formData },
+        );
+
+        setSubmitProgress((prev) => ({
+          ...prev,
+          uploadedFiles: Math.min(prev.totalFiles, prev.uploadedFiles + 1),
+          uploadedBatches: Math.min(
+            prev.totalBatches,
+            prev.uploadedBatches + 1,
+          ),
+        }));
+      }
+
       await uploadCategoryFiles(
         visitaIdParaArchivos,
         "evidencia",
@@ -1275,57 +1304,22 @@ export function CompletarVisitaDialog({
             <Label className="text-base font-semibold mb-2 flex items-center gap-2">
               <FileText className="h-4 w-4" />
               Estudio Energético
-              <span className="text-red-500">*</span>
             </Label>
             <p className="text-sm text-gray-500 mb-3">
-              Subir archivos Excel, PDF o Word con el estudio energético
+              Todos los campos son opcionales — rellena lo que se pueda obtener en la visita.
             </p>
-
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-emerald-400 transition-colors">
-              <input
-                type="file"
-                id="estudio-upload"
-                className="hidden"
-                accept=".xlsx,.xls,.csv,.pdf,.doc,.docx"
-                multiple
-                onChange={(e) => handleFileUpload(e, "estudio")}
-              />
-              <label
-                htmlFor="estudio-upload"
-                className="flex flex-col items-center justify-center cursor-pointer"
-              >
-                <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                <p className="text-sm text-gray-600">
-                  Haz clic para subir archivos
-                </p>
-                <p className="text-xs text-gray-400 mt-1">Excel, PDF o Word</p>
-              </label>
-            </div>
-
-            {estudioEnergetico.length > 0 && (
-              <div className="mt-3 space-y-2">
-                {estudioEnergetico.map((archivo, index) => (
-                  <Card key={index} className="border">
-                    <CardContent className="p-3 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        {getIconForTipo(archivo.tipo)}
-                        <span className="text-sm font-medium">
-                          {archivo.nombre}
-                        </span>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => removeArchivo(index, "estudio")}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
+            <EstudioEnergeticoForm
+              value={estudioEnergeticoData}
+              onChange={setEstudioEnergeticoData}
+              fotoFachada={fotoFachada}
+              onFotoFachadaChange={setFotoFachada}
+              fotoMetrocontador={fotoMetrocontador}
+              onFotoMetrocontadorChange={setFotoMetrocontador}
+              fotoPgd={fotoPgd}
+              onFotoPgdChange={setFotoPgd}
+              fotoAreaInstalacion={fotoAreaInstalacion}
+              onFotoAreaInstalacionChange={setFotoAreaInstalacion}
+            />
           </div>
 
           {/* Evidencia */}
@@ -1346,7 +1340,7 @@ export function CompletarVisitaDialog({
                 className="hidden"
                 accept="image/*,video/*,audio/*"
                 multiple
-                onChange={(e) => handleFileUpload(e, "evidencia")}
+                onChange={handleFileUpload}
               />
               <label
                 htmlFor="evidencia-upload"
@@ -1376,7 +1370,7 @@ export function CompletarVisitaDialog({
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => removeArchivo(index, "evidencia")}
+                        onClick={() => removeArchivo(index)}
                         className="text-red-600 hover:text-red-700 hover:bg-red-50 flex-shrink-0"
                       >
                         <X className="h-4 w-4" />
