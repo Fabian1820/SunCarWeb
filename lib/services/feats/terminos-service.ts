@@ -10,6 +10,19 @@ import { apiRequest } from "../../api-config"
  */
 export type TipoNegocioTerminos = "BTB" | "BTC"
 
+export interface VarianteSeccionPersonalizada {
+  identificador: string
+  texto: string
+}
+
+export interface SeccionPersonalizada {
+  id: string
+  titulo: string
+  /** Si está apagada no sale en ningún export hasta que se vuelva a prender aquí mismo. */
+  activa: boolean
+  variantes: VarianteSeccionPersonalizada[]
+}
+
 export interface TerminosCondiciones {
   id: string
   tipo_negocio?: TipoNegocioTerminos
@@ -22,6 +35,8 @@ export interface TerminosCondiciones {
   validez_presupuesto: string
   servicio_atencion_cliente: string
   sobre_nosotros: string
+  /** Secciones extra agregadas a mano, además de las 7 fijas de arriba. */
+  secciones_personalizadas: SeccionPersonalizada[]
   fecha_creacion: string
   fecha_actualizacion: string
   version: number
@@ -212,4 +227,88 @@ export async function crearTerminos(
   if (result?.success === false) {
     throw new Error(result?.message || "No se pudieron crear los terminos y condiciones")
   }
+}
+
+function extraerTerminos(result: TerminosActivosResponse, mensajePorDefecto: string): TerminosCondiciones {
+  if (result?.success === false || !result?.data) {
+    throw new Error(result?.message || mensajePorDefecto)
+  }
+  return result.data
+}
+
+/** Agrega una sección nueva con una única variante inicial ("Estándar"). */
+export async function agregarSeccionPersonalizada(
+  terminosId: string,
+  titulo: string,
+  texto: string,
+): Promise<TerminosCondiciones> {
+  const result = await apiRequest<TerminosActivosResponse>(
+    `/terminos-condiciones/${terminosId}/secciones`,
+    { method: "POST", body: JSON.stringify({ titulo, texto }) },
+  )
+  return extraerTerminos(result, "No se pudo agregar la sección")
+}
+
+/** Renombra el título de la sección y/o la prende o apaga para exportación. */
+export async function editarSeccionPersonalizada(
+  terminosId: string,
+  seccionId: string,
+  cambios: { titulo?: string; activa?: boolean },
+): Promise<TerminosCondiciones> {
+  const result = await apiRequest<TerminosActivosResponse>(
+    `/terminos-condiciones/${terminosId}/secciones/${seccionId}`,
+    { method: "PUT", body: JSON.stringify(cambios) },
+  )
+  return extraerTerminos(result, "No se pudo actualizar la sección")
+}
+
+export async function eliminarSeccionPersonalizada(
+  terminosId: string,
+  seccionId: string,
+): Promise<TerminosCondiciones> {
+  const result = await apiRequest<TerminosActivosResponse>(
+    `/terminos-condiciones/${terminosId}/secciones/${seccionId}`,
+    { method: "DELETE" },
+  )
+  return extraerTerminos(result, "No se pudo eliminar la sección")
+}
+
+/** El identificador debe ser único dentro de la sección (sin distinguir mayúsculas). */
+export async function agregarVarianteSeccion(
+  terminosId: string,
+  seccionId: string,
+  identificador: string,
+  texto: string,
+): Promise<TerminosCondiciones> {
+  const result = await apiRequest<TerminosActivosResponse>(
+    `/terminos-condiciones/${terminosId}/secciones/${seccionId}/variantes`,
+    { method: "POST", body: JSON.stringify({ identificador, texto }) },
+  )
+  return extraerTerminos(result, "No se pudo agregar la variante")
+}
+
+export async function editarVarianteSeccion(
+  terminosId: string,
+  seccionId: string,
+  identificadorActual: string,
+  cambios: { identificador?: string; texto?: string },
+): Promise<TerminosCondiciones> {
+  const result = await apiRequest<TerminosActivosResponse>(
+    `/terminos-condiciones/${terminosId}/secciones/${seccionId}/variantes/${encodeURIComponent(identificadorActual)}`,
+    { method: "PUT", body: JSON.stringify(cambios) },
+  )
+  return extraerTerminos(result, "No se pudo actualizar la variante")
+}
+
+/** El backend rechaza dejar una sección sin ninguna variante. */
+export async function eliminarVarianteSeccion(
+  terminosId: string,
+  seccionId: string,
+  identificador: string,
+): Promise<TerminosCondiciones> {
+  const result = await apiRequest<TerminosActivosResponse>(
+    `/terminos-condiciones/${terminosId}/secciones/${seccionId}/variantes/${encodeURIComponent(identificador)}`,
+    { method: "DELETE" },
+  )
+  return extraerTerminos(result, "No se pudo eliminar la variante")
 }

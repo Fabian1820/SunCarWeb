@@ -1874,14 +1874,8 @@ export function OfertasConfeccionadasView() {
             setOfertaParaExportar(ofertaActualizada);
             refetch?.();
           }}
-          terminosHtmlBTB={buildTerminosCondicionesHtml(
-            terminosCondicionesPayloadBTB,
-            { oferta: ofertaParaExportar },
-          )}
-          terminosHtmlBTC={buildTerminosCondicionesHtml(
-            terminosCondicionesPayloadBTC,
-            { oferta: ofertaParaExportar },
-          )}
+          terminosPayloadBTB={terminosCondicionesPayloadBTB}
+          terminosPayloadBTC={terminosCondicionesPayloadBTC}
           tipoNegocioCliente={
             (
               clientePorOferta.get(ofertaParaExportar.cliente_id || "") ||

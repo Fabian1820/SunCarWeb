@@ -13,14 +13,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/shared/mo
 import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/atom/input";
 import { Label } from "@/components/shared/atom/label";
+import { Switch } from "@/components/shared/molecule/switch";
 import { Textarea } from "@/components/shared/molecule/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, FileText, AlertCircle } from "lucide-react";
+import { Loader2, FileText, AlertCircle, Plus, Trash2 } from "lucide-react";
 import {
   actualizarTerminos,
+  agregarSeccionPersonalizada,
+  agregarVarianteSeccion,
   crearTerminos,
+  editarSeccionPersonalizada,
+  editarVarianteSeccion,
+  eliminarSeccionPersonalizada,
+  eliminarVarianteSeccion,
   obtenerTerminosActivosCompletos,
   SECCIONES_TERMINOS,
+  type SeccionPersonalizada,
   type SeccionTerminosKey,
   type TerminosCondicionesEditables,
   type TipoNegocioTerminos,
@@ -97,6 +105,336 @@ const ETIQUETA_TIPO: Record<TipoNegocioTerminos, string> = {
   BTC: "BTC",
 };
 
+interface VarianteEditorProps {
+  terminosId: string;
+  seccionId: string;
+  identificadorOriginal: string;
+  texto: string;
+  puedeEliminar: boolean;
+  onCambio: (secciones: SeccionPersonalizada[]) => void;
+}
+
+/**
+ * Una variante de una sección personalizada. El identificador es a la vez la
+ * etiqueta que ve el comercial al exportar Y la clave con la que el backend
+ * la referencia — por eso se edita y se guarda junto con el texto, en el
+ * mismo botón, y no hay autosave por blur: cambiarlo a mitad de escribir
+ * dispararía guardados con un identificador a medio terminar.
+ */
+function VarianteEditor({
+  terminosId,
+  seccionId,
+  identificadorOriginal,
+  texto: textoOriginal,
+  puedeEliminar,
+  onCambio,
+}: VarianteEditorProps) {
+  const { toast } = useToast();
+  const [identificador, setIdentificador] = useState(identificadorOriginal);
+  const [texto, setTexto] = useState(textoOriginal);
+  const [guardando, setGuardando] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
+
+  useEffect(() => {
+    setIdentificador(identificadorOriginal);
+    setTexto(textoOriginal);
+  }, [identificadorOriginal, textoOriginal]);
+
+  const hayCambios =
+    identificador.trim() !== identificadorOriginal || texto.trim() !== textoOriginal;
+
+  const guardar = async () => {
+    const nuevoId = identificador.trim();
+    const nuevoTexto = texto.trim();
+    if (!nuevoId || !nuevoTexto) return;
+    setGuardando(true);
+    try {
+      const actualizado = await editarVarianteSeccion(terminosId, seccionId, identificadorOriginal, {
+        identificador: nuevoId !== identificadorOriginal ? nuevoId : undefined,
+        texto: nuevoTexto !== textoOriginal ? nuevoTexto : undefined,
+      });
+      onCambio(actualizado.secciones_personalizadas);
+    } catch (e: any) {
+      toast({
+        title: "No se pudo guardar la variante",
+        description: e?.message ?? "Inténtalo de nuevo.",
+        variant: "destructive",
+      });
+      setIdentificador(identificadorOriginal);
+      setTexto(textoOriginal);
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const eliminar = async () => {
+    if (!window.confirm(`¿Eliminar la variante "${identificadorOriginal}"?`)) return;
+    setEliminando(true);
+    try {
+      const actualizado = await eliminarVarianteSeccion(terminosId, seccionId, identificadorOriginal);
+      onCambio(actualizado.secciones_personalizadas);
+    } catch (e: any) {
+      toast({
+        title: "No se pudo eliminar la variante",
+        description: e?.message ?? "Inténtalo de nuevo.",
+        variant: "destructive",
+      });
+    } finally {
+      setEliminando(false);
+    }
+  };
+
+  return (
+    <div className="space-y-1.5 rounded border border-gray-200 bg-white p-2">
+      <div className="flex items-center gap-2">
+        <Input
+          className="h-8 text-sm"
+          value={identificador}
+          onChange={(e) => setIdentificador(e.target.value)}
+          placeholder="Identificador (ej. Estándar, Zona oriental)"
+          disabled={guardando}
+        />
+        {puedeEliminar && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 w-8 shrink-0 p-0 text-red-600 hover:bg-red-50"
+            onClick={eliminar}
+            disabled={eliminando || guardando}
+            aria-label={`Eliminar variante ${identificadorOriginal}`}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        )}
+      </div>
+      <Textarea
+        className="resize-y text-sm"
+        rows={3}
+        value={texto}
+        onChange={(e) => setTexto(e.target.value)}
+        disabled={guardando}
+      />
+      {hayCambios && (
+        <Button size="sm" className="h-7 text-xs" onClick={guardar} disabled={guardando}>
+          {guardando && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />}
+          Guardar variante
+        </Button>
+      )}
+    </div>
+  );
+}
+
+interface SeccionPersonalizadaCardProps {
+  terminosId: string;
+  seccion: SeccionPersonalizada;
+  onCambio: (secciones: SeccionPersonalizada[]) => void;
+}
+
+function SeccionPersonalizadaCard({
+  terminosId,
+  seccion,
+  onCambio,
+}: SeccionPersonalizadaCardProps) {
+  const { toast } = useToast();
+  const [titulo, setTitulo] = useState(seccion.titulo);
+  const [guardandoTitulo, setGuardandoTitulo] = useState(false);
+  const [guardandoActiva, setGuardandoActiva] = useState(false);
+  const [eliminandoSeccion, setEliminandoSeccion] = useState(false);
+  const [nuevaVarianteAbierta, setNuevaVarianteAbierta] = useState(false);
+  const [nuevoIdentificador, setNuevoIdentificador] = useState("");
+  const [nuevoTexto, setNuevoTexto] = useState("");
+  const [guardandoVariante, setGuardandoVariante] = useState(false);
+
+  useEffect(() => setTitulo(seccion.titulo), [seccion.titulo]);
+
+  const guardarTitulo = async () => {
+    const nuevo = titulo.trim();
+    if (!nuevo || nuevo === seccion.titulo) return;
+    setGuardandoTitulo(true);
+    try {
+      const actualizado = await editarSeccionPersonalizada(terminosId, seccion.id, {
+        titulo: nuevo,
+      });
+      onCambio(actualizado.secciones_personalizadas);
+    } catch (e: any) {
+      toast({
+        title: "No se pudo renombrar la sección",
+        description: e?.message ?? "Inténtalo de nuevo.",
+        variant: "destructive",
+      });
+      setTitulo(seccion.titulo);
+    } finally {
+      setGuardandoTitulo(false);
+    }
+  };
+
+  const alternarActiva = async () => {
+    setGuardandoActiva(true);
+    try {
+      const actualizado = await editarSeccionPersonalizada(terminosId, seccion.id, {
+        activa: !seccion.activa,
+      });
+      onCambio(actualizado.secciones_personalizadas);
+    } catch (e: any) {
+      toast({
+        title: "No se pudo cambiar el estado de la sección",
+        description: e?.message ?? "Inténtalo de nuevo.",
+        variant: "destructive",
+      });
+    } finally {
+      setGuardandoActiva(false);
+    }
+  };
+
+  const eliminarSeccion = async () => {
+    if (
+      !window.confirm(
+        `¿Eliminar la sección "${seccion.titulo}" con todas sus variantes? No se puede deshacer.`,
+      )
+    )
+      return;
+    setEliminandoSeccion(true);
+    try {
+      const actualizado = await eliminarSeccionPersonalizada(terminosId, seccion.id);
+      onCambio(actualizado.secciones_personalizadas);
+    } catch (e: any) {
+      toast({
+        title: "No se pudo eliminar la sección",
+        description: e?.message ?? "Inténtalo de nuevo.",
+        variant: "destructive",
+      });
+    } finally {
+      setEliminandoSeccion(false);
+    }
+  };
+
+  const agregarVariante = async () => {
+    const identificador = nuevoIdentificador.trim();
+    const texto = nuevoTexto.trim();
+    if (!identificador || !texto) return;
+    setGuardandoVariante(true);
+    try {
+      const actualizado = await agregarVarianteSeccion(
+        terminosId,
+        seccion.id,
+        identificador,
+        texto,
+      );
+      onCambio(actualizado.secciones_personalizadas);
+      setNuevoIdentificador("");
+      setNuevoTexto("");
+      setNuevaVarianteAbierta(false);
+    } catch (e: any) {
+      toast({
+        title: "No se pudo agregar la variante",
+        description: e?.message ?? "Inténtalo de nuevo.",
+        variant: "destructive",
+      });
+    } finally {
+      setGuardandoVariante(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3 rounded-md border border-gray-200 bg-gray-50/60 p-3">
+      <div className="flex items-start gap-2">
+        <Input
+          className="flex-1"
+          value={titulo}
+          onChange={(e) => setTitulo(e.target.value)}
+          onBlur={guardarTitulo}
+          disabled={guardandoTitulo}
+        />
+        <div className="flex shrink-0 items-center gap-1.5 pt-2">
+          <Switch
+            checked={seccion.activa}
+            onCheckedChange={alternarActiva}
+            disabled={guardandoActiva}
+            aria-label={seccion.activa ? "Sección activa" : "Sección apagada"}
+          />
+          <span className="text-xs text-gray-500">
+            {seccion.activa ? "Activa" : "Apagada"}
+          </span>
+        </div>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-8 w-8 shrink-0 p-0 text-red-600 hover:bg-red-50"
+          onClick={eliminarSeccion}
+          disabled={eliminandoSeccion}
+          aria-label={`Eliminar sección ${seccion.titulo}`}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <div className="space-y-2 pl-1">
+        {seccion.variantes.map((variante) => (
+          <VarianteEditor
+            key={variante.identificador}
+            terminosId={terminosId}
+            seccionId={seccion.id}
+            identificadorOriginal={variante.identificador}
+            texto={variante.texto}
+            puedeEliminar={seccion.variantes.length > 1}
+            onCambio={onCambio}
+          />
+        ))}
+      </div>
+
+      {nuevaVarianteAbierta ? (
+        <div className="space-y-2 rounded border border-dashed border-gray-300 p-2">
+          <Input
+            className="h-8 text-sm"
+            placeholder="Identificador (ej. Zona oriental)"
+            value={nuevoIdentificador}
+            onChange={(e) => setNuevoIdentificador(e.target.value)}
+            disabled={guardandoVariante}
+          />
+          <Textarea
+            className="text-sm"
+            rows={3}
+            placeholder="Texto de esta variante"
+            value={nuevoTexto}
+            onChange={(e) => setNuevoTexto(e.target.value)}
+            disabled={guardandoVariante}
+          />
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              className="h-7 text-xs"
+              onClick={agregarVariante}
+              disabled={guardandoVariante || !nuevoIdentificador.trim() || !nuevoTexto.trim()}
+            >
+              {guardandoVariante && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />}
+              Guardar variante
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs"
+              onClick={() => setNuevaVarianteAbierta(false)}
+              disabled={guardandoVariante}
+            >
+              Cancelar
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 text-xs"
+          onClick={() => setNuevaVarianteAbierta(true)}
+        >
+          <Plus className="mr-1 h-3.5 w-3.5" />
+          Agregar variante
+        </Button>
+      )}
+    </div>
+  );
+}
+
 interface TerminosTabFormProps {
   tipoNegocio: TipoNegocioTerminos;
   /** El padre solo carga la pestaña activa la primera vez que se muestra. */
@@ -124,6 +462,13 @@ function TerminosTabForm({
   const [actualizadoEn, setActualizadoEn] = useState<string | null>(null);
   const [valores, setValores] = useState<TerminosCondicionesEditables>(VACIO);
   const [iniciales, setIniciales] = useState<TerminosCondicionesEditables>(VACIO);
+  const [seccionesPersonalizadas, setSeccionesPersonalizadas] = useState<
+    SeccionPersonalizada[]
+  >([]);
+  const [nuevaSeccionAbierta, setNuevaSeccionAbierta] = useState(false);
+  const [nuevoTituloSeccion, setNuevoTituloSeccion] = useState("");
+  const [nuevoTextoSeccion, setNuevoTextoSeccion] = useState("");
+  const [guardandoNuevaSeccion, setGuardandoNuevaSeccion] = useState(false);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -138,6 +483,7 @@ function TerminosTabForm({
         setActualizadoEn(null);
         setValores(VACIO);
         setIniciales(VACIO);
+        setSeccionesPersonalizadas([]);
         return;
       }
       const cargados = SECCIONES_TERMINOS.reduce(
@@ -149,6 +495,7 @@ function TerminosTabForm({
       setActualizadoEn(data.fecha_actualizacion ?? data.fecha_creacion ?? null);
       setValores(cargados);
       setIniciales(cargados);
+      setSeccionesPersonalizadas(data.secciones_personalizadas ?? []);
     } catch (e: any) {
       setErrorCarga(e?.message ?? "No se pudieron cargar los términos y condiciones.");
     } finally {
@@ -272,6 +619,123 @@ function TerminosTabForm({
                 <p className="text-xs text-gray-500">{campo.ayuda}</p>
               </div>
             ))}
+
+            <div className="space-y-3 border-t pt-4">
+              <div>
+                <Label className="text-sm font-medium text-gray-800">
+                  Secciones adicionales
+                </Label>
+                <p className="text-xs text-gray-500">
+                  Además de las 7 de arriba. Cada una puede tener varias variantes
+                  de texto (con un identificador cada una) para elegir cuál
+                  imprimir al exportar la oferta.
+                </p>
+              </div>
+
+              {!terminosId ? (
+                <p className="text-xs text-amber-700">
+                  Guarda primero los campos de arriba: hace falta crear la versión
+                  {` ${ETIQUETA_TIPO[tipoNegocio]}`} antes de poder agregar secciones.
+                </p>
+              ) : (
+                <>
+                  {seccionesPersonalizadas.map((seccion) => (
+                    <SeccionPersonalizadaCard
+                      key={seccion.id}
+                      terminosId={terminosId}
+                      seccion={seccion}
+                      onCambio={setSeccionesPersonalizadas}
+                    />
+                  ))}
+
+                  {nuevaSeccionAbierta ? (
+                    <div className="space-y-2 rounded-md border border-dashed border-gray-300 p-3">
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`nueva-seccion-titulo-${tipoNegocio}`}>
+                          Título de la sección
+                        </Label>
+                        <Input
+                          id={`nueva-seccion-titulo-${tipoNegocio}`}
+                          value={nuevoTituloSeccion}
+                          onChange={(e) => setNuevoTituloSeccion(e.target.value)}
+                          placeholder="Ej: Transporte del equipo"
+                          disabled={guardandoNuevaSeccion}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`nueva-seccion-texto-${tipoNegocio}`}>
+                          Texto
+                        </Label>
+                        <Textarea
+                          id={`nueva-seccion-texto-${tipoNegocio}`}
+                          rows={4}
+                          value={nuevoTextoSeccion}
+                          onChange={(e) => setNuevoTextoSeccion(e.target.value)}
+                          className="resize-y"
+                          disabled={guardandoNuevaSeccion}
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          disabled={
+                            guardandoNuevaSeccion ||
+                            !nuevoTituloSeccion.trim() ||
+                            !nuevoTextoSeccion.trim()
+                          }
+                          onClick={async () => {
+                            setGuardandoNuevaSeccion(true);
+                            try {
+                              const actualizado = await agregarSeccionPersonalizada(
+                                terminosId,
+                                nuevoTituloSeccion.trim(),
+                                nuevoTextoSeccion.trim(),
+                              );
+                              setSeccionesPersonalizadas(
+                                actualizado.secciones_personalizadas,
+                              );
+                              setNuevoTituloSeccion("");
+                              setNuevoTextoSeccion("");
+                              setNuevaSeccionAbierta(false);
+                            } catch (e: any) {
+                              toast({
+                                title: "No se pudo agregar la sección",
+                                description: e?.message ?? "Inténtalo de nuevo.",
+                                variant: "destructive",
+                              });
+                            } finally {
+                              setGuardandoNuevaSeccion(false);
+                            }
+                          }}
+                        >
+                          {guardandoNuevaSeccion && (
+                            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                          )}
+                          Guardar sección
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setNuevaSeccionAbierta(false)}
+                          disabled={guardandoNuevaSeccion}
+                        >
+                          Cancelar
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setNuevaSeccionAbierta(true)}
+                    >
+                      <Plus className="mr-1.5 h-4 w-4" />
+                      Agregar sección
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
           </>
         )}
       </div>

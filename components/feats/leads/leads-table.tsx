@@ -3414,14 +3414,8 @@ export function LeadsTable({
             setOfertaParaExportar(ofertaActualizada);
             refetchOfertas?.();
           }}
-          terminosHtmlBTB={buildTerminosCondicionesHtml(
-            terminosCondicionesPayloadBTB,
-            { oferta: ofertaParaExportar },
-          )}
-          terminosHtmlBTC={buildTerminosCondicionesHtml(
-            terminosCondicionesPayloadBTC,
-            { oferta: ofertaParaExportar },
-          )}
+          terminosPayloadBTB={terminosCondicionesPayloadBTB}
+          terminosPayloadBTC={terminosCondicionesPayloadBTC}
           tipoNegocioCliente={
             leads.find((l) => l.id === ofertaParaExportar.lead_id)
               ?.tipo_negocio ?? null

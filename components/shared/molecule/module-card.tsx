@@ -6,6 +6,33 @@ import type { ReactNode } from "react"
 import { cn } from "@/lib/utils"
 
 /**
+ * Fondo del contenedor del icono, a tono con `iconClass`. Antes era siempre
+ * gris neutro sin importar el color del icono (que además hoy es casi
+ * siempre el mismo emerald), y eso hacía que todas las tarjetas se vieran
+ * igual de "blancas". Se necesita un mapa literal porque Tailwind arma sus
+ * clases en build time: no puede construir "bg-emerald-50" a partir de un
+ * string dinámico, solo reconoce clases que aparecen escritas tal cual.
+ */
+const TINTE_POR_COLOR: Record<string, { bg: string; ring: string; hover: string }> = {
+  emerald: { bg: "bg-emerald-50", ring: "ring-emerald-100", hover: "group-hover:bg-emerald-100" },
+  teal: { bg: "bg-teal-50", ring: "ring-teal-100", hover: "group-hover:bg-teal-100" },
+  sky: { bg: "bg-sky-50", ring: "ring-sky-100", hover: "group-hover:bg-sky-100" },
+  blue: { bg: "bg-blue-50", ring: "ring-blue-100", hover: "group-hover:bg-blue-100" },
+  indigo: { bg: "bg-indigo-50", ring: "ring-indigo-100", hover: "group-hover:bg-indigo-100" },
+  violet: { bg: "bg-violet-50", ring: "ring-violet-100", hover: "group-hover:bg-violet-100" },
+  rose: { bg: "bg-rose-50", ring: "ring-rose-100", hover: "group-hover:bg-rose-100" },
+  red: { bg: "bg-red-50", ring: "ring-red-100", hover: "group-hover:bg-red-100" },
+  orange: { bg: "bg-orange-50", ring: "ring-orange-100", hover: "group-hover:bg-orange-100" },
+  amber: { bg: "bg-amber-50", ring: "ring-amber-100", hover: "group-hover:bg-amber-100" },
+  gray: { bg: "bg-gray-50", ring: "ring-gray-100", hover: "group-hover:bg-gray-100" },
+}
+
+function tinteDesdeIconClass(iconClass?: string) {
+  const color = iconClass?.match(/text-([a-z]+)-\d+/)?.[1]
+  return TINTE_POR_COLOR[color ?? "emerald"] ?? TINTE_POR_COLOR.emerald
+}
+
+/**
  * Tarjeta de módulo. Es la misma en el dashboard y dentro de los hubs
  * (Facturación, Instalaciones, Compras…), para que un submódulo se vea igual
  * que un módulo principal y no parezca otra aplicación.
@@ -48,13 +75,22 @@ export function ModuleCard({
   cornerAction,
   className,
 }: ModuleCardProps) {
+  const tinte = tinteDesdeIconClass(iconClass)
+
   const contenido = (
     <>
       {cornerAction ? (
         <div className="absolute right-3 top-3 z-20">{cornerAction}</div>
       ) : null}
 
-      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gray-50 ring-1 ring-gray-100 transition-colors group-hover:bg-emerald-50/60">
+      <div
+        className={cn(
+          "mb-4 flex h-12 w-12 items-center justify-center rounded-xl ring-1 transition-colors",
+          tinte.bg,
+          tinte.ring,
+          tinte.hover,
+        )}
+      >
         <Icon className={cn("h-6 w-6", iconClass ?? "text-emerald-600")} />
       </div>
 

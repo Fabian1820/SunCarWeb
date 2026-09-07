@@ -33,6 +33,19 @@ export interface TerminosCondicionesPayload {
     consideraciones_generales?: string | null;
     consideracionesGenerales?: string | null;
   } | null;
+  secciones_personalizadas?: SeccionPersonalizadaExportPayload[] | null;
+}
+
+export interface VarianteSeccionExportPayload {
+  identificador: string;
+  texto: string;
+}
+
+export interface SeccionPersonalizadaExportPayload {
+  id: string;
+  titulo: string;
+  activa?: boolean;
+  variantes: VarianteSeccionExportPayload[];
 }
 
 export interface PagoAcordadoExportPayload {
@@ -58,6 +71,12 @@ export interface OfertaTerminosCondicionesContext {
 
 export interface BuildTerminosCondicionesOptions {
   oferta?: OfertaTerminosCondicionesContext | null;
+  /**
+   * Qué variante imprimir de cada sección personalizada que tenga más de
+   * una, elegida a mano al exportar (seccion.id -> variante.identificador).
+   * Sin entrada para una sección, se usa su primera variante.
+   */
+  variantesElegidas?: Record<string, string> | null;
 }
 
 const normalizarTexto = (value?: string | null): string => (value || "").trim();
@@ -304,7 +323,8 @@ export function buildTerminosCondicionesHtml(
     "sobreNosotros" in payload ||
     "consideraciones_generales" in payload ||
     "consideracionesGenerales" in payload ||
-    !!payload.secciones;
+    !!payload.secciones ||
+    !!payload.secciones_personalizadas?.length;
 
   const secciones = [
     {
@@ -350,6 +370,22 @@ export function buildTerminosCondicionesHtml(
       ),
     },
   ].filter((section) => section.value);
+
+  // Secciones agregadas a mano, además de las 7 fijas de arriba. Las
+  // apagadas no se imprimen; de las que tienen varias variantes se usa la
+  // elegida al exportar, o si no se eligió ninguna, la primera de la lista.
+  (payload.secciones_personalizadas ?? [])
+    .filter((seccion) => seccion.activa !== false && seccion.variantes.length > 0)
+    .forEach((seccion) => {
+      const elegida = options?.variantesElegidas?.[seccion.id];
+      const variante =
+        seccion.variantes.find((v) => v.identificador === elegida) ??
+        seccion.variantes[0];
+      secciones.push({
+        label: seccion.titulo.toUpperCase(),
+        value: normalizarTexto(variante.texto),
+      });
+    });
 
   if (tieneEstructura) {
     const partes: string[] = [];

@@ -6110,14 +6110,8 @@ export function ClientsTable({
             setOfertaParaExportar(ofertaActualizada);
             refetchOfertas?.();
           }}
-          terminosHtmlBTB={buildTerminosCondicionesHtml(
-            terminosCondicionesPayloadBTB,
-            { oferta: ofertaParaExportar },
-          )}
-          terminosHtmlBTC={buildTerminosCondicionesHtml(
-            terminosCondicionesPayloadBTC,
-            { oferta: ofertaParaExportar },
-          )}
+          terminosPayloadBTB={terminosCondicionesPayloadBTB}
+          terminosPayloadBTC={terminosCondicionesPayloadBTC}
           tipoNegocioCliente={
             clients.find(
               (c) =>

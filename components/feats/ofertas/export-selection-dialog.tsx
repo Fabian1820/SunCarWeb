@@ -32,6 +32,10 @@ import {
 } from "@/components/shared/atom/select";
 import type { TipoNegocioTerminos } from "@/lib/services/feats/terminos-service";
 import {
+  buildTerminosCondicionesHtml,
+  type TerminosCondicionesPayload,
+} from "@/lib/utils/terminos-condiciones-export";
+import {
   ESQUEMA_PAGO_PERSONALIZADO,
   ESQUEMA_PAGO_POR_DEFECTO,
   ESQUEMAS_PAGO_PRESETS,
@@ -63,12 +67,14 @@ interface ExportSelectionDialogProps {
    */
   onOfertaActualizada?: (oferta: any) => void;
   /**
-   * HTML de términos y condiciones BTB/BTC ya construidos (via
-   * buildTerminosCondicionesHtml) por el padre. Si alguno falta, se usa el
-   * que ya venía en `exportOptions` (comportamiento anterior).
+   * Documento completo de términos BTB/BTC (con sus secciones
+   * personalizadas). El HTML final se arma aquí mismo, porque cuando una
+   * sección tiene variantes hace falta elegir cuál imprimir. Si alguno
+   * falta, se usa el que ya venía en `exportOptions` (comportamiento
+   * anterior, sin secciones personalizadas).
    */
-  terminosHtmlBTB?: string | null;
-  terminosHtmlBTC?: string | null;
+  terminosPayloadBTB?: TerminosCondicionesPayload | null;
+  terminosPayloadBTC?: TerminosCondicionesPayload | null;
   /**
    * tipo_negocio del cliente/lead asociado a esta oferta. Es el valor por
    * defecto quisiera cuando la oferta todavía no tiene un override propio.
@@ -82,8 +88,8 @@ export function ExportSelectionDialog({
   oferta,
   exportOptions,
   onOfertaActualizada,
-  terminosHtmlBTB,
-  terminosHtmlBTC,
+  terminosPayloadBTB,
+  terminosPayloadBTC,
   tipoNegocioCliente,
 }: ExportSelectionDialogProps) {
   const { toast } = useToast();
@@ -156,8 +162,51 @@ export function ExportSelectionDialog({
     }
   };
 
-  const terminosHtmlSeleccionado =
-    tipoNegocioTerminos === "BTB" ? terminosHtmlBTB : terminosHtmlBTC;
+  const terminosPayloadSeleccionado =
+    tipoNegocioTerminos === "BTB" ? terminosPayloadBTB : terminosPayloadBTC;
+
+  // Secciones personalizadas activas con más de una variante: hay que elegir
+  // a mano cuál imprimir, igual que se elige BTB/BTC.
+  const seccionesConVariantes = (
+    terminosPayloadSeleccionado?.secciones_personalizadas ?? []
+  ).filter((s) => s.activa && s.variantes.length > 1);
+
+  const [variantesElegidas, setVariantesElegidas] = useState<
+    Record<string, string>
+  >({});
+
+  // Al abrir o cambiar de tipo, se precarga la primera variante de cada
+  // sección para que el select ya muestre algo (si no, "elegida" quedaría
+  // undefined hasta que el usuario toque el selector, aunque el HTML ya use
+  // la primera variante de todos modos).
+  useEffect(() => {
+    if (!open) return;
+    const porDefecto: Record<string, string> = {};
+    (terminosPayloadSeleccionado?.secciones_personalizadas ?? []).forEach((s) => {
+      if (s.variantes[0]) porDefecto[s.id] = s.variantes[0].identificador;
+    });
+    setVariantesElegidas(porDefecto);
+  }, [open, tipoNegocioTerminos, terminosPayloadSeleccionado?.id]);
+
+  const terminosHtmlSeleccionado = useMemo(() => {
+    if (!terminosPayloadSeleccionado) return null;
+    return buildTerminosCondicionesHtml(terminosPayloadSeleccionado, {
+      oferta: {
+        formas_pago_acordadas: oferta?.formas_pago_acordadas,
+        cantidad_pagos_acordados: oferta?.cantidad_pagos_acordados,
+        pagos_acordados: oferta?.pagos_acordados,
+        esquema_pago: oferta?.esquema_pago,
+      },
+      variantesElegidas,
+    });
+  }, [
+    terminosPayloadSeleccionado,
+    variantesElegidas,
+    oferta?.formas_pago_acordadas,
+    oferta?.cantidad_pagos_acordados,
+    oferta?.pagos_acordados,
+    oferta?.esquema_pago,
+  ]);
 
   // --- Esquema de pago -----------------------------------------------------
   // Los porcentajes se guardan en la oferta, no solo en esta exportación: al
@@ -678,6 +727,41 @@ export function ExportSelectionDialog({
               Se guarda en la oferta: no hay que volver a elegirlo en cada
               exportación.
             </p>
+
+            {seccionesConVariantes.length > 0 && (
+              <div className="mt-3 space-y-3 border-t border-slate-200 pt-3">
+                {seccionesConVariantes.map((seccion) => (
+                  <div key={seccion.id}>
+                    <label
+                      htmlFor={`export-variante-${seccion.id}`}
+                      className="text-xs font-medium text-slate-700 mb-1 block"
+                    >
+                      {seccion.titulo}
+                    </label>
+                    <Select
+                      value={variantesElegidas[seccion.id] ?? seccion.variantes[0]?.identificador}
+                      onValueChange={(value) =>
+                        setVariantesElegidas((prev) => ({ ...prev, [seccion.id]: value }))
+                      }
+                    >
+                      <SelectTrigger
+                        id={`export-variante-${seccion.id}`}
+                        className="h-8 bg-white text-sm"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {seccion.variantes.map((variante) => (
+                          <SelectItem key={variante.identificador} value={variante.identificador}>
+                            {variante.identificador}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Controles de selección */}
