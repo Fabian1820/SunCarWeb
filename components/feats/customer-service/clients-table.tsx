@@ -156,7 +156,6 @@ interface ClientsTableProps {
     provincia: string[];
     municipio: string[];
     ofertas: string;
-    tiempo: string;
     mostrarAnulados: boolean;
     inversorKwMin: string;
     inversorKwMax: string;
@@ -363,24 +362,6 @@ const getAtrasoBucket = (
   if (dias >= 15) return { bucket: "medio", dias };
   if (dias >= 10) return { bucket: "leve", dias };
   return { bucket: null, dias };
-};
-
-const TIEMPO_BUCKETS: Record<string, (dias: number) => boolean> = {
-  "1_5": (d) => d >= 1 && d < 5,
-  "5_10": (d) => d >= 5 && d < 10,
-  "10_15": (d) => d >= 10 && d < 15,
-  "15_20": (d) => d >= 15 && d < 20,
-  "1mes": (d) => d >= 20 && d <= 30,
-  ">1mes": (d) => d > 30,
-};
-
-const TIEMPO_LABELS: Record<string, string> = {
-  "1_5": "Entre 1 y 5 días",
-  "5_10": "Entre 5 y 10 días",
-  "10_15": "Entre 10 y 15 días",
-  "15_20": "Entre 15 y 20 días",
-  "1mes": "1 mes",
-  ">1mes": "Más de 1 mes",
 };
 
 const OFERTAS_FILTER_OPTIONS = [
@@ -963,7 +944,6 @@ export function ClientsTable({
     provincia: [] as string[],
     municipio: [] as string[],
     ofertas: "",
-    tiempo: "",
     mostrarAnulados: false,
     inversorKwMin: "",
     inversorKwMax: "",
@@ -979,6 +959,8 @@ export function ClientsTable({
   } = useComercialEquipoMap();
   const [equipoSeleccionado, setEquipoSeleccionado] = useState<string>("todos");
   const [masFiltrosEquipoAbierto, setMasFiltrosEquipoAbierto] = useState(false);
+  // El bloque de equipo ocupa mucho y casi nunca se usa: arranca plegado.
+  const [equipoAbierto, setEquipoAbierto] = useState(false);
 
   // Provincias / municipios para filtros
   const [provinciasList, setProvinciasList] = useState<
@@ -1247,7 +1229,6 @@ export function ClientsTable({
         provincia: filters.provincia,
         municipio: filters.municipio,
         ofertas: filters.ofertas,
-        tiempo: filters.tiempo,
         mostrarAnulados: filters.mostrarAnulados,
         inversorKwMin: debouncedCapacidad.inversorKwMin,
         inversorKwMax: debouncedCapacidad.inversorKwMax,
@@ -1310,12 +1291,6 @@ export function ClientsTable({
         )
           return false;
       }
-      if (filters.tiempo) {
-        const dias = getClienteDiasDesdeCreacion(client);
-        if (dias === null) return false;
-        const matcher = TIEMPO_BUCKETS[filters.tiempo];
-        if (!matcher || !matcher(dias)) return false;
-      }
       return true;
     });
   }, [
@@ -1323,7 +1298,6 @@ export function ClientsTable({
     filters.provincia,
     filters.municipio,
     filters.ofertas,
-    filters.tiempo,
   ]);
 
   useEffect(() => {
@@ -1618,7 +1592,6 @@ export function ClientsTable({
     filters.provincia.length > 0 ||
     filters.municipio.length > 0 ||
     filters.ofertas ||
-    filters.tiempo ||
     tieneFiltroEquipo;
 
   // El debounce se adelanta a mano al limpiar: si no, quedaría medio segundo
@@ -1647,7 +1620,6 @@ export function ClientsTable({
       provincia: [],
       municipio: [],
       ofertas: "",
-      tiempo: "",
       mostrarAnulados: false,
       ...CAPACIDAD_FILTROS_VACIOS,
       ...MODELO_FILTROS_VACIOS,
@@ -3808,43 +3780,34 @@ export function ClientsTable({
               </Select>
             </div>
 
-            <div>
-              <Select
-                value={filters.tiempo || "todos"}
-                onValueChange={(value) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    tiempo: value === "todos" ? "" : value,
-                  }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Tiempo desde creación" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Cualquier tiempo</SelectItem>
-                  {Object.entries(TIEMPO_LABELS).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
           </div>
 
-          <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50/60 p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-              <div>
-                <Label className="text-sm font-medium text-gray-800">
-                  Equipo instalado
-                </Label>
-                <p className="text-xs text-gray-500">
-                  Elige el modelo y, si quieres, la cantidad exacta. Se cuenta
-                  el equipo acumulado del cliente, sumando todas sus ofertas
-                  confirmadas. Los clientes sin equipo registrado no aparecen.
-                </p>
-              </div>
+          <Collapsible
+            open={equipoAbierto}
+            onOpenChange={setEquipoAbierto}
+            className="mt-4 rounded-lg border border-gray-200 bg-gray-50/60 p-4"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <CollapsibleTrigger asChild>
+                <button
+                  type="button"
+                  className="flex items-center gap-2 text-left"
+                >
+                  <ChevronDown
+                    className={`h-4 w-4 text-gray-500 transition-transform ${equipoAbierto ? "rotate-180" : ""}`}
+                  />
+                  <Label className="text-sm font-medium text-gray-800 cursor-pointer">
+                    Equipo instalado
+                  </Label>
+                  {/* Plegado no se ven los campos, así que el aviso de que hay
+                      filtro puesto tiene que estar aquí o pasa desapercibido. */}
+                  {tieneFiltroEquipo && !equipoAbierto && (
+                    <span className="rounded bg-emerald-100 px-1.5 text-[11px] text-emerald-700">
+                      activo
+                    </span>
+                  )}
+                </button>
+              </CollapsibleTrigger>
               {tieneFiltroEquipo && (
                 <Button
                   variant="ghost"
@@ -3856,6 +3819,13 @@ export function ClientsTable({
                 </Button>
               )}
             </div>
+
+            <CollapsibleContent>
+            <p className="mt-2 mb-3 text-xs text-gray-500">
+              Elige el modelo y, si quieres, la cantidad exacta. Se cuenta el
+              equipo acumulado del cliente, sumando todas sus ofertas
+              confirmadas. Los clientes sin equipo registrado no aparecen.
+            </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {MODELO_FILTER_GROUPS.map((grupo) => (
@@ -3971,7 +3941,8 @@ export function ClientsTable({
                 </div>
               </CollapsibleContent>
             </Collapsible>
-          </div>
+            </CollapsibleContent>
+          </Collapsible>
 
           {(filters.fechaDesde ||
             filters.fechaHasta ||
@@ -3979,7 +3950,6 @@ export function ClientsTable({
             filters.provincia.length > 0 ||
             filters.municipio.length > 0 ||
             filters.ofertas ||
-            filters.tiempo ||
             tieneFiltroEquipo) &&
             typeof totalClients === "number" && (
               <div className="mt-4 text-sm text-gray-700">

@@ -49,7 +49,6 @@ type ClientesFilters = {
   provincia: string[];
   municipio: string[];
   ofertas: string;
-  tiempo: string;
   mostrarAnulados: boolean;
   // Capacidad acumulada del equipo. Se guardan como texto porque vienen de
   // inputs numéricos: "" es "sin límite" y 0 es un límite legítimo, y esa
@@ -122,15 +121,6 @@ const equipoParams = (
     : undefined,
 });
 
-const TIEMPO_RANGES: Record<string, (dias: number) => boolean> = {
-  "1_5": (d) => d >= 1 && d < 5,
-  "5_10": (d) => d >= 5 && d < 10,
-  "10_15": (d) => d >= 10 && d < 15,
-  "15_20": (d) => d >= 15 && d < 20,
-  "1mes": (d) => d >= 20 && d <= 30,
-  ">1mes": (d) => d > 30,
-};
-
 const getTotalConfirmadasCliente = (client: Cliente): number => {
   if (typeof client.oferta_confeccion?.total_confirmadas === "number") {
     return client.oferta_confeccion.total_confirmadas;
@@ -154,16 +144,6 @@ const getTotalConfirmadasCliente = (client: Cliente): number => {
 const getTieneOfertasCliente = (client: Cliente): boolean => {
   if ((client.oferta_confeccion?.total_ofertas ?? 0) > 0) return true;
   return Array.isArray(client.ofertas) && client.ofertas.length > 0;
-};
-
-const getDiasDesdeCreacionCliente = (client: Cliente): number | null => {
-  const fecha =
-    parseClientDate(client.fecha_creacion) ??
-    parseClientDate(client.created_at);
-  if (!fecha) return null;
-  const diff = Date.now() - fecha.getTime();
-  if (Number.isNaN(diff) || diff < 0) return 0;
-  return Math.floor(diff / (1000 * 60 * 60 * 24));
 };
 
 const normalizeFilterValue = (value: string): string =>
@@ -259,7 +239,6 @@ const matchesClientLocalFilters = (
     | "provincia"
     | "municipio"
     | "ofertas"
-    | "tiempo"
   >,
 ): boolean => {
   if (filters.provincia.length > 0) {
@@ -280,12 +259,6 @@ const matchesClientLocalFilters = (
       return false;
     if (filters.ofertas === "sin_confirmadas" && totalConfirmadas > 0)
       return false;
-  }
-  if (filters.tiempo) {
-    const dias = getDiasDesdeCreacionCliente(client);
-    if (dias === null) return false;
-    const matcher = TIEMPO_RANGES[filters.tiempo];
-    if (!matcher || !matcher(dias)) return false;
   }
   return matchesClientDateFilters(client, filters);
 };
@@ -357,7 +330,6 @@ export default function ClientesPage() {
     provincia: [] as string[],
     municipio: [] as string[],
     ofertas: "",
-    tiempo: "",
     mostrarAnulados: false,
     inversorKwMin: "",
     inversorKwMax: "",
@@ -397,7 +369,6 @@ export default function ClientesPage() {
           prev.provincia.join(",") !== newFilters.provincia.join(",") ||
           prev.municipio.join(",") !== newFilters.municipio.join(",") ||
           prev.ofertas !== newFilters.ofertas ||
-          prev.tiempo !== newFilters.tiempo ||
           prev.mostrarAnulados !== newFilters.mostrarAnulados ||
           CAPACIDAD_FILTER_KEYS.some((key) => prev[key] !== newFilters[key]) ||
           MODELO_FILTER_KEYS.some((key) => prev[key] !== newFilters[key]);
@@ -553,11 +524,11 @@ export default function ClientesPage() {
           new Set(filters.estado.map((value) => value.trim()).filter(Boolean)),
         );
         // El backend soporta server-side: q, estado, fuente, comercial, provincia (1 valor), municipio (1 valor), fechaDesde, fechaHasta
-        // Múltiples provincias/municipios y mes/ofertas/tiempo se filtran localmente
+        // Múltiples provincias/municipios y mes/ofertas se filtran localmente
         const multiProvincia = filters.provincia.length > 1;
         const multiMunicipio = filters.municipio.length > 1;
         const hasLocalOnlyFilter = Boolean(
-          filters.mes || filters.ofertas || filters.tiempo || multiProvincia || multiMunicipio,
+          filters.mes || filters.ofertas || multiProvincia || multiMunicipio,
         );
 
         // Pasar al backend solo si hay exactamente 1 valor (compatibilidad API)
@@ -593,7 +564,6 @@ export default function ClientesPage() {
               provincia: localProvincia,
               municipio: localMunicipio,
               ofertas: filters.ofertas,
-              tiempo: filters.tiempo,
             }),
           );
           const sorted = sortClientsByCodigo(filtered);
@@ -670,7 +640,6 @@ export default function ClientesPage() {
         provincia: localProvinciaExport,
         municipio: localMunicipioExport,
         ofertas: appliedFilters.ofertas,
-        tiempo: appliedFilters.tiempo,
       }),
     );
 
@@ -710,7 +679,6 @@ export default function ClientesPage() {
     appliedFilters.provincia,
     appliedFilters.municipio,
     appliedFilters.ofertas,
-    appliedFilters.tiempo,
     appliedFilters.skip,
     appliedFilters.limit,
   ]);
