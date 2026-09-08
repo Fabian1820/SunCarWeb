@@ -84,6 +84,10 @@ function normalizarRuta(ruta: string): string {
 const MODULO_POR_RUTA = new Map<string, ModuloCatalogo>()
 const MODULO_POR_HREF = new Map<string, ModuloCatalogo>()
 for (const modulo of MODULOS_CATALOGO) {
+  // Los módulos que son solo un permiso (App Móvil) no tienen pantalla propia:
+  // su href apunta a la página donde se asignan, que pertenece a otro módulo.
+  // Si se registraran aquí, el "Volver" de esa página subiría a ellos.
+  if (modulo.soloPermiso) continue
   MODULO_POR_HREF.set(modulo.href, modulo)
   if (modulo.href.includes("?")) continue
   MODULO_POR_RUTA.set(normalizarRuta(modulo.href), modulo)

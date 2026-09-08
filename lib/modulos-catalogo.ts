@@ -208,6 +208,14 @@ export type ModuloCatalogo = {
   /** Solo visible en dashboard para SuperAdmin. */
   superAdminOnly?: boolean
   /**
+   * El módulo no tiene pantalla propia en la web: existe solo para conceder
+   * un permiso (hoy, el acceso a la app móvil). `href` apunta a donde se
+   * gestiona ese permiso, no a una página del módulo, así que esa ruta NO le
+   * pertenece: si se la apropiara, el botón "Volver" de esa página subiría a
+   * este módulo en vez de a donde vive de verdad.
+   */
+  soloPermiso?: boolean
+  /**
    * Si es true, el módulo NO se renderiza como card en el dashboard principal
    * (aunque sigue existiendo como permiso asignable y se sincroniza con BD).
    * Pensado para sub-módulos que viven dentro de otro módulo padre — por
@@ -928,9 +936,12 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     icon: Smartphone,
     iconClass: "text-emerald-600",
     // No es una pantalla de la web: es un permiso puro que gobierna la app.
+    // `href` solo indica dónde se asigna; la ruta sigue siendo de Gestión de
+    // Permisos (ver soloPermiso).
     href: "/permisos",
     grupo: "app-movil",
     hideFromDashboard: true,
+    soloPermiso: true,
     tieneSubmodulos: true,
     // Cada sub-permiso es una sección del menú de la app. Tener `app` completo
     // las concede todas (herencia padre→hijo por el `/`).
