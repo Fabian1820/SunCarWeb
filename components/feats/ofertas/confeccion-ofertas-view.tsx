@@ -1145,6 +1145,25 @@ export function ConfeccionOfertasView({
 
       // Cargar componentes principales: el combo completo si la oferta ya lo
       // guardó, o si es de antes de los checkboxes, el único que tenía.
+      //
+      // Los refs de "vistos" (más abajo, usados por el auto-marcado de
+      // materiales nuevos) se siembran vacíos en el primer render, porque en
+      // ese momento `items` todavía está vacío — este efecto es quien lo
+      // llena, y corre DESPUÉS del primer render. Si no se corrigiera acá,
+      // el efecto de sincronización vería, la primera vez, TODOS los
+      // materiales de la oferta como "nunca vistos" y los marcaría de más
+      // (por ejemplo, una caja combinadora que nunca contó para el nombre).
+      // Por eso acá se marcan como "vistos" TODOS los códigos que la oferta
+      // ya trae, para que solo quede seleccionado lo que ya estaba en el
+      // nombre — nunca algo nuevo agregado en automático al reabrirla.
+      const codigosPorSeccion = (seccion: string) =>
+        (ofertaACopiar.items ?? [])
+          .filter((item: any) => item.seccion === seccion)
+          .map((item: any) => item.material_codigo);
+      inversoresVistosRef.current = new Set(codigosPorSeccion("INVERSORES"));
+      bateriasVistasRef.current = new Set(codigosPorSeccion("BATERIAS"));
+      panelesVistosRef.current = new Set(codigosPorSeccion("PANELES"));
+
       if (ofertaACopiar.componentes_principales) {
         const comp = ofertaACopiar.componentes_principales;
         setInversoresSeleccionados(
@@ -1168,6 +1187,14 @@ export function ConfeccionOfertasView({
               ? [comp.panel_seleccionado]
               : [],
         );
+      } else {
+        // Oferta sin ningún dato de selección (de antes incluso del Select
+        // único): no hay "lo que ya estaba en el nombre" que preservar, así
+        // que arranca sin nada marcado — el comercial marca a mano lo que
+        // corresponda, en vez de que se le adivine mal.
+        setInversoresSeleccionados([]);
+        setBateriasSeleccionadas([]);
+        setPanelesSeleccionados([]);
       }
 
       // Cargar márgenes y costos
@@ -3837,9 +3864,17 @@ export function ConfeccionOfertasView({
     setSubiendoFoto(true);
 
     try {
+      // Recomprimir antes de subir: son fotos que se van a ver en miniatura
+      // (tarjeta de la oferta, selector del catálogo), no hace falta
+      // conservar el tamaño de la foto original de la cámara/celular.
+      const { comprimirImagen } = await import(
+        "@/lib/utils/comprimir-imagen"
+      );
+      const archivoAEnviar = await comprimirImagen(file);
+
       // Preparar FormData
       const formData = new FormData();
-      formData.append("foto", file);
+      formData.append("foto", archivoAEnviar);
       formData.append("tipo", "oferta_portada");
 
       console.log("📤 Subiendo foto de portada...");

@@ -48,25 +48,28 @@ export function SeleccionarFotoPortadaDialog({
       setCargando(true);
       setError(null);
       try {
+        // Endpoint dedicado y liviano: solo numero_oferta/nombre/foto, sin
+        // los items completos de cada oferta (eso es lo que hacía lenta la
+        // grilla — /genericas/aprobadas trae la oferta entera).
         const { apiRequest } = await import("@/lib/api-config");
         const response = await apiRequest<any>(
-          "/ofertas/confeccion/genericas/aprobadas",
+          "/ofertas/confeccion/genericas/fotos-portada",
           { method: "GET" },
         );
         const crudas: any[] = Array.isArray(response)
           ? response
-          : (response?.data ?? response?.ofertas ?? response?.results ?? []);
+          : (response?.data ?? []);
 
         const vistas = new Set<string>();
         const disponibles: FotoPortadaDisponible[] = [];
-        for (const oferta of crudas) {
-          const url = oferta?.foto_portada;
+        for (const item of crudas) {
+          const url = item?.foto_portada;
           if (!url || vistas.has(url)) continue;
           vistas.add(url);
           disponibles.push({
             url,
-            numeroOferta: oferta?.numero_oferta ?? "",
-            nombre: oferta?.nombre_automatico ?? oferta?.nombre_completo ?? "",
+            numeroOferta: item?.numero_oferta ?? "",
+            nombre: item?.nombre ?? "",
           });
         }
         setFotos(disponibles);
@@ -126,6 +129,8 @@ export function SeleccionarFotoPortadaDialog({
                     <img
                       src={foto.url}
                       alt={foto.nombre || foto.numeroOferta}
+                      loading="lazy"
+                      decoding="async"
                       className="w-full h-full object-cover"
                     />
                   </div>
