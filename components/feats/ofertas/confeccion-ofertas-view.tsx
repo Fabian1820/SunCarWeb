@@ -13,6 +13,7 @@ import {
   Save,
   User,
   Edit,
+  Images,
 } from "lucide-react";
 import { Badge } from "@/components/shared/atom/badge";
 import { Input } from "@/components/shared/atom/input";
@@ -43,6 +44,7 @@ import { useMarcas } from "@/hooks/use-marcas";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
 import { EsquemaPagoSelector } from "@/components/feats/ofertas/esquema-pago-selector";
+import { SeleccionarFotoPortadaDialog } from "@/components/feats/ofertas/seleccionar-foto-portada-dialog";
 import { ClienteSearchSelector } from "@/components/feats/cliente/cliente-search-selector";
 import { LeadSearchSelector } from "@/components/feats/leads/lead-search-selector";
 import { ClienteService } from "@/lib/services/feats/customer/cliente-service";
@@ -538,6 +540,8 @@ export function ConfeccionOfertasView({
     estadoInicial?.fotoPortada || "",
   );
   const [subiendoFoto, setSubiendoFoto] = useState(false);
+  const [selectorFotoPortadaAbierto, setSelectorFotoPortadaAbierto] =
+    useState(false);
   const [creandoOferta, setCreandoOferta] = useState(false);
   const [ofertaCreada, setOfertaCreada] = useState(false);
   const [ofertaId, setOfertaId] = useState<string>(
@@ -5191,6 +5195,14 @@ export function ConfeccionOfertasView({
                         </div>
                         <button
                           type="button"
+                          onClick={() => setSelectorFotoPortadaAbierto(true)}
+                          className="text-slate-600 hover:text-emerald-600 p-1"
+                          title="Elegir del catálogo"
+                        >
+                          <Images className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
                           onClick={eliminarFotoPortada}
                           className="text-red-600 hover:text-red-700 p-1"
                           title="Eliminar foto"
@@ -5199,33 +5211,52 @@ export function ConfeccionOfertasView({
                         </button>
                       </div>
                     ) : (
-                      <label className="flex items-center gap-2 px-3 py-1.5 rounded-md border-2 border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 cursor-pointer transition-colors flex-shrink-0">
-                        {subiendoFoto ? (
-                          <>
-                            <div className="animate-spin h-4 w-4 border-2 border-slate-300 border-t-slate-600 rounded-full" />
-                            <span className="text-xs text-slate-600">
-                              Subiendo...
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <Upload className="h-4 w-4 text-slate-500" />
-                            <span className="text-xs font-medium text-slate-700">
-                              Subir foto
-                            </span>
-                          </>
-                        )}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleSubirFotoPortada}
-                          className="hidden"
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <label className="flex items-center gap-2 px-3 py-1.5 rounded-md border-2 border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 cursor-pointer transition-colors">
+                          {subiendoFoto ? (
+                            <>
+                              <div className="animate-spin h-4 w-4 border-2 border-slate-300 border-t-slate-600 rounded-full" />
+                              <span className="text-xs text-slate-600">
+                                Subiendo...
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="h-4 w-4 text-slate-500" />
+                              <span className="text-xs font-medium text-slate-700">
+                                Subir foto
+                              </span>
+                            </>
+                          )}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleSubirFotoPortada}
+                            className="hidden"
+                            disabled={subiendoFoto}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setSelectorFotoPortadaAbierto(true)}
                           disabled={subiendoFoto}
-                        />
-                      </label>
+                          className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-slate-300 bg-white hover:bg-slate-50 transition-colors disabled:opacity-50"
+                        >
+                          <Images className="h-4 w-4 text-slate-500" />
+                          <span className="text-xs font-medium text-slate-700">
+                            Elegir del catálogo
+                          </span>
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
+
+                <SeleccionarFotoPortadaDialog
+                  open={selectorFotoPortadaAbierto}
+                  onOpenChange={setSelectorFotoPortadaAbierto}
+                  onSeleccionar={(url) => setFotoPortada(url)}
+                />
 
                 {/* Checkboxes para el nombre automático - Solo si hay múltiples materiales.
                     Antes era un Select de uno solo por categoría: si había batería A y B,
