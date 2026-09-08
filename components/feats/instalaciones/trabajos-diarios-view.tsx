@@ -26,6 +26,16 @@ type Brigadista = {
   is_brigadista?: boolean;
 };
 
+type ItemDeGrupo = TrabajoDiarioVale["items"][number] & { _valeCodigo: string };
+
+/** Vales del mismo cliente y responsable de recogida, tratados como una sola salida. */
+type GrupoVales = {
+  clave: string;
+  vales: TrabajoDiarioVale[];
+  principal: TrabajoDiarioVale;
+  items: ItemDeGrupo[];
+};
+
 const toDateInput = (value: Date) => {
   const yyyy = value.getFullYear();
   const mm = String(value.getMonth() + 1).padStart(2, "0");
@@ -53,6 +63,17 @@ const extractApiErrorMessage = (response: unknown) => {
     return String((data.error as Record<string, unknown>).message);
   }
   return "";
+};
+
+/**
+ * Clave de agrupación de vales: mismo cliente y mismo responsable de recogida
+ * son la misma salida. Sin cliente identificable, el vale va solo.
+ */
+const claveGrupoVale = (vale: TrabajoDiarioVale) => {
+  const identificadorCliente =
+    safeText(vale.cliente_numero) || safeText(vale.cliente_id);
+  if (!identificadorCliente) return `vale:${safeText(vale.vale_id)}`;
+  return `${identificadorCliente}|${safeText(vale.responsable_recogida).trim().toLowerCase()}`;
 };
 
 const matchResponsable = (responsable: string, worker: Brigadista) => {
@@ -87,7 +108,7 @@ export function TrabajosDiariosView({ mode = "vales" }: TrabajosDiariosViewProps
   const [responsableFiltro, setResponsableFiltro] = useState("");
   const [clienteFiltro, setClienteFiltro] = useState("");
 
-  // valeId -> set of CI
+  // clave de grupo (cliente+responsable) -> set of CI
   const [seleccionPorVale, setSeleccionPorVale] = useState<
     Record<string, string[]>
   >({});
@@ -124,6 +145,34 @@ export function TrabajosDiariosView({ mode = "vales" }: TrabajosDiariosViewProps
     });
   }, [clienteFiltro, responsableFiltro, vales]);
 
+  /**
+   * Un cliente puede tener varios vales el mismo día. Cuando coinciden cliente
+   * y responsable de recogida se muestran como una sola salida (una tarjeta,
+   * un botón) en vez de repetir al cliente en la lista.
+   */
+  const gruposVales = useMemo<GrupoVales[]>(() => {
+    const grupos = new Map<string, TrabajoDiarioVale[]>();
+
+    valesFiltrados.forEach((vale) => {
+      const clave = claveGrupoVale(vale);
+      const actual = grupos.get(clave);
+      if (actual) actual.push(vale);
+      else grupos.set(clave, [vale]);
+    });
+
+    return Array.from(grupos.entries()).map(([clave, valesDelGrupo]) => ({
+      clave,
+      vales: valesDelGrupo,
+      principal: valesDelGrupo[0],
+      items: valesDelGrupo.flatMap((vale) =>
+        (Array.isArray(vale.items) ? vale.items : []).map((item) => ({
+          ...item,
+          _valeCodigo: safeText(vale.vale_codigo, vale.vale_id),
+        })),
+      ),
+    }));
+  }, [valesFiltrados]);
+
   const cargarDatos = useCallback(async () => {
     setLoading(true);
     try {
@@ -156,7 +205,12 @@ export function TrabajosDiariosView({ mode = "vales" }: TrabajosDiariosViewProps
         if (matches.length > 0) {
           const cis = matches.map((m) => safeText(m.CI)).filter(Boolean);
           if (cis.length > 0 && vale.vale_id) {
-            nextSeleccion[vale.vale_id] = Array.from(new Set(cis));
+            // La selección se guarda por grupo (cliente + responsable), que es
+            // la unidad con la que se confirma la salida.
+            const clave = claveGrupoVale(vale);
+            nextSeleccion[clave] = Array.from(
+              new Set([...(nextSeleccion[clave] || []), ...cis]),
+            );
           }
         }
       });
@@ -187,7 +241,10 @@ export function TrabajosDiariosView({ mode = "vales" }: TrabajosDiariosViewProps
     });
   };
 
-  const confirmarSalida = async (vale: TrabajoDiarioVale) => {
+  const confirmarSalida = async (
+    vale: TrabajoDiarioVale,
+    seleccionadosDelGrupo?: string[],
+  ) => {
     const valeId = vale.vale_id;
     if (!valeId) {
       toast({
@@ -198,7 +255,7 @@ export function TrabajosDiariosView({ mode = "vales" }: TrabajosDiariosViewProps
       return;
     }
 
-    const seleccionados = seleccionPorVale[valeId] || [];
+    const seleccionados = seleccionadosDelGrupo ?? seleccionPorVale[valeId] ?? [];
     if (seleccionados.length === 0) {
       toast({
         title: "Faltan brigadistas",
@@ -306,6 +363,29 @@ export function TrabajosDiariosView({ mode = "vales" }: TrabajosDiariosViewProps
       toast({ title: "Error", description: message, variant: "destructive" });
     } finally {
       setConfirmando((prev) => ({ ...prev, [valeId]: false }));
+    }
+  };
+
+  /** Confirma de una vez todos los vales agrupados bajo el mismo cliente/responsable. */
+  const confirmarSalidaGrupo = async (grupo: GrupoVales) => {
+    const seleccionados = seleccionPorVale[grupo.clave] || [];
+    if (seleccionados.length === 0) {
+      toast({
+        title: "Faltan brigadistas",
+        description:
+          "Selecciona al menos un trabajador (is_brigadista=true) antes de confirmar la salida.",
+        variant: "destructive",
+      });
+      return;
+    }
+    for (const vale of grupo.vales) {
+      await confirmarSalida(vale, seleccionados);
+    }
+  };
+
+  const confirmarEntregaGrupo = async (grupo: GrupoVales) => {
+    for (const vale of grupo.vales) {
+      await confirmarEntregaMateriales(vale);
     }
   };
 
@@ -462,36 +542,55 @@ export function TrabajosDiariosView({ mode = "vales" }: TrabajosDiariosViewProps
             </div>
           ) : (
             <div className="space-y-4">
-              {valesFiltrados.map((vale) => {
+              {gruposVales.map((grupo) => {
+                const vale = grupo.principal;
                 const responsable = safeText(vale.responsable_recogida, "N/A");
-                const seleccion = new Set(seleccionPorVale[vale.vale_id] || []);
-                const salidaConfirmada =
-                  salidaConfirmadaPorVale[vale.vale_id] === true;
-                const entregaConfirmada =
-                  entregaConfirmadaPorVale[vale.vale_id] === true;
-                
+                const seleccion = new Set(seleccionPorVale[grupo.clave] || []);
+                // El estado de confirmación del grupo es el de sus vales: se
+                // considera confirmado cuando ya lo están todos.
+                const salidaConfirmada = grupo.vales.every(
+                  (v) => salidaConfirmadaPorVale[v.vale_id] === true,
+                );
+                const entregaConfirmada = grupo.vales.every(
+                  (v) => entregaConfirmadaPorVale[v.vale_id] === true,
+                );
+                const confirmandoSalida = grupo.vales.some(
+                  (v) => confirmando[v.vale_id] === true,
+                );
+                const confirmandoEntregaGrupo = grupo.vales.some(
+                  (v) => confirmandoEntrega[v.vale_id] === true,
+                );
+
                 // Solo se puede usar uno de los dos botones
                 const salidaDisabled =
-                  confirmando[vale.vale_id] === true || 
-                  salidaConfirmada || 
+                  confirmandoSalida ||
+                  salidaConfirmada ||
                   entregaConfirmada; // Deshabilitar si ya se confirmó entrega
-                
+
                 const entregaDisabled =
-                  confirmandoEntrega[vale.vale_id] === true ||
+                  confirmandoEntregaGrupo ||
                   entregaConfirmada ||
                   salidaConfirmada; // Deshabilitar si ya se confirmó salida
 
                 return (
                   <div
-                    key={vale.vale_id}
+                    key={grupo.clave}
                     className="border rounded-lg p-3 sm:p-4 bg-white space-y-3"
                   >
                     <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="font-semibold text-gray-900">
-                            Vale: {safeText(vale.vale_codigo, vale.vale_id)}
+                            {grupo.vales.length > 1 ? "Vales: " : "Vale: "}
+                            {grupo.vales
+                              .map((v) => safeText(v.vale_codigo, v.vale_id))
+                              .join(" • ")}
                           </p>
+                          {grupo.vales.length > 1 ? (
+                            <Badge className="bg-emerald-100 text-emerald-800">
+                              {grupo.vales.length} vales del mismo cliente
+                            </Badge>
+                          ) : null}
                           <Badge className="bg-slate-100 text-slate-800">
                             Solicitud:{" "}
                             {safeText(vale.solicitud_codigo, vale.solicitud_id)}
@@ -529,11 +628,11 @@ export function TrabajosDiariosView({ mode = "vales" }: TrabajosDiariosViewProps
                               ? "bg-slate-500 hover:bg-slate-500"
                               : "bg-emerald-700 hover:bg-emerald-800"
                           }`}
-                          onClick={() => void confirmarSalida(vale)}
+                          onClick={() => void confirmarSalidaGrupo(grupo)}
                           disabled={salidaDisabled}
                           title={
                             salidaConfirmada
-                              ? "Salida ya confirmada para este vale"
+                              ? "Salida ya confirmada"
                               : entregaConfirmada
                                 ? "No se puede confirmar salida porque ya se confirmó la entrega de materiales"
                                 : "Confirma salida y actualiza el estado del cliente solo si aplica"
@@ -542,7 +641,7 @@ export function TrabajosDiariosView({ mode = "vales" }: TrabajosDiariosViewProps
                           <CheckCircle2 className="h-4 w-4 mr-2" />
                           {salidaConfirmada
                             ? "Salida confirmada"
-                            : confirmando[vale.vale_id] === true
+                            : confirmandoSalida
                               ? "Confirmando..."
                               : entregaConfirmada
                                 ? "No disponible"
@@ -556,11 +655,11 @@ export function TrabajosDiariosView({ mode = "vales" }: TrabajosDiariosViewProps
                                 ? "bg-slate-500 hover:bg-slate-500"
                                 : "bg-blue-700 hover:bg-blue-800"
                             }`}
-                            onClick={() => void confirmarEntregaMateriales(vale)}
+                            onClick={() => void confirmarEntregaGrupo(grupo)}
                             disabled={entregaDisabled}
                             title={
                               entregaConfirmada
-                                ? "Entrega de materiales ya confirmada para este vale"
+                                ? "Entrega de materiales ya confirmada"
                                 : salidaConfirmada
                                   ? "No se puede confirmar entrega porque ya se confirmó la salida"
                                   : "Confirma solo la entrega de materiales del vale"
@@ -569,7 +668,7 @@ export function TrabajosDiariosView({ mode = "vales" }: TrabajosDiariosViewProps
                             <Truck className="h-4 w-4 mr-2" />
                             {entregaConfirmada
                               ? "Entrega confirmada"
-                              : confirmandoEntrega[vale.vale_id] === true
+                              : confirmandoEntregaGrupo
                                 ? "Confirmando..."
                                 : salidaConfirmada
                                   ? "No disponible"
@@ -582,15 +681,21 @@ export function TrabajosDiariosView({ mode = "vales" }: TrabajosDiariosViewProps
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                       <div className="rounded-md border border-slate-200 p-3">
                         <p className="text-sm font-semibold text-slate-900 mb-2">
-                          Materiales del vale
+                          {grupo.vales.length > 1
+                            ? "Materiales de los vales"
+                            : "Materiales del vale"}
                         </p>
                         <div className="h-[220px] sm:h-[240px] overflow-y-auto overscroll-contain pr-1">
-                          {Array.isArray(vale.items) &&
-                          vale.items.length > 0 ? (
+                          {grupo.items.length > 0 ? (
                             <div className="overflow-x-auto">
                               <table className="w-full min-w-[560px] text-sm">
                                 <thead>
                                   <tr className="border-b border-slate-200">
+                                    {grupo.vales.length > 1 ? (
+                                      <th className="text-left py-1.5 pr-2">
+                                        Vale
+                                      </th>
+                                    ) : null}
                                     <th className="text-left py-1.5 pr-2">
                                       Código
                                     </th>
@@ -601,11 +706,16 @@ export function TrabajosDiariosView({ mode = "vales" }: TrabajosDiariosViewProps
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {vale.items.map((m, idx) => (
+                                  {grupo.items.map((m, idx) => (
                                     <tr
                                       key={`${m.material_id}-${idx}`}
                                       className="border-b border-slate-100"
                                     >
+                                      {grupo.vales.length > 1 ? (
+                                        <td className="py-1.5 pr-2 text-slate-500">
+                                          {m._valeCodigo}
+                                        </td>
+                                      ) : null}
                                       <td className="py-1.5 pr-2">
                                         {safeText(m.material_codigo, "--")}
                                       </td>
@@ -659,7 +769,7 @@ export function TrabajosDiariosView({ mode = "vales" }: TrabajosDiariosViewProps
                                     type="checkbox"
                                     checked={checked}
                                     onChange={() =>
-                                      toggleBrigadista(vale.vale_id, ci)
+                                      toggleBrigadista(grupo.clave, ci)
                                     }
                                     disabled={!ci}
                                   />
