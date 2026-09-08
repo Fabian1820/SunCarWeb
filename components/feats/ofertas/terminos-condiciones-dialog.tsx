@@ -28,12 +28,15 @@ import {
   actualizarTerminos,
   agregarSeccionPersonalizada,
   agregarVarianteSeccion,
+  agregarVarianteSeccionFija,
   alternarSeccionFija,
   crearTerminos,
   editarSeccionPersonalizada,
   editarVarianteSeccion,
+  editarVarianteSeccionFija,
   eliminarSeccionPersonalizada,
   eliminarVarianteSeccion,
+  eliminarVarianteSeccionFija,
   etiquetaDeClaveSeccion,
   obtenerTerminosActivosCompletos,
   SECCIONES_FIJAS_KEYS,
@@ -44,6 +47,7 @@ import {
   type TerminosCondiciones,
   type TerminosCondicionesEditables,
   type TipoNegocioTerminos,
+  type VarianteSeccionPersonalizada,
 } from "@/lib/services/feats/terminos-service";
 
 /** Sentinel de UI para "insertar al final"; el backend lo entiende como
@@ -454,6 +458,232 @@ function SeccionPersonalizadaCard({
   );
 }
 
+interface VarianteEditorFijaProps {
+  terminosId: string;
+  clave: SeccionFijaKey;
+  identificadorOriginal: string;
+  texto: string;
+  puedeEliminar: boolean;
+  onCambio: (terminos: TerminosCondiciones) => void;
+}
+
+/** Igual que VarianteEditor, pero para una de las 6 secciones fijas. */
+function VarianteEditorFija({
+  terminosId,
+  clave,
+  identificadorOriginal,
+  texto: textoOriginal,
+  puedeEliminar,
+  onCambio,
+}: VarianteEditorFijaProps) {
+  const { toast } = useToast();
+  const [identificador, setIdentificador] = useState(identificadorOriginal);
+  const [texto, setTexto] = useState(textoOriginal);
+  const [guardando, setGuardando] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
+
+  useEffect(() => {
+    setIdentificador(identificadorOriginal);
+    setTexto(textoOriginal);
+  }, [identificadorOriginal, textoOriginal]);
+
+  const hayCambios =
+    identificador.trim() !== identificadorOriginal || texto.trim() !== textoOriginal;
+
+  const guardar = async () => {
+    const nuevoId = identificador.trim();
+    const nuevoTexto = texto.trim();
+    if (!nuevoId || !nuevoTexto) return;
+    setGuardando(true);
+    try {
+      const actualizado = await editarVarianteSeccionFija(terminosId, clave, identificadorOriginal, {
+        identificador: nuevoId !== identificadorOriginal ? nuevoId : undefined,
+        texto: nuevoTexto !== textoOriginal ? nuevoTexto : undefined,
+      });
+      onCambio(actualizado);
+    } catch (e: any) {
+      toast({
+        title: "No se pudo guardar la variante",
+        description: e?.message ?? "Inténtalo de nuevo.",
+        variant: "destructive",
+      });
+      setIdentificador(identificadorOriginal);
+      setTexto(textoOriginal);
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const eliminar = async () => {
+    if (!window.confirm(`¿Eliminar la variante "${identificadorOriginal}"?`)) return;
+    setEliminando(true);
+    try {
+      const actualizado = await eliminarVarianteSeccionFija(terminosId, clave, identificadorOriginal);
+      onCambio(actualizado);
+    } catch (e: any) {
+      toast({
+        title: "No se pudo eliminar la variante",
+        description: e?.message ?? "Inténtalo de nuevo.",
+        variant: "destructive",
+      });
+    } finally {
+      setEliminando(false);
+    }
+  };
+
+  return (
+    <div className="space-y-1.5 rounded border border-gray-200 bg-white p-2">
+      <div className="flex items-center gap-2">
+        <Input
+          className="h-8 text-sm"
+          value={identificador}
+          onChange={(e) => setIdentificador(e.target.value)}
+          placeholder="Identificador (ej. Estándar, Zona oriental)"
+          disabled={guardando}
+        />
+        {puedeEliminar && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 w-8 shrink-0 p-0 text-red-600 hover:bg-red-50"
+            onClick={eliminar}
+            disabled={eliminando || guardando}
+            aria-label={`Eliminar variante ${identificadorOriginal}`}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        )}
+      </div>
+      <Textarea
+        className="resize-y text-sm"
+        rows={3}
+        value={texto}
+        onChange={(e) => setTexto(e.target.value)}
+        disabled={guardando}
+      />
+      {hayCambios && (
+        <Button size="sm" className="h-7 text-xs" onClick={guardar} disabled={guardando}>
+          {guardando && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />}
+          Guardar variante
+        </Button>
+      )}
+    </div>
+  );
+}
+
+interface VariantesSeccionFijaProps {
+  terminosId: string;
+  clave: SeccionFijaKey;
+  variantes: VarianteSeccionPersonalizada[];
+  onCambio: (terminos: TerminosCondiciones) => void;
+}
+
+/**
+ * Bloque de variantes de una sección fija (formas_pago, garantia...), para
+ * mostrar debajo de su Textarea de siempre. Sin variantes agregadas, solo
+ * muestra el botón "Agregar variante"; la primera vez que se agrega una, el
+ * backend preserva el texto que ya tenía como variante "Estándar".
+ */
+function VariantesSeccionFija({
+  terminosId,
+  clave,
+  variantes,
+  onCambio,
+}: VariantesSeccionFijaProps) {
+  const { toast } = useToast();
+  const [abierta, setAbierta] = useState(false);
+  const [identificador, setIdentificador] = useState("");
+  const [texto, setTexto] = useState("");
+  const [guardando, setGuardando] = useState(false);
+
+  const agregar = async () => {
+    const id = identificador.trim();
+    const txt = texto.trim();
+    if (!id || !txt) return;
+    setGuardando(true);
+    try {
+      const actualizado = await agregarVarianteSeccionFija(terminosId, clave, id, txt);
+      onCambio(actualizado);
+      setIdentificador("");
+      setTexto("");
+      setAbierta(false);
+    } catch (e: any) {
+      toast({
+        title: "No se pudo agregar la variante",
+        description: e?.message ?? "Inténtalo de nuevo.",
+        variant: "destructive",
+      });
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <div className="space-y-2 rounded-md border border-dashed border-gray-200 bg-gray-50/60 p-2">
+      {variantes.length > 0 && (
+        <div className="space-y-2">
+          {variantes.map((variante) => (
+            <VarianteEditorFija
+              key={variante.identificador}
+              terminosId={terminosId}
+              clave={clave}
+              identificadorOriginal={variante.identificador}
+              texto={variante.texto}
+              puedeEliminar={variantes.length > 1}
+              onCambio={onCambio}
+            />
+          ))}
+        </div>
+      )}
+
+      {abierta ? (
+        <div className="space-y-2">
+          <Input
+            className="h-8 text-sm"
+            placeholder="Identificador (ej. Zona oriental)"
+            value={identificador}
+            onChange={(e) => setIdentificador(e.target.value)}
+            disabled={guardando}
+          />
+          <Textarea
+            className="text-sm"
+            rows={3}
+            placeholder="Texto de esta variante"
+            value={texto}
+            onChange={(e) => setTexto(e.target.value)}
+            disabled={guardando}
+          />
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              className="h-7 text-xs"
+              onClick={agregar}
+              disabled={guardando || !identificador.trim() || !texto.trim()}
+            >
+              {guardando && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />}
+              Guardar variante
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs"
+              onClick={() => setAbierta(false)}
+              disabled={guardando}
+            >
+              Cancelar
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setAbierta(true)}>
+          <Plus className="mr-1 h-3.5 w-3.5" />
+          {variantes.length > 0 ? "Agregar otra variante" : "Agregar variante"}
+        </Button>
+      )}
+    </div>
+  );
+}
+
 interface TerminosTabFormProps {
   tipoNegocio: TipoNegocioTerminos;
   /** El padre solo carga la pestaña activa la primera vez que se muestra. */
@@ -488,6 +718,9 @@ function TerminosTabForm({
   const [seccionesFijasDesactivadas, setSeccionesFijasDesactivadas] = useState<
     string[]
   >([]);
+  const [variantesSeccionesFijas, setVariantesSeccionesFijas] = useState<
+    Record<string, VarianteSeccionPersonalizada[]>
+  >({});
   const [guardandoSeccionFija, setGuardandoSeccionFija] = useState<string | null>(
     null,
   );
@@ -514,6 +747,7 @@ function TerminosTabForm({
         setSeccionesPersonalizadas([]);
         setOrdenSecciones([]);
         setSeccionesFijasDesactivadas([]);
+        setVariantesSeccionesFijas({});
         return;
       }
       const cargados = SECCIONES_TERMINOS.reduce(
@@ -528,6 +762,7 @@ function TerminosTabForm({
       setSeccionesPersonalizadas(data.secciones_personalizadas ?? []);
       setOrdenSecciones(data.orden_secciones ?? []);
       setSeccionesFijasDesactivadas(data.secciones_fijas_desactivadas ?? []);
+      setVariantesSeccionesFijas(data.variantes_secciones_fijas ?? {});
     } catch (e: any) {
       setErrorCarga(e?.message ?? "No se pudieron cargar los términos y condiciones.");
     } finally {
@@ -690,6 +925,24 @@ function TerminosTabForm({
                   />
                 )}
                 <p className="text-xs text-gray-500">{campo.ayuda}</p>
+                {esFijaAlternable && terminosId && (
+                  <VariantesSeccionFija
+                    terminosId={terminosId}
+                    clave={campo.key as SeccionFijaKey}
+                    variantes={variantesSeccionesFijas[campo.key] ?? []}
+                    onCambio={(terminos) => {
+                      setVariantesSeccionesFijas(terminos.variantes_secciones_fijas);
+                      setValores((v) => ({
+                        ...v,
+                        [campo.key]: terminos[campo.key as SeccionFijaKey] ?? v[campo.key],
+                      }));
+                      setIniciales((v) => ({
+                        ...v,
+                        [campo.key]: terminos[campo.key as SeccionFijaKey] ?? v[campo.key],
+                      }));
+                    }}
+                  />
+                )}
               </div>
               );
             })}

@@ -45,6 +45,13 @@ export interface TerminosCondiciones {
   orden_secciones: string[]
   /** Subconjunto de SECCIONES_FIJAS_KEYS que no sale en el export. */
   secciones_fijas_desactivadas: string[]
+  /**
+   * Variantes alternativas de las 6 secciones fijas, por clave. Sin entrada
+   * para una clave, esa sección solo tiene el texto de siempre (el campo
+   * escalar homónimo, ej. `garantia`). Con entrada, ese campo escalar
+   * siempre refleja la primera variante de la lista.
+   */
+  variantes_secciones_fijas: Record<string, VarianteSeccionPersonalizada[]>
   fecha_creacion: string
   fecha_actualizacion: string
   version: number
@@ -398,6 +405,52 @@ export async function eliminarVarianteSeccion(
 ): Promise<TerminosCondiciones> {
   const result = await apiRequest<TerminosActivosResponse>(
     `/terminos-condiciones/${terminosId}/secciones/${seccionId}/variantes/${encodeURIComponent(identificador)}`,
+    { method: "DELETE" },
+  )
+  return extraerTerminos(result, "No se pudo eliminar la variante")
+}
+
+// ---- Variantes de las 6 secciones fijas -----------------------------------
+// Mismo mecanismo que las variantes de secciones personalizadas, pero para
+// formas_pago/reserva_equipos/garantia/validez_presupuesto/
+// servicio_atencion_cliente/sobre_nosotros. La primera vez que se agrega una
+// variante a una sección fija, el backend preserva su texto de siempre como
+// la variante "Estándar".
+
+export async function agregarVarianteSeccionFija(
+  terminosId: string,
+  clave: SeccionFijaKey,
+  identificador: string,
+  texto: string,
+): Promise<TerminosCondiciones> {
+  const result = await apiRequest<TerminosActivosResponse>(
+    `/terminos-condiciones/${terminosId}/secciones-fijas/${clave}/variantes`,
+    { method: "POST", body: JSON.stringify({ identificador, texto }) },
+  )
+  return extraerTerminos(result, "No se pudo agregar la variante")
+}
+
+export async function editarVarianteSeccionFija(
+  terminosId: string,
+  clave: SeccionFijaKey,
+  identificadorActual: string,
+  cambios: { identificador?: string; texto?: string },
+): Promise<TerminosCondiciones> {
+  const result = await apiRequest<TerminosActivosResponse>(
+    `/terminos-condiciones/${terminosId}/secciones-fijas/${clave}/variantes/${encodeURIComponent(identificadorActual)}`,
+    { method: "PUT", body: JSON.stringify(cambios) },
+  )
+  return extraerTerminos(result, "No se pudo actualizar la variante")
+}
+
+/** Al eliminar la última variante restante, la sección vuelve al modo de texto único de siempre. */
+export async function eliminarVarianteSeccionFija(
+  terminosId: string,
+  clave: SeccionFijaKey,
+  identificador: string,
+): Promise<TerminosCondiciones> {
+  const result = await apiRequest<TerminosActivosResponse>(
+    `/terminos-condiciones/${terminosId}/secciones-fijas/${clave}/variantes/${encodeURIComponent(identificador)}`,
     { method: "DELETE" },
   )
   return extraerTerminos(result, "No se pudo eliminar la variante")

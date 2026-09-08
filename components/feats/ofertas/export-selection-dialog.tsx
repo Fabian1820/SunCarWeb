@@ -30,7 +30,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/shared/atom/select";
-import type { TipoNegocioTerminos } from "@/lib/services/feats/terminos-service";
+import {
+  SECCIONES_FIJAS_KEYS,
+  SECCIONES_FIJAS_LABELS,
+  type TipoNegocioTerminos,
+} from "@/lib/services/feats/terminos-service";
 import {
   buildTerminosCondicionesHtml,
   type TerminosCondicionesPayload,
@@ -165,11 +169,24 @@ export function ExportSelectionDialog({
   const terminosPayloadSeleccionado =
     tipoNegocioTerminos === "BTB" ? terminosPayloadBTB : terminosPayloadBTC;
 
-  // Secciones personalizadas activas con más de una variante: hay que elegir
-  // a mano cuál imprimir, igual que se elige BTB/BTC.
-  const seccionesConVariantes = (
-    terminosPayloadSeleccionado?.secciones_personalizadas ?? []
-  ).filter((s) => s.activa && s.variantes.length > 1);
+  // Secciones (personalizadas o de las 6 fijas) activas con más de una
+  // variante: hay que elegir a mano cuál imprimir, igual que se elige
+  // BTB/BTC. La clave usada para variantesElegidas es seccion.id para las
+  // personalizadas, o la clave fija (ej. "garantia") para las otras.
+  const seccionesConVariantes = [
+    ...(terminosPayloadSeleccionado?.secciones_personalizadas ?? [])
+      .filter((s) => s.activa && s.variantes.length > 1)
+      .map((s) => ({ clave: s.id, titulo: s.titulo, variantes: s.variantes })),
+    ...SECCIONES_FIJAS_KEYS.filter(
+      (clave) =>
+        !terminosPayloadSeleccionado?.secciones_fijas_desactivadas?.includes(clave) &&
+        (terminosPayloadSeleccionado?.variantes_secciones_fijas?.[clave]?.length ?? 0) > 1,
+    ).map((clave) => ({
+      clave,
+      titulo: SECCIONES_FIJAS_LABELS[clave],
+      variantes: terminosPayloadSeleccionado!.variantes_secciones_fijas![clave],
+    })),
+  ];
 
   const [variantesElegidas, setVariantesElegidas] = useState<
     Record<string, string>
@@ -184,6 +201,10 @@ export function ExportSelectionDialog({
     const porDefecto: Record<string, string> = {};
     (terminosPayloadSeleccionado?.secciones_personalizadas ?? []).forEach((s) => {
       if (s.variantes[0]) porDefecto[s.id] = s.variantes[0].identificador;
+    });
+    SECCIONES_FIJAS_KEYS.forEach((clave) => {
+      const variantes = terminosPayloadSeleccionado?.variantes_secciones_fijas?.[clave];
+      if (variantes?.[0]) porDefecto[clave] = variantes[0].identificador;
     });
     setVariantesElegidas(porDefecto);
   }, [open, tipoNegocioTerminos, terminosPayloadSeleccionado?.id]);
@@ -731,21 +752,21 @@ export function ExportSelectionDialog({
             {seccionesConVariantes.length > 0 && (
               <div className="mt-3 space-y-3 border-t border-slate-200 pt-3">
                 {seccionesConVariantes.map((seccion) => (
-                  <div key={seccion.id}>
+                  <div key={seccion.clave}>
                     <label
-                      htmlFor={`export-variante-${seccion.id}`}
+                      htmlFor={`export-variante-${seccion.clave}`}
                       className="text-xs font-medium text-slate-700 mb-1 block"
                     >
                       {seccion.titulo}
                     </label>
                     <Select
-                      value={variantesElegidas[seccion.id] ?? seccion.variantes[0]?.identificador}
+                      value={variantesElegidas[seccion.clave] ?? seccion.variantes[0]?.identificador}
                       onValueChange={(value) =>
-                        setVariantesElegidas((prev) => ({ ...prev, [seccion.id]: value }))
+                        setVariantesElegidas((prev) => ({ ...prev, [seccion.clave]: value }))
                       }
                     >
                       <SelectTrigger
-                        id={`export-variante-${seccion.id}`}
+                        id={`export-variante-${seccion.clave}`}
                         className="h-8 bg-white text-sm"
                       >
                         <SelectValue />

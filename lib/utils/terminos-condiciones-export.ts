@@ -38,6 +38,8 @@ export interface TerminosCondicionesPayload {
   orden_secciones?: string[] | null;
   /** Subconjunto de las 6 claves fijas reordenables que no sale en el export. */
   secciones_fijas_desactivadas?: string[] | null;
+  /** Variantes alternativas de las 6 secciones fijas, por clave. */
+  variantes_secciones_fijas?: Record<string, VarianteSeccionExportPayload[]> | null;
 }
 
 /** Mismo orden que en el backend (SECCIONES_FIJAS_KEYS); "titulo" queda
@@ -87,9 +89,11 @@ export interface OfertaTerminosCondicionesContext {
 export interface BuildTerminosCondicionesOptions {
   oferta?: OfertaTerminosCondicionesContext | null;
   /**
-   * Qué variante imprimir de cada sección personalizada que tenga más de
-   * una, elegida a mano al exportar (seccion.id -> variante.identificador).
-   * Sin entrada para una sección, se usa su primera variante.
+   * Qué variante imprimir de cada sección que tenga más de una, elegida a
+   * mano al exportar. La clave es el id de la sección personalizada o, para
+   * las 6 fijas, su clave (ej. "garantia"); el valor es el
+   * variante.identificador elegido. Sin entrada para una sección, se usa su
+   * primera variante.
    */
   variantesElegidas?: Record<string, string> | null;
 }
@@ -291,32 +295,57 @@ export function buildTerminosCondicionesHtml(
   if (!payload) return null;
 
   const titulo = resolverCampo(payload, ["titulo"]);
+
+  // Si la sección fija tiene variantes agregadas, se usa la elegida al
+  // exportar (o la primera si no se eligió ninguna) en vez del campo
+  // escalar de siempre — igual que con las secciones personalizadas.
+  const resolverConVariante = (
+    clave: (typeof CLAVES_SECCIONES_FIJAS)[number],
+    textoEscalar: string,
+  ): string => {
+    const variantes = payload.variantes_secciones_fijas?.[clave];
+    if (!variantes || variantes.length === 0) return textoEscalar;
+    const elegida = options?.variantesElegidas?.[clave];
+    const variante =
+      variantes.find((v) => v.identificador === elegida) ?? variantes[0];
+    return normalizarTexto(variante.texto);
+  };
+
   const formasPagoAcordadas = construirTextoPagosAcordados(options?.oferta);
   // Los pagos acordados (con montos y fechas) mandan sobre el esquema
   // porcentual: si se negocio un plan concreto, ese es el acuerdo real.
   const formasPago =
     formasPagoAcordadas ||
     aplicarEsquemaPago(
-      resolverCampo(payload, ["formas_pago", "formasPago"]),
+      resolverConVariante(
+        "formas_pago",
+        resolverCampo(payload, ["formas_pago", "formasPago"]),
+      ),
       options?.oferta?.esquema_pago,
     );
-  const reservaEquipos = resolverCampo(payload, [
+  const reservaEquipos = resolverConVariante(
     "reserva_equipos",
-    "reservaEquipos",
-  ]);
-  const garantia = resolverCampo(payload, ["garantia", "garantía"]);
-  const validezPresupuesto = resolverCampo(payload, [
+    resolverCampo(payload, ["reserva_equipos", "reservaEquipos"]),
+  );
+  const garantia = resolverConVariante(
+    "garantia",
+    resolverCampo(payload, ["garantia", "garantía"]),
+  );
+  const validezPresupuesto = resolverConVariante(
     "validez_presupuesto",
-    "validezPresupuesto",
-  ]);
-  const servicioAtencionCliente = resolverCampo(payload, [
+    resolverCampo(payload, ["validez_presupuesto", "validezPresupuesto"]),
+  );
+  const servicioAtencionCliente = resolverConVariante(
     "servicio_atencion_cliente",
-    "servicioAtencionCliente",
-  ]);
-  const sobreNosotros = resolverCampo(payload, [
+    resolverCampo(payload, [
+      "servicio_atencion_cliente",
+      "servicioAtencionCliente",
+    ]),
+  );
+  const sobreNosotros = resolverConVariante(
     "sobre_nosotros",
-    "sobreNosotros",
-  ]);
+    resolverCampo(payload, ["sobre_nosotros", "sobreNosotros"]),
+  );
   const consideracionesGenerales = resolverCampo(payload, [
     "consideraciones_generales",
     "consideracionesGenerales",
