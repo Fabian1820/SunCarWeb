@@ -977,6 +977,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
         ],
       },
       { key: "app/visitas", label: "Visitas" },
+      { key: "app/solicitudes-materiales", label: "Solicitudes de materiales al almacén" },
     ],
   },
 ]
