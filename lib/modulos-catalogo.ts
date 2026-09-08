@@ -41,6 +41,7 @@ import {
   ClipboardList,
   FlaskConical,
   Send,
+  Megaphone,
 } from "lucide-react"
 
 /**
@@ -264,6 +265,21 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     href: "/peticiones",
     grupo: "area-direccion",
     superAdminOnly: true,
+  },
+  {
+    key: "actualizaciones-sistema",
+    label: "Actualizaciones del Sistema",
+    descripcion: "Historial completo de cambios y mejoras del sistema, día por día.",
+    icon: Megaphone,
+    iconClass: "text-emerald-600",
+    href: "/actualizaciones-sistema",
+    grupo: "area-direccion",
+    // Sin superAdminOnly a propósito: el resumen de hoy/ayer en Inicio ya es
+    // visible para cualquiera, pero este historial completo es
+    // administrativo. De momento solo lo tiene el superAdmin (nadie más
+    // tiene el permiso asignado todavía); cuando se le dé el permiso a
+    // alguien desde /permisos, su card debe aparecer también para esa
+    // persona — por eso no se oculta con superAdminOnly como "Peticiones".
   },
 
   // ───────── Comercial Instaladora ─────────
