@@ -2481,9 +2481,13 @@ export function ConfeccionOfertasView({
     };
 
     // Suma cantidad y capacidad total (cantidad × potencia de cada ítem) de
-    // todos los materiales marcados de una sección. Con un solo material
-    // marcado da exactamente lo mismo que antes (cantidad × su potencia); con
-    // 2+ es la suma real, no un promedio que disimularía que son distintos.
+    // todos los materiales marcados de una sección, y la devuelve como
+    // promedio POR UNIDAD (capacidadTotal / cantidad): el nombre se imprime
+    // como "cantidad x potencia", y esa multiplicación tiene que reconstruir
+    // la capacidad total real. Con un solo material marcado da exactamente
+    // lo mismo que antes (su potencia de catálogo); con 2+ es el promedio
+    // ponderado por cantidad — la suma real ya está adentro, solo que
+    // repartida entre las unidades para que el formato siga siendo válido.
     const sumarSeccion = (
       seccion: string,
       codigosMarcados: string[],
@@ -2503,19 +2507,20 @@ export function ConfeccionOfertasView({
           sum + i.cantidad * normalizarPotencia(obtenerPotencia(i.materialCodigo) || 0),
         0,
       );
-      return { cantidad, potenciaTotal };
+      const potenciaPorUnidad = cantidad > 0 ? potenciaTotal / cantidad : 0;
+      return { cantidad, potenciaPorUnidad };
     };
 
     // 1. INVERSORES - suma de los marcados
     if (inversoresSeleccionados.length > 0) {
-      const { cantidad, potenciaTotal } = sumarSeccion(
+      const { cantidad, potenciaPorUnidad } = sumarSeccion(
         "INVERSORES",
         inversoresSeleccionados,
       );
       if (cantidad > 0) {
         componentes.push(
-          potenciaTotal > 0
-            ? `I-${cantidad}x${formatearPotencia(potenciaTotal)}kW`
+          potenciaPorUnidad > 0
+            ? `I-${cantidad}x${formatearPotencia(potenciaPorUnidad)}kW`
             : `I-${cantidad}x`,
         );
       }
@@ -2523,14 +2528,14 @@ export function ConfeccionOfertasView({
 
     // 2. BATERÍAS - suma de las marcadas
     if (bateriasSeleccionadas.length > 0) {
-      const { cantidad, potenciaTotal } = sumarSeccion(
+      const { cantidad, potenciaPorUnidad } = sumarSeccion(
         "BATERIAS",
         bateriasSeleccionadas,
       );
       if (cantidad > 0) {
         componentes.push(
-          potenciaTotal > 0
-            ? `B-${cantidad}x${formatearPotencia(potenciaTotal)}kWh`
+          potenciaPorUnidad > 0
+            ? `B-${cantidad}x${formatearPotencia(potenciaPorUnidad)}kWh`
             : `B-${cantidad}x`,
         );
       }
@@ -2539,7 +2544,7 @@ export function ConfeccionOfertasView({
     // 3. PANELES - suma de los marcados
     if (panelesSeleccionados.length > 0) {
       // Si potenciaKW > 10 el valor fue guardado en W por error (ej: 605 en vez de 0.605)
-      const { cantidad, potenciaTotal: potenciaW } = sumarSeccion(
+      const { cantidad, potenciaPorUnidad: potenciaW } = sumarSeccion(
         "PANELES",
         panelesSeleccionados,
         (p) => (p > 10 ? p : p * 1000),
@@ -2615,7 +2620,11 @@ export function ConfeccionOfertasView({
 
     // Suma cantidad y capacidad total de todos los materiales marcados de una
     // sección, y junta las marcas distintas presentes (si son 2+ modelos de
-    // marcas distintas, se listan las dos en vez de perder una).
+    // marcas distintas, se listan las dos en vez de perder una). `potencia`
+    // se devuelve POR UNIDAD (capacidadTotal / cantidad), no el total: el
+    // nombre se imprime como "cantidad x potencia" y esa multiplicación
+    // tiene que reconstruir la capacidad total real, igual que antes con un
+    // solo material.
     const sumarSeccion = (
       seccion: string,
       codigosMarcados: string[],
@@ -2636,7 +2645,7 @@ export function ConfeccionOfertasView({
       );
       return {
         cantidad,
-        potencia: cantidad > 0 ? parseFloat(potenciaTotal.toFixed(3)) : 0,
+        potencia: cantidad > 0 ? parseFloat((potenciaTotal / cantidad).toFixed(3)) : 0,
         marca: marcas.join(" + "),
       };
     };
