@@ -720,8 +720,12 @@ export function PendientesVisitaTable({
   };
 
   /** Abre el formulario completo sobre una visita ya marcada sin información. */
-  /** Abre el informe PDF de la visita, que genera el backend. */
-  const descargarInformeVisita = (visita: VisitaRegistro) => {
+  /**
+   * Descarga el informe PDF de la visita. Se pide con fetch y el token en la
+   * cabecera (no con window.open) porque el endpoint exige autenticación y
+   * una pestaña nueva no manda el token.
+   */
+  const descargarInformeVisita = async (visita: VisitaRegistro) => {
     const visitaId = visita.visitaId;
     if (!visitaId) {
       toast({
@@ -731,7 +735,47 @@ export function PendientesVisitaTable({
       });
       return;
     }
-    window.open(`${API_BASE_URL}/visitas/${visitaId}/informe`, "_blank");
+
+    try {
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("auth_token") ||
+            localStorage.getItem("access_token") ||
+            localStorage.getItem("token") ||
+            ""
+          : "";
+
+      const respuesta = await fetch(
+        `${API_BASE_URL}/visitas/${visitaId}/informe`,
+        { headers: token ? { Authorization: `Bearer ${token.trim()}` } : {} },
+      );
+      if (!respuesta.ok) {
+        throw new Error(
+          respuesta.status === 401
+            ? "Tu sesión expiró. Inicia sesión nuevamente."
+            : "No se pudo generar el informe de la visita.",
+        );
+      }
+
+      const blob = await respuesta.blob();
+      const url = URL.createObjectURL(blob);
+      const enlace = document.createElement("a");
+      enlace.href = url;
+      enlace.download = `informe-visita-${visitaId}.pdf`;
+      document.body.appendChild(enlace);
+      enlace.click();
+      enlace.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "No se pudo descargar el informe.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleRellenarInfo = (visita: VisitaRegistro) => {
@@ -1614,7 +1658,7 @@ export function PendientesVisitaTable({
                               Ver Archivos
                             </Button>
                             <Button
-                              onClick={() => descargarInformeVisita(registro)}
+                              onClick={() => void descargarInformeVisita(registro)}
                               size="sm"
                               variant="outline"
                               className="text-sm h-9 col-span-2"
@@ -1860,7 +1904,7 @@ export function PendientesVisitaTable({
                                     Ver Archivos
                                   </Button>
                                   <Button
-                                    onClick={() => descargarInformeVisita(registro)}
+                                    onClick={() => void descargarInformeVisita(registro)}
                                     size="sm"
                                     variant="outline"
                                     className="text-sm h-8 px-3"
