@@ -138,11 +138,11 @@ export function SolicitudesPendientesPagoTable({
         <div className={`text-sm ${e ? "px-6 pb-2" : "pb-1"}`}>
           <div className="flex flex-wrap gap-3 items-center">
             <span className="text-gray-500">
-              Total: <strong className="text-blue-700">{formatCurrency(agregados.precio_total_usd)}</strong>
+              Total de cuentas por cobrar: <strong className="text-blue-700">{formatCurrency(agregados.precio_total_usd)}</strong>
             </span>
             <span className="text-gray-300">|</span>
             <span className="text-gray-500">
-              Pagado: <strong className="text-green-700">{formatCurrency(agregados.pagado_usd)}</strong>
+              Cobrado: <strong className="text-green-700">{formatCurrency(agregados.pagado_usd)}</strong>
             </span>
             <span className="text-gray-300">|</span>
             <span className="text-gray-500">
@@ -181,7 +181,7 @@ export function SolicitudesPendientesPagoTable({
                   Total
                 </TableHead>
                 <TableHead className="font-semibold text-right">
-                  Pagado
+                  Cobrado
                 </TableHead>
                 <TableHead className="font-semibold text-right">
                   Pendiente
