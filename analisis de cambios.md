@@ -2,6 +2,89 @@
 
 ---
 
+## 📅 8 de Septiembre, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**14 commits reales** — yany1509 (14, varios co-authored con Claude Opus 5). Día muy activo: firmas digitales en visitas con PDF descargable, agrupación de vales de salida por cliente+responsable, fix crítico del nombre automático de oferta (capacidad total vs por unidad), checkboxes de materiales para el nombre, selector de fotos de portada desde S3, módulo de actualizaciones con permiso propio, sub-permiso de solicitudes de materiales en app móvil, y varios fixes de permisos, pagos y visitas.
+
+---
+
+### Área 1: feat(visitas) — firmas digitales e informe PDF descargable (09:50)
+
+- **`feat(visitas): firmas digitales e informe PDF descargable`** — Nuevo `PadFirma`: lienzo de firma con ratón/dedo que entrega la firma como PNG (data URI). Se agrega al completar la visita para el instalador y para el cliente, y se envía tanto al crear como al actualizar. Botón "Descargar informe" en visitas realizadas (vista móvil y escritorio): hace `GET /visitas/{id}/informe` para bajar el PDF con todo lo rellenado al completar la visita y las firmas al final. 3 archivos modificados, 204 líneas.
+
+---
+
+### Área 2: feat(salidas) — agrupar vales del mismo cliente y responsable (09:32)
+
+- **`feat(salidas): agrupar vales del mismo cliente y responsable en una sola salida`** — Un cliente con varios vales el mismo día aparecía repetido: una tarjeta y un botón por vale. Ahora los vales con el mismo cliente y el mismo responsable de recogida se muestran juntos: una tarjeta, tabla de materiales de todos los vales (con columna de vale cuando hay más de uno) y un solo botón que confirma la salida de todos con los mismos brigadistas. La selección de brigadistas se guarda por grupo. Vales sin cliente identificable siguen yendo cada uno por su cuenta.
+
+---
+
+### Área 3: fix(ofertas) — nombre automático mostraba capacidad total como si fuera por unidad (08:32)
+
+- **`fix(ofertas): el nombre automático mostraba la capacidad total como si fuera por unidad`** — Bug introducido en el commit de checkboxes (3a3446d): `sumarSeccion` devolvía `potenciaTotal` (suma de cantidad_i × potencia_i de todos los marcados) y el nombre lo imprimía en el formato "cantidad × potencia" — que siempre asumió que el número era por unidad. Ahora `sumarSeccion` devuelve la potencia unitaria y la cantidad total por separado.
+
+---
+
+### Área 4: feat(ofertas) — checkboxes para combinar materiales en el nombre automático
+
+- **`feat(ofertas): checkboxes para combinar materiales en el nombre automático`** — Permite marcar qué materiales de cada categoría se incluyen en el nombre corto de la oferta. El fix del Área 3 corrige el bug que este commit introdujo en `sumarSeccion`.
+
+---
+
+### Área 5: feat(ofertas) — foto de portada desde catálogo S3 (14:56)
+
+- **`feat(ofertas): elegir la foto de portada de nuestro S3 en vez de solo subir una nueva`** — Nuevo botón "Elegir del catálogo" junto a "Subir foto" en Confección de Ofertas. Abre diálogo con grilla de fotos ya guardadas en S3/MinIO, alimentado desde `GET /ofertas/confeccion/genericas/aprobadas`. Sin subida de archivo nuevo.
+
+---
+
+### Área 6: feat(actualizaciones) — módulo con permiso propio + historial 180 días (15:31)
+
+- **`feat(actualizaciones): módulo con permiso propio para ver el historial completo`** — "Actualizaciones del sistema" pasa de panel en Inicio a módulo con página propia: historial de los últimos 180 días agrupado por día, gateado por permisos. Solo accesible para superAdmin de momento.
+
+---
+
+### Área 7: feat(permisos) — app móvil de operaciones + sub-permiso solicitudes de materiales (16:31)
+
+- **`feat(permisos): módulo de la app móvil de operaciones + fix GPS en estudio energético`** — Nuevo módulo en catálogo de permisos para la app móvil de operaciones. Fix del GPS en el estudio energético (problema con la captura de coordenadas).
+- **`feat(permisos): sub-permiso app/solicitudes-materiales`** — Nuevo módulo en app: pedir materiales al almacén. Declarado como sub-permiso de la App Móvil. Solo 1 línea en `lib/modulos-catalogo.ts`.
+
+---
+
+### Área 8: fixes de pagos, permisos, visitas y ventas (varios horarios)
+
+- **`fix(pagos): comprobante de pago decía "Solar Carros" en vez de SunCar`** — Fix de branding en el PDF del comprobante.
+- **`fix(permisos): el botón Volver de Gestión de Permisos subía a la App Móvil`** — Fix de navegación: el botón Volver ahora va al módulo correcto.
+- **`fix(visitas): descargar el informe con el token de sesión`** — El endpoint de descarga del informe PDF no incluía el token de autenticación. Corregido.
+- **`feat(ventas): renombra las etiquetas del resumen de pendientes de pago`** — "Total" → "Total de cuentas por cobrar", "Pagado" → "Cobrado". Solo cambio de etiquetas UI.
+- **`feat(terminos): UI de variantes también para las 6 secciones fijas`** — Las 6 secciones fijas de términos y condiciones ahora tienen la misma UI de variantes que las personalizadas.
+
+---
+
+### Puede dar bateo
+
+1. **feat(visitas) firma PNG — formato esperado en backend**: `PadFirma` entrega la firma como data URI (`data:image/png;base64,...`). Confirmar que el backend acepta esta representación o si espera bytes raw / multipart.
+
+2. **feat(visitas) actualizar visita sin volver a firmar — campo firma vacío pisa la firma anterior**: Si el instalador reabre el diálogo para editar algo sin dibujar nuevamente, ¿se envía `firma_instalador: null` y destruye la firma ya guardada?
+
+3. **fix(visitas) token en descarga — confirmar que se pasa en header y no en query param**: Algunos endpoints de PDFs requieren el token en query param por limitaciones del browser con `GET`. Confirmar que el backend del informe acepta el token en header.
+
+4. **feat(salidas) agrupación — vales con responsable null**: Si el responsable es null en algunos vales, la comparación de igualdad puede agrupar vales de clientes distintos o separar vales del mismo responsable según la implementación.
+
+5. **fix(ofertas) nombre automático — ofertas ya guardadas con nombre incorrecto**: Las ofertas creadas entre el commit 3a3446d y este fix tienen el nombre calculado incorrectamente en BD. No hay migración mencionada; los nombres históricos quedan mal.
+
+6. **feat(ofertas) S3 photo picker — CORS en producción**: El diálogo carga imágenes de S3/MinIO directamente en el browser. Si el bucket no tiene CORS habilitado para el dominio de admin, las imágenes no cargarán.
+
+7. **feat(actualizaciones) historial 180 días — confirmar paginación en backend**: 180 días puede ser un volumen grande. Confirmar que el backend pagina y que el frontend no pide todo de una sola vez.
+
+8. **feat(permisos) sub-permiso app/solicitudes-materiales — confirmar registro en backend**: Solo se añade 1 línea en `lib/modulos-catalogo.ts`. Si el backend no registra este módulo, la asignación desde Gestión de Permisos fallará silenciosamente.
+
+9. **fix(visitas) token — confirmar que otros endpoints de descarga de PDFs (comprobantes, informes de estudio) también llevan el token**: El fix corrige uno; revisar si el mismo problema afecta a otros endpoints de descarga.
+
+---
+
 ## 📅 7 de Septiembre, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -166,102 +249,6 @@
 
 ---
 
-## 📅 1 de Septiembre, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**9 commits reales** — Fabian1820 (co-authored Claude Opus 5). Sesión muy activa: saneamiento de código (imports muertos, código muerto, race conditions), corrección de búsquedas sin tildes en toda la app, paginación de compras, esquema de pago configurable por oferta, dos fixes de stock en solicitudes, y dos features de filtrado de clientes por equipo instalado (rangos + modelo exacto).
-
----
-
-### Área 1: fix(solicitudes) — buscador de materiales truncado y disponible ciego a los pools (16:01)
-
-- **`fix(solicitudes): buscador de materiales truncado y disponible ciego a los pools`** — Buscador con `limit: 15` ordenado por `material_id` descartaba materiales más recientes. Con 104 coincidencias para "cable", los 4 cables nuevos (posiciones 101–104) no aparecían. Se quita el tope y se ordena por nombre. "Stock disponible" se corrige para alinearse con los pools consumibles (sector + indistinto), no la suma de los tres.
-
----
-
-### Área 2: chore(vales-solicitudes) — elimina código muerto verificado (16:24)
-
-- **`chore: elimina código muerto verificado en los flujos de vales y solicitudes`** — `getMaterialExistencia` + `loadStockByCode` hacían un `getStock` del almacén completo en cada exportación de PDF y tiraban el resultado. Con el `limit` quitado, esa llamada pasó de 200 a 567 filas. Eliminados también varios `handle*`, `parse*` e imports sin usar.
-
----
-
-### Área 3: fix(busqueda) — buscadores sin tildes y arregla el de vales de salida (17:19)
-
-- **`fix(busqueda): buscadores sin tildes y arregla el de vales de salida`** — UX rota en búsqueda de vales (loader de página desmontaba el buscador en búsquedas con 0 resultados; dos condiciones de carrera). Normalización de tildes en 61 módulos con `normalizeSearchText` en `lib/utils/string-utils.ts`.
-
----
-
-### Área 4: chore(typescript) — quita imports y tipos sin usar en todo el repo (17:40)
-
-- **`chore: quita imports, tipos y parámetros sin usar en todo el repo`** — 45 archivos, 110 ediciones. Quedan 121 avisos pendientes sobre declaraciones con cuerpo que requieren decisión humana.
-
----
-
-### Área 5: feat(compras) — paginación en el listado y lista completa en los selectores (18:12)
-
-- **`feat(compras): paginacion en el listado y lista completa en los selectores`** — El hook pedía las compras sin parámetros, recibía solo 50 y filtraba en cliente. Con 129 compras, 79 eran invisibles. Pasa a paginación de servidor (páginas de 20, búsqueda con debounce, filtros al backend). Los selectores de solicitudes de entrada usan `getAllCompras()` que recorre las páginas.
-
----
-
-### Área 6: feat(ofertas) — elegir el esquema de pago al confeccionar y al exportar (18:24)
-
-- **`feat(ofertas): elegir el esquema de pago de la oferta al confeccionar y al exportar`** — Selector con tres esquemas fijos (50/30/20, 40/40/20, 50/40/10), un personalizado que valida que sume 100, y "por defecto" para heredar el texto de la BD. Disponible en confección y en el diálogo de exportación (hace PATCH sobre la oferta).
-
----
-
-### Área 7: feat(clientes) — filtro por capacidad del equipo instalado (19:59)
-
-- **`feat(clientes): filtro por capacidad del equipo instalado`** — Tres rangos: inversor en kW, baterías en kWh y número de paneles, resueltos en el backend con `inversorKwMin/Max`, `bateriaKwhMin/Max` y `panelesMin/Max`.
-
----
-
-### Área 8: fix(ofertas) — no imprimir hitos de pago en 0 % (20:50)
-
-- **`fix(ofertas): no imprimir los hitos de pago que van en 0 %`** — La viñeta de un hito en 0 ya no se genera. "Restante" en el último tramo solo aparece si antes se enumeró algún otro hito.
-
----
-
-### Área 9: feat(clientes) — selector de modelo de equipo y rangos en "Más filtros" (21:09)
-
-- **`feat(clientes): selector de modelo de equipo y rangos en "Mas filtros"`** — Selector por material concreto de inversor/batería/panel con cantidad exacta. Los rangos de capacidad pasan a un plegable "Más filtros". Cada opción lleva la potencia y cuántos clientes la tienen.
-
----
-
-### Puede dar bateo
-
-1. **feat(clientes) selector de modelo — parámetros nuevos en backend**: Confirmar que `modelo_codigo`/`cantidad_exacta` están deployados; si no, el selector devuelve silenciosamente todos los clientes.
-
-2. **feat(clientes) filtros de rango — texto vacío vs "0"**: Confirmar serialización consistente; un `""` que llega como `0` aplicaría filtro `>= 0 kW` excluyendo clientes sin equipo resuelto.
-
-3. **feat(ofertas) esquema de pago — PATCH permanente desde el diálogo de exportación**: Confirmar si el PATCH se emite al cambiar el selector o solo al pulsar "Exportar".
-
-4. **fix(ofertas) hito 0% — "restante" con un solo hito no-cero**: Si el único hito es el de puesta en marcha (ej. 0/0/100), el texto generado sería "100% restante con la puesta en marcha" sin pagos anteriores.
-
-5. **feat(compras) `getAllCompras()` — sin cota de páginas**: Puede volverse lenta si la colección crece.
-
-6. **fix(busqueda) `normalizeSearchText` en 61 módulos**: Confirmar que ningún módulo hacía coincidencia exacta que se rompa con la normalización.
-
-7. **fix(solicitudes) dropdown sin límite**: Con 100+ items, confirmar que el dropdown está virtualizado para dispositivos móviles.
-
-8. **chore — 121 avisos de declaraciones sin usar pendientes**: Confirmar cuáles son features en pausa antes de eliminar.
-
----
-
-## 📅 31 de Agosto, 2026
-
-### Resumen de cambios (últimas 24h)
-
-Sin commits nuevos de código. El único commit del período es "Analisis diario Claude" (generado automáticamente). No hay cambios en producción en SunCarWeb.
-
----
-
-### Puede dar bateo
-
-Sin cambios nuevos — sin riesgos nuevos.
-
----
-
 ## Seguimientos vigentes
 
 - **refactor(ofertas) prop `exportOptions` obligatorio — confirmar que los tres sitios que lo usan (confección, clientes, leads) siempre lo pasan; lazy imports no detectados por TS pueden fallar en runtime (Sep 2)**.
@@ -284,6 +271,13 @@ Sin cambios nuevos — sin riesgos nuevos.
 - **feat(terminos) `export-selection-dialog` prop cambiado a documento completo — confirmar que no hay callers que todavía pasen HTML pre-armado (Sep 7)**.
 - **fix(facturas) `StockInsuficienteError` — confirmar que el componente de facturación no captura genéricamente todos los errores y sí muestra el aviso de faltante (Sep 7)**.
 - **fix(facturas) precio ponderado — confirmar que backend acepta precios con decimales en líneas de factura (Sep 7)**.
+- **feat(visitas) firma PNG — confirmar que backend acepta data URI y no bytes raw / multipart; el campo `firma_instalador` en PATCH puede pisar firma anterior si se envía null al editar sin volver a firmar (Sep 8)**.
+- **fix(visitas) token en descarga de informe — confirmar que el token se pasa correctamente en header; revisar si otros endpoints de descarga PDF (comprobantes, estudio energético) tienen el mismo problema (Sep 8)**.
+- **feat(salidas) agrupación por cliente+responsable — confirmar comportamiento cuando responsable es null en algún vale del mismo cliente (Sep 8)**.
+- **fix(ofertas) nombre automático con bug de capacidad total — ofertas guardadas en BD entre 3a3446d y este fix tienen nombres incorrectos; confirmar si se requiere migración (Sep 8)**.
+- **feat(ofertas) S3 photo picker — confirmar CORS habilitado en bucket S3/MinIO para el dominio de admin en producción (Sep 8)**.
+- **feat(actualizaciones) historial 180 días — confirmar paginación en backend; el módulo solo tiene permiso para superAdmin de momento (Sep 8)**.
+- **feat(permisos) sub-permiso app/solicitudes-materiales — confirmar que el backend registra este módulo para que la asignación desde Gestión de Permisos funcione (Sep 8)**.
 - **fix(clientes-anulados) — confirmar que los 11 selectores cubiertos son exhaustivos; verificar módulos de instalaciones y órdenes de trabajo no listados en el commit (Ago 29)**.
 - **fix(clientes-anulados) — 5 sitios excluidos: confirmar que todos tienen manejo de error visible del backend al intentar crear trabajo sobre un cliente anulado (Ago 29)**.
 - **feat(ventas) toggle "Vista Web" PATCH de campo único — confirmar `exclude_unset` en backend para no sobrescribir null en campos no enviados (Ago 29)**.
@@ -324,4 +318,4 @@ Sin cambios nuevos — sin riesgos nuevos.
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. La entrada del **28 de Julio** fue eliminada el 5 de Agosto al superar los 7 días. La entrada del **30 de Julio** fue eliminada el 7 de Agosto al superar los 7 días. La entrada del **31 de Julio** fue eliminada el 8 de Agosto al superar los 7 días. Las entradas del **1, 2 y 3 de Agosto** fueron eliminadas el 10 de Agosto al superar los 7 días. La entrada del **4 de Agosto** fue eliminada el 12 de Agosto al superar los 7 días. La entrada del **5 de Agosto** fue eliminada el 13 de Agosto al superar los 7 días. La entrada del **6 de Agosto** fue eliminada el 14 de Agosto al superar los 7 días. La entrada del **7 de Agosto** fue eliminada el 15 de Agosto al superar los 7 días. La entrada del **8 de Agosto** fue eliminada el 17 de Agosto al superar los 7 días. La entrada del **10 de Agosto** fue eliminada el 18 de Agosto al superar los 7 días. La entrada del **11 de Agosto** fue eliminada el 19 de Agosto al superar los 7 días. La entrada del **12 de Agosto** fue eliminada el 20 de Agosto al superar los 7 días. La entrada del **13 de Agosto** fue eliminada el 21 de Agosto al superar los 7 días. La entrada del **14 de Agosto** fue eliminada el 22 de Agosto al superar los 7 días. La entrada del **15 de Agosto** fue eliminada el 25 de Agosto al superar los 7 días. La entrada del **17 de Agosto** fue eliminada el 25 de Agosto al superar los 7 días. La entrada del **18 de Agosto** fue eliminada el 26 de Agosto al superar los 7 días. La entrada del **19 de Agosto** fue eliminada el 27 de Agosto al superar los 7 días. La entrada del **20 de Agosto** fue eliminada el 28 de Agosto al superar los 7 días. La entrada del **21 de Agosto** fue eliminada el 29 de Agosto al superar los 7 días. La entrada del **22 de Agosto** fue eliminada el 30 de Agosto al superar los 7 días. La entrada del **23 de Agosto** fue eliminada el 31 de Agosto al superar los 7 días. La entrada del **24 de Agosto** fue eliminada el 1 de Septiembre al superar los 7 días. La entrada del **25 de Agosto** fue eliminada el 2 de Septiembre al superar los 7 días. Las entradas del **26, 27, 28, 29 y 30 de Agosto** fueron eliminadas el 7 de Septiembre al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. La entrada del **28 de Julio** fue eliminada el 5 de Agosto al superar los 7 días. La entrada del **30 de Julio** fue eliminada el 7 de Agosto al superar los 7 días. La entrada del **31 de Julio** fue eliminada el 8 de Agosto al superar los 7 días. Las entradas del **1, 2 y 3 de Agosto** fueron eliminadas el 10 de Agosto al superar los 7 días. La entrada del **4 de Agosto** fue eliminada el 12 de Agosto al superar los 7 días. La entrada del **5 de Agosto** fue eliminada el 13 de Agosto al superar los 7 días. La entrada del **6 de Agosto** fue eliminada el 14 de Agosto al superar los 7 días. La entrada del **7 de Agosto** fue eliminada el 15 de Agosto al superar los 7 días. La entrada del **8 de Agosto** fue eliminada el 17 de Agosto al superar los 7 días. La entrada del **10 de Agosto** fue eliminada el 18 de Agosto al superar los 7 días. La entrada del **11 de Agosto** fue eliminada el 19 de Agosto al superar los 7 días. La entrada del **12 de Agosto** fue eliminada el 20 de Agosto al superar los 7 días. La entrada del **13 de Agosto** fue eliminada el 21 de Agosto al superar los 7 días. La entrada del **14 de Agosto** fue eliminada el 22 de Agosto al superar los 7 días. La entrada del **15 de Agosto** fue eliminada el 25 de Agosto al superar los 7 días. La entrada del **17 de Agosto** fue eliminada el 25 de Agosto al superar los 7 días. La entrada del **18 de Agosto** fue eliminada el 26 de Agosto al superar los 7 días. La entrada del **19 de Agosto** fue eliminada el 27 de Agosto al superar los 7 días. La entrada del **20 de Agosto** fue eliminada el 28 de Agosto al superar los 7 días. La entrada del **21 de Agosto** fue eliminada el 29 de Agosto al superar los 7 días. La entrada del **22 de Agosto** fue eliminada el 30 de Agosto al superar los 7 días. La entrada del **23 de Agosto** fue eliminada el 31 de Agosto al superar los 7 días. La entrada del **24 de Agosto** fue eliminada el 1 de Septiembre al superar los 7 días. La entrada del **25 de Agosto** fue eliminada el 2 de Septiembre al superar los 7 días. Las entradas del **26, 27, 28, 29 y 30 de Agosto** fueron eliminadas el 7 de Septiembre al superar los 7 días. Las entradas del **31 de Agosto** y **1 de Septiembre** fueron eliminadas el 8 de Septiembre al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
