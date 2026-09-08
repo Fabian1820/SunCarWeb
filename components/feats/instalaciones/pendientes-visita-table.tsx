@@ -25,6 +25,7 @@ import {
   List,
   ClipboardCheck,
   CalendarDays,
+  FileDown,
   FolderOpen,
   Camera,
   Eye,
@@ -719,6 +720,20 @@ export function PendientesVisitaTable({
   };
 
   /** Abre el formulario completo sobre una visita ya marcada sin información. */
+  /** Abre el informe PDF de la visita, que genera el backend. */
+  const descargarInformeVisita = (visita: VisitaRegistro) => {
+    const visitaId = visita.visitaId;
+    if (!visitaId) {
+      toast({
+        title: "Sin informe",
+        description: "Esta visita todavía no tiene un identificador válido.",
+        variant: "destructive",
+      });
+      return;
+    }
+    window.open(`${API_BASE_URL}/visitas/${visitaId}/informe`, "_blank");
+  };
+
   const handleRellenarInfo = (visita: VisitaRegistro) => {
     if (!visita.visitaId) {
       toast({
@@ -1599,6 +1614,15 @@ export function PendientesVisitaTable({
                               Ver Archivos
                             </Button>
                             <Button
+                              onClick={() => descargarInformeVisita(registro)}
+                              size="sm"
+                              variant="outline"
+                              className="text-sm h-9 col-span-2"
+                            >
+                              <FileDown className="h-3 w-3 mr-1" />
+                              Descargar informe
+                            </Button>
+                            <Button
                               onClick={() => handleOpenEditarVisita(registro)}
                               size="sm"
                               variant="outline"
@@ -1834,6 +1858,15 @@ export function PendientesVisitaTable({
                                   >
                                     <FolderOpen className="h-3 w-3 mr-1" />
                                     Ver Archivos
+                                  </Button>
+                                  <Button
+                                    onClick={() => descargarInformeVisita(registro)}
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-sm h-8 px-3"
+                                  >
+                                    <FileDown className="h-3 w-3 mr-1" />
+                                    Informe
                                   </Button>
                               <Button
                                 onClick={() => handleOpenEditarVisita(registro)}

@@ -38,6 +38,7 @@ import {
   type EstudioEnergeticoData,
   type FotoSeleccionada,
 } from "@/components/feats/instalaciones/estudio-energetico-form";
+import { PadFirma } from "@/components/feats/instalaciones/pad-firma";
 
 interface CompletarVisitaDialogProps {
   open: boolean;
@@ -189,6 +190,8 @@ export function CompletarVisitaDialog({
   > | null>(null);
 
   // Campos del formulario
+  const [firmaInstalador, setFirmaInstalador] = useState<string | null>(null);
+  const [firmaCliente, setFirmaCliente] = useState<string | null>(null);
   const [estudioEnergeticoData, setEstudioEnergeticoData] =
     useState<EstudioEnergeticoData>({});
   const [fotoFachada, setFotoFachada] = useState<FotoSeleccionada | null>(null);
@@ -699,6 +702,16 @@ export function CompletarVisitaDialog({
       ...extra,
     };
 
+    if (firmaInstalador) {
+      createPayload.firma_instalador = { imagen: firmaInstalador };
+    }
+    if (firmaCliente) {
+      createPayload.firma_cliente = {
+        imagen: firmaCliente,
+        nombre: pendiente.nombre,
+      };
+    }
+
     if (pendiente.tipo === "lead") {
       createPayload.lead_id = String(pendiente.id);
     } else {
@@ -970,6 +983,15 @@ export function CompletarVisitaDialog({
         }
         if (Object.keys(estudioEnergeticoData).length > 0) {
           updatePayload.estudio_energetico = estudioEnergeticoData;
+        }
+        if (firmaInstalador) {
+          updatePayload.firma_instalador = { imagen: firmaInstalador };
+        }
+        if (firmaCliente) {
+          updatePayload.firma_cliente = {
+            imagen: firmaCliente,
+            nombre: pendiente?.nombre,
+          };
         }
 
         await apiRequest(`/visitas/${visitaId}`, {
@@ -1514,6 +1536,29 @@ export function CompletarVisitaDialog({
               </div>
             </div>
           )}
+
+          {/* Firmas: van al final del informe PDF de la visita */}
+          <div>
+            <Label className="text-base font-semibold mb-1">Firmas</Label>
+            <p className="text-xs text-gray-500 mb-3">
+              Firma del instalador y del cliente; aparecen al final del informe
+              de la visita.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <PadFirma
+                titulo="Firma del instalador"
+                valor={firmaInstalador}
+                onChange={setFirmaInstalador}
+                disabled={loading}
+              />
+              <PadFirma
+                titulo="Firma del cliente"
+                valor={firmaCliente}
+                onChange={setFirmaCliente}
+                disabled={loading}
+              />
+            </div>
+          </div>
 
           {/* Selector de materiales (solo si se necesita material extra) */}
           {resultado === "necesita_material_extra" && (
