@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Label } from "@/components/shared/atom/label";
 import { Input } from "@/components/shared/molecule/input";
 import { Textarea } from "@/components/shared/molecule/textarea";
@@ -370,31 +370,35 @@ export function EstudioEnergeticoForm({
   const esEdificioOBiplanta =
     value.vivienda?.tipo === "edificio" || value.vivienda?.tipo === "biplanta";
 
+  // La ubicación NO se captura sola al abrir el formulario: a veces se
+  // rellena estando en la oficina, no en casa del cliente/lead, y capturar
+  // el GPS del dispositivo en ese caso guardaría una ubicación incorrecta.
+  // Se pide explícitamente con este interruptor, y solo si está activado se
+  // captura y se guarda.
   const [gpsStatus, setGpsStatus] = useState<
-    "obteniendo" | "ok" | "error" | "sin_soporte"
-  >("obteniendo");
-  // Refs para leer el value/onChange más recientes desde el callback de
-  // geolocalización sin tener que re-suscribirlo en cada cambio del form.
-  const valueRef = useRef(value);
-  valueRef.current = value;
-  const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
+    "inactivo" | "obteniendo" | "ok" | "error" | "sin_soporte"
+  >(value.ubicacion_gps?.latitud != null ? "ok" : "inactivo");
+  const [enSitio, setEnSitio] = useState(value.ubicacion_gps?.latitud != null);
 
-  // Captura la ubicación automáticamente una sola vez al abrir el
-  // formulario (no se pide al técnico, y no bloquea nada si falla).
-  useEffect(() => {
-    if (valueRef.current.ubicacion_gps?.latitud != null) {
-      setGpsStatus("ok");
+  const handleEnSitioChange = (activado: boolean) => {
+    setEnSitio(activado);
+
+    if (!activado) {
+      setGpsStatus("inactivo");
+      onChange({ ...value, ubicacion_gps: undefined });
       return;
     }
+
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       setGpsStatus("sin_soporte");
       return;
     }
+
+    setGpsStatus("obteniendo");
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        onChangeRef.current({
-          ...valueRef.current,
+        onChange({
+          ...value,
           ubicacion_gps: {
             latitud: pos.coords.latitude,
             longitud: pos.coords.longitude,
@@ -405,7 +409,7 @@ export function EstudioEnergeticoForm({
       () => setGpsStatus("error"),
       { enableHighAccuracy: true, timeout: 8000 },
     );
-  }, []);
+  };
 
   const desbalancePreview = useMemo(() => {
     const f = value.consumo_acometida?.corriente_por_fase;
@@ -438,21 +442,31 @@ export function EstudioEnergeticoForm({
         Todos los campos son opcionales — rellena lo que se pueda obtener en la visita.
       </p>
 
-      <div className="flex items-center gap-1.5 text-xs text-gray-500">
-        <MapPin className="h-3.5 w-3.5" />
-        {gpsStatus === "obteniendo" && "Obteniendo ubicación..."}
-        {gpsStatus === "ok" && value.ubicacion_gps && (
-          <span>
-            Ubicación capturada ({value.ubicacion_gps.latitud?.toFixed(5)},{" "}
-            {value.ubicacion_gps.longitud?.toFixed(5)})
-          </span>
-        )}
-        {gpsStatus === "error" && (
-          <span>No se pudo obtener la ubicación (revisa el permiso del navegador)</span>
-        )}
-        {gpsStatus === "sin_soporte" && (
-          <span>Este navegador no soporta geolocalización</span>
-        )}
+      <div className="rounded-md border border-gray-200 p-3 space-y-1.5">
+        <label className="flex items-center gap-2 text-sm">
+          <Checkbox
+            checked={enSitio}
+            onCheckedChange={(checked) => handleEnSitioChange(checked === true)}
+          />
+          ¿Estás en la ubicación del cliente/lead ahora mismo?
+        </label>
+        <div className="flex items-center gap-1.5 text-xs text-gray-500 pl-6">
+          <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
+          {gpsStatus === "inactivo" && "No se guardará ubicación (marca la casilla si estás en el sitio)"}
+          {gpsStatus === "obteniendo" && "Obteniendo ubicación..."}
+          {gpsStatus === "ok" && value.ubicacion_gps && (
+            <span>
+              Ubicación capturada ({value.ubicacion_gps.latitud?.toFixed(5)},{" "}
+              {value.ubicacion_gps.longitud?.toFixed(5)})
+            </span>
+          )}
+          {gpsStatus === "error" && (
+            <span>No se pudo obtener la ubicación (revisa el permiso del navegador)</span>
+          )}
+          {gpsStatus === "sin_soporte" && (
+            <span>Este navegador no soporta geolocalización</span>
+          )}
+        </div>
       </div>
 
       {/* Foto general */}

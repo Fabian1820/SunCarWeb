@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react"
 import {
   Phone,
+  Smartphone,
   User,
   Users,
   ShoppingCart,
@@ -74,6 +75,7 @@ export type ModuloGrupoKey =
   | "recursos-humanos"
   | "area-direccion"
   | "web"
+  | "app-movil"
 
 export type ModuloGrupo = {
   key: ModuloGrupoKey
@@ -126,6 +128,13 @@ export const MODULO_GRUPOS: ModuloGrupo[] = [
     key: "web",
     title: "Marketing",
     subtitle: "Blog y galería.",
+  },
+  {
+    key: "app-movil",
+    title: "App Móvil de Operaciones",
+    subtitle:
+      "Acceso a la app de los instaladores. Se entra con las mismas credenciales de la web; " +
+      "sin ninguno de estos permisos, la app no deja iniciar sesión.",
   },
 ]
 
@@ -907,6 +916,41 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-rose-500",
     href: "/galeriaweb",
     grupo: "web",
+  },
+
+  // ───────── App Móvil de Operaciones ─────────
+  {
+    key: "app",
+    label: "App Móvil de Operaciones",
+    descripcion:
+      "Acceso a la app de los instaladores. Se inicia sesión con las mismas credenciales " +
+      "de la web; quien no tenga ninguno de estos permisos no puede entrar a la app.",
+    icon: Smartphone,
+    iconClass: "text-emerald-600",
+    // No es una pantalla de la web: es un permiso puro que gobierna la app.
+    href: "/permisos",
+    grupo: "app-movil",
+    hideFromDashboard: true,
+    tieneSubmodulos: true,
+    // Cada sub-permiso es una sección del menú de la app. Tener `app` completo
+    // las concede todas (herencia padre→hijo por el `/`).
+    subPermisos: [
+      { key: "app/averias", label: "Averías" },
+      { key: "app/confirmar-salidas", label: "Confirmar salidas diarias" },
+      {
+        key: "app/trabajos-diarios",
+        label: "Trabajos diarios",
+        // Pestañas dentro de Trabajos diarios en la app. Usan la convención
+        // `padre/hijo`, así que sí heredan de `app/trabajos-diarios`.
+        subPermisos: [
+          { key: "app/trabajos-diarios/cierre", label: "Cierre diario de instalaciones" },
+          { key: "app/trabajos-diarios/averias", label: "Averías" },
+          { key: "app/trabajos-diarios/actualizaciones", label: "Actualizaciones" },
+          { key: "app/trabajos-diarios/entregas", label: "Entregas de materiales" },
+        ],
+      },
+      { key: "app/visitas", label: "Visitas" },
+    ],
   },
 ]
 
