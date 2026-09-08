@@ -12,7 +12,7 @@ interface ComprobanteDevolucionData {
 
 export class ExportComprobanteDevolucionService {
   private static readonly EMPRESA = {
-    nombre: "Empresa Solar Carros",
+    nombre: "Empresa SunCar",
     direccion: "Calle 2 e/3ra y 5ta, Miramar, Playa, La Habana",
     telefono: "+53 5 282 6474",
     email: "info@suncarsrl.com",
@@ -205,7 +205,7 @@ export class ExportComprobanteDevolucionService {
     doc.setFontSize(7);
     doc.setFont("helvetica", "italic");
     doc.text(
-      "Comprobante emitido desde Oficina General de Solar Carros",
+      "Comprobante emitido desde Oficina General de SunCar",
       105,
       y,
       { align: "center" },
@@ -219,7 +219,7 @@ export class ExportComprobanteDevolucionService {
 
     doc.setFontSize(7);
     doc.text("Firma del Cliente", margenIzq + 30, y + 4, { align: "center" });
-    doc.text("Firma Autorizada Solar Carros", margenDer - 30, y + 4, {
+    doc.text("Firma Autorizada SunCar", margenDer - 30, y + 4, {
       align: "center",
     });
   }
