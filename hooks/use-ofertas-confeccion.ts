@@ -79,6 +79,13 @@ export interface OfertaConfeccion {
     inversor_seleccionado?: string;
     bateria_seleccionada?: string;
     panel_seleccionado?: string;
+    // Combo completo que entró en el cálculo del nombre (puede haber sido
+    // más de un material por categoría). Los tres de arriba siguen siendo
+    // uno solo -son los que leen los reportes de capacidad instalada- y no
+    // se tocan; ofertas guardadas antes de esto no tienen estos 3 campos.
+    inversores_incluidos_en_nombre?: string[];
+    baterias_incluidas_en_nombre?: string[];
+    paneles_incluidos_en_nombre?: string[];
   };
   moneda_pago?: "USD" | "EUR" | "CUP";
   tasa_cambio?: number;

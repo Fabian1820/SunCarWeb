@@ -153,7 +153,6 @@ const garantizarSeccionAcciones = (
   secciones.some((seccion) => seccion.id === SECCION_ACCIONES_ID)
     ? secciones
     : [...secciones, crearSeccionAcciones()];
-const CODIGO_BATERIA_ESPECIAL_NOMBRE = "FLS48100SCG01";
 const CODIGOS_BATERIA_DESCUENTO_20 = new Set([
   "FLS48100SMG01",
   "FLS48100SCG01",
@@ -451,14 +450,18 @@ export function ConfeccionOfertasView({
   );
   const [reservandoMateriales, setReservandoMateriales] = useState(false);
   const [materialesReservados, setMaterialesReservados] = useState(false);
-  const [inversorSeleccionado, setInversorSeleccionado] = useState<string>(
-    estadoInicial?.inversorSeleccionado || "",
-  );
-  const [bateriaSeleccionada, setBateriaSeleccionada] = useState<string>(
-    estadoInicial?.bateriaSeleccionada || "",
-  );
-  const [panelSeleccionado, setPanelSeleccionado] = useState<string>(
-    estadoInicial?.panelSeleccionado || "",
+  // Códigos de material marcados para entrar en el nombre automático. Antes
+  // era uno solo por categoría (obligaba a elegir cuál de dos inversores
+  // "representa" el nombre); ahora son checkboxes y el nombre suma la
+  // capacidad de todos los marcados.
+  const [inversoresSeleccionados, setInversoresSeleccionados] = useState<
+    string[]
+  >(estadoInicial?.inversoresSeleccionados || []);
+  const [bateriasSeleccionadas, setBateriasSeleccionadas] = useState<
+    string[]
+  >(estadoInicial?.bateriasSeleccionadas || []);
+  const [panelesSeleccionados, setPanelesSeleccionados] = useState<string[]>(
+    estadoInicial?.panelesSeleccionados || [],
   );
   const [estadoOferta, setEstadoOferta] = useState<string>(
     estadoInicial?.estadoOferta || "en_revision",
@@ -1136,16 +1139,30 @@ export function ConfeccionOfertasView({
         );
       }
 
-      // Cargar componentes principales
+      // Cargar componentes principales: el combo completo si la oferta ya lo
+      // guardó, o si es de antes de los checkboxes, el único que tenía.
       if (ofertaACopiar.componentes_principales) {
-        setInversorSeleccionado(
-          ofertaACopiar.componentes_principales.inversor_seleccionado || "",
+        const comp = ofertaACopiar.componentes_principales;
+        setInversoresSeleccionados(
+          comp.inversores_incluidos_en_nombre?.length
+            ? comp.inversores_incluidos_en_nombre
+            : comp.inversor_seleccionado
+              ? [comp.inversor_seleccionado]
+              : [],
         );
-        setBateriaSeleccionada(
-          ofertaACopiar.componentes_principales.bateria_seleccionada || "",
+        setBateriasSeleccionadas(
+          comp.baterias_incluidas_en_nombre?.length
+            ? comp.baterias_incluidas_en_nombre
+            : comp.bateria_seleccionada
+              ? [comp.bateria_seleccionada]
+              : [],
         );
-        setPanelSeleccionado(
-          ofertaACopiar.componentes_principales.panel_seleccionado || "",
+        setPanelesSeleccionados(
+          comp.paneles_incluidos_en_nombre?.length
+            ? comp.paneles_incluidos_en_nombre
+            : comp.panel_seleccionado
+              ? [comp.panel_seleccionado]
+              : [],
         );
       }
 
@@ -1328,9 +1345,9 @@ export function ConfeccionOfertasView({
           precioFinalManual,
           elementosPersonalizados,
           almacenId,
-          inversorSeleccionado,
-          bateriaSeleccionada,
-          panelSeleccionado,
+          inversoresSeleccionados,
+          bateriasSeleccionadas,
+          panelesSeleccionados,
           estadoOferta,
           seccionesPersonalizadas,
           fotoPortada,
@@ -1390,9 +1407,9 @@ export function ConfeccionOfertasView({
     precioFinalManual,
     elementosPersonalizados,
     almacenId,
-    inversorSeleccionado,
-    bateriaSeleccionada,
-    panelSeleccionado,
+    inversoresSeleccionados,
+    bateriasSeleccionadas,
+    panelesSeleccionados,
     estadoOferta,
     seccionesPersonalizadas,
     fotoPortada,
@@ -2463,95 +2480,76 @@ export function ConfeccionOfertasView({
       return parseFloat(potencia.toFixed(3)).toString().replace(".", ",");
     };
 
-    // 1. INVERSORES - Usar el seleccionado
-    if (inversorSeleccionado) {
-      const inversoresDelTipo = items.filter(
-        (item) =>
-          item.seccion === "INVERSORES" &&
-          item.materialCodigo === inversorSeleccionado,
+    // Suma cantidad y capacidad total (cantidad × potencia de cada ítem) de
+    // todos los materiales marcados de una sección. Con un solo material
+    // marcado da exactamente lo mismo que antes (cantidad × su potencia); con
+    // 2+ es la suma real, no un promedio que disimularía que son distintos.
+    const sumarSeccion = (
+      seccion: string,
+      codigosMarcados: string[],
+      // Normaliza la potencia POR MATERIAL antes de sumar (ej. paneles: cada
+      // uno puede venir en kW o en W según cómo se cargó en el catálogo). Si
+      // se aplicara al total ya sumado, el umbral de la heurística dejaría
+      // de tener sentido en cuanto hubiera 2+ paneles.
+      normalizarPotencia: (p: number) => number = (p) => p,
+    ) => {
+      const marcados = new Set(codigosMarcados);
+      const itemsMarcados = items.filter(
+        (item) => item.seccion === seccion && marcados.has(item.materialCodigo),
       );
-      if (inversoresDelTipo.length > 0) {
-        const cantidad = inversoresDelTipo.reduce(
-          (sum, inv) => sum + inv.cantidad,
-          0,
-        );
-        const potencia = obtenerPotencia(inversorSeleccionado);
+      const cantidad = itemsMarcados.reduce((sum, i) => sum + i.cantidad, 0);
+      const potenciaTotal = itemsMarcados.reduce(
+        (sum, i) =>
+          sum + i.cantidad * normalizarPotencia(obtenerPotencia(i.materialCodigo) || 0),
+        0,
+      );
+      return { cantidad, potenciaTotal };
+    };
 
-        if (potencia) {
-          componentes.push(`I-${cantidad}x${formatearPotencia(potencia)}kW`);
-        } else {
-          componentes.push(`I-${cantidad}x`);
-        }
+    // 1. INVERSORES - suma de los marcados
+    if (inversoresSeleccionados.length > 0) {
+      const { cantidad, potenciaTotal } = sumarSeccion(
+        "INVERSORES",
+        inversoresSeleccionados,
+      );
+      if (cantidad > 0) {
+        componentes.push(
+          potenciaTotal > 0
+            ? `I-${cantidad}x${formatearPotencia(potenciaTotal)}kW`
+            : `I-${cantidad}x`,
+        );
       }
     }
 
-    // 2. BATERÍAS - Usar la seleccionada
-    if (bateriaSeleccionada) {
-      const bateriasDelTipo = items.filter(
-        (item) =>
-          item.seccion === "BATERIAS" &&
-          item.materialCodigo === bateriaSeleccionada,
+    // 2. BATERÍAS - suma de las marcadas
+    if (bateriasSeleccionadas.length > 0) {
+      const { cantidad, potenciaTotal } = sumarSeccion(
+        "BATERIAS",
+        bateriasSeleccionadas,
       );
-      if (bateriasDelTipo.length > 0) {
-        const cantidadSeleccionada = bateriasDelTipo.reduce(
-          (sum, bat) => sum + bat.cantidad,
-          0,
+      if (cantidad > 0) {
+        componentes.push(
+          potenciaTotal > 0
+            ? `B-${cantidad}x${formatearPotencia(potenciaTotal)}kWh`
+            : `B-${cantidad}x`,
         );
-        const potenciaSeleccionada = obtenerPotencia(bateriaSeleccionada) || 0;
-        const bateriasEspeciales = items.filter(
-          (item) =>
-            item.seccion === "BATERIAS" &&
-            item.materialCodigo === CODIGO_BATERIA_ESPECIAL_NOMBRE &&
-            item.materialCodigo !== bateriaSeleccionada,
-        );
-        const cantidadEspecial = bateriasEspeciales.reduce(
-          (sum, bat) => sum + bat.cantidad,
-          0,
-        );
-        const potenciaEspecial =
-          cantidadEspecial > 0
-            ? obtenerPotencia(CODIGO_BATERIA_ESPECIAL_NOMBRE) || 0
-            : 0;
-
-        const cantidad = cantidadSeleccionada + cantidadEspecial;
-        const potenciaTotal =
-          cantidadSeleccionada * potenciaSeleccionada +
-          cantidadEspecial * potenciaEspecial;
-        const potencia = cantidad > 0 ? potenciaTotal / cantidad : 0;
-
-        console.log(
-          `🔋 [nombreAutomatico] Baterías: código=${bateriaSeleccionada}, cantidad_sel=${cantidadSeleccionada}, potencia_sel=${potenciaSeleccionada}, cantidad_fls=${cantidadEspecial}, potencia_fls=${potenciaEspecial}, cantidad_total=${cantidad}, potencia_promedio=${potencia}, potencia_total=${potenciaTotal}`,
-        );
-
-        if (potencia > 0) {
-          componentes.push(`B-${cantidad}x${formatearPotencia(potencia)}kWh`);
-        } else {
-          componentes.push(`B-${cantidad}x`);
-        }
       }
     }
 
-    // 3. PANELES - Usar el seleccionado
-    if (panelSeleccionado) {
-      const panelesDelTipo = items.filter(
-        (item) =>
-          item.seccion === "PANELES" &&
-          item.materialCodigo === panelSeleccionado,
+    // 3. PANELES - suma de los marcados
+    if (panelesSeleccionados.length > 0) {
+      // Si potenciaKW > 10 el valor fue guardado en W por error (ej: 605 en vez de 0.605)
+      const { cantidad, potenciaTotal: potenciaW } = sumarSeccion(
+        "PANELES",
+        panelesSeleccionados,
+        (p) => (p > 10 ? p : p * 1000),
       );
-      if (panelesDelTipo.length > 0) {
-        const cantidad = panelesDelTipo.reduce(
-          (sum, pan) => sum + pan.cantidad,
-          0,
+      if (cantidad > 0) {
+        componentes.push(
+          potenciaW > 0
+            ? `P-${cantidad}x${formatearPotencia(potenciaW)}W`
+            : `P-${cantidad}x`,
         );
-        const potencia = obtenerPotencia(panelSeleccionado);
-
-        if (potencia) {
-          // Si potenciaKW > 10 el valor fue guardado en W por error (ej: 605 en vez de 0.605)
-          const potenciaW = potencia > 10 ? potencia : potencia * 1000;
-          componentes.push(`P-${cantidad}x${formatearPotencia(potenciaW)}W`);
-        } else {
-          componentes.push(`P-${cantidad}x`);
-        }
       }
     }
 
@@ -2566,9 +2564,9 @@ export function ConfeccionOfertasView({
     }
   }, [
     items,
-    inversorSeleccionado,
-    bateriaSeleccionada,
-    panelSeleccionado,
+    inversoresSeleccionados,
+    bateriasSeleccionadas,
+    panelesSeleccionados,
     materials,
     activeStep?.label,
   ]);
@@ -2577,9 +2575,9 @@ export function ConfeccionOfertasView({
   const nombreCompletoParaExportar = useMemo(() => {
     console.log("🔧 Generando nombreCompletoParaExportar...");
     console.log("  - marcasMap size:", marcasMap.size);
-    console.log("  - inversorSeleccionado:", inversorSeleccionado);
-    console.log("  - bateriaSeleccionada:", bateriaSeleccionada);
-    console.log("  - panelSeleccionado:", panelSeleccionado);
+    console.log("  - inversoresSeleccionados:", inversoresSeleccionados);
+    console.log("  - bateriasSeleccionadas:", bateriasSeleccionadas);
+    console.log("  - panelesSeleccionados:", panelesSeleccionados);
 
     const componentes: string[] = [];
 
@@ -2615,21 +2613,41 @@ export function ConfeccionOfertasView({
       return material?.potenciaKW || null;
     };
 
-    // 1. INVERSORES - Usar el seleccionado
-    if (inversorSeleccionado) {
-      const inversoresDelTipo = items.filter(
-        (item) =>
-          item.seccion === "INVERSORES" &&
-          item.materialCodigo === inversorSeleccionado,
+    // Suma cantidad y capacidad total de todos los materiales marcados de una
+    // sección, y junta las marcas distintas presentes (si son 2+ modelos de
+    // marcas distintas, se listan las dos en vez de perder una).
+    const sumarSeccion = (
+      seccion: string,
+      codigosMarcados: string[],
+      normalizarPotencia: (p: number) => number = (p) => p,
+    ) => {
+      const marcados = new Set(codigosMarcados);
+      const itemsMarcados = items.filter(
+        (item) => item.seccion === seccion && marcados.has(item.materialCodigo),
       );
-      if (inversoresDelTipo.length > 0) {
-        const cantidad = inversoresDelTipo.reduce(
-          (sum, inv) => sum + inv.cantidad,
-          0,
-        );
-        const potencia = obtenerPotencia(inversorSeleccionado);
-        const marca = obtenerMarca(inversorSeleccionado);
+      const cantidad = itemsMarcados.reduce((sum, i) => sum + i.cantidad, 0);
+      const potenciaTotal = itemsMarcados.reduce(
+        (sum, i) =>
+          sum + i.cantidad * normalizarPotencia(obtenerPotencia(i.materialCodigo) || 0),
+        0,
+      );
+      const marcas = Array.from(
+        new Set(codigosMarcados.map(obtenerMarca).filter(Boolean)),
+      );
+      return {
+        cantidad,
+        potencia: cantidad > 0 ? parseFloat(potenciaTotal.toFixed(3)) : 0,
+        marca: marcas.join(" + "),
+      };
+    };
 
+    // 1. INVERSORES - suma de los marcados
+    if (inversoresSeleccionados.length > 0) {
+      const { cantidad, potencia, marca } = sumarSeccion(
+        "INVERSORES",
+        inversoresSeleccionados,
+      );
+      if (cantidad > 0) {
         if (potencia && marca) {
           componentes.push(`${cantidad}x ${potencia}kW Inversor ${marca}`);
         } else if (potencia) {
@@ -2642,53 +2660,13 @@ export function ConfeccionOfertasView({
       }
     }
 
-    // 2. BATERÍAS - Usar la seleccionada
-    if (bateriaSeleccionada) {
-      const bateriasDelTipo = items.filter(
-        (item) =>
-          item.seccion === "BATERIAS" &&
-          item.materialCodigo === bateriaSeleccionada,
+    // 2. BATERÍAS - suma de las marcadas
+    if (bateriasSeleccionadas.length > 0) {
+      const { cantidad, potencia, marca } = sumarSeccion(
+        "BATERIAS",
+        bateriasSeleccionadas,
       );
-      if (bateriasDelTipo.length > 0) {
-        const cantidadSeleccionada = bateriasDelTipo.reduce(
-          (sum, bat) => sum + bat.cantidad,
-          0,
-        );
-        const potenciaSeleccionada = obtenerPotencia(bateriaSeleccionada) || 0;
-        const marcaSeleccionada = obtenerMarca(bateriaSeleccionada);
-        const bateriasEspeciales = items.filter(
-          (item) =>
-            item.seccion === "BATERIAS" &&
-            item.materialCodigo === CODIGO_BATERIA_ESPECIAL_NOMBRE &&
-            item.materialCodigo !== bateriaSeleccionada,
-        );
-        const cantidadEspecial = bateriasEspeciales.reduce(
-          (sum, bat) => sum + bat.cantidad,
-          0,
-        );
-        const potenciaEspecial =
-          cantidadEspecial > 0
-            ? obtenerPotencia(CODIGO_BATERIA_ESPECIAL_NOMBRE) || 0
-            : 0;
-        const marcaEspecial =
-          cantidadEspecial > 0
-            ? obtenerMarca(CODIGO_BATERIA_ESPECIAL_NOMBRE)
-            : "";
-
-        const cantidad = cantidadSeleccionada + cantidadEspecial;
-        const potenciaTotal =
-          cantidadSeleccionada * potenciaSeleccionada +
-          cantidadEspecial * potenciaEspecial;
-        const potencia =
-          cantidad > 0
-            ? parseFloat((potenciaTotal / cantidad).toFixed(3))
-            : 0;
-        const marca = marcaSeleccionada || marcaEspecial;
-
-        console.log(
-          `🔋 [nombreCompleto] Baterías: código=${bateriaSeleccionada}, cantidad_sel=${cantidadSeleccionada}, potencia_sel=${potenciaSeleccionada}, cantidad_fls=${cantidadEspecial}, potencia_fls=${potenciaEspecial}, cantidad_total=${cantidad}, potencia_promedio=${potencia}, potencia_total=${potenciaTotal}, marca=${marca}`,
-        );
-
+      if (cantidad > 0) {
         if (potencia > 0 && marca) {
           componentes.push(`${cantidad}x ${potencia}kWh Batería ${marca}`);
         } else if (potencia > 0) {
@@ -2701,27 +2679,18 @@ export function ConfeccionOfertasView({
       }
     }
 
-    // 3. PANELES - Usar el seleccionado
-    if (panelSeleccionado) {
-      const panelesDelTipo = items.filter(
-        (item) =>
-          item.seccion === "PANELES" &&
-          item.materialCodigo === panelSeleccionado,
+    // 3. PANELES - suma de los marcados
+    if (panelesSeleccionados.length > 0) {
+      // Si potenciaKW > 10 el valor fue guardado en W por error (ej: 605 en vez de 0.605)
+      const { cantidad, potencia: potenciaW, marca } = sumarSeccion(
+        "PANELES",
+        panelesSeleccionados,
+        (p) => (p > 10 ? p : p * 1000),
       );
-      if (panelesDelTipo.length > 0) {
-        const cantidad = panelesDelTipo.reduce(
-          (sum, pan) => sum + pan.cantidad,
-          0,
-        );
-        const potencia = obtenerPotencia(panelSeleccionado);
-        const marca = obtenerMarca(panelSeleccionado);
-
-        if (potencia && marca) {
-          // Si potenciaKW > 10 el valor fue guardado en W por error (ej: 605 en vez de 0.605)
-          const potenciaW = potencia > 10 ? potencia : potencia * 1000;
+      if (cantidad > 0) {
+        if (potenciaW && marca) {
           componentes.push(`${cantidad}x ${potenciaW}W Paneles ${marca}`);
-        } else if (potencia) {
-          const potenciaW = potencia > 10 ? potencia : potencia * 1000;
+        } else if (potenciaW) {
           componentes.push(`${cantidad}x ${potenciaW}W Paneles`);
         } else if (marca) {
           componentes.push(`${cantidad}x Paneles ${marca}`);
@@ -2747,9 +2716,9 @@ export function ConfeccionOfertasView({
     }
   }, [
     items,
-    inversorSeleccionado,
-    bateriaSeleccionada,
-    panelSeleccionado,
+    inversoresSeleccionados,
+    bateriasSeleccionadas,
+    panelesSeleccionados,
     materials,
     marcasMap,
     activeStep?.label,
@@ -3370,48 +3339,93 @@ export function ConfeccionOfertasView({
     return Array.from(categorias).sort();
   }, [materials]);
 
-  // Seleccionar automáticamente el primer material cuando solo hay uno de cada tipo
-  useEffect(() => {
-    const inversores = items.filter((item) => item.seccion === "INVERSORES");
-    const inversoresUnicos = Array.from(
-      new Set(inversores.map((i) => i.materialCodigo)),
-    );
-    if (inversoresUnicos.length === 1 && !inversorSeleccionado) {
-      setInversorSeleccionado(inversoresUnicos[0]);
-    } else if (inversoresUnicos.length === 0) {
-      setInversorSeleccionado("");
-    } else if (!inversoresUnicos.includes(inversorSeleccionado)) {
-      setInversorSeleccionado(inversoresUnicos[0] || "");
-    }
-  }, [items, inversorSeleccionado]);
+  // Por defecto, todo material que aparece en una categoría entra marcado
+  // para el nombre (el usuario desmarca los que no quiere combinar). El ref
+  // de "vistos" es para no volver a marcar algo que el usuario desmarcó a
+  // propósito: solo se auto-marcan los códigos que nunca se vieron antes.
+  //
+  // Se inicializa con los materiales que YA estaban en `items` al montar
+  // (los de la oferta que se está editando/duplicando), no vacío: si no, al
+  // reabrir una oferta con un material que el usuario había desmarcado a
+  // propósito, se re-marcaría solo porque este ref "nunca lo vio". Solo
+  // useRef toma en cuenta el valor del primer render, así que da igual que
+  // esto se recalcule (barato, poco items) en renders posteriores.
+  const inversoresVistosRef = useRef<Set<string>>(
+    new Set(
+      items.filter((i) => i.seccion === "INVERSORES").map((i) => i.materialCodigo),
+    ),
+  );
+  const bateriasVistasRef = useRef<Set<string>>(
+    new Set(
+      items.filter((i) => i.seccion === "BATERIAS").map((i) => i.materialCodigo),
+    ),
+  );
+  const panelesVistosRef = useRef<Set<string>>(
+    new Set(
+      items.filter((i) => i.seccion === "PANELES").map((i) => i.materialCodigo),
+    ),
+  );
+
+  const sincronizarSeleccionMateriales = (
+    codigosPresentes: string[],
+    vistosRef: React.MutableRefObject<Set<string>>,
+    setSeleccionados: React.Dispatch<React.SetStateAction<string[]>>,
+  ) => {
+    setSeleccionados((prev) => {
+      const siguiente = prev.filter((c) => codigosPresentes.includes(c));
+      const nuevos = codigosPresentes.filter(
+        (c) => !vistosRef.current.has(c) && !siguiente.includes(c),
+      );
+      codigosPresentes.forEach((c) => vistosRef.current.add(c));
+      if (nuevos.length === 0 && siguiente.length === prev.length) return prev;
+      return [...siguiente, ...nuevos];
+    });
+  };
 
   useEffect(() => {
-    const baterias = items.filter((item) => item.seccion === "BATERIAS");
-    const bateriasUnicas = Array.from(
-      new Set(baterias.map((b) => b.materialCodigo)),
+    const codigos = Array.from(
+      new Set(
+        items
+          .filter((item) => item.seccion === "INVERSORES")
+          .map((i) => i.materialCodigo),
+      ),
     );
-    if (bateriasUnicas.length === 1 && !bateriaSeleccionada) {
-      setBateriaSeleccionada(bateriasUnicas[0]);
-    } else if (bateriasUnicas.length === 0) {
-      setBateriaSeleccionada("");
-    } else if (!bateriasUnicas.includes(bateriaSeleccionada)) {
-      setBateriaSeleccionada(bateriasUnicas[0] || "");
-    }
-  }, [items, bateriaSeleccionada]);
+    sincronizarSeleccionMateriales(
+      codigos,
+      inversoresVistosRef,
+      setInversoresSeleccionados,
+    );
+  }, [items]);
 
   useEffect(() => {
-    const paneles = items.filter((item) => item.seccion === "PANELES");
-    const panelesUnicos = Array.from(
-      new Set(paneles.map((p) => p.materialCodigo)),
+    const codigos = Array.from(
+      new Set(
+        items
+          .filter((item) => item.seccion === "BATERIAS")
+          .map((b) => b.materialCodigo),
+      ),
     );
-    if (panelesUnicos.length === 1 && !panelSeleccionado) {
-      setPanelSeleccionado(panelesUnicos[0]);
-    } else if (panelesUnicos.length === 0) {
-      setPanelSeleccionado("");
-    } else if (!panelesUnicos.includes(panelSeleccionado)) {
-      setPanelSeleccionado(panelesUnicos[0] || "");
-    }
-  }, [items, panelSeleccionado]);
+    sincronizarSeleccionMateriales(
+      codigos,
+      bateriasVistasRef,
+      setBateriasSeleccionadas,
+    );
+  }, [items]);
+
+  useEffect(() => {
+    const codigos = Array.from(
+      new Set(
+        items
+          .filter((item) => item.seccion === "PANELES")
+          .map((p) => p.materialCodigo),
+      ),
+    );
+    sincronizarSeleccionMateriales(
+      codigos,
+      panelesVistosRef,
+      setPanelesSeleccionados,
+    );
+  }, [items]);
 
   useEffect(() => {
     const loadClientes = async () => {
@@ -4495,11 +4509,18 @@ export function ConfeccionOfertasView({
           );
         }
 
-        // Agregar componentes principales
+        // Agregar componentes principales. El campo singular sigue yendo
+        // (lo leen los reportes de capacidad instalada: filtros de clientes
+        // por kW, Chatwoot, pendientes de instalación...) con el primero
+        // marcado como representante; el combo completo que de verdad entró
+        // en el nombre va aparte, en los "_incluidos_en_nombre".
         ofertaData.componentes_principales = {
-          inversor_seleccionado: inversorSeleccionado || undefined,
-          bateria_seleccionada: bateriaSeleccionada || undefined,
-          panel_seleccionado: panelSeleccionado || undefined,
+          inversor_seleccionado: inversoresSeleccionados[0] || undefined,
+          bateria_seleccionada: bateriasSeleccionadas[0] || undefined,
+          panel_seleccionado: panelesSeleccionados[0] || undefined,
+          inversores_incluidos_en_nombre: inversoresSeleccionados,
+          baterias_incluidas_en_nombre: bateriasSeleccionadas,
+          paneles_incluidos_en_nombre: panelesSeleccionados,
         };
 
         // Agregar nombres de la oferta
@@ -5047,9 +5068,9 @@ export function ConfeccionOfertasView({
     setReservandoEnGuardado(false);
     setOfertaCreada(false);
     setOfertaId("");
-    setInversorSeleccionado("");
-    setBateriaSeleccionada("");
-    setPanelSeleccionado("");
+    setInversoresSeleccionados([]);
+    setBateriasSeleccionadas([]);
+    setPanelesSeleccionados([]);
     setMonedaPago("USD");
     setTasaCambio("");
     setPagoTransferencia(false);
@@ -5197,137 +5218,93 @@ export function ConfeccionOfertasView({
                   </div>
                 </div>
 
-                {/* Selectores para el nombre automático - Solo si hay múltiples materiales */}
+                {/* Checkboxes para el nombre automático - Solo si hay múltiples materiales.
+                    Antes era un Select de uno solo por categoría: si había batería A y B,
+                    el nombre solo reflejaba la elegida. Ahora se marcan los que se quiera
+                    y el nombre suma la capacidad total de todos los marcados. */}
                 {items.length > 0 && mostrarSelectoresMateriales && (
-                  <div className="rounded-md border border-blue-200 bg-blue-50 p-3 space-y-2">
-                    <p className="text-xs font-semibold text-blue-900 mb-2">
-                      Selecciona los materiales para el nombre de la oferta:
+                  <div className="rounded-md border border-blue-200 bg-blue-50 p-3 space-y-3">
+                    <p className="text-xs font-semibold text-blue-900">
+                      Marca los materiales que cuentan para el nombre de la oferta
+                      (si marcas varios de la misma categoría, se suma su capacidad):
                     </p>
 
-                    {/* Selector de Inversor - Solo si hay múltiples */}
-                    {tieneMultiplesInversores && (
-                      <div className="space-y-1">
-                        <label className="text-xs text-blue-700">
-                          Inversor:
-                        </label>
-                        <Select
-                          value={inversorSeleccionado}
-                          onValueChange={setInversorSeleccionado}
-                        >
-                          <SelectTrigger className="h-8 text-xs bg-white">
-                            <SelectValue placeholder="Seleccionar inversor" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Array.from(
-                              new Set(
-                                items
-                                  .filter((i) => i.seccion === "INVERSORES")
-                                  .map((i) => i.materialCodigo),
-                              ),
-                            ).map((codigo) => {
-                              const item = items.find(
-                                (i) => i.materialCodigo === codigo,
-                              );
-                              const cantidad = items
-                                .filter((i) => i.materialCodigo === codigo)
-                                .reduce((sum, i) => sum + i.cantidad, 0);
-                              const material = materials.find(
-                                (m) => m.codigo.toString() === codigo,
-                              );
-                              return (
-                                <SelectItem key={codigo} value={codigo}>
-                                  {material?.nombre || item?.descripcion} (
-                                  {cantidad}x)
-                                </SelectItem>
-                              );
-                            })}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-
-                    {/* Selector de Batería - Solo si hay múltiples */}
-                    {tieneMultiplesBaterias && (
-                      <div className="space-y-1">
-                        <label className="text-xs text-blue-700">
-                          Batería:
-                        </label>
-                        <Select
-                          value={bateriaSeleccionada}
-                          onValueChange={setBateriaSeleccionada}
-                        >
-                          <SelectTrigger className="h-8 text-xs bg-white">
-                            <SelectValue placeholder="Seleccionar batería" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Array.from(
-                              new Set(
-                                items
-                                  .filter((i) => i.seccion === "BATERIAS")
-                                  .map((i) => i.materialCodigo),
-                              ),
-                            ).map((codigo) => {
-                              const item = items.find(
-                                (i) => i.materialCodigo === codigo,
-                              );
-                              const cantidad = items
-                                .filter((i) => i.materialCodigo === codigo)
-                                .reduce((sum, i) => sum + i.cantidad, 0);
-                              const material = materials.find(
-                                (m) => m.codigo.toString() === codigo,
-                              );
-                              return (
-                                <SelectItem key={codigo} value={codigo}>
-                                  {material?.nombre || item?.descripcion} (
-                                  {cantidad}x)
-                                </SelectItem>
-                              );
-                            })}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-
-                    {/* Selector de Panel - Solo si hay múltiples */}
-                    {tieneMultiplesPaneles && (
-                      <div className="space-y-1">
-                        <label className="text-xs text-blue-700">
-                          Paneles:
-                        </label>
-                        <Select
-                          value={panelSeleccionado}
-                          onValueChange={setPanelSeleccionado}
-                        >
-                          <SelectTrigger className="h-8 text-xs bg-white">
-                            <SelectValue placeholder="Seleccionar panel" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Array.from(
-                              new Set(
-                                items
-                                  .filter((i) => i.seccion === "PANELES")
-                                  .map((i) => i.materialCodigo),
-                              ),
-                            ).map((codigo) => {
-                              const item = items.find(
-                                (i) => i.materialCodigo === codigo,
-                              );
-                              const cantidad = items
-                                .filter((i) => i.materialCodigo === codigo)
-                                .reduce((sum, i) => sum + i.cantidad, 0);
-                              const material = materials.find(
-                                (m) => m.codigo.toString() === codigo,
-                              );
-                              return (
-                                <SelectItem key={codigo} value={codigo}>
-                                  {material?.nombre || item?.descripcion} (
-                                  {cantidad}x)
-                                </SelectItem>
-                              );
-                            })}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                    {[
+                      {
+                        mostrar: tieneMultiplesInversores,
+                        etiqueta: "Inversores",
+                        seccion: "INVERSORES" as const,
+                        seleccionados: inversoresSeleccionados,
+                        setSeleccionados: setInversoresSeleccionados,
+                      },
+                      {
+                        mostrar: tieneMultiplesBaterias,
+                        etiqueta: "Baterías",
+                        seccion: "BATERIAS" as const,
+                        seleccionados: bateriasSeleccionadas,
+                        setSeleccionados: setBateriasSeleccionadas,
+                      },
+                      {
+                        mostrar: tieneMultiplesPaneles,
+                        etiqueta: "Paneles",
+                        seccion: "PANELES" as const,
+                        seleccionados: panelesSeleccionados,
+                        setSeleccionados: setPanelesSeleccionados,
+                      },
+                    ].map(
+                      ({
+                        mostrar,
+                        etiqueta,
+                        seccion,
+                        seleccionados,
+                        setSeleccionados,
+                      }) =>
+                        mostrar && (
+                          <div key={seccion} className="space-y-1.5">
+                            <p className="text-xs text-blue-700">{etiqueta}:</p>
+                            <div className="space-y-1 rounded border border-blue-100 bg-white p-2">
+                              {Array.from(
+                                new Set(
+                                  items
+                                    .filter((i) => i.seccion === seccion)
+                                    .map((i) => i.materialCodigo),
+                                ),
+                              ).map((codigo) => {
+                                const item = items.find(
+                                  (i) => i.materialCodigo === codigo,
+                                );
+                                const cantidad = items
+                                  .filter((i) => i.materialCodigo === codigo)
+                                  .reduce((sum, i) => sum + i.cantidad, 0);
+                                const material = materials.find(
+                                  (m) => m.codigo.toString() === codigo,
+                                );
+                                const marcado = seleccionados.includes(codigo);
+                                return (
+                                  <label
+                                    key={codigo}
+                                    className="flex items-center gap-2 py-0.5 text-xs text-slate-700"
+                                  >
+                                    <Checkbox
+                                      checked={marcado}
+                                      onCheckedChange={(checked) =>
+                                        setSeleccionados((prev) =>
+                                          checked
+                                            ? [...prev, codigo]
+                                            : prev.filter((c) => c !== codigo),
+                                        )
+                                      }
+                                    />
+                                    <span className="truncate">
+                                      {material?.nombre || item?.descripcion} (
+                                      {cantidad}x)
+                                    </span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ),
                     )}
                   </div>
                 )}
