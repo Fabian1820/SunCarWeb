@@ -1312,19 +1312,12 @@ export function EstudioEnergeticoForm({
         </div>
       </FieldGroup>
 
-      {/* Observaciones */}
-      <FieldGroup title="Observaciones">
-        <div className="sm:col-span-2">
-          <Textarea
-            value={value.observaciones ?? ""}
-            onChange={(e) =>
-              onChange({ ...value, observaciones: e.target.value || undefined })
-            }
-            rows={3}
-            placeholder="Cualquier cosa que no quede cubierta en los campos de arriba..."
-          />
-        </div>
-      </FieldGroup>
+      {/* Aqui habia un campo de observaciones. Se quito porque hacia la misma
+          funcion que la descripcion de la evidencia del formulario de la
+          visita, y dos cajas de texto libre para lo mismo solo consiguen que lo
+          escrito acabe repartido entre las dos. El campo sigue en el tipo: las
+          visitas viejas lo tienen y se sigue mostrando en el detalle y en el
+          informe. */}
     </div>
   );
 }
