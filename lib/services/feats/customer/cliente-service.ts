@@ -2,6 +2,7 @@ import { apiRequest } from "../../../api-config";
 import type {
   Cliente,
   ClienteFoto,
+  ClienteFotoTipoSubible,
   ClienteResponse,
   ClienteCreateData,
   ClienteSimpleCreateData,
@@ -78,7 +79,7 @@ export const MODELO_CANTIDAD_PARAM_KEYS = [
 
 export type ClienteFotoUploadPayload = {
   file: File;
-  tipo: ClienteFoto["tipo"];
+  tipo: ClienteFotoTipoSubible;
 };
 
 type ClienteFotosResponse = {

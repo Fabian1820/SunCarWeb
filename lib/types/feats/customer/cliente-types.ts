@@ -9,8 +9,16 @@ import type { Averia } from "../averias/averia-types";
 export interface ClienteFoto {
   url: string;
   fecha: string;
+  /**
+   * "visita" solo aparece en registros antiguos: la evidencia de una visita se
+   * adjunta desde el módulo de visitas, no desde este historial. Se sigue
+   * leyendo para no esconder lo ya guardado.
+   */
   tipo: "instalacion" | "averia" | "visita";
 }
+
+/** Tipos que se pueden elegir al subir una foto nueva al historial. */
+export type ClienteFotoTipoSubible = Exclude<ClienteFoto["tipo"], "visita">;
 
 /**
  * Equipo principal del cliente, acumulando todas sus ofertas confirmadas: una
