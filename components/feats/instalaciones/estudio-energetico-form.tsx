@@ -924,284 +924,287 @@ export function EstudioEnergeticoForm({
               }
             />
           </FieldGroup>
-
-          {/* Equipamiento estimado */}
-          <FieldGroup title="Equipamiento estimado">
-            <TextField
-              label="Modelo de inversor"
-              value={value.equipamiento_estimado?.modelo_inversor}
-              onChange={(v) =>
-                onChange({
-                  ...value,
-                  equipamiento_estimado: withPatch(value.equipamiento_estimado, {
-                    modelo_inversor: v,
-                  }),
-                })
-              }
-            />
-            <NumberField
-              label="Potencia del inversor"
-              suffix="kW"
-              value={value.equipamiento_estimado?.potencia_inversor_kw}
-              onChange={(v) =>
-                onChange({
-                  ...value,
-                  equipamiento_estimado: withPatch(value.equipamiento_estimado, {
-                    potencia_inversor_kw: v,
-                  }),
-                })
-              }
-            />
-            <NumberField
-              label="Cantidad de inversores"
-              value={value.equipamiento_estimado?.cantidad_inversores}
-              onChange={(v) =>
-                onChange({
-                  ...value,
-                  equipamiento_estimado: withPatch(value.equipamiento_estimado, {
-                    cantidad_inversores: v,
-                  }),
-                })
-              }
-            />
-            <TextField
-              label="Modelo de batería"
-              value={value.equipamiento_estimado?.modelo_bateria}
-              onChange={(v) =>
-                onChange({
-                  ...value,
-                  equipamiento_estimado: withPatch(value.equipamiento_estimado, {
-                    modelo_bateria: v,
-                  }),
-                })
-              }
-            />
-            <NumberField
-              label="Capacidad de batería"
-              suffix="kWh"
-              value={value.equipamiento_estimado?.capacidad_bateria_kwh}
-              onChange={(v) =>
-                onChange({
-                  ...value,
-                  equipamiento_estimado: withPatch(value.equipamiento_estimado, {
-                    capacidad_bateria_kwh: v,
-                  }),
-                })
-              }
-            />
-            <NumberField
-              label="Cantidad de baterías"
-              value={value.equipamiento_estimado?.cantidad_baterias}
-              onChange={(v) =>
-                onChange({
-                  ...value,
-                  equipamiento_estimado: withPatch(value.equipamiento_estimado, {
-                    cantidad_baterias: v,
-                  }),
-                })
-              }
-            />
-            <BoolField
-              label="¿Es modular?"
-              value={value.equipamiento_estimado?.es_modular}
-              onChange={(v) =>
-                onChange({
-                  ...value,
-                  equipamiento_estimado: withPatch(value.equipamiento_estimado, {
-                    es_modular: v,
-                  }),
-                })
-              }
-            />
-            <NumberField
-              label="Cantidad de paneles"
-              value={value.equipamiento_estimado?.cantidad_paneles}
-              onChange={(v) =>
-                onChange({
-                  ...value,
-                  equipamiento_estimado: withPatch(value.equipamiento_estimado, {
-                    cantidad_paneles: v,
-                  }),
-                })
-              }
-            />
-            <NumberField
-              label="Strings"
-              value={value.equipamiento_estimado?.strings}
-              onChange={(v) =>
-                onChange({
-                  ...value,
-                  equipamiento_estimado: withPatch(value.equipamiento_estimado, {
-                    strings: v,
-                  }),
-                })
-              }
-            />
-            <NumberField
-              label="Voltaje"
-              value={value.equipamiento_estimado?.voltaje}
-              onChange={(v) =>
-                onChange({
-                  ...value,
-                  equipamiento_estimado: withPatch(value.equipamiento_estimado, {
-                    voltaje: v,
-                  }),
-                })
-              }
-            />
-            <NumberField
-              label="Potencia total"
-              suffix="kWp"
-              value={value.equipamiento_estimado?.potencia_total_kwp}
-              onChange={(v) =>
-                onChange({
-                  ...value,
-                  equipamiento_estimado: withPatch(value.equipamiento_estimado, {
-                    potencia_total_kwp: v,
-                  }),
-                })
-              }
-            />
-            <BoolField
-              label="¿Restricción de horario laboral para instalar?"
-              value={value.equipamiento_estimado?.restriccion_horario_laboral}
-              onChange={(v) =>
-                onChange({
-                  ...value,
-                  equipamiento_estimado: withPatch(value.equipamiento_estimado, {
-                    restriccion_horario_laboral: v,
-                  }),
-                })
-              }
-            />
-            <BoolField
-              label="¿Hay WiFi/Ethernet en el sitio?"
-              value={value.equipamiento_estimado?.tiene_wifi_ethernet}
-              onChange={(v) =>
-                onChange({
-                  ...value,
-                  equipamiento_estimado: withPatch(value.equipamiento_estimado, {
-                    tiene_wifi_ethernet: v,
-                  }),
-                })
-              }
-            />
-          </FieldGroup>
-
-          {/* Protecciones */}
-          <FieldGroup title="Protecciones">
-            <NumberField
-              label="Protección CA entrada"
-              suffix="Amp"
-              value={value.protecciones?.proteccion_ca_entrada_amp}
-              onChange={(v) =>
-                onChange({
-                  ...value,
-                  protecciones: withPatch(value.protecciones, {
-                    proteccion_ca_entrada_amp: v,
-                  }),
-                })
-              }
-            />
-            <NumberField
-              label="Protección CA backup"
-              suffix="Amp"
-              value={value.protecciones?.proteccion_ca_backup_amp}
-              onChange={(v) =>
-                onChange({
-                  ...value,
-                  protecciones: withPatch(value.protecciones, {
-                    proteccion_ca_backup_amp: v,
-                  }),
-                })
-              }
-            />
-            <NumberField
-              label="Protección CD"
-              suffix="Amp"
-              value={value.protecciones?.proteccion_cd_amp}
-              onChange={(v) =>
-                onChange({
-                  ...value,
-                  protecciones: withPatch(value.protecciones, {
-                    proteccion_cd_amp: v,
-                  }),
-                })
-              }
-            />
-          </FieldGroup>
-
-          {/* Cableado */}
-          <FieldGroup title="Cableado">
-            <SelectField
-              label="Ubicación del inversor"
-              value={value.cableado?.ubicacion_inversor}
-              onChange={(v) =>
-                onChange({
-                  ...value,
-                  cableado: withPatch(value.cableado, { ubicacion_inversor: v }),
-                })
-              }
-              options={[
-                { value: "cubierto", label: "Cubierto" },
-                { value: "intemperie", label: "Intemperie" },
-              ]}
-            />
-            <NumberField
-              label="Longitud de línea CA"
-              suffix="m"
-              value={value.cableado?.longitud_linea_ca_m}
-              onChange={(v) =>
-                onChange({
-                  ...value,
-                  cableado: withPatch(value.cableado, { longitud_linea_ca_m: v }),
-                })
-              }
-            />
-            <NumberField
-              label="Longitud de línea CD"
-              suffix="m"
-              value={value.cableado?.longitud_linea_cd_m}
-              onChange={(v) =>
-                onChange({
-                  ...value,
-                  cableado: withPatch(value.cableado, { longitud_linea_cd_m: v }),
-                })
-              }
-            />
-            <NumberField
-              label="Distancia inversor → PGD"
-              suffix="m"
-              value={value.cableado?.distancia_inversor_pgd_m}
-              onChange={(v) =>
-                onChange({
-                  ...value,
-                  cableado: withPatch(value.cableado, {
-                    distancia_inversor_pgd_m: v,
-                  }),
-                })
-              }
-            />
-            <div className="sm:col-span-2 space-y-1">
-              <Label className="text-xs text-gray-600">
-                Descripción breve del lugar de instalación
-              </Label>
-              <Textarea
-                value={value.cableado?.descripcion_lugar ?? ""}
-                onChange={(e) =>
-                  onChange({
-                    ...value,
-                    cableado: withPatch(value.cableado, {
-                      descripcion_lugar: e.target.value || undefined,
-                    }),
-                  })
-                }
-                rows={2}
-              />
-            </div>
-          </FieldGroup>
         </>
       )}
+
+      {/* Fuera de la condicion de los paneles a proposito: puede haber
+          inversor y baterias sin paneles, y las protecciones y el
+          cableado hacen falta en cualquier instalacion. */}
+      {/* Equipamiento estimado */}
+      <FieldGroup title="Equipamiento estimado">
+        <TextField
+          label="Modelo de inversor"
+          value={value.equipamiento_estimado?.modelo_inversor}
+          onChange={(v) =>
+            onChange({
+              ...value,
+              equipamiento_estimado: withPatch(value.equipamiento_estimado, {
+                modelo_inversor: v,
+              }),
+            })
+          }
+        />
+        <NumberField
+          label="Potencia del inversor"
+          suffix="kW"
+          value={value.equipamiento_estimado?.potencia_inversor_kw}
+          onChange={(v) =>
+            onChange({
+              ...value,
+              equipamiento_estimado: withPatch(value.equipamiento_estimado, {
+                potencia_inversor_kw: v,
+              }),
+            })
+          }
+        />
+        <NumberField
+          label="Cantidad de inversores"
+          value={value.equipamiento_estimado?.cantidad_inversores}
+          onChange={(v) =>
+            onChange({
+              ...value,
+              equipamiento_estimado: withPatch(value.equipamiento_estimado, {
+                cantidad_inversores: v,
+              }),
+            })
+          }
+        />
+        <TextField
+          label="Modelo de batería"
+          value={value.equipamiento_estimado?.modelo_bateria}
+          onChange={(v) =>
+            onChange({
+              ...value,
+              equipamiento_estimado: withPatch(value.equipamiento_estimado, {
+                modelo_bateria: v,
+              }),
+            })
+          }
+        />
+        <NumberField
+          label="Capacidad de batería"
+          suffix="kWh"
+          value={value.equipamiento_estimado?.capacidad_bateria_kwh}
+          onChange={(v) =>
+            onChange({
+              ...value,
+              equipamiento_estimado: withPatch(value.equipamiento_estimado, {
+                capacidad_bateria_kwh: v,
+              }),
+            })
+          }
+        />
+        <NumberField
+          label="Cantidad de baterías"
+          value={value.equipamiento_estimado?.cantidad_baterias}
+          onChange={(v) =>
+            onChange({
+              ...value,
+              equipamiento_estimado: withPatch(value.equipamiento_estimado, {
+                cantidad_baterias: v,
+              }),
+            })
+          }
+        />
+        <BoolField
+          label="¿Es modular?"
+          value={value.equipamiento_estimado?.es_modular}
+          onChange={(v) =>
+            onChange({
+              ...value,
+              equipamiento_estimado: withPatch(value.equipamiento_estimado, {
+                es_modular: v,
+              }),
+            })
+          }
+        />
+        <NumberField
+          label="Cantidad de paneles"
+          value={value.equipamiento_estimado?.cantidad_paneles}
+          onChange={(v) =>
+            onChange({
+              ...value,
+              equipamiento_estimado: withPatch(value.equipamiento_estimado, {
+                cantidad_paneles: v,
+              }),
+            })
+          }
+        />
+        <NumberField
+          label="Strings"
+          value={value.equipamiento_estimado?.strings}
+          onChange={(v) =>
+            onChange({
+              ...value,
+              equipamiento_estimado: withPatch(value.equipamiento_estimado, {
+                strings: v,
+              }),
+            })
+          }
+        />
+        <NumberField
+          label="Voltaje"
+          value={value.equipamiento_estimado?.voltaje}
+          onChange={(v) =>
+            onChange({
+              ...value,
+              equipamiento_estimado: withPatch(value.equipamiento_estimado, {
+                voltaje: v,
+              }),
+            })
+          }
+        />
+        <NumberField
+          label="Potencia total"
+          suffix="kWp"
+          value={value.equipamiento_estimado?.potencia_total_kwp}
+          onChange={(v) =>
+            onChange({
+              ...value,
+              equipamiento_estimado: withPatch(value.equipamiento_estimado, {
+                potencia_total_kwp: v,
+              }),
+            })
+          }
+        />
+        <BoolField
+          label="¿Restricción de horario laboral para instalar?"
+          value={value.equipamiento_estimado?.restriccion_horario_laboral}
+          onChange={(v) =>
+            onChange({
+              ...value,
+              equipamiento_estimado: withPatch(value.equipamiento_estimado, {
+                restriccion_horario_laboral: v,
+              }),
+            })
+          }
+        />
+        <BoolField
+          label="¿Hay WiFi/Ethernet en el sitio?"
+          value={value.equipamiento_estimado?.tiene_wifi_ethernet}
+          onChange={(v) =>
+            onChange({
+              ...value,
+              equipamiento_estimado: withPatch(value.equipamiento_estimado, {
+                tiene_wifi_ethernet: v,
+              }),
+            })
+          }
+        />
+      </FieldGroup>
+
+      {/* Protecciones */}
+      <FieldGroup title="Protecciones">
+        <NumberField
+          label="Protección CA entrada"
+          suffix="Amp"
+          value={value.protecciones?.proteccion_ca_entrada_amp}
+          onChange={(v) =>
+            onChange({
+              ...value,
+              protecciones: withPatch(value.protecciones, {
+                proteccion_ca_entrada_amp: v,
+              }),
+            })
+          }
+        />
+        <NumberField
+          label="Protección CA backup"
+          suffix="Amp"
+          value={value.protecciones?.proteccion_ca_backup_amp}
+          onChange={(v) =>
+            onChange({
+              ...value,
+              protecciones: withPatch(value.protecciones, {
+                proteccion_ca_backup_amp: v,
+              }),
+            })
+          }
+        />
+        <NumberField
+          label="Protección CD"
+          suffix="Amp"
+          value={value.protecciones?.proteccion_cd_amp}
+          onChange={(v) =>
+            onChange({
+              ...value,
+              protecciones: withPatch(value.protecciones, {
+                proteccion_cd_amp: v,
+              }),
+            })
+          }
+        />
+      </FieldGroup>
+
+      {/* Cableado */}
+      <FieldGroup title="Cableado">
+        <SelectField
+          label="Ubicación del inversor"
+          value={value.cableado?.ubicacion_inversor}
+          onChange={(v) =>
+            onChange({
+              ...value,
+              cableado: withPatch(value.cableado, { ubicacion_inversor: v }),
+            })
+          }
+          options={[
+            { value: "cubierto", label: "Cubierto" },
+            { value: "intemperie", label: "Intemperie" },
+          ]}
+        />
+        <NumberField
+          label="Longitud de línea CA"
+          suffix="m"
+          value={value.cableado?.longitud_linea_ca_m}
+          onChange={(v) =>
+            onChange({
+              ...value,
+              cableado: withPatch(value.cableado, { longitud_linea_ca_m: v }),
+            })
+          }
+        />
+        <NumberField
+          label="Longitud de línea CD"
+          suffix="m"
+          value={value.cableado?.longitud_linea_cd_m}
+          onChange={(v) =>
+            onChange({
+              ...value,
+              cableado: withPatch(value.cableado, { longitud_linea_cd_m: v }),
+            })
+          }
+        />
+        <NumberField
+          label="Distancia inversor → PGD"
+          suffix="m"
+          value={value.cableado?.distancia_inversor_pgd_m}
+          onChange={(v) =>
+            onChange({
+              ...value,
+              cableado: withPatch(value.cableado, {
+                distancia_inversor_pgd_m: v,
+              }),
+            })
+          }
+        />
+        <div className="sm:col-span-2 space-y-1">
+          <Label className="text-xs text-gray-600">
+            Descripción breve del lugar de instalación
+          </Label>
+          <Textarea
+            value={value.cableado?.descripcion_lugar ?? ""}
+            onChange={(e) =>
+              onChange({
+                ...value,
+                cableado: withPatch(value.cableado, {
+                  descripcion_lugar: e.target.value || undefined,
+                }),
+              })
+            }
+            rows={2}
+          />
+        </div>
+      </FieldGroup>
 
       {/* Cargas instaladas (Anexo 1) */}
       <FieldGroup
