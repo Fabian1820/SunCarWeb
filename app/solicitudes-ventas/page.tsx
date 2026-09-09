@@ -64,7 +64,7 @@ type TabId = "solicitudes" | "pendientes-pago" | "pagos-realizados" | "facturas-
 
 const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: "solicitudes",       label: "Solicitudes",             icon: ShoppingCart },
-  { id: "pendientes-pago",   label: "Pendientes de pago",      icon: CreditCard   },
+  { id: "pendientes-pago",   label: "Cuentas por cobrar",      icon: CreditCard   },
   { id: "pagos-realizados",  label: "Pagos realizados",        icon: List         },
   { id: "facturas-emitidas", label: "Facturas emitidas",       icon: FileText     },
 ];
@@ -1227,7 +1227,7 @@ const [exportingPagos, setExportingPagos]           = useState(false);
           </Card>
         )}
 
-        {/* ── Pestaña 2: Pendientes de pago ── */}
+        {/* ── Pestaña 2: Cuentas por cobrar ── */}
         {activeTab === "pendientes-pago" && (
           <Card className="border-l-4 border-l-indigo-600 overflow-hidden">
             <CardHeader className="pb-0">
@@ -1235,7 +1235,7 @@ const [exportingPagos, setExportingPagos]           = useState(false);
                 <div>
                   <CardTitle className="flex items-center gap-2 text-base">
                     <CreditCard className="h-5 w-5 text-indigo-600" />
-                    Pendientes de Pago
+                    Cuentas por Cobrar
                   </CardTitle>
                   <CardDescription>Solicitudes con saldo pendiente de cobro</CardDescription>
                 </div>
