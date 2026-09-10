@@ -119,12 +119,19 @@ export async function apiRequest<T>(
     const { headers: requestHeaders, ...restOptions } = requestOptions;
 
     const config: RequestInit = {
+      // Evita que Safari/iOS (y proxies intermedios) sirvan una respuesta GET
+      // cacheada tras un POST/PATCH que acaba de mutar los mismos datos.
+      // Sin esto, en iPad los refrescos (botón "Actualizar" o recarga
+      // automática tras crear una transacción) pueden devolver la lista
+      // vieja hasta que se navega fuera y se vuelve a entrar a la página.
+      cache: "no-store",
       ...restOptions,
       mode: "cors",
       credentials: "omit",
       headers: {
         ...baseHeaders,
         ...(requestHeaders || {}),
+        "Cache-Control": "no-cache",
       },
     };
 
