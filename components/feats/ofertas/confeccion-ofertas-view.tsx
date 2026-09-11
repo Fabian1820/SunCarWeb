@@ -4192,6 +4192,48 @@ export function ConfeccionOfertasView({
       return;
     }
 
+    // Validación: si una categoría principal (Inversores/Baterías/Paneles) tiene
+    // 2 o más materiales REALES distintos, la comercial debe marcar cuáles cuentan
+    // para el nombre antes de guardar. Sin una selección, el backend no sabe cuál
+    // destacar y la categoría se cae del nombre (ej. una oferta con banco de
+    // batería que salía "Oferta de Inversores y Paneles", sin la batería).
+    const ACCESORIO_UMBRAL_KW = 0.3;
+    const potenciaDeCodigo = (codigo: string): number | null => {
+      const mat = materials.find((m) => m.codigo.toString() === codigo);
+      return mat?.potenciaKW ?? null;
+    };
+    const categoriasParaNombre: {
+      seccion: string;
+      label: string;
+      marcados: string[];
+    }[] = [
+      { seccion: "INVERSORES", label: "Inversores", marcados: inversoresSeleccionados },
+      { seccion: "BATERIAS", label: "Baterías", marcados: bateriasSeleccionadas },
+      { seccion: "PANELES", label: "Paneles", marcados: panelesSeleccionados },
+    ];
+    for (const { seccion, label, marcados } of categoriasParaNombre) {
+      const codigosReales = Array.from(
+        new Set(
+          items
+            .filter((it) => it.seccion === seccion)
+            .map((it) => it.materialCodigo),
+        ),
+      ).filter((cod) => {
+        const pot = potenciaDeCodigo(cod);
+        // Un accesorio (caja combinadora, módulo wifi) tiene capacidad simbólica y
+        // no obliga a elegir. Capacidad desconocida no se asume accesorio.
+        return pot == null || pot > ACCESORIO_UMBRAL_KW;
+      });
+      if (codigosReales.length >= 2 && marcados.length === 0) {
+        toast({
+          title: `Marca los materiales de ${label}`,
+          description: `La sección ${label} tiene ${codigosReales.length} materiales distintos. Marca cuáles deben aparecer en el nombre de la oferta antes de guardar.`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     if (!ofertaGenerica && tipoContacto === "cliente" && !clienteId) {
       toast({
         title: "Cliente requerido",
