@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/atom/input";
 import { Badge } from "@/components/shared/atom/badge";
+import { Label } from "@/components/shared/atom/label";
 import { Checkbox } from "@/components/shared/molecule/checkbox";
 import { SearchableSelect } from "@/components/shared/molecule/searchable-select";
 import { Loader2, Search, ArrowRight } from "lucide-react";
@@ -222,8 +223,22 @@ export function PanelCandidatos({
   const puedeAsignar = marcados.size > 0 && asignadoA !== "";
 
   return (
-    <section className="flex min-h-0 flex-col rounded-lg border bg-white">
+    <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border bg-white">
+      {/* Quién primero, luego qué. Uno se sienta pensando "mañana la brigada
+          de Daniel hace...", no al revés, y con cien candidatos el selector al
+          final quedaba fuera de la pantalla. */}
       <header className="space-y-3 border-b p-4">
+        <div className="space-y-1.5">
+          <Label>Para</Label>
+          <SearchableSelect
+            options={opcionesAsignables}
+            value={asignadoA}
+            onValueChange={setAsignadoA}
+            placeholder="Elige la brigada o el trabajador"
+            searchPlaceholder="Buscar…"
+          />
+        </div>
+
         <div className="flex flex-wrap gap-1.5">
           {TIPOS.map((t) => (
             <Button
@@ -237,6 +252,11 @@ export function PanelCandidatos({
             </Button>
           ))}
         </div>
+        {!TIPOS_QUE_ADMITEN_TRABAJADOR.includes(tipo) && (
+          <p className="text-xs text-gray-500">
+            Una instalación la hace una brigada entera, no un trabajador suelto.
+          </p>
+        )}
 
         <div className="flex flex-wrap items-center gap-2">
           {!sinSugeridos && (
@@ -275,31 +295,45 @@ export function PanelCandidatos({
         </div>
       </header>
 
-      <div className="flex items-center justify-between border-b bg-gray-50 px-4 py-2 text-sm">
-        <span className="text-gray-600">
-          {cargando
-            ? "Buscando…"
-            : `${disponibles.length} disponible${disponibles.length === 1 ? "" : "s"}`}
-          {!cargando && marcados.size > clavesVisibles.filter((k) => marcados.has(k)).length && (
-            <span className="ml-2 text-gray-500">
-              ({marcados.size} marcados en total, incluidos los que oculta el filtro)
-            </span>
+      {/* La barra de acción, pegada encima de la lista: se marca y se añade sin
+          moverse de donde se está mirando. */}
+      <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b bg-gray-50 px-4 py-2 text-sm">
+        <div className="flex items-center gap-3">
+          <span className="text-gray-600">
+            {cargando
+              ? "Buscando…"
+              : `${disponibles.length} disponible${disponibles.length === 1 ? "" : "s"}`}
+          </span>
+          {clavesVisibles.length > 0 && (
+            <button
+              type="button"
+              onClick={alternarVisibles}
+              className="font-medium text-teal-700 hover:underline"
+            >
+              {todosVisiblesMarcados
+                ? `Quitar los ${clavesVisibles.length} de la lista`
+                : `Marcar los ${clavesVisibles.length} de la lista`}
+            </button>
           )}
-        </span>
-        {disponibles.length > 0 && (
-          <button
-            type="button"
-            onClick={alternarVisibles}
-            className="font-medium text-teal-700 hover:underline"
-          >
-            {todosVisiblesMarcados
-              ? `Quitar los ${clavesVisibles.length} de la lista`
-              : `Marcar los ${clavesVisibles.length} de la lista`}
-          </button>
+        </div>
+
+        {marcados.size > 0 && (
+          <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
+            <Input
+              value={nota}
+              onChange={(e) => setNota(e.target.value)}
+              placeholder="Nota para estos (opcional)"
+              className="h-8 w-full min-w-[160px] flex-1 sm:w-auto sm:max-w-xs"
+            />
+            <Button size="sm" onClick={asignar} disabled={!puedeAsignar}>
+              Añadir {marcados.size} al plan
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
         )}
       </div>
 
-      <div className="min-h-[18rem] flex-1 divide-y overflow-y-auto">
+      <div className="min-h-[20rem] flex-1 divide-y overflow-y-auto">
         {cargando ? (
           <div className="flex items-center justify-center gap-2 p-10 text-sm text-gray-500">
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -357,35 +391,11 @@ export function PanelCandidatos({
         )}
       </div>
 
-      <footer className="space-y-3 border-t bg-gray-50 p-4">
-        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <SearchableSelect
-            options={opcionesAsignables}
-            value={asignadoA}
-            onValueChange={setAsignadoA}
-            placeholder="Asignar a brigada o trabajador"
-            searchPlaceholder="Buscar…"
-          />
-          <Input
-            value={nota}
-            onChange={(e) => setNota(e.target.value)}
-            placeholder="Nota para estos trabajos (opcional)"
-          />
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-gray-600">
-            {marcados.size === 0
-              ? TIPOS_QUE_ADMITEN_TRABAJADOR.includes(tipo)
-                ? "Marca a quién visitar y elige quién va"
-                : "Una instalación la hace una brigada entera, no un trabajador suelto"
-              : `${marcados.size} marcado${marcados.size === 1 ? "" : "s"}`}
-          </p>
-          <Button onClick={asignar} disabled={!puedeAsignar}>
-            Añadir al plan
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
-        </div>
-      </footer>
+      {marcados.size > 0 && !asignadoA && (
+        <p className="border-t bg-amber-50 px-4 py-2 text-sm text-amber-900">
+          Elige arriba a quién se lo asignas para poder añadirlos.
+        </p>
+      )}
     </section>
   );
 }
