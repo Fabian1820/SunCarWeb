@@ -4,16 +4,25 @@ import type {
   CategoriaSolicitud,
   ResolucionSolicitud,
   SolicitudDesarrollo,
+  SolicitudDesarrolloFiltros,
 } from "@/lib/types/feats/solicitudes-desarrollo/solicitud-desarrollo-types";
 
 const POLLING_INTERVAL = 30_000;
+const DEBOUNCE_BUSQUEDA = 400;
+
+const FILTROS_INICIALES: SolicitudDesarrolloFiltros = {};
 
 export function useSolicitudesDesarrollo(habilitado: boolean) {
   const [solicitudes, setSolicitudes] = useState<SolicitudDesarrollo[]>([]);
   const [conteo, setConteo] = useState(0);
   const [loading, setLoading] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  const [filtros, setFiltrosState] = useState<SolicitudDesarrolloFiltros>(FILTROS_INICIALES);
   const cargadasRef = useRef(false);
+  // Ref para que crearSolicitud/resolver/marcarTerminada siempre recarguen
+  // con los filtros vigentes sin tener que declararlos como dependencia.
+  const filtrosRef = useRef(filtros);
+  filtrosRef.current = filtros;
 
   const cargarConteo = useCallback(async () => {
     if (!habilitado) return;
@@ -25,13 +34,30 @@ export function useSolicitudesDesarrollo(habilitado: boolean) {
     if (!habilitado) return;
     setLoading(true);
     try {
-      const lista = await SolicitudDesarrolloService.listar();
+      const lista = await SolicitudDesarrolloService.listar(filtrosRef.current);
       setSolicitudes(lista);
       cargadasRef.current = true;
     } finally {
       setLoading(false);
     }
   }, [habilitado]);
+
+  const setFiltros = useCallback((parcial: Partial<SolicitudDesarrolloFiltros>) => {
+    setFiltrosState((prev) => ({ ...prev, ...parcial }));
+  }, []);
+
+  // Recarga desde el backend cada vez que cambian los filtros (categoría,
+  // implementada, rango de fechas, búsqueda). La búsqueda de texto se
+  // debounce para no disparar una petición por cada tecla.
+  useEffect(() => {
+    if (!habilitado) return;
+    const delay = filtros.q ? DEBOUNCE_BUSQUEDA : 0;
+    const id = setTimeout(() => {
+      cargarSolicitudes();
+    }, delay);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [habilitado, filtros, cargarSolicitudes]);
 
   useEffect(() => {
     if (!habilitado) return;
@@ -88,6 +114,8 @@ export function useSolicitudesDesarrollo(habilitado: boolean) {
     conteo,
     loading,
     enviando,
+    filtros,
+    setFiltros,
     cargadasAlMenosUnaVez: cargadasRef.current,
     cargarSolicitudes,
     crearSolicitud,

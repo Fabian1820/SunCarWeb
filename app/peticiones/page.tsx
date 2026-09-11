@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { RouteGuard } from "@/components/auth/route-guard";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { Button } from "@/components/shared/atom/button";
@@ -25,7 +25,10 @@ import {
   DialogDescription,
 } from "@/components/shared/molecule/dialog";
 import { Checkbox } from "@/components/shared/molecule/checkbox";
+import { Input } from "@/components/shared/atom/input";
 import { Toaster } from "@/components/shared/molecule/toaster";
+import { ExportButtons } from "@/components/shared/molecule/export-buttons";
+import type { ExportOptions } from "@/lib/export-service";
 import { useToast } from "@/hooks/use-toast";
 import { useSolicitudesDesarrollo } from "@/hooks/use-solicitudes-desarrollo";
 import {
@@ -36,6 +39,7 @@ import {
   Loader2,
   Inbox,
   MessageSquare,
+  Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type {
@@ -73,6 +77,12 @@ const RESOLUCIONES: { key: ResolucionSolicitud; label: string; hint: string }[] 
   { key: "no_aplica", label: "No tiene que ver con desarrollo", hint: "No corresponde al equipo de desarrollo." },
 ];
 
+const FILTROS_IMPLEMENTADA: { key: "todas" | "si" | "no"; label: string }[] = [
+  { key: "todas", label: "Cualquiera" },
+  { key: "si", label: "Implementadas" },
+  { key: "no", label: "Sin implementar" },
+];
+
 function fechaLarga(fechaStr?: string | null): string {
   if (!fechaStr) return "—";
   try {
@@ -85,6 +95,19 @@ function fechaLarga(fechaStr?: string | null): string {
     });
   } catch {
     return "";
+  }
+}
+
+function fechaCorta(fechaStr?: string | null): string {
+  if (!fechaStr) return "—";
+  try {
+    return new Date(fechaStr).toLocaleDateString("es-ES", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  } catch {
+    return "—";
   }
 }
 
@@ -114,22 +137,25 @@ function PeticionesContent() {
   const {
     solicitudes,
     loading,
-    cargarSolicitudes,
+    filtros,
+    setFiltros,
     resolver,
     marcarTerminada,
   } = useSolicitudesDesarrollo(true);
 
+  // El estado ("pendiente"/"posible"/...) se filtra en el cliente sobre el
+  // resultado ya filtrado por el backend (categoría, implementada, fechas,
+  // búsqueda), para poder cambiar de pestaña sin re-consultar cada vez.
   const [filtroEstado, setFiltroEstado] = useState<"todos" | EstadoSolicitud>("pendiente");
-  const [filtroCategoria, setFiltroCategoria] = useState<"todas" | CategoriaSolicitud>("todas");
   const [dialogo, setDialogo] = useState<SolicitudDesarrollo | null>(null);
   const [resolucion, setResolucion] = useState<ResolucionSolicitud>("posible");
   const [comentario, setComentario] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    cargarSolicitudes();
-  }, [cargarSolicitudes]);
+  const categoriaValue: "todas" | CategoriaSolicitud = filtros.categoria?.[0] ?? "todas";
+  const implementadaValue: "todas" | "si" | "no" =
+    filtros.terminada === true ? "si" : filtros.terminada === false ? "no" : "todas";
 
   const conteos = useMemo(() => {
     const base = { pendiente: 0, posible: 0, no_posible: 0, no_aplica: 0, todos: solicitudes.length };
@@ -140,12 +166,56 @@ function PeticionesContent() {
   }, [solicitudes]);
 
   const filtradas = useMemo(() => {
-    return solicitudes.filter((s) => {
-      if (filtroEstado !== "todos" && s.estado !== filtroEstado) return false;
-      if (filtroCategoria !== "todas" && s.categoria !== filtroCategoria) return false;
-      return true;
-    });
-  }, [solicitudes, filtroEstado, filtroCategoria]);
+    if (filtroEstado === "todos") return solicitudes;
+    return solicitudes.filter((s) => s.estado === filtroEstado);
+  }, [solicitudes, filtroEstado]);
+
+  const getExportOptions = async (): Promise<Omit<ExportOptions, "filename">> => {
+    let titulo = "Peticiones al equipo de desarrollo";
+    if (filtroEstado !== "todos") titulo += ` - ${ETIQUETA_ESTADO[filtroEstado]}`;
+    if (categoriaValue !== "todas") titulo += ` - ${ETIQUETA_CATEGORIA[categoriaValue]}`;
+
+    const subtitlePartes = [`Fecha: ${new Date().toLocaleDateString("es-ES")}`];
+    if (filtros.fechaDesde || filtros.fechaHasta) {
+      subtitlePartes.push(
+        `Rango: ${filtros.fechaDesde ? fechaCorta(filtros.fechaDesde) : "inicio"} - ${filtros.fechaHasta ? fechaCorta(filtros.fechaHasta) : "hoy"}`,
+      );
+    }
+    subtitlePartes.push(`Total: ${filtradas.length}`);
+
+    return {
+      title: titulo,
+      subtitle: subtitlePartes.join(" · "),
+      columns: [
+        { header: "No.", key: "numero", width: 5 },
+        { header: "Fecha", key: "fecha", width: 12 },
+        { header: "Usuario", key: "usuario", width: 20 },
+        { header: "CI", key: "ci", width: 14 },
+        { header: "Categoría", key: "categoria", width: 12 },
+        { header: "Pantalla", key: "pantalla", width: 16 },
+        { header: "Petición", key: "mensaje", width: 45 },
+        { header: "Estado", key: "estado", width: 14 },
+        { header: "Implementada", key: "implementada", width: 14 },
+        { header: "Respuesta", key: "respuesta", width: 40 },
+        { header: "Respondido por", key: "respondidoPor", width: 18 },
+        { header: "Fecha respuesta", key: "fechaRespuesta", width: 14 },
+      ],
+      data: filtradas.map((s, i) => ({
+        numero: i + 1,
+        fecha: fechaCorta(s.fecha_creacion),
+        usuario: s.usuario_nombre,
+        ci: s.usuario_ci,
+        categoria: ETIQUETA_CATEGORIA[s.categoria],
+        pantalla: s.pantalla || "—",
+        mensaje: s.mensaje,
+        estado: ETIQUETA_ESTADO[s.estado],
+        implementada: s.estado === "posible" ? (s.terminada ? "Sí" : "No") : "N/A",
+        respuesta: s.respuesta || "—",
+        respondidoPor: s.respondido_por || "—",
+        fechaRespuesta: fechaCorta(s.fecha_respuesta),
+      })),
+    };
+  };
 
   const abrirDialogo = (s: SolicitudDesarrollo) => {
     setDialogo(s);
@@ -247,11 +317,35 @@ function PeticionesContent() {
               );
             })}
           </div>
+
+          {filtradas.length > 0 && (
+            <ExportButtons
+              getExportOptions={getExportOptions}
+              baseFilename="peticiones-desarrollo"
+              variant="compact"
+            />
+          )}
+        </div>
+
+        {/* Fila de filtros adicionales (se aplican en el backend): búsqueda, categoría, implementada, rango de fechas */}
+        <div className="flex flex-wrap gap-2 items-center">
+          <div className="relative flex-1 min-w-[220px]">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              value={filtros.q ?? ""}
+              onChange={(e) => setFiltros({ q: e.target.value || undefined })}
+              placeholder="Buscar por usuario, CI, pantalla o texto..."
+              className="pl-8 bg-white"
+            />
+          </div>
+
           <Select
-            value={filtroCategoria}
-            onValueChange={(v) => setFiltroCategoria(v as typeof filtroCategoria)}
+            value={categoriaValue}
+            onValueChange={(v) =>
+              setFiltros({ categoria: v === "todas" ? undefined : [v as CategoriaSolicitud] })
+            }
           >
-            <SelectTrigger className="w-48 bg-white">
+            <SelectTrigger className="w-44 bg-white">
               <SelectValue placeholder="Categoría" />
             </SelectTrigger>
             <SelectContent>
@@ -262,6 +356,39 @@ function PeticionesContent() {
               <SelectItem value="otro">Otro</SelectItem>
             </SelectContent>
           </Select>
+
+          <Select
+            value={implementadaValue}
+            onValueChange={(v) =>
+              setFiltros({ terminada: v === "todas" ? undefined : v === "si" })
+            }
+          >
+            <SelectTrigger className="w-40 bg-white">
+              <SelectValue placeholder="Implementada" />
+            </SelectTrigger>
+            <SelectContent>
+              {FILTROS_IMPLEMENTADA.map((f) => (
+                <SelectItem key={f.key} value={f.key}>
+                  {f.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Input
+            type="date"
+            value={filtros.fechaDesde ?? ""}
+            onChange={(e) => setFiltros({ fechaDesde: e.target.value || undefined })}
+            className="w-40 bg-white"
+            aria-label="Fecha desde"
+          />
+          <Input
+            type="date"
+            value={filtros.fechaHasta ?? ""}
+            onChange={(e) => setFiltros({ fechaHasta: e.target.value || undefined })}
+            className="w-40 bg-white"
+            aria-label="Fecha hasta"
+          />
         </div>
 
         {loading ? (

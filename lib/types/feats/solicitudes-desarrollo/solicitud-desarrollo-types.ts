@@ -23,6 +23,15 @@ export interface SolicitudDesarrollo {
   fecha_terminada?: string | null;
 }
 
+/** Filtros aplicados en el backend (todos opcionales; omitir = sin restringir). */
+export interface SolicitudDesarrolloFiltros {
+  categoria?: CategoriaSolicitud[];
+  terminada?: boolean;
+  fechaDesde?: string;
+  fechaHasta?: string;
+  q?: string;
+}
+
 export const ETIQUETA_CATEGORIA: Record<CategoriaSolicitud, string> = {
   bug: "Bug",
   mejora: "Mejora",

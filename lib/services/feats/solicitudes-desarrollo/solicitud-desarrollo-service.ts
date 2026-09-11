@@ -3,6 +3,7 @@ import type {
   CategoriaSolicitud,
   ResolucionSolicitud,
   SolicitudDesarrollo,
+  SolicitudDesarrolloFiltros,
 } from "@/lib/types/feats/solicitudes-desarrollo/solicitud-desarrollo-types";
 
 const BASE = "/solicitudes-desarrollo";
@@ -25,12 +26,22 @@ export const SolicitudDesarrolloService = {
     }
   },
 
-  async listar(): Promise<SolicitudDesarrollo[]> {
+  async listar(filtros?: SolicitudDesarrolloFiltros): Promise<SolicitudDesarrollo[]> {
     try {
+      const params = new URLSearchParams();
+      filtros?.categoria?.forEach((c) => params.append("categoria", c));
+      if (filtros?.terminada !== undefined) {
+        params.set("terminada", String(filtros.terminada));
+      }
+      if (filtros?.fechaDesde) params.set("fechaDesde", filtros.fechaDesde);
+      if (filtros?.fechaHasta) params.set("fechaHasta", filtros.fechaHasta);
+      if (filtros?.q) params.set("q", filtros.q);
+
+      const qs = params.toString();
       const response = await apiRequest<{
         success: boolean;
         data: SolicitudDesarrollo[];
-      }>(`${BASE}/`);
+      }>(`${BASE}/${qs ? `?${qs}` : ""}`);
       return response.data || [];
     } catch (error) {
       console.error("[SolicitudDesarrolloService] Error al listar:", error);
