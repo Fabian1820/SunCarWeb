@@ -27,6 +27,7 @@ export { DevolucionValeService } from "./services/feats/vales-salida/devolucion-
 export { ClienteVentaService } from "./services/feats/clientes-ventas/cliente-venta-service";
 export { SolicitudVentaService } from "./services/feats/solicitudes-ventas/solicitud-venta-service";
 export { WalletService } from "./services/feats/wallet/wallet-service";
+export { WalletAlertasService } from "./services/feats/wallet-alertas/wallet-alertas-service";
 export { SedeService } from "./services/feats/sedes/sede-service";
 export { DepartamentoService } from "./services/feats/departamentos/departamento-service";
 export { InstalacionesService } from "./services/feats/instalaciones/instalaciones-service";

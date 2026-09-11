@@ -8,6 +8,7 @@ import {
   Shield,
   Calculator,
   Wallet,
+  BellRing,
   Coins,
   GitMerge,
   Loader2,
@@ -356,6 +357,14 @@ export default function Dashboard() {
           title: "Gestión de Wallet",
           description: "Administrar permisos de billetera de trabajadores.",
           iconClass: "text-blue-600",
+        },
+        {
+          id: "wallet-alertas",
+          href: "/wallet-alertas",
+          icon: BellRing,
+          title: "Alertas de Billetera",
+          description: "Avisar por WhatsApp o SMS los movimientos grandes.",
+          iconClass: "text-amber-600",
         },
       ]
     : [];
