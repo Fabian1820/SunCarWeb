@@ -336,12 +336,13 @@ export class ExportValeSalidaService {
     const contentWidth = pageWidth - marginLeft - marginRight;
     const logo = await loadLogoBase64();
 
-    // El contenido arranca a 19mm del borde y el logo a 16mm: más arriba cae
-    // dentro de la zona no imprimible de la mayoría de las impresoras y la
-    // cabecera se pierde al imprimir, aunque en pantalla se vea completa.
-    let y = 19;
+    // Logo a 18mm del borde y contenido a 21mm, el mismo margen superior que
+    // usa el comprobante de billetera. Más arriba cae en la zona no
+    // imprimible de la impresora y la cabecera se pierde en el papel, aunque
+    // en pantalla el PDF se vea completo.
+    let y = 21;
     if (logo) {
-      doc.addImage(logo, "PNG", marginLeft, 16, 22, 22);
+      doc.addImage(logo, "PNG", marginLeft, 18, 22, 22);
     }
 
     doc.setTextColor(0, 0, 0);
