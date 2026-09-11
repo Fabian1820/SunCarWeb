@@ -17,6 +17,7 @@ import {
   FileText,
   FileSpreadsheet,
   Download,
+  Printer,
   Loader2,
 } from "lucide-react";
 import type { ValeSalidaSummary } from "@/lib/api-types";
@@ -27,6 +28,7 @@ interface ValesSalidaTableProps {
   onView?: (vale: ValeSalidaSummary) => void;
   onExportPdf?: (vale: ValeSalidaSummary) => void;
   onExportExcel?: (vale: ValeSalidaSummary) => void;
+  onPrintPdf?: (vale: ValeSalidaSummary) => void;
   loading?: boolean;
   isSearching?: boolean;
   searchTerm?: string;
@@ -56,6 +58,7 @@ export function ValesSalidaTable({
   onView,
   onExportPdf,
   onExportExcel,
+  onPrintPdf,
   isSearching = false,
   searchTerm = "",
 }: ValesSalidaTableProps) {
@@ -275,6 +278,18 @@ export function ValesSalidaTable({
                           ) : null}
                         </DropdownMenuContent>
                       </DropdownMenu>
+                    ) : null}
+                    {onPrintPdf ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onPrintPdf(vale)}
+                        className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                        title="Imprimir vale"
+                      >
+                        <Printer className="h-4 w-4 sm:mr-1" />
+                        <span className="hidden sm:inline text-xs">Imprimir</span>
+                      </Button>
                     ) : null}
                     {onAnular ? (
                       <Button

@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import ExcelJS from "exceljs";
 import { MaterialService } from "../../../api-services";
+import { imprimirPdf } from "../../../utils/imprimir-pdf";
 import type {
   ValeSalida,
   ValeSalidaMaterialItemDetalle,
@@ -304,7 +305,14 @@ const applyMetadataLabelStyle = (cell: ExcelJS.Cell): void => {
 };
 
 export class ExportValeSalidaService {
-  static async exportarPDF(vale: ValeSalida): Promise<void> {
+  /**
+   * Arma el PDF del vale y devuelve el documento junto con el nombre de
+   * archivo. Separado de la descarga para que imprimir y descargar salgan del
+   * mismo documento (mismo patrón que ReciboService).
+   */
+  private static async construirPDF(
+    vale: ValeSalida,
+  ): Promise<{ doc: jsPDF; filename: string }> {
     const doc = new jsPDF({
       orientation: "portrait",
       unit: "mm",
@@ -577,8 +585,21 @@ export class ExportValeSalidaService {
 
     const fechaArchivo = new Date().toISOString().slice(0, 10);
     const filename = `Vale_Entrega_${sanitizeFilenamePart(header.codigoVale)}_${fechaArchivo}.pdf`;
+    return { doc, filename };
+  }
+
+  /** Descarga el vale en PDF (queda en Descargas). */
+  static async exportarPDF(vale: ValeSalida): Promise<void> {
+    const { doc, filename } = await this.construirPDF(vale);
     doc.save(filename);
   }
+
+  /** Manda el vale directo a la impresora, sin pasar por Descargas. */
+  static async imprimirPDF(vale: ValeSalida): Promise<void> {
+    const { doc } = await this.construirPDF(vale);
+    imprimirPdf(doc.output("blob"));
+  }
+
   static async exportarExcel(vale: ValeSalida): Promise<void> {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Vale de Salida");

@@ -297,6 +297,20 @@ export default function ValesSalidaPage() {
     }
   };
 
+  const handlePrintVale = async (vale: ValeSalidaSummary) => {
+    try {
+      const valeDetalle = await ValeSalidaService.getValeById(vale.id);
+      if (!valeDetalle) throw new Error("No se pudo cargar el vale");
+      await ExportValeSalidaService.imprimirPDF(valeDetalle);
+    } catch (error) {
+      toast({
+        title: "Error al imprimir",
+        description: "No se pudo generar el PDF del vale para imprimir.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleExportValeExcel = async (vale: ValeSalidaSummary) => {
     try {
       const valeDetalle = await ValeSalidaService.getValeById(vale.id);
@@ -772,6 +786,9 @@ export default function ValesSalidaPage() {
               }}
               onExportExcel={(vale) => {
                 void handleExportValeExcel(vale);
+              }}
+              onPrintPdf={(vale) => {
+                void handlePrintVale(vale);
               }}
               loading={loading}
               isSearching={isSearching}
