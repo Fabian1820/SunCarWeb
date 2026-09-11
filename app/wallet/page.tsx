@@ -49,6 +49,7 @@ import {
   Info,
   Landmark,
   Plus,
+  Printer,
   RefreshCcw,
   Search,
   SendHorizontal,
@@ -433,6 +434,9 @@ function TransactionDetailsDialog({
   onOpenChange: (open: boolean) => void;
   fallbackCurrency: string;
 }) {
+  const { toast } = useToast();
+  const [descargandoComprobante, setDescargandoComprobante] = useState(false);
+
   if (!transaction) return null;
 
   const rowCurrency = transaction.currency_code || fallbackCurrency;
@@ -456,6 +460,69 @@ function TransactionDetailsDialog({
     : isIngreso
     ? "+"
     : "-";
+
+  // El comprobante (membrete + firmas) solo tiene sentido de negocio para
+  // gastos y transferencias — un ingreso no se "entrega" a nadie.
+  const puedeExportarComprobante =
+    transaction.tipo === "gasto" ||
+    transaction.tipo === "transferencia_salida" ||
+    transaction.tipo === "transferencia_entrada";
+
+  const imprimirComprobante = async () => {
+    if (!transaction) return;
+    setDescargandoComprobante(true);
+    try {
+      const blob = await WalletService.descargarComprobante(transaction.id);
+      const url = URL.createObjectURL(blob);
+
+      // Se guarda en Descargas como cualquier archivo bajado del navegador.
+      const enlace = document.createElement("a");
+      enlace.href = url;
+      enlace.download = `comprobante-${transaction.tipo}-${transaction.id}.pdf`;
+      document.body.appendChild(enlace);
+      enlace.click();
+      enlace.remove();
+
+      // Y además se manda directo a imprimir: un iframe oculto carga el
+      // mismo PDF y dispara el diálogo de impresión del navegador sobre él,
+      // sin necesidad de abrir una pestaña nueva.
+      const iframe = document.createElement("iframe");
+      iframe.style.position = "fixed";
+      iframe.style.right = "0";
+      iframe.style.bottom = "0";
+      iframe.style.width = "0";
+      iframe.style.height = "0";
+      iframe.style.border = "0";
+      iframe.src = url;
+      iframe.onload = () => {
+        try {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+        } catch {
+          // Si el navegador bloquea la impresión automática, el comprobante
+          // ya quedó descargado igual — no hace falta avisar de esto.
+        }
+      };
+      document.body.appendChild(iframe);
+      // Se limpia después de darle tiempo al usuario a completar o cancelar
+      // el diálogo de impresión (no hay evento de "impresión terminada").
+      window.setTimeout(() => {
+        iframe.remove();
+        URL.revokeObjectURL(url);
+      }, 60_000);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "No se pudo generar el comprobante.",
+        variant: "destructive",
+      });
+    } finally {
+      setDescargandoComprobante(false);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -566,6 +633,27 @@ function TransactionDetailsDialog({
               </p>
             )}
           </div>
+
+          {/* Comprobante: descarga el PDF (queda en Descargas) y además
+              dispara la impresión de una vez. */}
+          {puedeExportarComprobante && (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full gap-2"
+              disabled={descargandoComprobante}
+              onClick={() => void imprimirComprobante()}
+            >
+              {descargandoComprobante ? (
+                <RefreshCcw className="h-4 w-4 animate-spin" />
+              ) : (
+                <Printer className="h-4 w-4" />
+              )}
+              {descargandoComprobante
+                ? "Generando comprobante..."
+                : "Imprimir comprobante"}
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>

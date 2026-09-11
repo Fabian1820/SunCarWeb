@@ -638,6 +638,27 @@ export class WalletService {
     return pickData<WalletTransaction>(response);
   }
 
+  /**
+   * Descarga el comprobante PDF (membrete + firmas) de un gasto o de una
+   * transferencia. Ambos son `WalletTransaction` en el backend —una
+   * transferencia es una transacción con tipo "transferencia_salida" o
+   * "_entrada"— así que el mismo endpoint sirve para las dos listas.
+   */
+  static async descargarComprobante(transaccionId: string): Promise<Blob> {
+    const response = await apiRequest<Blob | ApiErrorResponse>(
+      `/wallet/transacciones/${transaccionId}/comprobante`,
+      { responseType: "blob" },
+    );
+
+    if (isApiErrorResponse(response)) {
+      throw new Error(
+        getApiErrorMessage(response, "No se pudo generar el comprobante"),
+      );
+    }
+
+    return response as Blob;
+  }
+
   private static parseTransactionsResponse(
     response:
       | WalletTransaction[]
