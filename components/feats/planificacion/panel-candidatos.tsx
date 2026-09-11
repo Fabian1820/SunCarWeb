@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/atom/input";
 import { Badge } from "@/components/shared/atom/badge";
@@ -61,6 +61,14 @@ export function PanelCandidatos({
   const [marcados, setMarcados] = useState<Set<string>>(new Set());
   const [asignadoA, setAsignadoA] = useState("");
   const [nota, setNota] = useState("");
+  /**
+   * Lo ya traído de cada tipo, para que volver a uno sea instantáneo.
+   *
+   * Estos listados salen de un estado del cliente y no cambian mientras dura
+   * la sesión de planificación; ir y venir entre visitas e instalaciones
+   * repetía la consulta cada vez.
+   */
+  const cache = useRef<Map<TipoTrabajo, CandidatoPlanificacion[]>>(new Map());
 
   // Actualización no sale de ningún estado, así que ahí no hay sugeridos.
   const sinSugeridos = tipo === "actualizacion";
@@ -74,10 +82,19 @@ export function PanelCandidatos({
 
   useEffect(() => {
     if (buscandoLibre) return;
+    const enCache = cache.current.get(tipo);
+    if (enCache) {
+      setCandidatos(enCache);
+      setCargando(false);
+      return;
+    }
     let cancelado = false;
     setCargando(true);
     PlanificacionService.candidatos(tipo)
-      .then((data) => !cancelado && setCandidatos(data))
+      .then((data) => {
+        cache.current.set(tipo, data);
+        if (!cancelado) setCandidatos(data);
+      })
       .finally(() => !cancelado && setCargando(false));
     return () => {
       cancelado = true;
