@@ -64,6 +64,7 @@ const PADRE_SIN_PAGINA: Record<string, DestinoVolver> = {
 const AREA_FUERA_DEL_CATALOGO: Record<string, ModuloGrupoKey> = {
   "/permisos": "area-direccion",
   "/wallet-manager": "area-direccion",
+  "/auditoria": "area-direccion",
 }
 
 const TITULO_GRUPO = new Map<string, string>(

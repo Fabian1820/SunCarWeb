@@ -25,6 +25,7 @@ import {
   Users,
   Megaphone,
   Cake,
+  ScrollText,
 } from "lucide-react";
 import {
   MODULOS_CATALOGO,
@@ -324,7 +325,7 @@ export default function Dashboard() {
     ).map((m) => m.dashboardId ?? m.key);
     const ids =
       grupo.key === "area-direccion"
-        ? [...delCatalogo, "wallet-manager", "permisos"]
+        ? [...delCatalogo, "wallet-manager", "permisos", "auditoria"]
         : delCatalogo;
     return {
       id: grupo.key,
@@ -342,6 +343,17 @@ export default function Dashboard() {
           icon: Shield,
           title: "Gestión de Permisos",
           description: "Administrar módulos y permisos de trabajadores.",
+          iconClass: "text-red-600",
+        },
+        {
+          // Fuera del catálogo a propósito: la bitácora registra lo que hace
+          // todo el mundo, así que no debe existir como permiso asignable.
+          // Solo superAdmin, igual que en el backend.
+          id: "auditoria",
+          href: "/auditoria",
+          icon: ScrollText,
+          title: "Auditoría del Sistema",
+          description: "Quién hizo qué, cuándo y con qué datos.",
           iconClass: "text-red-600",
         },
       ]
