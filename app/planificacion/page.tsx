@@ -3,20 +3,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { Button } from "@/components/shared/atom/button";
-import { Badge } from "@/components/shared/atom/badge";
 import { Input } from "@/components/shared/atom/input";
-import { Loader2, Plus, Save, Trash2, Users, User } from "lucide-react";
+import { Loader2, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { PlanificacionService } from "@/lib/services/feats/planificacion/planificacion-service";
 import { BrigadaService } from "@/lib/services/feats/brigade/brigada-service";
 import {
-  AgregarTrabajosDialog,
+  PanelCandidatos,
   type OpcionAsignable,
-} from "@/components/feats/planificacion/agregar-trabajos-dialog";
-import {
-  ETIQUETA_TIPO,
-  type TrabajoPlanificado,
-} from "@/lib/types/feats/planificacion/planificacion-types";
+} from "@/components/feats/planificacion/panel-candidatos";
+import { PanelPlan } from "@/components/feats/planificacion/panel-plan";
+import type { TrabajoPlanificado } from "@/lib/types/feats/planificacion/planificacion-types";
 
 /** Mañana: es el día que se planifica cuando uno se sienta a hacerlo. */
 function manana(): string {
@@ -34,9 +31,9 @@ export default function PlanificacionPage() {
   const { toast } = useToast();
   const [fecha, setFecha] = useState(manana);
   const [trabajos, setTrabajos] = useState<TrabajoPlanificado[]>([]);
+  const [guardado, setGuardado] = useState<TrabajoPlanificado[]>([]);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
-  const [abierto, setAbierto] = useState(false);
   const [brigadas, setBrigadas] = useState<OpcionAsignable[]>([]);
   const [trabajadores, setTrabajadores] = useState<OpcionAsignable[]>([]);
 
@@ -45,6 +42,7 @@ export default function PlanificacionPage() {
     try {
       const plan = await PlanificacionService.obtener(fecha);
       setTrabajos(plan.trabajos || []);
+      setGuardado(plan.trabajos || []);
     } catch {
       toast({
         title: "No se pudo cargar el plan",
@@ -60,7 +58,7 @@ export default function PlanificacionPage() {
     void cargarPlan();
   }, [cargarPlan]);
 
-  // Las brigadas y sus integrantes: de ahí salen las dos listas de asignables.
+  // Brigadas e integrantes: de ahí salen las dos listas de asignables.
   useEffect(() => {
     BrigadaService.getAllBrigadas()
       .then((datos: any[]) => {
@@ -68,8 +66,11 @@ export default function PlanificacionPage() {
         const ts = new Map<string, OpcionAsignable>();
         for (const b of datos || []) {
           const lider = b.lider || {};
-          const nombreLider = lider.nombre || lider.CI || "sin líder";
-          bs.push({ tipo: "brigada", id: String(b.id ?? b._id ?? ""), nombre: nombreLider });
+          bs.push({
+            tipo: "brigada",
+            id: String(b.id ?? b._id ?? ""),
+            nombre: lider.nombre || lider.CI || "sin líder",
+          });
           for (const persona of [lider, ...(b.integrantes || [])]) {
             const ci = String(persona?.CI ?? "");
             if (ci) ts.set(ci, { tipo: "trabajador", id: ci, nombre: persona?.nombre || ci });
@@ -78,50 +79,44 @@ export default function PlanificacionPage() {
         setBrigadas(bs);
         setTrabajadores([...ts.values()].sort((a, b) => a.nombre.localeCompare(b.nombre)));
       })
-      .catch(() => {
+      .catch(() =>
         toast({
           title: "No se pudieron cargar las brigadas",
           description: "Sin ellas no se puede asignar ningún trabajo.",
           variant: "destructive",
-        });
-      });
+        }),
+      );
   }, [toast]);
-
-  // Agrupado por quien lo hace: es como se lee un plan, "mañana la brigada de
-  // Daniel hace estas cuatro cosas".
-  const grupos = useMemo(() => {
-    const mapa = new Map<string, { nombre: string; tipo: string; trabajos: TrabajoPlanificado[] }>();
-    for (const t of trabajos) {
-      const clave = `${t.asignado.tipo}:${t.asignado.id}`;
-      if (!mapa.has(clave)) {
-        mapa.set(clave, { nombre: t.asignado.nombre, tipo: t.asignado.tipo, trabajos: [] });
-      }
-      mapa.get(clave)!.trabajos.push(t);
-    }
-    return [...mapa.values()].sort((a, b) => a.nombre.localeCompare(b.nombre));
-  }, [trabajos]);
 
   const yaPlanificados = useMemo(
     () => new Set(trabajos.map(claveTrabajo)),
     [trabajos],
   );
 
-  function quitar(indice: number) {
-    setTrabajos((previos) => previos.filter((_, i) => i !== indice));
-  }
+  const haycambios = useMemo(
+    () => JSON.stringify(trabajos) !== JSON.stringify(guardado),
+    [trabajos, guardado],
+  );
 
-  function cambiarNota(objetivo: TrabajoPlanificado, nota: string) {
-    setTrabajos((previos) =>
-      previos.map((t) => (t === objetivo ? { ...t, nota } : t)),
-    );
-  }
+  // Avisa antes de cerrar con cambios sin guardar: una sesión de planificación
+  // son veinte minutos de trabajo que no se pueden perder por una pestaña.
+  useEffect(() => {
+    if (!haycambios) return;
+    const alSalir = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", alSalir);
+    return () => window.removeEventListener("beforeunload", alSalir);
+  }, [haycambios]);
 
   async function guardar() {
     setGuardando(true);
     try {
       const plan = await PlanificacionService.guardar(fecha, trabajos);
       setTrabajos(plan.trabajos || []);
-      toast({ title: "Plan guardado", description: `${plan.trabajos?.length ?? 0} trabajos para el ${fecha}.` });
+      setGuardado(plan.trabajos || []);
+      toast({
+        title: "Plan guardado",
+        description: `${plan.trabajos?.length ?? 0} trabajos para el ${fecha}.`,
+      });
     } catch (e) {
       toast({
         title: "No se pudo guardar",
@@ -139,106 +134,63 @@ export default function PlanificacionPage() {
         title="Planificación"
         subtitle="Qué hace cada brigada cada día"
         actions={
-          <Button onClick={guardar} disabled={guardando || cargando}>
-            {guardando ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-            Guardar plan
-          </Button>
-        }
-      />
-
-      <main className="content-with-fixed-header mx-auto max-w-5xl space-y-6 px-4 pb-10">
-        <div className="flex flex-wrap items-end justify-between gap-4 rounded-lg border bg-white p-4">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-700">Día que se planifica</label>
+          <div className="flex items-center gap-3">
             <Input
               type="date"
               value={fecha}
               onChange={(e) => setFecha(e.target.value)}
-              className="w-48"
+              className="w-40"
+              aria-label="Día que se planifica"
             />
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-500">
-              {trabajos.length === 0
-                ? "Sin trabajos todavía"
-                : `${trabajos.length} trabajo${trabajos.length === 1 ? "" : "s"}`}
-            </span>
-            <Button variant="outline" onClick={() => setAbierto(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Añadir trabajos
+            <Button onClick={guardar} disabled={guardando || cargando || !haycambios}>
+              {guardando ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
+              {haycambios ? "Guardar plan" : "Guardado"}
             </Button>
           </div>
-        </div>
+        }
+      />
 
+      <main className="content-with-fixed-header mx-auto max-w-[1800px] px-4 pb-10 sm:px-6 lg:px-8">
         {cargando ? (
-          <div className="flex items-center justify-center gap-2 py-16 text-sm text-gray-500">
+          <div className="flex items-center justify-center gap-2 py-24 text-sm text-gray-500">
             <Loader2 className="h-4 w-4 animate-spin" />
             Cargando el plan…
           </div>
-        ) : grupos.length === 0 ? (
-          <div className="rounded-lg border bg-white py-16 text-center">
-            <p className="font-medium text-gray-900">Este día no tiene nada planificado</p>
-            <p className="mt-1 text-sm text-gray-500">
-              Añade trabajos y asígnalos a una brigada o a un trabajador.
-            </p>
-          </div>
         ) : (
-          grupos.map((grupo) => (
-            <section key={`${grupo.tipo}:${grupo.nombre}`} className="overflow-hidden rounded-lg border bg-white">
-              <header className="flex items-center gap-2 border-b bg-gray-50 px-4 py-3">
-                {grupo.tipo === "brigada" ? (
-                  <Users className="h-4 w-4 text-gray-500" />
-                ) : (
-                  <User className="h-4 w-4 text-gray-500" />
-                )}
-                <h2 className="font-semibold text-gray-900">{grupo.nombre}</h2>
-                <Badge variant="secondary">{grupo.trabajos.length}</Badge>
-              </header>
-              <ul className="divide-y">
-                {grupo.trabajos.map((t) => (
-                  <li key={`${claveTrabajo(t)}-${t.id}`} className="flex flex-wrap items-center gap-3 px-4 py-3">
-                    <Badge variant="outline" className="shrink-0">
-                      {ETIQUETA_TIPO[t.tipo]}
-                    </Badge>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium text-gray-900">{t.nombre || "Sin nombre"}</p>
-                      <p className="truncate text-xs text-gray-500">{t.direccion || "Sin dirección"}</p>
-                    </div>
-                    {t.estado !== "planificado" && (
-                      <Badge variant={t.estado === "cumplido" ? "default" : "destructive"}>
-                        {t.estado === "cumplido" ? "Cumplido" : "No realizado"}
-                      </Badge>
-                    )}
-                    <Input
-                      value={t.nota ?? ""}
-                      onChange={(e) => cambiarNota(t, e.target.value)}
-                      placeholder="Nota"
-                      className="h-8 w-full sm:w-56"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => quitar(trabajos.indexOf(t))}
-                      aria-label="Quitar del plan"
-                    >
-                      <Trash2 className="h-4 w-4 text-red-600" />
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))
+          // Dos lados a la vez: lo disponible y lo asignado. Planificar es
+          // mirar los dos, no abrir una ventana cada vez.
+          <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+            <PanelCandidatos
+              brigadas={brigadas}
+              trabajadores={trabajadores}
+              yaPlanificados={yaPlanificados}
+              onAgregar={(nuevos) => setTrabajos((previos) => [...previos, ...nuevos])}
+            />
+
+            <div className="lg:sticky lg:top-[calc(var(--content-with-fixed-header-padding,144px))]">
+              <div className="mb-3 flex items-baseline justify-between">
+                <h2 className="text-lg font-semibold text-gray-900">Plan del día</h2>
+                <span className="text-sm text-gray-500">
+                  {trabajos.length === 0
+                    ? "sin trabajos"
+                    : `${trabajos.length} trabajo${trabajos.length === 1 ? "" : "s"}`}
+                </span>
+              </div>
+              <PanelPlan
+                trabajos={trabajos}
+                onQuitar={(t) => setTrabajos((previos) => previos.filter((x) => x !== t))}
+                onCambiarNota={(t, nota) =>
+                  setTrabajos((previos) => previos.map((x) => (x === t ? { ...x, nota } : x)))
+                }
+              />
+            </div>
+          </div>
         )}
       </main>
-
-      <AgregarTrabajosDialog
-        abierto={abierto}
-        onCerrar={() => setAbierto(false)}
-        brigadas={brigadas}
-        trabajadores={trabajadores}
-        yaPlanificados={yaPlanificados}
-        onAgregar={(nuevos) => setTrabajos((previos) => [...previos, ...nuevos])}
-      />
     </div>
   );
 }
