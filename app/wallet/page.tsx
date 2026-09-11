@@ -618,6 +618,23 @@ function TransactionDetailsDialog({
             </div>
           )}
 
+          {/* Persona que recibió el dinero (solo la llevan los gastos) */}
+          {transaction.persona_nombre && (
+            <div className="rounded-xl border border-slate-200 p-3">
+              <p className="text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-1">
+                Entregado a
+              </p>
+              <p className="text-sm font-semibold text-slate-800">
+                {transaction.persona_nombre}
+              </p>
+              {transaction.persona_ci && (
+                <p className="text-[11px] text-slate-400">
+                  CI: {transaction.persona_ci}
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Motivo completo */}
           <div className="rounded-xl border border-slate-200 p-3">
             <p className="text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-1">
@@ -734,6 +751,12 @@ function WalletPageContent() {
   const [tipo, setTipo] = useState<WalletTransactionType>("ingreso");
   const [montosPorMoneda, setMontosPorMoneda] = useState<Record<string, string>>({});
   const [motivo, setMotivo] = useState("");
+  // Persona a la que se le entrega el dinero en un gasto (opcional): o se
+  // elige un trabajador de la lista (personaCi) o se escribe a mano
+  // (personaNombreManual), nunca las dos cosas a la vez.
+  const [personaCi, setPersonaCi] = useState("");
+  const [personaNombreManual, setPersonaNombreManual] = useState("");
+  const [personaSearch, setPersonaSearch] = useState("");
   const [filtroTipo, setFiltroTipo] = useState<"todos" | WalletTransactionType>("todos");
   const [historyView, setHistoryView] = useState<"propias" | "todos">("todos");
   const [txPage, setTxPage] = useState(0);
@@ -870,6 +893,35 @@ function WalletPageContent() {
     return targets;
   }, [trabajadores, walletsLookup, wallets, wallet?.user_ci, wallet?.id]);
 
+  // Trabajadores elegibles como "persona" de un gasto. A diferencia de los
+  // destinos de transferencia, aquí sí entra uno mismo: un gasto puede
+  // entregarse a cualquiera, incluido quien lo registra.
+  const personaOpciones = useMemo(() => {
+    const q = personaSearch.trim().toLowerCase();
+    const base = trabajadores.filter((t) => t.CI && t.nombre);
+    const filtrados = q
+      ? base.filter(
+          (t) =>
+            t.nombre.toLowerCase().includes(q) ||
+            String(t.CI).toLowerCase().includes(q),
+        )
+      : base;
+    return [...filtrados]
+      .sort((a, b) => a.nombre.localeCompare(b.nombre))
+      .slice(0, 50);
+  }, [trabajadores, personaSearch]);
+
+  const personaSeleccionada = useMemo(
+    () => trabajadores.find((t) => t.CI === personaCi) ?? null,
+    [trabajadores, personaCi],
+  );
+
+  const limpiarPersona = () => {
+    setPersonaCi("");
+    setPersonaNombreManual("");
+    setPersonaSearch("");
+  };
+
   const filteredTransferTargets = useMemo(() => {
     const q = transferTargetSearch.trim().toLowerCase();
     if (!q) return transferTargets.slice(0, 50);
@@ -989,16 +1041,36 @@ function WalletPageContent() {
       return;
     }
 
+    // La persona solo tiene sentido en un gasto. Si se eligió de la lista va
+    // el CI (el servidor resuelve el nombre real); si se escribió a mano, el
+    // texto tal cual.
+    const personaManualLimpia = personaNombreManual.trim();
+    const datosPersona =
+      tipo === "gasto"
+        ? personaCi
+          ? { persona_ci: personaCi }
+          : personaManualLimpia
+            ? { persona_nombre: personaManualLimpia }
+            : {}
+        : {};
+
     try {
       // Crear una transacción por cada moneda con monto
       for (const entry of entries) {
         await createTransaction(
-          { tipo, currency_id: entry.currency_id, monto: entry.amount, motivo: trimmedReason },
+          {
+            tipo,
+            currency_id: entry.currency_id,
+            monto: entry.amount,
+            motivo: trimmedReason,
+            ...datosPersona,
+          },
           currentFilters,
         );
       }
       setMontosPorMoneda({});
       setMotivo("");
+      limpiarPersona();
       const resumen = entries
         .map((e) => formatMoney(e.amount, e.code))
         .join(", ");
@@ -1320,10 +1392,12 @@ function WalletPageContent() {
       setActiveAction(null);
       setMontosPorMoneda({});
       setMotivo("");
+      limpiarPersona();
     } else {
       setActiveAction(action);
       setMontosPorMoneda({});
       setMotivo("");
+      limpiarPersona();
       if (action === "ingreso") setTipo("ingreso");
       if (action === "gasto") setTipo("gasto");
     }
@@ -1527,7 +1601,13 @@ function WalletPageContent() {
                 <CardTitle className={`text-sm font-semibold ${activeAction === "ingreso" ? "text-emerald-800" : "text-rose-800"}`}>
                   {activeAction === "ingreso" ? "Registrar Ingreso" : "Registrar Gasto"}
                 </CardTitle>
-                <button onClick={() => setActiveAction(null)} className="text-slate-400 hover:text-slate-600">
+                <button
+                  onClick={() => {
+                    setActiveAction(null);
+                    limpiarPersona();
+                  }}
+                  className="text-slate-400 hover:text-slate-600"
+                >
                   <X className="h-4 w-4" />
                 </button>
               </div>
@@ -1581,6 +1661,117 @@ function WalletPageContent() {
                   className="text-sm min-h-[80px] resize-none"
                 />
               </div>
+
+              {/* Persona a la que se le entrega el dinero. Solo en gastos y
+                  siempre opcional: se elige un trabajador o se escribe a mano
+                  si no está en la lista. */}
+              {activeAction === "gasto" && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-medium text-slate-600">
+                      Persona que recibe
+                    </Label>
+                    <span className="text-[10px] text-slate-400">Opcional</span>
+                  </div>
+
+                  {personaSeleccionada ? (
+                    <div className="flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50/60 px-3 py-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-800 truncate">
+                          {personaSeleccionada.nombre}
+                        </p>
+                        <p className="text-[11px] text-slate-400">
+                          CI: {personaSeleccionada.CI}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={limpiarPersona}
+                        className="text-slate-400 hover:text-slate-700 shrink-0"
+                        aria-label="Quitar persona"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : personaNombreManual ? (
+                    <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-800 truncate">
+                          {personaNombreManual}
+                        </p>
+                        <p className="text-[11px] text-slate-400">
+                          Escrito a mano (no es trabajador)
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={limpiarPersona}
+                        className="text-slate-400 hover:text-slate-700 shrink-0"
+                        aria-label="Quitar persona"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input
+                          value={personaSearch}
+                          onChange={(e) => setPersonaSearch(e.target.value)}
+                          placeholder="Buscar trabajador por nombre o CI..."
+                          className="h-9 pl-9 text-sm"
+                          autoComplete="off"
+                        />
+                      </div>
+                      {personaSearch.trim() && (
+                        <div className="max-h-40 overflow-y-auto rounded-lg border border-slate-100 divide-y divide-slate-50">
+                          {personaOpciones.map((t) => (
+                            <button
+                              key={t.CI}
+                              type="button"
+                              onClick={() => {
+                                setPersonaCi(t.CI);
+                                setPersonaNombreManual("");
+                                setPersonaSearch("");
+                              }}
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-rose-50 transition-colors"
+                            >
+                              <p className="font-medium text-slate-800 truncate">
+                                {t.nombre}
+                              </p>
+                              <p className="text-[11px] text-slate-400">CI: {t.CI}</p>
+                            </button>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPersonaNombreManual(personaSearch.trim());
+                              setPersonaCi("");
+                              setPersonaSearch("");
+                            }}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 transition-colors"
+                          >
+                            <p className="text-slate-700">
+                              Usar{" "}
+                              <span className="font-medium">
+                                &laquo;{personaSearch.trim()}&raquo;
+                              </span>{" "}
+                              como nombre escrito a mano
+                            </p>
+                            <p className="text-[11px] text-slate-400">
+                              {personaOpciones.length === 0
+                                ? "No hay trabajadores que coincidan"
+                                : "Para alguien que no está en la lista"}
+                            </p>
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
               <Button
                 onClick={handleCreateTransaction}
                 disabled={creatingTransaction}

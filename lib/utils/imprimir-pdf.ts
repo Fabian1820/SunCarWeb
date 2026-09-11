@@ -15,8 +15,10 @@ export function imprimirPdf(pdf: Blob): void {
   iframe.style.position = "fixed";
   iframe.style.left = "-10000px";
   iframe.style.top = "0";
-  iframe.style.width = "210mm";
-  iframe.style.height = "297mm";
+  // Tamaño carta, que es el papel con el que se imprime aquí y el formato en
+  // el que se generan los PDF (vale de salida, comprobantes de billetera).
+  iframe.style.width = "216mm";
+  iframe.style.height = "279mm";
   iframe.style.border = "0";
   iframe.src = url;
 

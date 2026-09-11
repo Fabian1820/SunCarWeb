@@ -59,6 +59,9 @@ export interface WalletTransaction {
   contraparte_wallet_id?: string | null;
   contraparte_user_ci?: string | null;
   contraparte_user_nombre?: string | null;
+  /** Persona a la que se le entregó el dinero. Solo la llevan los gastos. */
+  persona_ci?: string | null;
+  persona_nombre?: string | null;
 }
 
 export interface WalletTransactionCreateData {
@@ -67,6 +70,14 @@ export interface WalletTransactionCreateData {
   monto: number;
   motivo: string;
   referencia_externa?: string;
+  /**
+   * Persona a la que se le entrega el dinero (solo aplica a gastos, opcional).
+   * Si se elige un trabajador de la lista se manda su CI en `persona_ci` y el
+   * servidor resuelve el nombre real; si la persona no está en la lista, se
+   * manda el nombre escrito a mano en `persona_nombre`.
+   */
+  persona_ci?: string;
+  persona_nombre?: string;
 }
 
 export interface WalletTransactionsFilters {
