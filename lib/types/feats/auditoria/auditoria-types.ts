@@ -41,6 +41,7 @@ export interface AuditoriaFiltros {
   usuarioNombre?: string;
   recurso?: string;
   accion?: string;
+  metodo?: string;
   tipo?: string;
   entidadId?: string;
   soloFallidos?: boolean;
@@ -77,6 +78,18 @@ export const FILTROS_INICIALES: AuditoriaFiltros = {
   pagina: 1,
   porPagina: 50,
 };
+
+/** Tipos de evento del backend. Lista fija: no salen de los datos. */
+export const TIPOS_EVENTO: { valor: string; etiqueta: string }[] = [
+  { valor: "http", etiqueta: "Peticiones" },
+  { valor: "auth", etiqueta: "Sesiones" },
+  { valor: "sistema", etiqueta: "Del sistema" },
+];
+
+export const METODOS_HTTP = ["POST", "PUT", "PATCH", "DELETE", "GET"] as const;
+
+/** Cuántos eventos por página puede pedir la pantalla. El backend admite 500. */
+export const TAMANOS_PAGINA = [25, 50, 100, 200] as const;
 
 export const ETIQUETA_ACCION: Record<string, string> = {
   crear: "Creó",

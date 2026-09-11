@@ -58,6 +58,22 @@ export function useAuditoria(habilitado: boolean) {
 
   const limpiarFiltros = useCallback(() => setFiltrosState(FILTROS_INICIALES), []);
 
+  /**
+   * Deja la tabla con toda la historia de una entidad y nada más.
+   *
+   * Sustituye los filtros en vez de añadirse a ellos: si se llega aquí desde un
+   * evento filtrado por método PUT, mantener ese filtro escondería justo el
+   * alta y la baja, que es la mitad de la historia. Se conserva el tamaño de
+   * página, que es preferencia de quien mira, no un filtro.
+   */
+  const verSoloEntidad = useCallback((entidadId: string) => {
+    setFiltrosState((previo) => ({
+      ...FILTROS_INICIALES,
+      porPagina: previo.porPagina,
+      entidadId,
+    }));
+  }, []);
+
   const irAPagina = useCallback((pagina: number) => {
     setFiltrosState((previo) => ({ ...previo, pagina }));
   }, []);
@@ -89,6 +105,7 @@ export function useAuditoria(habilitado: boolean) {
     error,
     setFiltros,
     limpiarFiltros,
+    verSoloEntidad,
     irAPagina,
     recargar: cargar,
   };

@@ -71,11 +71,20 @@ function AuditoriaContenido() {
     error,
     setFiltros,
     limpiarFiltros,
+    verSoloEntidad,
     irAPagina,
     recargar,
   } = useAuditoria(true);
 
   const [seleccionado, setSeleccionado] = useState<AuditoriaEvento | null>(null);
+
+  const primeroVisible = (filtros.pagina - 1) * filtros.porPagina + 1;
+  const ultimoVisible = Math.min(filtros.pagina * filtros.porPagina, total);
+
+  const verHistorialEntidad = (entidadId: string) => {
+    setSeleccionado(null);
+    verSoloEntidad(entidadId);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
@@ -134,12 +143,21 @@ function AuditoriaContenido() {
               onVerDetalle={setSeleccionado}
             />
 
-            {totalPaginas > 1 && (
-              <SmartPagination
-                currentPage={filtros.pagina}
-                totalPages={totalPaginas}
-                onPageChange={irAPagina}
-              />
+            {eventos.length > 0 && (
+              <div className="flex flex-col items-center gap-3">
+                <p className="text-xs text-gray-500">
+                  Mostrando {primeroVisible.toLocaleString("es-ES")} a{" "}
+                  {ultimoVisible.toLocaleString("es-ES")} de{" "}
+                  {total.toLocaleString("es-ES")}
+                </p>
+                {totalPaginas > 1 && (
+                  <SmartPagination
+                    currentPage={filtros.pagina}
+                    totalPages={totalPaginas}
+                    onPageChange={irAPagina}
+                  />
+                )}
+              </div>
             )}
           </CardContent>
         </Card>
@@ -149,6 +167,7 @@ function AuditoriaContenido() {
         evento={seleccionado}
         abierto={Boolean(seleccionado)}
         onCerrar={() => setSeleccionado(null)}
+        onVerHistorial={verHistorialEntidad}
       />
     </div>
   );

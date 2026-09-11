@@ -29,6 +29,7 @@ export const AuditoriaService = {
     if (filtros.usuarioNombre) params.set("usuario_nombre", filtros.usuarioNombre);
     if (filtros.recurso) params.set("recurso", filtros.recurso);
     if (filtros.accion) params.set("accion", filtros.accion);
+    if (filtros.metodo) params.set("metodo", filtros.metodo);
     if (filtros.tipo) params.set("tipo", filtros.tipo);
     if (filtros.entidadId) params.set("entidad_id", filtros.entidadId);
     if (filtros.soloFallidos) params.set("solo_fallidos", "true");

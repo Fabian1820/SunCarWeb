@@ -7,6 +7,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/shared/molecule/dialog";
+import { Button } from "@/components/shared/atom/button";
+import { History } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AuditoriaEvento } from "@/lib/types/feats/auditoria/auditoria-types";
 import {
@@ -19,6 +21,8 @@ interface Props {
   evento: AuditoriaEvento | null;
   abierto: boolean;
   onCerrar: () => void;
+  /** Filtra la tabla por la entidad de este evento (toda su historia). */
+  onVerHistorial?: (entidadId: string) => void;
 }
 
 function Dato({ etiqueta, valor }: { etiqueta: string; valor?: string | number | null }) {
@@ -51,7 +55,12 @@ function Bloque({ titulo, contenido }: { titulo: string; contenido: unknown }) {
  * bloque "Datos enviados" es el cuerpo tal cual llegó al backend, sin
  * contraseñas ni fotos.
  */
-export function AuditoriaDetalleDialog({ evento, abierto, onCerrar }: Props) {
+export function AuditoriaDetalleDialog({
+  evento,
+  abierto,
+  onCerrar,
+  onVerHistorial,
+}: Props) {
   if (!evento) return null;
 
   return (
@@ -86,6 +95,19 @@ export function AuditoriaDetalleDialog({ evento, abierto, onCerrar }: Props) {
           <Dato etiqueta="IP" valor={evento.ip} />
           <Dato etiqueta="Referencia" valor={evento.request_id} />
         </div>
+
+        {evento.entidad_id && onVerHistorial && (
+          <div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onVerHistorial(evento.entidad_id as string)}
+            >
+              <History className="mr-2 h-4 w-4" />
+              Ver todo lo que se le hizo a {evento.entidad_id}
+            </Button>
+          </div>
+        )}
 
         {evento.error && (
           <div className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">

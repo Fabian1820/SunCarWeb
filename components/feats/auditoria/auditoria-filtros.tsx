@@ -15,7 +15,12 @@ import type {
   AuditoriaFacetas,
   AuditoriaFiltros,
 } from "@/lib/types/feats/auditoria/auditoria-types";
-import { etiquetaAccion } from "@/lib/types/feats/auditoria/auditoria-types";
+import {
+  METODOS_HTTP,
+  TAMANOS_PAGINA,
+  TIPOS_EVENTO,
+  etiquetaAccion,
+} from "@/lib/types/feats/auditoria/auditoria-types";
 
 const TODOS = "__todos__";
 
@@ -51,6 +56,9 @@ export function AuditoriaFiltrosBar({ filtros, facetas, onCambiar, onLimpiar }: 
     filtros.texto ||
       filtros.recurso ||
       filtros.accion ||
+      filtros.metodo ||
+      filtros.tipo ||
+      filtros.entidadId ||
       filtros.usuarioNombre ||
       filtros.desde ||
       filtros.hasta ||
@@ -152,6 +160,65 @@ export function AuditoriaFiltrosBar({ filtros, facetas, onCambiar, onLimpiar }: 
         />
       </div>
 
+      <div>
+        <Label className="text-xs text-gray-500">Tipo</Label>
+        <Select
+          value={filtros.tipo ?? TODOS}
+          onValueChange={(v) => onCambiar({ tipo: v === TODOS ? undefined : v })}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Todos" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={TODOS}>Todos</SelectItem>
+            {TIPOS_EVENTO.map((tipo) => (
+              <SelectItem key={tipo.valor} value={tipo.valor}>
+                {tipo.etiqueta}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div>
+        <Label className="text-xs text-gray-500">Método</Label>
+        <Select
+          value={filtros.metodo ?? TODOS}
+          onValueChange={(v) => onCambiar({ metodo: v === TODOS ? undefined : v })}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Todos" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={TODOS}>Todos</SelectItem>
+            {METODOS_HTTP.map((metodo) => (
+              <SelectItem key={metodo} value={metodo}>
+                {metodo}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div>
+        <Label className="text-xs text-gray-500">Por página</Label>
+        <Select
+          value={String(filtros.porPagina)}
+          onValueChange={(v) => onCambiar({ porPagina: Number(v) })}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {TAMANOS_PAGINA.map((tamano) => (
+              <SelectItem key={tamano} value={String(tamano)}>
+                {tamano}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-2">
         <Button
           type="button"
@@ -160,6 +227,17 @@ export function AuditoriaFiltrosBar({ filtros, facetas, onCambiar, onLimpiar }: 
         >
           Solo fallidas
         </Button>
+        {filtros.entidadId && (
+          <button
+            type="button"
+            onClick={() => onCambiar({ entidadId: undefined })}
+            className="flex items-center gap-1 rounded-full bg-indigo-100 px-3 py-2 text-xs font-medium text-indigo-700 hover:bg-indigo-200"
+            title="Quitar el filtro por entidad"
+          >
+            Entidad {filtros.entidadId}
+            <X className="h-3 w-3" />
+          </button>
+        )}
         {hayFiltros && (
           <Button type="button" variant="ghost" onClick={onLimpiar}>
             <X className="mr-1 h-4 w-4" />
