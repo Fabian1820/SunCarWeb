@@ -167,12 +167,24 @@ export function PanelCandidatos({
     });
   }
 
-  function marcarTodos() {
-    setMarcados(
-      marcados.size === disponibles.length
-        ? new Set()
-        : new Set(disponibles.map(claveDe)),
-    );
+  const clavesVisibles = useMemo(() => disponibles.map(claveDe), [disponibles]);
+  const todosVisiblesMarcados =
+    clavesVisibles.length > 0 && clavesVisibles.every((k) => marcados.has(k));
+
+  /**
+   * Marca o desmarca solo lo que se ve, sin tocar lo marcado fuera del filtro.
+   *
+   * Antes comparaba cantidades: con 120 marcados y el filtro dejando 2 a la
+   * vista, el boton decia "marcar todos" y al tocarlo cambiaba los 120 por
+   * esos 2. Se perdia la seleccion sin avisar.
+   */
+  function alternarVisibles() {
+    setMarcados((previos) => {
+      const copia = new Set(previos);
+      if (todosVisiblesMarcados) clavesVisibles.forEach((k) => copia.delete(k));
+      else clavesVisibles.forEach((k) => copia.add(k));
+      return copia;
+    });
   }
 
   function asignar() {
@@ -268,14 +280,21 @@ export function PanelCandidatos({
           {cargando
             ? "Buscando…"
             : `${disponibles.length} disponible${disponibles.length === 1 ? "" : "s"}`}
+          {!cargando && marcados.size > clavesVisibles.filter((k) => marcados.has(k)).length && (
+            <span className="ml-2 text-gray-500">
+              ({marcados.size} marcados en total, incluidos los que oculta el filtro)
+            </span>
+          )}
         </span>
         {disponibles.length > 0 && (
           <button
             type="button"
-            onClick={marcarTodos}
+            onClick={alternarVisibles}
             className="font-medium text-teal-700 hover:underline"
           >
-            {marcados.size === disponibles.length ? "Quitar selección" : "Marcar todos"}
+            {todosVisiblesMarcados
+              ? `Quitar los ${clavesVisibles.length} de la lista`
+              : `Marcar los ${clavesVisibles.length} de la lista`}
           </button>
         )}
       </div>

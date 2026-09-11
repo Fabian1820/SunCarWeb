@@ -4,7 +4,17 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/atom/input";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Save, RotateCcw, X } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/shared/atom/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { PlanificacionService } from "@/lib/services/feats/planificacion/planificacion-service";
 import { BrigadaService } from "@/lib/services/feats/brigade/brigada-service";
@@ -22,6 +32,10 @@ function manana(): string {
   return d.toISOString().slice(0, 10);
 }
 
+function claveBorrador(fecha: string): string {
+  return `planificacion:borrador:${fecha}`;
+}
+
 function claveTrabajo(t: TrabajoPlanificado): string {
   const entidad = t.lead_id ? `lead:${t.lead_id}` : `cliente:${t.cliente_numero}`;
   return `${t.tipo}|${entidad}`;
@@ -36,13 +50,34 @@ export default function PlanificacionPage() {
   const [guardando, setGuardando] = useState(false);
   const [brigadas, setBrigadas] = useState<OpcionAsignable[]>([]);
   const [trabajadores, setTrabajadores] = useState<OpcionAsignable[]>([]);
+  /** Fecha a la que se quiere ir teniendo cambios sin guardar. */
+  const [fechaPendiente, setFechaPendiente] = useState<string | null>(null);
+  /** Borrador encontrado al abrir, a la espera de que decidan. */
+  const [borrador, setBorrador] = useState<TrabajoPlanificado[] | null>(null);
 
   const cargarPlan = useCallback(async () => {
     setCargando(true);
     try {
       const plan = await PlanificacionService.obtener(fecha);
-      setTrabajos(plan.trabajos || []);
-      setGuardado(plan.trabajos || []);
+      const delServidor = plan.trabajos || [];
+      setTrabajos(delServidor);
+      setGuardado(delServidor);
+
+      // Si quedó un borrador de ese día y dice otra cosa, se ofrece: no se
+      // aplica solo, porque el del servidor puede ser el bueno.
+      try {
+        const crudo = localStorage.getItem(claveBorrador(fecha));
+        if (crudo) {
+          const guardadoLocal = JSON.parse(crudo) as TrabajoPlanificado[];
+          setBorrador(
+            JSON.stringify(guardadoLocal) === JSON.stringify(delServidor) ? null : guardadoLocal,
+          );
+        } else {
+          setBorrador(null);
+        }
+      } catch {
+        setBorrador(null);
+      }
     } catch {
       toast({
         title: "No se pudo cargar el plan",
@@ -98,14 +133,52 @@ export default function PlanificacionPage() {
     [trabajos, guardado],
   );
 
+  /**
+   * Borrador en el propio navegador.
+   *
+   * El aviso de "vas a salir" solo cubre cerrar o recargar la pestaña. Navegar
+   * dentro de la web, que es como se pierde de verdad el trabajo, no lo
+   * dispara. Guardando el borrador segun se edita se cubren los dos casos, y
+   * ademas quedarse sin bateria o sin conexion.
+   */
+  useEffect(() => {
+    if (cargando) return;
+    try {
+      if (haycambios) {
+        localStorage.setItem(claveBorrador(fecha), JSON.stringify(trabajos));
+      } else {
+        localStorage.removeItem(claveBorrador(fecha));
+      }
+    } catch {
+      // Sin almacenamiento (modo privado) se sigue: es una red de seguridad,
+      // no un requisito.
+    }
+  }, [trabajos, haycambios, fecha, cargando]);
+
   // Avisa antes de cerrar con cambios sin guardar: una sesión de planificación
   // son veinte minutos de trabajo que no se pueden perder por una pestaña.
   useEffect(() => {
     if (!haycambios) return;
-    const alSalir = (e: BeforeUnloadEvent) => e.preventDefault();
+    const alSalir = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      // Chrome respeta preventDefault; Safari y los navegadores viejos miran
+      // returnValue. Sin esta linea ahi no sale ningun aviso.
+      e.returnValue = "";
+    };
     window.addEventListener("beforeunload", alSalir);
     return () => window.removeEventListener("beforeunload", alSalir);
   }, [haycambios]);
+
+  /**
+   * Cambiar de dia recarga y sobrescribe lo que haya en pantalla. Si hay
+   * trabajo sin guardar hay que preguntar: veinte minutos de planificacion se
+   * perdian por tocar la fecha para echar un vistazo a otro dia.
+   */
+  function pedirCambioDeFecha(nueva: string) {
+    if (nueva === fecha) return;
+    if (haycambios) setFechaPendiente(nueva);
+    else setFecha(nueva);
+  }
 
   async function guardar() {
     setGuardando(true);
@@ -138,7 +211,7 @@ export default function PlanificacionPage() {
             <Input
               type="date"
               value={fecha}
-              onChange={(e) => setFecha(e.target.value)}
+              onChange={(e) => pedirCambioDeFecha(e.target.value)}
               className="w-40"
               aria-label="Día que se planifica"
             />
@@ -155,6 +228,41 @@ export default function PlanificacionPage() {
       />
 
       <main className="content-with-fixed-header mx-auto max-w-[1800px] px-4 pb-10 sm:px-6 lg:px-8">
+        {borrador && !cargando && (
+          <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+            <p className="min-w-0 flex-1 text-sm text-amber-900">
+              Quedó un borrador de este día sin guardar, con{" "}
+              <strong>{borrador.length}</strong> trabajo{borrador.length === 1 ? "" : "s"}.
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setTrabajos(borrador);
+                setBorrador(null);
+              }}
+            >
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Recuperarlo
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                try {
+                  localStorage.removeItem(claveBorrador(fecha));
+                } catch {
+                  /* sin almacenamiento no hay nada que borrar */
+                }
+                setBorrador(null);
+              }}
+            >
+              <X className="mr-2 h-4 w-4" />
+              Descartarlo
+            </Button>
+          </div>
+        )}
+
         {cargando ? (
           <div className="flex items-center justify-center gap-2 py-24 text-sm text-gray-500">
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -191,6 +299,45 @@ export default function PlanificacionPage() {
           </div>
         )}
       </main>
+
+      <AlertDialog
+        open={fechaPendiente !== null}
+        onOpenChange={(v) => !v && setFechaPendiente(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Tienes cambios sin guardar</AlertDialogTitle>
+            <AlertDialogDescription>
+              El plan del {fecha} tiene {trabajos.length} trabajo
+              {trabajos.length === 1 ? "" : "s"} que todavía no has guardado. Si cambias de
+              día ahora, se pierden.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-2">
+            <AlertDialogCancel>Quedarme aquí</AlertDialogCancel>
+            <Button
+              variant="outline"
+              onClick={() => {
+                const destino = fechaPendiente!;
+                setFechaPendiente(null);
+                setFecha(destino);
+              }}
+            >
+              Cambiar sin guardar
+            </Button>
+            <AlertDialogAction
+              onClick={async () => {
+                const destino = fechaPendiente!;
+                setFechaPendiente(null);
+                await guardar();
+                setFecha(destino);
+              }}
+            >
+              Guardar y cambiar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

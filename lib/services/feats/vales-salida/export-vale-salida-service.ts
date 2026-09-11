@@ -265,7 +265,13 @@ const imageToBase64 = async (url: string): Promise<string | null> => {
 };
 
 const loadLogoBase64 = async (): Promise<string | null> => {
-  const logoCandidates = ["/logo Suncar.png", "/logo.png"];
+  // El isotipo actual de la marca, el mismo que se ve al entrar en la app.
+  // "logo Suncar.png" y "logo.png" son los anteriores y quedan de reserva.
+  const logoCandidates = [
+    "/brand/suncar-v1-iso.png",
+    "/logo Suncar.png",
+    "/logo.png",
+  ];
   for (const logoUrl of logoCandidates) {
     const base64 = await imageToBase64(logoUrl);
     if (base64) return base64;
@@ -431,14 +437,6 @@ export class ExportValeSalidaService {
       header.recibidoPor || "-",
       columnWidth,
     );
-    leftY += 1;
-    leftY += drawField(
-      leftColumnX,
-      leftY,
-      "Autorizado:",
-      header.autorizadoPor || "-",
-      columnWidth,
-    );
 
     let rightY = columnsTopY;
     drawColumnTitle("Datos del cliente", rightColumnX, rightY);
@@ -557,12 +555,12 @@ export class ExportValeSalidaService {
       footerY += 15;
     }
 
+    // Dos firmas (despacha y recibe) repartidas a lo ancho de la hoja.
     const signatureLineY = footerY + 15;
-    const blockWidth = 55;
-    const gap = 6.5;
+    const gap = 20;
+    const blockWidth = (pageWidth - marginLeft - marginRight - gap) / 2;
     const firstX = marginLeft;
     const secondX = firstX + blockWidth + gap;
-    const thirdX = secondX + blockWidth + gap;
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
@@ -576,12 +574,6 @@ export class ExportValeSalidaService {
     doc.line(secondX, signatureLineY, secondX + blockWidth, signatureLineY);
     doc.setFont("helvetica", "normal");
     doc.text(header.recibidoPor, secondX, signatureLineY + 4);
-
-    doc.setFont("helvetica", "bold");
-    doc.text("Autorizado por:", thirdX, signatureLineY - 7);
-    doc.line(thirdX, signatureLineY, thirdX + blockWidth, signatureLineY);
-    doc.setFont("helvetica", "normal");
-    doc.text(header.autorizadoPor, thirdX, signatureLineY + 4);
 
     const fechaArchivo = new Date().toISOString().slice(0, 10);
     const filename = `Vale_Entrega_${sanitizeFilenamePart(header.codigoVale)}_${fechaArchivo}.pdf`;
