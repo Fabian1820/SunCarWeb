@@ -146,7 +146,7 @@ export default function PlanificacionPage() {
         }
       />
 
-      <main className="mx-auto max-w-5xl space-y-6 px-4 py-6">
+      <main className="content-with-fixed-header mx-auto max-w-5xl space-y-6 px-4 pb-10">
         <div className="flex flex-wrap items-end justify-between gap-4 rounded-lg border bg-white p-4">
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-gray-700">Día que se planifica</label>

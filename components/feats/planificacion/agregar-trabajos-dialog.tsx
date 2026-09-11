@@ -17,6 +17,7 @@ import { SearchableSelect } from "@/components/shared/molecule/searchable-select
 import { Loader2, Search } from "lucide-react";
 import { PlanificacionService } from "@/lib/services/feats/planificacion/planificacion-service";
 import { ClienteService } from "@/lib/services/feats/customer/cliente-service";
+import { LeadService } from "@/lib/services/feats/leads/lead-service";
 import {
   ETIQUETA_TIPO,
   TIPOS_QUE_ADMITEN_TRABAJADOR,
@@ -64,6 +65,9 @@ export function AgregarTrabajosDialog({
   onAgregar,
 }: Props) {
   const [tipo, setTipo] = useState<TipoTrabajo>("visita");
+  // El estado del cliente sugiere, no manda: se puede planificar una visita a
+  // quien no esté pendiente de visita, y eso pasa a menudo.
+  const [origen, setOrigen] = useState<"sugeridos" | "buscar">("sugeridos");
   const [candidatos, setCandidatos] = useState<CandidatoPlanificacion[]>([]);
   const [cargando, setCargando] = useState(false);
   const [busqueda, setBusqueda] = useState("");
@@ -71,14 +75,16 @@ export function AgregarTrabajosDialog({
   const [asignadoA, setAsignadoA] = useState("");
   const [nota, setNota] = useState("");
 
-  // "actualizacion" no sale de ningun estado del cliente, asi que no hay lista
-  // que traer: ahi se busca el cliente por nombre.
-  const seBuscaAMano = tipo === "actualizacion";
+  // Actualización no tiene estado del que salir, así que ahí no hay sugeridos:
+  // entra directamente en modo búsqueda.
+  const sinSugeridos = tipo === "actualizacion";
+  const seBuscaAMano = sinSugeridos || origen === "buscar";
 
   useEffect(() => {
     if (!abierto) return;
     setMarcados(new Set());
     setBusqueda("");
+    if (sinSugeridos) setOrigen("buscar");
     if (seBuscaAMano) {
       setCandidatos([]);
       return;
@@ -108,21 +114,34 @@ export function AgregarTrabajosDialog({
     let cancelado = false;
     setCargando(true);
     const id = setTimeout(() => {
-      ClienteService.getClientes({ nombre: texto, limit: 30 })
-        .then((res) => {
+      // Clientes y leads: un trabajo puede ser para cualquiera de los dos.
+      Promise.all([
+        ClienteService.getClientes({ nombre: texto, limit: 25 }).catch(() => ({ clients: [] })),
+        LeadService.getLeads({ nombre: texto, limit: 25 }).catch(() => ({ leads: [] })),
+      ])
+        .then(([resClientes, resLeads]: any[]) => {
           if (cancelado) return;
-          setCandidatos(
-            (res.clients || []).map((c: any) => ({
-              tipo_entidad: "cliente" as const,
-              lead_id: null,
-              cliente_numero: c.numero ?? "",
-              nombre: c.nombre ?? "",
-              telefono: c.telefono ?? "",
-              direccion: c.direccion ?? "",
-              municipio: c.municipio ?? "",
-              estado: c.estado ?? "",
-            })),
-          );
+          const clientes = (resClientes.clients || []).map((c: any) => ({
+            tipo_entidad: "cliente" as const,
+            lead_id: null,
+            cliente_numero: c.numero ?? "",
+            nombre: c.nombre ?? "",
+            telefono: c.telefono ?? "",
+            direccion: c.direccion ?? "",
+            municipio: c.municipio ?? "",
+            estado: c.estado ?? "",
+          }));
+          const leads = (resLeads.leads || []).map((l: any) => ({
+            tipo_entidad: "lead" as const,
+            lead_id: String(l.id ?? l._id ?? ""),
+            cliente_numero: null,
+            nombre: l.nombre ?? "",
+            telefono: l.telefono ?? "",
+            direccion: l.direccion ?? "",
+            municipio: l.municipio ?? "",
+            estado: l.estado ?? "",
+          }));
+          setCandidatos([...clientes, ...leads]);
         })
         .finally(() => {
           if (!cancelado) setCargando(false);
@@ -235,6 +254,27 @@ export function AgregarTrabajosDialog({
             ))}
           </div>
 
+          {!sinSugeridos && (
+            <div className="flex items-center gap-1 rounded-md border p-1 w-fit">
+              <Button
+                type="button"
+                size="sm"
+                variant={origen === "sugeridos" ? "secondary" : "ghost"}
+                onClick={() => setOrigen("sugeridos")}
+              >
+                Sugeridos por su estado
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={origen === "buscar" ? "secondary" : "ghost"}
+                onClick={() => setOrigen("buscar")}
+              >
+                Buscar cualquier cliente
+              </Button>
+            </div>
+          )}
+
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <Input
@@ -242,7 +282,7 @@ export function AgregarTrabajosDialog({
               onChange={(e) => setBusqueda(e.target.value)}
               placeholder={
                 seBuscaAMano
-                  ? "Escribe el nombre del cliente (mínimo 3 letras)"
+                  ? "Nombre del cliente o lead (mínimo 3 letras)"
                   : "Filtrar por nombre, dirección o municipio"
               }
               className="pl-9"
@@ -257,9 +297,11 @@ export function AgregarTrabajosDialog({
               </div>
             ) : visibles.length === 0 ? (
               <p className="p-8 text-center text-sm text-gray-500">
-                {seBuscaAMano
-                  ? "Busca el cliente por su nombre. Las actualizaciones no salen de ningún estado, así que no hay lista automática."
-                  : "No hay nadie en ese estado ahora mismo."}
+                {sinSugeridos
+                  ? "Las actualizaciones no salen de ningún estado: busca el cliente o el lead por su nombre."
+                  : seBuscaAMano
+                    ? "Escribe al menos tres letras del nombre. Aquí sale cualquier cliente o lead, esté en el estado que esté."
+                    : "No hay nadie en ese estado ahora mismo. Prueba a buscar cualquier cliente."}
               </p>
             ) : (
               visibles.map((c) => {
@@ -284,6 +326,11 @@ export function AgregarTrabajosDialog({
                         {c.tipo_entidad === "lead" && (
                           <Badge variant="secondary" className="text-[10px]">
                             Lead
+                          </Badge>
+                        )}
+                        {seBuscaAMano && c.estado && (
+                          <Badge variant="outline" className="text-[10px] font-normal">
+                            {c.estado}
                           </Badge>
                         )}
                         {yaEsta && (
