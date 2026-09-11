@@ -2,6 +2,108 @@
 
 ---
 
+## 📅 11 de Septiembre, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**17 commits reales** — Ruben0304 (4) y yany1509 (13). Día extremadamente activo. Áreas: módulo de auditoría completo (bitácora + filtros + pestaña de rendimiento), módulo de planificación diaria completo (pantalla nueva + múltiples fix encadenados + optimización de caché), wallet (comprobante imprimible + campo persona + PDF carta), nuevo módulo de alertas de wallet, permisos de planificación en app móvil, fix de margen en vales de salida, fix de guardado de ofertas con múltiples materiales del mismo tipo, y filtros/exportación en peticiones.
+
+---
+
+### Área 1: feat(auditoria) × 3 — bitácora completa del sistema para superAdmin (20:55 / 21:12 / 21:33)
+
+- **`feat(auditoria): pantalla de la bitácora del sistema, solo superAdmin`** (20:55) — Nueva pantalla en `/auditoria` (Ruben0304). Lee el log global del backend (`GET /api/auditoria/`): quién hizo qué, cuándo, desde dónde y con qué datos. Tabla con filas fallidas resaltadas, filtros por usuario/módulo/acción/rango de fechas/texto libre, detalle por evento con el cuerpo enviado. No usa `RouteGuard`: la página comprueba `is_superAdmin` directamente. No entra en `MODULOS_CATALOGO`. La tarjeta se añade a mano en `superAdminModules` de `app/page.tsx`. Paginación y filtrado son del servidor (la colección crece sin techo). Fechas en ISO con zona para no desfasar el rango en UTC.
+
+- **`feat(auditoria): completa los filtros del backend y el tamaño de página`** (21:12) — Añade los 4 filtros que faltaban de los 13 que acepta el endpoint: tipo de evento (peticiones vs inicios de sesión), método HTTP, entidad (activable desde el detalle de un evento, con botón que abre la historia completa de esa factura/contacto y etiqueta para quitarlo), y tamaño de página configurable (25–200 en vez de 50 fijo). El filtro de entidad **sustituye** todos los demás al activarse (para no ocultar el alta y la baja de la historia). Línea "mostrando X a Y de Z" junto a la paginación.
+
+- **`feat(auditoria): pestaña de rendimiento y columna de tiempo`** (21:33) — Columna de tiempo en la tabla principal con color según duración (verde/ámbar/rojo). Filtro de duración mínima y orden "más lentas primero". Nueva pestaña **Rendimiento** con resumen por módulo o por endpoint: peticiones totales, media, peor caso, cuántas pasaron el umbral y dónde se atasca. Pulsar una fila lleva a la pestaña de actividad filtrada por ese módulo, ordenada por duración y sin nada por debajo del umbral.
+
+---
+
+### Área 2: feat/fix/perf(planificacion) × 7 — módulo de planificación diaria (19:01–20:24)
+
+- **`feat(planificacion): pantalla para planificar el día`** (19:01, yany1509) — Módulo nuevo en Operaciones. Fecha por defecto mañana. Plan agrupado por brigada/trabajador. Diálogo para añadir con 5 tipos (visita, instalación, avería, actualización, otro). Al elegir tipo se cargan candidatos por estado del cliente, con buscador y checkboxes. Asignación en lote. Lo ya en el plan sale atenuado/bloqueado. Al elegir instalación desaparecen los trabajadores sueltos de la lista de asignables.
+
+- **`fix(planificacion): la cabecera tapaba el contenido, y el estado deja de mandar`** (19:13, yany1509) — Fix de clase `content-with-fixed-header` faltante (el selector de fecha salía cortado). El estado del cliente ahora **sugiere** candidatos pero no los fuerza: se puede planificar a cualquier cliente/lead en cualquier estado. Búsqueda libre muestra el estado real de cada uno. "Actualización" entra directo en modo búsqueda.
+
+- **`feat(planificacion): dos paneles a lo ancho, fuera el diálogo`** (19:21, yany1509) — Rediseño a dos columnas: candidatos a la izquierda (tipos + filtros + barra de asignar pegada abajo), plan a la derecha (fijo al hacer scroll). Botón "Marcar todos". Fecha y botón guardar suben a la cabecera. Guardar desactivado sin cambios. Aviso antes de cerrar la pestaña si hay cambios.
+
+- **`fix(planificacion): tres formas de perder el trabajo hecho`** (19:50, yany1509) — (1) Cambiar de día con cambios sin guardar ahora pregunta: guardar y cambiar / cambiar perdiéndolos / quedarse. (2) `beforeunload` con `returnValue` para Safari (antes solo `preventDefault`, invisible en Safari). Borrador guardado en `localStorage` según se edita; se ofrece al volver sin aplicarlo automáticamente. (3) "Marcar todos" ahora opera solo sobre lo visible, muestra su contador, y avisa cuando hay marcados que el filtro oculta.
+
+- **`fix(planificacion): quien primero, y el botón donde se decide`** (20:18, yany1509) — Reordena el panel: brigada primero, tipo y candidatos después. Barra de acción pegada encima de la lista (solo visible cuando hay marcados), con contador, "marcar los N" y nota. Si hay marcados pero falta elegir brigada, lo indica.
+
+- **`feat(planificacion): mostrar qué está roto en las averías`** (20:04, yany1509) — Muestra el componente dañado en las tarjetas de averías del plan.
+
+- **`perf(planificacion): no repetir la consulta al volver a un tipo`** (20:24, yany1509) — Los listados de candidatos por tipo se cachean en memoria durante la sesión de planificación. Ir y volver entre visitas e instalaciones ya no repite la misma consulta.
+
+---
+
+### Área 3: feat(wallet) × 2 — comprobante imprimible y campo persona en gasto (18:39 / 19:42)
+
+- **`feat(wallet): botón para exportar e imprimir comprobante de gastos/transferencias`** (18:39, yany1509) — `WalletService.descargarComprobante(id)`: llama a `GET /wallet/transacciones/{id}/comprobante` como blob. Botón "Imprimir comprobante" en el detalle de cada transacción (gasto o transferencia): descarga el PDF y dispara el diálogo de impresión vía iframe oculto.
+
+- **`feat(wallet): campo persona al registrar un gasto, y PDF en tamaño carta`** (19:42, yany1509) — Campo "Persona que recibe" en el formulario de gasto (opcional): busca trabajador por nombre o CI, o texto libre para alguien fuera de la plantilla. Al elegir de la lista se manda `persona_ci` y el servidor resuelve el nombre real; texto libre va tal cual. El detalle muestra a quién se entregó. El iframe de impresión pasa a tamaño carta (216×279 mm).
+
+---
+
+### Área 4: feat(wallet-alertas) — módulo de configuración de alertas por movimientos grandes (19:41)
+
+- **`feat(wallet-alertas): módulo para configurar los avisos de movimientos grandes`** (19:41, Ruben0304) — Nueva página en `/wallet-alertas`. Umbrales por tipo de movimiento (gasto, ingreso, transferencia) y por moneda (una regla de moneda concreta manda sobre "todas las monedas"). Configura a qué números y por qué vía. Las credenciales de Twilio no se editan aquí: son secretos en variables de entorno del servidor. La tarjeta de estado muestra si están puestas y lista qué falta para que las alertas lleguen. Visible para superAdmin y administradores de billetera.
+
+---
+
+### Área 5: feat(permisos) — módulo de planificación en app móvil (19:35)
+
+- **`feat(permisos): el módulo de planificación de la app móvil`** (19:35, yany1509) — Nuevo sub-permiso en el catálogo bajo App Móvil de Operaciones para el módulo de planificación diaria (la app de operaciones en campo). Asignable desde Gestión de Permisos.
+
+---
+
+### Área 6: fix(vales-salida) — margen superior del PDF (20:10)
+
+- **`fix(vales-salida): iguala el margen superior al del comprobante`** (20:10, yany1509) — 18 mm para el logo y 21 mm para el contenido, igualando los márgenes que ya funcionan correctamente en el comprobante de billetera. El commit anterior (19:01, fix de PDF cortado) usaba 16/19 mm; este ajuste fino sube ambos 2 mm más.
+
+---
+
+### Área 7: fix(ofertas) — bloquear guardado sin marcar materiales del nombre en categorías con 2+ (18:50)
+
+- **`fix(ofertas): exigir marcar materiales del nombre cuando hay 2+ en una categoría`** (18:50, yany1509) — Si una categoría principal (Inversores/Baterías/Paneles) tiene 2 o más materiales reales distintos y la comercial no marca cuáles cuentan para el nombre, el guardado se bloquea. Sin esa selección el backend no sabía cuál destacar y la categoría desaparecía del nombre (p.ej. banco de batería rack+BMS+módulos salía como "Oferta de Inversores y Paneles", sin batería). Los accesorios (capacidad ≤ 0,3 kW) no cuentan para el mínimo de 2. Capacidad desconocida no se asume accesorio.
+
+---
+
+### Área 8: feat(peticiones) — filtros y exportación (13:10)
+
+- **`feat(peticiones): filtros y exportación de peticiones a desarrollo`** (13:10, Ruben0304) — Filtros de categoría, implementada, rango de fechas y búsqueda resueltos en backend (nuevos query params en `/api/solicitudes-desarrollo/`). Hook `use-solicitudes-desarrollo` gestiona estado de filtros con debounce en búsqueda de texto. Botones de exportación Excel/PDF con el mismo patrón de Leads/RH.
+
+---
+
+### Puede dar bateo
+
+1. **feat(auditoria) pantalla nueva — confirmar endpoint `GET /api/auditoria/` en backend de producción**: Si no está deployado, la pantalla completa falla con 404 sin mensaje claro.
+
+2. **feat(auditoria) pestaña rendimiento — confirmar endpoint `GET /api/auditoria/rendimiento` por separado**: Si solo existe el endpoint principal, la pestaña de rendimiento falla al cargar.
+
+3. **feat(auditoria) filtro de entidad sustituye otros filtros — estado de filtros previos se pierde**: Si el usuario llega desde un drill-down con filtros activos (p.ej. filtrado por PUT), el botón de entidad los borra todos. No hay forma de recuperar el estado anterior sin volver a filtrar manualmente.
+
+4. **feat(planificacion) módulo completamente nuevo — confirmar todos los endpoints CRUD en backend de producción**: El módulo depende de endpoints propios (`POST/GET/PATCH /planificacion/` u equivalentes). Si no están deployados, el módulo falla al guardar o al cargar el plan del día.
+
+5. **fix(planificacion) draft en localStorage — colisión entre usuarios distintos en el mismo dispositivo**: El borrador se guarda por URL/página, no por usuario. En un dispositivo compartido (tablet de brigada), el borrador de un usuario puede ofrecerse al siguiente. Valorar incluir el `ci` del usuario en la clave de localStorage.
+
+6. **feat(planificacion) caché en memoria — datos obsoletos si el plan cambia en otro dispositivo**: Si un segundo usuario edita el plan en paralelo, el primero ve candidatos y asignaciones desactualizados hasta recargar la página. Relevante en equipos que planifican a la vez.
+
+7. **feat(wallet) campo persona — confirmar que `persona_ci` es opcional en backend**: Si el campo es requerido y el usuario escribe un nombre libre (sin CI), el POST puede fallar con 422 sin mensaje claro.
+
+8. **feat(wallet) iframe tamaño carta — si el PDF del backend es A4 habrá recorte**: El iframe especifica 216×279 mm (carta) pero si el backend genera el PDF en A4 (210×297 mm), el contenido inferior puede cortarse al imprimir.
+
+9. **feat(wallet-alertas) módulo nuevo — confirmar que `/wallet-alertas` está en `MODULOS_CATALOGO`**: Si la ruta no tiene entrada en el catálogo, no se podrá asignar el permiso desde la pantalla de Gestión de Permisos más allá de superAdmin y "wallet admins" hardcodeados.
+
+10. **feat(wallet-alertas) Twilio — tarjeta de estado muestra "configurado" por presencia de variable, no por validez**: Si la variable de entorno existe pero tiene un valor incorrecto, la tarjeta dirá "configurado" pero las alertas no llegarán. El botón de prueba es la única forma de verificar la validez real.
+
+11. **fix(ofertas) umbral accesorio ≤ 0,3 kW — `potenciaKW: null` no se asume accesorio**: Si un material tiene `potenciaKW` nulo (capacidad desconocida), el código lo trata como material real (no accesorio). En categorías con 2+ materiales donde alguno tiene capacidad nula, el guardado se bloqueará aunque el usuario haya marcado los que quiere. Confirmar que todos los materiales relevantes tienen `potenciaKW` definido en el catálogo.
+
+12. **feat(peticiones) filtros server-side — confirmar nuevos query params en `/api/solicitudes-desarrollo/`**: Si el backend no los acepta, todas las peticiones devuelven resultados sin filtrar o responden 422. El filtro de estado (implementada) queda en cliente según el commit, pero los demás son server-side.
+
+---
+
 ## 📅 10 de Septiembre, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -232,7 +334,7 @@
 
 5. **fix(visitas) GPS silencioso — campo opcional en backend**: Confirmar si `ubicacion_gps` es opcional o su ausencia puede causar 422.
 
-6. **feat(inicio) `SystemUpdatesPanel` — confirmar endpoint real en producción**: Verificar que no consume datos mock hardcoded.
+6. **feat(inicio) `SystemUpdatesPanel` — confirmar endpoint real en producción**: Verificar que no consume datos mock hardcodeados.
 
 7. **feat(inicio) `NotificarTrabajadoresDialog` — endpoint de notificación sin confirmar**: Si el endpoint no existe en producción, el envío fallará silenciosamente o con 404.
 
@@ -250,6 +352,14 @@
 
 ## Seguimientos vigentes
 
+- **feat(auditoria) pantalla nueva — confirmar endpoint `GET /api/auditoria/` en backend de producción (Sep 11)**.
+- **feat(auditoria) pestaña rendimiento — confirmar endpoint `GET /api/auditoria/rendimiento` por separado (Sep 11)**.
+- **feat(planificacion) módulo nuevo — confirmar todos los endpoints CRUD de planificación en backend de producción (Sep 11)**.
+- **feat(planificacion) draft en localStorage — colisión entre sesiones de usuarios distintos en el mismo dispositivo compartido (Sep 11)**.
+- **feat(wallet) campo persona — confirmar que `persona_ci` es opcional en backend; texto libre sin CI puede causar 422 (Sep 11)**.
+- **feat(wallet-alertas) módulo nuevo — confirmar que `/wallet-alertas` está en `MODULOS_CATALOGO` para ser asignable desde permisos (Sep 11)**.
+- **fix(ofertas) umbral accesorio ≤ 0,3 kW — materiales con `potenciaKW: null` cuentan para el mínimo y pueden bloquear el guardado inesperadamente (Sep 11)**.
+- **feat(peticiones) filtros server-side — confirmar que `/api/solicitudes-desarrollo/` acepta los nuevos query params (Sep 11)**.
 - **fix(api-config) `cache: 'no-store'` global — monitorear saturación en endpoints de catálogo de baja mutabilidad (Sep 10)**.
 - **feat(ofertas) `*_incluidos_en_nombre` — confirmar campos deployados en backend; si no, combo de checkboxes no persiste entre sesiones (Sep 9)**.
 - **feat(terminos) variantes secciones fijas — confirmar tres endpoints nuevos en backend de producción (Sep 9)**.
@@ -264,7 +374,7 @@
 - **fix(estudio) `observaciones` eliminado — confirmar que ninguna vista de detalle o informe lo lee directamente y lo muestra en blanco (Sep 9)**.
 - **feat(visitas) JSON + fotos en dos peticiones — confirmar que fallo parcial (JSON ok, fotos fallan) es manejado con aviso al usuario (Sep 7)**.
 - **feat(visitas) GPS — confirmar si `ubicacion_gps` es opcional en backend; si es requerido, la captura silenciosa puede causar 422 (Sep 7)**.
-- **feat(inicio) `SystemUpdatesPanel` — confirmar que consume endpoint real y no datos mock hardcoded en producción (Sep 7)**.
+- **feat(inicio) `SystemUpdatesPanel` — confirmar que consume endpoint real y no datos mock hardcodeados en producción (Sep 7)**.
 - **feat(inicio) `NotificarTrabajadoresDialog` — confirmar endpoint de notificación por trabajador en backend de producción (Sep 7)**.
 - **feat(notificaciones) tipo `aviso_sistema` — confirmar soporte del tipo en backend para que la pestaña "Avisos" reciba notificaciones reales (Sep 7)**.
 - **feat(terminos) `insertarDespues`/`alternarSeccionFija`/`reordenarSecciones` — confirmar en backend de producción (Sep 7)**.
