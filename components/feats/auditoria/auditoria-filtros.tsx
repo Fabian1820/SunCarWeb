@@ -19,6 +19,7 @@ import {
   METODOS_HTTP,
   TAMANOS_PAGINA,
   TIPOS_EVENTO,
+  UMBRALES_DURACION,
   etiquetaAccion,
 } from "@/lib/types/feats/auditoria/auditoria-types";
 
@@ -62,6 +63,8 @@ export function AuditoriaFiltrosBar({ filtros, facetas, onCambiar, onLimpiar }: 
       filtros.usuarioNombre ||
       filtros.desde ||
       filtros.hasta ||
+      filtros.duracionMin ||
+      (filtros.ordenarPor && filtros.ordenarPor !== "fecha") ||
       filtros.soloFallidos,
   );
 
@@ -196,6 +199,44 @@ export function AuditoriaFiltrosBar({ filtros, facetas, onCambiar, onLimpiar }: 
                 {metodo}
               </SelectItem>
             ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div>
+        <Label className="text-xs text-gray-500">Duración</Label>
+        <Select
+          value={filtros.duracionMin ? String(filtros.duracionMin) : TODOS}
+          onValueChange={(v) =>
+            onCambiar({ duracionMin: v === TODOS ? undefined : Number(v) })
+          }
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Cualquiera" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={TODOS}>Cualquiera</SelectItem>
+            {UMBRALES_DURACION.map((umbral) => (
+              <SelectItem key={umbral.valor} value={String(umbral.valor)}>
+                {umbral.etiqueta}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div>
+        <Label className="text-xs text-gray-500">Orden</Label>
+        <Select
+          value={filtros.ordenarPor ?? "fecha"}
+          onValueChange={(v) => onCambiar({ ordenarPor: v as "fecha" | "duracion" })}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="fecha">Más recientes</SelectItem>
+            <SelectItem value="duracion">Más lentas</SelectItem>
           </SelectContent>
         </Select>
       </div>

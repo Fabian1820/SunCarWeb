@@ -5,6 +5,7 @@ import type {
   AuditoriaFacetas,
   AuditoriaFiltros,
   AuditoriaPagina,
+  AuditoriaRendimiento,
 } from "@/lib/types/feats/auditoria/auditoria-types";
 
 const BASE = "/auditoria";
@@ -36,6 +37,8 @@ export const AuditoriaService = {
     if (filtros.desde) params.set("desde", filtros.desde);
     if (filtros.hasta) params.set("hasta", filtros.hasta);
     if (filtros.texto) params.set("texto", filtros.texto);
+    if (filtros.duracionMin) params.set("duracion_min", String(filtros.duracionMin));
+    if (filtros.ordenarPor) params.set("ordenar_por", filtros.ordenarPor);
     params.set("pagina", String(filtros.pagina));
     params.set("por_pagina", String(filtros.porPagina));
 
@@ -46,6 +49,27 @@ export const AuditoriaService = {
       pagina: respuesta.pagina ?? filtros.pagina,
       porPagina: respuesta.por_pagina ?? filtros.porPagina,
     };
+  },
+
+  /** Dónde se va el tiempo: por módulo o por ruta. */
+  async rendimiento(opciones: {
+    desde?: string;
+    hasta?: string;
+    umbralMs?: number;
+    agruparPor?: "recurso" | "ruta";
+    limite?: number;
+  }): Promise<AuditoriaRendimiento[]> {
+    const params = new URLSearchParams();
+    if (opciones.desde) params.set("desde", opciones.desde);
+    if (opciones.hasta) params.set("hasta", opciones.hasta);
+    params.set("umbral_ms", String(opciones.umbralMs ?? 2000));
+    params.set("agrupar_por", opciones.agruparPor ?? "recurso");
+    params.set("limite", String(opciones.limite ?? 50));
+
+    const respuesta = await apiRequest<{ data: AuditoriaRendimiento[] }>(
+      `${BASE}/rendimiento?${params.toString()}`,
+    );
+    return respuesta.data || [];
   },
 
   async facetas(): Promise<AuditoriaFacetas> {

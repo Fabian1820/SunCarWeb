@@ -13,12 +13,19 @@ import {
 } from "@/components/shared/molecule/card";
 import { PageLoader } from "@/components/shared/atom/page-loader";
 import { SmartPagination } from "@/components/shared/molecule/smart-pagination";
-import { AlertTriangle, RefreshCw, ScrollText } from "lucide-react";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/shared/molecule/tabs";
+import { AlertTriangle, Gauge, RefreshCw, ScrollText } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useAuditoria } from "@/hooks/use-auditoria";
 import { AuditoriaFiltrosBar } from "@/components/feats/auditoria/auditoria-filtros";
 import { AuditoriaTabla } from "@/components/feats/auditoria/auditoria-tabla";
 import { AuditoriaDetalleDialog } from "@/components/feats/auditoria/auditoria-detalle-dialog";
+import { AuditoriaRendimiento } from "@/components/feats/auditoria/auditoria-rendimiento";
 import type { AuditoriaEvento } from "@/lib/types/feats/auditoria/auditoria-types";
 
 export default function AuditoriaPage() {
@@ -77,6 +84,7 @@ function AuditoriaContenido() {
   } = useAuditoria(true);
 
   const [seleccionado, setSeleccionado] = useState<AuditoriaEvento | null>(null);
+  const [pestana, setPestana] = useState("actividad");
 
   const primeroVisible = (filtros.pagina - 1) * filtros.porPagina + 1;
   const ultimoVisible = Math.min(filtros.pagina * filtros.porPagina, total);
@@ -84,6 +92,24 @@ function AuditoriaContenido() {
   const verHistorialEntidad = (entidadId: string) => {
     setSeleccionado(null);
     verSoloEntidad(entidadId);
+  };
+
+  /**
+   * Desde el resumen de rendimiento a las peticiones concretas que lo causan:
+   * el mismo grupo, ordenadas por duración y sin nada por debajo del umbral.
+   */
+  const verLentasDe = (
+    grupo: string,
+    umbralMs: number,
+    agruparPor: "recurso" | "ruta",
+  ) => {
+    setFiltros({
+      recurso: agruparPor === "recurso" ? grupo : undefined,
+      texto: agruparPor === "ruta" ? grupo : undefined,
+      duracionMin: umbralMs,
+      ordenarPor: "duracion",
+    });
+    setPestana("actividad");
   };
 
   return (
@@ -129,36 +155,55 @@ function AuditoriaContenido() {
               fila para ver los datos que se enviaron.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <AuditoriaFiltrosBar
-              filtros={filtros}
-              facetas={facetas}
-              onCambiar={setFiltros}
-              onLimpiar={limpiarFiltros}
-            />
+          <CardContent>
+            <Tabs value={pestana} onValueChange={setPestana} className="space-y-4">
+              <TabsList>
+                <TabsTrigger value="actividad">
+                  <ScrollText className="mr-2 h-4 w-4" />
+                  Actividad
+                </TabsTrigger>
+                <TabsTrigger value="rendimiento">
+                  <Gauge className="mr-2 h-4 w-4" />
+                  Rendimiento
+                </TabsTrigger>
+              </TabsList>
 
-            <AuditoriaTabla
-              eventos={eventos}
-              loading={loading}
-              onVerDetalle={setSeleccionado}
-            />
+              <TabsContent value="actividad" className="space-y-4">
+                <AuditoriaFiltrosBar
+                  filtros={filtros}
+                  facetas={facetas}
+                  onCambiar={setFiltros}
+                  onLimpiar={limpiarFiltros}
+                />
 
-            {eventos.length > 0 && (
-              <div className="flex flex-col items-center gap-3">
-                <p className="text-xs text-gray-500">
-                  Mostrando {primeroVisible.toLocaleString("es-ES")} a{" "}
-                  {ultimoVisible.toLocaleString("es-ES")} de{" "}
-                  {total.toLocaleString("es-ES")}
-                </p>
-                {totalPaginas > 1 && (
-                  <SmartPagination
-                    currentPage={filtros.pagina}
-                    totalPages={totalPaginas}
-                    onPageChange={irAPagina}
-                  />
+                <AuditoriaTabla
+                  eventos={eventos}
+                  loading={loading}
+                  onVerDetalle={setSeleccionado}
+                />
+
+                {eventos.length > 0 && (
+                  <div className="flex flex-col items-center gap-3">
+                    <p className="text-xs text-gray-500">
+                      Mostrando {primeroVisible.toLocaleString("es-ES")} a{" "}
+                      {ultimoVisible.toLocaleString("es-ES")} de{" "}
+                      {total.toLocaleString("es-ES")}
+                    </p>
+                    {totalPaginas > 1 && (
+                      <SmartPagination
+                        currentPage={filtros.pagina}
+                        totalPages={totalPaginas}
+                        onPageChange={irAPagina}
+                      />
+                    )}
+                  </div>
                 )}
-              </div>
-            )}
+              </TabsContent>
+
+              <TabsContent value="rendimiento">
+                <AuditoriaRendimiento onVerLentas={verLentasDe} />
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       </main>

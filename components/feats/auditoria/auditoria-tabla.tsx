@@ -13,7 +13,9 @@ import { cn } from "@/lib/utils";
 import type { AuditoriaEvento } from "@/lib/types/feats/auditoria/auditoria-types";
 import {
   colorAccion,
+  colorDuracion,
   etiquetaAccion,
+  formatearDuracion,
   formatearFecha,
 } from "@/lib/types/feats/auditoria/auditoria-types";
 
@@ -52,6 +54,7 @@ export function AuditoriaTabla({ eventos, loading, onVerDetalle }: Props) {
             <TableHead className="w-32">Acción</TableHead>
             <TableHead>Qué hizo</TableHead>
             <TableHead className="w-36">Módulo</TableHead>
+            <TableHead className="w-24 text-right">Tiempo</TableHead>
             <TableHead className="w-24 text-right">Resultado</TableHead>
           </TableRow>
         </TableHeader>
@@ -102,6 +105,11 @@ export function AuditoriaTabla({ eventos, loading, onVerDetalle }: Props) {
                 </p>
               </TableCell>
               <TableCell className="text-sm text-gray-600">{evento.recurso}</TableCell>
+              <TableCell
+                className={cn("text-right text-sm tabular-nums", colorDuracion(evento.duracion_ms))}
+              >
+                {formatearDuracion(evento.duracion_ms)}
+              </TableCell>
               <TableCell className="text-right">
                 <span
                   className={cn(

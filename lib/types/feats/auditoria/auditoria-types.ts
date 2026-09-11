@@ -48,8 +48,27 @@ export interface AuditoriaFiltros {
   desde?: string;
   hasta?: string;
   texto?: string;
+  /** Solo peticiones que tardaron al menos estos milisegundos. */
+  duracionMin?: number;
+  /** fecha = las más recientes primero; duracion = las más lentas primero. */
+  ordenarPor?: "fecha" | "duracion";
   pagina: number;
   porPagina: number;
+}
+
+/** Lo que tarda un módulo (o una ruta) en el periodo consultado. */
+export interface AuditoriaRendimiento {
+  grupo: string;
+  total: number;
+  media_ms: number;
+  maxima_ms: number;
+  lentas: number;
+  peor: {
+    duracion_ms?: number;
+    ruta?: string;
+    operacion?: string;
+    metodo?: string;
+  };
 }
 
 export interface AuditoriaPagina {
@@ -87,6 +106,14 @@ export const TIPOS_EVENTO: { valor: string; etiqueta: string }[] = [
 ];
 
 export const METODOS_HTTP = ["POST", "PUT", "PATCH", "DELETE", "GET"] as const;
+
+/** Umbrales de "lenta" que ofrece la pantalla, en milisegundos. */
+export const UMBRALES_DURACION: { valor: number; etiqueta: string }[] = [
+  { valor: 500, etiqueta: "Más de 0,5 s" },
+  { valor: 1000, etiqueta: "Más de 1 s" },
+  { valor: 2000, etiqueta: "Más de 2 s" },
+  { valor: 5000, etiqueta: "Más de 5 s" },
+];
 
 /** Cuántos eventos por página puede pedir la pantalla. El backend admite 500. */
 export const TAMANOS_PAGINA = [25, 50, 100, 200] as const;
@@ -162,4 +189,19 @@ export function formatearHora(iso: string): string {
     minute: "2-digit",
     second: "2-digit",
   });
+}
+
+/** Milisegundos en algo que se lee de un vistazo. */
+export function formatearDuracion(ms?: number | null): string {
+  if (ms === null || ms === undefined) return "-";
+  if (ms < 1000) return `${ms} ms`;
+  return `${(ms / 1000).toFixed(ms < 10000 ? 1 : 0)} s`;
+}
+
+/** Verde por debajo de medio segundo, ámbar hasta dos, rojo por encima. */
+export function colorDuracion(ms?: number | null): string {
+  if (ms === null || ms === undefined) return "text-gray-400";
+  if (ms >= 2000) return "text-rose-600 font-semibold";
+  if (ms >= 500) return "text-amber-600";
+  return "text-gray-500";
 }

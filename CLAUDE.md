@@ -316,6 +316,9 @@ Pantalla de solo lectura en `/auditoria` sobre la bitácora global del backend
   mandar la hora local sin zona movería el rango cuatro horas.
 - El detalle de cada evento muestra el cuerpo que se envió, sin contraseñas ni
   fotos: es donde se ve "qué monto puso" quien editó algo.
+- La pestaña **Rendimiento** resume dónde se va el tiempo por módulo o por endpoint
+  (`GET /api/auditoria/rendimiento`). Pulsar una fila lleva a la pestaña de actividad
+  con ese módulo filtrado, ordenado por duración y sin nada por debajo del umbral.
 
 ### Backend Connectivity Solution
 **CRITICAL**: Direct backend communication pattern established to fix "failed to fetch" and 401 errors.
