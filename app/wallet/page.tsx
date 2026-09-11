@@ -190,6 +190,106 @@ const TransactionTypeBadge = ({ transaction }: { transaction: WalletTransaction 
   );
 };
 
+/**
+ * El comprobante (membrete + firmas) solo tiene sentido de negocio para
+ * gastos y transferencias — un ingreso no se "entrega" a nadie.
+ */
+const tieneComprobante = (transaction: WalletTransaction): boolean =>
+  transaction.tipo === "gasto" ||
+  transaction.tipo === "transferencia_salida" ||
+  transaction.tipo === "transferencia_entrada";
+
+/**
+ * Botón de comprobante de una transacción: descarga el PDF (queda en
+ * Descargas) y además lo manda directo a imprimir. Va dentro de la fila de
+ * la lista, que a su vez es clicable para abrir el detalle — de ahí el
+ * `stopPropagation`.
+ */
+function ComprobanteButton({
+  transaction,
+  className = "",
+}: {
+  transaction: WalletTransaction;
+  className?: string;
+}) {
+  const { toast } = useToast();
+  const [descargando, setDescargando] = useState(false);
+
+  const handleClick = async (event: React.MouseEvent) => {
+    event.stopPropagation();
+    if (descargando) return;
+    setDescargando(true);
+    try {
+      const blob = await WalletService.descargarComprobante(transaction.id);
+      const url = URL.createObjectURL(blob);
+
+      // Se guarda en Descargas como cualquier archivo bajado del navegador.
+      const enlace = document.createElement("a");
+      enlace.href = url;
+      enlace.download = `comprobante-${transaction.tipo}-${transaction.id}.pdf`;
+      document.body.appendChild(enlace);
+      enlace.click();
+      enlace.remove();
+
+      // Y además se manda directo a imprimir: un iframe oculto carga el
+      // mismo PDF y dispara el diálogo de impresión del navegador sobre él,
+      // sin necesidad de abrir una pestaña nueva.
+      const iframe = document.createElement("iframe");
+      iframe.style.position = "fixed";
+      iframe.style.right = "0";
+      iframe.style.bottom = "0";
+      iframe.style.width = "0";
+      iframe.style.height = "0";
+      iframe.style.border = "0";
+      iframe.src = url;
+      iframe.onload = () => {
+        try {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+        } catch {
+          // Si el navegador bloquea la impresión automática, el comprobante
+          // ya quedó descargado igual — no hace falta avisar de esto.
+        }
+      };
+      document.body.appendChild(iframe);
+      // Se limpia después de darle tiempo al usuario a completar o cancelar
+      // el diálogo de impresión (no hay evento de "impresión terminada").
+      window.setTimeout(() => {
+        iframe.remove();
+        URL.revokeObjectURL(url);
+      }, 60_000);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "No se pudo generar el comprobante.",
+        variant: "destructive",
+      });
+    } finally {
+      setDescargando(false);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={descargando}
+      title="Descargar e imprimir comprobante"
+      aria-label="Descargar e imprimir comprobante"
+      className={`shrink-0 rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50 ${className}`}
+    >
+      {descargando ? (
+        <RefreshCcw className="h-4 w-4 animate-spin" />
+      ) : (
+        <Printer className="h-4 w-4" />
+      )}
+    </button>
+  );
+}
+
 type TransactionsResponsiveListProps = {
   transactions: WalletTransaction[];
   loading: boolean;
@@ -266,10 +366,18 @@ function TransactionsResponsiveList({
             : "-";
 
           return (
-            <button
+            <div
               key={transaction.id}
+              role="button"
+              tabIndex={0}
               onClick={() => onSelect?.(transaction)}
-              className={`w-full text-left bg-white rounded-xl border border-slate-100 border-l-4 ${borderColor} p-3 shadow-sm hover:shadow-md hover:border-slate-200 transition-all`}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onSelect?.(transaction);
+                }
+              }}
+              className={`w-full cursor-pointer text-left bg-white rounded-xl border border-slate-100 border-l-4 ${borderColor} p-3 shadow-sm hover:shadow-md hover:border-slate-200 transition-all`}
             >
               <div className="flex items-start justify-between gap-2 mb-1.5">
                 <div className="flex items-center gap-2 min-w-0">
@@ -278,7 +386,12 @@ function TransactionsResponsiveList({
                     {formatDateTime(transaction.created_at)}
                   </span>
                 </div>
-                <Info className="h-3.5 w-3.5 text-slate-300 shrink-0 mt-0.5" />
+                <div className="flex items-center gap-0.5 shrink-0">
+                  {tieneComprobante(transaction) && (
+                    <ComprobanteButton transaction={transaction} />
+                  )}
+                  <Info className="h-3.5 w-3.5 text-slate-300 mt-0.5" />
+                </div>
               </div>
 
               <div className="flex items-baseline gap-1.5 mt-0.5">
@@ -309,7 +422,7 @@ function TransactionsResponsiveList({
               <p className="text-xs text-slate-600 mt-1.5 line-clamp-2">
                 {transaction.motivo}
               </p>
-            </button>
+            </div>
           );
         })}
       </div>
@@ -408,8 +521,13 @@ function TransactionsResponsiveList({
                       {transaction.motivo}
                     </p>
                   </TableCell>
-                  <TableCell className="w-9 text-right">
-                    <Info className="h-4 w-4 text-slate-300 inline" />
+                  <TableCell className="w-20 text-right">
+                    <div className="flex items-center justify-end gap-0.5">
+                      {tieneComprobante(transaction) && (
+                        <ComprobanteButton transaction={transaction} />
+                      )}
+                      <Info className="h-4 w-4 text-slate-300" />
+                    </div>
                   </TableCell>
                 </TableRow>
               );
@@ -434,9 +552,6 @@ function TransactionDetailsDialog({
   onOpenChange: (open: boolean) => void;
   fallbackCurrency: string;
 }) {
-  const { toast } = useToast();
-  const [descargandoComprobante, setDescargandoComprobante] = useState(false);
-
   if (!transaction) return null;
 
   const rowCurrency = transaction.currency_code || fallbackCurrency;
@@ -460,69 +575,6 @@ function TransactionDetailsDialog({
     : isIngreso
     ? "+"
     : "-";
-
-  // El comprobante (membrete + firmas) solo tiene sentido de negocio para
-  // gastos y transferencias — un ingreso no se "entrega" a nadie.
-  const puedeExportarComprobante =
-    transaction.tipo === "gasto" ||
-    transaction.tipo === "transferencia_salida" ||
-    transaction.tipo === "transferencia_entrada";
-
-  const imprimirComprobante = async () => {
-    if (!transaction) return;
-    setDescargandoComprobante(true);
-    try {
-      const blob = await WalletService.descargarComprobante(transaction.id);
-      const url = URL.createObjectURL(blob);
-
-      // Se guarda en Descargas como cualquier archivo bajado del navegador.
-      const enlace = document.createElement("a");
-      enlace.href = url;
-      enlace.download = `comprobante-${transaction.tipo}-${transaction.id}.pdf`;
-      document.body.appendChild(enlace);
-      enlace.click();
-      enlace.remove();
-
-      // Y además se manda directo a imprimir: un iframe oculto carga el
-      // mismo PDF y dispara el diálogo de impresión del navegador sobre él,
-      // sin necesidad de abrir una pestaña nueva.
-      const iframe = document.createElement("iframe");
-      iframe.style.position = "fixed";
-      iframe.style.right = "0";
-      iframe.style.bottom = "0";
-      iframe.style.width = "0";
-      iframe.style.height = "0";
-      iframe.style.border = "0";
-      iframe.src = url;
-      iframe.onload = () => {
-        try {
-          iframe.contentWindow?.focus();
-          iframe.contentWindow?.print();
-        } catch {
-          // Si el navegador bloquea la impresión automática, el comprobante
-          // ya quedó descargado igual — no hace falta avisar de esto.
-        }
-      };
-      document.body.appendChild(iframe);
-      // Se limpia después de darle tiempo al usuario a completar o cancelar
-      // el diálogo de impresión (no hay evento de "impresión terminada").
-      window.setTimeout(() => {
-        iframe.remove();
-        URL.revokeObjectURL(url);
-      }, 60_000);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description:
-          error instanceof Error
-            ? error.message
-            : "No se pudo generar el comprobante.",
-        variant: "destructive",
-      });
-    } finally {
-      setDescargandoComprobante(false);
-    }
-  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -633,27 +685,6 @@ function TransactionDetailsDialog({
               </p>
             )}
           </div>
-
-          {/* Comprobante: descarga el PDF (queda en Descargas) y además
-              dispara la impresión de una vez. */}
-          {puedeExportarComprobante && (
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full gap-2"
-              disabled={descargandoComprobante}
-              onClick={() => void imprimirComprobante()}
-            >
-              {descargandoComprobante ? (
-                <RefreshCcw className="h-4 w-4 animate-spin" />
-              ) : (
-                <Printer className="h-4 w-4" />
-              )}
-              {descargandoComprobante
-                ? "Generando comprobante..."
-                : "Imprimir comprobante"}
-            </Button>
-          )}
         </div>
       </DialogContent>
     </Dialog>
@@ -1372,7 +1403,11 @@ function WalletPageContent() {
         }
       />
 
-      <main className={`content-with-fixed-header mx-auto px-4 py-4 sm:py-6 space-y-4 ${canSeeAll ? "max-w-4xl" : "max-w-2xl"}`}>
+      {/* En móvil el tope de ancho no pinta nada (la pantalla siempre es más
+          estrecha), así que la vista de teléfono queda igual. A partir de lg
+          se ensancha para aprovechar la laptop, alineado con el max-w-7xl que
+          usa el resto de los módulos. */}
+      <main className={`content-with-fixed-header mx-auto px-4 py-4 sm:py-6 space-y-4 ${canSeeAll ? "max-w-4xl lg:max-w-7xl" : "max-w-2xl lg:max-w-5xl"}`}>
         {error && (
           <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 flex items-center justify-between">
             <p className="text-sm text-rose-700">{error}</p>
@@ -1811,7 +1846,7 @@ function WalletPageContent() {
                 </div>
               ) : (
                 <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
                     {teamWallets.map((item) => {
                       const isSelected = memberView?.walletId === item.id;
                       const balance = getWalletViewBalance(item);

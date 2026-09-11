@@ -583,6 +583,15 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     grupo: "operaciones",
   },
   {
+    key: "planificacion",
+    label: "Planificación",
+    descripcion: "Qué hace cada brigada cada día: visitas, instalaciones, averías y actualizaciones.",
+    icon: CalendarDays,
+    iconClass: "text-indigo-600",
+    href: "/planificacion",
+    grupo: "operaciones",
+  },
+  {
     key: "instalaciones",
     label: "Instalaciones",
     descripcion: "Instalaciones en proceso, nuevas y averías.",
