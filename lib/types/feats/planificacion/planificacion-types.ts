@@ -59,4 +59,6 @@ export interface CandidatoPlanificacion {
   direccion: string;
   municipio: string;
   estado: string;
+  /** Solo en averías: qué está roto. */
+  detalle?: string;
 }

@@ -346,6 +346,10 @@ export function PanelCandidatos({
                   <span className="block truncate text-xs text-gray-500">
                     {[c.direccion, c.municipio].filter(Boolean).join(" · ") || "Sin dirección"}
                   </span>
+                  {/* Qué está roto: sin eso no se puede decidir a quién mandar. */}
+                  {c.detalle && (
+                    <span className="mt-0.5 block text-xs text-amber-700">{c.detalle}</span>
+                  )}
                 </span>
               </label>
             );
