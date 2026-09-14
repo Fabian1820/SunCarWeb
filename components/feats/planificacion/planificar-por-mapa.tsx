@@ -119,6 +119,14 @@ function textoEspera(dias: number): string {
 /** A partir de aquí la espera se marca: son dos meses. */
 const ESPERA_LARGA = 60;
 
+const FILTROS_ESPERA: { dias: number; texto: string }[] = [
+  { dias: 0, texto: "Cualquier espera" },
+  { dias: 30, texto: "Más de 1 mes" },
+  { dias: 90, texto: "Más de 3 meses" },
+  { dias: 180, texto: "Más de 6 meses" },
+  { dias: 365, texto: "Más de 1 año" },
+];
+
 /**
  * Planificar mirando dónde está cada cliente.
  *
@@ -139,6 +147,8 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
   const [seleccion, setSeleccion] = useState<Map<string, Seleccionado>>(new Map());
   const [quien, setQuien] = useState("");
   const [pantallaCompleta, setPantallaCompleta] = useState(false);
+  /** Solo los que llevan esperando al menos estos días; 0 es todos. */
+  const [esperaMinima, setEsperaMinima] = useState(0);
   const [ofertaAbierta, setOfertaAbierta] = useState<OfertaConfeccion | null>(null);
   const [abriendoOferta, setAbriendoOferta] = useState<string | null>(null);
   const [abriendoVisita, setAbriendoVisita] = useState<string | null>(null);
@@ -250,11 +260,16 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
     });
   }, [enPlan]);
 
+  // Sin fecha no se sabe cuánto espera: con el filtro puesto, no entra.
+  const cumpleEspera = (c: CandidatoPlanificacion) =>
+    esperaMinima === 0 || (diasEsperando(c.esperando_desde) ?? -1) >= esperaMinima;
+
   const ubicados = useMemo<Ubicado[]>(() => {
     const lista = datos[tipo];
     if (!mapa || !lista) return [];
-    return lista.map((c) => ({ c, ...ubicar(c, mapa) }));
-  }, [mapa, datos, tipo]);
+    return lista.filter(cumpleEspera).map((c) => ({ c, ...ubicar(c, mapa) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapa, datos, tipo, esperaMinima]);
 
   const libres = useMemo(() => ubicados.filter((u) => !enPlan.has(clave(tipo, u.c))), [ubicados, enPlan, tipo]);
 
@@ -443,7 +458,7 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
           <div className="flex flex-wrap gap-1.5 border-b px-4 py-3" role="tablist" aria-label="Qué planificar">
             {TIPOS_MAPA.map((t) => {
               const lista = datos[t];
-              const n = lista ? lista.filter((c) => !enPlan.has(clave(t, c))).length : null;
+              const n = lista ? lista.filter((c) => !enPlan.has(clave(t, c)) && cumpleEspera(c)).length : null;
               return (
                 <button
                   key={t}
@@ -471,7 +486,7 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
           </div>
 
           {/* Filtros: lo mismo que tocar el mapa, sin tener que encontrar el sitio. */}
-          <div className="grid gap-2 px-4 pt-3 sm:grid-cols-2">
+          <div className="grid gap-2 px-4 pt-3 sm:grid-cols-3">
             <label className="flex min-w-0 flex-col gap-1">
               <span className="text-xs font-medium text-gray-600">Provincia</span>
               <select
@@ -503,6 +518,20 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
                 {sinZona.length > 0 && (
                   <option value={SIN_MUNICIPIO}>Sin municipio ({sinZonaLibres})</option>
                 )}
+              </select>
+            </label>
+            <label className="flex min-w-0 flex-col gap-1">
+              <span className="text-xs font-medium text-gray-600">Tiempo esperando</span>
+              <select
+                value={esperaMinima}
+                onChange={(e) => setEsperaMinima(Number(e.target.value))}
+                className={cn(CLASE_SELECT, esperaMinima > 0 && SELECT_ACTIVO)}
+              >
+                {FILTROS_ESPERA.map((f) => (
+                  <option key={f.dias} value={f.dias}>
+                    {f.texto}
+                  </option>
+                ))}
               </select>
             </label>
           </div>
