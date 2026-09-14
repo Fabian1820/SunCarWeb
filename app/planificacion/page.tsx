@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
-import { AlertTriangle, Check, ChevronLeft, ClipboardList, Loader2 } from "lucide-react";
+import { AlertTriangle, Check, ChevronLeft, ClipboardList, Loader2, Plus } from "lucide-react";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { RouteGuard } from "@/components/auth/route-guard";
 import { Button } from "@/components/shared/atom/button";
@@ -14,6 +14,7 @@ import { BrigadaService } from "@/lib/services/feats/brigade/brigada-service";
 import { CarrilBrigada } from "@/components/feats/planificacion/carril-brigada";
 import { InicioPlanificacion } from "@/components/feats/planificacion/inicio-planificacion";
 import { MenuDia } from "@/components/feats/planificacion/menu-dia";
+import { NuevoTrabajoDialog } from "@/components/feats/planificacion/nuevo-trabajo-dialog";
 import {
   PlanificarPorMapa,
   type Seleccionado,
@@ -141,6 +142,7 @@ function PlanificacionContenido() {
   const [trabajadores, setTrabajadores] = useState<Asignado[]>([]);
   const [sueltos, setSueltos] = useState<Asignado[]>([]);
   const [destino, setDestino] = useState<Asignado | null>(null);
+  const [nuevoAbierto, setNuevoAbierto] = useState(false);
   const cache = useRef(new Map<TipoTrabajo, CandidatoPlanificacion[]>());
 
   // Lo que se guarda se lee de refs: el guardado corre fuera del render y
@@ -363,6 +365,29 @@ function PlanificacionContenido() {
     });
   }
 
+  /** Un trabajo puesto a mano desde "Añadir un trabajo". */
+  function agregarUno(c: CandidatoPlanificacion, tipo: TipoTrabajo, quien: Asignado, nota: string) {
+    if (trabajosRef.current.some((t) => t.tipo === tipo && claveTrabajo(t) === claveCandidato(c))) return;
+    editar((lista) => [
+      ...lista,
+      {
+        id: nuevoId(),
+        tipo,
+        cliente_numero: c.cliente_numero,
+        lead_id: c.lead_id,
+        nombre: c.nombre,
+        direccion: c.direccion,
+        asignado: quien,
+        nota: nota.trim() || null,
+        estado: "planificado",
+      },
+    ]);
+    toast({
+      title: "Trabajo añadido al plan",
+      description: `${c.nombre || "Sin nombre"} · ${quien.tipo === "brigada" ? `brigada de ${quien.nombre}` : quien.nombre}`,
+    });
+  }
+
   // Las brigadas siempre en el mismo sitio, tengan trabajo o no. Detrás, las
   // personas sueltas que se hayan planificado.
   const carriles = useMemo(() => {
@@ -422,6 +447,7 @@ function PlanificacionContenido() {
             onCambiarDia={() => irA({})}
             onTipo={(tipo) => irA({ dia: dia!, tipo })}
             onVerPlan={() => irA({ dia: dia!, ver: "plan" })}
+            onNuevo={() => setNuevoAbierto(true)}
           />
         ) : !listo ? (
           <div className="flex items-center justify-center gap-2 py-24 text-sm text-gray-500">
@@ -461,7 +487,12 @@ function PlanificacionContenido() {
                   : `${trabajos.length} trabajo${trabajos.length === 1 ? "" : "s"}` +
                     (brigadas.length ? ` · ${conTrabajo} de ${brigadas.length} brigadas con trabajo` : "")
               }
-            />
+            >
+              <Button onClick={() => setNuevoAbierto(true)}>
+                <Plus className="mr-2 h-4 w-4" aria-hidden />
+                Añadir un trabajo
+              </Button>
+            </Encabezado>
             <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {carriles.map(({ quien, subtitulo }) => (
                 <CarrilBrigada
@@ -499,6 +530,18 @@ function PlanificacionContenido() {
           </>
         )}
       </main>
+
+      <NuevoTrabajoDialog
+        open={nuevoAbierto && !!dia}
+        onOpenChange={setNuevoAbierto}
+        delDia={delDia(fecha, hoy)}
+        trabajos={trabajos}
+        brigadas={carriles
+          .filter((c) => c.quien.tipo === "brigada")
+          .map((c) => ({ asignado: c.quien, detalle: c.subtitulo }))}
+        trabajadores={trabajadores}
+        onGuardar={agregarUno}
+      />
 
       <SelectorTrabajos
         destino={destino}

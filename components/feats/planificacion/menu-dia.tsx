@@ -8,7 +8,7 @@ import {
   ClipboardList,
   Loader2,
   PlugZap,
-  Search,
+  Plus,
   Wrench,
   type LucideIcon,
 } from "lucide-react";
@@ -61,6 +61,7 @@ interface Props {
   onCambiarDia: () => void;
   onTipo: (tipo: TipoTrabajo) => void;
   onVerPlan: () => void;
+  onNuevo: () => void;
 }
 
 /**
@@ -69,7 +70,7 @@ interface Props {
  * Cuatro botones grandes, uno por tipo de trabajo. No se carga ninguna lista
  * hasta que se toca uno: entrar tiene que ser instantáneo.
  */
-export function MenuDia({ titulo, cargando, trabajos, onCambiarDia, onTipo, onVerPlan }: Props) {
+export function MenuDia({ titulo, cargando, trabajos, onCambiarDia, onTipo, onVerPlan, onNuevo }: Props) {
   const quienes = new Set(trabajos.map((t) => `${t.asignado.tipo}:${t.asignado.id}`)).size;
 
   return (
@@ -111,7 +112,27 @@ export function MenuDia({ titulo, cargando, trabajos, onCambiarDia, onTipo, onVe
         )}
       </div>
 
-      <h3 className="mt-8 text-base font-semibold text-gray-900">¿Qué quieres planificar?</h3>
+      {/* Lo más directo: se sabe qué hay que hacer y a quién, y se pone. */}
+      <button
+        type="button"
+        disabled={cargando}
+        onClick={onNuevo}
+        className={cn(
+          "mt-6 flex w-full items-center gap-4 rounded-xl bg-emerald-800 p-4 text-left text-white shadow-sm transition-colors",
+          "hover:bg-emerald-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2",
+          "disabled:cursor-wait disabled:opacity-60",
+        )}
+      >
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white/15">
+          <Plus className="h-7 w-7" aria-hidden />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-lg font-semibold">Añadir un trabajo</span>
+          <span className="block text-sm text-emerald-50">Elige el cliente, qué hay que hacer y quién va</span>
+        </span>
+      </button>
+
+      <h3 className="mt-8 text-base font-semibold text-gray-900">O elige de las listas de pendientes</h3>
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         {OPCIONES.map(({ tipo, titulo: nombre, descripcion, Icono, tono }) => {
           const enPlan = trabajos.filter((t) => t.tipo === tipo).length;
@@ -146,17 +167,6 @@ export function MenuDia({ titulo, cargando, trabajos, onCambiarDia, onTipo, onVe
         })}
       </div>
 
-      <div className="mt-6 border-t pt-4">
-        <button
-          type="button"
-          disabled={cargando}
-          onClick={onVerPlan}
-          className="inline-flex items-center gap-2 rounded text-sm font-medium text-emerald-800 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 disabled:opacity-60"
-        >
-          <Search className="h-4 w-4" aria-hidden />
-          Buscar un cliente concreto o planificar una actualización
-        </button>
-      </div>
     </div>
   );
 }
