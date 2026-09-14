@@ -22,6 +22,65 @@ function findItem(
   return items.find((it) => it.seccion != null && norm(it.seccion) === norm(seccion));
 }
 
+export type TipoComponentePrincipal = "inversor" | "bateria" | "panel";
+
+export type ComponentePrincipal = {
+  tipo: TipoComponentePrincipal;
+  codigo: string;
+  descripcion: string | null;
+};
+
+/** Los tres componentes que pueden dar la letra de marca del código de cliente,
+ *  en orden de prioridad, con la sección de los items donde vive cada uno. */
+const COMPONENTES_PRINCIPALES = [
+  { tipo: "inversor", seccion: "INVERSORES" },
+  { tipo: "bateria", seccion: "BATERIAS" },
+  { tipo: "panel", seccion: "PANELES" },
+] as const;
+
+/**
+ * Mismo criterio que el backend al generar el código de cliente: inversor >
+ * batería > panel, tomados de componentes_principales y, si la oferta no los
+ * trae marcados, deducidos de los items por sección.
+ *
+ * Sirve para que el checklist de "Convertir lead a cliente" compruebe lo mismo
+ * que valida el backend, en vez de decir "todo listo" y fallar después.
+ */
+export function resolverComponentePrincipal(
+  oc: OfertaConfeccionResumen | null | undefined,
+): ComponentePrincipal | null {
+  if (!oc) return null;
+  const items = oc.items ?? [];
+  const cp = oc.componentes_principales ?? {};
+  const marcados: Record<TipoComponentePrincipal, string | null | undefined> = {
+    inversor: cp.inversor_seleccionado,
+    bateria: cp.bateria_seleccionada,
+    panel: cp.panel_seleccionado,
+  };
+
+  const describir = (codigo: string): string | null =>
+    items.find(
+      (it) => it.material_codigo != null && String(it.material_codigo) === codigo,
+    )?.descripcion ?? null;
+
+  for (const { tipo } of COMPONENTES_PRINCIPALES) {
+    const codigo = String(marcados[tipo] ?? "").trim();
+    if (codigo) return { tipo, codigo, descripcion: describir(codigo) };
+  }
+
+  for (const { tipo, seccion } of COMPONENTES_PRINCIPALES) {
+    const item = items.find(
+      (it) =>
+        (it.seccion != null && norm(it.seccion) === seccion) ||
+        (it.categoria != null && norm(it.categoria) === seccion),
+    );
+    const codigo = String(item?.material_codigo ?? "").trim();
+    if (codigo) return { tipo, codigo, descripcion: item?.descripcion ?? null };
+  }
+
+  return null;
+}
+
 export function extraerComponentesDeOfertaConfeccion(
   oc: OfertaConfeccionResumen,
 ): { inv: Componente | null; bats: Componente[]; pan: Componente | null } {

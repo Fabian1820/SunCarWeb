@@ -103,7 +103,10 @@ import {
   PopoverTrigger,
 } from "@/components/shared/molecule/popover";
 import type { Lead, LeadConversionRequest, LeadFoto } from "@/lib/api-types";
-import { extraerComponentesDeOfertaConfeccion } from "@/lib/utils/oferta-confeccion-items";
+import {
+  extraerComponentesDeOfertaConfeccion,
+  resolverComponentePrincipal,
+} from "@/lib/utils/oferta-confeccion-items";
 import {
   construirMarcasMap,
   generarOpcionesExportacionOferta,
@@ -993,11 +996,18 @@ export function LeadsTable({
     const tieneOfertaConfirmada = Boolean(
       lead?.oferta_confeccion?.hay_confirmada,
     );
-    return [
+    // El backend saca la letra de marca del código de cliente de este
+    // componente; si no lo encuentra, la conversión falla aunque todo lo
+    // demás esté. Se comprueba aquí para no prometer "todo listo" y fallar.
+    const componentePrincipal = resolverComponentePrincipal(
+      lead?.oferta_confeccion,
+    );
+    const checks = [
       {
         key: "provincia-municipio",
         label: "Provincia y municipio de montaje",
         ok: tieneProvinciaMunicipio,
+        bloqueante: true,
         hint: tieneProvinciaMunicipio
           ? undefined
           : "Edita el lead y completa provincia y municipio.",
@@ -1006,6 +1016,7 @@ export function LeadsTable({
         key: "direccion",
         label: "Dirección de instalación",
         ok: tieneDireccion,
+        bloqueante: true,
         hint: tieneDireccion
           ? undefined
           : "Edita el lead y agrega la dirección de instalación.",
@@ -1014,14 +1025,38 @@ export function LeadsTable({
         key: "oferta-confirmada",
         label: "Al menos una oferta confirmada por el cliente",
         ok: tieneOfertaConfirmada,
+        bloqueante: true,
         hint: tieneOfertaConfirmada
           ? undefined
           : "Crea o confirma una oferta antes de convertir el lead.",
       },
     ];
+
+    // Solo tiene sentido hablar del equipo si ya hay una oferta confirmada;
+    // si no la hay, el check de arriba ya lo dice.
+    if (tieneOfertaConfirmada) {
+      checks.push({
+        key: "componente-principal",
+        label: componentePrincipal
+          ? `Equipo para el código de cliente: ${componentePrincipal.descripcion?.split("\n")[0] ?? componentePrincipal.codigo}`
+          : "La oferta confirmada no identifica inversor, batería ni panel",
+        ok: Boolean(componentePrincipal),
+        // No bloquea: sin equipo la conversión sigue siendo posible marcando
+        // "equipo propio", que es justo lo que hace falta en las ofertas que
+        // solo llevan materiales.
+        bloqueante: false,
+        hint: componentePrincipal
+          ? undefined
+          : "Se podrá convertir marcando el equipo como propio del cliente (código con prefijo P). Si el equipo lo vende SunCar, revisa la oferta confirmada antes.",
+      });
+    }
+
+    return checks;
   }, [leadToConvert]);
 
-  const convertChecksOk = convertChecks.every((c) => c.ok);
+  const convertChecksOk = convertChecks
+    .filter((c) => c.bloqueante)
+    .every((c) => c.ok);
 
   const handleComprobanteDialogOpenChange = (open: boolean) => {
     setIsComprobanteDialogOpen(open);
@@ -2419,9 +2454,11 @@ export function LeadsTable({
                       convertChecksOk ? "text-emerald-800" : "text-amber-900"
                     }`}
                   >
-                    {convertChecksOk
-                      ? "Todo listo para convertir"
-                      : "Faltan datos para poder convertir"}
+                    {!convertChecksOk
+                      ? "Faltan datos para poder convertir"
+                      : convertChecks.every((c) => c.ok)
+                        ? "Todo listo para convertir"
+                        : "Listo para convertir, pero revisa el aviso"}
                   </p>
                   <ul className="space-y-1.5">
                     {convertChecks.map((c) => (
