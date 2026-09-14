@@ -5,12 +5,14 @@ import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Label } from "@/components/shared/atom/label"
 import { Input } from "@/components/shared/molecule/input"
-import { PackageSearch, ClipboardList, Edit, Search } from "lucide-react"
+import { PackageSearch, ClipboardList, Plus, Search } from "lucide-react"
 import { ContabilidadTable } from "@/components/feats/contabilidad/contabilidad-table"
 import { EntradaManualDialog } from "@/components/feats/contabilidad/entrada-manual-dialog"
 import { CrearTicketDialog } from "@/components/feats/contabilidad/crear-ticket-dialog"
-import { SeleccionarMaterialDialog } from "@/components/feats/contabilidad/seleccionar-material-dialog"
-import { EditarDatosContabilidadDialog } from "@/components/feats/contabilidad/editar-datos-contabilidad-dialog"
+import {
+  MaterialContabilidadDialog,
+  type DatosMaterialContabilidad,
+} from "@/components/feats/contabilidad/material-contabilidad-dialog"
 import { useContabilidad } from "@/hooks/use-contabilidad"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { PageLoader } from "@/components/shared/atom/page-loader"
@@ -20,6 +22,7 @@ import { RouteGuard } from "@/components/auth/route-guard"
 import { ExportButtons } from "@/components/shared/molecule/export-buttons"
 import type { ExportColumn } from "@/lib/export-service"
 import type { Material } from "@/lib/api-types"
+import type { MaterialContabilidad } from "@/lib/types/feats/contabilidad/contabilidad-types"
 import type { CrearTicketSalidaData } from "@/components/feats/contabilidad/crear-ticket-dialog"
 import { ReciboService } from "@/lib/services/feats/caja/recibo-service"
 import { normalizeSearchText } from '@/lib/utils/string-utils'
@@ -33,15 +36,14 @@ export default function ExistenciasContabilidadPage() {
 }
 
 function ExistenciasContabilidadPageContent() {
-  const { materiales, allMateriales, loading, error, registrarEntrada, crearTicket, editarDatosContabilidad, loadAllMateriales, clearError } =
+  const { materiales, allMateriales, loading, error, registrarEntrada, crearTicket, crearMaterial, editarMaterial, loadAllMateriales, clearError } =
     useContabilidad()
   const { toast } = useToast()
 
   const [entradaDialogOpen, setEntradaDialogOpen] = useState(false)
   const [ticketDialogOpen, setTicketDialogOpen] = useState(false)
-  const [seleccionarMaterialDialogOpen, setSeleccionarMaterialDialogOpen] = useState(false)
-  const [editarContabilidadDialogOpen, setEditarContabilidadDialogOpen] = useState(false)
-  const [materialSeleccionado, setMaterialSeleccionado] = useState<Material | null>(null)
+  const [materialDialogOpen, setMaterialDialogOpen] = useState(false)
+  const [materialEnEdicion, setMaterialEnEdicion] = useState<MaterialContabilidad | null>(null)
   const [searchCodigoContabilidad, setSearchCodigoContabilidad] = useState("")
 
   // Cargar todos los materiales al montar el componente
@@ -93,33 +95,30 @@ function ExistenciasContabilidadPageContent() {
     }
   }
 
-  const handleSelectMaterial = (material: Material) => {
-    setMaterialSeleccionado(material)
-    setEditarContabilidadDialogOpen(true)
+  const abrirAlta = () => {
+    setMaterialEnEdicion(null)
+    setMaterialDialogOpen(true)
   }
 
-  const handleEditarDatosContabilidad = async (
-    materialCodigo: string,
-    productoId: string,
-    data: {
-      codigo_contabilidad: string
-      cantidad_contabilidad: number
-      precio_contabilidad: number
-    }
-  ) => {
-    try {
-      const success = await editarDatosContabilidad(materialCodigo, productoId, data)
-      if (success) {
-        toast({
-          title: "Datos actualizados",
-          description: "Los datos de contabilidad se actualizaron correctamente",
-        })
-        setMaterialSeleccionado(null)
-      }
-    } catch {
+  const handleGuardarMaterial = async (datos: DatosMaterialContabilidad) => {
+    const esEdicion = materialEnEdicion !== null
+    const ok = esEdicion
+      ? await editarMaterial(materialEnEdicion.id, datos)
+      : await crearMaterial(datos)
+
+    if (ok) {
       toast({
-        title: "Error",
-        description: "No se pudieron actualizar los datos de contabilidad",
+        title: esEdicion ? "Material actualizado" : "Material agregado",
+        description: esEdicion
+          ? "Los datos del material se guardaron correctamente"
+          : `${datos.nombre} ya está en Existencias Contabilidad`,
+      })
+      setMaterialDialogOpen(false)
+      setMaterialEnEdicion(null)
+    } else {
+      toast({
+        title: "No se pudo guardar",
+        description: error || "Revise el código de contabilidad: no puede repetirse.",
         variant: "destructive",
       })
     }
@@ -210,13 +209,13 @@ function ExistenciasContabilidadPageContent() {
                 <ClipboardList className="h-4 w-4 mr-2" />
                 Crear Ticket de Salida
               </Button>
-              <Button 
-                onClick={() => setSeleccionarMaterialDialogOpen(true)} 
+              <Button
+                onClick={abrirAlta}
                 variant="outline"
                 className="border-blue-600 text-blue-600 hover:bg-blue-50"
               >
-                <Edit className="h-4 w-4 mr-2" />
-                Editar Datos Contabilidad
+                <Plus className="h-4 w-4 mr-2" />
+                Agregar Material
               </Button>
             </div>
           </CardContent>
@@ -263,19 +262,15 @@ function ExistenciasContabilidadPageContent() {
         loading={loading}
       />
 
-      <SeleccionarMaterialDialog
-        open={seleccionarMaterialDialogOpen}
-        onOpenChange={setSeleccionarMaterialDialogOpen}
-        materiales={allMateriales}
-        loading={loading}
-        onSelectMaterial={handleSelectMaterial}
-      />
-
-      <EditarDatosContabilidadDialog
-        open={editarContabilidadDialogOpen}
-        onOpenChange={setEditarContabilidadDialogOpen}
-        material={materialSeleccionado}
-        onSubmit={handleEditarDatosContabilidad}
+      <MaterialContabilidadDialog
+        open={materialDialogOpen}
+        onOpenChange={(abierto) => {
+          setMaterialDialogOpen(abierto)
+          if (!abierto) setMaterialEnEdicion(null)
+        }}
+        material={materialEnEdicion}
+        materialesCatalogo={allMateriales}
+        onSubmit={handleGuardarMaterial}
         loading={loading}
       />
 

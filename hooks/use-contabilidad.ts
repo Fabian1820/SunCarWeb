@@ -9,6 +9,10 @@ import {
   convertTicketToFrontend,
 } from '@/lib/types/feats/contabilidad/contabilidad-types'
 import type { Material } from '@/lib/api-types'
+import type {
+  ActualizarMaterialContabilidadRequest,
+  CrearMaterialContabilidadRequest,
+} from '@/lib/services/feats/contabilidad/contabilidad-service'
 
 export function useContabilidad() {
   const [materiales, setMateriales] = useState<MaterialContabilidad[]>([])
@@ -107,68 +111,67 @@ export function useContabilidad() {
     [loadMateriales, loadTickets]
   )
 
-  const editarDatosContabilidad = useCallback(
-    async (
-      materialCodigo: string,
-      productoId: string,
-      data: {
-        codigo_contabilidad: string
-        cantidad_contabilidad: number
-        precio_contabilidad: number
-      }
-    ): Promise<boolean> => {
+  // Alta de material contable. Ya no pasa por el catálogo del sistema: la
+  // operadora escribe el código y el nombre que usa contabilidad, exista o no
+  // ese material en el catálogo.
+  const crearMaterial = useCallback(
+    async (datos: CrearMaterialContabilidadRequest): Promise<boolean> => {
       setLoading(true)
       setError(null)
       try {
-        // Obtener el material completo para preservar todos sus datos
-        const material = allMateriales.find((m) => m.codigo === materialCodigo)
-        if (!material) {
-          throw new Error('Material no encontrado')
-        }
-
-        // Preparar datos completos del material con los nuevos datos de contabilidad
-        const updateData = {
-          codigo: material.codigo,
-          descripcion: material.descripcion,
-          um: material.um,
-          precio: material.precio,
-          comentario: material.comentario,
-          nombre: material.nombre,
-          marca_id: material.marca_id,
-          foto: material.foto,
-          potenciaKW: material.potenciaKW,
-          habilitar_venta_web: material.habilitar_venta_web,
-          precio_por_cantidad: material.precio_por_cantidad,
-          especificaciones: material.especificaciones,
-          ficha_tecnica_url: material.ficha_tecnica_url,
-          numero_serie: material.numero_serie,
-          stockaje_minimo: material.stockaje_minimo,
-          codigo_contabilidad: data.codigo_contabilidad,
-          cantidad_contabilidad: data.cantidad_contabilidad,
-          precio_contabilidad: data.precio_contabilidad,
-        }
-
-        await MaterialService.editMaterialInProduct(
-          productoId,
-          materialCodigo,
-          updateData
-        )
-        
-        // Recargar ambas listas
+        await ContabilidadService.crearMaterial(datos)
         await loadMateriales()
-        await loadAllMateriales()
         return true
       } catch (err) {
-        const message =
-          err instanceof Error ? err.message : 'Error al editar datos de contabilidad'
-        setError(message)
-        console.error('Error editando datos de contabilidad:', err)
+        setError(err instanceof Error ? err.message : 'Error al dar de alta el material')
+        console.error('Error dando de alta material contable:', err)
         return false
       } finally {
         setLoading(false)
       }
     },
-    [allMateriales, loadMateriales, loadAllMateriales]
+    [loadMateriales]
+  )
+
+  const editarMaterial = useCallback(
+    async (
+      materialId: string,
+      datos: ActualizarMaterialContabilidadRequest
+    ): Promise<boolean> => {
+      setLoading(true)
+      setError(null)
+      try {
+        await ContabilidadService.actualizarMaterial(materialId, datos)
+        await loadMateriales()
+        return true
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error al editar el material')
+        console.error('Error editando material contable:', err)
+        return false
+      } finally {
+        setLoading(false)
+      }
+    },
+    [loadMateriales]
+  )
+
+  const eliminarMaterial = useCallback(
+    async (materialId: string): Promise<boolean> => {
+      setLoading(true)
+      setError(null)
+      try {
+        await ContabilidadService.eliminarMaterial(materialId)
+        await loadMateriales()
+        return true
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error al dar de baja el material')
+        console.error('Error dando de baja material contable:', err)
+        return false
+      } finally {
+        setLoading(false)
+      }
+    },
+    [loadMateriales]
   )
 
   useEffect(() => {
@@ -183,7 +186,9 @@ export function useContabilidad() {
     error,
     registrarEntrada,
     crearTicket,
-    editarDatosContabilidad,
+    crearMaterial,
+    editarMaterial,
+    eliminarMaterial,
     loadTickets,
     loadAllMateriales,
     clearError: () => setError(null),

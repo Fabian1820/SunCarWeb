@@ -36,6 +36,7 @@ import {
 } from "@/lib/api-services";
 import { apiRequest } from "@/lib/api-config";
 import { StockInsuficienteError } from "@/lib/services/feats/contabilidad/contabilidad-service";
+import type { MaterialContabilidadBackend } from "@/lib/types/feats/contabilidad/contabilidad-types";
 import { usePaginatedVentasFactura } from "@/hooks/use-paginated-ventas-factura";
 import type { Cliente } from "@/lib/types/feats/customer/cliente-types";
 import type { VentasFacturaRow } from "@/lib/types/feats/solicitudes-ventas/solicitud-venta-types";
@@ -744,6 +745,11 @@ function FacturasSolarCarrosPageContent() {
   const [previewSource, setPreviewSource] = useState<FacturaPreviewSource | null>(null);
   const [previewDraft, setPreviewDraft] = useState<SolarFacturaDraft | null>(null);
   const [catalogMateriales, setCatalogMateriales] = useState<Material[]>([]);
+  // Existencias Contabilidad vive en su propia colección desde sep-2026: el
+  // catálogo del sistema ya no lleva los campos contables.
+  const [materialesContabilidad, setMaterialesContabilidad] = useState<
+    MaterialContabilidadBackend[]
+  >([]);
   const [loadingCatalog, setLoadingCatalog] = useState(false);
   const [editableConceptItems, setEditableConceptItems] = useState<EditableConceptMaterial[]>([]);
   const [replaceSelectionByRow, setReplaceSelectionByRow] = useState<Record<string, string>>({});
@@ -1182,14 +1188,16 @@ function FacturasSolarCarrosPageContent() {
 
     let cancelled = false;
     setLoadingCatalog(true);
-    MaterialService.getAllMaterials()
-      .then((data) => {
+    Promise.all([
+      MaterialService.getAllMaterials().catch(() => [] as Material[]),
+      ContabilidadService.getMaterialesContabilidad().catch(
+        () => [] as MaterialContabilidadBackend[],
+      ),
+    ])
+      .then(([catalogo, contabilidad]) => {
         if (cancelled) return;
-        setCatalogMateriales(Array.isArray(data) ? data : []);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setCatalogMateriales([]);
+        setCatalogMateriales(Array.isArray(catalogo) ? catalogo : []);
+        setMaterialesContabilidad(Array.isArray(contabilidad) ? contabilidad : []);
       })
       .finally(() => {
         if (cancelled) return;
@@ -1200,6 +1208,34 @@ function FacturasSolarCarrosPageContent() {
       cancelled = true;
     };
   }, [previewOpen, catalogMateriales.length]);
+
+  // Índices para resolver del ítem de la oferta a su contrapartida contable.
+  const contabilidadPorId = useMemo(() => {
+    const out = new Map<string, MaterialContabilidadBackend>();
+    materialesContabilidad.forEach((m) => out.set(String(m.id), m));
+    return out;
+  }, [materialesContabilidad]);
+
+  const contabilidadPorCatalogoId = useMemo(() => {
+    const out = new Map<string, MaterialContabilidadBackend>();
+    materialesContabilidad.forEach((m) => {
+      if (m.material_catalogo_id) out.set(String(m.material_catalogo_id), m);
+    });
+    return out;
+  }, [materialesContabilidad]);
+
+  const categoriaPorContabilidadId = useMemo(() => {
+    const porCatalogo = new Map<string, Material>();
+    (catalogMateriales || []).forEach((m) => porCatalogo.set(String(m.id), m));
+    const out = new Map<string, string>();
+    materialesContabilidad.forEach((m) => {
+      const cat = m.material_catalogo_id
+        ? porCatalogo.get(String(m.material_catalogo_id))?.categoria
+        : undefined;
+      if (cat) out.set(String(m.id), cat);
+    });
+    return out;
+  }, [materialesContabilidad, catalogMateriales]);
 
   useEffect(() => {
     if (!previewOpen || !previewSource) {
@@ -1215,6 +1251,17 @@ function FacturasSolarCarrosPageContent() {
 
     const mapped = baseMateriales.map((item, index) => {
       const catalogMatch = pickCatalogMaterialForItem(item, catalogMateriales);
+      // El material que descuenta existencia es el de contabilidad, no el del
+      // catálogo. Se llega a él por el enlace del catálogo y, si no lo hay, por
+      // el código contable o el nombre.
+      const contaMatch =
+        (catalogMatch ? contabilidadPorCatalogoId.get(String(catalogMatch.id)) : undefined) ||
+        materialesContabilidad.find(
+          (m) =>
+            normalizeKey(m.codigo_contabilidad) === normalizeKey(item.codigo) ||
+            normalizeKey(m.nombre) === normalizeKey(item.descripcion),
+        ) ||
+        null;
       // Preferir la categoria real del material vinculado del catalogo (usa
       // su campo `categoria` ademas de codigo/descripcion) en vez de
       // adivinarla solo con el texto crudo del item de la factura, que no
@@ -1222,11 +1269,7 @@ function FacturasSolarCarrosPageContent() {
       const category = catalogMatch
         ? detectCategoryFromMaterial(catalogMatch)
         : detectCategory(item);
-      const resolvedMaterialId =
-        String(catalogMatch?.id || "").trim() ||
-        (isLikelyPersistentId(String(item.material_id || ""))
-          ? String(item.material_id)
-          : "");
+      const resolvedMaterialId = String(contaMatch?.id || "").trim();
       const sinVinculo = !isLikelyPersistentId(resolvedMaterialId);
       return {
         ...item,
@@ -1236,10 +1279,10 @@ function FacturasSolarCarrosPageContent() {
           ? category
           : "panel") as "inversor" | "bateria" | "panel",
         categoriaReal: catalogMatch?.categoria || undefined,
-        codigoContabilidad: String(catalogMatch?.codigo_contabilidad || ""),
-        nombreCatalogo: String(catalogMatch?.nombre || catalogMatch?.descripcion || ""),
-        cantidadExistente: parseNumero(catalogMatch?.cantidad_contabilidad),
-        precioContabilidad: parseNumero(catalogMatch?.precio_contabilidad),
+        codigoContabilidad: String(contaMatch?.codigo_contabilidad || ""),
+        nombreCatalogo: String(contaMatch?.nombre || contaMatch?.descripcion || ""),
+        cantidadExistente: parseNumero(contaMatch?.cantidad_contabilidad),
+        precioContabilidad: parseNumero(contaMatch?.precio_contabilidad),
         sinVinculo,
         precio:
           parseNumero(item.precio) > 0
@@ -1249,7 +1292,7 @@ function FacturasSolarCarrosPageContent() {
     });
 
     setEditableConceptItems(mapped);
-  }, [previewOpen, previewSource, catalogMateriales]);
+  }, [previewOpen, previewSource, catalogMateriales, materialesContabilidad, contabilidadPorCatalogoId]);
 
   const itemsConceptoPrincipales = useMemo(() => {
     return editableConceptItems
@@ -1912,10 +1955,19 @@ function FacturasSolarCarrosPageContent() {
     return out;
   }, [catalogMateriales]);
 
+  // Las opciones son materiales de CONTABILIDAD (lo que descuenta existencia),
+  // agrupados por la categoría del material de catálogo al que estén enlazados.
   const materialOptionsPorCategoria = useMemo(() => {
-    const build = (materiales: Material[]) =>
-      materiales
-        .filter((m) => String(m.codigo_contabilidad || "").trim().length > 0)
+    const build = (categoria: "inversor" | "bateria" | "panel") => {
+      const idsDeLaCategoria = new Set(
+        materialesCatalogPorCategoria[categoria].map((m) => String(m.id)),
+      );
+      return materialesContabilidad
+        .filter(
+          (m) =>
+            m.material_catalogo_id &&
+            idsDeLaCategoria.has(String(m.material_catalogo_id)),
+        )
         .sort((a, b) =>
           String(a.codigo_contabilidad || "").localeCompare(
             String(b.codigo_contabilidad || ""),
@@ -1925,15 +1977,16 @@ function FacturasSolarCarrosPageContent() {
         )
         .map((m) => ({
           value: String(m.id || ""),
-          label: `[${String(m.codigo_contabilidad)}] ${String(m.codigo || "-")} - ${String(m.nombre || m.descripcion || "Material")}`,
+          label: `[${String(m.codigo_contabilidad)}] ${String(m.nombre || m.descripcion || "Material")}`,
         }));
+    };
 
     return {
-      inversor: build(materialesCatalogPorCategoria.inversor),
-      bateria: build(materialesCatalogPorCategoria.bateria),
-      panel: build(materialesCatalogPorCategoria.panel),
+      inversor: build("inversor"),
+      bateria: build("bateria"),
+      panel: build("panel"),
     };
-  }, [materialesCatalogPorCategoria]);
+  }, [materialesCatalogPorCategoria, materialesContabilidad]);
 
   // Bucket por la categoria REAL del catalogo (ej. "BATERÍAS", "CABLES LHA",
   // "PEQUEÑO MATERIAL"), mas fina que los 3 buckets de arriba. Se usa para
@@ -1942,10 +1995,10 @@ function FacturasSolarCarrosPageContent() {
   // no solo cuando cae en inversor/bateria/panel.
   const materialOptionsPorCategoriaReal = useMemo(() => {
     const out: Record<string, { value: string; label: string }[]> = {};
-    const porCategoria: Record<string, Material[]> = {};
+    const porCategoria: Record<string, MaterialContabilidadBackend[]> = {};
 
-    (catalogMateriales || []).forEach((material) => {
-      const cat = material.categoria || "";
+    materialesContabilidad.forEach((material) => {
+      const cat = categoriaPorContabilidadId.get(String(material.id)) || "";
       if (!cat) return;
       if (!porCategoria[cat]) porCategoria[cat] = [];
       porCategoria[cat].push(material);
@@ -1953,7 +2006,6 @@ function FacturasSolarCarrosPageContent() {
 
     Object.entries(porCategoria).forEach(([cat, materiales]) => {
       out[cat] = materiales
-        .filter((m) => String(m.codigo_contabilidad || "").trim().length > 0)
         .sort((a, b) =>
           String(a.codigo_contabilidad || "").localeCompare(
             String(b.codigo_contabilidad || ""),
@@ -1963,22 +2015,20 @@ function FacturasSolarCarrosPageContent() {
         )
         .map((m) => ({
           value: String(m.id || ""),
-          label: `[${String(m.codigo_contabilidad)}] ${String(m.codigo || "-")} - ${String(m.nombre || m.descripcion || "Material")}`,
+          label: `[${String(m.codigo_contabilidad)}] ${String(m.nombre || m.descripcion || "Material")}`,
         }));
     });
 
     return out;
-  }, [catalogMateriales]);
+  }, [materialesContabilidad, categoriaPorContabilidadId]);
 
   const materialesContabilidadOptions = useMemo(
     () =>
-      (catalogMateriales || [])
-        .filter((m) => String(m.codigo_contabilidad || "").trim().length > 0)
-        .map((m) => ({
-          value: String(m.id || ""),
-          label: `[${String(m.codigo_contabilidad)}] ${String(m.codigo || "-")} - ${String(m.nombre || m.descripcion || "Material")}`,
-        })),
-    [catalogMateriales],
+      materialesContabilidad.map((m) => ({
+        value: String(m.id || ""),
+        label: `[${String(m.codigo_contabilidad)}] ${String(m.nombre || m.descripcion || "Material")}`,
+      })),
+    [materialesContabilidad],
   );
 
   const updateEditableCantidad = (rowId: string, cantidad: number) => {
@@ -1999,23 +2049,31 @@ function FacturasSolarCarrosPageContent() {
     setEditableConceptItems((prev) =>
       prev.map((item) => {
         if (item.rowId !== rowId) return item;
-        const found = catalogMateriales.find((m) => m.id === materialId);
+        // Se elige un material de contabilidad, que es lo que descuenta
+        // existencia. El del catálogo solo aporta categoría y precio, y puede
+        // no existir.
+        const found = contabilidadPorId.get(String(materialId));
         if (!found) return item;
+        const enCatalogo = found.material_catalogo_id
+          ? catalogMateriales.find((m) => String(m.id) === String(found.material_catalogo_id))
+          : undefined;
+        const categoria = enCatalogo ? detectCategoryFromMaterial(enCatalogo) : "otro";
         return {
           ...item,
-          material_id: found.id || item.material_id,
-          codigo: String(found.codigo || item.codigo),
+          material_id: String(found.id),
+          codigo: String(found.codigo_contabilidad || item.codigo),
           descripcion: String(found.nombre || found.descripcion || item.descripcion),
-          precio: parseNumero(found.precio) || item.precio,
+          precio: parseNumero(enCatalogo?.precio) || item.precio,
           codigoContabilidad: String(found.codigo_contabilidad || ""),
+          nombreCatalogo: String(found.nombre || found.descripcion || ""),
           cantidadExistente: parseNumero(found.cantidad_contabilidad),
           precioContabilidad: parseNumero(found.precio_contabilidad),
           sinVinculo: !isLikelyPersistentId(String(found.id || "")),
           categoriaKey:
-            detectCategoryFromMaterial(found) === "otro"
+            categoria === "otro"
               ? item.categoriaKey
-              : (detectCategoryFromMaterial(found) as "inversor" | "bateria" | "panel"),
-          categoriaReal: found.categoria || item.categoriaReal,
+              : (categoria as "inversor" | "bateria" | "panel"),
+          categoriaReal: enCatalogo?.categoria || item.categoriaReal,
         };
       }),
     );
@@ -2024,10 +2082,13 @@ function FacturasSolarCarrosPageContent() {
   const handleAgregarOtroMaterialContabilidad = () => {
     if (!nuevoMaterialContabilidadId) return;
 
-    const found = catalogMateriales.find((m) => String(m.id) === nuevoMaterialContabilidadId);
+    const found = contabilidadPorId.get(String(nuevoMaterialContabilidadId));
     if (!found) return;
 
-    const categoriaDetectada = detectCategoryFromMaterial(found);
+    const enCatalogo = found.material_catalogo_id
+      ? catalogMateriales.find((m) => String(m.id) === String(found.material_catalogo_id))
+      : undefined;
+    const categoriaDetectada = enCatalogo ? detectCategoryFromMaterial(enCatalogo) : "otro";
     const categoriaKey = categoriaDetectada === "otro" ? "panel" : categoriaDetectada;
 
     setEditableConceptItems((prev) => {
@@ -2045,13 +2106,14 @@ function FacturasSolarCarrosPageContent() {
         {
           rowId: `extra-${Date.now()}-${String(found.id || Math.random())}`,
           categoriaKey,
-          categoriaReal: found.categoria || undefined,
+          categoriaReal: enCatalogo?.categoria || undefined,
           material_id: String(found.id || ""),
-          codigo: String(found.codigo || ""),
+          codigo: String(found.codigo_contabilidad || ""),
           descripcion: String(found.nombre || found.descripcion || "Material"),
-          precio: parseNumero(found.precio),
+          precio: parseNumero(enCatalogo?.precio),
           cantidad: 1,
           codigoContabilidad: String(found.codigo_contabilidad || ""),
+          nombreCatalogo: String(found.nombre || found.descripcion || ""),
           cantidadExistente: parseNumero(found.cantidad_contabilidad),
           precioContabilidad: parseNumero(found.precio_contabilidad),
           sinVinculo: !isLikelyPersistentId(String(found.id || "")),

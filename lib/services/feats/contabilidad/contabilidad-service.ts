@@ -9,6 +9,29 @@ import type {
 /**
  * Faltante concreto devuelto por el backend cuando la existencia no alcanza.
  */
+export interface CrearMaterialContabilidadRequest {
+  codigo_contabilidad: string
+  nombre: string
+  descripcion?: string
+  um?: string
+  cantidad?: number
+  precio?: number
+  /** Enlace opcional al catálogo del sistema. Contabilidad puede dar de alta
+   *  materiales que el catálogo no tiene, que es el motivo de la separación. */
+  material_catalogo_id?: string | null
+}
+
+export type ActualizarMaterialContabilidadRequest = Partial<CrearMaterialContabilidadRequest>
+
+export class CodigoContabilidadDuplicadoError extends Error {
+  readonly codigo: string
+  constructor(message: string, codigo: string) {
+    super(message)
+    this.name = 'CodigoContabilidadDuplicadoError'
+    this.codigo = codigo
+  }
+}
+
 export interface FaltanteContabilidad {
   material_id: string
   nombre: string
@@ -44,6 +67,12 @@ function lanzarSiFallo(respuesta: unknown, accionDescrita: string): void {
   if (r.success !== false && !(typeof httpStatus === 'number' && httpStatus >= 400)) return
 
   const detail = r.detail as Record<string, unknown> | string | undefined
+  if (detail && typeof detail === 'object' && detail.code === 'CODIGO_DUPLICADO') {
+    throw new CodigoContabilidadDuplicadoError(
+      String(detail.message || 'Ya existe un material con ese código contable'),
+      String(detail.codigo || ''),
+    )
+  }
   if (detail && typeof detail === 'object' && detail.code === 'STOCK_INSUFICIENTE') {
     throw new StockInsuficienteError(
       String(detail.message || 'Existencia insuficiente en contabilidad'),
@@ -106,6 +135,48 @@ export class ContabilidadService {
     )
     lanzarSiFallo(response, 'rebajar el inventario contable')
     return response.ticket
+  }
+
+  /**
+   * Da de alta un material en Existencias Contabilidad.
+   * No hace falta que exista en el catálogo del sistema.
+   */
+  static async crearMaterial(
+    datos: CrearMaterialContabilidadRequest
+  ): Promise<MaterialContabilidadBackend> {
+    const response = await apiRequest<MaterialContabilidadBackend>(
+      '/materiales/contabilidad/',
+      { method: 'POST', body: JSON.stringify(datos) }
+    )
+    lanzarSiFallo(response, 'dar de alta el material')
+    return response
+  }
+
+  /**
+   * Edita un material de Existencias Contabilidad
+   */
+  static async actualizarMaterial(
+    materialId: string,
+    datos: ActualizarMaterialContabilidadRequest
+  ): Promise<MaterialContabilidadBackend> {
+    const response = await apiRequest<MaterialContabilidadBackend>(
+      `/materiales/contabilidad/${materialId}`,
+      { method: 'PUT', body: JSON.stringify(datos) }
+    )
+    lanzarSiFallo(response, 'actualizar el material')
+    return response
+  }
+
+  /**
+   * Da de baja un material de Existencias Contabilidad.
+   * Los tickets y facturas que lo referencian conservan su propio snapshot.
+   */
+  static async eliminarMaterial(materialId: string): Promise<void> {
+    const response = await apiRequest<{ success: boolean }>(
+      `/materiales/contabilidad/${materialId}`,
+      { method: 'DELETE' }
+    )
+    lanzarSiFallo(response, 'dar de baja el material')
   }
 
   /**

@@ -653,9 +653,6 @@ export class MaterialService {
       ficha_tecnica_url: item.ficha_tecnica_url ?? null,
       precio_por_cantidad: item.precio_por_cantidad ?? undefined,
       especificaciones: item.especificaciones ?? undefined,
-      codigo_contabilidad: item.codigo_contabilidad ?? undefined,
-      cantidad_contabilidad: item.cantidad_contabilidad ?? undefined,
-      precio_contabilidad: item.precio_contabilidad ?? undefined,
       producto_id: item.producto_id ?? undefined,
     }));
 

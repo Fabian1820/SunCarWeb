@@ -628,21 +628,6 @@ export default function MaterialesPage() {
           { header: "Marca", key: "marca_nombre", width: 22 },
           { header: "Potencia (kW)", key: "potenciaKW", width: 16 },
           { header: "Venta Web", key: "habilitar_venta_web", width: 14 },
-          {
-            header: "Código Contabilidad",
-            key: "codigo_contabilidad",
-            width: 20,
-          },
-          {
-            header: "Cantidad Contabilidad",
-            key: "cantidad_contabilidad",
-            width: 20,
-          },
-          {
-            header: "Precio Contabilidad",
-            key: "precio_contabilidad",
-            width: 18,
-          },
         ],
         data: materialsToExport.map((material) => ({
           codigo: normalizeValue(material.codigo),
@@ -656,9 +641,6 @@ export default function MaterialesPage() {
             : "-",
           potenciaKW: material.potenciaKW ?? "-",
           habilitar_venta_web: normalizeValue(material.habilitar_venta_web),
-          codigo_contabilidad: normalizeValue(material.codigo_contabilidad),
-          cantidad_contabilidad: material.cantidad_contabilidad ?? "-",
-          precio_contabilidad: material.precio_contabilidad ?? "-",
         })),
       });
 

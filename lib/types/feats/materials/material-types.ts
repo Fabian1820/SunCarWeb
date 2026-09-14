@@ -23,9 +23,6 @@ export interface BackendMaterial {
   ficha_tecnica_url?: string | null;
   numero_serie?: string | null;
   stockaje_minimo?: number | null;
-  codigo_contabilidad?: string;
-  cantidad_contabilidad?: number;
-  precio_contabilidad?: number;
 }
 
 export interface BackendCatalogoProductos {
@@ -62,9 +59,6 @@ export interface MaterialItem {
   ficha_tecnica_url?: string | null;
   numero_serie?: string | null;
   stockaje_minimo?: number | null;
-  codigo_contabilidad?: string;
-  cantidad_contabilidad?: number;
-  precio_contabilidad?: number;
 }
 
 export interface MaterialCategory {
@@ -103,9 +97,6 @@ export interface Material {
   ubicacion_en_almacen?: string | null;
   numero_serie?: string | null;
   stockaje_minimo?: number | null;
-  codigo_contabilidad?: string;
-  cantidad_contabilidad?: number;
-  precio_contabilidad?: number;
 }
 
 export interface MaterialFormData {
@@ -199,9 +190,6 @@ export function transformBackendToFrontend(
         producto_id: catalogo.id,
         numero_serie: material.numero_serie ?? null,
         stockaje_minimo: material.stockaje_minimo ?? null,
-        codigo_contabilidad: material.codigo_contabilidad,
-        cantidad_contabilidad: material.cantidad_contabilidad,
-        precio_contabilidad: material.precio_contabilidad,
       });
     });
   });
@@ -239,9 +227,6 @@ export function flattenMaterials(categories: MaterialCategory[]): Material[] {
         especificaciones: material.especificaciones,
         numero_serie: material.numero_serie ?? null,
         stockaje_minimo: material.stockaje_minimo ?? null,
-        codigo_contabilidad: material.codigo_contabilidad,
-        cantidad_contabilidad: material.cantidad_contabilidad,
-        precio_contabilidad: material.precio_contabilidad,
       });
     });
   });
