@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
-import { AlertTriangle, Check, ChevronLeft, ClipboardList, Loader2, Plus } from "lucide-react";
+import { AlertTriangle, ChevronLeft, Loader2, Plus } from "lucide-react";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { RouteGuard } from "@/components/auth/route-guard";
 import { Button } from "@/components/shared/atom/button";
@@ -420,19 +420,11 @@ function PlanificacionContenido() {
   /** El plan que se ve es el del día de la dirección y ya terminó de cargar. */
   const listo = !!dia && dia === fecha && !cargando && !errorCarga;
 
-  const botonVerPlan =
-    trabajos.length > 0 ? (
-      <Button variant="outline" onClick={() => irA({ dia: fecha, ver: "plan" })}>
-        <ClipboardList className="mr-2 h-4 w-4" aria-hidden />
-        Ver el plan del día ({trabajos.length})
-      </Button>
-    ) : null;
-
   return (
     <div className="min-h-screen bg-gray-50">
       <ModuleHeader
         title="Planificación"
-        subtitle={dia ? nombreDia(dia, hoy) : "Qué hace cada brigada cada día"}
+        subtitle="Qué hace cada brigada cada día"
         actions={paso.en === "inicio" ? undefined : <IndicadorGuardado estado={estado} />}
       />
 
@@ -452,12 +444,12 @@ function PlanificacionContenido() {
           </div>
         ) : paso.en === "dia" ? (
           <MenuDia
-            titulo={nombreDia(dia!, hoy)}
+            fecha={dia!}
+            hoy={hoy}
             cargando={!listo}
             trabajos={listo ? trabajos : []}
-            onCambiarDia={() => irA({})}
+            onCambiarFecha={(f) => irA({ dia: f })}
             onTipo={(tipo) => irA({ dia: dia!, tipo })}
-            onVerPlan={() => irA({ dia: dia!, ver: "plan" })}
             onNuevo={() => setNuevoAbierto(true)}
             recientes={recientes}
             onQuitar={(t) => editar((lista) => lista.filter((x) => !mismoTrabajo(x, t)))}
@@ -473,9 +465,7 @@ function PlanificacionContenido() {
               onVolver={() => irA({ dia: fecha })}
               titulo={`${TITULO_TIPO[paso.tipo]} para ${diaCorto(fecha, hoy)}`}
               subtitulo="Marca los que quieras y abajo elige quién va."
-            >
-              {botonVerPlan}
-            </Encabezado>
+            />
             <PlanificarPorMapa
               key={`${fecha}:${paso.tipo}`}
               tipo={paso.tipo}
@@ -598,28 +588,16 @@ function Encabezado({
   );
 }
 
-/** Qué pasa con el guardado, discreto, donde antes estaba el botón. */
+/**
+ * El guardado es automático y casi siempre va bien: no se enseña. Solo aparece
+ * cuando no se puede guardar, que es lo único que hay que saber.
+ */
 function IndicadorGuardado({ estado }: { estado: EstadoGuardado }) {
-  if (estado === "error") {
-    return (
-      <span className="flex items-center gap-1.5 text-sm font-medium text-amber-800" role="status">
-        <AlertTriangle className="h-4 w-4" aria-hidden />
-        Sin conexión, reintentando…
-      </span>
-    );
-  }
-  if (estado === "guardado") {
-    return (
-      <span className="flex items-center gap-1.5 text-sm text-gray-600" role="status">
-        <Check className="h-4 w-4 text-emerald-700" aria-hidden />
-        Guardado
-      </span>
-    );
-  }
+  if (estado !== "error") return null;
   return (
-    <span className="flex items-center gap-1.5 text-sm text-gray-600" role="status">
-      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-      Guardando…
+    <span className="flex items-center gap-1.5 text-sm font-medium text-amber-800" role="status">
+      <AlertTriangle className="h-4 w-4" aria-hidden />
+      Sin conexión, reintentando…
     </span>
   );
 }

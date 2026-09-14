@@ -36,6 +36,19 @@ export function nombreDia(iso: string, hoy: string): string {
   return relativo ? `${relativo}, ${largo}` : largo.charAt(0).toUpperCase() + largo.slice(1);
 }
 
+const DIAS_CORTOS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+/** "Mañana, 15 sep" o "Jue 24 sep": lo justo para saber qué día es. */
+export function fechaCorta(iso: string, hoy: string): string {
+  const f = aFecha(iso);
+  const corta = `${f.getDate()} ${MESES_CORTOS[f.getMonth()]}`;
+  if (iso === hoy) return `Hoy, ${corta}`;
+  if (iso === desplazar(hoy, 1)) return `Mañana, ${corta}`;
+  if (iso === desplazar(hoy, -1)) return `Ayer, ${corta}`;
+  return `${DIAS_CORTOS[f.getDay()]} ${corta}`;
+}
+
 /** "hoy", "mañana" o "el martes 15". */
 export function diaCorto(iso: string, hoy: string): string {
   if (iso === hoy) return "hoy";
