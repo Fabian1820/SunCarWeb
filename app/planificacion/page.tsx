@@ -1,343 +1,439 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AlertTriangle, CalendarDays, Check, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { Button } from "@/components/shared/atom/button";
-import { Input } from "@/components/shared/atom/input";
-import { Loader2, Save, RotateCcw, X } from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/shared/atom/alert-dialog";
+import { SearchableSelect } from "@/components/shared/molecule/searchable-select";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/auth-context";
 import { PlanificacionService } from "@/lib/services/feats/planificacion/planificacion-service";
 import { BrigadaService } from "@/lib/services/feats/brigade/brigada-service";
+import { CarrilBrigada } from "@/components/feats/planificacion/carril-brigada";
 import {
-  PanelCandidatos,
-  type OpcionAsignable,
-} from "@/components/feats/planificacion/panel-candidatos";
-import { PanelPlan } from "@/components/feats/planificacion/panel-plan";
-import type { TrabajoPlanificado } from "@/lib/types/feats/planificacion/planificacion-types";
+  SelectorTrabajos,
+  claveCandidato,
+  claveTrabajo,
+} from "@/components/feats/planificacion/selector-trabajos";
+import type {
+  Asignado,
+  CandidatoPlanificacion,
+  TipoTrabajo,
+  TrabajoPlanificado,
+} from "@/lib/types/feats/planificacion/planificacion-types";
 
-/** Mañana: es el día que se planifica cuando uno se sienta a hacerlo. */
-function manana(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  return d.toISOString().slice(0, 10);
+type EstadoGuardado = "guardado" | "pendiente" | "guardando" | "error";
+
+interface Brigada {
+  asignado: Asignado;
+  /** El _id de la colección: planes viejos se guardaron con él. */
+  idViejo: string;
+  personas: number;
 }
 
-function claveBorrador(fecha: string): string {
-  return `planificacion:borrador:${fecha}`;
+const DIAS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+const MESES = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+];
+
+/** Fechas en hora local: con toISOString, a partir de las 8 de la noche "mañana" era pasado. */
+function isoLocal(d: Date): string {
+  const dd = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${dd(d.getMonth() + 1)}-${dd(d.getDate())}`;
 }
 
-function claveTrabajo(t: TrabajoPlanificado): string {
-  const entidad = t.lead_id ? `lead:${t.lead_id}` : `cliente:${t.cliente_numero}`;
-  return `${t.tipo}|${entidad}`;
+function aFecha(iso: string): Date {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d);
 }
 
+function desplazar(iso: string, dias: number): string {
+  const f = aFecha(iso);
+  f.setDate(f.getDate() + dias);
+  return isoLocal(f);
+}
+
+function nombreDia(iso: string, hoy: string): string {
+  const f = aFecha(iso);
+  const largo = `${DIAS[f.getDay()]} ${f.getDate()} de ${MESES[f.getMonth()]}`;
+  const relativo =
+    iso === hoy ? "Hoy" : iso === desplazar(hoy, 1) ? "Mañana" : iso === desplazar(hoy, -1) ? "Ayer" : null;
+  return relativo ? `${relativo}, ${largo}` : largo.charAt(0).toUpperCase() + largo.slice(1);
+}
+
+function mismoAsignado(a: Asignado, b: Asignado): boolean {
+  return a.tipo === b.tipo && a.id === b.id;
+}
+
+function mismoTrabajo(a: TrabajoPlanificado, b: TrabajoPlanificado): boolean {
+  return a.id ? a.id === b.id : a === b;
+}
+
+function nuevoId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/**
+ * El plan de un día, brigada por brigada.
+ *
+ * La pantalla es el propio plan: una tarjeta por brigada con lo que tiene. Se
+ * añade desde la tarjeta de la brigada, así que "para quién" nunca se elige
+ * aparte. Todo se guarda solo según se hace: no hay botón de guardar que
+ * olvidar, ni borradores, ni avisos de cambios perdidos.
+ */
 export default function PlanificacionPage() {
   const { toast } = useToast();
-  const [fecha, setFecha] = useState(manana);
+  const { user } = useAuth();
+  const hoy = useMemo(() => isoLocal(new Date()), []);
+  // Mañana: es el día que se planifica cuando uno se sienta a hacerlo.
+  const [fecha, setFecha] = useState(() => desplazar(isoLocal(new Date()), 1));
   const [trabajos, setTrabajos] = useState<TrabajoPlanificado[]>([]);
-  const [guardado, setGuardado] = useState<TrabajoPlanificado[]>([]);
   const [cargando, setCargando] = useState(true);
-  const [guardando, setGuardando] = useState(false);
-  const [brigadas, setBrigadas] = useState<OpcionAsignable[]>([]);
-  const [trabajadores, setTrabajadores] = useState<OpcionAsignable[]>([]);
-  /** Fecha a la que se quiere ir teniendo cambios sin guardar. */
-  const [fechaPendiente, setFechaPendiente] = useState<string | null>(null);
-  /** Borrador encontrado al abrir, a la espera de que decidan. */
-  const [borrador, setBorrador] = useState<TrabajoPlanificado[] | null>(null);
+  const [errorCarga, setErrorCarga] = useState(false);
+  const [recarga, setRecarga] = useState(0);
+  const [estado, setEstado] = useState<EstadoGuardado>("guardado");
+  const [brigadas, setBrigadas] = useState<Brigada[]>([]);
+  const [trabajadores, setTrabajadores] = useState<Asignado[]>([]);
+  const [sueltos, setSueltos] = useState<Asignado[]>([]);
+  const [destino, setDestino] = useState<Asignado | null>(null);
+  const cache = useRef(new Map<TipoTrabajo, CandidatoPlanificacion[]>());
 
-  const cargarPlan = useCallback(async () => {
-    setCargando(true);
-    try {
-      const plan = await PlanificacionService.obtener(fecha);
-      const delServidor = plan.trabajos || [];
-      setTrabajos(delServidor);
-      setGuardado(delServidor);
+  // Lo que se guarda se lee de refs: el guardado corre fuera del render y
+  // tiene que llevarse siempre lo último.
+  const trabajosRef = useRef<TrabajoPlanificado[]>([]);
+  const fechaRef = useRef(fecha);
+  const sucio = useRef(false);
+  const enCurso = useRef<Promise<boolean> | null>(null);
+  const temporizador = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const ciRef = useRef<string | undefined>(user?.ci);
+  ciRef.current = user?.ci;
 
-      // Si quedó un borrador de ese día y dice otra cosa, se ofrece: no se
-      // aplica solo, porque el del servidor puede ser el bueno.
-      try {
-        const crudo = localStorage.getItem(claveBorrador(fecha));
-        if (crudo) {
-          const guardadoLocal = JSON.parse(crudo) as TrabajoPlanificado[];
-          setBorrador(
-            JSON.stringify(guardadoLocal) === JSON.stringify(delServidor) ? null : guardadoLocal,
-          );
-        } else {
-          setBorrador(null);
-        }
-      } catch {
-        setBorrador(null);
-      }
-    } catch {
-      toast({
-        title: "No se pudo cargar el plan",
-        description: "Revisa la conexión e inténtalo otra vez.",
-        variant: "destructive",
-      });
-    } finally {
-      setCargando(false);
+  /** Guarda ya lo pendiente. Nunca hay dos guardados a la vez. */
+  const guardarAhora = useCallback(async (): Promise<boolean> => {
+    clearTimeout(temporizador.current);
+    while (enCurso.current) await enCurso.current;
+    if (!sucio.current) return true;
+    sucio.current = false;
+    setEstado("guardando");
+    const peticion = PlanificacionService.guardar(fechaRef.current, trabajosRef.current, ciRef.current)
+      .then(() => true)
+      .catch(() => false);
+    enCurso.current = peticion;
+    const ok = await peticion;
+    enCurso.current = null;
+    if (!ok) {
+      sucio.current = true;
+      setEstado("error");
+      return false;
     }
-  }, [fecha, toast]);
+    setEstado(sucio.current ? "pendiente" : "guardado");
+    return true;
+  }, []);
+
+  const editar = useCallback(
+    (cambio: (lista: TrabajoPlanificado[]) => TrabajoPlanificado[]) => {
+      trabajosRef.current = cambio(trabajosRef.current);
+      setTrabajos(trabajosRef.current);
+      sucio.current = true;
+      setEstado("pendiente");
+      clearTimeout(temporizador.current);
+      temporizador.current = setTimeout(() => void guardarAhora(), 800);
+    },
+    [guardarAhora],
+  );
 
   useEffect(() => {
-    void cargarPlan();
-  }, [cargarPlan]);
+    let cancelado = false;
+    setCargando(true);
+    PlanificacionService.obtener(fecha)
+      .then((plan) => {
+        if (cancelado) return;
+        trabajosRef.current = plan.trabajos || [];
+        setTrabajos(trabajosRef.current);
+        setErrorCarga(false);
+        setEstado("guardado");
+      })
+      .catch(() => !cancelado && setErrorCarga(true))
+      .finally(() => !cancelado && setCargando(false));
+    return () => {
+      cancelado = true;
+    };
+  }, [fecha, recarga]);
 
-  // Brigadas e integrantes: de ahí salen las dos listas de asignables.
   useEffect(() => {
     BrigadaService.getAllBrigadas()
       .then((datos: any[]) => {
-        const bs: OpcionAsignable[] = [];
-        const ts = new Map<string, OpcionAsignable>();
+        const bs: Brigada[] = [];
+        const personas = new Map<string, Asignado>();
         for (const b of datos || []) {
           const lider = b.lider || {};
-          bs.push({
-            tipo: "brigada",
-            id: String(b.id ?? b._id ?? ""),
-            nombre: lider.nombre || lider.CI || "sin líder",
-          });
-          for (const persona of [lider, ...(b.integrantes || [])]) {
-            const ci = String(persona?.CI ?? "");
-            if (ci) ts.set(ci, { tipo: "trabajador", id: ci, nombre: persona?.nombre || ci });
+          const ciLider = String(lider.CI ?? "");
+          // El carné del líder identifica a la brigada: es con lo que el
+          // backend encuentra los trabajos de cada brigadista.
+          if (ciLider) {
+            bs.push({
+              asignado: { tipo: "brigada", id: ciLider, nombre: lider.nombre || ciLider },
+              idViejo: String(b.id ?? b._id ?? ""),
+              personas: (b.integrantes?.length ?? 0) + 1,
+            });
+          }
+          for (const p of [lider, ...(b.integrantes || [])]) {
+            const ci = String(p?.CI ?? "");
+            if (ci) personas.set(ci, { tipo: "trabajador", id: ci, nombre: p?.nombre || ci });
           }
         }
-        setBrigadas(bs);
-        setTrabajadores([...ts.values()].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+        setBrigadas(bs.sort((a, b) => a.asignado.nombre.localeCompare(b.asignado.nombre)));
+        setTrabajadores([...personas.values()].sort((a, b) => a.nombre.localeCompare(b.nombre)));
       })
       .catch(() =>
         toast({
           title: "No se pudieron cargar las brigadas",
-          description: "Sin ellas no se puede asignar ningún trabajo.",
+          description: "Recarga la página para intentarlo otra vez.",
           variant: "destructive",
         }),
       );
   }, [toast]);
 
-  const yaPlanificados = useMemo(
-    () => new Set(trabajos.map(claveTrabajo)),
-    [trabajos],
-  );
-
-  const haycambios = useMemo(
-    () => JSON.stringify(trabajos) !== JSON.stringify(guardado),
-    [trabajos, guardado],
-  );
-
-  /**
-   * Borrador en el propio navegador.
-   *
-   * El aviso de "vas a salir" solo cubre cerrar o recargar la pestaña. Navegar
-   * dentro de la web, que es como se pierde de verdad el trabajo, no lo
-   * dispara. Guardando el borrador segun se edita se cubren los dos casos, y
-   * ademas quedarse sin bateria o sin conexion.
-   */
+  // Planes guardados con el _id de la brigada en vez del carné del líder: se
+  // corrigen solos para que los brigadistas lleguen a ver sus trabajos.
   useEffect(() => {
-    if (cargando) return;
-    try {
-      if (haycambios) {
-        localStorage.setItem(claveBorrador(fecha), JSON.stringify(trabajos));
-      } else {
-        localStorage.removeItem(claveBorrador(fecha));
-      }
-    } catch {
-      // Sin almacenamiento (modo privado) se sigue: es una red de seguridad,
-      // no un requisito.
-    }
-  }, [trabajos, haycambios, fecha, cargando]);
+    if (cargando || brigadas.length === 0) return;
+    const porIdViejo = new Map(brigadas.map((b) => [b.idViejo, b.asignado]));
+    const hayViejos = trabajosRef.current.some(
+      (t) => t.asignado.tipo === "brigada" && porIdViejo.has(t.asignado.id) && !brigadas.some((b) => b.asignado.id === t.asignado.id),
+    );
+    if (!hayViejos) return;
+    editar((lista) =>
+      lista.map((t) => {
+        const nuevo = t.asignado.tipo === "brigada" ? porIdViejo.get(t.asignado.id) : undefined;
+        return nuevo ? { ...t, asignado: nuevo } : t;
+      }),
+    );
+  }, [brigadas, cargando, editar]);
 
-  // Avisa antes de cerrar con cambios sin guardar: una sesión de planificación
-  // son veinte minutos de trabajo que no se pueden perder por una pestaña.
+  // Sin conexión se reintenta solo.
   useEffect(() => {
-    if (!haycambios) return;
+    if (estado !== "error") return;
+    const id = setTimeout(() => void guardarAhora(), 5000);
+    return () => clearTimeout(id);
+  }, [estado, guardarAhora]);
+
+  // Cerrar la pestaña con algo sin guardar sí avisa; es el único caso.
+  useEffect(() => {
+    if (estado === "guardado") return;
     const alSalir = (e: BeforeUnloadEvent) => {
       e.preventDefault();
-      // Chrome respeta preventDefault; Safari y los navegadores viejos miran
-      // returnValue. Sin esta linea ahi no sale ningun aviso.
       e.returnValue = "";
     };
     window.addEventListener("beforeunload", alSalir);
     return () => window.removeEventListener("beforeunload", alSalir);
-  }, [haycambios]);
+  }, [estado]);
 
-  /**
-   * Cambiar de dia recarga y sobrescribe lo que haya en pantalla. Si hay
-   * trabajo sin guardar hay que preguntar: veinte minutos de planificacion se
-   * perdian por tocar la fecha para echar un vistazo a otro dia.
-   */
-  function pedirCambioDeFecha(nueva: string) {
-    if (nueva === fecha) return;
-    if (haycambios) setFechaPendiente(nueva);
-    else setFecha(nueva);
-  }
+  // Irse a otro módulo de la web guarda lo pendiente por el camino.
+  useEffect(() => () => void guardarAhora(), [guardarAhora]);
 
-  async function guardar() {
-    setGuardando(true);
-    try {
-      const plan = await PlanificacionService.guardar(fecha, trabajos);
-      setTrabajos(plan.trabajos || []);
-      setGuardado(plan.trabajos || []);
+  async function irA(nueva: string) {
+    if (!nueva || nueva === fecha || cargando) return;
+    if (!(await guardarAhora())) {
       toast({
-        title: "Plan guardado",
-        description: `${plan.trabajos?.length ?? 0} trabajos para el ${fecha}.`,
-      });
-    } catch (e) {
-      toast({
-        title: "No se pudo guardar",
-        description: e instanceof Error ? e.message : "Inténtalo otra vez.",
+        title: "No se pudo guardar el plan",
+        description: "Sigues en este día hasta que vuelva la conexión.",
         variant: "destructive",
       });
-    } finally {
-      setGuardando(false);
+      return;
+    }
+    fechaRef.current = nueva;
+    setSueltos([]);
+    setDestino(null);
+    setFecha(nueva);
+  }
+
+  function alternar(tipo: TipoTrabajo, c: CandidatoPlanificacion) {
+    if (!destino) return;
+    const clave = claveCandidato(c);
+    const existente = trabajosRef.current.find((t) => t.tipo === tipo && claveTrabajo(t) === clave);
+    if (!existente) {
+      editar((lista) => [
+        ...lista,
+        {
+          id: nuevoId(),
+          tipo,
+          cliente_numero: c.cliente_numero,
+          lead_id: c.lead_id,
+          nombre: c.nombre,
+          direccion: c.direccion,
+          asignado: destino,
+          nota: null,
+          estado: "planificado",
+        },
+      ]);
+    } else if (existente.estado === "planificado" && mismoAsignado(existente.asignado, destino)) {
+      editar((lista) => lista.filter((t) => t !== existente));
     }
   }
+
+  // Las brigadas siempre en el mismo sitio, tengan trabajo o no. Detrás, las
+  // personas sueltas que se hayan planificado.
+  const carriles = useMemo(() => {
+    const lista: { quien: Asignado; subtitulo: string }[] = brigadas.map((b) => ({
+      quien: b.asignado,
+      subtitulo: `${b.personas} persona${b.personas === 1 ? "" : "s"}`,
+    }));
+    const vistos = new Set(lista.map((c) => `${c.quien.tipo}:${c.quien.id}`));
+    for (const a of [...sueltos, ...trabajos.map((t) => t.asignado)]) {
+      const clave = `${a.tipo}:${a.id}`;
+      if (vistos.has(clave)) continue;
+      vistos.add(clave);
+      lista.push({ quien: a, subtitulo: a.tipo === "trabajador" ? "Solo" : "Brigada" });
+    }
+    return lista;
+  }, [brigadas, sueltos, trabajos]);
+
+  const conTrabajo = new Set(trabajos.map((t) => `${t.asignado.tipo}:${t.asignado.id}`)).size;
 
   return (
     <div className="min-h-screen bg-gray-50">
       <ModuleHeader
         title="Planificación"
         subtitle="Qué hace cada brigada cada día"
-        actions={
-          <div className="flex items-center gap-3">
-            <Input
-              type="date"
-              value={fecha}
-              onChange={(e) => pedirCambioDeFecha(e.target.value)}
-              className="w-40"
-              aria-label="Día que se planifica"
-            />
-            <Button onClick={guardar} disabled={guardando || cargando || !haycambios}>
-              {guardando ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="mr-2 h-4 w-4" />
-              )}
-              {haycambios ? "Guardar plan" : "Guardado"}
-            </Button>
-          </div>
-        }
+        actions={<IndicadorGuardado estado={estado} />}
       />
 
-      <main className="content-with-fixed-header mx-auto max-w-[1800px] px-4 pb-10 sm:px-6 lg:px-8">
-        {borrador && !cargando && (
-          <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
-            <p className="min-w-0 flex-1 text-sm text-amber-900">
-              Quedó un borrador de este día sin guardar, con{" "}
-              <strong>{borrador.length}</strong> trabajo{borrador.length === 1 ? "" : "s"}.
-            </p>
+      <main className="content-with-fixed-header px-4 pb-12 sm:px-6 lg:px-8">
+        <div className="mb-5 flex flex-wrap items-center gap-x-6 gap-y-3">
+          <div className="flex items-center gap-1">
             <Button
-              size="sm"
               variant="outline"
-              onClick={() => {
-                setTrabajos(borrador);
-                setBorrador(null);
-              }}
+              size="icon"
+              onClick={() => irA(desplazar(fecha, -1))}
+              disabled={cargando}
+              aria-label="Día anterior"
             >
-              <RotateCcw className="mr-2 h-4 w-4" />
-              Recuperarlo
+              <ChevronLeft className="h-5 w-5" />
             </Button>
+            <label className="relative flex min-w-[17rem] cursor-pointer flex-col items-center rounded-md px-3 py-1 hover:bg-gray-100">
+              <span className="text-lg font-semibold text-gray-900">{nombreDia(fecha, hoy)}</span>
+              <span className="flex items-center gap-1 text-xs font-medium text-emerald-800">
+                <CalendarDays className="h-3.5 w-3.5" />
+                Cambiar día
+              </span>
+              {/* El calendario del navegador, invisible encima del título. */}
+              <input
+                type="date"
+                value={fecha}
+                onChange={(e) => irA(e.target.value)}
+                onClick={(e) => (e.currentTarget as HTMLInputElement).showPicker?.()}
+                className="absolute inset-0 cursor-pointer opacity-0"
+                aria-label="Elegir día"
+              />
+            </label>
             <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                try {
-                  localStorage.removeItem(claveBorrador(fecha));
-                } catch {
-                  /* sin almacenamiento no hay nada que borrar */
-                }
-                setBorrador(null);
-              }}
+              variant="outline"
+              size="icon"
+              onClick={() => irA(desplazar(fecha, 1))}
+              disabled={cargando}
+              aria-label="Día siguiente"
             >
-              <X className="mr-2 h-4 w-4" />
-              Descartarlo
+              <ChevronRight className="h-5 w-5" />
             </Button>
           </div>
-        )}
+
+          {!cargando && !errorCarga && (
+            <p className="text-sm text-gray-600">
+              {trabajos.length === 0
+                ? "Nada planificado todavía. Pulsa Añadir en la brigada que quieras."
+                : `${trabajos.length} trabajo${trabajos.length === 1 ? "" : "s"}` +
+                  (brigadas.length ? ` · ${conTrabajo} de ${brigadas.length} brigadas con trabajo` : "")}
+            </p>
+          )}
+        </div>
 
         {cargando ? (
           <div className="flex items-center justify-center gap-2 py-24 text-sm text-gray-500">
             <Loader2 className="h-4 w-4 animate-spin" />
             Cargando el plan…
           </div>
+        ) : errorCarga ? (
+          <div className="flex flex-col items-center gap-3 py-24 text-center">
+            <p className="font-medium text-gray-900">No se pudo cargar el plan</p>
+            <p className="text-sm text-gray-500">Revisa la conexión e inténtalo otra vez.</p>
+            <Button variant="outline" onClick={() => setRecarga((n) => n + 1)}>
+              Reintentar
+            </Button>
+          </div>
         ) : (
-          // Dos lados a la vez: lo disponible y lo asignado. Planificar es
-          // mirar los dos, no abrir una ventana cada vez.
-          <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-            <PanelCandidatos
-              brigadas={brigadas}
-              trabajadores={trabajadores}
-              yaPlanificados={yaPlanificados}
-              onAgregar={(nuevos) => setTrabajos((previos) => [...previos, ...nuevos])}
-            />
-
-            <div className="lg:sticky lg:top-[calc(var(--content-with-fixed-header-padding,144px))]">
-              <div className="mb-3 flex items-baseline justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">Plan del día</h2>
-                <span className="text-sm text-gray-500">
-                  {trabajos.length === 0
-                    ? "sin trabajos"
-                    : `${trabajos.length} trabajo${trabajos.length === 1 ? "" : "s"}`}
-                </span>
-              </div>
-              <PanelPlan
-                trabajos={trabajos}
-                onQuitar={(t) => setTrabajos((previos) => previos.filter((x) => x !== t))}
+          <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            {carriles.map(({ quien, subtitulo }) => (
+              <CarrilBrigada
+                key={`${quien.tipo}:${quien.id}`}
+                quien={quien}
+                subtitulo={subtitulo}
+                trabajos={trabajos.filter((t) => mismoAsignado(t.asignado, quien))}
+                onAgregar={() => setDestino(quien)}
+                onQuitar={(t) => editar((lista) => lista.filter((x) => !mismoTrabajo(x, t)))}
                 onCambiarNota={(t, nota) =>
-                  setTrabajos((previos) => previos.map((x) => (x === t ? { ...x, nota } : x)))
+                  editar((lista) => lista.map((x) => (mismoTrabajo(x, t) ? { ...x, nota: nota || null } : x)))
                 }
               />
-            </div>
+            ))}
+
+            {trabajadores.length > 0 && (
+              <section className="rounded-lg border border-dashed border-gray-300 px-4 py-3">
+                <h2 className="text-sm font-medium text-gray-900">¿Un trabajo para una sola persona?</h2>
+                <p className="mb-2 text-xs text-gray-500">Visitas, averías y actualizaciones.</p>
+                <SearchableSelect
+                  options={trabajadores.map((t) => ({ value: t.id, label: t.nombre }))}
+                  value=""
+                  onValueChange={(ci) => {
+                    const persona = trabajadores.find((t) => t.id === ci);
+                    if (!persona) return;
+                    setSueltos((previos) => (previos.some((p) => p.id === ci) ? previos : [...previos, persona]));
+                    setDestino(persona);
+                  }}
+                  placeholder="Elegir trabajador"
+                  searchPlaceholder="Buscar por nombre"
+                />
+              </section>
+            )}
           </div>
         )}
       </main>
 
-      <AlertDialog
-        open={fechaPendiente !== null}
-        onOpenChange={(v) => !v && setFechaPendiente(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Tienes cambios sin guardar</AlertDialogTitle>
-            <AlertDialogDescription>
-              El plan del {fecha} tiene {trabajos.length} trabajo
-              {trabajos.length === 1 ? "" : "s"} que todavía no has guardado. Si cambias de
-              día ahora, se pierden.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="gap-2 sm:gap-2">
-            <AlertDialogCancel>Quedarme aquí</AlertDialogCancel>
-            <Button
-              variant="outline"
-              onClick={() => {
-                const destino = fechaPendiente!;
-                setFechaPendiente(null);
-                setFecha(destino);
-              }}
-            >
-              Cambiar sin guardar
-            </Button>
-            <AlertDialogAction
-              onClick={async () => {
-                const destino = fechaPendiente!;
-                setFechaPendiente(null);
-                await guardar();
-                setFecha(destino);
-              }}
-            >
-              Guardar y cambiar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <SelectorTrabajos
+        destino={destino}
+        trabajos={trabajos}
+        cache={cache}
+        onAlternar={alternar}
+        onCerrar={() => setDestino(null)}
+      />
     </div>
+  );
+}
+
+/** Qué pasa con el guardado, discreto, donde antes estaba el botón. */
+function IndicadorGuardado({ estado }: { estado: EstadoGuardado }) {
+  if (estado === "error") {
+    return (
+      <span className="flex items-center gap-1.5 text-sm font-medium text-amber-800" role="status">
+        <AlertTriangle className="h-4 w-4" />
+        Sin conexión, reintentando…
+      </span>
+    );
+  }
+  if (estado === "guardado") {
+    return (
+      <span className="flex items-center gap-1.5 text-sm text-gray-600" role="status">
+        <Check className="h-4 w-4 text-emerald-700" />
+        Guardado
+      </span>
+    );
+  }
+  return (
+    <span className="flex items-center gap-1.5 text-sm text-gray-600" role="status">
+      <Loader2 className="h-4 w-4 animate-spin" />
+      Guardando…
+    </span>
   );
 }
