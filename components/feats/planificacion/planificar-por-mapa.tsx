@@ -496,7 +496,8 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
           </div>
 
           {/* Filtros: lo mismo que tocar el mapa, sin tener que encontrar el sitio. */}
-          <div className="grid gap-2 px-4 pt-3 sm:grid-cols-2 xl:grid-cols-4">
+          {/* Siempre dos arriba y dos abajo, del mismo ancho y alto. */}
+          <div className="grid grid-cols-2 gap-2 px-4 pt-3">
             <label className="flex min-w-0 flex-col gap-1">
               <span className="text-xs font-medium text-gray-600">Provincia</span>
               <select
