@@ -127,6 +127,13 @@ const FILTROS_ESPERA: { dias: number; texto: string }[] = [
   { dias: 365, texto: "Más de 1 año" },
 ];
 
+type FiltroEntidad = "todos" | "cliente" | "lead";
+const FILTROS_ENTIDAD: { valor: FiltroEntidad; texto: string }[] = [
+  { valor: "todos", texto: "Clientes y leads" },
+  { valor: "cliente", texto: "Solo clientes" },
+  { valor: "lead", texto: "Solo leads" },
+];
+
 /**
  * Planificar mirando dónde está cada cliente.
  *
@@ -149,6 +156,7 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
   const [pantallaCompleta, setPantallaCompleta] = useState(false);
   /** Solo los que llevan esperando al menos estos días; 0 es todos. */
   const [esperaMinima, setEsperaMinima] = useState(0);
+  const [entidad, setEntidad] = useState<FiltroEntidad>("todos");
   const [ofertaAbierta, setOfertaAbierta] = useState<OfertaConfeccion | null>(null);
   const [abriendoOferta, setAbriendoOferta] = useState<string | null>(null);
   const [abriendoVisita, setAbriendoVisita] = useState<string | null>(null);
@@ -263,13 +271,15 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
   // Sin fecha no se sabe cuánto espera: con el filtro puesto, no entra.
   const cumpleEspera = (c: CandidatoPlanificacion) =>
     esperaMinima === 0 || (diasEsperando(c.esperando_desde) ?? -1) >= esperaMinima;
+  const cumpleFiltros = (c: CandidatoPlanificacion) =>
+    cumpleEspera(c) && (entidad === "todos" || c.tipo_entidad === entidad);
 
   const ubicados = useMemo<Ubicado[]>(() => {
     const lista = datos[tipo];
     if (!mapa || !lista) return [];
-    return lista.filter(cumpleEspera).map((c) => ({ c, ...ubicar(c, mapa) }));
+    return lista.filter(cumpleFiltros).map((c) => ({ c, ...ubicar(c, mapa) }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mapa, datos, tipo, esperaMinima]);
+  }, [mapa, datos, tipo, esperaMinima, entidad]);
 
   const libres = useMemo(() => ubicados.filter((u) => !enPlan.has(clave(tipo, u.c))), [ubicados, enPlan, tipo]);
 
@@ -458,7 +468,7 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
           <div className="flex flex-wrap gap-1.5 border-b px-4 py-3" role="tablist" aria-label="Qué planificar">
             {TIPOS_MAPA.map((t) => {
               const lista = datos[t];
-              const n = lista ? lista.filter((c) => !enPlan.has(clave(t, c)) && cumpleEspera(c)).length : null;
+              const n = lista ? lista.filter((c) => !enPlan.has(clave(t, c)) && cumpleFiltros(c)).length : null;
               return (
                 <button
                   key={t}
@@ -486,7 +496,7 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
           </div>
 
           {/* Filtros: lo mismo que tocar el mapa, sin tener que encontrar el sitio. */}
-          <div className="grid gap-2 px-4 pt-3 sm:grid-cols-3">
+          <div className="grid gap-2 px-4 pt-3 sm:grid-cols-2 xl:grid-cols-4">
             <label className="flex min-w-0 flex-col gap-1">
               <span className="text-xs font-medium text-gray-600">Provincia</span>
               <select
@@ -529,6 +539,20 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
               >
                 {FILTROS_ESPERA.map((f) => (
                   <option key={f.dias} value={f.dias}>
+                    {f.texto}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex min-w-0 flex-col gap-1">
+              <span className="text-xs font-medium text-gray-600">Clientes o leads</span>
+              <select
+                value={entidad}
+                onChange={(e) => setEntidad(e.target.value as FiltroEntidad)}
+                className={cn(CLASE_SELECT, entidad !== "todos" && SELECT_ACTIVO)}
+              >
+                {FILTROS_ENTIDAD.map((f) => (
+                  <option key={f.valor} value={f.valor}>
                     {f.texto}
                   </option>
                 ))}
