@@ -1,7 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useState, type MutableRefObject } from "react";
-import { Check, ChevronRight, Clock, Eye, FileText, Loader2, Maximize2, Minimize2, Plus, X } from "lucide-react";
+import {
+  Check,
+  ChevronRight,
+  Clock,
+  Eye,
+  FileText,
+  List,
+  Loader2,
+  Map as IconoMapa,
+  Maximize2,
+  Minimize2,
+  Plus,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
 import { apiRequest } from "@/lib/api-config";
 import { useToast } from "@/hooks/use-toast";
 import { normalizeOfertaConfeccion, type OfertaConfeccion } from "@/hooks/use-ofertas-confeccion";
@@ -27,17 +41,6 @@ import {
   type TrabajoPlanificado,
 } from "@/lib/types/feats/planificacion/planificacion-types";
 
-/** Actualización no sale de ningún estado: no hay nada que poner en el mapa. */
-const TIPOS_MAPA: TipoTrabajo[] = ["visita", "instalacion_nueva", "instalacion_en_proceso", "averia"];
-
-const NOMBRE_TIPO: Record<TipoTrabajo, string> = {
-  visita: "Visitas",
-  instalacion_nueva: "Instalaciones nuevas",
-  instalacion_en_proceso: "En proceso",
-  averia: "Averías",
-  actualizacion: "Actualizaciones",
-};
-
 const QUE_ES: Record<TipoTrabajo, [string, string]> = {
   visita: ["pendiente de visita", "pendientes de visita"],
   instalacion_nueva: ["pendiente de instalación", "pendientes de instalación"],
@@ -54,13 +57,15 @@ const PUNTO_TIPO: Record<TipoTrabajo, string> = {
   actualizacion: "bg-amber-500",
 };
 
-const CLAVE_ZONA_GUARDADA = "planificacion:zona";
 const SIN_MUNICIPIO = "__sin_municipio__";
+const CLAVE_MODO = "planificacion:modo";
 
 const CLASE_SELECT =
   "h-10 w-full min-w-0 rounded-md border border-input bg-white px-2.5 text-sm text-gray-900 " +
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600";
 const SELECT_ACTIVO = "border-emerald-700 bg-emerald-50 font-medium";
+
+type Modo = "lista" | "mapa";
 
 export interface Seleccionado {
   tipo: TipoTrabajo;
@@ -82,8 +87,10 @@ interface Ubicado {
 }
 
 interface Props {
-  /** "mañana", "hoy", "el martes 15". */
-  dia: string;
+  /** Qué se planifica: esta pantalla es de un solo tipo. */
+  tipo: TipoTrabajo;
+  /** "de mañana", "del martes 15": para "Añadir al plan de mañana". */
+  delDia: string;
   trabajos: TrabajoPlanificado[];
   brigadas: OpcionBrigada[];
   trabajadores: Asignado[];
@@ -135,19 +142,20 @@ const FILTROS_ENTIDAD: { valor: FiltroEntidad; texto: string }[] = [
 ];
 
 /**
- * Planificar mirando dónde está cada cliente.
+ * Los pendientes de un tipo, para marcarlos y decir quién va.
  *
- * Se toca una provincia, luego un municipio, y se van marcando pendientes. Lo
- * marcado se queda abajo, a la vista, aunque se cambie de zona o de tipo:
- * así se juntan en un mismo día las visitas que están cerca. Al final se
- * elige quién va y se añade todo de una vez.
+ * Se abre en lista, que es lo que entiende todo el mundo; el mapa está a un
+ * toque para quien quiera ver dónde caen. Los filtros quedan recogidos detrás
+ * de un botón y lo que está filtrado se ve siempre como etiquetas que se
+ * quitan con una X. Lo marcado se queda abajo hasta decidir quién va.
  */
-export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache, onAgregar }: Props) {
+export function PlanificarPorMapa({ tipo, delDia, trabajos, brigadas, trabajadores, cache, onAgregar }: Props) {
   const [mapa, setMapa] = useState<MapaCuba | null>(null);
   const [errorMapa, setErrorMapa] = useState(false);
-  const [datos, setDatos] = useState<Partial<Record<TipoTrabajo, CandidatoPlanificacion[]>>>({});
-  const [fallidos, setFallidos] = useState<TipoTrabajo[]>([]);
-  const [tipo, setTipo] = useState<TipoTrabajo>("visita");
+  const [lista, setLista] = useState<CandidatoPlanificacion[] | null>(() => cache.current.get(tipo) ?? null);
+  const [fallo, setFallo] = useState(false);
+  const [modo, setModo] = useState<Modo>("lista");
+  const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
   const [provincia, setProvincia] = useState<string | null>(null);
   const [municipio, setMunicipio] = useState<string | null>(null);
   const [verSinZona, setVerSinZona] = useState(false);
@@ -161,6 +169,26 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
   const [abriendoOferta, setAbriendoOferta] = useState<string | null>(null);
   const [abriendoVisita, setAbriendoVisita] = useState<string | null>(null);
   const { toast } = useToast();
+
+  // Se abre como se dejó la última vez: lista o mapa.
+  useEffect(() => {
+    try {
+      const guardado = localStorage.getItem(CLAVE_MODO);
+      if (guardado === "lista" || guardado === "mapa") setModo(guardado);
+    } catch {
+      /* sin almacenamiento, en lista */
+    }
+  }, []);
+
+  function cambiarModo(m: Modo) {
+    setModo(m);
+    if (m === "lista") setPantallaCompleta(false);
+    try {
+      localStorage.setItem(CLAVE_MODO, m);
+    } catch {
+      /* no pasa nada */
+    }
+  }
 
   // A pantalla completa: Escape sale y la página de detrás no se desplaza.
   useEffect(() => {
@@ -196,7 +224,9 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
     const pestana = window.open("", "_blank");
     setAbriendoVisita(id);
     try {
-      const blob = await apiRequest<Blob>(`/visitas/${encodeURIComponent(id)}/informe?incluir_imagenes=true`, { responseType: "blob" });
+      const blob = await apiRequest<Blob>(`/visitas/${encodeURIComponent(id)}/informe?incluir_imagenes=true`, {
+        responseType: "blob",
+      });
       const url = URL.createObjectURL(blob);
       if (pestana) pestana.location.href = url;
       else window.open(url, "_blank");
@@ -209,43 +239,32 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
     }
   }
 
+  // El mapa también sirve en la lista: es lo que dice en qué municipio cae cada uno.
   useEffect(() => {
     cargarMapa()
-      .then((m) => {
-        setMapa(m);
-        // Se vuelve a la última provincia: casi siempre se planifica la misma.
-        try {
-          const guardada = localStorage.getItem(CLAVE_ZONA_GUARDADA);
-          if (guardada && m.provincias.some((p) => p.k === guardada)) setProvincia(guardada);
-        } catch {
-          /* sin almacenamiento se empieza en Cuba */
-        }
-      })
+      .then(setMapa)
       .catch(() => setErrorMapa(true));
+  }, []);
 
-    for (const t of TIPOS_MAPA) {
-      const enCache = cache.current.get(t);
-      if (enCache) {
-        setDatos((d) => ({ ...d, [t]: enCache }));
-        continue;
-      }
-      PlanificacionService.candidatos(t)
-        .then((lista) => {
-          cache.current.set(t, lista);
-          setDatos((d) => ({ ...d, [t]: lista }));
-        })
-        .catch(() => setFallidos((f) => [...f, t]));
-    }
-  }, [cache]);
-
+  // Solo los pendientes de este tipo: nada más se descarga al entrar.
   useEffect(() => {
-    try {
-      if (provincia) localStorage.setItem(CLAVE_ZONA_GUARDADA, provincia);
-      else localStorage.removeItem(CLAVE_ZONA_GUARDADA);
-    } catch {
-      /* no pasa nada */
+    const enCache = cache.current.get(tipo);
+    if (enCache) {
+      setLista(enCache);
+      return;
     }
-  }, [provincia]);
+    let cancelado = false;
+    setFallo(false);
+    PlanificacionService.candidatos(tipo)
+      .then((l) => {
+        cache.current.set(tipo, l);
+        if (!cancelado) setLista(l);
+      })
+      .catch(() => !cancelado && setFallo(true));
+    return () => {
+      cancelado = true;
+    };
+  }, [cache, tipo]);
 
   const enPlan = useMemo(() => {
     const m = new Map<string, TrabajoPlanificado>();
@@ -275,11 +294,10 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
     cumpleEspera(c) && (entidad === "todos" || c.tipo_entidad === entidad);
 
   const ubicados = useMemo<Ubicado[]>(() => {
-    const lista = datos[tipo];
-    if (!mapa || !lista) return [];
-    return lista.filter(cumpleFiltros).map((c) => ({ c, ...ubicar(c, mapa) }));
+    if (!lista) return [];
+    return lista.filter(cumpleFiltros).map((c) => (mapa ? { c, ...ubicar(c, mapa) } : { c }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mapa, datos, tipo, esperaMinima, entidad]);
+  }, [mapa, lista, esperaMinima, entidad]);
 
   const libres = useMemo(() => ubicados.filter((u) => !enPlan.has(clave(tipo, u.c))), [ubicados, enPlan, tipo]);
 
@@ -347,18 +365,45 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
         : mapa.municipios.filter((m) => (conteoMunicipio.get(m.id) ?? 0) > 0)
       ).sort((a, b) => a.n.localeCompare(b.n));
 
+  // Lo filtrado, siempre a la vista y con su X para quitarlo.
+  const activos: { clave: string; texto: string; quitar: () => void }[] = [];
+  if (provinciaActual) activos.push({ clave: "provincia", texto: provinciaActual.n, quitar: () => elegirProvincia(null) });
+  if (municipioActual) activos.push({ clave: "municipio", texto: municipioActual.n, quitar: () => setMunicipio(null) });
+  if (verSinZona) activos.push({ clave: "sin-municipio", texto: "Sin municipio", quitar: () => setVerSinZona(false) });
+  if (esperaMinima > 0)
+    activos.push({
+      clave: "espera",
+      texto: FILTROS_ESPERA.find((f) => f.dias === esperaMinima)?.texto ?? "",
+      quitar: () => setEsperaMinima(0),
+    });
+  if (entidad !== "todos")
+    activos.push({
+      clave: "entidad",
+      texto: FILTROS_ENTIDAD.find((f) => f.valor === entidad)?.texto ?? "",
+      quitar: () => setEntidad("todos"),
+    });
+
+  function quitarFiltros() {
+    elegirProvincia(null);
+    setEsperaMinima(0);
+    setEntidad("todos");
+  }
+
+  function seleccionadoDe(u: Ubicado): Seleccionado {
+    return {
+      tipo,
+      candidato: u.c,
+      zona: u.municipio?.id ?? u.provincia?.k ?? "",
+      nombreZona: u.municipio?.n ?? u.provincia?.n ?? "Sin zona",
+    };
+  }
+
   function alternar(u: Ubicado) {
     const k = clave(tipo, u.c);
     setSeleccion((previa) => {
       const nueva = new Map(previa);
       if (nueva.has(k)) nueva.delete(k);
-      else
-        nueva.set(k, {
-          tipo,
-          candidato: u.c,
-          zona: u.municipio?.id ?? u.provincia?.k ?? "",
-          nombreZona: u.municipio?.n ?? u.provincia?.n ?? "Sin zona",
-        });
+      else nueva.set(k, seleccionadoDe(u));
       return nueva;
     });
   }
@@ -369,30 +414,29 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
       for (const u of grupo) {
         const k = clave(tipo, u.c);
         if (enPlan.has(k)) continue;
-        if (marcar)
-          nueva.set(k, {
-            tipo,
-            candidato: u.c,
-            zona: u.municipio?.id ?? u.provincia?.k ?? "",
-            nombreZona: u.municipio?.n ?? u.provincia?.n ?? "Sin zona",
-          });
+        if (marcar) nueva.set(k, seleccionadoDe(u));
         else nueva.delete(k);
       }
       return nueva;
     });
   }
 
-  // Lo que se lista: la zona marcada, agrupado por municipio si es una provincia.
+  // Lo que se lista, agrupado por municipio. En el mapa hace falta elegir zona;
+  // en la lista sale todo lo que cumple los filtros.
   const grupos = useMemo(() => {
     let visibles: Ubicado[];
     if (verSinZona) visibles = sinZona;
     else if (municipio) visibles = ubicados.filter((u) => u.municipio?.id === municipio);
     else if (provincia) visibles = ubicados.filter((u) => u.provincia?.k === provincia);
+    else if (modo === "lista") visibles = ubicados;
     else return [];
     const mapaGrupos = new Map<string, { nombre: string; items: Ubicado[] }>();
     for (const u of visibles) {
       const id = u.municipio?.id ?? "sin-municipio";
-      if (!mapaGrupos.has(id)) mapaGrupos.set(id, { nombre: u.municipio?.n ?? "Sin municipio", items: [] });
+      if (!mapaGrupos.has(id)) {
+        const nombre = u.municipio ? (provincia ? u.municipio.n : `${u.municipio.n} · ${u.municipio.p}`) : "Sin municipio";
+        mapaGrupos.set(id, { nombre, items: [] });
+      }
       mapaGrupos.get(id)!.items.push(u);
     }
     const orden = (u: Ubicado) => (enPlan.has(clave(tipo, u.c)) ? 1 : 0);
@@ -410,9 +454,14 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
         libres: g.items.filter((u) => !enPlan.has(clave(tipo, u.c))).length,
       }))
       .sort((a, b) =>
-        a.id === "sin-municipio" ? 1 : b.id === "sin-municipio" ? -1 : b.libres - a.libres || a.nombre.localeCompare(b.nombre),
+        a.id === "sin-municipio"
+          ? 1
+          : b.id === "sin-municipio"
+            ? -1
+            : b.libres - a.libres || a.nombre.localeCompare(b.nombre),
       );
-  }, [verSinZona, sinZona, municipio, provincia, ubicados, enPlan, tipo]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [verSinZona, sinZona, municipio, provincia, modo, ubicados, enPlan, tipo]);
 
   const seleccionados = [...seleccion.values()];
   const soloParaBrigada = seleccionados.some((s) => !TIPOS_QUE_ADMITEN_TRABAJADOR.includes(s.tipo));
@@ -436,68 +485,153 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
     return [...m.entries()].map(([z, n]) => `${z} ${n}`).join(" · ");
   })();
 
-  if (errorMapa) {
-    return (
-      <div className="rounded-lg border bg-white py-16 text-center">
-        <p className="font-medium text-gray-900">No se pudo cargar el mapa</p>
-        <p className="text-sm text-gray-500">Recarga la página, o planifica desde la vista por brigadas.</p>
-      </div>
-    );
-  }
+  const cargandoTipo = lista === null && !fallo;
 
-  const cargandoTipo = !datos[tipo] && !fallidos.includes(tipo);
+  const listaPendientes = (
+    <>
+      <header className="border-b px-4 py-3">
+        <h2 className="text-base font-semibold text-gray-900">
+          {verSinZona ? "Sin municipio reconocible" : municipioActual?.n ?? provinciaActual?.n ?? "Toda Cuba"}
+        </h2>
+        <p className="text-sm text-gray-600">
+          {cuantos(
+            grupos.reduce((s, g) => s + g.libres, 0),
+            QUE_ES[tipo],
+          )}
+          {modo === "mapa" && !municipio && !verSinZona && " · toca un municipio en el mapa para ver solo ese"}
+        </p>
+      </header>
+      {cargandoTipo ? (
+        <p className="flex items-center gap-2 px-4 py-10 text-sm text-gray-500">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          Cargando…
+        </p>
+      ) : fallo ? (
+        <p className="px-4 py-10 text-sm text-red-700">No se pudo cargar esta lista. Recarga la página.</p>
+      ) : grupos.length === 0 ? (
+        <div className="px-4 py-10 text-sm text-gray-500">
+          {activos.length > 0 ? (
+            <>
+              Nadie cumple estos filtros.{" "}
+              <button type="button" onClick={quitarFiltros} className="font-medium text-emerald-800 hover:underline">
+                Quitar filtros
+              </button>
+            </>
+          ) : (
+            `Nadie ${QUE_ES[tipo][0]} ahora mismo.`
+          )}
+        </div>
+      ) : (
+        <div className="divide-y">
+          {grupos.map((g) => {
+            const marcables = g.items.filter((u) => !enPlan.has(clave(tipo, u.c)));
+            const todosMarcados = marcables.length > 0 && marcables.every((u) => seleccion.has(clave(tipo, u.c)));
+            return (
+              <div key={g.id} className="py-2">
+                <div className="flex items-center justify-between gap-3 px-4 pb-1 pt-1">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    {g.nombre} · {g.libres}
+                  </span>
+                  {marcables.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => marcarGrupo(marcables, !todosMarcados)}
+                      className="shrink-0 text-xs font-medium text-emerald-800 hover:underline"
+                    >
+                      {todosMarcados ? "Desmarcar" : `Marcar los ${marcables.length}`}
+                    </button>
+                  )}
+                </div>
+                <ul className="px-2">
+                  {g.items.map((u) => (
+                    <FilaPendiente
+                      key={claveCandidato(u.c)}
+                      u={u}
+                      marcado={seleccion.has(clave(tipo, u.c))}
+                      enPlan={enPlan.get(clave(tipo, u.c))}
+                      tipo={tipo}
+                      abriendoOferta={!!abriendoOferta && abriendoOferta === u.c.oferta_confirmada?.id}
+                      abriendoVisita={!!abriendoVisita && abriendoVisita === u.c.visita_id}
+                      onAlternar={() => alternar(u)}
+                      onVerOferta={verOferta}
+                      onVerVisita={verVisita}
+                    />
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </>
+  );
 
   return (
     <>
-      <div
-        className={
-          pantallaCompleta
-            ? "fixed inset-0 z-40 grid grid-rows-[minmax(0,3fr)_minmax(0,2fr)] gap-3 bg-gray-50 p-3 sm:p-4 lg:grid-cols-[minmax(0,1fr)_28rem] lg:grid-rows-1"
-            : "grid items-start gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]"
-        }
-      >
-        {/* Mapa */}
-        <section
-          className={cn(
-            "rounded-lg border bg-white",
-            pantallaCompleta
-              ? "flex min-h-0 flex-col overflow-hidden"
-              : "lg:sticky lg:top-[var(--content-with-fixed-header-padding,144px)]",
-          )}
-        >
-          <div className="flex flex-wrap gap-1.5 border-b px-4 py-3" role="tablist" aria-label="Qué planificar">
-            {TIPOS_MAPA.map((t) => {
-              const lista = datos[t];
-              const n = lista ? lista.filter((c) => !enPlan.has(clave(t, c)) && cumpleFiltros(c)).length : null;
-              return (
-                <button
-                  key={t}
-                  type="button"
-                  role="tab"
-                  aria-selected={tipo === t}
-                  onClick={() => {
-                    setTipo(t);
-                    setVerSinZona(false);
-                  }}
-                  className={cn(
-                    "flex items-center gap-2 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600",
-                    tipo === t ? "bg-emerald-800 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200",
-                  )}
-                >
-                  <span className={cn("h-2 w-2 rounded-full", PUNTO_TIPO[t])} aria-hidden />
-                  {NOMBRE_TIPO[t]}
-                  <span className={cn("tabular-nums", tipo === t ? "text-emerald-100" : "text-gray-500")}>
-                    {n === null ? "…" : n}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+      {/* Barra: cómo verlos, filtros y cuántos hay. */}
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <div className="inline-flex rounded-lg bg-gray-200/70 p-1" role="tablist" aria-label="Cómo verlos">
+          {(
+            [
+              ["lista", "Lista", List],
+              ["mapa", "Mapa", IconoMapa],
+            ] as const
+          ).map(([m, texto, Icono]) => (
+            <button
+              key={m}
+              type="button"
+              role="tab"
+              aria-selected={modo === m}
+              onClick={() => cambiarModo(m)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600",
+                modo === m ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900",
+              )}
+            >
+              <Icono className="h-4 w-4" aria-hidden />
+              {texto}
+            </button>
+          ))}
+        </div>
 
-          {/* Filtros: lo mismo que tocar el mapa, sin tener que encontrar el sitio. */}
-          {/* Siempre dos arriba y dos abajo, del mismo ancho y alto. */}
-          <div className="grid grid-cols-2 gap-2 px-4 pt-3">
+        <Button
+          variant="outline"
+          onClick={() => setFiltrosAbiertos((v) => !v)}
+          aria-expanded={filtrosAbiertos}
+          className={cn(filtrosAbiertos && "border-emerald-700")}
+        >
+          <SlidersHorizontal className="mr-2 h-4 w-4" aria-hidden />
+          Filtros
+          {activos.length > 0 && (
+            <span className="ml-2 rounded-full bg-emerald-800 px-1.5 text-xs font-semibold leading-5 text-white">
+              {activos.length}
+            </span>
+          )}
+        </Button>
+
+        {activos.map((a) => (
+          <button
+            key={a.clave}
+            type="button"
+            onClick={a.quitar}
+            aria-label={`Quitar el filtro ${a.texto}`}
+            className="inline-flex items-center gap-1 rounded-full bg-emerald-50 py-1 pl-2.5 pr-1.5 text-xs font-medium text-emerald-900 hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+          >
+            {a.texto}
+            <X className="h-3.5 w-3.5" aria-hidden />
+          </button>
+        ))}
+
+        <p className="ml-auto text-sm text-gray-600">
+          {cargandoTipo ? "Cargando…" : cuantos(libres.length, QUE_ES[tipo])}
+        </p>
+      </div>
+
+      {filtrosAbiertos && (
+        <div className="mb-4 rounded-lg border bg-white p-4">
+          {/* Dos arriba y dos abajo, del mismo ancho y alto. */}
+          <div className="grid grid-cols-2 gap-3">
             <label className="flex min-w-0 flex-col gap-1">
               <span className="text-xs font-medium text-gray-600">Provincia</span>
               <select
@@ -520,15 +654,13 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
                 onChange={(e) => filtrarMunicipio(e.target.value)}
                 className={cn(CLASE_SELECT, (municipio || verSinZona) && SELECT_ACTIVO)}
               >
-                <option value="">{provincia ? "Todos los municipios" : "Elegir municipio"}</option>
+                <option value="">{provincia ? "Todos los municipios" : "Todos"}</option>
                 {opcionesMunicipio.map((m) => (
                   <option key={m.id} value={m.id}>
                     {provincia ? m.n : `${m.n} · ${m.p}`} ({conteoMunicipio.get(m.id) ?? 0})
                   </option>
                 ))}
-                {sinZona.length > 0 && (
-                  <option value={SIN_MUNICIPIO}>Sin municipio ({sinZonaLibres})</option>
-                )}
+                {sinZona.length > 0 && <option value={SIN_MUNICIPIO}>Sin municipio ({sinZonaLibres})</option>}
               </select>
             </label>
             <label className="flex min-w-0 flex-col gap-1">
@@ -560,158 +692,110 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
               </select>
             </label>
           </div>
-
-          <div className={cn("relative px-2 pb-2", pantallaCompleta && "min-h-0 flex-1")}>
-            {mapa ? (
-              <MapaCubaSvg
-                mapa={mapa}
-                provincia={provincia}
-                municipio={municipio}
-                conteoProvincia={conteoProvincia}
-                conteoMunicipio={conteoMunicipio}
-                seleccion={seleccionPorZona}
-                onProvincia={elegirProvincia}
-                onMunicipio={elegirMunicipio}
-                llenar={pantallaCompleta}
-              />
-            ) : (
-              <div className="flex aspect-[2/1] items-center justify-center gap-2 text-sm text-gray-500">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Cargando el mapa…
-              </div>
+          <div className="mt-3 flex justify-end gap-2">
+            {activos.length > 0 && (
+              <Button variant="ghost" onClick={quitarFiltros}>
+                Quitar filtros
+              </Button>
             )}
-            {mapa && (
-              <button
-                type="button"
-                onClick={() => setPantallaCompleta((v) => !v)}
-                aria-label={pantallaCompleta ? "Salir de pantalla completa" : "Ver el mapa a pantalla completa"}
-                title={pantallaCompleta ? "Salir de pantalla completa (Esc)" : "Pantalla completa"}
-                className="absolute right-4 top-2 flex h-9 w-9 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-700 shadow-sm hover:bg-gray-50 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
-              >
-                {pantallaCompleta ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-              </button>
-            )}
-            {cargandoTipo && mapa && (
-              <span className="absolute left-4 top-2 flex items-center gap-1.5 rounded bg-white/90 px-2 py-1 text-xs text-gray-600">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Contando pendientes…
-              </span>
-            )}
+            <Button onClick={() => setFiltrosAbiertos(false)}>Listo</Button>
           </div>
+        </div>
+      )}
 
-          <div className="flex flex-wrap items-center gap-3 border-t px-4 py-2 text-xs text-gray-600">
-            <span>Pendientes sin planificar:</span>
-            {[
-              [0, "0"],
-              [1, "1–2"],
-              [3, "3–5"],
-              [6, "6–10"],
-              [11, "11 o más"],
-            ].map(([n, texto]) => (
-              <span key={texto} className="flex items-center gap-1">
-                <span className="h-3 w-4 rounded-sm" style={{ background: colorZona(n as number) }} aria-hidden />
-                {texto}
-              </span>
-            ))}
-          </div>
-        </section>
-
-        {/* Lista de la zona */}
-        <section className={cn("rounded-lg border bg-white", pantallaCompleta && "min-h-0 overflow-y-auto")}>
-          {!provincia && !verSinZona ? (
-            <ListaProvincias
-              provincias={mapa?.provincias ?? []}
-              conteo={conteoProvincia}
-              seleccion={seleccionPorZona}
-              que={QUE_ES[tipo]}
-              onElegir={elegirProvincia}
-            />
-          ) : (
-            <>
-              <header className="border-b px-4 py-3">
-                <h2 className="text-base font-semibold text-gray-900">
-                  {verSinZona ? "Sin municipio reconocible" : municipioActual?.n ?? provinciaActual?.n}
-                </h2>
-                <p className="text-sm text-gray-600">
-                  {cuantos(
-                    grupos.reduce((s, g) => s + g.libres, 0),
-                    QUE_ES[tipo],
-                  )}
-                  {!municipio && !verSinZona && " · toca un municipio en el mapa para ver solo ese"}
-                </p>
-              </header>
-              {cargandoTipo ? (
-                <p className="flex items-center gap-2 px-4 py-10 text-sm text-gray-500">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Cargando…
-                </p>
-              ) : fallidos.includes(tipo) ? (
-                <p className="px-4 py-10 text-sm text-red-700">No se pudo cargar esta lista. Recarga la página.</p>
-              ) : grupos.length === 0 ? (
-                <p className="px-4 py-10 text-sm text-gray-500">Nadie {QUE_ES[tipo][0]} aquí.</p>
+      {modo === "lista" ? (
+        <section className="mx-auto max-w-4xl rounded-lg border bg-white">{listaPendientes}</section>
+      ) : errorMapa ? (
+        <div className="rounded-lg border bg-white py-16 text-center">
+          <p className="font-medium text-gray-900">No se pudo cargar el mapa</p>
+          <p className="text-sm text-gray-500">Recarga la página, o usa la lista.</p>
+        </div>
+      ) : (
+        <div
+          className={
+            pantallaCompleta
+              ? "fixed inset-0 z-40 grid grid-rows-[minmax(0,3fr)_minmax(0,2fr)] gap-3 bg-gray-50 p-3 sm:p-4 lg:grid-cols-[minmax(0,1fr)_28rem] lg:grid-rows-1"
+              : "grid items-start gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]"
+          }
+        >
+          <section
+            className={cn(
+              "rounded-lg border bg-white",
+              pantallaCompleta
+                ? "flex min-h-0 flex-col overflow-hidden"
+                : "lg:sticky lg:top-[var(--content-with-fixed-header-padding,144px)]",
+            )}
+          >
+            <div className={cn("relative px-2 pb-2 pt-2", pantallaCompleta && "min-h-0 flex-1")}>
+              {mapa ? (
+                <MapaCubaSvg
+                  mapa={mapa}
+                  provincia={provincia}
+                  municipio={municipio}
+                  conteoProvincia={conteoProvincia}
+                  conteoMunicipio={conteoMunicipio}
+                  seleccion={seleccionPorZona}
+                  onProvincia={elegirProvincia}
+                  onMunicipio={elegirMunicipio}
+                  llenar={pantallaCompleta}
+                />
               ) : (
-                <div className="divide-y">
-                  {grupos.map((g) => {
-                    const marcables = g.items.filter((u) => !enPlan.has(clave(tipo, u.c)));
-                    const todosMarcados = marcables.length > 0 && marcables.every((u) => seleccion.has(clave(tipo, u.c)));
-                    return (
-                      <div key={g.id} className="py-2">
-                        {(grupos.length > 1 || !municipio) && (
-                          <div className="flex items-center justify-between px-4 pb-1 pt-1">
-                            <button
-                              type="button"
-                              onClick={() => g.id !== "sin-municipio" && elegirMunicipio(g.id)}
-                              className="text-xs font-semibold uppercase tracking-wide text-gray-500 hover:text-gray-900"
-                            >
-                              {g.nombre} · {g.libres}
-                            </button>
-                            {marcables.length > 1 && (
-                              <button
-                                type="button"
-                                onClick={() => marcarGrupo(marcables, !todosMarcados)}
-                                className="text-xs font-medium text-emerald-800 hover:underline"
-                              >
-                                {todosMarcados ? "Desmarcar" : `Marcar los ${marcables.length}`}
-                              </button>
-                            )}
-                          </div>
-                        )}
-                        {grupos.length === 1 && municipio && marcables.length > 1 && (
-                          <div className="flex justify-end px-4 pb-1">
-                            <button
-                              type="button"
-                              onClick={() => marcarGrupo(marcables, !todosMarcados)}
-                              className="text-xs font-medium text-emerald-800 hover:underline"
-                            >
-                              {todosMarcados ? "Desmarcar" : `Marcar los ${marcables.length}`}
-                            </button>
-                          </div>
-                        )}
-                        <ul className="px-2">
-                          {g.items.map((u) => (
-                            <FilaPendiente
-                              key={claveCandidato(u.c)}
-                              u={u}
-                              marcado={seleccion.has(clave(tipo, u.c))}
-                              enPlan={enPlan.get(clave(tipo, u.c))}
-                              tipo={tipo}
-                              abriendoOferta={!!abriendoOferta && abriendoOferta === u.c.oferta_confirmada?.id}
-                              abriendoVisita={!!abriendoVisita && abriendoVisita === u.c.visita_id}
-                              onAlternar={() => alternar(u)}
-                              onVerOferta={verOferta}
-                              onVerVisita={verVisita}
-                            />
-                          ))}
-                        </ul>
-                      </div>
-                    );
-                  })}
+                <div className="flex aspect-[2/1] items-center justify-center gap-2 text-sm text-gray-500">
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  Cargando el mapa…
                 </div>
               )}
-            </>
-          )}
-        </section>
-      </div>
+              {mapa && (
+                <button
+                  type="button"
+                  onClick={() => setPantallaCompleta((v) => !v)}
+                  aria-label={pantallaCompleta ? "Salir de pantalla completa" : "Ver el mapa a pantalla completa"}
+                  title={pantallaCompleta ? "Salir de pantalla completa (Esc)" : "Pantalla completa"}
+                  className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-700 shadow-sm hover:bg-gray-50 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+                >
+                  {pantallaCompleta ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                </button>
+              )}
+              {cargandoTipo && mapa && (
+                <span className="absolute left-4 top-4 flex items-center gap-1.5 rounded bg-white/90 px-2 py-1 text-xs text-gray-600">
+                  <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+                  Contando pendientes…
+                </span>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 border-t px-4 py-2 text-xs text-gray-600">
+              <span>Pendientes sin planificar:</span>
+              {[
+                [0, "0"],
+                [1, "1–2"],
+                [3, "3–5"],
+                [6, "6–10"],
+                [11, "11 o más"],
+              ].map(([n, texto]) => (
+                <span key={texto} className="flex items-center gap-1">
+                  <span className="h-3 w-4 rounded-sm" style={{ background: colorZona(n as number) }} aria-hidden />
+                  {texto}
+                </span>
+              ))}
+            </div>
+          </section>
+
+          <section className={cn("rounded-lg border bg-white", pantallaCompleta && "min-h-0 overflow-y-auto")}>
+            {!provincia && !verSinZona ? (
+              <ListaProvincias
+                provincias={mapa?.provincias ?? []}
+                conteo={conteoProvincia}
+                seleccion={seleccionPorZona}
+                que={QUE_ES[tipo]}
+                onElegir={elegirProvincia}
+              />
+            ) : (
+              listaPendientes
+            )}
+          </section>
+        </div>
+      )}
 
       <VerOfertaClienteDialog
         open={ofertaAbierta !== null}
@@ -728,7 +812,7 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
             <div className="flex flex-col gap-3 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:px-8">
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-gray-900">
-                  {seleccionados.length} seleccionado{seleccionados.length === 1 ? "" : "s"}
+                  {seleccionados.length} marcado{seleccionados.length === 1 ? "" : "s"}
                   <span className="ml-2 font-normal text-gray-500">{resumenZonas}</span>
                 </p>
                 <ul className="mt-1.5 flex max-h-[4.25rem] flex-wrap gap-1.5 overflow-y-auto">
@@ -749,10 +833,10 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
                             return n;
                           })
                         }
-                        aria-label={`Quitar ${s.candidato.nombre} de la selección`}
+                        aria-label={`Quitar ${s.candidato.nombre} de lo marcado`}
                         className="flex h-5 w-5 items-center justify-center rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-900"
                       >
-                        <X className="h-3 w-3" />
+                        <X className="h-3 w-3" aria-hidden />
                       </button>
                     </li>
                   ))}
@@ -776,8 +860,8 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
                   }}
                   disabled={!quienElegido}
                 >
-                  <Plus className="mr-1 h-4 w-4" />
-                  Añadir al plan de {dia}
+                  <Plus className="mr-1 h-4 w-4" aria-hidden />
+                  Añadir al plan {delDia}
                 </Button>
                 <Button variant="ghost" onClick={() => setSeleccion(new Map())}>
                   Vaciar
@@ -786,7 +870,7 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
             </div>
             {soloParaBrigada && quien.startsWith("trabajador:") && (
               <p className="px-4 pb-2 text-xs text-amber-800 sm:px-6 lg:px-8">
-                Hay instalaciones en la selección: tienen que ir con una brigada.
+                Las instalaciones tienen que ir con una brigada.
               </p>
             )}
           </div>
@@ -875,7 +959,7 @@ function FilaPendiente({
   const oferta = c.oferta_confirmada;
   const [, mes, dia] = (c.visita_fecha ?? "").slice(0, 10).split("-");
   const fecha = dia && mes ? ` · ${dia}/${mes}` : "";
-  // Lo que se mira para planificar: qué equipo lleva y si ya hay visita.
+  // Lo que se mira para planificar: cuánto espera, qué equipo lleva y si ya hay visita.
   const dias = diasEsperando(c.esperando_desde);
   const conExtras = dias !== null || !!oferta || !!c.visita_id || tipo !== "visita";
   return (
@@ -939,9 +1023,9 @@ function FilaPendiente({
               className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
             >
               {abriendoOferta ? (
-                <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
               ) : (
-                <FileText className="h-3.5 w-3.5 shrink-0" />
+                <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden />
               )}
               <span className="truncate">{oferta.nombre || oferta.numero || "Oferta confirmada"}</span>
             </button>
@@ -953,9 +1037,9 @@ function FilaPendiente({
               className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-800 hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
             >
               {abriendoVisita ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
               ) : (
-                <Eye className="h-3.5 w-3.5" />
+                <Eye className="h-3.5 w-3.5" aria-hidden />
               )}
               {abriendoVisita ? "Abriendo…" : `Ver visita${fecha}`}
             </button>

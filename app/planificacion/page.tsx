@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, CalendarDays, Check, ChevronLeft, ChevronRight, Loader2, Map as IconoMapa, Users } from "lucide-react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
+import { AlertTriangle, Check, ChevronLeft, ClipboardList, Loader2 } from "lucide-react";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { RouteGuard } from "@/components/auth/route-guard";
 import { Button } from "@/components/shared/atom/button";
@@ -11,6 +12,8 @@ import { useAuth } from "@/contexts/auth-context";
 import { PlanificacionService } from "@/lib/services/feats/planificacion/planificacion-service";
 import { BrigadaService } from "@/lib/services/feats/brigade/brigada-service";
 import { CarrilBrigada } from "@/components/feats/planificacion/carril-brigada";
+import { InicioPlanificacion } from "@/components/feats/planificacion/inicio-planificacion";
+import { MenuDia } from "@/components/feats/planificacion/menu-dia";
 import {
   PlanificarPorMapa,
   type Seleccionado,
@@ -20,6 +23,14 @@ import {
   claveCandidato,
   claveTrabajo,
 } from "@/components/feats/planificacion/selector-trabajos";
+import {
+  delDia,
+  desplazar,
+  diaCorto,
+  esFechaIso,
+  isoLocal,
+  nombreDia,
+} from "@/components/feats/planificacion/fechas";
 import type {
   Asignado,
   CandidatoPlanificacion,
@@ -37,54 +48,24 @@ interface Brigada {
   integrantes: string[];
 }
 
+/** Lo que se planifica desde el menú del día. Actualización va por el buscador del plan. */
+const TIPOS_DEL_MENU: TipoTrabajo[] = ["visita", "instalacion_nueva", "instalacion_en_proceso", "averia"];
+
+const TITULO_TIPO: Record<TipoTrabajo, string> = {
+  visita: "Visitas",
+  instalacion_nueva: "Instalaciones nuevas",
+  instalacion_en_proceso: "Instalaciones en proceso",
+  averia: "Averías",
+  actualizacion: "Actualizaciones",
+};
+
+type Paso = { en: "inicio" } | { en: "dia" } | { en: "pendientes"; tipo: TipoTrabajo } | { en: "plan" };
+
 /** "Ana", "Ana y Luis", "Ana, Luis y Pedro". */
 function unirNombres(nombres: string[]): string {
   if (nombres.length <= 1) return nombres[0] ?? "";
   return `${nombres.slice(0, -1).join(", ")} y ${nombres[nombres.length - 1]}`;
 }
-
-const DIAS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
-const MESES = [
-  "enero", "febrero", "marzo", "abril", "mayo", "junio",
-  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
-];
-
-/** Fechas en hora local: con toISOString, a partir de las 8 de la noche "mañana" era pasado. */
-function isoLocal(d: Date): string {
-  const dd = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${dd(d.getMonth() + 1)}-${dd(d.getDate())}`;
-}
-
-function aFecha(iso: string): Date {
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
-
-function desplazar(iso: string, dias: number): string {
-  const f = aFecha(iso);
-  f.setDate(f.getDate() + dias);
-  return isoLocal(f);
-}
-
-function nombreDia(iso: string, hoy: string): string {
-  const f = aFecha(iso);
-  const largo = `${DIAS[f.getDay()]} ${f.getDate()} de ${MESES[f.getMonth()]}`;
-  const relativo =
-    iso === hoy ? "Hoy" : iso === desplazar(hoy, 1) ? "Mañana" : iso === desplazar(hoy, -1) ? "Ayer" : null;
-  return relativo ? `${relativo}, ${largo}` : largo.charAt(0).toUpperCase() + largo.slice(1);
-}
-
-/** "hoy", "mañana" o "el martes 15": para "Añadir al plan de …". */
-function diaCorto(iso: string, hoy: string): string {
-  if (iso === hoy) return "hoy";
-  if (iso === desplazar(hoy, 1)) return "mañana";
-  if (iso === desplazar(hoy, -1)) return "ayer";
-  const f = aFecha(iso);
-  return `el ${DIAS[f.getDay()]} ${f.getDate()}`;
-}
-
-type VistaPlan = "mapa" | "brigadas";
-const CLAVE_VISTA = "planificacion:vista";
 
 function mismoAsignado(a: Asignado, b: Asignado): boolean {
   return a.tipo === b.tipo && a.id === b.id;
@@ -100,28 +81,57 @@ function nuevoId(): string {
 }
 
 /**
- * El plan de un día, brigada por brigada.
- *
- * La pantalla es el propio plan: una tarjeta por brigada con lo que tiene. Se
- * añade desde la tarjeta de la brigada, así que "para quién" nunca se elige
- * aparte. Todo se guarda solo según se hace: no hay botón de guardar que
- * olvidar, ni borradores, ni avisos de cambios perdidos.
+ * Cada paso vive en la dirección (?dia=…&tipo=…): el botón Atrás del
+ * navegador vuelve al paso anterior y recargar no saca de donde se estaba.
  */
+function irA(destino: { dia?: string; tipo?: TipoTrabajo; ver?: "plan" }) {
+  const q = new URLSearchParams();
+  if (destino.dia) q.set("dia", destino.dia);
+  if (destino.tipo) q.set("tipo", destino.tipo);
+  if (destino.ver) q.set("ver", destino.ver);
+  const texto = q.toString();
+  window.history.pushState(null, "", texto ? `?${texto}` : window.location.pathname);
+}
+
 // Todavía a prueba: solo entra quien tenga el permiso "planificacion" (o sea superadmin).
 export default function PlanificacionPage() {
   return (
     <RouteGuard requiredModule="planificacion">
-      <PlanificacionContenido />
+      <Suspense fallback={null}>
+        <PlanificacionContenido />
+      </Suspense>
     </RouteGuard>
   );
 }
 
+/**
+ * Planificar va por pasos, uno cada vez:
+ *
+ * 1. Qué día.
+ * 2. Qué se planifica: visitas, instalaciones nuevas, en proceso o averías.
+ * 3. Los pendientes de eso, en lista (o en el mapa), para marcar y decir quién va.
+ *
+ * El plan del día, brigada por brigada, está a un botón desde los pasos 2 y 3.
+ * Nada se descarga hasta que hace falta y todo se guarda solo.
+ */
 function PlanificacionContenido() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const params = useSearchParams();
   const hoy = useMemo(() => isoLocal(new Date()), []);
-  // Mañana: es el día que se planifica cuando uno se sienta a hacerlo.
-  const [fecha, setFecha] = useState(() => desplazar(isoLocal(new Date()), 1));
+
+  const diaEnDireccion = params.get("dia");
+  const dia = diaEnDireccion && esFechaIso(diaEnDireccion) ? diaEnDireccion : null;
+  const tipoEnDireccion = params.get("tipo") as TipoTrabajo | null;
+  const paso: Paso = !dia
+    ? { en: "inicio" }
+    : tipoEnDireccion && TIPOS_DEL_MENU.includes(tipoEnDireccion)
+      ? { en: "pendientes", tipo: tipoEnDireccion }
+      : params.get("ver") === "plan"
+        ? { en: "plan" }
+        : { en: "dia" };
+
+  const [fecha, setFecha] = useState(() => dia ?? desplazar(isoLocal(new Date()), 1));
   const [trabajos, setTrabajos] = useState<TrabajoPlanificado[]>([]);
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState(false);
@@ -132,24 +142,6 @@ function PlanificacionContenido() {
   const [sueltos, setSueltos] = useState<Asignado[]>([]);
   const [destino, setDestino] = useState<Asignado | null>(null);
   const cache = useRef(new Map<TipoTrabajo, CandidatoPlanificacion[]>());
-  // Se abre en la última forma que se usó.
-  const [vista, setVista] = useState<VistaPlan>("mapa");
-  useEffect(() => {
-    try {
-      const guardada = localStorage.getItem(CLAVE_VISTA);
-      if (guardada === "mapa" || guardada === "brigadas") setVista(guardada);
-    } catch {
-      /* sin almacenamiento, el mapa */
-    }
-  }, []);
-  function cambiarVista(v: VistaPlan) {
-    setVista(v);
-    try {
-      localStorage.setItem(CLAVE_VISTA, v);
-    } catch {
-      /* no pasa nada */
-    }
-  }
 
   // Lo que se guarda se lee de refs: el guardado corre fuera del render y
   // tiene que llevarse siempre lo último.
@@ -213,6 +205,37 @@ function PlanificacionContenido() {
     };
   }, [fecha, recarga]);
 
+  // Cambiar de día (elegido o con Atrás): primero se guarda el que se deja.
+  useEffect(() => {
+    if (!dia || dia === fechaRef.current) return;
+    let cancelado = false;
+    void guardarAhora().then((ok) => {
+      if (cancelado) return;
+      if (!ok) {
+        toast({
+          title: "No se pudo guardar el plan",
+          description: "Sigues en el día anterior hasta que vuelva la conexión.",
+          variant: "destructive",
+        });
+        window.history.replaceState(null, "", `?dia=${fechaRef.current}`);
+        return;
+      }
+      fechaRef.current = dia;
+      setSueltos([]);
+      setDestino(null);
+      setFecha(dia);
+    });
+    return () => {
+      cancelado = true;
+    };
+  }, [dia, guardarAhora, toast]);
+
+  // Cada paso empieza arriba.
+  const clavePaso = paso.en === "pendientes" ? `pendientes:${paso.tipo}` : paso.en;
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [clavePaso]);
+
   useEffect(() => {
     BrigadaService.getAllBrigadas()
       .then((datos: any[]) => {
@@ -256,7 +279,10 @@ function PlanificacionContenido() {
     if (cargando || brigadas.length === 0) return;
     const porIdViejo = new Map(brigadas.map((b) => [b.idViejo, b.asignado]));
     const hayViejos = trabajosRef.current.some(
-      (t) => t.asignado.tipo === "brigada" && porIdViejo.has(t.asignado.id) && !brigadas.some((b) => b.asignado.id === t.asignado.id),
+      (t) =>
+        t.asignado.tipo === "brigada" &&
+        porIdViejo.has(t.asignado.id) &&
+        !brigadas.some((b) => b.asignado.id === t.asignado.id),
     );
     if (!hayViejos) return;
     editar((lista) =>
@@ -288,26 +314,10 @@ function PlanificacionContenido() {
   // Irse a otro módulo de la web guarda lo pendiente por el camino.
   useEffect(() => () => void guardarAhora(), [guardarAhora]);
 
-  async function irA(nueva: string) {
-    if (!nueva || nueva === fecha || cargando) return;
-    if (!(await guardarAhora())) {
-      toast({
-        title: "No se pudo guardar el plan",
-        description: "Sigues en este día hasta que vuelva la conexión.",
-        variant: "destructive",
-      });
-      return;
-    }
-    fechaRef.current = nueva;
-    setSueltos([]);
-    setDestino(null);
-    setFecha(nueva);
-  }
-
   function alternar(tipo: TipoTrabajo, c: CandidatoPlanificacion) {
     if (!destino) return;
-    const clave = claveCandidato(c);
-    const existente = trabajosRef.current.find((t) => t.tipo === tipo && claveTrabajo(t) === clave);
+    const claveEntidad = claveCandidato(c);
+    const existente = trabajosRef.current.find((t) => t.tipo === tipo && claveTrabajo(t) === claveEntidad);
     if (!existente) {
       editar((lista) => [
         ...lista,
@@ -328,7 +338,7 @@ function PlanificacionContenido() {
     }
   }
 
-  /** Lo marcado en el mapa, de una vez y para la misma persona o brigada. */
+  /** Lo marcado en la lista o el mapa, de una vez y para la misma persona o brigada. */
   function agregarVarios(items: Seleccionado[], quien: Asignado) {
     const existentes = new Set(trabajosRef.current.map((t) => `${t.tipo}|${claveTrabajo(t)}`));
     const nuevos = items.filter((i) => !existentes.has(`${i.tipo}|${claveCandidato(i.candidato)}`));
@@ -362,168 +372,137 @@ function PlanificacionContenido() {
     }));
     const vistos = new Set(lista.map((c) => `${c.quien.tipo}:${c.quien.id}`));
     for (const a of [...sueltos, ...trabajos.map((t) => t.asignado)]) {
-      const clave = `${a.tipo}:${a.id}`;
-      if (vistos.has(clave)) continue;
-      vistos.add(clave);
+      const claveQuien = `${a.tipo}:${a.id}`;
+      if (vistos.has(claveQuien)) continue;
+      vistos.add(claveQuien);
       lista.push({ quien: a, subtitulo: a.tipo === "trabajador" ? "Solo" : "Brigada" });
     }
     return lista;
   }, [brigadas, sueltos, trabajos]);
 
   const conTrabajo = new Set(trabajos.map((t) => `${t.asignado.tipo}:${t.asignado.id}`)).size;
+  /** El plan que se ve es el del día de la dirección y ya terminó de cargar. */
+  const listo = !!dia && dia === fecha && !cargando && !errorCarga;
+
+  const botonVerPlan =
+    trabajos.length > 0 ? (
+      <Button variant="outline" onClick={() => irA({ dia: fecha, ver: "plan" })}>
+        <ClipboardList className="mr-2 h-4 w-4" aria-hidden />
+        Ver el plan del día ({trabajos.length})
+      </Button>
+    ) : null;
 
   return (
     <div className="min-h-screen bg-gray-50">
       <ModuleHeader
         title="Planificación"
-        subtitle="Qué hace cada brigada cada día"
-        actions={<IndicadorGuardado estado={estado} />}
+        subtitle={dia ? nombreDia(dia, hoy) : "Qué hace cada brigada cada día"}
+        actions={paso.en === "inicio" ? undefined : <IndicadorGuardado estado={estado} />}
       />
 
       <main className="content-with-fixed-header px-4 pb-12 sm:px-6 lg:px-8">
-        <div className="mb-5 flex flex-wrap items-center gap-x-6 gap-y-3">
-          <div className="flex items-center gap-1">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => irA(desplazar(fecha, -1))}
-              disabled={cargando}
-              aria-label="Día anterior"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </Button>
-            <label className="relative flex min-w-[17rem] cursor-pointer flex-col items-center rounded-md px-3 py-1 hover:bg-gray-100">
-              <span className="text-lg font-semibold text-gray-900">{nombreDia(fecha, hoy)}</span>
-              <span className="flex items-center gap-1 text-xs font-medium text-emerald-800">
-                <CalendarDays className="h-3.5 w-3.5" />
-                Cambiar día
-              </span>
-              {/* El calendario del navegador, invisible encima del título. */}
-              <input
-                type="date"
-                value={fecha}
-                onChange={(e) => irA(e.target.value)}
-                onClick={(e) => (e.currentTarget as HTMLInputElement).showPicker?.()}
-                className="absolute inset-0 cursor-pointer opacity-0"
-                aria-label="Elegir día"
-              />
-            </label>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => irA(desplazar(fecha, 1))}
-              disabled={cargando}
-              aria-label="Día siguiente"
-            >
-              <ChevronRight className="h-5 w-5" />
-            </Button>
-          </div>
-
-          {!cargando && !errorCarga && (
-            <p className="text-sm text-gray-600">
-              {trabajos.length === 0
-                ? vista === "mapa"
-                  ? "Nada planificado todavía. Elige una zona y marca los pendientes."
-                  : "Nada planificado todavía. Pulsa Añadir en la brigada que quieras."
-                : `${trabajos.length} trabajo${trabajos.length === 1 ? "" : "s"}` +
-                  (brigadas.length ? ` · ${conTrabajo} de ${brigadas.length} brigadas con trabajo` : "")}
-            </p>
-          )}
-
-          <div className="ml-auto inline-flex rounded-lg bg-gray-200/70 p-1" role="tablist" aria-label="Cómo planificar">
-            {(
-              [
-                ["mapa", "Por zonas", IconoMapa],
-                ["brigadas", "Por brigadas", Users],
-              ] as const
-            ).map(([v, texto, Icono]) => (
-              <button
-                key={v}
-                type="button"
-                role="tab"
-                aria-selected={vista === v}
-                onClick={() => cambiarVista(v)}
-                className={
-                  "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors " +
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 " +
-                  (vista === v ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900")
-                }
-              >
-                <Icono className="h-4 w-4" />
-                {texto}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {cargando ? (
-          <div className="flex items-center justify-center gap-2 py-24 text-sm text-gray-500">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Cargando el plan…
-          </div>
-        ) : errorCarga ? (
+        {paso.en === "inicio" ? (
+          <InicioPlanificacion hoy={hoy} onElegir={(f) => irA({ dia: f })} />
+        ) : errorCarga && dia === fecha ? (
           <div className="flex flex-col items-center gap-3 py-24 text-center">
             <p className="font-medium text-gray-900">No se pudo cargar el plan</p>
             <p className="text-sm text-gray-500">Revisa la conexión e inténtalo otra vez.</p>
-            <Button variant="outline" onClick={() => setRecarga((n) => n + 1)}>
-              Reintentar
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => irA({})}>
+                Elegir otro día
+              </Button>
+              <Button onClick={() => setRecarga((n) => n + 1)}>Reintentar</Button>
+            </div>
           </div>
-        ) : vista === "mapa" ? (
-          <PlanificarPorMapa
-            key={fecha}
-            dia={diaCorto(fecha, hoy)}
-            trabajos={trabajos}
-            brigadas={carriles
-              .filter((c) => c.quien.tipo === "brigada")
-              .map((c) => ({ asignado: c.quien, detalle: c.subtitulo }))}
-            trabajadores={trabajadores}
-            cache={cache}
-            onAgregar={agregarVarios}
+        ) : paso.en === "dia" ? (
+          <MenuDia
+            titulo={nombreDia(dia!, hoy)}
+            cargando={!listo}
+            trabajos={listo ? trabajos : []}
+            onCambiarDia={() => irA({})}
+            onTipo={(tipo) => irA({ dia: dia!, tipo })}
+            onVerPlan={() => irA({ dia: dia!, ver: "plan" })}
           />
-        ) : (
-          <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-            {carriles.map(({ quien, subtitulo }) => (
-              <CarrilBrigada
-                key={`${quien.tipo}:${quien.id}`}
-                quien={quien}
-                subtitulo={subtitulo}
-                trabajos={trabajos.filter((t) => mismoAsignado(t.asignado, quien))}
-                onAgregar={() => setDestino(quien)}
-                onQuitar={(t) => editar((lista) => lista.filter((x) => !mismoTrabajo(x, t)))}
-                onCambiarNota={(t, nota) =>
-                  editar((lista) => lista.map((x) => (mismoTrabajo(x, t) ? { ...x, nota: nota || null } : x)))
-                }
-              />
-            ))}
-
-            {trabajadores.length > 0 && (
-              <section className="rounded-lg border border-dashed border-gray-300 px-4 py-3">
-                <h2 className="text-sm font-medium text-gray-900">¿Un trabajo para una sola persona?</h2>
-                <p className="mb-2 text-xs text-gray-500">Visitas, averías y actualizaciones.</p>
-                <SearchableSelect
-                  options={trabajadores.map((t) => ({ value: t.id, label: t.nombre }))}
-                  value=""
-                  onValueChange={(ci) => {
-                    const persona = trabajadores.find((t) => t.id === ci);
-                    if (!persona) return;
-                    setSueltos((previos) => (previos.some((p) => p.id === ci) ? previos : [...previos, persona]));
-                    setDestino(persona);
-                  }}
-                  placeholder="Elegir trabajador"
-                  searchPlaceholder="Buscar por nombre"
-                />
-              </section>
-            )}
+        ) : !listo ? (
+          <div className="flex items-center justify-center gap-2 py-24 text-sm text-gray-500">
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+            Cargando el plan…
           </div>
+        ) : paso.en === "pendientes" ? (
+          <>
+            <Encabezado
+              onVolver={() => irA({ dia: fecha })}
+              titulo={`${TITULO_TIPO[paso.tipo]} para ${diaCorto(fecha, hoy)}`}
+              subtitulo="Marca los que quieras y abajo elige quién va."
+            >
+              {botonVerPlan}
+            </Encabezado>
+            <PlanificarPorMapa
+              key={`${fecha}:${paso.tipo}`}
+              tipo={paso.tipo}
+              delDia={delDia(fecha, hoy)}
+              trabajos={trabajos}
+              brigadas={carriles
+                .filter((c) => c.quien.tipo === "brigada")
+                .map((c) => ({ asignado: c.quien, detalle: c.subtitulo }))}
+              trabajadores={trabajadores}
+              cache={cache}
+              onAgregar={agregarVarios}
+            />
+          </>
+        ) : (
+          <>
+            <Encabezado
+              onVolver={() => irA({ dia: fecha })}
+              titulo={`Plan ${delDia(fecha, hoy)}`}
+              subtitulo={
+                trabajos.length === 0
+                  ? "Nada planificado todavía. Pulsa Añadir en la brigada que quieras."
+                  : `${trabajos.length} trabajo${trabajos.length === 1 ? "" : "s"}` +
+                    (brigadas.length ? ` · ${conTrabajo} de ${brigadas.length} brigadas con trabajo` : "")
+              }
+            />
+            <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+              {carriles.map(({ quien, subtitulo }) => (
+                <CarrilBrigada
+                  key={`${quien.tipo}:${quien.id}`}
+                  quien={quien}
+                  subtitulo={subtitulo}
+                  trabajos={trabajos.filter((t) => mismoAsignado(t.asignado, quien))}
+                  onAgregar={() => setDestino(quien)}
+                  onQuitar={(t) => editar((lista) => lista.filter((x) => !mismoTrabajo(x, t)))}
+                  onCambiarNota={(t, nota) =>
+                    editar((lista) => lista.map((x) => (mismoTrabajo(x, t) ? { ...x, nota: nota || null } : x)))
+                  }
+                />
+              ))}
+
+              {trabajadores.length > 0 && (
+                <section className="rounded-lg border border-dashed border-gray-300 px-4 py-3">
+                  <h2 className="text-sm font-medium text-gray-900">¿Un trabajo para una sola persona?</h2>
+                  <p className="mb-2 text-xs text-gray-500">Visitas, averías y actualizaciones.</p>
+                  <SearchableSelect
+                    options={trabajadores.map((t) => ({ value: t.id, label: t.nombre }))}
+                    value=""
+                    onValueChange={(ci) => {
+                      const persona = trabajadores.find((t) => t.id === ci);
+                      if (!persona) return;
+                      setSueltos((previos) => (previos.some((p) => p.id === ci) ? previos : [...previos, persona]));
+                      setDestino(persona);
+                    }}
+                    placeholder="Elegir trabajador"
+                    searchPlaceholder="Buscar por nombre"
+                  />
+                </section>
+              )}
+            </div>
+          </>
         )}
       </main>
 
       <SelectorTrabajos
         destino={destino}
-        detalleDestino={
-          destino ? carriles.find((c) => mismoAsignado(c.quien, destino))?.subtitulo : undefined
-        }
+        detalleDestino={destino ? carriles.find((c) => mismoAsignado(c.quien, destino))?.subtitulo : undefined}
         trabajos={trabajos}
         cache={cache}
         onAlternar={alternar}
@@ -533,12 +512,42 @@ function PlanificacionContenido() {
   );
 }
 
+function Encabezado({
+  onVolver,
+  titulo,
+  subtitulo,
+  children,
+}: {
+  onVolver: () => void;
+  titulo: string;
+  subtitulo?: string;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="mb-4 flex flex-wrap items-end gap-3">
+      <div className="min-w-0 flex-1">
+        <button
+          type="button"
+          onClick={onVolver}
+          className="inline-flex items-center gap-1 rounded text-sm font-medium text-emerald-800 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+        >
+          <ChevronLeft className="h-4 w-4" aria-hidden />
+          Volver
+        </button>
+        <h2 className="mt-1 text-2xl font-semibold text-gray-900">{titulo}</h2>
+        {subtitulo && <p className="text-sm text-gray-600">{subtitulo}</p>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
 /** Qué pasa con el guardado, discreto, donde antes estaba el botón. */
 function IndicadorGuardado({ estado }: { estado: EstadoGuardado }) {
   if (estado === "error") {
     return (
       <span className="flex items-center gap-1.5 text-sm font-medium text-amber-800" role="status">
-        <AlertTriangle className="h-4 w-4" />
+        <AlertTriangle className="h-4 w-4" aria-hidden />
         Sin conexión, reintentando…
       </span>
     );
@@ -546,14 +555,14 @@ function IndicadorGuardado({ estado }: { estado: EstadoGuardado }) {
   if (estado === "guardado") {
     return (
       <span className="flex items-center gap-1.5 text-sm text-gray-600" role="status">
-        <Check className="h-4 w-4 text-emerald-700" />
+        <Check className="h-4 w-4 text-emerald-700" aria-hidden />
         Guardado
       </span>
     );
   }
   return (
     <span className="flex items-center gap-1.5 text-sm text-gray-600" role="status">
-      <Loader2 className="h-4 w-4 animate-spin" />
+      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
       Guardando…
     </span>
   );

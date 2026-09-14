@@ -31,6 +31,14 @@ export const PlanificacionService = {
     return response.data;
   },
 
+  /** Los planes guardados entre dos días, ambos incluidos. */
+  async listar(desde: string, hasta: string): Promise<Planificacion[]> {
+    const response = await apiRequest<{ success?: boolean; data?: Planificacion[] } | Planificacion[]>(
+      `${BASE}/?desde=${encodeURIComponent(desde)}&hasta=${encodeURIComponent(hasta)}`,
+    );
+    return Array.isArray(response) ? response : response.data || [];
+  },
+
   /** Los clientes y leads que pueden entrar, según el estado que tengan. */
   async candidatos(tipo: string): Promise<CandidatoPlanificacion[]> {
     const response = await apiRequest<{
