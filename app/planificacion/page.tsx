@@ -143,6 +143,13 @@ function PlanificacionContenido() {
   const [sueltos, setSueltos] = useState<Asignado[]>([]);
   const [destino, setDestino] = useState<Asignado | null>(null);
   const [nuevoAbierto, setNuevoAbierto] = useState(false);
+  /** Lo último añadido se resalta un momento, para ver dónde ha caído. */
+  const [recientes, setRecientes] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (recientes.size === 0) return;
+    const id = setTimeout(() => setRecientes(new Set()), 4000);
+    return () => clearTimeout(id);
+  }, [recientes]);
   const cache = useRef(new Map<TipoTrabajo, CandidatoPlanificacion[]>());
 
   // Lo que se guarda se lee de refs: el guardado corre fuera del render y
@@ -345,10 +352,11 @@ function PlanificacionContenido() {
     const existentes = new Set(trabajosRef.current.map((t) => `${t.tipo}|${claveTrabajo(t)}`));
     const nuevos = items.filter((i) => !existentes.has(`${i.tipo}|${claveCandidato(i.candidato)}`));
     if (nuevos.length === 0) return;
+    const conId = nuevos.map((i) => ({ i, id: nuevoId() }));
     editar((lista) => [
       ...lista,
-      ...nuevos.map((i) => ({
-        id: nuevoId(),
+      ...conId.map(({ i, id }) => ({
+        id,
         tipo: i.tipo,
         cliente_numero: i.candidato.cliente_numero,
         lead_id: i.candidato.lead_id,
@@ -359,6 +367,7 @@ function PlanificacionContenido() {
         estado: "planificado" as const,
       })),
     ]);
+    setRecientes(new Set(conId.map((x) => x.id)));
     toast({
       title: `${nuevos.length} trabajo${nuevos.length === 1 ? "" : "s"} añadido${nuevos.length === 1 ? "" : "s"} al plan`,
       description: quien.tipo === "brigada" ? `Con la brigada de ${quien.nombre}.` : `Con ${quien.nombre}.`,
@@ -368,10 +377,11 @@ function PlanificacionContenido() {
   /** Un trabajo puesto a mano desde "Añadir un trabajo". */
   function agregarUno(c: CandidatoPlanificacion, tipo: TipoTrabajo, quien: Asignado, nota: string) {
     if (trabajosRef.current.some((t) => t.tipo === tipo && claveTrabajo(t) === claveCandidato(c))) return;
+    const id = nuevoId();
     editar((lista) => [
       ...lista,
       {
-        id: nuevoId(),
+        id,
         tipo,
         cliente_numero: c.cliente_numero,
         lead_id: c.lead_id,
@@ -382,6 +392,7 @@ function PlanificacionContenido() {
         estado: "planificado",
       },
     ]);
+    setRecientes(new Set([id]));
     toast({
       title: "Trabajo añadido al plan",
       description: `${c.nombre || "Sin nombre"} · ${quien.tipo === "brigada" ? `brigada de ${quien.nombre}` : quien.nombre}`,
@@ -448,6 +459,8 @@ function PlanificacionContenido() {
             onTipo={(tipo) => irA({ dia: dia!, tipo })}
             onVerPlan={() => irA({ dia: dia!, ver: "plan" })}
             onNuevo={() => setNuevoAbierto(true)}
+            recientes={recientes}
+            onQuitar={(t) => editar((lista) => lista.filter((x) => !mismoTrabajo(x, t)))}
           />
         ) : !listo ? (
           <div className="flex items-center justify-center gap-2 py-24 text-sm text-gray-500">
