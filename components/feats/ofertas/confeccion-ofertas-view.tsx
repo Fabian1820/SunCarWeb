@@ -4649,28 +4649,70 @@ export function ConfeccionOfertasView({
           subtotal_con_descuento: subtotalConDescuento,
         });
 
-        // Agregar compensación si está marcada
-        if (
-          tieneCompensacion &&
-          montoCompensacion > 0 &&
-          justificacionCompensacion.trim()
-        ) {
+        // Agregar compensación si está marcada. Si se desmarcó una
+        // compensación que ya existía, hay que mandar null explícito: omitir
+        // el campo deja el valor viejo intacto en Mongo (el backend usa
+        // exclude_none, que no distingue "no tocar" de "borrar" salvo que se
+        // mande el null a propósito).
+        if (tieneCompensacion) {
+          if (montoCompensacion <= 0) {
+            toast({
+              title: "Monto de compensación inválido",
+              description: "El monto de la compensación debe ser mayor que 0.",
+              variant: "destructive",
+            });
+            setCreandoOferta(false);
+            return;
+          }
+          const justificacion = justificacionCompensacion.trim();
+          if (justificacion.length < 10) {
+            toast({
+              title: "Justificación de la compensación muy corta",
+              description:
+                "Escribe al menos 10 caracteres explicando la compensación.",
+              variant: "destructive",
+            });
+            setCreandoOferta(false);
+            return;
+          }
           ofertaData.compensacion = {
             monto_usd: montoCompensacion,
-            justificacion: justificacionCompensacion.trim(),
+            justificacion,
           };
+        } else if (modoEdicion) {
+          ofertaData.compensacion = null;
         }
 
-        // Agregar asumido por empresa si está marcado
-        if (
-          tieneAsumidoPorEmpresa &&
-          montoAsumidoPorEmpresa > 0 &&
-          justificacionAsumidoPorEmpresa.trim()
-        ) {
+        // Agregar el descuento (asumido_por_empresa internamente) si está
+        // marcado, misma lógica que compensación arriba, incluido el null
+        // explícito al desmarcar.
+        if (tieneAsumidoPorEmpresa) {
+          if (montoAsumidoPorEmpresa <= 0) {
+            toast({
+              title: "Monto del descuento inválido",
+              description: "El monto del descuento debe ser mayor que 0.",
+              variant: "destructive",
+            });
+            setCreandoOferta(false);
+            return;
+          }
+          const justificacion = justificacionAsumidoPorEmpresa.trim();
+          if (justificacion.length < 10) {
+            toast({
+              title: "Justificación del descuento muy corta",
+              description:
+                "Escribe al menos 10 caracteres explicando el descuento.",
+              variant: "destructive",
+            });
+            setCreandoOferta(false);
+            return;
+          }
           ofertaData.asumido_por_empresa = {
             monto_usd: montoAsumidoPorEmpresa,
-            justificacion: justificacionAsumidoPorEmpresa.trim(),
+            justificacion,
           };
+        } else if (modoEdicion) {
+          ofertaData.asumido_por_empresa = null;
         }
 
         // Agregar datos de pago
