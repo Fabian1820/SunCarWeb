@@ -2,6 +2,118 @@
 
 ---
 
+## 📅 14 de Septiembre, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**23 commits reales** — yany1509 (15), Fabian1820 (3) y Ruben0304 (5). Día extremadamente activo. Áreas principales: módulo de planificación reescrito por completo con 15 commits encadenados en 6 horas (tablero de brigadas + mapa de Cuba por zonas + flujo por pasos + calendario + solo clientes), adjuntar vale firmado desde PC/QR/móvil con compresión de imagen, fix de validación en formulario de ofertas, fix de checklist de conversión de leads comprobando equipo, botón para ver saldos en billeteras, optimización crítica que evita descarga de 45 MB de confección de ofertas en pantallas que no la usan, alta libre de materiales contables sin depender del catálogo, y exportar brigadas e instaladores.
+
+---
+
+### Área 1: feat/fix(planificacion) × 15 — rework completo del módulo de planificación (12:25–18:10, yany1509)
+
+Quince commits encadenados en menos de 6 horas reescribieron el módulo de planificación de cero a una versión final:
+
+- **`feat(operaciones): exportar brigadas e instaladores`** (12:25) — Botones Excel y PDF en Gestionar Brigadas (jefe, CI, teléfono, integrantes apilados) y en Gestionar Instaladores (rol, teléfono, brigada). Exportan la lista tal como se ve, con búsqueda y filtros aplicados.
+
+- **`feat(planificacion): el plan como tablero de brigadas`** (12:37) — Cada brigada es una tarjeta con sus trabajos; se añade desde ella sin elegir brigada aparte. Un solo buscador: vacío sugiere por estado, al escribir busca a cualquiera. Tocar añade o quita al momento, guardado automático, flechas de día. La brigada se identifica por el carné del líder para que el brigadista vea sus trabajos.
+
+- **`feat(planificacion): filtro por provincia y municipio, e integrantes de cada brigada`** (12:49)
+
+- **`feat(planificacion): planificar por zonas con el mapa de Cuba`** (13:17) — Vista "Por zonas" junto a "Por brigadas". Mapa de provincias y municipios con pendientes por zona, lista de la zona para marcar, bandeja con lo marcado aunque se cambie de zona o de tipo. Al final se elige quién va y se añade todo al plan del día. El mapa sale de `cuba-municipios.geojson` generado por `scripts/generar-mapa-planificacion.py` (proyectado, simplificado por tramos compartidos, con la provincia de cada municipio).
+
+- **`fix(planificacion): filtros de provincia y municipio en vez de la etiqueta 'Sin municipio'`** (13:35) — La etiqueta de arriba parecía el nombre del municipio tocado. Ahora hay dos desplegables que hacen lo mismo que tocar el mapa. "Sin municipio" es una opción más del desplegable de municipio.
+
+- **`feat(planificacion): permiso propio, mapa a pantalla completa, oferta, visita y espera`** (14:18) — La página pide el permiso `planificacion` (RouteGuard; solo superAdmin por ahora). Botón de pantalla completa con Esc para salir. Al elegir un municipio el mapa se acerca a él. Cada pendiente muestra cuánto lleva esperando, su oferta confirmada (abre el detalle) y su visita (abre el informe con fotos). Lista de más a menos espera.
+
+- **`feat(planificacion): filtro por tiempo de espera`** (14:28) — Más de 1, 3, 6 meses o 1 año. Afecta al mapa, cantidades por tipo y lista. Sin fecha de espera no entra con el filtro puesto.
+
+- **`fix(planificacion): filtros siempre en dos columnas`** (15:10)
+
+- **`feat(planificacion): por pasos, sin cargar nada que no se haya pedido`** (15:42) — Flujo de 3 pasos: (1) qué día → (2) qué planificar (tipo) → (3) pendientes de ese tipo con lista, mapa a un botón, y filtros. Los candidatos se cargan solo al llegar al paso 3. Cada paso va en la URL; Atrás vuelve al anterior, recargar no saca del paso.
+
+- **`feat(planificacion): calendario para elegir el día y añadir un trabajo a mano`** (15:56) — El día se elige en un calendario; los días con trabajos llevan un punto verde. Atajos para hoy y mañana. Botón "Añadir un trabajo" con cliente (o lead; corregido después), qué hacer (se propone según estado), quién va y comentario. Avisa si ya está en el plan.
+
+- **`feat(planificacion): + arriba a la derecha y los trabajos del día a la vista`** (16:16) — El día muestra tipo, cliente, dirección, quién va y nota de los trabajos ya asignados. Lo último añadido aparece arriba y resaltado un momento. "+" redondo arriba a la derecha para añadir. Listas de pendientes debajo.
+
+- **`fix(planificacion): fecha corta con lápiz, Plan con Lista|Brigadas y sin 'Guardado'`** (16:26) — Arriba solo `Mañana, 15 sep` con un lápiz que abre el calendario en el mismo sitio, y el + a la derecha. "Trabajos de este día" pasa a "Plan" con su cantidad y un selector Lista | Brigadas que agrupa en el sitio. El estado del guardado solo se enseña si falla.
+
+- **`feat(planificacion): sin visitas, instalaciones con visita primero y nota sugerida`** (17:55) — El tipo "Visita" desaparece del flujo de añadir un trabajo (las visitas se crean desde otro módulo). Las instalaciones sugieren que debe haber visita previa y proponen una nota.
+
+- **`feat(planificacion): al entrar, las planificaciones hechas con ver y editar`** (17:58) — Pantalla de entrada: lista de próximas y anteriores con un ojo (ver el plan por brigada sin tocarlo) y un lápiz (abrirlo para cambiarlo). "Nueva" arriba para un día nuevo, con calendario donde los días ya planificados están marcados.
+
+- **`feat(planificacion): solo clientes, sin leads`** (18:10) — Se retira el filtro de clientes/leads y la búsqueda de leads al añadir un trabajo. Un lead no tiene número de cliente y su trabajo diario salía sin cliente ni materiales.
+
+---
+
+### Área 2: feat(vales-salida) — adjuntar el vale firmado desde PC o móvil (15:56, Fabian1820)
+
+- **`feat(vales-salida): adjuntar el vale firmado, desde la PC o desde el movil`** — En la columna Acciones, un clip indica el estado: gris si falta el firmado, verde con número si lo tiene (el contador viene en el mismo summary, sin petición extra). El botón abre un diálogo propio (subir, ver, descargar, borrar) separado de "Ver detalles" que queda de solo lectura. Para el móvil dos caminos: (1) PWA con el mismo diálogo y `capture="environment"` para abrir la cámara; (2) QR que genera un enlace de 15 minutos a `/subir-vale/[token]`, página pública sin sesión SunCar. Las fotos se reescalan en el navegador antes de enviar (2000px JPEG). Borrado definitivo sin historial, el diálogo lo avisa.
+
+---
+
+### Área 3: fix(ofertas) — validar justificación y borrar compensación/descuento al desmarcar (15:39, Ruben0304)
+
+- **`fix(ofertas): valida justificacion y borra compensacion/descuento al desmarcar`** — Dos bugs: (1) Al desmarcar "Tiene Compensación"/"Tiene Descuento" en modo edición, el campo se omitía del payload en vez de mandarse como `null`, por lo que el valor viejo quedaba intacto en el backend. Ahora se manda `null` explícito. (2) La justificación solo se validaba como "no vacía", pero el backend exige mínimo 10 caracteres. Una justificación corta rechazaba toda la oferta con un 422 genérico. Ahora se valida el mínimo de 10 caracteres y que el monto sea mayor que 0 antes de enviar, con toast específico.
+
+---
+
+### Área 4: fix(leads) — el checklist de conversión comprueba también el equipo de la oferta (14:57, Fabian1820)
+
+- **`fix(leads): el checklist de conversión comprueba también el equipo de la oferta`** — El panel verde solo miraba provincia, dirección y que existiera una oferta confirmada. Ahora añade una fila que resuelve el equipo con el mismo criterio que el backend: inversor > batería > panel, desde `componentes_principales` o deducido de los items por sección. La fila **no bloquea** el botón (las ofertas de solo materiales necesitan justamente la salida de "equipo propio"); la fila avisa que el código saldrá con prefijo P. Las tres condiciones que sí bloquean siguen siendo las mismas de antes.
+
+---
+
+### Área 5: feat(wallet) — ver quién tiene saldo y cuánto en cada moneda (14:54, Ruben0304)
+
+- **`feat(wallet): boton para ver quien tiene saldo y cuanto en cada moneda`** — Diálogo ampliado con las billeteras que tienen más de 0 en alguna moneda. Totales por moneda (filtran al tocarlos) y buscador por nombre o CI. Solo visible para administradores de billetera; el backend lo vuelve a comprobar.
+
+---
+
+### Área 6: perf(ofertas) — no descargar el listado completo de confección sin usarlo (14:52, Ruben0304)
+
+- **`perf(ofertas): no descargar el listado completo de confección sin usarlo`** — La tabla de clientes y el módulo de órdenes de trabajo cargaban `GET /ofertas/confeccion/` (~45 MB, ~5 MB con gzip) al abrirse, y la tabla de leads al abrir el diálogo de asignar. Ninguna de las tres pantallas lee esa lista. El hook ya no recarga la lista tras eliminar o asignar salvo que alguien la haya cargado antes (`autoLoad` o `refetch`).
+
+---
+
+### Área 7: feat(contabilidad) — alta libre de materiales sin depender del catálogo (14:35, Fabian1820)
+
+- **`feat(contabilidad): alta libre de materiales, sin depender del catálogo`** — "Agregar Material" permite escribir código y nombre de contabilidad directamente, exista o no en el catálogo. El vínculo con el catálogo es un desplegable opcional: cuando lo hay, Facturas Solar Carro reconoce la línea sola; cuando no, se elige a mano. Facturas Solar Carro resuelve por el vínculo, y si falta, por código o nombre. Materiales pierde las tres columnas de contabilidad del export. Los diálogos "Seleccionar material" y "Editar datos de contabilidad" quedan sin uso y se retiran.
+
+---
+
+### Puede dar bateo
+
+1. **planificacion - 15 commits en 6h** — Desarrollo extremadamente iterativo. La versión final elimina leads del flujo de añadir trabajo. Si hay planes guardados en backend que referencian leads (sin `numero_cliente`), esas entradas pueden aparecer sin cliente en las vistas de histórico.
+
+2. **planificacion - calendario con puntos verdes** — Los días con trabajos llevan un punto verde. Requiere endpoint para listar los días ya planificados. Si no está deployado en backend o falla silenciosamente, el calendario carga sin indicadores sin aviso al usuario.
+
+3. **planificacion - permiso `planificacion`** — Solo superAdmin por ahora, via RouteGuard. Confirmar que el permiso existe en `MODULOS_CATALOGO` en producción para poder asignarse a otros roles en el futuro.
+
+4. **planificacion - tipo visita eliminado del flujo** — Si había visitas en planes existentes, su tipo ya no aparece en la UI al editarlos. Confirmar qué ocurre con el tipo "visita" en planes históricos al abrirlos para edición.
+
+5. **vales-salida - QR expira en 15 min** — Si el técnico tarda más de 15 min en completar la subida desde el móvil, el enlace expira. No hay botón "regenerar QR" visible después de generarlo. Confirmar si hay mecanismo de renovación o si se asume que 15 min es suficiente.
+
+6. **vales-salida - /subir-vale/[token] página pública** — La autenticación es solo el token de URL. Confirmar que el token tiene alta entropía y que el backend tiene rate limiting en la validación para prevenir fuerza bruta.
+
+7. **vales-salida - reescalado JPEG en Canvas** — En navegadores muy antiguos o con memoria limitada, `canvas.toBlob()` puede fallar. Confirmar que hay feedback al usuario si la compresión no puede completarse (no silencioso).
+
+8. **vales-salida - borrado definitivo** — Sin soft-delete ni confirmación con texto escrito. Confirmar que el diálogo de aviso es suficiente freno y que el endpoint DELETE en backend es efectivamente definitivo.
+
+9. **fix(ofertas) null explícito para compensacion/descuento** — Confirmar que el backend de `PATCH /ofertas/` acepta `null` explícito para estos campos sin rechazarlos con 422 (requiere que sean `Optional[...]` y que `exclude_unset=True` no descarte el null interpretándolo como "no enviado").
+
+10. **fix(leads) deducción de equipo desde items** — La deducción por secciones puede fallar en ofertas creadas antes de que se estandarizara la estructura de items. Confirmar que el checklist no bloquea conversiones legítimas por deducción incorrecta en ofertas antiguas.
+
+11. **feat(wallet) ver saldos** — El comentario dice "el backend lo vuelve a comprobar". Verificar que el endpoint tiene la validación de permiso en backend (no solo en frontend) ya que el diálogo lista las billeteras de todos los usuarios.
+
+12. **perf(ofertas) hook sin reload implícito** — El hook ya no recarga tras eliminar o asignar salvo que se haya llamado a `autoLoad` o `refetch` antes. Confirmar que ningún componente dependía del reload silencioso post-mutación para actualizarse (especialmente la tabla de gestión de confección de ofertas).
+
+13. **feat(contabilidad) código contable colisionante** — Si se registra un material con un código que ya existe en el catálogo vinculado, confirmar comportamiento: ¿el vínculo lo resuelve automáticamente? ¿Error de unicidad? ¿Duplicados permitidos?
+
+14. **feat(contabilidad) diálogos retirados** — Confirmar que no quedan imports ni referencias a "Seleccionar material" y "Editar datos de contabilidad" en otros módulos (causarían errores de compilación o 404 en producción).
+
+---
+
 ## 📅 11 de Septiembre, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -28,7 +140,7 @@
 
 - **`feat(planificacion): dos paneles a lo ancho, fuera el diálogo`** (19:21, yany1509) — Rediseño a dos columnas: candidatos a la izquierda (tipos + filtros + barra de asignar pegada abajo), plan a la derecha (fijo al hacer scroll). Botón "Marcar todos". Fecha y botón guardar suben a la cabecera. Guardar desactivado sin cambios. Aviso antes de cerrar la pestaña si hay cambios.
 
-- **`fix(planificacion): tres formas de perder el trabajo hecho`** (19:50, yany1509) — (1) Cambiar de día con cambios sin guardar ahora pregunta: guardar y cambiar / cambiar perdiéndolos / quedarse. (2) `beforeunload` con `returnValue` para Safari (antes solo `preventDefault`, invisible en Safari). Borrador guardado en `localStorage` según se edita; se ofrece al volver sin aplicarlo automáticamente. (3) "Marcar todos" ahora opera solo sobre lo visible, muestra su contador, y avisa cuando hay marcados que el filtro oculta.
+- **`fix(planificacion): tres formas de perder el trabajo hecho`** (19:50, yany1509) — (1) Cambiar de día con cambios sin guardar pregunta: guardar y cambiar / cambiar perdiéndolos / quedarse. (2) `beforeunload` con `returnValue` para Safari. Borrador guardado en `localStorage` según se edita; se ofrece al volver sin aplicarlo automáticamente. (3) "Marcar todos" ahora opera solo sobre lo visible, muestra su contador, y avisa cuando hay marcados que el filtro oculta.
 
 - **`fix(planificacion): quien primero, y el botón donde se decide`** (20:18, yany1509) — Reordena el panel: brigada primero, tipo y candidatos después. Barra de acción pegada encima de la lista (solo visible cuando hay marcados), con contador, "marcar los N" y nota. Si hay marcados pero falta elegir brigada, lo indica.
 
@@ -52,7 +164,7 @@
 
 ---
 
-### Área 5: feat(permisos) — módulo de planificación en app móvil (19:35)
+### Área 5: feat(permisos) — módulo de planificación de la app móvil (19:35)
 
 - **`feat(permisos): el módulo de planificación de la app móvil`** (19:35, yany1509) — Nuevo sub-permiso en el catálogo bajo App Móvil de Operaciones para el módulo de planificación diaria (la app de operaciones en campo). Asignable desde Gestión de Permisos.
 
@@ -66,7 +178,7 @@
 
 ### Área 7: fix(ofertas) — bloquear guardado sin marcar materiales del nombre en categorías con 2+ (18:50)
 
-- **`fix(ofertas): exigir marcar materiales del nombre cuando hay 2+ en una categoría`** (18:50, yany1509) — Si una categoría principal (Inversores/Baterías/Paneles) tiene 2 o más materiales reales distintos y la comercial no marca cuáles cuentan para el nombre, el guardado se bloquea. Sin esa selección el backend no sabía cuál destacar y la categoría desaparecía del nombre (p.ej. banco de batería rack+BMS+módulos salía como "Oferta de Inversores y Paneles", sin batería). Los accesorios (capacidad ≤ 0,3 kW) no cuentan para el mínimo de 2. Capacidad desconocida no se asume accesorio.
+- **`fix(ofertas): exigir marcar materiales del nombre cuando hay 2+ en una categoría`** (18:50, yany1509) — Si una categoría principal (Inversores/Baterías/Paneles) tiene 2 o más materiales reales distintos y la comercial no marca cuáles cuentan para el nombre, el guardado se bloquea. Sin esa selección el backend no sabía cuál destacar y la categoría desaparecía del nombre. Los accesorios (capacidad ≤ 0,3 kW) no cuentan para el mínimo de 2. Capacidad desconocida no se asume accesorio.
 
 ---
 
@@ -218,33 +330,29 @@
 
 ### Puede dar bateo
 
-1. **feat(ofertas) `*_incluidos_en_nombre` — campos nuevos en backend**: Si no están deployados en producción, la selección de checkboxes no persiste entre sesiones (sin error visible, simplemente no se guarda el combo).
+1. **feat(auditoria) pantalla nueva — confirmar endpoint `GET /api/auditoria/` en backend de producción**: Si no está deployado, la pantalla completa falla con 404 sin mensaje claro.
 
-2. **fix(ofertas) división por cantidad — edge case cantidad = 0**: Si por alguna razón `cantidad` es 0 en la fórmula, se produce `NaN` o `Infinity` en el nombre. Verificar que hay guard antes de dividir.
+2. **feat(auditoria) pestaña rendimiento — confirmar endpoint `GET /api/auditoria/rendimiento` por separado**: Si solo existe el endpoint principal, la pestaña de rendimiento falla al cargar.
 
-3. **fix(ofertas) checkboxes al reabrir — ofertas sin datos de selección previos**: Las ofertas creadas antes de los checkboxes arrancan sin nada marcado, sin adivinar. Confirmar que el usuario entiende que debe volver a marcar el combo para el nombre.
+3. **feat(auditoria) filtro de entidad sustituye otros filtros — estado de filtros previos se pierde**: Si el usuario llega desde un drill-down con filtros activos (p.ej. filtrado por PUT), el botón de entidad los borra todos. No hay forma de recuperar el estado anterior sin volver a filtrar manualmente.
 
-4. **feat(terminos) variantes secciones fijas — tres endpoints nuevos**: `agregarVarianteSeccionFija`, `editarVarianteSeccionFija`, `eliminarVarianteSeccionFija`. Si no están deployados, los toggles y variantes no persisten pero sin error de compilación (fallo silencioso en runtime).
+4. **feat(planificacion) módulo completamente nuevo — confirmar todos los endpoints CRUD en backend de producción**: El módulo depende de endpoints propios (`POST/GET/PATCH /planificacion/` u equivalentes). Si no están deployados, el módulo falla al guardar o al cargar el plan del día.
 
-5. **fix(permisos) flag `soloPermiso` — cobertura de iteradores**: El flag resuelve la navegación. Confirmar que todos los demás lugares que iteran el catálogo de módulos (búsquedas, asignaciones en pantalla de permisos, exportaciones de catálogo) también filtran o manejan este flag correctamente.
+5. **fix(planificacion) draft en localStorage — colisión entre usuarios distintos en el mismo dispositivo compartido**: El borrador se guarda por URL/página, no por usuario. En un dispositivo compartido (tablet de brigada), el borrador de un usuario puede ofrecerse al siguiente. Valorar incluir el `ci` del usuario en la clave de localStorage.
 
-6. **feat(permisos) `app/solicitudes-materiales` — la app móvil debe checkear el permiso independientemente**: Este sub-permiso se declara en el web panel pero la verificación real ocurre en la app móvil. Confirmar que la app consulta y respeta este permiso antes de mostrar el módulo de solicitudes.
+6. **feat(planificacion) caché en memoria — datos obsoletos si el plan cambia en otro dispositivo**: Si un segundo usuario edita el plan en paralelo, el primero ve candidatos y asignaciones desactualizados hasta recargar la página. Relevante en equipos que planifican a la vez.
 
-7. **feat(salidas) agrupación por cliente + responsable — matching de strings**: Si "responsable de recogida" es un string libre y hay variaciones de capitalización o espacios, dos entradas diferentes pueden no agruparse cuando deberían, o agruparse cuando no deberían. Confirmar que la comparación es normalizada.
+7. **feat(wallet) campo persona — confirmar que `persona_ci` es opcional en backend**: Si el campo es requerido y el usuario escribe un nombre libre (sin CI), el POST puede fallar con 422 sin mensaje claro.
 
-8. **feat(visitas) firmas digitales — dos peticiones, fallo parcial**: Primero se crea/actualiza la visita (JSON) y luego se suben las firmas (imágenes). Si la segunda petición falla, la visita queda sin firmas sin aviso al usuario. No hay rollback.
+8. **feat(wallet) iframe tamaño carta — si el PDF del backend es A4 habrá recorte**: El iframe especifica 216×279 mm (carta) pero si el backend genera el PDF en A4 (210×297 mm), el contenido inferior puede cortarse al imprimir.
 
-9. **feat(ofertas) foto de portada de S3 — endpoint ligero `/genericas/fotos-portada`**: El fix posterior (19:52) migra al endpoint ligero. Confirmar que este endpoint existe en el backend de producción; si no existe, el selector fallará con 404 o cargará los datos del endpoint pesado sin filtrar.
+9. **feat(wallet-alertas) módulo nuevo — confirmar que `/wallet-alertas` está en `MODULOS_CATALOGO`**: Si la ruta no tiene entrada en el catálogo, no se podrá asignar el permiso desde la pantalla de Gestión de Permisos más allá de superAdmin y "wallet admins" hardcodeados.
 
-10. **feat(actualizaciones) módulo sin `superAdminOnly` — confirmar intención**: Sin este flag, una vez que se asigne el permiso a un trabajador, verá el historial de 180 días. Confirmar que esto es deliberado y que el historial no contiene información sensible que no deba ver personal operativo.
+10. **feat(wallet-alertas) Twilio — tarjeta de estado muestra "configurado" por presencia de variable, no por validez**: Si la variable de entorno existe pero tiene un valor incorrecto, la tarjeta dirá "configurado" pero las alertas no llegarán. El botón de prueba es la única forma de verificar la validez real.
 
-11. **feat(clientes) modal de dev — compatibilidad con leads-table.tsx no actualizado**: El modal rediseñado se usa en clientes, facturas y facturas consolidadas. `leads-table.tsx` no se actualizó (va por detrás en distinción BTB/BTC). Si el modal usa datos que leads-table no provee aún, puede fallar solo en el contexto de leads.
+11. **fix(ofertas) umbral accesorio ≤ 0,3 kW — `potenciaKW: null` no se asume accesorio**: Si un material tiene `potenciaKW` nulo (capacidad desconocida), el código lo trata como material real (no accesorio). En categorías con 2+ materiales donde alguno tiene capacidad nula, el guardado se bloqueará aunque el usuario haya marcado los que quiere. Confirmar que todos los materiales relevantes tienen `potenciaKW` definido en el catálogo.
 
-12. **fix(fotos) estado neto — "Visita" no subible pero sí filtrable**: La secuencia fix (13:23) → revert (13:27) en 4 minutos indica ajuste sobre la marcha. Confirmar que no quedaron TypeScript errors residuales de la primera versión que sí quitaba el filtro de la galería.
-
-13. **fix(estudio) campos sin condición de paneles — confirmar con backend**: Inversores, baterías, protecciones y cableado ahora se envían siempre. Si el backend los ignoraba o les aplicaba validaciones condicionadas a `paneles = true`, el estudio puede quedar incompleto o causar 422.
-
-14. **fix(estudio) campo `observaciones` eliminado — confirmar vistas de detalle**: El campo sigue en el tipo para registros antiguos pero ya no se puede escribir. Verificar que no hay vistas de detalle o informes que lo lean directamente y lo muestren en blanco para visitas nuevas, confundiendo al usuario.
+12. **feat(peticiones) filtros server-side — confirmar nuevos query params en `/api/solicitudes-desarrollo/`**: Si el backend no los acepta, todas las peticiones devuelven resultados sin filtrar o responden 422. El filtro de estado (implementada) queda en cliente según el commit, pero los demás son server-side.
 
 ---
 
@@ -352,6 +460,14 @@
 
 ## Seguimientos vigentes
 
+- **planificacion - calendario con puntos verdes — confirmar endpoint de días planificados en backend de producción (Sep 14)**.
+- **planificacion - permiso `planificacion` — confirmar que existe en `MODULOS_CATALOGO` para asignación futura a otros roles (Sep 14)**.
+- **planificacion - leads en planes históricos — confirmar qué ocurre al abrir para edición planes con entradas que referencian leads (Sep 14)**.
+- **vales-salida - QR 15 min — confirmar mecanismo de renovación o aceptar que 15 min es el límite sin regeneración posible (Sep 14)**.
+- **vales-salida - /subir-vale/[token] — confirmar entropía del token y rate limiting en backend para prevenir fuerza bruta (Sep 14)**.
+- **fix(ofertas) null explícito compensacion/descuento — confirmar que backend acepta null sin rechazar con 422 (exclude_unset + nullable) (Sep 14)**.
+- **perf(ofertas) sin reload implícito — confirmar que pantallas de gestión de confección siguen actualizándose tras mutaciones (Sep 14)**.
+- **feat(contabilidad) código colisionante — confirmar comportamiento de unicidad en backend al registrar código ya existente en catálogo (Sep 14)**.
 - **feat(auditoria) pantalla nueva — confirmar endpoint `GET /api/auditoria/` en backend de producción (Sep 11)**.
 - **feat(auditoria) pestaña rendimiento — confirmar endpoint `GET /api/auditoria/rendimiento` por separado (Sep 11)**.
 - **feat(planificacion) módulo nuevo — confirmar todos los endpoints CRUD de planificación en backend de producción (Sep 11)**.
