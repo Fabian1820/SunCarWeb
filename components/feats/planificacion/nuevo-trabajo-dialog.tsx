@@ -14,7 +14,6 @@ import {
 } from "@/components/shared/molecule/dialog";
 import { cn } from "@/lib/utils";
 import { ClienteService } from "@/lib/services/feats/customer/cliente-service";
-import { LeadService } from "@/lib/services/feats/leads/lead-service";
 import { PlanificacionService } from "@/lib/services/feats/planificacion/planificacion-service";
 import { claveCandidato, claveTrabajo } from "@/components/feats/planificacion/selector-trabajos";
 import type { OpcionBrigada } from "@/components/feats/planificacion/planificar-por-mapa";
@@ -62,7 +61,8 @@ interface Props {
  * Añadir un trabajo a mano: cliente, qué hay que hacer, quién va y un comentario.
  *
  * Para cuando ya se sabe lo que se quiere y buscarlo en las listas es dar un
- * rodeo. Cualquier cliente o lead, esté en el estado que esté.
+ * rodeo. Cualquier cliente, esté en el estado que esté. Leads no: sin número
+ * de cliente no hay vale ni materiales al cerrar el trabajo.
  */
 export function NuevoTrabajoDialog({ open, onOpenChange, delDia, trabajos, brigadas, trabajadores, onGuardar }: Props) {
   const [consulta, setConsulta] = useState("");
@@ -98,14 +98,12 @@ export function NuevoTrabajoDialog({ open, onOpenChange, delDia, trabajos, briga
     let cancelado = false;
     setBuscando(true);
     const id = setTimeout(() => {
-      Promise.all([
-        ClienteService.getClientes({ nombre: texto, limit: 20 }).catch(() => ({ clients: [] })),
-        LeadService.getLeads({ nombre: texto, limit: 20 }).catch(() => ({ leads: [] })),
-      ])
-        .then(([resClientes, resLeads]: any[]) => {
+      ClienteService.getClientes({ nombre: texto, limit: 20 })
+        .catch(() => ({ clients: [] }))
+        .then((resClientes: any) => {
           if (cancelado) return;
-          setResultados([
-            ...(resClientes.clients || []).map((c: any) => ({
+          setResultados(
+            (resClientes.clients || []).map((c: any) => ({
               tipo_entidad: "cliente" as const,
               lead_id: null,
               cliente_numero: c.numero ?? "",
@@ -116,18 +114,7 @@ export function NuevoTrabajoDialog({ open, onOpenChange, delDia, trabajos, briga
               provincia: c.provincia_montaje ?? "",
               estado: c.estado ?? "",
             })),
-            ...(resLeads.leads || []).map((l: any) => ({
-              tipo_entidad: "lead" as const,
-              lead_id: String(l.id ?? l._id ?? ""),
-              cliente_numero: null,
-              nombre: l.nombre ?? "",
-              telefono: l.telefono ?? "",
-              direccion: l.direccion ?? "",
-              municipio: l.municipio ?? "",
-              provincia: l.provincia_montaje ?? "",
-              estado: l.estado ?? "",
-            })),
-          ]);
+          );
         })
         .finally(() => !cancelado && setBuscando(false));
     }, 350);
@@ -190,7 +177,7 @@ export function NuevoTrabajoDialog({ open, onOpenChange, delDia, trabajos, briga
 
         <div className="space-y-5">
           <section>
-            <h3 className={TITULO_SECCION}>Cliente o lead</h3>
+            <h3 className={TITULO_SECCION}>Cliente</h3>
             {cliente ? (
               <div className="flex items-start gap-3 rounded-lg border border-emerald-700 bg-emerald-50 px-3 py-2.5">
                 <div className="min-w-0 flex-1">
@@ -216,7 +203,7 @@ export function NuevoTrabajoDialog({ open, onOpenChange, delDia, trabajos, briga
                     onChange={(e) => setConsulta(e.target.value)}
                     placeholder="Escribe el nombre (al menos 3 letras)"
                     className="pl-9"
-                    aria-label="Buscar cliente o lead"
+                    aria-label="Buscar cliente"
                   />
                 </div>
                 {buscando ? (

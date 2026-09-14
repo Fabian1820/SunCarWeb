@@ -134,13 +134,6 @@ const FILTROS_ESPERA: { dias: number; texto: string }[] = [
   { dias: 365, texto: "Más de 1 año" },
 ];
 
-type FiltroEntidad = "todos" | "cliente" | "lead";
-const FILTROS_ENTIDAD: { valor: FiltroEntidad; texto: string }[] = [
-  { valor: "todos", texto: "Clientes y leads" },
-  { valor: "cliente", texto: "Solo clientes" },
-  { valor: "lead", texto: "Solo leads" },
-];
-
 /**
  * Los pendientes de un tipo, para marcarlos y decir quién va.
  *
@@ -164,7 +157,6 @@ export function PlanificarPorMapa({ tipo, delDia, trabajos, brigadas, trabajador
   const [pantallaCompleta, setPantallaCompleta] = useState(false);
   /** Solo los que llevan esperando al menos estos días; 0 es todos. */
   const [esperaMinima, setEsperaMinima] = useState(0);
-  const [entidad, setEntidad] = useState<FiltroEntidad>("todos");
   /** En instalaciones salen los que ya tienen visita; los otros, con un botón. */
   const [verSinVisita, setVerSinVisita] = useState(false);
   const separaPorVisita = tipo === "instalacion_nueva" || tipo === "instalacion_en_proceso";
@@ -294,7 +286,7 @@ export function PlanificarPorMapa({ tipo, delDia, trabajos, brigadas, trabajador
   const cumpleEspera = (c: CandidatoPlanificacion) =>
     esperaMinima === 0 || (diasEsperando(c.esperando_desde) ?? -1) >= esperaMinima;
   const cumpleResto = (c: CandidatoPlanificacion) =>
-    cumpleEspera(c) && (entidad === "todos" || c.tipo_entidad === entidad);
+    cumpleEspera(c);
   const cumpleFiltros = (c: CandidatoPlanificacion) =>
     cumpleResto(c) && (!separaPorVisita || !!c.visita_id !== verSinVisita);
   // Los que quedan del otro lado del botón de visita, para decir cuántos son.
@@ -306,7 +298,7 @@ export function PlanificarPorMapa({ tipo, delDia, trabajos, brigadas, trabajador
     if (!lista) return [];
     return lista.filter(cumpleFiltros).map((c) => (mapa ? { c, ...ubicar(c, mapa) } : { c }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mapa, lista, esperaMinima, entidad, verSinVisita]);
+  }, [mapa, lista, esperaMinima, verSinVisita]);
 
   const libres = useMemo(() => ubicados.filter((u) => !enPlan.has(clave(tipo, u.c))), [ubicados, enPlan, tipo]);
 
@@ -385,17 +377,10 @@ export function PlanificarPorMapa({ tipo, delDia, trabajos, brigadas, trabajador
       texto: FILTROS_ESPERA.find((f) => f.dias === esperaMinima)?.texto ?? "",
       quitar: () => setEsperaMinima(0),
     });
-  if (entidad !== "todos")
-    activos.push({
-      clave: "entidad",
-      texto: FILTROS_ENTIDAD.find((f) => f.valor === entidad)?.texto ?? "",
-      quitar: () => setEntidad("todos"),
-    });
 
   function quitarFiltros() {
     elegirProvincia(null);
     setEsperaMinima(0);
-    setEntidad("todos");
   }
 
   function seleccionadoDe(u: Ubicado): Seleccionado {
@@ -683,7 +668,7 @@ export function PlanificarPorMapa({ tipo, delDia, trabajos, brigadas, trabajador
                 {sinZona.length > 0 && <option value={SIN_MUNICIPIO}>Sin municipio ({sinZonaLibres})</option>}
               </select>
             </label>
-            <label className="flex min-w-0 flex-col gap-1">
+            <label className="col-span-2 flex min-w-0 flex-col gap-1">
               <span className="text-xs font-medium text-gray-600">Tiempo esperando</span>
               <select
                 value={esperaMinima}
@@ -692,20 +677,6 @@ export function PlanificarPorMapa({ tipo, delDia, trabajos, brigadas, trabajador
               >
                 {FILTROS_ESPERA.map((f) => (
                   <option key={f.dias} value={f.dias}>
-                    {f.texto}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex min-w-0 flex-col gap-1">
-              <span className="text-xs font-medium text-gray-600">Clientes o leads</span>
-              <select
-                value={entidad}
-                onChange={(e) => setEntidad(e.target.value as FiltroEntidad)}
-                className={cn(CLASE_SELECT, entidad !== "todos" && SELECT_ACTIVO)}
-              >
-                {FILTROS_ENTIDAD.map((f) => (
-                  <option key={f.valor} value={f.valor}>
                     {f.texto}
                   </option>
                 ))}
