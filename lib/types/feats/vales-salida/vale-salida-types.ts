@@ -86,6 +86,50 @@ export interface ValeSolicitudInfo {
   estado?: string;
 }
 
+export type TipoAdjuntoVale = "imagen" | "video" | "audio" | "documento";
+export type CategoriaAdjuntoVale = "vale_firmado" | "otro";
+export type OrigenAdjuntoVale = "web" | "movil";
+
+export interface AdjuntoValeSalida {
+  id: string;
+  /**
+   * Ruta del objeto en el storage. NO sirve para abrir el archivo: el bucket
+   * es privado porque estos documentos llevan firmas y datos personales.
+   * Para mostrarlo o descargarlo hay que usar `download_url`.
+   */
+  url: string;
+  tipo: TipoAdjuntoVale;
+  nombre: string;
+  tamano: number;
+  mime_type: string;
+  categoria: CategoriaAdjuntoVale;
+  /** Si entro desde la PC con sesion o desde el movil que escaneo el QR. */
+  origen: OrigenAdjuntoVale;
+  subido_por_ci?: string | null;
+  created_at: string;
+  /** URL firmada temporal (1h). Es la unica que abre el archivo. */
+  download_url?: string | null;
+}
+
+/** Respuesta de POST /{vale_id}/adjuntos/token-movil: el QR para el telefono. */
+export interface TokenSubidaMovilVale {
+  token: string;
+  url: string;
+  qr_png_base64: string;
+  expira_en: string;
+  expira_en_minutos: number;
+}
+
+/** Datos minimos que ve quien abre el enlace del QR en el movil. */
+export interface ContextoSubidaMovilVale {
+  vale_id: string;
+  codigo: string;
+  estado: string;
+  cliente_nombre?: string | null;
+  total_materiales: number;
+  adjuntos_count: number;
+}
+
 export interface ValeSalida {
   id: string;
   codigo?: string;
@@ -109,6 +153,8 @@ export interface ValeSalida {
   trabajador?: ValeTrabajadorInfo;
   materiales: ValeSalidaMaterialItemDetalle[];
   total_materiales?: number;
+  /** Documentos del vale (el firmado, sobre todo). Vacio en vales antiguos. */
+  adjuntos?: AdjuntoValeSalida[];
   creado_por_ci?: string;
   fecha_creacion?: string;
   fecha_actualizacion?: string;
@@ -239,6 +285,11 @@ export interface ValeSalidaSummary {
   solicitud_creador_nombre?: string;
   recibido_por?: string | null;
   fecha_recogida?: string | null; // Fecha en que se recogieron los materiales
+  /**
+   * Cuantos documentos tiene adjuntos. Viene en el mismo summary, sin peticion
+   * extra: es lo que pinta el indicador de la columna Acciones.
+   */
+  adjuntos_count?: number;
   fecha_creacion?: string;
 }
 

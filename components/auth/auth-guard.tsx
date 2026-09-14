@@ -20,7 +20,13 @@ interface AuthGuardProps {
  * notificaciones, botón de peticiones, etc.) — quien las abre puede no tener
  * cuenta de SunCar en absoluto.
  */
-const RUTAS_PUBLICAS = ["/actualizaciones-felicity"]
+const RUTAS_PUBLICAS = [
+  "/actualizaciones-felicity",
+  // Subida del vale firmado desde el movil: se llega escaneando un QR generado
+  // desde el vale. La credencial es el token de la URL (15 min, un solo vale),
+  // no una sesion de SunCar; ver app/subir-vale/[token]/page.tsx.
+  "/subir-vale",
+]
 
 export function AuthGuard({ children }: AuthGuardProps) {
   const pathname = usePathname()

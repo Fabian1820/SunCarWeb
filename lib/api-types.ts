@@ -113,6 +113,12 @@ export type {
   ValeAlmacenInfo,
   ValeClienteInfo,
   ValeMaterialInfo,
+  AdjuntoValeSalida,
+  TipoAdjuntoVale,
+  CategoriaAdjuntoVale,
+  OrigenAdjuntoVale,
+  TokenSubidaMovilVale,
+  ContextoSubidaMovilVale,
 } from "./types/feats/vales-salida/vale-salida-types";
 
 export type {

@@ -16,6 +16,9 @@ import {
   FileOutput,
   FileText,
   Undo2,
+  Paperclip,
+  Download,
+  Image as ImageIcon,
 } from "lucide-react";
 import { Button } from "@/components/shared/atom/button";
 import type { ValeSalida } from "@/lib/api-types";
@@ -59,6 +62,7 @@ export function ValeSalidaDetailDialog({
     vale.solicitud_material || vale.solicitud_venta || vale.solicitud;
   const solicitudTipo = getSolicitudTipo(vale);
   const tipoStyles = getTipoStyles(solicitudTipo);
+  const adjuntos = vale.adjuntos ?? [];
 
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return "-";
@@ -386,6 +390,75 @@ export function ValeSalidaDetailDialog({
                 </tbody>
               </table>
             </div>
+          </div>
+
+          {/* Documentos adjuntos (solo lectura).
+              Subir, reemplazar y borrar se hacen desde el boton del clip en la
+              columna Acciones: este dialogo es de consulta. */}
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <Paperclip className="h-4 w-4 text-gray-500" />
+              <h4 className="text-sm font-semibold text-gray-900">
+                Documentos adjuntos
+              </h4>
+              {adjuntos.length > 0 ? (
+                <Badge
+                  variant="outline"
+                  className="bg-emerald-50 text-emerald-700 border-emerald-200"
+                >
+                  {adjuntos.length}
+                </Badge>
+              ) : null}
+            </div>
+
+            {adjuntos.length === 0 ? (
+              <p className="text-sm text-gray-500 rounded-lg border border-dashed border-gray-300 px-3 py-4 text-center">
+                Sin el vale firmado adjunto. Se adjunta desde el boton del clip
+                en la lista de vales.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {adjuntos.map((adjunto) => {
+                  const esImagen =
+                    adjunto.tipo === "imagen" ||
+                    !!adjunto.mime_type?.startsWith("image/");
+                  return (
+                    <li
+                      key={adjunto.id}
+                      className="flex items-center gap-3 rounded-lg border border-gray-200 p-2.5"
+                    >
+                      <div className="h-10 w-10 rounded bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
+                        {esImagen ? (
+                          <ImageIcon className="h-4 w-4 text-gray-400" />
+                        ) : (
+                          <FileText className="h-4 w-4 text-gray-400" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-gray-900">
+                          {adjunto.nombre}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {formatDate(adjunto.created_at)}
+                          {adjunto.origen === "movil" ? " · desde el movil" : ""}
+                        </p>
+                      </div>
+                      {adjunto.download_url ? (
+                        <a
+                          href={adjunto.download_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-300 text-gray-600 hover:bg-gray-100 flex-shrink-0"
+                          title="Abrir o descargar"
+                        >
+                          <Download className="h-4 w-4" />
+                        </a>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
         </div>
       </DialogContent>

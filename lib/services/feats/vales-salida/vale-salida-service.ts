@@ -2,6 +2,8 @@
 
 import { apiRequest } from "../../../api-config";
 import type {
+  AdjuntoValeSalida,
+  TokenSubidaMovilVale,
   ValeSalida,
   ValeSalidaAnularData,
   ValeSalidaCreateData,
@@ -14,6 +16,7 @@ const BASE_ENDPOINT = "/operaciones/vales-salida";
 const buildDetailEndpoint = (id: string) =>
   `${BASE_ENDPOINT}/${encodeURIComponent(id)}`;
 const buildAnularEndpoint = (id: string) => `${buildDetailEndpoint(id)}/anular`;
+const buildAdjuntosEndpoint = (id: string) => `${buildDetailEndpoint(id)}/adjuntos`;
 
 const extractApiError = (response: any): string | null => {
   if (!response) return null;
@@ -279,5 +282,88 @@ export class ValeSalidaService {
     if (error) throw new Error(error);
     const payload = raw?.data ?? raw;
     return payload as { success?: boolean; message?: string };
+  }
+
+  // ─── Adjuntos del vale ──────────────────────────────────────────────────
+  //
+  // El documento que respalda el vale es el impreso ya firmado: se fotografia
+  // o se escanea y se adjunta aqui. `download_url` es lo unico que abre el
+  // archivo (el bucket es privado); `url` sola no sirve.
+
+  /**
+   * Lista los adjuntos de un vale.
+   * GET /api/operaciones/vales-salida/{vale_id}/adjuntos
+   */
+  static async getAdjuntos(valeId: string): Promise<AdjuntoValeSalida[]> {
+    const raw = await apiRequest<any>(buildAdjuntosEndpoint(valeId));
+    const error = extractApiError(raw);
+    if (error) throw new Error(error);
+    return Array.isArray(raw?.data) ? (raw.data as AdjuntoValeSalida[]) : [];
+  }
+
+  /**
+   * Sube uno o mas documentos al vale.
+   * POST /api/operaciones/vales-salida/{vale_id}/adjuntos
+   */
+  static async uploadAdjuntos(
+    valeId: string,
+    files: File[],
+    categoria: "vale_firmado" | "otro" = "vale_firmado",
+  ): Promise<AdjuntoValeSalida[]> {
+    const formData = new FormData();
+    files.forEach((f) => formData.append("archivos", f));
+    formData.append("categoria", categoria);
+
+    const raw = await apiRequest<any>(buildAdjuntosEndpoint(valeId), {
+      method: "POST",
+      body: formData,
+    });
+    const error = extractApiError(raw);
+    if (error) throw new Error(error);
+    return Array.isArray(raw?.data) ? (raw.data as AdjuntoValeSalida[]) : [];
+  }
+
+  /**
+   * Elimina un adjunto del vale y su binario del storage. No hay historico:
+   * reemplazar es borrar y volver a subir.
+   * DELETE /api/operaciones/vales-salida/{vale_id}/adjuntos/{adjunto_id}
+   */
+  static async deleteAdjunto(valeId: string, adjuntoId: string): Promise<void> {
+    const raw = await apiRequest<any>(
+      `${buildAdjuntosEndpoint(valeId)}/${encodeURIComponent(adjuntoId)}`,
+      { method: "DELETE" },
+    );
+    const error = extractApiError(raw);
+    if (error) throw new Error(error);
+  }
+
+  /**
+   * Genera el QR para adjuntar el vale firmado desde un movil, sin pasarlo por
+   * la PC y sin iniciar sesion en el telefono. Dura 15 minutos y solo sirve
+   * para ESTE vale.
+   *
+   * Se manda el origen de SunCarWeb porque el backend no sabe en que dominio
+   * corre el admin; el backend valida que sea solo un origen y le pone la ruta.
+   * POST /api/operaciones/vales-salida/{vale_id}/adjuntos/token-movil
+   */
+  static async crearTokenSubidaMovil(
+    valeId: string,
+  ): Promise<TokenSubidaMovilVale> {
+    const baseUrl =
+      typeof window !== "undefined" ? window.location.origin : undefined;
+
+    const raw = await apiRequest<any>(
+      `${buildAdjuntosEndpoint(valeId)}/token-movil`,
+      {
+        method: "POST",
+        body: JSON.stringify({ base_url: baseUrl }),
+      },
+    );
+    const error = extractApiError(raw);
+    if (error) throw new Error(error);
+    if (!raw?.data?.token) {
+      throw new Error("El servidor no devolvio un enlace de subida valido");
+    }
+    return raw.data as TokenSubidaMovilVale;
   }
 }

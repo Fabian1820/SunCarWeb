@@ -19,6 +19,7 @@ import {
   Download,
   Printer,
   Loader2,
+  Paperclip,
 } from "lucide-react";
 import type { ValeSalidaSummary } from "@/lib/api-types";
 
@@ -28,6 +29,7 @@ interface ValesSalidaTableProps {
   onView?: (vale: ValeSalidaSummary) => void;
   onExportPdf?: (vale: ValeSalidaSummary) => void;
   onExportExcel?: (vale: ValeSalidaSummary) => void;
+  onAdjuntos?: (vale: ValeSalidaSummary) => void;
   onPrintPdf?: (vale: ValeSalidaSummary) => void;
   loading?: boolean;
   isSearching?: boolean;
@@ -58,6 +60,7 @@ export function ValesSalidaTable({
   onView,
   onExportPdf,
   onExportExcel,
+  onAdjuntos,
   onPrintPdf,
   isSearching = false,
   searchTerm = "",
@@ -244,6 +247,34 @@ export function ValesSalidaTable({
                         <span className="hidden sm:inline text-xs">Ver</span>
                       </Button>
                     ) : null}
+                    {onAdjuntos ? (() => {
+                      const totalAdjuntos = vale.adjuntos_count ?? 0;
+                      const tieneAdjuntos = totalAdjuntos > 0;
+                      return (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onAdjuntos(vale)}
+                          className={
+                            tieneAdjuntos
+                              ? "border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                              : "border-gray-300 text-gray-400 hover:bg-gray-50"
+                          }
+                          title={
+                            tieneAdjuntos
+                              ? `${totalAdjuntos} documento(s) adjunto(s)`
+                              : "Sin el vale firmado adjunto"
+                          }
+                        >
+                          <Paperclip className="h-4 w-4" />
+                          {tieneAdjuntos ? (
+                            <span className="ml-1 text-xs font-semibold">
+                              {totalAdjuntos}
+                            </span>
+                          ) : null}
+                        </Button>
+                      );
+                    })() : null}
                     {(onExportPdf || onExportExcel) ? (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>

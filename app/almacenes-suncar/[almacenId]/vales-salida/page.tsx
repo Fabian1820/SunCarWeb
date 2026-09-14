@@ -45,6 +45,7 @@ import { CreateValeSalidaDialog } from "@/components/feats/vales-salida/create-v
 import { ValeSalidaDetailDialog } from "@/components/feats/vales-salida/vale-salida-detail-dialog";
 import { DevolucionValeDialog } from "@/components/feats/vales-salida/devolucion-vale-dialog";
 import { AnularValeDialog } from "@/components/feats/vales-salida/anular-vale-dialog";
+import { ValeAdjuntosDialog } from "@/components/feats/vales-salida/vale-adjuntos-dialog";
 import { StockHistoricoModal } from "@/components/feats/inventario/stock-historico-modal";
 import type {
   ValeSalida,
@@ -110,6 +111,15 @@ export default function ValesSalidaPage() {
   const [valeToAnular, setValeToAnular] = useState<ValeSalida | null>(null);
   const [anularLoading, setAnularLoading] = useState(false);
   const [isStockHistoricoOpen, setIsStockHistoricoOpen] = useState(false);
+  const [valeAdjuntos, setValeAdjuntos] = useState<ValeSalidaSummary | null>(
+    null,
+  );
+  // Contadores frescos tras subir o borrar. Se guardan aparte en vez de
+  // recargar la lista: un loadVales() volveria a la primera pagina y tiraria
+  // por tierra lo que el usuario llevara cargado con "Cargar mas".
+  const [adjuntosCount, setAdjuntosCount] = useState<Record<string, number>>(
+    {},
+  );
   const [exportingValesExcel, setExportingValesExcel] = useState(false);
   const [creadoresSolicitud, setCreadoresSolicitud] = useState<string[]>([]);
   const [loadingCreadores, setLoadingCreadores] = useState(false);
@@ -175,7 +185,15 @@ export default function ValesSalidaPage() {
   }, [loadCreadoresSolicitud]);
 
   // ← Ya no necesitamos filtrar en el frontend, el backend lo hace
-  const valesAlmacen = filteredVales;
+  const valesAlmacen = useMemo(
+    () =>
+      filteredVales.map((vale) =>
+        vale.id in adjuntosCount
+          ? { ...vale, adjuntos_count: adjuntosCount[vale.id] }
+          : vale,
+      ),
+    [filteredVales, adjuntosCount],
+  );
 
   // Solo la carga inicial reemplaza la página completa. Si se mostrara también
   // durante las búsquedas, cada tecleo con 0 resultados desmontaría el buscador
@@ -787,6 +805,9 @@ export default function ValesSalidaPage() {
               onExportExcel={(vale) => {
                 void handleExportValeExcel(vale);
               }}
+              onAdjuntos={(vale) => {
+                setValeAdjuntos(vale);
+              }}
               onPrintPdf={(vale) => {
                 void handlePrintVale(vale);
               }}
@@ -866,6 +887,18 @@ export default function ValesSalidaPage() {
         vale={valeToAnular}
         onConfirm={confirmAnular}
         isLoading={anularLoading}
+      />
+
+      <ValeAdjuntosDialog
+        open={valeAdjuntos !== null}
+        onOpenChange={(open) => {
+          if (!open) setValeAdjuntos(null);
+        }}
+        valeId={valeAdjuntos?.id ?? null}
+        valeCodigo={valeAdjuntos?.codigo}
+        onAdjuntosChange={(valeId, totalAdjuntos) => {
+          setAdjuntosCount((prev) => ({ ...prev, [valeId]: totalAdjuntos }));
+        }}
       />
 
       <StockHistoricoModal
