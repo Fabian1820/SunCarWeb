@@ -16,7 +16,7 @@ export function colorZona(n: number): string {
 
 const ASPECTO = 2;
 
-function vistaDe(b: [number, number, number, number], margen: number): Vista {
+function vistaDe(b: [number, number, number, number], margen: number, aspecto: number): Vista {
   let w = b[2] - b[0];
   let h = b[3] - b[1];
   let x = b[0] - w * margen;
@@ -24,12 +24,12 @@ function vistaDe(b: [number, number, number, number], margen: number): Vista {
   w *= 1 + 2 * margen;
   h *= 1 + 2 * margen;
   // Se ajusta al aspecto del recuadro para que el zoom no deforme la forma.
-  if (w / h > ASPECTO) {
-    const nh = w / ASPECTO;
+  if (w / h > aspecto) {
+    const nh = w / aspecto;
     y -= (nh - h) / 2;
     h = nh;
   } else {
-    const nw = h * ASPECTO;
+    const nw = h * aspecto;
     x -= (nw - w) / 2;
     w = nw;
   }
@@ -48,6 +48,8 @@ interface Props {
   seleccion: Map<string, number>;
   onProvincia: (clave: string) => void;
   onMunicipio: (id: string) => void;
+  /** Ocupa todo el alto que le den (pantalla completa) en vez de ir con proporción fija. */
+  llenar?: boolean;
 }
 
 /**
@@ -63,9 +65,12 @@ export function MapaCubaSvg({
   seleccion,
   onProvincia,
   onMunicipio,
+  llenar = false,
 }: Props) {
   const contenedor = useRef<HTMLDivElement>(null);
   const [anchoPx, setAnchoPx] = useState(800);
+  const [altoPx, setAltoPx] = useState(400);
+  const aspecto = llenar && altoPx > 0 ? anchoPx / altoPx : ASPECTO;
   const rutas = useMemo(() => new Map(mapa.municipios.map((m) => [m.id, rutaSvg(m.r)])), [mapa]);
   const bordes = useMemo(
     () =>
@@ -78,9 +83,13 @@ export function MapaCubaSvg({
   );
 
   const objetivo = useMemo<Vista>(() => {
+    // Con un municipio elegido se acerca a él, dejando ver un poco de los de
+    // alrededor para no perder dónde está.
+    const m = municipio ? mapa.municipios.find((x) => x.id === municipio) : null;
+    if (m) return vistaDe(m.b, 0.45, aspecto);
     const p = provincia ? mapa.provincias.find((x) => x.k === provincia) : null;
-    return p ? vistaDe(p.b, 0.06) : vistaDe([0, 0, mapa.ancho, mapa.alto], 0.01);
-  }, [mapa, provincia]);
+    return p ? vistaDe(p.b, 0.06, aspecto) : vistaDe([0, 0, mapa.ancho, mapa.alto], 0.01, aspecto);
+  }, [mapa, provincia, municipio, aspecto]);
 
   const [vista, setVista] = useState<Vista>(objetivo);
   const vistaRef = useRef(vista);
@@ -111,7 +120,10 @@ export function MapaCubaSvg({
   useEffect(() => {
     const el = contenedor.current;
     if (!el) return;
-    const obs = new ResizeObserver(([e]) => setAnchoPx(e.contentRect.width || 800));
+    const obs = new ResizeObserver(([e]) => {
+      setAnchoPx(e.contentRect.width || 800);
+      setAltoPx(e.contentRect.height || 400);
+    });
     obs.observe(el);
     return () => obs.disconnect();
   }, []);
@@ -167,7 +179,11 @@ export function MapaCubaSvg({
   }
 
   return (
-    <div ref={contenedor} className="relative w-full" style={{ aspectRatio: `${ASPECTO} / 1` }}>
+    <div
+      ref={contenedor}
+      className={llenar ? "relative h-full w-full" : "relative w-full"}
+      style={llenar ? undefined : { aspectRatio: `${ASPECTO} / 1` }}
+    >
       <svg
         viewBox={vista.join(" ")}
         className="absolute inset-0 h-full w-full select-none"

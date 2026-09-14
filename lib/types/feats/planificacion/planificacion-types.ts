@@ -63,4 +63,11 @@ export interface CandidatoPlanificacion {
   estado: string;
   /** Solo en averías: qué está roto. */
   detalle?: string;
+  /** Última visita hecha, para abrir su informe. */
+  visita_id?: string | null;
+  visita_fecha?: string | null;
+  /** La oferta que el cliente confirmó: es lo que se va a montar. */
+  oferta_confirmada?: { id: string; numero: string; nombre: string } | null;
+  /** "YYYY-MM-DD": desde cuándo espera este trabajo. */
+  esperando_desde?: string | null;
 }

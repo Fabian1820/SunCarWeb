@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState, type MutableRefObject } from "react";
-import { Check, ChevronRight, Loader2, Plus, X } from "lucide-react";
+import { Check, ChevronRight, Clock, Eye, FileText, Loader2, Maximize2, Minimize2, Plus, X } from "lucide-react";
+import { apiRequest } from "@/lib/api-config";
+import { useToast } from "@/hooks/use-toast";
+import { normalizeOfertaConfeccion, type OfertaConfeccion } from "@/hooks/use-ofertas-confeccion";
+import { VerOfertaClienteDialog } from "@/components/feats/ofertas/ver-oferta-cliente-dialog";
 import { Button } from "@/components/shared/atom/button";
 import { SearchableSelect } from "@/components/shared/molecule/searchable-select";
 import { cn } from "@/lib/utils";
@@ -95,6 +99,26 @@ function cuantos(n: number, [uno, varios]: [string, string]) {
   return `${n} ${n === 1 ? uno : varios}`;
 }
 
+/** Días desde una fecha "YYYY-MM-DD" hasta hoy. */
+function diasEsperando(iso?: string | null): number | null {
+  if (!iso) return null;
+  const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
+  if (!y || !m || !d) return null;
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  return Math.max(0, Math.round((hoy.getTime() - new Date(y, m - 1, d).getTime()) / 86_400_000));
+}
+
+function textoEspera(dias: number): string {
+  if (dias === 0) return "desde hoy";
+  if (dias < 60) return `${dias} día${dias === 1 ? "" : "s"}`;
+  if (dias < 730) return `${Math.floor(dias / 30)} meses`;
+  return `${Math.floor(dias / 365)} años`;
+}
+
+/** A partir de aquí la espera se marca: son dos meses. */
+const ESPERA_LARGA = 60;
+
 /**
  * Planificar mirando dónde está cada cliente.
  *
@@ -114,6 +138,58 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
   const [verSinZona, setVerSinZona] = useState(false);
   const [seleccion, setSeleccion] = useState<Map<string, Seleccionado>>(new Map());
   const [quien, setQuien] = useState("");
+  const [pantallaCompleta, setPantallaCompleta] = useState(false);
+  const [ofertaAbierta, setOfertaAbierta] = useState<OfertaConfeccion | null>(null);
+  const [abriendoOferta, setAbriendoOferta] = useState<string | null>(null);
+  const [abriendoVisita, setAbriendoVisita] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  // A pantalla completa: Escape sale y la página de detrás no se desplaza.
+  useEffect(() => {
+    if (!pantallaCompleta) return;
+    const alPulsar = (e: KeyboardEvent) => e.key === "Escape" && setPantallaCompleta(false);
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", alPulsar);
+    return () => {
+      document.body.style.overflow = overflow;
+      window.removeEventListener("keydown", alPulsar);
+    };
+  }, [pantallaCompleta]);
+
+  async function verOferta(id: string) {
+    if (abriendoOferta) return;
+    setAbriendoOferta(id);
+    try {
+      const res = await apiRequest<{ data?: unknown }>(`/ofertas/confeccion/${encodeURIComponent(id)}`);
+      if (!res?.data) throw new Error("Sin datos");
+      setOfertaAbierta(normalizeOfertaConfeccion(res.data));
+    } catch {
+      toast({ title: "No se pudo abrir la oferta", description: "Inténtalo otra vez.", variant: "destructive" });
+    } finally {
+      setAbriendoOferta(null);
+    }
+  }
+
+  /** El informe de la visita en PDF, con sus fotos, en otra pestaña: para planificar se mira el techo y el sitio. */
+  async function verVisita(id: string) {
+    if (abriendoVisita) return;
+    // La pestaña se abre ya, con el clic: abierta después de la descarga, el navegador la bloquea.
+    const pestana = window.open("", "_blank");
+    setAbriendoVisita(id);
+    try {
+      const blob = await apiRequest<Blob>(`/visitas/${encodeURIComponent(id)}/informe?incluir_imagenes=true`, { responseType: "blob" });
+      const url = URL.createObjectURL(blob);
+      if (pestana) pestana.location.href = url;
+      else window.open(url, "_blank");
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch {
+      pestana?.close();
+      toast({ title: "No se pudo abrir la visita", description: "Inténtalo otra vez.", variant: "destructive" });
+    } finally {
+      setAbriendoVisita(null);
+    }
+  }
 
   useEffect(() => {
     cargarMapa()
@@ -299,7 +375,13 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
       .map(([id, g]) => ({
         id,
         nombre: g.nombre,
-        items: g.items.sort((a, b) => orden(a) - orden(b) || a.c.nombre.localeCompare(b.c.nombre)),
+        // Quien más lleva esperando, arriba.
+        items: g.items.sort(
+          (a, b) =>
+            orden(a) - orden(b) ||
+            (a.c.esperando_desde ?? "9999").localeCompare(b.c.esperando_desde ?? "9999") ||
+            a.c.nombre.localeCompare(b.c.nombre),
+        ),
         libres: g.items.filter((u) => !enPlan.has(clave(tipo, u.c))).length,
       }))
       .sort((a, b) =>
@@ -342,9 +424,22 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
 
   return (
     <>
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+      <div
+        className={
+          pantallaCompleta
+            ? "fixed inset-0 z-40 grid grid-rows-[minmax(0,3fr)_minmax(0,2fr)] gap-3 bg-gray-50 p-3 sm:p-4 lg:grid-cols-[minmax(0,1fr)_28rem] lg:grid-rows-1"
+            : "grid items-start gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]"
+        }
+      >
         {/* Mapa */}
-        <section className="rounded-lg border bg-white lg:sticky lg:top-[var(--content-with-fixed-header-padding,144px)]">
+        <section
+          className={cn(
+            "rounded-lg border bg-white",
+            pantallaCompleta
+              ? "flex min-h-0 flex-col overflow-hidden"
+              : "lg:sticky lg:top-[var(--content-with-fixed-header-padding,144px)]",
+          )}
+        >
           <div className="flex flex-wrap gap-1.5 border-b px-4 py-3" role="tablist" aria-label="Qué planificar">
             {TIPOS_MAPA.map((t) => {
               const lista = datos[t];
@@ -412,7 +507,7 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
             </label>
           </div>
 
-          <div className="relative px-2 pb-2">
+          <div className={cn("relative px-2 pb-2", pantallaCompleta && "min-h-0 flex-1")}>
             {mapa ? (
               <MapaCubaSvg
                 mapa={mapa}
@@ -423,12 +518,24 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
                 seleccion={seleccionPorZona}
                 onProvincia={elegirProvincia}
                 onMunicipio={elegirMunicipio}
+                llenar={pantallaCompleta}
               />
             ) : (
               <div className="flex aspect-[2/1] items-center justify-center gap-2 text-sm text-gray-500">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Cargando el mapa…
               </div>
+            )}
+            {mapa && (
+              <button
+                type="button"
+                onClick={() => setPantallaCompleta((v) => !v)}
+                aria-label={pantallaCompleta ? "Salir de pantalla completa" : "Ver el mapa a pantalla completa"}
+                title={pantallaCompleta ? "Salir de pantalla completa (Esc)" : "Pantalla completa"}
+                className="absolute right-4 top-2 flex h-9 w-9 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-700 shadow-sm hover:bg-gray-50 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+              >
+                {pantallaCompleta ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+              </button>
             )}
             {cargandoTipo && mapa && (
               <span className="absolute left-4 top-2 flex items-center gap-1.5 rounded bg-white/90 px-2 py-1 text-xs text-gray-600">
@@ -456,7 +563,7 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
         </section>
 
         {/* Lista de la zona */}
-        <section className="rounded-lg border bg-white">
+        <section className={cn("rounded-lg border bg-white", pantallaCompleta && "min-h-0 overflow-y-auto")}>
           {!provincia && !verSinZona ? (
             <ListaProvincias
               provincias={mapa?.provincias ?? []}
@@ -533,7 +640,12 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
                               u={u}
                               marcado={seleccion.has(clave(tipo, u.c))}
                               enPlan={enPlan.get(clave(tipo, u.c))}
+                              tipo={tipo}
+                              abriendoOferta={!!abriendoOferta && abriendoOferta === u.c.oferta_confirmada?.id}
+                              abriendoVisita={!!abriendoVisita && abriendoVisita === u.c.visita_id}
                               onAlternar={() => alternar(u)}
+                              onVerOferta={verOferta}
+                              onVerVisita={verVisita}
                             />
                           ))}
                         </ul>
@@ -547,11 +659,18 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
         </section>
       </div>
 
+      <VerOfertaClienteDialog
+        open={ofertaAbierta !== null}
+        onOpenChange={(abierto) => !abierto && setOfertaAbierta(null)}
+        oferta={ofertaAbierta}
+        ofertas={ofertaAbierta ? [ofertaAbierta] : []}
+      />
+
       {seleccionados.length > 0 && (
         <>
           {/* Hueco para que la bandeja no tape el final de la lista. */}
           <div className="h-44 lg:h-28" aria-hidden />
-          <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white shadow-[0_-6px_20px_rgba(15,23,42,0.08)]">
+          <div className="fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white shadow-[0_-6px_20px_rgba(15,23,42,0.08)]">
             <div className="flex flex-col gap-3 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:px-8">
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-gray-900">
@@ -678,19 +797,35 @@ function ListaProvincias({
 
 function FilaPendiente({
   u,
+  tipo,
   marcado,
   enPlan,
+  abriendoOferta,
+  abriendoVisita,
   onAlternar,
+  onVerOferta,
+  onVerVisita,
 }: {
   u: Ubicado;
+  tipo: TipoTrabajo;
   marcado: boolean;
   enPlan?: TrabajoPlanificado;
+  abriendoOferta: boolean;
+  abriendoVisita: boolean;
   onAlternar: () => void;
+  onVerOferta: (id: string) => void;
+  onVerVisita: (id: string) => void;
 }) {
   const c = u.c;
   const bloqueado = !!enPlan;
+  const oferta = c.oferta_confirmada;
+  const [, mes, dia] = (c.visita_fecha ?? "").slice(0, 10).split("-");
+  const fecha = dia && mes ? ` · ${dia}/${mes}` : "";
+  // Lo que se mira para planificar: qué equipo lleva y si ya hay visita.
+  const dias = diasEsperando(c.esperando_desde);
+  const conExtras = dias !== null || !!oferta || !!c.visita_id || tipo !== "visita";
   return (
-    <li>
+    <li className={cn("rounded-md", marcado && "bg-amber-50")}>
       <button
         type="button"
         disabled={bloqueado}
@@ -699,7 +834,7 @@ function FilaPendiente({
         className={cn(
           "flex w-full items-start gap-3 rounded-md px-2.5 py-2 text-left transition-colors",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600",
-          marcado ? "bg-amber-50 hover:bg-amber-100" : "hover:bg-gray-100",
+          marcado ? "hover:bg-amber-100" : "hover:bg-gray-100",
           bloqueado && "cursor-default hover:bg-transparent",
         )}
       >
@@ -728,6 +863,53 @@ function FilaPendiente({
           )}
         </span>
       </button>
+      {conExtras && (
+        <div className="flex flex-wrap items-center gap-1.5 pb-2 pl-[2.625rem] pr-2.5">
+          {dias !== null && (
+            <span
+              className={cn(
+                "mr-1 inline-flex items-center gap-1 text-xs",
+                dias >= ESPERA_LARGA ? "font-semibold text-amber-800" : "text-gray-600",
+              )}
+              title={`Esperando desde el ${c.esperando_desde!.split("-").reverse().join("/")}`}
+            >
+              <Clock className="h-3.5 w-3.5" aria-hidden />
+              Esperando {textoEspera(dias)}
+            </span>
+          )}
+          {oferta && (
+            <button
+              type="button"
+              onClick={() => onVerOferta(oferta.id)}
+              title={`Oferta confirmada ${oferta.numero}`}
+              className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+            >
+              {abriendoOferta ? (
+                <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+              ) : (
+                <FileText className="h-3.5 w-3.5 shrink-0" />
+              )}
+              <span className="truncate">{oferta.nombre || oferta.numero || "Oferta confirmada"}</span>
+            </button>
+          )}
+          {c.visita_id ? (
+            <button
+              type="button"
+              onClick={() => onVerVisita(c.visita_id!)}
+              className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-800 hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+            >
+              {abriendoVisita ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Eye className="h-3.5 w-3.5" />
+              )}
+              {abriendoVisita ? "Abriendo…" : `Ver visita${fecha}`}
+            </button>
+          ) : (
+            tipo !== "visita" && <span className="text-xs text-gray-500">Sin visita</span>
+          )}
+        </div>
+      )}
     </li>
   );
 }

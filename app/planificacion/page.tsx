@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, CalendarDays, Check, ChevronLeft, ChevronRight, Loader2, Map as IconoMapa, Users } from "lucide-react";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
+import { RouteGuard } from "@/components/auth/route-guard";
 import { Button } from "@/components/shared/atom/button";
 import { SearchableSelect } from "@/components/shared/molecule/searchable-select";
 import { useToast } from "@/hooks/use-toast";
@@ -106,7 +107,16 @@ function nuevoId(): string {
  * aparte. Todo se guarda solo según se hace: no hay botón de guardar que
  * olvidar, ni borradores, ni avisos de cambios perdidos.
  */
+// Todavía a prueba: solo entra quien tenga el permiso "planificacion" (o sea superadmin).
 export default function PlanificacionPage() {
+  return (
+    <RouteGuard requiredModule="planificacion">
+      <PlanificacionContenido />
+    </RouteGuard>
+  );
+}
+
+function PlanificacionContenido() {
   const { toast } = useToast();
   const { user } = useAuth();
   const hoy = useMemo(() => isoLocal(new Date()), []);
