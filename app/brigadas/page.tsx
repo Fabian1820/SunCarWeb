@@ -19,6 +19,8 @@ import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/shared/molecule/toaster"
 import { RouteGuard } from "@/components/auth/route-guard"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
+import { ExportButtons } from "@/components/shared/molecule/export-buttons"
+import type { ExportOptions } from "@/lib/export-service"
 
 export default function BrigadasPage() {
   return (
@@ -144,6 +146,44 @@ function BrigadasPageContent() {
   }
 
 
+  // Exporta la lista tal como se ve (respeta la búsqueda): una fila por brigada,
+  // con sus integrantes apilados dentro de la misma fila.
+  const getExportOptions = (): Omit<ExportOptions, "filename"> => {
+    const subtitlePartes = [`Fecha: ${new Date().toLocaleDateString("es-ES")}`]
+    if (searchTerm.trim()) subtitlePartes.push(`Búsqueda: "${searchTerm.trim()}"`)
+    subtitlePartes.push(`Brigadas: ${brigades.length}`)
+    subtitlePartes.push(
+      `Integrantes: ${brigades.reduce((total, b) => total + b.members.length, 0)}`,
+    )
+
+    return {
+      title: "Suncar SRL - Brigadas",
+      subtitle: subtitlePartes.join(" · "),
+      columns: [
+        { header: "No.", key: "numero", width: 6 },
+        { header: "Jefe de brigada", key: "jefe", width: 30 },
+        { header: "CI jefe", key: "jefe_ci", width: 16 },
+        { header: "Teléfono jefe", key: "jefe_telefono", width: 16 },
+        { header: "Cant. integrantes", key: "cantidad", width: 12 },
+        { header: "Integrantes (CI)", key: "integrantes", width: 42 },
+      ],
+      data: brigades.map((b, i) => ({
+        numero: i + 1,
+        jefe: b.leader.name || "",
+        jefe_ci: b.leader.ci || "",
+        jefe_telefono: b.leader.phone || "",
+        cantidad: b.members.length,
+        // Nombre y CI en la misma celda: el PDF une los arrays con comas y, en
+        // columnas separadas, nombres y carnés quedarían desalineados.
+        integrantes:
+          b.members.length > 0
+            ? b.members.map((m) => (m.ci ? `${m.name} (${m.ci})` : m.name))
+            : ["Sin integrantes"],
+      })),
+      stackedColumnKeys: ["integrantes"],
+    }
+  }
+
   if (loading) return <PageLoader moduleName="Brigadas" text="Cargando brigadas..." />
   if (error) return <div>Error: {error}</div>
 
@@ -155,6 +195,14 @@ function BrigadasPageContent() {
         subtitle="Administrar equipos de trabajo y asignaciones"
         badge={{ text: "Equipos", className: "bg-blue-100 text-blue-800" }}
         actions={
+          <div className="flex items-center gap-2">
+          {brigades.length > 0 && (
+            <ExportButtons
+              getExportOptions={getExportOptions}
+              baseFilename="brigadas"
+              variant="compact"
+            />
+          )}
           <Dialog open={isAddBrigadeDialogOpen} onOpenChange={setIsAddBrigadeDialogOpen}>
             <DialogTrigger asChild>
               <Button
@@ -186,6 +234,7 @@ function BrigadasPageContent() {
               </div>
             </DialogContent>
           </Dialog>
+          </div>
         }
       />
 

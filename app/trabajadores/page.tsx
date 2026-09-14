@@ -20,6 +20,8 @@ import { Toaster } from "@/components/shared/molecule/toaster"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { WorkerForm } from "@/components/feats/worker/worker-form"
 import { Button } from "@/components/shared/atom/button"
+import { ExportButtons } from "@/components/shared/molecule/export-buttons"
+import type { ExportOptions } from "@/lib/export-service"
 
 export default function TrabajadoresPage() {
   const { brigadas: brigadasTrabajadores, trabajadores, loading: loadingTrabajadores, error: errorTrabajadores, refetch } = useBrigadasTrabajadores()
@@ -59,6 +61,49 @@ export default function TrabajadoresPage() {
     && (workerType === 'todos' ? true : workerType === 'jefes' ? w["tiene_contrase\u00F1a"] : !w["tiene_contrase\u00F1a"])
     && (workerSearch === '' || w.nombre.toLowerCase().includes(workerSearch.toLowerCase()) || w.CI.includes(workerSearch))
   );
+
+  // Exporta la lista tal como se ve (respeta búsqueda y tipo). La brigada de cada
+  // instalador sale de las brigadas: la suya si es jefe, o aquella donde es integrante.
+  const getExportOptions = (): Omit<ExportOptions, "filename"> => {
+    const jefePorCi = new Map<string, string>()
+    for (const b of brigadasTrabajadores) {
+      const jefe = b.lider?.nombre || ""
+      if (b.lider?.CI) jefePorCi.set(b.lider.CI, jefe)
+      for (const integrante of b.integrantes || []) {
+        if (integrante?.CI) jefePorCi.set(integrante.CI, jefe)
+      }
+    }
+
+    const etiquetaTipo = {
+      todos: "Todos",
+      jefes: "Solo jefes de brigada",
+      trabajadores: "Solo trabajadores",
+    }[workerType]
+    const subtitlePartes = [`Fecha: ${new Date().toLocaleDateString("es-ES")}`, `Tipo: ${etiquetaTipo}`]
+    if (workerSearch.trim()) subtitlePartes.push(`Búsqueda: "${workerSearch.trim()}"`)
+    subtitlePartes.push(`Instaladores: ${filteredTrabajadores.length}`)
+
+    return {
+      title: "Suncar SRL - Instaladores",
+      subtitle: subtitlePartes.join(" · "),
+      columns: [
+        { header: "No.", key: "numero", width: 6 },
+        { header: "Nombre", key: "nombre", width: 32 },
+        { header: "CI", key: "ci", width: 16 },
+        { header: "Rol", key: "rol", width: 18 },
+        { header: "Teléfono", key: "telefono", width: 16 },
+        { header: "Brigada (jefe)", key: "brigada", width: 30 },
+      ],
+      data: filteredTrabajadores.map((w, i) => ({
+        numero: i + 1,
+        nombre: w.nombre || "",
+        ci: w.CI || "",
+        rol: w["tiene_contraseña"] ? "Jefe de brigada" : "Trabajador",
+        telefono: w.telefono || "",
+        brigada: jefePorCi.get(w.CI) || "Sin brigada",
+      })),
+    }
+  }
 
   // Handler para asignar brigada a trabajador existente
   const handleAsignarBrigada = async (data: { brigadaId: string }) => {
@@ -180,6 +225,15 @@ export default function TrabajadoresPage() {
         title="Gestion de Instaladores"
         subtitle="Administrar personal y asignaciones"
         badge={{ text: "Personal", className: "bg-blue-100 text-blue-800" }}
+        actions={
+          filteredTrabajadores.length > 0 ? (
+            <ExportButtons
+              getExportOptions={getExportOptions}
+              baseFilename="instaladores"
+              variant="compact"
+            />
+          ) : undefined
+        }
       />
 
       <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
