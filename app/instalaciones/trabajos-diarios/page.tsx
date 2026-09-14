@@ -10,11 +10,9 @@ import { TrabajosDiariosModule } from "@/components/feats/instalaciones/trabajos
 // `trabajos:*` (las pestañas internas ya se filtran por cada uno).
 const TRABAJOS_DIARIOS_MODULOS = [
   "instalaciones/trabajos-diarios",
-  "trabajos:confirmar",
   "trabajos:registrar",
   "trabajos:averias",
   "trabajos:actualizaciones",
-  "trabajos:entregas",
   "trabajos:todos",
 ];
 

@@ -15,11 +15,9 @@ import { useAuth } from "@/contexts/auth-context";
 
 // Sub-permisos `trabajos:*` que dan acceso a la tarjeta "Trabajos Diarios".
 const TRABAJOS_MODULOS = [
-  "trabajos:confirmar",
   "trabajos:registrar",
   "trabajos:averias",
   "trabajos:actualizaciones",
-  "trabajos:entregas",
   "trabajos:todos",
 ];
 

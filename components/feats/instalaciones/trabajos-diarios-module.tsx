@@ -8,18 +8,12 @@ import {
   TabsTrigger,
 } from "@/components/shared/molecule/tabs";
 import { useAuth } from "@/contexts/auth-context";
-import { TrabajosDiariosView } from "./trabajos-diarios-view";
 import { TrabajosDiariosRegistroView } from "./trabajos-diarios-registro-view";
 import { TrabajosDiariosTodosView } from "./trabajos-diarios-todos-view";
 import { TrabajosDiariosActualizacionesView } from "./trabajos-diarios-actualizaciones-view";
 import { TrabajosDiariosAveriasView } from "./trabajos-diarios-averias-view";
 
 const TABS = [
-  {
-    key: "confirmar",
-    label: "Confirmar salidas",
-    permission: "trabajos:confirmar",
-  },
   {
     key: "registrar",
     label: "Cierre diario instalaciones",
@@ -34,11 +28,6 @@ const TABS = [
     key: "actualizaciones",
     label: "Actualizaciones",
     permission: "trabajos:actualizaciones",
-  },
-  {
-    key: "entregas",
-    label: "Entregas sin instalar",
-    permission: "trabajos:entregas",
   },
   {
     key: "todos",
@@ -89,12 +78,6 @@ export function TrabajosDiariosModule() {
         </div>
       </TabsList>
 
-      {visibleTabs.find((t) => t.key === "confirmar") && (
-        <TabsContent value="confirmar" className="space-y-4">
-          <TrabajosDiariosView />
-        </TabsContent>
-      )}
-
       {visibleTabs.find((t) => t.key === "registrar") && (
         <TabsContent value="registrar" className="space-y-4">
           <TrabajosDiariosRegistroView />
@@ -110,12 +93,6 @@ export function TrabajosDiariosModule() {
       {visibleTabs.find((t) => t.key === "actualizaciones") && (
         <TabsContent value="actualizaciones" className="space-y-4">
           <TrabajosDiariosActualizacionesView />
-        </TabsContent>
-      )}
-
-      {visibleTabs.find((t) => t.key === "entregas") && (
-        <TabsContent value="entregas" className="space-y-4">
-          <TrabajosDiariosView mode="entregas" />
         </TabsContent>
       )}
 

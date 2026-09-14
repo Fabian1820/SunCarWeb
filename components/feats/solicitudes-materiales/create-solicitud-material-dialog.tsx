@@ -316,6 +316,8 @@ export function CreateSolicitudMaterialDialog({
   );
   const [showResponsableDropdown, setShowResponsableDropdown] = useState(false);
   const [responsableRecogida, setResponsableRecogida] = useState("");
+  /** Carné de quien recoge: con él sabe Trabajos diarios de la app de quién es el vale. */
+  const [responsableRecogidaCi, setResponsableRecogidaCi] = useState<string | null>(null);
   const [fechaRecogida, setFechaRecogida] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
@@ -446,6 +448,7 @@ export function CreateSolicitudMaterialDialog({
     setMaterialesSinVinculo([]);
     setSelectedAlmacenId(solicitud.almacen_id || solicitud.almacen?.id || "");
     setResponsableRecogida(solicitud.responsable_recogida || "");
+    setResponsableRecogidaCi(solicitud.responsable_recogida_ci || null);
     setFechaRecogida(normalizeDateInput(solicitud.fecha_recogida));
     setMaterialSearch("");
     setMaterialResults([]);
@@ -819,12 +822,14 @@ export function CreateSolicitudMaterialDialog({
 
   const handleSelectResponsable = (trabajador: Trabajador) => {
     setResponsableRecogida(trabajador.nombre);
+    setResponsableRecogidaCi(trabajador.CI ? String(trabajador.CI) : null);
     setShowResponsableDropdown(false);
     setResponsableResults([]);
   };
 
   const handleClearResponsable = () => {
     setResponsableRecogida("");
+    setResponsableRecogidaCi(null);
     setShowResponsableDropdown(false);
     setResponsableResults([]);
   };
@@ -1017,6 +1022,7 @@ export function CreateSolicitudMaterialDialog({
           materiales: normalizedMateriales,
           cliente_id: clienteId,
           responsable_recogida: normalizedResponsable || null,
+          responsable_recogida_ci: normalizedResponsable ? responsableRecogidaCi : null,
           fecha_recogida: normalizedFechaRecogida || null,
         };
         await SolicitudMaterialService.updateSolicitud(solicitud.id, payload);
@@ -1030,6 +1036,7 @@ export function CreateSolicitudMaterialDialog({
         }
         if (normalizedResponsable) {
           payload.responsable_recogida = normalizedResponsable;
+          if (responsableRecogidaCi) payload.responsable_recogida_ci = responsableRecogidaCi;
         }
         if (normalizedFechaRecogida) {
           payload.fecha_recogida = normalizedFechaRecogida;
@@ -1462,7 +1469,11 @@ export function CreateSolicitudMaterialDialog({
                 <Input
                   placeholder="Buscar trabajador por nombre..."
                   value={responsableRecogida}
-                  onChange={(event) => setResponsableRecogida(event.target.value)}
+                  onChange={(event) => {
+                    setResponsableRecogida(event.target.value);
+                    // Escrito a mano ya no es el trabajador elegido.
+                    setResponsableRecogidaCi(null);
+                  }}
                   onFocus={() => {
                     if (responsableResults.length > 0) {
                       setShowResponsableDropdown(true);

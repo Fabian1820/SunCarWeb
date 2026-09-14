@@ -143,7 +143,7 @@ export const MODULO_GRUPOS: ModuloGrupo[] = [
  * Sub-permiso específico de un módulo: una funcionalidad concreta dentro
  * del módulo que se puede asignar de forma independiente.
  *
- * Ejemplo: dentro de `instalaciones` están `trabajos:confirmar`,
+ * Ejemplo: dentro de `instalaciones` están `trabajos:registrar`,
  * `trabajos:averias`, etc.
  *
  * El nombre se guarda tal cual en BD. Para nuevos submódulos preferir
@@ -614,11 +614,9 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
         // `trabajos:*` original (no se renombran) para no romper asignaciones
         // existentes; son independientes (ver nota en SubPermiso.subPermisos).
         subPermisos: [
-          { key: "trabajos:confirmar", label: "Confirmar salidas" },
           { key: "trabajos:registrar", label: "Cierre diario instalaciones" },
           { key: "trabajos:averias", label: "Averías" },
           { key: "trabajos:actualizaciones", label: "Actualizaciones" },
-          { key: "trabajos:entregas", label: "Entregas sin instalar" },
           { key: "trabajos:todos", label: "Todos los trabajos" },
         ],
       },
@@ -972,7 +970,6 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     // las concede todas (herencia padre→hijo por el `/`).
     subPermisos: [
       { key: "app/averias", label: "Averías" },
-      { key: "app/confirmar-salidas", label: "Confirmar salidas diarias" },
       {
         key: "app/trabajos-diarios",
         label: "Trabajos diarios",
@@ -982,7 +979,6 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
           { key: "app/trabajos-diarios/cierre", label: "Cierre diario de instalaciones" },
           { key: "app/trabajos-diarios/averias", label: "Averías" },
           { key: "app/trabajos-diarios/actualizaciones", label: "Actualizaciones" },
-          { key: "app/trabajos-diarios/entregas", label: "Entregas de materiales" },
         ],
       },
       { key: "app/visitas", label: "Visitas" },

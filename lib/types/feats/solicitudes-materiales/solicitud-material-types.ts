@@ -66,6 +66,7 @@ export interface SolicitudMaterial {
   almacen?: SolicitudAlmacenInfo;
   trabajador?: SolicitudTrabajadorInfo;
   responsable_recogida?: string | null;
+  responsable_recogida_ci?: string | null;
   fecha_recogida?: string | null;
   materiales: SolicitudMaterialItemDetalle[];
   fecha_creacion?: string;
@@ -76,6 +77,7 @@ export interface SolicitudMaterialCreateData {
   cliente_id?: string | null;
   almacen_id: string;
   responsable_recogida?: string | null;
+  responsable_recogida_ci?: string | null;
   fecha_recogida?: string | null;
   materiales: SolicitudMaterialItem[];
   oferta_id?: string | null;
@@ -85,6 +87,7 @@ export interface SolicitudMaterialUpdateData {
   cliente_id?: string | null;
   almacen_id?: string;
   responsable_recogida?: string | null;
+  responsable_recogida_ci?: string | null;
   fecha_recogida?: string | null;
   materiales?: SolicitudMaterialItem[];
 }
@@ -148,6 +151,7 @@ export interface SolicitudMaterialSummary {
   creador_nombre?: string;
   materiales_resumen?: string; // e.g., "3 materiales"
   responsable_recogida?: string | null;
+  responsable_recogida_ci?: string | null;
   fecha_recogida?: string | null;
   fecha_creacion?: string;
 }
