@@ -296,8 +296,8 @@ export function MenuDia({
   );
 }
 
-/** Un trabajo del plan: qué, a quién, dónde, quién va y la nota. */
-function TarjetaTrabajo({
+/** Un trabajo del plan: qué, a quién, dónde, quién va y la nota. Sin onQuitar, solo se mira. */
+export function TarjetaTrabajo({
   trabajo: t,
   reciente,
   mostrarQuien,
@@ -306,7 +306,7 @@ function TarjetaTrabajo({
   trabajo: TrabajoPlanificado;
   reciente: boolean;
   mostrarQuien: boolean;
-  onQuitar: () => void;
+  onQuitar?: () => void;
 }) {
   const abierto = t.estado === "planificado";
   return (
@@ -338,7 +338,7 @@ function TarjetaTrabajo({
         )}
         {t.nota && <p className="mt-1 text-xs text-gray-700">Nota: {t.nota}</p>}
       </div>
-      {abierto && (
+      {abierto && onQuitar && (
         <button
           type="button"
           onClick={onQuitar}

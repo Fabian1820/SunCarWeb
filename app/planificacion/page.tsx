@@ -119,7 +119,7 @@ export default function PlanificacionPage() {
 /**
  * Planificar va por pasos, uno cada vez:
  *
- * 1. Qué día.
+ * 1. Las planificaciones hechas, para verlas o cambiarlas; con el + se elige un día nuevo.
  * 2. Qué se planifica: instalaciones nuevas, en proceso o averías.
  * 3. Los pendientes de eso, en lista (o en el mapa), para marcar y decir quién va.
  *
@@ -154,6 +154,8 @@ function PlanificacionContenido() {
   const [sueltos, setSueltos] = useState<Asignado[]>([]);
   const [destino, setDestino] = useState<Asignado | null>(null);
   const [nuevoAbierto, setNuevoAbierto] = useState(false);
+  /** El calendario para planificar un día nuevo, desde el + de arriba. */
+  const [eligiendoDia, setEligiendoDia] = useState(false);
   /** Lo último añadido se resalta un momento, para ver dónde ha caído. */
   const [recientes, setRecientes] = useState<Set<string>>(new Set());
   useEffect(() => {
@@ -436,12 +438,26 @@ function PlanificacionContenido() {
       <ModuleHeader
         title="Planificación"
         subtitle="Qué hace cada brigada cada día"
-        actions={paso.en === "inicio" ? undefined : <IndicadorGuardado estado={estado} />}
+        actions={
+          paso.en === "inicio" ? (
+            <Button onClick={() => setEligiendoDia(true)}>
+              <Plus className="mr-2 h-4 w-4" aria-hidden />
+              Nueva
+            </Button>
+          ) : (
+            <IndicadorGuardado estado={estado} />
+          )
+        }
       />
 
       <main className="content-with-fixed-header px-4 pb-12 sm:px-6 lg:px-8">
         {paso.en === "inicio" ? (
-          <InicioPlanificacion hoy={hoy} onElegir={(f) => irA({ dia: f })} />
+          <InicioPlanificacion
+            hoy={hoy}
+            onElegir={(f) => irA({ dia: f })}
+            eligiendoDia={eligiendoDia}
+            onEligiendoDia={setEligiendoDia}
+          />
         ) : errorCarga && dia === fecha ? (
           <div className="flex flex-col items-center gap-3 py-24 text-center">
             <p className="font-medium text-gray-900">No se pudo cargar el plan</p>
