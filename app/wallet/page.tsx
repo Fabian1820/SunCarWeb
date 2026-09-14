@@ -63,6 +63,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useWallet } from "@/hooks/use-wallet";
 import { useMyWalletPermiso } from "@/hooks/use-wallet-permisos";
 import { BancoGlobalSheet } from "@/components/feats/wallet/banco-global-sheet";
+import { WalletsConSaldoButton } from "@/components/feats/wallet/wallets-con-saldo-dialog";
 import { TrabajadorService, WalletService } from "@/lib/api-services";
 import { exportToExcel } from "@/lib/export-service";
 import type { Trabajador } from "@/lib/api-types";
@@ -1423,6 +1424,7 @@ function WalletPageContent() {
         subtitle="Control de saldos y movimientos"
         actions={
           <>
+            {walletPermiso?.esAdmin && <WalletsConSaldoButton />}
             {canManageBancoGlobal && (
               <Button
                 variant="outline"

@@ -1,6 +1,9 @@
 import { apiRequest } from "../../../api-config";
 import type {
   WalletBalance,
+  WalletConSaldo,
+  WalletsConSaldoResult,
+  WalletTotalSaldo,
   WalletCurrency,
   WalletCurrencyCreateData,
   WalletCounterpart,
@@ -418,6 +421,43 @@ export class WalletService {
     return Array.isArray(response.data)
       ? response.data.map((item) => normalizeWallet(item))
       : [];
+  }
+
+  /** Billeteras con más de 0 en alguna moneda. Solo administradores de billetera. */
+  static async getWalletsConSaldo(): Promise<WalletsConSaldoResult> {
+    const response = await this.requestWalletEndpoint<
+      { data?: unknown; totales_por_moneda?: unknown } | ApiErrorResponse
+    >("/wallet/wallets/con-saldo");
+
+    if (isApiErrorResponse(response)) {
+      throw new Error(
+        getApiErrorMessage(response, "No se pudo cargar quién tiene saldo"),
+      );
+    }
+
+    const toRecords = (value: unknown): Record<string, unknown>[] =>
+      Array.isArray(value) ? value.filter(isRecord) : [];
+
+    const items: WalletConSaldo[] = toRecords(response.data).map((item) => ({
+      wallet_id: String(item.wallet_id ?? ""),
+      user_ci: String(item.user_ci ?? ""),
+      user_nombre: String(item.user_nombre ?? item.user_ci ?? ""),
+      estado: item.estado === "bloqueada" ? "bloqueada" : "activa",
+      balances: toRecords(item.balances)
+        .map((balance) => normalizeBalance(balance))
+        .filter((balance): balance is WalletBalance => Boolean(balance)),
+    }));
+
+    const totales_por_moneda = toRecords(response.totales_por_moneda).flatMap(
+      (item): WalletTotalSaldo[] => {
+        const balance = normalizeBalance(item);
+        return balance
+          ? [{ ...balance, cantidad_billeteras: toNumber(item.cantidad_billeteras) }]
+          : [];
+      },
+    );
+
+    return { items, totales_por_moneda };
   }
 
   static async getWalletById(walletId: string): Promise<Wallet> {

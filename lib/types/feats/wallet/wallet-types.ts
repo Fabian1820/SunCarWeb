@@ -171,6 +171,24 @@ export interface WalletPendingTransfer {
   transfer_id?: string | null;
 }
 
+export interface WalletConSaldo {
+  wallet_id: string;
+  user_ci: string;
+  user_nombre: string;
+  estado: "activa" | "bloqueada";
+  /** Solo las monedas en las que tiene más de 0. */
+  balances: WalletBalance[];
+}
+
+export interface WalletTotalSaldo extends WalletBalance {
+  cantidad_billeteras: number;
+}
+
+export interface WalletsConSaldoResult {
+  items: WalletConSaldo[];
+  totales_por_moneda: WalletTotalSaldo[];
+}
+
 export interface WalletCurrencyCreateData {
   codigo: string;
   nombre: string;
