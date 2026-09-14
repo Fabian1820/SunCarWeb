@@ -50,7 +50,18 @@ interface Brigada {
 }
 
 /** Lo que se planifica desde el menú del día. Actualización va por el buscador del plan. */
-const TIPOS_DEL_MENU: TipoTrabajo[] = ["visita", "instalacion_nueva", "instalacion_en_proceso", "averia"];
+const TIPOS_DEL_MENU: TipoTrabajo[] = ["instalacion_nueva", "instalacion_en_proceso", "averia"];
+
+/** El comentario con el que arranca: en una avería qué está roto, en una instalación lo anotado en la visita. */
+function notaSugerida(tipo: TipoTrabajo, c: CandidatoPlanificacion): string | null {
+  const texto =
+    tipo === "averia"
+      ? c.detalle
+      : tipo === "instalacion_nueva" || tipo === "instalacion_en_proceso"
+        ? c.visita_observaciones
+        : null;
+  return texto?.trim() || null;
+}
 
 const TITULO_TIPO: Record<TipoTrabajo, string> = {
   visita: "Visitas",
@@ -109,7 +120,7 @@ export default function PlanificacionPage() {
  * Planificar va por pasos, uno cada vez:
  *
  * 1. Qué día.
- * 2. Qué se planifica: visitas, instalaciones nuevas, en proceso o averías.
+ * 2. Qué se planifica: instalaciones nuevas, en proceso o averías.
  * 3. Los pendientes de eso, en lista (o en el mapa), para marcar y decir quién va.
  *
  * El plan del día, brigada por brigada, está a un botón desde los pasos 2 y 3.
@@ -338,7 +349,7 @@ function PlanificacionContenido() {
           nombre: c.nombre,
           direccion: c.direccion,
           asignado: destino,
-          nota: null,
+          nota: notaSugerida(tipo, c),
           estado: "planificado",
         },
       ]);
@@ -363,7 +374,7 @@ function PlanificacionContenido() {
         nombre: i.candidato.nombre,
         direccion: i.candidato.direccion,
         asignado: quien,
-        nota: null,
+        nota: notaSugerida(i.tipo, i.candidato),
         estado: "planificado" as const,
       })),
     ]);

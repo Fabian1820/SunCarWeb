@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, Loader2, Search } from "lucide-react";
 import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/atom/input";
@@ -15,6 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ClienteService } from "@/lib/services/feats/customer/cliente-service";
 import { LeadService } from "@/lib/services/feats/leads/lead-service";
+import { PlanificacionService } from "@/lib/services/feats/planificacion/planificacion-service";
 import { claveCandidato, claveTrabajo } from "@/components/feats/planificacion/selector-trabajos";
 import type { OpcionBrigada } from "@/components/feats/planificacion/planificar-por-mapa";
 import {
@@ -26,7 +27,7 @@ import {
   type TrabajoPlanificado,
 } from "@/lib/types/feats/planificacion/planificacion-types";
 
-const TIPOS: TipoTrabajo[] = ["visita", "instalacion_nueva", "instalacion_en_proceso", "averia", "actualizacion"];
+const TIPOS: TipoTrabajo[] = ["instalacion_nueva", "instalacion_en_proceso", "averia", "actualizacion"];
 
 const TITULO_SECCION = "mb-2 text-sm font-semibold text-gray-900";
 
@@ -41,7 +42,6 @@ function normalizar(texto: string): string {
 /** Lo que toca según el estado del cliente. Solo propone: se cambia con un toque. */
 function tipoSugerido(estado?: string): TipoTrabajo | null {
   const e = normalizar(estado ?? "");
-  if (e.includes("pendiente de visita")) return "visita";
   if (e.includes("pendiente de instalacion")) return "instalacion_nueva";
   if (e.includes("instalacion en proceso")) return "instalacion_en_proceso";
   return null;
@@ -72,6 +72,8 @@ export function NuevoTrabajoDialog({ open, onOpenChange, delDia, trabajos, briga
   const [tipo, setTipo] = useState<TipoTrabajo | null>(null);
   const [quien, setQuien] = useState("");
   const [nota, setNota] = useState("");
+  /** La última nota propuesta: si la nota sigue siendo esa, se puede cambiar por otra. */
+  const notaSugeridaRef = useRef("");
 
   // Cada vez que se abre, en blanco.
   useEffect(() => {
@@ -82,6 +84,7 @@ export function NuevoTrabajoDialog({ open, onOpenChange, delDia, trabajos, briga
     setTipo(null);
     setQuien("");
     setNota("");
+    notaSugeridaRef.current = "";
   }, [open]);
 
   // Buscar a partir de tres letras, cuando se deja de teclear.
@@ -133,6 +136,25 @@ export function NuevoTrabajoDialog({ open, onOpenChange, delDia, trabajos, briga
       clearTimeout(id);
     };
   }, [consulta]);
+
+  // La nota arranca con lo que ya se sabe: en una avería qué está roto, en una
+  // instalación lo que se anotó en la visita. Si se escribió otra cosa, no se toca.
+  useEffect(() => {
+    if (!cliente || !tipo) return;
+    let vigente = true;
+    PlanificacionService.notaSugerida(tipo, cliente.cliente_numero, cliente.lead_id)
+      .catch(() => null)
+      .then((sugerida) => {
+        if (!vigente) return;
+        const nueva = sugerida?.trim() ?? "";
+        const anterior = notaSugeridaRef.current;
+        setNota((actual) => (actual.trim() === "" || actual === anterior ? nueva : actual));
+        notaSugeridaRef.current = nueva;
+      });
+    return () => {
+      vigente = false;
+    };
+  }, [cliente, tipo]);
 
   function elegir(c: CandidatoPlanificacion) {
     setCliente(c);

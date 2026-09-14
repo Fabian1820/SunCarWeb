@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ChevronRight,
-  ClipboardCheck,
   List,
   Loader2,
   Pencil,
@@ -34,13 +33,6 @@ const OPCIONES: {
   Icono: LucideIcon;
   tono: string;
 }[] = [
-  {
-    tipo: "visita",
-    titulo: "Visitas",
-    descripcion: "Pendientes de visita",
-    Icono: ClipboardCheck,
-    tono: "bg-blue-50 text-blue-700",
-  },
   {
     tipo: "instalacion_nueva",
     titulo: "Instalaciones nuevas",

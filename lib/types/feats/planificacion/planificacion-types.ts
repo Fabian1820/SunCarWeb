@@ -66,6 +66,8 @@ export interface CandidatoPlanificacion {
   /** Última visita hecha, para abrir su informe. */
   visita_id?: string | null;
   visita_fecha?: string | null;
+  /** Lo que anotó quien fue a la visita. */
+  visita_observaciones?: string | null;
   /** La oferta que el cliente confirmó: es lo que se va a montar. */
   oferta_confirmada?: { id: string; numero: string; nombre: string } | null;
   /** "YYYY-MM-DD": desde cuándo espera este trabajo. */

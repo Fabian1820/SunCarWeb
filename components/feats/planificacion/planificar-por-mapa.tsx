@@ -165,6 +165,9 @@ export function PlanificarPorMapa({ tipo, delDia, trabajos, brigadas, trabajador
   /** Solo los que llevan esperando al menos estos días; 0 es todos. */
   const [esperaMinima, setEsperaMinima] = useState(0);
   const [entidad, setEntidad] = useState<FiltroEntidad>("todos");
+  /** En instalaciones salen los que ya tienen visita; los otros, con un botón. */
+  const [verSinVisita, setVerSinVisita] = useState(false);
+  const separaPorVisita = tipo === "instalacion_nueva" || tipo === "instalacion_en_proceso";
   const [ofertaAbierta, setOfertaAbierta] = useState<OfertaConfeccion | null>(null);
   const [abriendoOferta, setAbriendoOferta] = useState<string | null>(null);
   const [abriendoVisita, setAbriendoVisita] = useState<string | null>(null);
@@ -290,14 +293,20 @@ export function PlanificarPorMapa({ tipo, delDia, trabajos, brigadas, trabajador
   // Sin fecha no se sabe cuánto espera: con el filtro puesto, no entra.
   const cumpleEspera = (c: CandidatoPlanificacion) =>
     esperaMinima === 0 || (diasEsperando(c.esperando_desde) ?? -1) >= esperaMinima;
-  const cumpleFiltros = (c: CandidatoPlanificacion) =>
+  const cumpleResto = (c: CandidatoPlanificacion) =>
     cumpleEspera(c) && (entidad === "todos" || c.tipo_entidad === entidad);
+  const cumpleFiltros = (c: CandidatoPlanificacion) =>
+    cumpleResto(c) && (!separaPorVisita || !!c.visita_id !== verSinVisita);
+  // Los que quedan del otro lado del botón de visita, para decir cuántos son.
+  const otrosPorVisita = separaPorVisita
+    ? (lista ?? []).filter((c) => cumpleResto(c) && !!c.visita_id === verSinVisita).length
+    : 0;
 
   const ubicados = useMemo<Ubicado[]>(() => {
     if (!lista) return [];
     return lista.filter(cumpleFiltros).map((c) => (mapa ? { c, ...ubicar(c, mapa) } : { c }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mapa, lista, esperaMinima, entidad]);
+  }, [mapa, lista, esperaMinima, entidad, verSinVisita]);
 
   const libres = useMemo(() => ubicados.filter((u) => !enPlan.has(clave(tipo, u.c))), [ubicados, enPlan, tipo]);
 
@@ -609,6 +618,17 @@ export function PlanificarPorMapa({ tipo, delDia, trabajos, brigadas, trabajador
             </span>
           )}
         </Button>
+
+        {separaPorVisita && (
+          <Button
+            variant="outline"
+            onClick={() => setVerSinVisita((v) => !v)}
+            aria-pressed={verSinVisita}
+            className={cn(verSinVisita && "border-emerald-700")}
+          >
+            {verSinVisita ? `Ver con visita (${otrosPorVisita})` : `Ver sin visita (${otrosPorVisita})`}
+          </Button>
+        )}
 
         {activos.map((a) => (
           <button

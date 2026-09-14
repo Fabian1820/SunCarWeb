@@ -47,4 +47,15 @@ export const PlanificacionService = {
     }>(`${BASE}/candidatos?tipo=${encodeURIComponent(tipo)}`);
     return response.data || [];
   },
+
+  /** El comentario con el que arranca un trabajo: qué está roto, o lo anotado en la visita. */
+  async notaSugerida(tipo: string, clienteNumero?: string | null, leadId?: string | null): Promise<string | null> {
+    const params = new URLSearchParams({ tipo });
+    if (clienteNumero) params.set("cliente_numero", clienteNumero);
+    if (leadId) params.set("lead_id", leadId);
+    const response = await apiRequest<{ success: boolean; data?: { nota?: string | null } }>(
+      `${BASE}/nota-sugerida?${params.toString()}`,
+    );
+    return response.data?.nota ?? null;
+  },
 };
