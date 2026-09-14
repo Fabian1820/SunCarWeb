@@ -747,8 +747,7 @@ export function ClientsTable({
     obtenerOfertaPorCliente,
     obtenerEstadoOfertaCliente,
     eliminarOferta,
-    refetch: refetchOfertas,
-  } = useOfertasConfeccion();
+  } = useOfertasConfeccion({ autoLoad: false });
   const { materials } = useMaterials();
   const { marcas } = useMarcas();
   const [clienteToToggleStatus, setClienteToToggleStatus] =
@@ -3022,7 +3021,6 @@ export function ClientsTable({
       );
 
       await cargarClientesConOfertas({ skipCache: true, silent: true });
-      if (refetchOfertas) await refetchOfertas();
       if (numeroCliente) {
         setClienteListoParaPagarMap((prev) => ({
           ...prev,
@@ -6095,7 +6093,6 @@ export function ClientsTable({
           setOfertaParaEditar(null);
           // Recargar ofertas después de editar
           await cargarClientesConOfertas({ skipCache: true, silent: true });
-          if (refetchOfertas) refetchOfertas();
           toast({
             title: "Oferta actualizada",
             description: "Los cambios se guardaron correctamente.",
@@ -6112,7 +6109,6 @@ export function ClientsTable({
           exportOptions={generarOpcionesExportacion(ofertaParaExportar)}
           onOfertaActualizada={(ofertaActualizada) => {
             setOfertaParaExportar(ofertaActualizada);
-            refetchOfertas?.();
           }}
           terminosPayloadBTB={terminosCondicionesPayloadBTB}
           terminosPayloadBTC={terminosCondicionesPayloadBTC}

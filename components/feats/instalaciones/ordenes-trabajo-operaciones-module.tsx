@@ -628,7 +628,7 @@ export function OrdenesTrabajoOperacionesModule() {
     brigadas,
     loading: loadingAsignaciones,
   } = useBrigadasTrabajadores();
-  const { obtenerOfertaPorCliente } = useOfertasConfeccion();
+  const { obtenerOfertaPorCliente } = useOfertasConfeccion({ autoLoad: false });
   const { materials } = useMaterials();
   const { marcasSimplificadas } = useMarcas();
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useToast } from "./use-toast";
 import { apiRequest } from "@/lib/api-config";
 import {
@@ -358,8 +358,12 @@ export function useOfertasConfeccion(options?: { autoLoad?: boolean }) {
   const [ofertas, setOfertas] = useState<OfertaConfeccion[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  // El listado completo pesa decenas de MB: tras una mutación solo se vuelve a
+  // pedir si alguien lo cargó (autoLoad o refetch), no por defecto.
+  const listaCargadaRef = useRef(false);
 
   const fetchOfertas = useCallback(async () => {
+    listaCargadaRef.current = true;
     setLoading(true);
     try {
       const response = await apiRequest<any>("/ofertas/confeccion/", {
@@ -386,6 +390,10 @@ export function useOfertasConfeccion(options?: { autoLoad?: boolean }) {
     }
   }, [toast]);
 
+  const recargarListaSiCargada = useCallback(async () => {
+    if (listaCargadaRef.current) await fetchOfertas();
+  }, [fetchOfertas]);
+
   const eliminarOferta = useCallback(
     async (id: string) => {
       try {
@@ -403,7 +411,7 @@ export function useOfertasConfeccion(options?: { autoLoad?: boolean }) {
           );
         }
 
-        await fetchOfertas();
+        await recargarListaSiCargada();
       } catch (error: any) {
         console.error("Error deleting oferta:", error);
         toast({
@@ -413,7 +421,7 @@ export function useOfertasConfeccion(options?: { autoLoad?: boolean }) {
         });
       }
     },
-    [toast, fetchOfertas],
+    [toast, recargarListaSiCargada],
   );
 
   const fetchOfertasGenericasAprobadas = useCallback(async () => {
@@ -462,7 +470,7 @@ export function useOfertasConfeccion(options?: { autoLoad?: boolean }) {
               "La oferta se asignó correctamente al cliente",
           });
 
-          await fetchOfertas();
+          await recargarListaSiCargada();
           return {
             success: true,
             ofertaNuevaId: response.oferta_nueva_id,
@@ -482,7 +490,7 @@ export function useOfertasConfeccion(options?: { autoLoad?: boolean }) {
         return { success: false };
       }
     },
-    [toast, fetchOfertas],
+    [toast, recargarListaSiCargada],
   );
 
   const obtenerNumerosClientesConOfertas = useCallback(
@@ -908,7 +916,7 @@ export function useOfertasConfeccion(options?: { autoLoad?: boolean }) {
               response.message || "La oferta se asignó correctamente al lead",
           });
 
-          await fetchOfertas();
+          await recargarListaSiCargada();
           return {
             success: true,
             ofertaNuevaId: response.oferta_nueva_id,
@@ -927,7 +935,7 @@ export function useOfertasConfeccion(options?: { autoLoad?: boolean }) {
         return { success: false };
       }
     },
-    [toast, fetchOfertas],
+    [toast, recargarListaSiCargada],
   );
 
   const actualizarEstadoInstalacion = useCallback(

@@ -254,10 +254,8 @@ export function LeadsTable({
     asignarOfertaALead,
     obtenerOfertaPorLead,
     eliminarOferta,
-    refetch: refetchOfertas,
   } = useOfertasConfeccion({ autoLoad: false });
   const ofertasPersonalizadasCargadasRef = useRef(false);
-  const ofertasConfeccionCargadasRef = useRef(false);
 
   const ensureOfertasPersonalizadasCargadas = useCallback(() => {
     if (ofertasPersonalizadasCargadasRef.current) return;
@@ -265,11 +263,6 @@ export function LeadsTable({
     loadOfertasPersonalizadas();
   }, [loadOfertasPersonalizadas]);
 
-  const ensureOfertasConfeccionCargadas = useCallback(() => {
-    if (ofertasConfeccionCargadasRef.current) return;
-    ofertasConfeccionCargadasRef.current = true;
-    refetchOfertas();
-  }, [refetchOfertas]);
   const { materials, loading: loadingMaterials } = useMaterials();
   const { marcas, loading: loadingMarcas } = useMarcas();
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -511,7 +504,6 @@ export function LeadsTable({
 
   const openAsignarOfertaDialog = async (lead: Lead) => {
     try {
-      ensureOfertasConfeccionCargadas();
       console.log("Click en boton de oferta para lead:", lead.id);
       const leadId = lead.id;
       if (!leadId) {
@@ -3394,7 +3386,6 @@ export function LeadsTable({
         onSuccess={async () => {
           setMostrarDialogoEditar(false);
           setOfertaParaEditar(null);
-          if (refetchOfertas) refetchOfertas();
           onRefreshLeads?.();
           toast({
             title: "Oferta actualizada",
@@ -3412,7 +3403,6 @@ export function LeadsTable({
           exportOptions={generarOpcionesExportacion(ofertaParaExportar)}
           onOfertaActualizada={(ofertaActualizada) => {
             setOfertaParaExportar(ofertaActualizada);
-            refetchOfertas?.();
           }}
           terminosPayloadBTB={terminosCondicionesPayloadBTB}
           terminosPayloadBTC={terminosCondicionesPayloadBTC}
