@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, CalendarDays, Check, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { AlertTriangle, CalendarDays, Check, ChevronLeft, ChevronRight, Loader2, Map as IconoMapa, Users } from "lucide-react";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { Button } from "@/components/shared/atom/button";
 import { SearchableSelect } from "@/components/shared/molecule/searchable-select";
@@ -10,6 +10,10 @@ import { useAuth } from "@/contexts/auth-context";
 import { PlanificacionService } from "@/lib/services/feats/planificacion/planificacion-service";
 import { BrigadaService } from "@/lib/services/feats/brigade/brigada-service";
 import { CarrilBrigada } from "@/components/feats/planificacion/carril-brigada";
+import {
+  PlanificarPorMapa,
+  type Seleccionado,
+} from "@/components/feats/planificacion/planificar-por-mapa";
 import {
   SelectorTrabajos,
   claveCandidato,
@@ -69,6 +73,18 @@ function nombreDia(iso: string, hoy: string): string {
   return relativo ? `${relativo}, ${largo}` : largo.charAt(0).toUpperCase() + largo.slice(1);
 }
 
+/** "hoy", "mañana" o "el martes 15": para "Añadir al plan de …". */
+function diaCorto(iso: string, hoy: string): string {
+  if (iso === hoy) return "hoy";
+  if (iso === desplazar(hoy, 1)) return "mañana";
+  if (iso === desplazar(hoy, -1)) return "ayer";
+  const f = aFecha(iso);
+  return `el ${DIAS[f.getDay()]} ${f.getDate()}`;
+}
+
+type VistaPlan = "mapa" | "brigadas";
+const CLAVE_VISTA = "planificacion:vista";
+
 function mismoAsignado(a: Asignado, b: Asignado): boolean {
   return a.tipo === b.tipo && a.id === b.id;
 }
@@ -106,6 +122,24 @@ export default function PlanificacionPage() {
   const [sueltos, setSueltos] = useState<Asignado[]>([]);
   const [destino, setDestino] = useState<Asignado | null>(null);
   const cache = useRef(new Map<TipoTrabajo, CandidatoPlanificacion[]>());
+  // Se abre en la última forma que se usó.
+  const [vista, setVista] = useState<VistaPlan>("mapa");
+  useEffect(() => {
+    try {
+      const guardada = localStorage.getItem(CLAVE_VISTA);
+      if (guardada === "mapa" || guardada === "brigadas") setVista(guardada);
+    } catch {
+      /* sin almacenamiento, el mapa */
+    }
+  }, []);
+  function cambiarVista(v: VistaPlan) {
+    setVista(v);
+    try {
+      localStorage.setItem(CLAVE_VISTA, v);
+    } catch {
+      /* no pasa nada */
+    }
+  }
 
   // Lo que se guarda se lee de refs: el guardado corre fuera del render y
   // tiene que llevarse siempre lo último.
@@ -284,6 +318,31 @@ export default function PlanificacionPage() {
     }
   }
 
+  /** Lo marcado en el mapa, de una vez y para la misma persona o brigada. */
+  function agregarVarios(items: Seleccionado[], quien: Asignado) {
+    const existentes = new Set(trabajosRef.current.map((t) => `${t.tipo}|${claveTrabajo(t)}`));
+    const nuevos = items.filter((i) => !existentes.has(`${i.tipo}|${claveCandidato(i.candidato)}`));
+    if (nuevos.length === 0) return;
+    editar((lista) => [
+      ...lista,
+      ...nuevos.map((i) => ({
+        id: nuevoId(),
+        tipo: i.tipo,
+        cliente_numero: i.candidato.cliente_numero,
+        lead_id: i.candidato.lead_id,
+        nombre: i.candidato.nombre,
+        direccion: i.candidato.direccion,
+        asignado: quien,
+        nota: null,
+        estado: "planificado" as const,
+      })),
+    ]);
+    toast({
+      title: `${nuevos.length} trabajo${nuevos.length === 1 ? "" : "s"} añadido${nuevos.length === 1 ? "" : "s"} al plan`,
+      description: quien.tipo === "brigada" ? `Con la brigada de ${quien.nombre}.` : `Con ${quien.nombre}.`,
+    });
+  }
+
   // Las brigadas siempre en el mismo sitio, tengan trabajo o no. Detrás, las
   // personas sueltas que se hayan planificado.
   const carriles = useMemo(() => {
@@ -353,11 +412,38 @@ export default function PlanificacionPage() {
           {!cargando && !errorCarga && (
             <p className="text-sm text-gray-600">
               {trabajos.length === 0
-                ? "Nada planificado todavía. Pulsa Añadir en la brigada que quieras."
+                ? vista === "mapa"
+                  ? "Nada planificado todavía. Elige una zona y marca los pendientes."
+                  : "Nada planificado todavía. Pulsa Añadir en la brigada que quieras."
                 : `${trabajos.length} trabajo${trabajos.length === 1 ? "" : "s"}` +
                   (brigadas.length ? ` · ${conTrabajo} de ${brigadas.length} brigadas con trabajo` : "")}
             </p>
           )}
+
+          <div className="ml-auto inline-flex rounded-lg bg-gray-200/70 p-1" role="tablist" aria-label="Cómo planificar">
+            {(
+              [
+                ["mapa", "Por zonas", IconoMapa],
+                ["brigadas", "Por brigadas", Users],
+              ] as const
+            ).map(([v, texto, Icono]) => (
+              <button
+                key={v}
+                type="button"
+                role="tab"
+                aria-selected={vista === v}
+                onClick={() => cambiarVista(v)}
+                className={
+                  "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors " +
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 " +
+                  (vista === v ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900")
+                }
+              >
+                <Icono className="h-4 w-4" />
+                {texto}
+              </button>
+            ))}
+          </div>
         </div>
 
         {cargando ? (
@@ -373,6 +459,18 @@ export default function PlanificacionPage() {
               Reintentar
             </Button>
           </div>
+        ) : vista === "mapa" ? (
+          <PlanificarPorMapa
+            key={fecha}
+            dia={diaCorto(fecha, hoy)}
+            trabajos={trabajos}
+            brigadas={carriles
+              .filter((c) => c.quien.tipo === "brigada")
+              .map((c) => ({ asignado: c.quien, detalle: c.subtitulo }))}
+            trabajadores={trabajadores}
+            cache={cache}
+            onAgregar={agregarVarios}
+          />
         ) : (
           <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {carriles.map(({ quien, subtitulo }) => (
