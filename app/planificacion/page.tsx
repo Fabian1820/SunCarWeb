@@ -28,7 +28,14 @@ interface Brigada {
   asignado: Asignado;
   /** El _id de la colección: planes viejos se guardaron con él. */
   idViejo: string;
-  personas: number;
+  /** Los demás integrantes, sin el líder. */
+  integrantes: string[];
+}
+
+/** "Ana", "Ana y Luis", "Ana, Luis y Pedro". */
+function unirNombres(nombres: string[]): string {
+  if (nombres.length <= 1) return nombres[0] ?? "";
+  return `${nombres.slice(0, -1).join(", ")} y ${nombres[nombres.length - 1]}`;
 }
 
 const DIAS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
@@ -176,7 +183,10 @@ export default function PlanificacionPage() {
             bs.push({
               asignado: { tipo: "brigada", id: ciLider, nombre: lider.nombre || ciLider },
               idViejo: String(b.id ?? b._id ?? ""),
-              personas: (b.integrantes?.length ?? 0) + 1,
+              integrantes: (b.integrantes || [])
+                .filter((p: any) => p && String(p.CI ?? "") !== ciLider)
+                .map((p: any) => p.nombre || String(p.CI ?? ""))
+                .filter(Boolean),
             });
           }
           for (const p of [lider, ...(b.integrantes || [])]) {
@@ -279,7 +289,7 @@ export default function PlanificacionPage() {
   const carriles = useMemo(() => {
     const lista: { quien: Asignado; subtitulo: string }[] = brigadas.map((b) => ({
       quien: b.asignado,
-      subtitulo: `${b.personas} persona${b.personas === 1 ? "" : "s"}`,
+      subtitulo: b.integrantes.length ? `Con ${unirNombres(b.integrantes)}` : "Sin más integrantes",
     }));
     const vistos = new Set(lista.map((c) => `${c.quien.tipo}:${c.quien.id}`));
     for (const a of [...sueltos, ...trabajos.map((t) => t.asignado)]) {
@@ -403,6 +413,9 @@ export default function PlanificacionPage() {
 
       <SelectorTrabajos
         destino={destino}
+        detalleDestino={
+          destino ? carriles.find((c) => mismoAsignado(c.quien, destino))?.subtitulo : undefined
+        }
         trabajos={trabajos}
         cache={cache}
         onAlternar={alternar}

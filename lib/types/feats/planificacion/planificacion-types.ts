@@ -58,6 +58,8 @@ export interface CandidatoPlanificacion {
   telefono: string;
   direccion: string;
   municipio: string;
+  /** Provincia de montaje: con el municipio, sirve para filtrar por zona. */
+  provincia?: string;
   estado: string;
   /** Solo en averías: qué está roto. */
   detalle?: string;

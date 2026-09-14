@@ -30,9 +30,9 @@ export function CarrilBrigada({ quien, subtitulo, trabajos, onAgregar, onQuitar,
           <h2 className="truncate text-base font-semibold text-gray-900">
             {quien.tipo === "brigada" ? `Brigada de ${quien.nombre}` : quien.nombre}
           </h2>
+          <p className="text-sm text-gray-700">{subtitulo}</p>
           <p className="text-xs text-gray-500">
-            {subtitulo}
-            {vacia ? " · sin trabajos" : ` · ${trabajos.length} trabajo${trabajos.length === 1 ? "" : "s"}`}
+            {vacia ? "Sin trabajos" : `${trabajos.length} trabajo${trabajos.length === 1 ? "" : "s"}`}
           </p>
         </div>
         <Button size="sm" variant={vacia ? "outline" : "default"} onClick={onAgregar}>

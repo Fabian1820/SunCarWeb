@@ -52,9 +52,32 @@ function normalizar(texto: string): string {
   return texto.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 }
 
+const SIN_ZONA = "Sin especificar";
+
+function zona(valor?: string | null): string {
+  return (valor || "").trim() || SIN_ZONA;
+}
+
+/** Valores distintos con cuántos hay de cada uno, en orden alfabético y "Sin especificar" al final. */
+function contar(valores: string[]): { valor: string; cuantos: number }[] {
+  const mapa = new Map<string, number>();
+  for (const v of valores) mapa.set(v, (mapa.get(v) ?? 0) + 1);
+  return [...mapa.entries()]
+    .map(([valor, cuantos]) => ({ valor, cuantos }))
+    .sort((a, b) =>
+      a.valor === SIN_ZONA ? 1 : b.valor === SIN_ZONA ? -1 : a.valor.localeCompare(b.valor),
+    );
+}
+
+const CLASE_SELECT =
+  "h-9 w-full min-w-0 rounded-md border border-input bg-background px-2 text-sm text-gray-900 " +
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600";
+
 interface Props {
   /** A quién se le añade. Con null el panel está cerrado. */
   destino: Asignado | null;
+  /** Quiénes van en esa brigada, para tenerlo presente al elegir. */
+  detalleDestino?: string;
   trabajos: TrabajoPlanificado[];
   /** Lo ya traído de cada tipo: volver a uno es instantáneo. */
   cache: MutableRefObject<Map<TipoTrabajo, CandidatoPlanificacion[]>>;
@@ -72,7 +95,7 @@ interface Props {
  * Un solo buscador. Vacío enseña a quien está en el estado de ese tipo; al
  * escribir busca además a cualquier cliente o lead, con los sugeridos primero.
  */
-export function SelectorTrabajos({ destino, trabajos, cache, onAlternar, onCerrar }: Props) {
+export function SelectorTrabajos({ destino, detalleDestino, trabajos, cache, onAlternar, onCerrar }: Props) {
   const esTrabajador = destino?.tipo === "trabajador";
   // Instalar es cosa de una brigada entera: a una sola persona ni se le ofrece.
   const tipos = esTrabajador ? TIPOS.filter((t) => TIPOS_QUE_ADMITEN_TRABAJADOR.includes(t)) : TIPOS;
@@ -83,6 +106,10 @@ export function SelectorTrabajos({ destino, trabajos, cache, onAlternar, onCerra
   const [errorSugeridos, setErrorSugeridos] = useState(false);
   const [otros, setOtros] = useState<CandidatoPlanificacion[]>([]);
   const [buscando, setBuscando] = useState(false);
+  // La zona se mantiene al cambiar de tipo: se suele planificar por zona
+  // ("todo lo de Artemisa para esta brigada"), no tipo por tipo.
+  const [provincia, setProvincia] = useState("");
+  const [municipio, setMunicipio] = useState("");
   const buscador = useRef<HTMLInputElement>(null);
 
   // Cada vez que se abre para otra brigada se empieza limpio.
@@ -91,6 +118,8 @@ export function SelectorTrabajos({ destino, trabajos, cache, onAlternar, onCerra
     if (!claveDestino) return;
     setTipo("visita");
     setConsulta("");
+    setProvincia("");
+    setMunicipio("");
   }, [claveDestino]);
 
   useEffect(() => {
@@ -151,6 +180,7 @@ export function SelectorTrabajos({ destino, trabajos, cache, onAlternar, onCerra
               telefono: c.telefono ?? "",
               direccion: c.direccion ?? "",
               municipio: c.municipio ?? "",
+              provincia: c.provincia_montaje ?? "",
               estado: c.estado ?? "",
             })),
             ...(resLeads.leads || []).map((l: any) => ({
@@ -161,6 +191,7 @@ export function SelectorTrabajos({ destino, trabajos, cache, onAlternar, onCerra
               telefono: l.telefono ?? "",
               direccion: l.direccion ?? "",
               municipio: l.municipio ?? "",
+              provincia: l.provincia_montaje ?? "",
               estado: l.estado ?? "",
             })),
           ]);
@@ -176,21 +207,44 @@ export function SelectorTrabajos({ destino, trabajos, cache, onAlternar, onCerra
   const texto = normalizar(consulta.trim());
   const buscaATodos = consulta.trim().length >= 3;
 
+  // Las opciones salen de lo que hay en pantalla: solo zonas con alguien.
+  const cargados = useMemo(
+    () => (buscaATodos ? [...sugeridos, ...otros] : sugeridos),
+    [sugeridos, otros, buscaATodos],
+  );
+  const provincias = useMemo(() => {
+    const lista = contar(cargados.map((c) => zona(c.provincia)));
+    if (provincia && !lista.some((p) => p.valor === provincia)) lista.push({ valor: provincia, cuantos: 0 });
+    return lista;
+  }, [cargados, provincia]);
+  const municipios = useMemo(() => {
+    const deLaProvincia = provincia ? cargados.filter((c) => zona(c.provincia) === provincia) : cargados;
+    const lista = contar(deLaProvincia.map((c) => zona(c.municipio)));
+    if (municipio && !lista.some((m) => m.valor === municipio)) lista.push({ valor: municipio, cuantos: 0 });
+    return lista;
+  }, [cargados, provincia, municipio]);
+
+  const filtrandoZona = provincia !== "" || municipio !== "";
+  const enZona = (c: CandidatoPlanificacion) =>
+    (!provincia || zona(c.provincia) === provincia) && (!municipio || zona(c.municipio) === municipio);
+
   const sugeridosVisibles = useMemo(
     () =>
-      texto
-        ? sugeridos.filter((c) =>
-            normalizar(`${c.nombre} ${c.direccion} ${c.municipio}`).includes(texto),
-          )
-        : sugeridos,
-    [sugeridos, texto],
+      sugeridos.filter(
+        (c) =>
+          enZona(c) &&
+          (!texto || normalizar(`${c.nombre} ${c.direccion} ${c.municipio}`).includes(texto)),
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sugeridos, texto, provincia, municipio],
   );
 
   const otrosVisibles = useMemo(() => {
     if (!buscaATodos) return [];
     const yaSugeridos = new Set(sugeridosVisibles.map(claveCandidato));
-    return otros.filter((c) => !yaSugeridos.has(claveCandidato(c)));
-  }, [otros, sugeridosVisibles, buscaATodos]);
+    return otros.filter((c) => enZona(c) && !yaSugeridos.has(claveCandidato(c)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [otros, sugeridosVisibles, buscaATodos, provincia, municipio]);
 
   /** Dónde está ya esa persona para este tipo de trabajo, si está. */
   const porClave = useMemo(() => {
@@ -282,6 +336,7 @@ export function SelectorTrabajos({ destino, trabajos, cache, onAlternar, onCerra
           <SheetTitle className="pr-8">
             {esTrabajador ? `Añadir a ${destino?.nombre}` : `Añadir a la brigada de ${destino?.nombre}`}
           </SheetTitle>
+          {detalleDestino && <p className="text-sm text-gray-700">{detalleDestino}</p>}
           <SheetDescription>
             {deEste === 0
               ? "Toca a una persona para añadirla. Otra vez, para quitarla."
@@ -320,6 +375,50 @@ export function SelectorTrabajos({ destino, trabajos, cache, onAlternar, onCerra
               aria-label="Buscar cliente o lead"
             />
           </div>
+
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <select
+              value={provincia}
+              onChange={(e) => {
+                setProvincia(e.target.value);
+                setMunicipio("");
+              }}
+              aria-label="Filtrar por provincia"
+              className={cn(CLASE_SELECT, provincia && "border-emerald-700 bg-emerald-50 font-medium")}
+            >
+              <option value="">Todas las provincias</option>
+              {provincias.map((p) => (
+                <option key={p.valor} value={p.valor}>
+                  {p.valor} ({p.cuantos})
+                </option>
+              ))}
+            </select>
+            <select
+              value={municipio}
+              onChange={(e) => setMunicipio(e.target.value)}
+              aria-label="Filtrar por municipio"
+              className={cn(CLASE_SELECT, municipio && "border-emerald-700 bg-emerald-50 font-medium")}
+            >
+              <option value="">Todos los municipios</option>
+              {municipios.map((m) => (
+                <option key={m.valor} value={m.valor}>
+                  {m.valor} ({m.cuantos})
+                </option>
+              ))}
+            </select>
+          </div>
+          {filtrandoZona && (
+            <button
+              type="button"
+              onClick={() => {
+                setProvincia("");
+                setMunicipio("");
+              }}
+              className="self-start text-xs font-medium text-emerald-800 hover:underline"
+            >
+              Quitar filtro de zona
+            </button>
+          )}
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto px-2 py-3">
@@ -341,7 +440,9 @@ export function SelectorTrabajos({ destino, trabajos, cache, onAlternar, onCerra
                     </p>
                   ) : sugeridosVisibles.length === 0 ? (
                     <p className="px-3 py-2 text-sm text-gray-500">
-                      {consulta.trim()
+                      {filtrandoZona && !consulta.trim()
+                        ? "Nadie de esta lista en esa zona."
+                        : consulta.trim()
                         ? "Nadie de esta lista se llama así."
                         : "Nadie en ese estado ahora mismo. Escribe un nombre para buscar a cualquiera."}
                     </p>
@@ -362,7 +463,9 @@ export function SelectorTrabajos({ destino, trabajos, cache, onAlternar, onCerra
                       Buscando…
                     </p>
                   ) : otrosVisibles.length === 0 ? (
-                    <p className="px-3 py-2 text-sm text-gray-500">Nadie más con ese nombre.</p>
+                    <p className="px-3 py-2 text-sm text-gray-500">
+                      {filtrandoZona ? "Nadie más con ese nombre en esa zona." : "Nadie más con ese nombre."}
+                    </p>
                   ) : (
                     <ul>{otrosVisibles.map((c) => fila(c, true))}</ul>
                   )}
