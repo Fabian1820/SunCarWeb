@@ -51,6 +51,12 @@ const PUNTO_TIPO: Record<TipoTrabajo, string> = {
 };
 
 const CLAVE_ZONA_GUARDADA = "planificacion:zona";
+const SIN_MUNICIPIO = "__sin_municipio__";
+
+const CLASE_SELECT =
+  "h-10 w-full min-w-0 rounded-md border border-input bg-white px-2.5 text-sm text-gray-900 " +
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600";
+const SELECT_ACTIVO = "border-emerald-700 bg-emerald-50 font-medium";
 
 export interface Seleccionado {
   tipo: TipoTrabajo;
@@ -198,7 +204,8 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
     return m;
   }, [seleccion]);
 
-  const sinZona = ubicados.filter((u) => !u.provincia);
+  // Sin municipio reconocible, dentro de la provincia elegida si hay una.
+  const sinZona = ubicados.filter((u) => !u.municipio && (!provincia || u.provincia?.k === provincia));
   const sinZonaLibres = sinZona.filter((u) => !enPlan.has(clave(tipo, u.c))).length;
 
   const provinciaActual = mapa?.provincias.find((p) => p.k === provincia) ?? null;
@@ -214,6 +221,30 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
     setVerSinZona(false);
     setMunicipio((actual) => (actual === id ? null : id));
   }
+
+  /** Desde el desplegable: elegir un municipio lleva también a su provincia. */
+  function filtrarMunicipio(valor: string) {
+    if (valor === SIN_MUNICIPIO) {
+      setVerSinZona(true);
+      setMunicipio(null);
+      return;
+    }
+    setVerSinZona(false);
+    const m = mapa?.municipios.find((x) => x.id === valor);
+    if (!m) {
+      setMunicipio(null);
+      return;
+    }
+    setProvincia(m.pk);
+    setMunicipio(m.id);
+  }
+
+  const opcionesMunicipio = !mapa
+    ? []
+    : (provincia
+        ? mapa.municipios.filter((m) => m.pk === provincia)
+        : mapa.municipios.filter((m) => (conteoMunicipio.get(m.id) ?? 0) > 0)
+      ).sort((a, b) => a.n.localeCompare(b.n));
 
   function alternar(u: Ubicado) {
     const k = clave(tipo, u.c);
@@ -344,54 +375,41 @@ export function PlanificarPorMapa({ dia, trabajos, brigadas, trabajadores, cache
             })}
           </div>
 
-          <div className="flex flex-wrap items-center gap-x-1 gap-y-2 px-4 pt-3 text-sm">
-            <button
-              type="button"
-              onClick={() => elegirProvincia(null)}
-              className={cn(
-                "rounded px-1.5 py-0.5 font-medium",
-                provincia ? "text-emerald-800 hover:bg-emerald-50" : "text-gray-900",
-              )}
-            >
-              Cuba
-            </button>
-            {provinciaActual && (
-              <>
-                <ChevronRight className="h-4 w-4 text-gray-400" aria-hidden />
-                <button
-                  type="button"
-                  onClick={() => setMunicipio(null)}
-                  className={cn(
-                    "rounded px-1.5 py-0.5 font-medium",
-                    municipio ? "text-emerald-800 hover:bg-emerald-50" : "text-gray-900",
-                  )}
-                >
-                  {provinciaActual.n}
-                </button>
-              </>
-            )}
-            {municipioActual && (
-              <>
-                <ChevronRight className="h-4 w-4 text-gray-400" aria-hidden />
-                <span className="px-1.5 py-0.5 font-medium text-gray-900">{municipioActual.n}</span>
-              </>
-            )}
-            <span className="flex-1" />
-            {sinZona.length > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  setVerSinZona(true);
-                  setMunicipio(null);
-                }}
-                className={cn(
-                  "rounded-full border px-2.5 py-0.5 text-xs font-medium",
-                  verSinZona ? "border-gray-900 bg-gray-900 text-white" : "border-gray-300 text-gray-700 hover:bg-gray-50",
-                )}
+          {/* Filtros: lo mismo que tocar el mapa, sin tener que encontrar el sitio. */}
+          <div className="grid gap-2 px-4 pt-3 sm:grid-cols-2">
+            <label className="flex min-w-0 flex-col gap-1">
+              <span className="text-xs font-medium text-gray-600">Provincia</span>
+              <select
+                value={provincia ?? ""}
+                onChange={(e) => elegirProvincia(e.target.value || null)}
+                className={cn(CLASE_SELECT, provincia && SELECT_ACTIVO)}
               >
-                Sin municipio · {sinZonaLibres}
-              </button>
-            )}
+                <option value="">Toda Cuba ({libres.length})</option>
+                {(mapa?.provincias ?? []).map((p) => (
+                  <option key={p.k} value={p.k}>
+                    {p.n} ({conteoProvincia.get(p.k) ?? 0})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex min-w-0 flex-col gap-1">
+              <span className="text-xs font-medium text-gray-600">Municipio</span>
+              <select
+                value={verSinZona ? SIN_MUNICIPIO : municipio ?? ""}
+                onChange={(e) => filtrarMunicipio(e.target.value)}
+                className={cn(CLASE_SELECT, (municipio || verSinZona) && SELECT_ACTIVO)}
+              >
+                <option value="">{provincia ? "Todos los municipios" : "Elegir municipio"}</option>
+                {opcionesMunicipio.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {provincia ? m.n : `${m.n} · ${m.p}`} ({conteoMunicipio.get(m.id) ?? 0})
+                  </option>
+                ))}
+                {sinZona.length > 0 && (
+                  <option value={SIN_MUNICIPIO}>Sin municipio ({sinZonaLibres})</option>
+                )}
+              </select>
+            </label>
           </div>
 
           <div className="relative px-2 pb-2">
