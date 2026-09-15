@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowDownUp,
@@ -42,6 +42,8 @@ interface Tono {
   Icono: LucideIcon;
   /** El círculo de la línea de tiempo. */
   nodo: string;
+  /** Color de la flecha que llega a este tipo. */
+  flecha: string;
   /** Fondo y borde de la tarjeta. */
   tarjeta: string;
   /** Texto principal, del mismo tono que el fondo. */
@@ -56,6 +58,7 @@ const TONOS: Record<string, Tono> = {
     grupo: "registro",
     Icono: UserPlus,
     nodo: "bg-gray-700",
+    flecha: "stroke-gray-700 fill-gray-700",
     tarjeta: "border-gray-200 bg-white",
     fuerte: "text-gray-900",
     suave: "text-gray-600",
@@ -64,6 +67,7 @@ const TONOS: Record<string, Tono> = {
     grupo: "comercial",
     Icono: Megaphone,
     nodo: "bg-fuchsia-600",
+    flecha: "stroke-fuchsia-600 fill-fuchsia-600",
     tarjeta: "border-fuchsia-200 bg-fuchsia-50",
     fuerte: "text-fuchsia-950",
     suave: "text-fuchsia-900",
@@ -72,6 +76,7 @@ const TONOS: Record<string, Tono> = {
     grupo: "comercial",
     Icono: CalendarClock,
     nodo: "bg-pink-600",
+    flecha: "stroke-pink-600 fill-pink-600",
     tarjeta: "border-pink-200 bg-pink-50",
     fuerte: "text-pink-950",
     suave: "text-pink-900",
@@ -80,6 +85,7 @@ const TONOS: Record<string, Tono> = {
     grupo: "comercial",
     Icono: UserCog,
     nodo: "bg-slate-600",
+    flecha: "stroke-slate-600 fill-slate-600",
     tarjeta: "border-slate-200 bg-slate-50",
     fuerte: "text-slate-950",
     suave: "text-slate-700",
@@ -88,6 +94,7 @@ const TONOS: Record<string, Tono> = {
     grupo: "ofertas",
     Icono: FilePlus2,
     nodo: "bg-emerald-800",
+    flecha: "stroke-emerald-800 fill-emerald-800",
     tarjeta: "border-emerald-200 bg-white",
     fuerte: "text-emerald-950",
     suave: "text-emerald-900",
@@ -96,6 +103,7 @@ const TONOS: Record<string, Tono> = {
     grupo: "ofertas",
     Icono: FilePen,
     nodo: "bg-emerald-500",
+    flecha: "stroke-emerald-500 fill-emerald-500",
     tarjeta: "border-emerald-100 bg-white",
     fuerte: "text-emerald-950",
     suave: "text-emerald-900",
@@ -104,6 +112,7 @@ const TONOS: Record<string, Tono> = {
     grupo: "ofertas",
     Icono: ArrowRightLeft,
     nodo: "bg-emerald-700",
+    flecha: "stroke-emerald-700 fill-emerald-700",
     tarjeta: "border-emerald-200 bg-emerald-50",
     fuerte: "text-emerald-950",
     suave: "text-emerald-900",
@@ -112,6 +121,7 @@ const TONOS: Record<string, Tono> = {
     grupo: "ofertas",
     Icono: XCircle,
     nodo: "bg-gray-500",
+    flecha: "stroke-gray-500 fill-gray-500",
     tarjeta: "border-gray-200 bg-gray-100",
     fuerte: "text-gray-900",
     suave: "text-gray-700",
@@ -120,6 +130,7 @@ const TONOS: Record<string, Tono> = {
     grupo: "ofertas",
     Icono: Trash2,
     nodo: "bg-gray-500",
+    flecha: "stroke-gray-500 fill-gray-500",
     tarjeta: "border-gray-200 bg-gray-100",
     fuerte: "text-gray-900",
     suave: "text-gray-700",
@@ -128,6 +139,7 @@ const TONOS: Record<string, Tono> = {
     grupo: "pagos",
     Icono: Banknote,
     nodo: "bg-cyan-700",
+    flecha: "stroke-cyan-700 fill-cyan-700",
     tarjeta: "border-cyan-200 bg-cyan-50",
     fuerte: "text-cyan-950",
     suave: "text-cyan-900",
@@ -136,6 +148,7 @@ const TONOS: Record<string, Tono> = {
     grupo: "pagos",
     Icono: PencilLine,
     nodo: "bg-cyan-500",
+    flecha: "stroke-cyan-500 fill-cyan-500",
     tarjeta: "border-cyan-100 bg-white",
     fuerte: "text-cyan-950",
     suave: "text-cyan-900",
@@ -144,6 +157,7 @@ const TONOS: Record<string, Tono> = {
     grupo: "pagos",
     Icono: Ban,
     nodo: "bg-gray-500",
+    flecha: "stroke-gray-500 fill-gray-500",
     tarjeta: "border-gray-200 bg-gray-100",
     fuerte: "text-gray-900",
     suave: "text-gray-700",
@@ -152,6 +166,7 @@ const TONOS: Record<string, Tono> = {
     grupo: "pagos",
     Icono: Undo2,
     nodo: "bg-orange-600",
+    flecha: "stroke-orange-600 fill-orange-600",
     tarjeta: "border-orange-200 bg-orange-50",
     fuerte: "text-orange-950",
     suave: "text-orange-900",
@@ -160,6 +175,7 @@ const TONOS: Record<string, Tono> = {
     grupo: "ofertas",
     Icono: BadgeCheck,
     nodo: "bg-emerald-600",
+    flecha: "stroke-emerald-600 fill-emerald-600",
     tarjeta: "border-emerald-200 bg-emerald-50",
     fuerte: "text-emerald-950",
     suave: "text-emerald-900",
@@ -168,6 +184,7 @@ const TONOS: Record<string, Tono> = {
     grupo: "visitas",
     Icono: MapPin,
     nodo: "bg-indigo-600",
+    flecha: "stroke-indigo-600 fill-indigo-600",
     tarjeta: "border-indigo-200 bg-indigo-50",
     fuerte: "text-indigo-950",
     suave: "text-indigo-900",
@@ -176,6 +193,7 @@ const TONOS: Record<string, Tono> = {
     grupo: "materiales",
     Icono: PackageOpen,
     nodo: "bg-violet-600",
+    flecha: "stroke-violet-600 fill-violet-600",
     tarjeta: "border-violet-200 bg-violet-50",
     fuerte: "text-violet-950",
     suave: "text-violet-900",
@@ -184,6 +202,7 @@ const TONOS: Record<string, Tono> = {
     grupo: "materiales",
     Icono: RotateCcw,
     nodo: "bg-amber-600",
+    flecha: "stroke-amber-600 fill-amber-600",
     tarjeta: "border-amber-200 bg-amber-50",
     fuerte: "text-amber-950",
     suave: "text-amber-900",
@@ -192,6 +211,7 @@ const TONOS: Record<string, Tono> = {
     grupo: "trabajos",
     Icono: Wrench,
     nodo: "bg-sky-700",
+    flecha: "stroke-sky-700 fill-sky-700",
     tarjeta: "border-sky-200 bg-sky-50",
     fuerte: "text-sky-950",
     suave: "text-sky-900",
@@ -200,6 +220,7 @@ const TONOS: Record<string, Tono> = {
     grupo: "averias",
     Icono: AlertTriangle,
     nodo: "bg-red-600",
+    flecha: "stroke-red-600 fill-red-600",
     tarjeta: "border-red-200 bg-red-50",
     fuerte: "text-red-950",
     suave: "text-red-900",
@@ -208,6 +229,7 @@ const TONOS: Record<string, Tono> = {
     grupo: "averias",
     Icono: CheckCircle2,
     nodo: "bg-teal-600",
+    flecha: "stroke-teal-600 fill-teal-600",
     tarjeta: "border-teal-200 bg-teal-50",
     fuerte: "text-teal-950",
     suave: "text-teal-900",
@@ -215,6 +237,38 @@ const TONOS: Record<string, Tono> = {
 };
 
 const tonoDe = (tipo: string | undefined): Tono => (tipo && TONOS[tipo]) || TONOS.cliente;
+
+/** Qué conexiones se dibujan como flecha, del evento anterior al siguiente. El resto va como botón. */
+const PARES_FLECHA = new Set([
+  "averia>averia_solucionada",
+  "averia>trabajo_diario",
+  "trabajo_diario>averia_solucionada",
+  "vale>trabajo_diario",
+  "vale>devolucion",
+  "oferta_creada>oferta_confirmada",
+  "oferta_creada>oferta_cancelada",
+  "pago>pago_editado",
+  "pago>pago_cancelado",
+  "pago>devolucion_pago",
+  "lead>cliente",
+]);
+/** Ancho del carril de las flechas, a la derecha de las tarjetas. */
+const CARRIL = 44;
+const MAX_CARRILES = 4;
+
+interface Flecha {
+  desde: string;
+  hasta: string;
+  clase: string;
+}
+
+interface Trazo {
+  clave: string;
+  camino: string;
+  punta: string;
+  inicio: [number, number];
+  clase: string;
+}
 
 const GRUPOS: { clave: Grupo; nombre: string; punto: string }[] = [
   { clave: "comercial", nombre: "Comercial", punto: "bg-fuchsia-600" },
@@ -346,6 +400,78 @@ export function HistorialClientePanel({ numero, vista = "operaciones", enDialogo
     );
   }
 
+  const idsVisibles = useMemo(() => new Set(dias.flatMap((d) => d.eventos.map((e) => e.id))), [dias]);
+
+  // Las conexiones que se dibujan: siempre del evento anterior al siguiente.
+  const flechas = useMemo<Flecha[]>(() => {
+    const eventos = datos?.eventos ?? [];
+    const orden = new Map(eventos.map((e, i) => [e.id, i]));
+    const vistas = new Set<string>();
+    const lista: Flecha[] = [];
+    for (const e of eventos) {
+      for (const l of e.enlaces) {
+        if (!idsVisibles.has(e.id) || !idsVisibles.has(l.id)) continue;
+        const [desde, hasta] = (orden.get(e.id) ?? 0) <= (orden.get(l.id) ?? 0) ? [e.id, l.id] : [l.id, e.id];
+        if (vistas.has(`${desde}|${hasta}`)) continue;
+        if (!PARES_FLECHA.has(`${tipoPorId.get(desde)}>${tipoPorId.get(hasta)}`)) continue;
+        vistas.add(`${desde}|${hasta}`);
+        lista.push({ desde, hasta, clase: tonoDe(tipoPorId.get(hasta)).flecha });
+      }
+    }
+    return lista;
+  }, [datos, idsVisibles, tipoPorId]);
+
+  const conFlecha = useMemo(
+    () => new Set(flechas.flatMap((f) => [`${f.desde}|${f.hasta}`, `${f.hasta}|${f.desde}`])),
+    [flechas],
+  );
+
+  const lineaRef = useRef<HTMLDivElement>(null);
+  const [trazos, setTrazos] = useState<Trazo[]>([]);
+
+  // Se mide dónde quedó cada tarjeta y se trazan las flechas por el carril de
+  // la derecha, cada una en su carril para que no se pisen.
+  useLayoutEffect(() => {
+    const contenedor = lineaRef.current;
+    if (!contenedor) {
+      setTrazos([]);
+      return;
+    }
+    const medir = () => {
+      const base = contenedor.getBoundingClientRect();
+      const alturas = new Map<string, number>();
+      contenedor.querySelectorAll<HTMLElement>("[data-evento]").forEach((el) => {
+        alturas.set(el.dataset.evento ?? "", el.getBoundingClientRect().top - base.top + 20);
+      });
+      const borde = base.width - CARRIL;
+      const tramos = flechas
+        .map((f) => ({ f, a: alturas.get(f.desde), b: alturas.get(f.hasta) }))
+        .filter((t): t is { f: Flecha; a: number; b: number } => t.a !== undefined && t.b !== undefined)
+        .sort((x, y) => Math.min(x.a, x.b) - Math.min(y.a, y.b));
+      const finCarril: number[] = Array(MAX_CARRILES).fill(-Infinity);
+      const nuevos: Trazo[] = [];
+      for (const t of tramos) {
+        const arriba = Math.min(t.a, t.b);
+        const carril = finCarril.findIndex((fin) => fin < arriba - 6);
+        if (carril < 0) continue;
+        finCarril[carril] = Math.max(t.a, t.b);
+        const x = borde + 12 + carril * 8;
+        nuevos.push({
+          clave: `${t.f.desde}|${t.f.hasta}`,
+          camino: `M ${borde + 3} ${t.a} H ${x} V ${t.b} H ${borde + 9}`,
+          punta: `${borde + 1},${t.b} ${borde + 9},${t.b - 4.5} ${borde + 9},${t.b + 4.5}`,
+          inicio: [borde + 3, t.a],
+          clase: t.f.clase,
+        });
+      }
+      setTrazos(nuevos);
+    };
+    medir();
+    const observador = new ResizeObserver(medir);
+    observador.observe(contenedor);
+    return () => observador.disconnect();
+  }, [flechas, dias]);
+
   const volver = enDialogo ? null : (
     <button
       type="button"
@@ -455,7 +581,17 @@ export function HistorialClientePanel({ numero, vista = "operaciones", enDialogo
           {datos.eventos.length === 0 ? "Todavía no hay nada registrado de este cliente." : "Nada con esos filtros."}
         </p>
       ) : (
-        <ol className="mt-6">
+        <div ref={lineaRef} className="relative mt-6" style={{ paddingRight: CARRIL }}>
+          <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden>
+            {trazos.map((t) => (
+              <g key={t.clave} className={t.clase}>
+                <path d={t.camino} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ fill: "none" }} />
+                <polygon points={t.punta} style={{ stroke: "none" }} />
+                <circle cx={t.inicio[0]} cy={t.inicio[1]} r={3} style={{ stroke: "none" }} />
+              </g>
+            ))}
+          </svg>
+          <ol>
           {dias.map(({ dia, eventos }) => (
             <li key={dia} className="mb-3">
               <div className={cn("sticky z-10 mb-3 flex items-center gap-2 bg-gray-50 py-1", enDialogo ? "top-[5.5rem]" : "top-16")}>
@@ -467,12 +603,13 @@ export function HistorialClientePanel({ numero, vista = "operaciones", enDialogo
               </div>
               <ol className="ml-[18px] border-l-2 border-gray-200 pl-7">
                 {eventos.map((e) => (
-                  <Evento key={e.id} evento={e} resaltado={resaltado === e.id} tipoPorId={tipoPorId} onIr={irA} />
+                  <Evento key={e.id} evento={e} resaltado={resaltado === e.id} tipoPorId={tipoPorId} conFlecha={conFlecha} onIr={irA} />
                 ))}
               </ol>
             </li>
           ))}
-        </ol>
+          </ol>
+        </div>
       )}
     </div>
   );
@@ -482,14 +619,18 @@ function Evento({
   evento: e,
   resaltado,
   tipoPorId,
+  conFlecha,
   onIr,
 }: {
   evento: EventoHistorial;
   resaltado: boolean;
   tipoPorId: Map<string, string>;
+  /** Las conexiones que ya se ven como flecha: no se repiten como botón. */
+  conFlecha: Set<string>;
   onIr: (id: string) => void;
 }) {
   const t = tonoDe(e.tipo);
+  const enlaces = e.enlaces.filter((l) => !conFlecha.has(`${e.id}|${l.id}`));
   const hora = e.fecha && !e.solo_dia ? e.fecha.slice(11, 16) : null;
   return (
     <li id={`evento-${e.id}`} className="relative mb-4 scroll-mt-32">
@@ -503,6 +644,7 @@ function Evento({
         <t.Icono className="h-4 w-4" />
       </span>
       <div
+        data-evento={e.id}
         className={cn(
           "rounded-xl border px-4 py-3 transition-shadow duration-300",
           t.tarjeta,
@@ -542,9 +684,9 @@ function Evento({
             </ul>
           </details>
         )}
-        {e.enlaces.length > 0 && (
+        {enlaces.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1.5 border-t border-black/5 pt-2.5">
-            {e.enlaces.map((l) => (
+            {enlaces.map((l) => (
               <button
                 key={l.id}
                 type="button"

@@ -1,7 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BatteryCharging, ChevronLeft, History, Loader2, Package, Search, Sun, Users, Zap, type LucideIcon } from "lucide-react";
+import {
+  BatteryCharging,
+  ChevronLeft,
+  History,
+  Loader2,
+  Package,
+  Search,
+  SlidersHorizontal,
+  Sun,
+  Users,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { RouteGuard } from "@/components/auth/route-guard";
 import { Button } from "@/components/shared/atom/button";
@@ -14,6 +26,8 @@ import type {
   ClienteHistorial,
   ClientesDeEquipo,
   EquipoHistorial,
+  FiltrosClienteHistorial,
+  OpcionesFiltroClientes,
 } from "@/lib/types/feats/historial/historial-types";
 
 type Vista = "clientes" | "equipos";
@@ -21,6 +35,10 @@ type Vista = "clientes" | "equipos";
 const CLASE_CAMPO =
   "h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 " +
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600";
+
+const CLASE_SELECT =
+  "h-10 w-full rounded-md border border-gray-300 bg-white px-2 text-sm text-gray-900 " +
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 disabled:bg-gray-100 disabled:text-gray-400";
 
 const ICONO_CATEGORIA: Record<ClaveCategoriaEquipo, LucideIcon> = {
   inversores: Zap,
@@ -145,6 +163,17 @@ function VistaClientes() {
   const [cargandoMas, setCargandoMas] = useState(false);
   const [error, setError] = useState(false);
   const [seleccionado, setSeleccionado] = useState<string | null>(null);
+  const [filtros, setFiltros] = useState<FiltrosClienteHistorial>({});
+  const [verFiltros, setVerFiltros] = useState(false);
+  const [opciones, setOpciones] = useState<OpcionesFiltroClientes | null>(null);
+  const activos = Object.values(filtros).filter(Boolean).length;
+  const municipios = opciones?.provincias.find((p) => p.nombre === filtros.provincia)?.municipios ?? [];
+
+  useEffect(() => {
+    HistorialService.filtrosClientes()
+      .then(setOpciones)
+      .catch(() => setOpciones({ estados: [], provincias: [] }));
+  }, []);
 
   // La búsqueda la hace el servidor: se espera a que se deje de teclear.
   useEffect(() => {
@@ -152,7 +181,7 @@ function VistaClientes() {
     setCargando(true);
     const id = setTimeout(
       () => {
-        HistorialService.clientes(q, 0)
+        HistorialService.clientes(q, 0, 50, filtros)
           .then((r) => {
             if (cancelado) return;
             setClientes(r.data);
@@ -168,11 +197,11 @@ function VistaClientes() {
       cancelado = true;
       clearTimeout(id);
     };
-  }, [q]);
+  }, [q, filtros]);
 
   function cargarMas() {
     setCargandoMas(true);
-    HistorialService.clientes(q, clientes.length)
+    HistorialService.clientes(q, clientes.length, 50, filtros)
       .then((r) => {
         const vistos = new Set(clientes.map((c) => c.numero));
         setClientes([...clientes, ...r.data.filter((c) => !vistos.has(c.numero))]);
@@ -193,9 +222,100 @@ function VistaClientes() {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nombre, número o teléfono" className={cn(CLASE_CAMPO, "pl-9")} />
           </label>
-          <p className="mt-2 px-1 text-xs text-gray-500">
-            {cargando ? "Buscando…" : `${total} ${total === 1 ? "cliente" : "clientes"}`}
-          </p>
+          <div className="mt-2 flex items-center justify-between gap-2 px-1">
+            <p className="text-xs text-gray-500">
+              {cargando ? "Buscando…" : `${total} ${total === 1 ? "cliente" : "clientes"}`}
+            </p>
+            <button
+              type="button"
+              onClick={() => setVerFiltros((v) => !v)}
+              aria-expanded={verFiltros}
+              className={cn(
+                "inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-sm font-medium hover:bg-gray-100",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600",
+                activos > 0 ? "text-emerald-800" : "text-gray-700",
+              )}
+            >
+              <SlidersHorizontal className="h-4 w-4" aria-hidden />
+              Filtros
+              {activos > 0 && (
+                <span className="rounded-full bg-emerald-800 px-1.5 text-xs font-semibold leading-5 text-white">{activos}</span>
+              )}
+            </button>
+          </div>
+          {verFiltros && (
+            <div className="mt-2 space-y-2 rounded-lg bg-gray-50 p-2">
+              <select
+                value={filtros.estado ?? ""}
+                onChange={(e) => setFiltros((f) => ({ ...f, estado: e.target.value || undefined }))}
+                aria-label="Estado del cliente"
+                className={CLASE_SELECT}
+              >
+                <option value="">Todos los estados</option>
+                {(opciones?.estados ?? []).map((estado) => (
+                  <option key={estado} value={estado}>
+                    {estado}
+                  </option>
+                ))}
+              </select>
+              <div className="grid grid-cols-2 gap-2">
+                <select
+                  value={filtros.provincia ?? ""}
+                  onChange={(e) => setFiltros((f) => ({ ...f, provincia: e.target.value || undefined, municipio: undefined }))}
+                  aria-label="Provincia"
+                  className={CLASE_SELECT}
+                >
+                  <option value="">Provincia</option>
+                  {(opciones?.provincias ?? []).map((p) => (
+                    <option key={p.nombre} value={p.nombre}>
+                      {p.nombre}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={filtros.municipio ?? ""}
+                  onChange={(e) => setFiltros((f) => ({ ...f, municipio: e.target.value || undefined }))}
+                  aria-label="Municipio"
+                  disabled={!filtros.provincia}
+                  className={CLASE_SELECT}
+                >
+                  <option value="">Municipio</option>
+                  {municipios.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="text-xs font-medium text-gray-600">
+                  Creado desde
+                  <input
+                    type="date"
+                    value={filtros.desde ?? ""}
+                    max={filtros.hasta}
+                    onChange={(e) => setFiltros((f) => ({ ...f, desde: e.target.value || undefined }))}
+                    className={cn(CLASE_SELECT, "mt-1")}
+                  />
+                </label>
+                <label className="text-xs font-medium text-gray-600">
+                  Hasta
+                  <input
+                    type="date"
+                    value={filtros.hasta ?? ""}
+                    min={filtros.desde}
+                    onChange={(e) => setFiltros((f) => ({ ...f, hasta: e.target.value || undefined }))}
+                    className={cn(CLASE_SELECT, "mt-1")}
+                  />
+                </label>
+              </div>
+              {activos > 0 && (
+                <button type="button" onClick={() => setFiltros({})} className="text-sm font-medium text-emerald-800 hover:underline">
+                  Quitar filtros
+                </button>
+              )}
+            </div>
+          )}
         </div>
         {error && clientes.length === 0 ? (
           <p className="px-4 py-6 text-center text-sm text-gray-600">No se pudieron cargar los clientes.</p>
@@ -204,7 +324,11 @@ function VistaClientes() {
             {clientes.map((c) => (
               <FilaCliente key={c.numero} cliente={c} marcado={c.numero === seleccionado} onClick={() => setSeleccionado(c.numero)} />
             ))}
-            {!cargando && clientes.length === 0 && <li className="px-4 py-6 text-center text-sm text-gray-600">Nadie con esa búsqueda.</li>}
+            {!cargando && clientes.length === 0 && (
+              <li className="px-4 py-6 text-center text-sm text-gray-600">
+                {activos > 0 ? "Nadie con esos filtros." : "Nadie con esa búsqueda."}
+              </li>
+            )}
             {clientes.length < total && (
               <li className="p-2">
                 <Button variant="ghost" className="w-full" onClick={cargarMas} disabled={cargandoMas}>

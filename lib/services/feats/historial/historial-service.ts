@@ -3,17 +3,33 @@ import type {
   CategoriaEquipos,
   ClienteHistorial,
   ClientesDeEquipo,
+  FiltrosClienteHistorial,
+  OpcionesFiltroClientes,
   HistorialCliente,
 } from "@/lib/types/feats/historial/historial-types";
 
 export const HistorialService = {
-  async clientes(q: string, skip: number, limit = 50): Promise<{ total: number; data: ClienteHistorial[] }> {
+  async clientes(
+    q: string,
+    skip: number,
+    limit = 50,
+    filtros: FiltrosClienteHistorial = {},
+  ): Promise<{ total: number; data: ClienteHistorial[] }> {
     const params = new URLSearchParams({ skip: String(skip), limit: String(limit) });
     if (q.trim()) params.set("q", q.trim());
+    for (const [clave, valor] of Object.entries(filtros)) {
+      if (valor) params.set(clave, valor);
+    }
     const r = await apiRequest<{ success: boolean; total: number; data: ClienteHistorial[] }>(
       `/historial/clientes?${params.toString()}`,
     );
     return { total: r.total ?? 0, data: r.data ?? [] };
+  },
+
+  /** Los estados, provincias y municipios que tienen los clientes. */
+  async filtrosClientes(): Promise<OpcionesFiltroClientes> {
+    const r = await apiRequest<{ success: boolean; data: OpcionesFiltroClientes }>(`/historial/clientes/filtros`);
+    return r.data ?? { estados: [], provincias: [] };
   },
 
   /** Todo lo que ha pasado con el cliente, del principio a hoy. */

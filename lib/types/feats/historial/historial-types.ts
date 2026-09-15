@@ -58,6 +58,23 @@ export interface ClienteHistorial {
   estado?: string | null;
   provincia?: string | null;
   municipio?: string | null;
+  fecha_creacion?: string | null;
+}
+
+/** Con qué filtrar la lista de clientes del historial. */
+export interface FiltrosClienteHistorial {
+  estado?: string;
+  provincia?: string;
+  municipio?: string;
+  /** "YYYY-MM-DD": creados desde este día. */
+  desde?: string;
+  /** "YYYY-MM-DD": creados hasta este día incluido. */
+  hasta?: string;
+}
+
+export interface OpcionesFiltroClientes {
+  estados: string[];
+  provincias: { nombre: string; municipios: string[] }[];
 }
 
 export interface HistorialCliente {
