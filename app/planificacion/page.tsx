@@ -154,6 +154,8 @@ function PlanificacionContenido() {
   const [sueltos, setSueltos] = useState<Asignado[]>([]);
   const [destino, setDestino] = useState<Asignado | null>(null);
   const [nuevoAbierto, setNuevoAbierto] = useState(false);
+  /** Con qué tipo se abre "Añadir un trabajo": Actualizaciones lo trae puesto. */
+  const [tipoNuevo, setTipoNuevo] = useState<TipoTrabajo | null>(null);
   /** El calendario para planificar un día nuevo, desde el + de arriba. */
   const [eligiendoDia, setEligiendoDia] = useState(false);
   /** Lo último añadido se resalta un momento, para ver dónde ha caído. */
@@ -476,8 +478,18 @@ function PlanificacionContenido() {
             cargando={!listo}
             trabajos={listo ? trabajos : []}
             onCambiarFecha={(f) => irA({ dia: f })}
-            onTipo={(tipo) => irA({ dia: dia!, tipo })}
-            onNuevo={() => setNuevoAbierto(true)}
+            onTipo={(tipo) => {
+              if (tipo === "actualizacion") {
+                setTipoNuevo("actualizacion");
+                setNuevoAbierto(true);
+              } else {
+                irA({ dia: dia!, tipo });
+              }
+            }}
+            onNuevo={() => {
+              setTipoNuevo(null);
+              setNuevoAbierto(true);
+            }}
             recientes={recientes}
             onQuitar={(t) => editar((lista) => lista.filter((x) => !mismoTrabajo(x, t)))}
           />
@@ -518,7 +530,12 @@ function PlanificacionContenido() {
                     (brigadas.length ? ` · ${conTrabajo} de ${brigadas.length} brigadas con trabajo` : "")
               }
             >
-              <Button onClick={() => setNuevoAbierto(true)}>
+              <Button
+                onClick={() => {
+                  setTipoNuevo(null);
+                  setNuevoAbierto(true);
+                }}
+              >
                 <Plus className="mr-2 h-4 w-4" aria-hidden />
                 Añadir un trabajo
               </Button>
@@ -563,6 +580,7 @@ function PlanificacionContenido() {
 
       <NuevoTrabajoDialog
         open={nuevoAbierto && !!dia}
+        tipoInicial={tipoNuevo}
         onOpenChange={setNuevoAbierto}
         delDia={delDia(fecha, hoy)}
         trabajos={trabajos}

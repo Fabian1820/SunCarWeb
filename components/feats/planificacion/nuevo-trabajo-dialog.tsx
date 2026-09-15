@@ -55,6 +55,8 @@ interface Props {
   brigadas: OpcionBrigada[];
   trabajadores: Asignado[];
   onGuardar: (cliente: CandidatoPlanificacion, tipo: TipoTrabajo, quien: Asignado, nota: string) => void;
+  /** Tipo con el que se abre (Actualizaciones desde el menú del día). */
+  tipoInicial?: TipoTrabajo | null;
 }
 
 /**
@@ -64,7 +66,16 @@ interface Props {
  * rodeo. Cualquier cliente, esté en el estado que esté. Leads no: sin número
  * de cliente no hay vale ni materiales al cerrar el trabajo.
  */
-export function NuevoTrabajoDialog({ open, onOpenChange, delDia, trabajos, brigadas, trabajadores, onGuardar }: Props) {
+export function NuevoTrabajoDialog({
+  open,
+  onOpenChange,
+  delDia,
+  trabajos,
+  brigadas,
+  trabajadores,
+  onGuardar,
+  tipoInicial,
+}: Props) {
   const [consulta, setConsulta] = useState("");
   const [resultados, setResultados] = useState<CandidatoPlanificacion[]>([]);
   const [buscando, setBuscando] = useState(false);
@@ -81,11 +92,11 @@ export function NuevoTrabajoDialog({ open, onOpenChange, delDia, trabajos, briga
     setConsulta("");
     setResultados([]);
     setCliente(null);
-    setTipo(null);
+    setTipo(tipoInicial ?? null);
     setQuien("");
     setNota("");
     notaSugeridaRef.current = "";
-  }, [open]);
+  }, [open, tipoInicial]);
 
   // Buscar a partir de tres letras, cuando se deja de teclear.
   useEffect(() => {

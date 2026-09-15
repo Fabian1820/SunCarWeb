@@ -9,6 +9,7 @@ import {
   Pencil,
   PlugZap,
   Plus,
+  RefreshCw,
   Users,
   Wrench,
   X,
@@ -53,6 +54,15 @@ const OPCIONES: {
     descripcion: "Sin resolver",
     Icono: AlertTriangle,
     tono: "bg-red-50 text-red-700",
+  },
+  // Sin lista de pendientes: ningún estado dice a quién toca actualizar, así
+  // que abre "Añadir un trabajo" con el tipo ya puesto.
+  {
+    tipo: "actualizacion",
+    titulo: "Actualizaciones",
+    descripcion: "Añade el cliente a actualizar",
+    Icono: RefreshCw,
+    tono: "bg-sky-50 text-sky-700",
   },
 ];
 
