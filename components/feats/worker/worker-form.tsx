@@ -27,6 +27,9 @@ interface WorkerFormSubmitData {
   integrantes?: string[];
   sede_id?: string | null;
   departamento_id?: string | null;
+  // true = el CI ya existe en `trabajadores` (venía de RRHH sin ser instalador);
+  // no se debe volver a crear el documento, solo actualizarlo.
+  existente?: boolean;
 }
 
 interface WorkerFormProps {
@@ -44,7 +47,13 @@ export function WorkerForm({
   brigades,
   workers,
 }: WorkerFormProps) {
+  const trabajadoresDisponibles = workers.filter((w) => w.is_brigadista !== true);
+
   const [formData, setFormData] = useState({
+    origen: (trabajadoresDisponibles.length > 0 ? "existente" : "nuevo") as
+      | "existente"
+      | "nuevo",
+    workerId: "",
     name: "",
     ci: "",
     brigadeId: "",
@@ -59,6 +68,17 @@ export function WorkerForm({
   const [sedes, setSedes] = useState<Sede[]>([]);
   const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
   const [loadingCatalogos, setLoadingCatalogos] = useState(false);
+
+  const seleccionarTrabajadorExistente = (worker: Trabajador) => {
+    setFormData({
+      ...formData,
+      workerId: worker.id || worker.CI,
+      ci: worker.CI,
+      name: worker.nombre,
+      sedeId: worker.sede_id || "",
+      departamentoId: worker.departamento_id || "",
+    });
+  };
 
   useEffect(() => {
     const loadCatalogos = async () => {
@@ -82,6 +102,10 @@ export function WorkerForm({
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
+
+    if (formData.origen === "existente" && !formData.workerId) {
+      newErrors.workerId = "Seleccione un trabajador";
+    }
 
     if (!formData.name.trim()) {
       newErrors.name = "El nombre es requerido";
@@ -108,6 +132,8 @@ export function WorkerForm({
 
     if (!validateForm()) return;
 
+    const existente = formData.origen === "existente";
+
     if (!formData.password) {
       // Trabajador normal
       if (formData.brigadeId) {
@@ -118,6 +144,7 @@ export function WorkerForm({
           sede_id: formData.sedeId || null,
           departamento_id: formData.departamentoId || null,
           mode: "trabajador_asignar",
+          existente,
         });
       } else {
         onSubmit({
@@ -126,6 +153,7 @@ export function WorkerForm({
           sede_id: formData.sedeId || null,
           departamento_id: formData.departamentoId || null,
           mode: "trabajador",
+          existente,
         });
       }
     } else {
@@ -139,6 +167,7 @@ export function WorkerForm({
           sede_id: formData.sedeId || null,
           departamento_id: formData.departamentoId || null,
           mode: "jefe_brigada",
+          existente,
         });
       } else {
         onSubmit({
@@ -148,6 +177,7 @@ export function WorkerForm({
           sede_id: formData.sedeId || null,
           departamento_id: formData.departamentoId || null,
           mode: "jefe",
+          existente,
         });
       }
     }
@@ -157,39 +187,131 @@ export function WorkerForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-3">
         <div>
-          <Label
-            htmlFor="worker-name"
-            className="text-sm font-medium text-gray-700 mb-2 block"
-          >
-            Nombre Completo *
+          <Label className="text-sm font-medium text-gray-700 mb-2 block">
+            Trabajador
           </Label>
-          <Input
-            id="worker-name"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            placeholder="Ej: Juan Pérez García"
-            className={errors.name ? "border-red-300" : ""}
-          />
-          {errors.name && (
-            <p className="text-red-600 text-sm mt-1">{errors.name}</p>
-          )}
-        </div>
-        <div>
-          <Label
-            htmlFor="worker-ci"
-            className="text-sm font-medium text-gray-700 mb-2 block"
-          >
-            Carnet de Identidad (CI) *
-          </Label>
-          <Input
-            id="worker-ci"
-            value={formData.ci}
-            onChange={(e) => setFormData({ ...formData, ci: e.target.value })}
-            placeholder="Ej: 12345678"
-            className={errors.ci ? "border-red-300" : ""}
-          />
-          {errors.ci && (
-            <p className="text-red-600 text-sm mt-1">{errors.ci}</p>
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            <button
+              type="button"
+              onClick={() =>
+                setFormData({
+                  ...formData,
+                  origen: "existente",
+                  ci: "",
+                  name: "",
+                  workerId: "",
+                  sedeId: "",
+                  departamentoId: "",
+                })
+              }
+              className={`p-2 rounded-lg border text-sm font-medium ${
+                formData.origen === "existente"
+                  ? "border-blue-500 bg-blue-50 text-blue-700"
+                  : "border-gray-200 text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              Trabajador existente
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                setFormData({
+                  ...formData,
+                  origen: "nuevo",
+                  ci: "",
+                  name: "",
+                  workerId: "",
+                  sedeId: "",
+                  departamentoId: "",
+                })
+              }
+              className={`p-2 rounded-lg border text-sm font-medium ${
+                formData.origen === "nuevo"
+                  ? "border-blue-500 bg-blue-50 text-blue-700"
+                  : "border-gray-200 text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              Persona nueva
+            </button>
+          </div>
+
+          {formData.origen === "existente" ? (
+            <>
+              <Select
+                value={formData.workerId}
+                onValueChange={(value) => {
+                  const worker = trabajadoresDisponibles.find(
+                    (w) => (w.id || w.CI) === value,
+                  );
+                  if (worker) seleccionarTrabajadorExistente(worker);
+                }}
+              >
+                <SelectTrigger
+                  className={errors.workerId ? "border-red-300" : ""}
+                >
+                  <SelectValue placeholder="Seleccione un trabajador" />
+                </SelectTrigger>
+                <SelectContent>
+                  {trabajadoresDisponibles.length === 0 ? (
+                    <div className="px-2 py-4 text-sm text-gray-500 text-center">
+                      No hay trabajadores sin asignar. Use "Persona nueva".
+                    </div>
+                  ) : (
+                    trabajadoresDisponibles.map((w) => (
+                      <SelectItem key={w.id || w.CI} value={w.id || w.CI}>
+                        {w.nombre} (CI: {w.CI})
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              {errors.workerId && (
+                <p className="text-red-600 text-sm mt-1">{errors.workerId}</p>
+              )}
+            </>
+          ) : (
+            <div className="space-y-3">
+              <div>
+                <Label
+                  htmlFor="worker-name"
+                  className="text-sm font-medium text-gray-700 mb-2 block"
+                >
+                  Nombre Completo *
+                </Label>
+                <Input
+                  id="worker-name"
+                  value={formData.name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
+                  placeholder="Ej: Juan Pérez García"
+                  className={errors.name ? "border-red-300" : ""}
+                />
+                {errors.name && (
+                  <p className="text-red-600 text-sm mt-1">{errors.name}</p>
+                )}
+              </div>
+              <div>
+                <Label
+                  htmlFor="worker-ci"
+                  className="text-sm font-medium text-gray-700 mb-2 block"
+                >
+                  Carnet de Identidad (CI) *
+                </Label>
+                <Input
+                  id="worker-ci"
+                  value={formData.ci}
+                  onChange={(e) =>
+                    setFormData({ ...formData, ci: e.target.value })
+                  }
+                  placeholder="Ej: 12345678"
+                  className={errors.ci ? "border-red-300" : ""}
+                />
+                {errors.ci && (
+                  <p className="text-red-600 text-sm mt-1">{errors.ci}</p>
+                )}
+              </div>
+            </div>
           )}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -453,7 +575,7 @@ export function WorkerForm({
           className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
         >
           <Save className="mr-2 h-4 w-4" />
-          Crear Instalador
+          {formData.origen === "existente" ? "Asignar como Instalador" : "Crear Instalador"}
         </Button>
       </div>
     </form>

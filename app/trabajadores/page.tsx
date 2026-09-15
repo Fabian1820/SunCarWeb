@@ -181,16 +181,26 @@ export default function TrabajadoresPage() {
         departamento_id: data.departamento_id ?? null,
       }
 
+      // Un trabajador "existente" ya tiene documento en `trabajadores` (venía de RRHH sin
+      // ser instalador). Crearlo de nuevo con POST /trabajadores/ duplicaría el CI, porque
+      // ese endpoint hace insert_one sin comprobar si ya existe. Para esos casos solo se
+      // actualiza el registro (is_brigadista + brigada), nunca se vuelve a crear.
       let baseMessage = ''
       if (data.mode === 'trabajador') {
-        await TrabajadorService.crearTrabajador(data.ci, data.name, undefined, relaciones)
+        if (!data.existente) {
+          await TrabajadorService.crearTrabajador(data.ci, data.name, undefined, relaciones)
+        }
         await RecursosHumanosService.actualizarTrabajadorRRHH(data.ci, { is_brigadista: true })
-        baseMessage = 'Instalador creado correctamente'
+        baseMessage = data.existente ? 'Instalador asignado correctamente' : 'Instalador creado correctamente'
       } else if (data.mode === 'trabajador_asignar') {
-        await TrabajadorService.crearTrabajador(data.ci, data.name, undefined, relaciones)
+        if (!data.existente) {
+          await TrabajadorService.crearTrabajador(data.ci, data.name, undefined, relaciones)
+        }
         await RecursosHumanosService.actualizarTrabajadorRRHH(data.ci, { is_brigadista: true })
         await TrabajadorService.asignarTrabajadorABrigada(data.brigadeId, data.ci, data.name)
-        baseMessage = 'Instalador creado y asignado a brigada correctamente'
+        baseMessage = data.existente
+          ? 'Instalador asignado a brigada correctamente'
+          : 'Instalador creado y asignado a brigada correctamente'
       } else if (data.mode === 'jefe') {
         await TrabajadorService.crearJefeBrigada(data.ci, data.name, data.password, [], relaciones)
         await RecursosHumanosService.actualizarTrabajadorRRHH(data.ci, { is_brigadista: true })
