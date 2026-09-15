@@ -48,7 +48,9 @@ export interface Vivienda {
 }
 
 export type TipoCubierta =
-  | "teja"
+  | "teja" // antiguo: ahora plástica o cerámica
+  | "teja_plastica"
+  | "teja_ceramica"
   | "zinc"
   | "placa"
   | "asfaltica"
@@ -61,14 +63,28 @@ export interface InstalacionPaneles {
   forma_techo?: "dos_aguas" | "plano" | "otro";
   forma_techo_otro?: string;
   buenas_condiciones?: boolean;
-  orientacion?: "norte" | "sur" | "este" | "oeste";
+  /** Nunca al norte; "norte" solo en visitas antiguas. */
+  orientacion?: "sur" | "sureste" | "suroeste" | "este" | "oeste" | "noreste" | "noroeste" | "norte";
   area_disponible_m2?: number;
   inclinacion_grados?: number;
   altura_superficie_m?: number;
+  /** Antiguo: ahora se pregunta por separado. */
   necesita_escaleras_andamios?: boolean;
+  necesita_escalera?: boolean;
+  necesita_andamio?: boolean;
   porciento_sombra?: number;
   existe_puesta_tierra?: boolean;
 }
+
+/** Una batería del equipo. Puede haber varias: las modulares llevan BMS aparte. */
+export interface BateriaEstimada {
+  modelo?: string;
+  codigo?: string;
+  capacidad_kwh?: number;
+  cantidad?: number;
+}
+
+export type DiaSemana = "lunes" | "martes" | "miercoles" | "jueves" | "viernes" | "sabado" | "domingo";
 
 export interface EquipamientoEstimado {
   modelo_inversor?: string;
@@ -77,12 +93,18 @@ export interface EquipamientoEstimado {
   modelo_bateria?: string;
   capacidad_bateria_kwh?: number;
   cantidad_baterias?: number;
+  codigo_bateria?: string;
+  /** Lo de arriba es de cuando solo cabía una batería; ahora van aquí. */
+  baterias?: BateriaEstimada[];
   es_modular?: boolean;
   cantidad_paneles?: number;
   strings?: number;
   voltaje?: number;
   potencia_total_kwp?: number;
   restriccion_horario_laboral?: boolean;
+  /** Cuándo se puede ir a instalar. Sustituye a la restricción de horario. */
+  dias_disponibles?: DiaSemana[];
+  horario_disponible?: string;
   tiene_wifi_ethernet?: boolean;
 }
 
@@ -762,7 +784,8 @@ export function EstudioEnergeticoForm({
                     })
                   }
                   options={[
-                    { value: "teja", label: "Teja" },
+                    { value: "teja_plastica", label: "Teja plástica" },
+                    { value: "teja_ceramica", label: "Teja de cerámica" },
                     { value: "zinc", label: "Zinc" },
                     { value: "placa", label: "Placa" },
                     { value: "asfaltica", label: "Asfáltica" },
@@ -841,10 +864,13 @@ export function EstudioEnergeticoForm({
                 })
               }
               options={[
-                { value: "norte", label: "Norte" },
                 { value: "sur", label: "Sur" },
+                { value: "sureste", label: "Sureste" },
+                { value: "suroeste", label: "Suroeste" },
                 { value: "este", label: "Este" },
                 { value: "oeste", label: "Oeste" },
+                { value: "noreste", label: "Noreste" },
+                { value: "noroeste", label: "Noroeste" },
               ]}
             />
             <NumberField
@@ -887,13 +913,25 @@ export function EstudioEnergeticoForm({
               }
             />
             <BoolField
-              label="¿Necesita escaleras/andamios?"
-              value={value.instalacion_paneles?.necesita_escaleras_andamios}
+              label="¿Necesita escalera?"
+              value={value.instalacion_paneles?.necesita_escalera}
               onChange={(v) =>
                 onChange({
                   ...value,
                   instalacion_paneles: withPatch(value.instalacion_paneles, {
-                    necesita_escaleras_andamios: v,
+                    necesita_escalera: v,
+                  }),
+                })
+              }
+            />
+            <BoolField
+              label="¿Necesita andamio?"
+              value={value.instalacion_paneles?.necesita_andamio}
+              onChange={(v) =>
+                onChange({
+                  ...value,
+                  instalacion_paneles: withPatch(value.instalacion_paneles, {
+                    necesita_andamio: v,
                   }),
                 })
               }
@@ -969,42 +1007,9 @@ export function EstudioEnergeticoForm({
             })
           }
         />
-        <TextField
-          label="Modelo de batería"
-          value={value.equipamiento_estimado?.modelo_bateria}
-          onChange={(v) =>
-            onChange({
-              ...value,
-              equipamiento_estimado: withPatch(value.equipamiento_estimado, {
-                modelo_bateria: v,
-              }),
-            })
-          }
-        />
-        <NumberField
-          label="Capacidad de batería"
-          suffix="kWh"
-          value={value.equipamiento_estimado?.capacidad_bateria_kwh}
-          onChange={(v) =>
-            onChange({
-              ...value,
-              equipamiento_estimado: withPatch(value.equipamiento_estimado, {
-                capacidad_bateria_kwh: v,
-              }),
-            })
-          }
-        />
-        <NumberField
-          label="Cantidad de baterías"
-          value={value.equipamiento_estimado?.cantidad_baterias}
-          onChange={(v) =>
-            onChange({
-              ...value,
-              equipamiento_estimado: withPatch(value.equipamiento_estimado, {
-                cantidad_baterias: v,
-              }),
-            })
-          }
+        <BateriasField
+          equipo={value.equipamiento_estimado}
+          onChange={(equipo) => onChange({ ...value, equipamiento_estimado: equipo })}
         />
         <BoolField
           label="¿Es modular?"
@@ -1067,17 +1072,9 @@ export function EstudioEnergeticoForm({
             })
           }
         />
-        <BoolField
-          label="¿Restricción de horario laboral para instalar?"
-          value={value.equipamiento_estimado?.restriccion_horario_laboral}
-          onChange={(v) =>
-            onChange({
-              ...value,
-              equipamiento_estimado: withPatch(value.equipamiento_estimado, {
-                restriccion_horario_laboral: v,
-              }),
-            })
-          }
+        <DiasHorarioField
+          equipo={value.equipamiento_estimado}
+          onChange={(equipo) => onChange({ ...value, equipamiento_estimado: equipo })}
         />
         <BoolField
           label="¿Hay WiFi/Ethernet en el sitio?"
@@ -1153,17 +1150,6 @@ export function EstudioEnergeticoForm({
           ]}
         />
         <NumberField
-          label="Longitud de línea CA"
-          suffix="m"
-          value={value.cableado?.longitud_linea_ca_m}
-          onChange={(v) =>
-            onChange({
-              ...value,
-              cableado: withPatch(value.cableado, { longitud_linea_ca_m: v }),
-            })
-          }
-        />
-        <NumberField
           label="Longitud de línea CD"
           suffix="m"
           value={value.cableado?.longitud_linea_cd_m}
@@ -1177,12 +1163,14 @@ export function EstudioEnergeticoForm({
         <NumberField
           label="Distancia inversor → PGD"
           suffix="m"
-          value={value.cableado?.distancia_inversor_pgd_m}
+          // Es lo mismo que la longitud de la línea CA: las visitas antiguas la traen ahí.
+          value={value.cableado?.distancia_inversor_pgd_m ?? value.cableado?.longitud_linea_ca_m}
           onChange={(v) =>
             onChange({
               ...value,
               cableado: withPatch(value.cableado, {
                 distancia_inversor_pgd_m: v,
+                longitud_linea_ca_m: undefined,
               }),
             })
           }
@@ -1318,6 +1306,134 @@ export function EstudioEnergeticoForm({
           escrito acabe repartido entre las dos. El campo sigue en el tipo: las
           visitas viejas lo tienen y se sigue mostrando en el detalle y en el
           informe. */}
+    </div>
+  );
+}
+
+const DIAS_SEMANA: { valor: DiaSemana; texto: string }[] = [
+  { valor: "lunes", texto: "Lun" },
+  { valor: "martes", texto: "Mar" },
+  { valor: "miercoles", texto: "Mié" },
+  { valor: "jueves", texto: "Jue" },
+  { valor: "viernes", texto: "Vie" },
+  { valor: "sabado", texto: "Sáb" },
+  { valor: "domingo", texto: "Dom" },
+];
+
+/** Las baterías, contando la única que guardaban las visitas antiguas. */
+function bateriasDe(equipo?: EquipamientoEstimado): BateriaEstimada[] {
+  if (equipo?.baterias?.length) return equipo.baterias;
+  if (equipo?.modelo_bateria || equipo?.capacidad_bateria_kwh != null || equipo?.cantidad_baterias != null) {
+    return [
+      {
+        modelo: equipo.modelo_bateria,
+        codigo: equipo.codigo_bateria,
+        capacidad_kwh: equipo.capacidad_bateria_kwh,
+        cantidad: equipo.cantidad_baterias,
+      },
+    ];
+  }
+  return [{}];
+}
+
+/** Una o varias baterías: las modulares suelen llevar BMS aparte. */
+function BateriasField({
+  equipo,
+  onChange,
+}: {
+  equipo?: EquipamientoEstimado;
+  onChange: (equipo: EquipamientoEstimado) => void;
+}) {
+  const baterias = bateriasDe(equipo);
+  const cambiar = (nuevas: BateriaEstimada[]) =>
+    onChange({
+      ...(equipo ?? {}),
+      baterias: nuevas,
+      modelo_bateria: undefined,
+      codigo_bateria: undefined,
+      capacidad_bateria_kwh: undefined,
+      cantidad_baterias: undefined,
+    });
+  const editar = (i: number, patch: Partial<BateriaEstimada>) =>
+    cambiar(baterias.map((b, j) => (j === i ? { ...b, ...patch } : b)));
+
+  return (
+    <div className="space-y-3 sm:col-span-2">
+      {baterias.map((b, i) => (
+        <div key={i} className="grid gap-3 rounded-md border border-gray-200 p-3 sm:grid-cols-[minmax(0,1fr)_9rem_7rem_auto] sm:items-end">
+          <TextField
+            label={baterias.length > 1 ? `Modelo de la batería ${i + 1}` : "Modelo de batería"}
+            value={b.modelo}
+            onChange={(v) => editar(i, { modelo: v })}
+          />
+          <NumberField label="Capacidad" suffix="kWh" value={b.capacidad_kwh} onChange={(v) => editar(i, { capacidad_kwh: v })} />
+          <NumberField label="Cantidad" value={b.cantidad} onChange={(v) => editar(i, { cantidad: v })} />
+          {baterias.length > 1 && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => cambiar(baterias.filter((_, j) => j !== i))}
+              aria-label={`Quitar la batería ${i + 1}`}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      ))}
+      <Button type="button" variant="outline" size="sm" onClick={() => cambiar([...baterias, {}])}>
+        <Plus className="mr-2 h-4 w-4" />
+        Añadir otra batería (BMS, módulo…)
+      </Button>
+    </div>
+  );
+}
+
+/** Cuándo se puede ir a instalar: qué días y en qué horario. */
+function DiasHorarioField({
+  equipo,
+  onChange,
+}: {
+  equipo?: EquipamientoEstimado;
+  onChange: (equipo: EquipamientoEstimado) => void;
+}) {
+  const dias = equipo?.dias_disponibles ?? [];
+  return (
+    <div className="space-y-2 sm:col-span-2">
+      <Label className="text-xs text-gray-600">Días que podemos ir</Label>
+      <div className="flex flex-wrap gap-2">
+        {DIAS_SEMANA.map((d) => {
+          const marcado = dias.includes(d.valor);
+          return (
+            <button
+              key={d.valor}
+              type="button"
+              aria-pressed={marcado}
+              onClick={() =>
+                onChange({
+                  ...(equipo ?? {}),
+                  dias_disponibles: DIAS_SEMANA.map((x) => x.valor).filter((x) =>
+                    x === d.valor ? !marcado : dias.includes(x),
+                  ),
+                })
+              }
+              className={`h-9 min-w-12 rounded-full px-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 ${
+                marcado
+                  ? "bg-emerald-700 font-semibold text-white"
+                  : "border border-gray-200 bg-white text-gray-800 hover:border-emerald-600"
+              }`}
+            >
+              {d.texto}
+            </button>
+          );
+        })}
+      </div>
+      <TextField
+        label="Horario en que podemos ir"
+        placeholder="Ej: de 8:00 a 12:00"
+        value={equipo?.horario_disponible}
+        onChange={(v) => onChange({ ...(equipo ?? {}), horario_disponible: v })}
+      />
     </div>
   );
 }
