@@ -19,6 +19,8 @@ interface ExportButtonsProps {
   baseFilename: string;
   variant?: "default" | "compact";
   showPdf?: boolean;
+  /** Generador del PDF. Por defecto `exportToPDF`, que es la plantilla de ofertas. */
+  pdfExporter?: (options: ExportOptions) => Promise<void>;
 }
 
 /**
@@ -31,6 +33,7 @@ export function ExportButtons({
   baseFilename,
   variant = "default",
   showPdf = true,
+  pdfExporter = exportToPDF,
 }: ExportButtonsProps) {
   const [exporting, setExporting] = useState<"excel" | "pdf" | null>(null);
   const { toast } = useToast();
@@ -88,7 +91,7 @@ export function ExportButtons({
         columns: resolvedExportOptions.columns,
       });
 
-      await exportToPDF({
+      await pdfExporter({
         ...resolvedExportOptions,
         filename,
         logoUrl: "/brand/suncar-v1-iso.png",

@@ -22,6 +22,7 @@ import { WorkerForm } from "@/components/feats/worker/worker-form"
 import { Button } from "@/components/shared/atom/button"
 import { ExportButtons } from "@/components/shared/molecule/export-buttons"
 import type { ExportOptions } from "@/lib/export-service"
+import { exportListToPDF } from "@/lib/export-list-pdf"
 
 export default function TrabajadoresPage() {
   const { brigadas: brigadasTrabajadores, trabajadores, loading: loadingTrabajadores, error: errorTrabajadores, refetch } = useBrigadasTrabajadores()
@@ -234,6 +235,7 @@ export default function TrabajadoresPage() {
               getExportOptions={getExportOptions}
               baseFilename="instaladores"
               variant="compact"
+              pdfExporter={exportListToPDF}
             />
           ) : undefined
         }
