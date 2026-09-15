@@ -1,17 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronLeft, History, Loader2, Search } from "lucide-react";
+import { BatteryCharging, ChevronLeft, History, Loader2, Package, Search, Sun, Users, Zap, type LucideIcon } from "lucide-react";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { RouteGuard } from "@/components/auth/route-guard";
 import { Button } from "@/components/shared/atom/button";
 import { cn } from "@/lib/utils";
-import { HistorialClientePanel } from "@/components/feats/historial/historial-cliente-panel";
+import { HistorialClientePanel, iniciales } from "@/components/feats/historial/historial-cliente-panel";
 import { HistorialService } from "@/lib/services/feats/historial/historial-service";
 import type {
   CategoriaEquipos,
   ClaveCategoriaEquipo,
-  ClienteDeEquipo,
   ClienteHistorial,
   ClientesDeEquipo,
   EquipoHistorial,
@@ -20,8 +19,14 @@ import type {
 type Vista = "clientes" | "equipos";
 
 const CLASE_CAMPO =
-  "h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm text-gray-900 " +
+  "h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 " +
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600";
+
+const ICONO_CATEGORIA: Record<ClaveCategoriaEquipo, LucideIcon> = {
+  inversores: Zap,
+  baterias: BatteryCharging,
+  paneles: Sun,
+};
 
 export default function HistorialPage() {
   return (
@@ -34,24 +39,24 @@ export default function HistorialPage() {
 /**
  * Historial: dos maneras de llegar a lo que ha pasado con un cliente.
  *
- * Por clientes, buscándolo. Por equipos, desde lo que lleva instalado: todos
- * los inversores (o baterías, o paneles) de las ofertas confirmadas, cuántos
- * clientes tiene cada uno y, al tocarlo, quiénes son.
+ * Por clientes, buscándolo. Por equipos, desde lo que lleva: los inversores,
+ * baterías y paneles de las ofertas confirmadas, cuántos clientes tiene cada
+ * uno y, al tocarlo, quiénes son.
  */
 function Historial() {
   const [vista, setVista] = useState<Vista>("clientes");
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <ModuleHeader title="Historial" subtitle="Todo lo que ha pasado con cada cliente y qué equipos lleva" />
+      <ModuleHeader title="Historial" subtitle="Lo que ha pasado con cada cliente y qué equipos lleva" />
       <main className="content-with-fixed-header mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
-        <div role="tablist" aria-label="Cómo ver el historial" className="inline-flex rounded-lg bg-gray-200/70 p-1">
+        <div role="tablist" aria-label="Cómo ver el historial" className="grid grid-cols-2 gap-1 rounded-xl bg-gray-200/70 p-1 sm:inline-grid sm:w-[26rem]">
           {(
             [
-              { clave: "clientes", texto: "Por clientes" },
-              { clave: "equipos", texto: "Por equipos" },
+              { clave: "clientes", texto: "Por clientes", Icono: Users },
+              { clave: "equipos", texto: "Por equipos", Icono: Zap },
             ] as const
-          ).map(({ clave, texto }) => (
+          ).map(({ clave, texto, Icono }) => (
             <button
               key={clave}
               type="button"
@@ -59,11 +64,12 @@ function Historial() {
               aria-selected={vista === clave}
               onClick={() => setVista(clave)}
               className={cn(
-                "rounded-md px-4 py-2 text-sm font-semibold transition-colors",
+                "flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition-colors",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600",
-                vista === clave ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900",
+                vista === clave ? "bg-emerald-800 text-white shadow-sm" : "text-gray-700 hover:bg-white/70",
               )}
             >
+              <Icono className="h-4 w-4" aria-hidden />
               {texto}
             </button>
           ))}
@@ -77,9 +83,11 @@ function Historial() {
 
 function SinSeleccion({ texto }: { texto: string }) {
   return (
-    <div className="hidden h-full min-h-[18rem] flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-white px-6 text-center lg:flex">
-      <History className="h-8 w-8 text-gray-400" aria-hidden />
-      <p className="mt-3 max-w-sm text-sm text-gray-600">{texto}</p>
+    <div className="hidden min-h-[20rem] flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white px-6 text-center lg:flex">
+      <span className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-800">
+        <History className="h-7 w-7" aria-hidden />
+      </span>
+      <p className="mt-4 max-w-sm text-sm text-gray-600">{texto}</p>
     </div>
   );
 }
@@ -102,17 +110,26 @@ function FilaCliente({
         onClick={onClick}
         aria-current={marcado ? "true" : undefined}
         className={cn(
-          "flex w-full items-start gap-3 px-4 py-3 text-left transition-colors",
+          "flex w-full items-center gap-3 px-3 py-3 text-left transition-colors",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600",
-          marcado ? "bg-emerald-50" : "hover:bg-gray-50",
+          marcado ? "bg-emerald-800" : "hover:bg-gray-50",
         )}
       >
+        <span
+          className={cn(
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+            marcado ? "bg-white text-emerald-900" : "bg-emerald-50 text-emerald-900",
+          )}
+        >
+          {iniciales(c.nombre || c.numero)}
+        </span>
         <span className="min-w-0 flex-1">
-          <span className={cn("block truncate text-sm font-semibold", marcado ? "text-emerald-900" : "text-gray-900")}>
+          <span className={cn("block truncate text-sm font-semibold", marcado ? "text-white" : "text-gray-900")}>
             {c.nombre || c.numero}
           </span>
-          <span className="block truncate text-xs text-gray-500">{[c.numero, c.estado].filter(Boolean).join(" · ")}</span>
-          {c.direccion && <span className="block truncate text-xs text-gray-500">{c.direccion}</span>}
+          <span className={cn("block truncate text-xs", marcado ? "text-emerald-100" : "text-gray-500")}>
+            {[c.numero, c.estado].filter(Boolean).join(" · ")}
+          </span>
         </span>
         {extra}
       </button>
@@ -133,17 +150,20 @@ function VistaClientes() {
   useEffect(() => {
     let cancelado = false;
     setCargando(true);
-    const id = setTimeout(() => {
-      HistorialService.clientes(q, 0)
-        .then((r) => {
-          if (cancelado) return;
-          setClientes(r.data);
-          setTotal(r.total);
-          setError(false);
-        })
-        .catch(() => !cancelado && setError(true))
-        .finally(() => !cancelado && setCargando(false));
-    }, q ? 300 : 0);
+    const id = setTimeout(
+      () => {
+        HistorialService.clientes(q, 0)
+          .then((r) => {
+            if (cancelado) return;
+            setClientes(r.data);
+            setTotal(r.total);
+            setError(false);
+          })
+          .catch(() => !cancelado && setError(true))
+          .finally(() => !cancelado && setCargando(false));
+      },
+      q ? 300 : 0,
+    );
     return () => {
       cancelado = true;
       clearTimeout(id);
@@ -163,33 +183,28 @@ function VistaClientes() {
   }
 
   return (
-    <div className="mt-5 grid items-start gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
-      <section className={cn(seleccionado && "hidden lg:block")}>
-        <label className="relative block">
-          <span className="sr-only">Buscar cliente</span>
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Nombre, número, dirección o teléfono"
-            className={cn(CLASE_CAMPO, "pl-9")}
-          />
-        </label>
-        <p className="mt-3 text-xs text-gray-500">
-          {cargando ? "Buscando…" : `${total} ${total === 1 ? "cliente" : "clientes"}`}
-        </p>
-        {error && clientes.length === 0 ? (
-          <p className="mt-2 rounded-lg border border-gray-200 bg-white px-4 py-6 text-center text-sm text-gray-600">
-            No se pudieron cargar los clientes.
+    <div className="mt-6 grid items-start gap-6 lg:grid-cols-[21rem_minmax(0,1fr)]">
+      <section
+        className={cn("overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm lg:sticky lg:top-20", seleccionado && "hidden lg:block")}
+      >
+        <div className="border-b border-gray-100 p-3">
+          <label className="relative block">
+            <span className="sr-only">Buscar cliente</span>
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nombre, número o teléfono" className={cn(CLASE_CAMPO, "pl-9")} />
+          </label>
+          <p className="mt-2 px-1 text-xs text-gray-500">
+            {cargando ? "Buscando…" : `${total} ${total === 1 ? "cliente" : "clientes"}`}
           </p>
+        </div>
+        {error && clientes.length === 0 ? (
+          <p className="px-4 py-6 text-center text-sm text-gray-600">No se pudieron cargar los clientes.</p>
         ) : (
-          <ul className="mt-2 max-h-[calc(100vh-18rem)] divide-y divide-gray-100 overflow-y-auto rounded-lg border border-gray-200 bg-white">
+          <ul className="max-h-[calc(100vh-17rem)] divide-y divide-gray-100 overflow-y-auto">
             {clientes.map((c) => (
               <FilaCliente key={c.numero} cliente={c} marcado={c.numero === seleccionado} onClick={() => setSeleccionado(c.numero)} />
             ))}
-            {!cargando && clientes.length === 0 && (
-              <li className="px-4 py-6 text-center text-sm text-gray-600">Nadie con esa búsqueda.</li>
-            )}
+            {!cargando && clientes.length === 0 && <li className="px-4 py-6 text-center text-sm text-gray-600">Nadie con esa búsqueda.</li>}
             {clientes.length < total && (
               <li className="p-2">
                 <Button variant="ghost" className="w-full" onClick={cargarMas} disabled={cargandoMas}>
@@ -204,22 +219,36 @@ function VistaClientes() {
         {seleccionado ? (
           <HistorialClientePanel numero={seleccionado} onVolver={() => setSeleccionado(null)} volverTexto="Clientes" />
         ) : (
-          <SinSeleccion texto="Elige un cliente para ver todo lo que ha pasado con él, en el orden en que pasó." />
+          <SinSeleccion texto="Elige un cliente para ver lo que ha pasado con él, en el orden en que pasó." />
         )}
       </section>
     </div>
   );
 }
 
-function potencia(kw: number | null | undefined, categoria: ClaveCategoriaEquipo): string {
-  if (kw == null) return "—";
-  const unidad = categoria === "baterias" ? "kWh" : "kW";
-  if (kw < 1 && categoria === "paneles") return `${Math.round(kw * 1000)} W`;
-  return `${Number.isInteger(kw) ? kw : kw.toLocaleString("es", { maximumFractionDigits: 2 })} ${unidad}`;
+function potencia(kw: number | null | undefined, categoria: ClaveCategoriaEquipo): string | null {
+  if (kw == null) return null;
+  if (categoria === "paneles" && kw < 1) return `${Math.round(kw * 1000)} W`;
+  const valor = Number.isInteger(kw) ? String(kw) : kw.toLocaleString("es", { maximumFractionDigits: 2 });
+  return `${valor} ${categoria === "baterias" ? "kWh" : "kW"}`;
 }
 
 function numero(n: number): string {
   return Number.isInteger(n) ? n.toLocaleString("es") : n.toLocaleString("es", { maximumFractionDigits: 2 });
+}
+
+function FotoEquipo({ foto, categoria, tamano }: { foto?: string | null; categoria: ClaveCategoriaEquipo; tamano: string }) {
+  const Icono = ICONO_CATEGORIA[categoria] ?? Package;
+  return (
+    <span className={cn("flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gray-100", tamano)}>
+      {foto ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={foto} alt="" loading="lazy" className="h-full w-full object-contain p-1" />
+      ) : (
+        <Icono className="h-7 w-7 text-gray-400" aria-hidden />
+      )}
+    </span>
+  );
 }
 
 function VistaEquipos() {
@@ -253,21 +282,14 @@ function VistaEquipos() {
     return (
       <p className="mt-10 flex items-center gap-2 text-sm text-gray-500">
         <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-        Contando equipos de las ofertas confirmadas…
+        Contando los equipos de las ofertas confirmadas…
       </p>
     );
   }
 
   const actual = categorias.find((c) => c.clave === categoria);
   if (equipo) {
-    return (
-      <ClientesDelEquipo
-        equipo={equipo}
-        categoria={categoria}
-        categoriaNombre={actual?.nombre ?? "Equipos"}
-        onVolver={() => setEquipo(null)}
-      />
-    );
+    return <ClientesDelEquipo equipo={equipo} categoria={categoria} categoriaNombre={actual?.nombre ?? "Equipos"} onVolver={() => setEquipo(null)} />;
   }
 
   const texto = q.trim().toLowerCase();
@@ -276,26 +298,30 @@ function VistaEquipos() {
   );
 
   return (
-    <div className="mt-5">
+    <div className="mt-6">
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex flex-wrap gap-2">
-          {categorias.map((c) => (
-            <button
-              key={c.clave}
-              type="button"
-              aria-pressed={c.clave === categoria}
-              onClick={() => setCategoria(c.clave)}
-              className={cn(
-                "rounded-full border px-4 py-2 text-sm transition-colors",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600",
-                c.clave === categoria
-                  ? "border-emerald-800 bg-emerald-800 font-semibold text-white"
-                  : "border-gray-300 bg-white text-gray-700 hover:border-gray-400",
-              )}
-            >
-              {c.nombre} <span className="tabular-nums opacity-80">{c.equipos.length}</span>
-            </button>
-          ))}
+          {categorias.map((c) => {
+            const Icono = ICONO_CATEGORIA[c.clave] ?? Package;
+            const activa = c.clave === categoria;
+            return (
+              <button
+                key={c.clave}
+                type="button"
+                aria-pressed={activa}
+                onClick={() => setCategoria(c.clave)}
+                className={cn(
+                  "inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm transition-colors",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600",
+                  activa ? "border-gray-900 bg-gray-900 font-semibold text-white" : "border-gray-300 bg-white text-gray-800 hover:border-gray-400",
+                )}
+              >
+                <Icono className="h-4 w-4" aria-hidden />
+                {c.nombre}
+                <span className={cn("tabular-nums", activa ? "text-gray-300" : "text-gray-500")}>{c.equipos.length}</span>
+              </button>
+            );
+          })}
         </div>
         <label className="relative w-full sm:ml-auto sm:w-72">
           <span className="sr-only">Buscar equipo</span>
@@ -303,59 +329,41 @@ function VistaEquipos() {
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Modelo, marca o código" className={cn(CLASE_CAMPO, "pl-9")} />
         </label>
       </div>
-      <p className="mt-3 text-sm text-gray-600">
-        De las ofertas confirmadas por los clientes. Toca un equipo para ver quién lo tiene.
-      </p>
+      <p className="mt-3 text-sm text-gray-600">De las ofertas confirmadas por los clientes. Toca un equipo para ver quién lo tiene.</p>
 
-      <div className="mt-3 overflow-x-auto rounded-lg border border-gray-200 bg-white">
-        <table className="w-full min-w-[40rem] text-sm">
-          <thead>
-            <tr className="border-b border-gray-200 text-left text-xs font-medium text-gray-500">
-              <th className="px-4 py-2.5 font-medium">Equipo</th>
-              <th className="px-4 py-2.5 text-right font-medium">{categoria === "baterias" ? "Capacidad" : "Potencia"}</th>
-              <th className="px-4 py-2.5 text-right font-medium">Clientes</th>
-              <th className="px-4 py-2.5 text-right font-medium">Unidades</th>
-              <th className="px-4 py-2.5 text-right font-medium">Ofertas</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {equipos.map((e) => (
-              <tr
-                key={e.material_codigo}
-                onClick={() => setEquipo(e)}
-                className="cursor-pointer hover:bg-emerald-50/60"
-              >
-                <td className="px-4 py-3">
-                  <button
-                    type="button"
-                    onClick={(ev) => {
-                      ev.stopPropagation();
-                      setEquipo(e);
-                    }}
-                    className="text-left font-semibold text-gray-900 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
-                  >
-                    {e.descripcion.trim()}
-                  </button>
-                  <span className="block text-xs text-gray-500">{[e.marca, e.material_codigo].filter(Boolean).join(" · ")}</span>
-                </td>
-                <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-gray-900">
-                  {potencia(e.potencia_kw, categoria)}
-                </td>
-                <td className="px-4 py-3 text-right font-semibold tabular-nums text-gray-900">{numero(e.clientes)}</td>
-                <td className="px-4 py-3 text-right tabular-nums text-gray-700">{numero(e.unidades)}</td>
-                <td className="px-4 py-3 text-right tabular-nums text-gray-700">{numero(e.ofertas)}</td>
-              </tr>
-            ))}
-            {equipos.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-gray-600">
-                  {texto ? "Ningún equipo con esa búsqueda." : "Ninguna oferta confirmada lleva equipos de este tipo."}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      {equipos.length === 0 ? (
+        <p className="mt-4 rounded-2xl border border-dashed border-gray-300 bg-white px-6 py-10 text-center text-sm text-gray-600">
+          {texto ? "Ningún equipo con esa búsqueda." : "Ninguna oferta confirmada lleva equipos de este tipo."}
+        </p>
+      ) : (
+        <ul className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {equipos.map((e) => {
+            const p = potencia(e.potencia_kw, categoria);
+            return (
+              <li key={e.material_codigo}>
+                <button
+                  type="button"
+                  onClick={() => setEquipo(e)}
+                  className="flex h-full w-full gap-3 rounded-2xl border border-gray-200 bg-white p-3 text-left shadow-sm transition hover:border-emerald-600 hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+                >
+                  <FotoEquipo foto={e.foto} categoria={categoria} tamano="h-20 w-20" />
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="line-clamp-2 text-sm font-semibold text-gray-900">{e.descripcion.trim()}</span>
+                    {e.marca && <span className="mt-0.5 text-xs text-gray-500">{e.marca}</span>}
+                    <span className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 pt-2">
+                      {p && <span className="rounded-md bg-gray-900 px-2 py-0.5 text-xs font-bold text-white">{p}</span>}
+                      <span className="text-sm font-semibold text-emerald-800">
+                        {numero(e.clientes)} {e.clientes === 1 ? "cliente" : "clientes"}
+                      </span>
+                      <span className="text-xs text-gray-500">· {numero(e.unidades)} ud.</span>
+                    </span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }
@@ -385,52 +393,56 @@ function ClientesDelEquipo({
     };
   }, [equipo.material_codigo]);
 
-  const clientes: ClienteDeEquipo[] = datos?.clientes ?? [];
+  const p = potencia(equipo.potencia_kw, categoria);
 
   return (
-    <div className="mt-5">
-      <button
-        type="button"
-        onClick={onVolver}
-        className="inline-flex items-center gap-1 text-sm font-medium text-emerald-800 hover:underline"
-      >
+    <div className="mt-6">
+      <button type="button" onClick={onVolver} className="inline-flex items-center gap-1 text-sm font-medium text-emerald-800 hover:underline">
         <ChevronLeft className="h-4 w-4" aria-hidden />
         {categoriaNombre}
       </button>
-      <h2 className="mt-2 text-xl font-semibold text-gray-900">{equipo.descripcion.trim()}</h2>
-      <p className="text-sm text-gray-600">
-        {[
-          equipo.marca,
-          equipo.potencia_kw != null ? potencia(equipo.potencia_kw, categoria) : null,
-          `${numero(equipo.unidades)} ${equipo.unidades === 1 ? "unidad" : "unidades"} en ${equipo.clientes} ${equipo.clientes === 1 ? "cliente" : "clientes"}`,
-        ]
-          .filter(Boolean)
-          .join(" · ")}
-      </p>
+      <div className="mt-3 flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+        <FotoEquipo foto={equipo.foto} categoria={categoria} tamano="h-20 w-20" />
+        <div className="min-w-0">
+          <h2 className="text-lg font-semibold text-gray-900">{equipo.descripcion.trim()}</h2>
+          <p className="text-sm text-gray-600">{[equipo.marca, equipo.material_codigo].filter(Boolean).join(" · ")}</p>
+          <p className="mt-1.5 flex flex-wrap items-center gap-2 text-sm">
+            {p && <span className="rounded-md bg-gray-900 px-2 py-0.5 text-xs font-bold text-white">{p}</span>}
+            <span className="font-semibold text-emerald-800">
+              {numero(equipo.clientes)} {equipo.clientes === 1 ? "cliente" : "clientes"}
+            </span>
+            <span className="text-gray-600">
+              · {numero(equipo.unidades)} {equipo.unidades === 1 ? "unidad" : "unidades"}
+            </span>
+          </p>
+        </div>
+      </div>
 
-      <div className="mt-5 grid items-start gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
-        <section className={cn(seleccionado && "hidden lg:block")}>
+      <div className="mt-5 grid items-start gap-6 lg:grid-cols-[21rem_minmax(0,1fr)]">
+        <section className={cn("overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm lg:sticky lg:top-20", seleccionado && "hidden lg:block")}>
           {error ? (
-            <p className="rounded-lg border border-gray-200 bg-white px-4 py-6 text-center text-sm text-gray-600">
-              No se pudieron cargar los clientes de este equipo.
-            </p>
+            <p className="px-4 py-6 text-center text-sm text-gray-600">No se pudieron cargar los clientes de este equipo.</p>
           ) : !datos ? (
-            <p className="flex items-center gap-2 text-sm text-gray-500">
+            <p className="flex items-center gap-2 px-4 py-6 text-sm text-gray-500">
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               Buscando quién lo tiene…
             </p>
           ) : (
-            <ul className="max-h-[calc(100vh-20rem)] divide-y divide-gray-100 overflow-y-auto rounded-lg border border-gray-200 bg-white">
-              {clientes.map((c) => (
+            <ul className="max-h-[calc(100vh-22rem)] divide-y divide-gray-100 overflow-y-auto">
+              {datos.clientes.map((c) => (
                 <FilaCliente
                   key={c.numero}
                   cliente={c}
                   marcado={c.numero === seleccionado}
                   onClick={() => setSeleccionado(c.numero)}
                   extra={
-                    <span className="shrink-0 text-right">
-                      <span className="block text-sm font-semibold tabular-nums text-gray-900">× {numero(c.cantidad)}</span>
-                      <span className="block text-xs text-gray-500">{c.ofertas.join(", ")}</span>
+                    <span
+                      className={cn(
+                        "shrink-0 rounded-full px-2.5 py-0.5 text-sm font-bold tabular-nums",
+                        c.numero === seleccionado ? "bg-white text-emerald-900" : "bg-emerald-50 text-emerald-900",
+                      )}
+                    >
+                      × {numero(c.cantidad)}
                     </span>
                   }
                 />

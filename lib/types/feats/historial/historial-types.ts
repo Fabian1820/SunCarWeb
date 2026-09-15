@@ -18,7 +18,14 @@ export interface MaterialEvento {
   um?: string | null;
 }
 
+/** Una cosa conectada con otra: tocarla lleva a ese evento. */
+export interface EnlaceEvento {
+  id: string;
+  texto: string;
+}
+
 export interface EventoHistorial {
+  id: string;
   tipo: TipoEventoHistorial;
   /** ISO en hora de Cuba; null si no se sabe cuándo pasó. */
   fecha: string | null;
@@ -29,6 +36,7 @@ export interface EventoHistorial {
   lineas: string[];
   materiales: MaterialEvento[];
   estado?: string | null;
+  enlaces: EnlaceEvento[];
 }
 
 export interface ClienteHistorial {
