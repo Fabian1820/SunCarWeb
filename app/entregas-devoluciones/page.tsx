@@ -509,36 +509,47 @@ function FilaEntrega({
   );
 }
 
+/**
+ * Los materiales del vale, cada uno en su fila bien separada: con decenas en un
+ * vale, las filas alternas y la cantidad en su pastilla evitan saltarse uno.
+ */
 function TablaMateriales({ materiales, conDevuelto }: { materiales: MaterialEntregado[]; conDevuelto: boolean }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
       <table className="w-full text-sm">
         <thead>
-          <tr className="text-left text-xs text-gray-500">
-            <th className="py-1.5 pr-3 font-medium">Material</th>
-            <th className="py-1.5 pr-3 text-right font-medium">Salió</th>
-            {conDevuelto && <th className="py-1.5 pr-3 text-right font-medium">Volvió</th>}
+          <tr className="border-b border-gray-200 bg-gray-100 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">
+            <th className="w-10 py-2.5 pl-3 pr-1 text-right font-semibold">#</th>
+            <th className="px-3 py-2.5 font-semibold">Material</th>
+            <th className="px-3 py-2.5 text-right font-semibold">Salió</th>
+            {conDevuelto && <th className="px-3 py-2.5 text-right font-semibold">Volvió</th>}
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-200">
-          {materiales.map((m) => (
-            <tr key={m.material_id}>
-              <td className="py-2 pr-3 text-gray-900">
-                {nombreMaterial(m)}
-                {m.material_codigo && m.material_descripcion && <span className="ml-2 text-xs text-gray-500">{m.material_codigo}</span>}
+        <tbody>
+          {materiales.map((m, i) => (
+            <tr key={m.material_id} className="border-b border-gray-100 last:border-0 even:bg-gray-50">
+              <td className="py-3 pl-3 pr-1 text-right align-top text-xs tabular-nums text-gray-500">{i + 1}</td>
+              <td className="px-3 py-3 align-top">
+                <span className="block font-medium text-gray-900">{nombreMaterial(m)}</span>
+                {m.material_codigo && m.material_descripcion && (
+                  <span className="block text-xs text-gray-500">Código {m.material_codigo}</span>
+                )}
               </td>
-              <td className="whitespace-nowrap py-2 pr-3 text-right tabular-nums text-gray-900">
-                {cantidad(m.cantidad)}
-                {m.um ? ` ${m.um}` : ""}
+              <td className="px-3 py-3 text-right align-top">
+                <span className="inline-block whitespace-nowrap rounded-full bg-emerald-50 px-2.5 py-0.5 font-semibold tabular-nums text-emerald-900">
+                  {cantidad(m.cantidad)}
+                  {m.um ? ` ${m.um}` : ""}
+                </span>
               </td>
               {conDevuelto && (
-                <td
-                  className={cn(
-                    "whitespace-nowrap py-2 pr-3 text-right tabular-nums",
-                    m.devuelto > 0 ? "font-semibold text-amber-800" : "text-gray-400",
+                <td className="px-3 py-3 text-right align-top">
+                  {m.devuelto > 0 ? (
+                    <span className="inline-block whitespace-nowrap rounded-full bg-amber-100 px-2.5 py-0.5 font-semibold tabular-nums text-amber-900">
+                      {cantidad(m.devuelto)}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400">—</span>
                   )}
-                >
-                  {m.devuelto > 0 ? cantidad(m.devuelto) : "—"}
                 </td>
               )}
             </tr>
@@ -578,11 +589,19 @@ function TarjetaDevolucion({ devolucion: d, dia }: { devolucion: DevolucionOtroD
           )}
           {d.comentario && <p className="mt-2 rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-800">{d.comentario}</p>}
           <p className="mt-3 text-xs font-semibold text-gray-500">Materiales que volvieron</p>
-          <ul className="mt-1 divide-y divide-gray-100 text-sm">
+          <ul className="mt-2 space-y-2 text-sm">
             {d.materiales.map((m: MaterialDevuelto, i) => (
-              <li key={`${m.material_id}-${i}`} className="flex justify-between gap-4 py-1.5">
-                <span className="min-w-0 text-gray-900">{nombreMaterial(m)}</span>
-                <span className="shrink-0 font-semibold tabular-nums text-amber-900">
+              <li
+                key={`${m.material_id}-${i}`}
+                className="flex items-center justify-between gap-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5"
+              >
+                <span className="min-w-0">
+                  <span className="block font-medium text-gray-900">{nombreMaterial(m)}</span>
+                  {m.material_codigo && m.material_descripcion && (
+                    <span className="block text-xs text-amber-900/80">Código {m.material_codigo}</span>
+                  )}
+                </span>
+                <span className="shrink-0 whitespace-nowrap rounded-full bg-white px-2.5 py-0.5 font-semibold tabular-nums text-amber-900 ring-1 ring-amber-200">
                   {cantidad(m.cantidad)}
                   {m.um ? ` ${m.um}` : ""}
                 </span>
