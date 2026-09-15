@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/shared/atom/select";
 import { SearchableSelect } from "@/components/shared/molecule/searchable-select";
-import { Save, X, Eye, EyeOff } from "lucide-react";
+import { Save, X } from "lucide-react";
 import type { Brigade } from "@/lib/brigade-types";
 import type { Trabajador } from "@/lib/api-types";
 
@@ -22,7 +22,6 @@ interface WorkerFormSubmitData {
   name: string;
   mode: "trabajador" | "trabajador_asignar" | "jefe" | "jefe_brigada";
   brigadeId?: string;
-  password?: string;
   integrantes?: string[];
   // true = el CI ya existe en `trabajadores` (venía de RRHH sin ser instalador);
   // no se debe volver a crear el documento, solo actualizarlo.
@@ -52,12 +51,11 @@ export function WorkerForm({
     name: "",
     ci: "",
     brigadeId: "",
-    password: "",
+    esJefe: false,
     integrantes: [] as string[],
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [showPassword, setShowPassword] = useState(false);
 
   const seleccionarTrabajadorExistente = (worker: Trabajador) => {
     setFormData({
@@ -94,7 +92,7 @@ export function WorkerForm({
 
     const existente = formData.origen === "existente";
 
-    if (!formData.password) {
+    if (!formData.esJefe) {
       // Trabajador normal
       if (formData.brigadeId) {
         onSubmit({
@@ -113,12 +111,11 @@ export function WorkerForm({
         });
       }
     } else {
-      // Jefe
+      // Jefe (sin contraseña: es_jefe_brigada + brigada_id se asignan en el backend)
       if (formData.integrantes.length > 0) {
         onSubmit({
           ci: formData.ci,
           name: formData.name,
-          password: formData.password,
           integrantes: formData.integrantes,
           mode: "jefe_brigada",
           existente,
@@ -127,7 +124,6 @@ export function WorkerForm({
         onSubmit({
           ci: formData.ci,
           name: formData.name,
-          password: formData.password,
           mode: "jefe",
           existente,
         });
@@ -258,10 +254,7 @@ export function WorkerForm({
           )}
         </div>
         <div>
-          <Label
-            htmlFor="worker-password"
-            className="text-sm font-medium text-gray-700 mb-2 block"
-          >
+          <Label className="text-sm font-medium text-gray-700 mb-2 block">
             Rol del Instalador
           </Label>
           <div className="space-y-2">
@@ -270,9 +263,9 @@ export function WorkerForm({
                 type="radio"
                 id="role-worker"
                 name="role"
-                checked={!formData.password}
+                checked={!formData.esJefe}
                 onChange={() =>
-                  setFormData({ ...formData, password: "", integrantes: [] })
+                  setFormData({ ...formData, esJefe: false, integrantes: [] })
                 }
               />
               <label htmlFor="role-worker" className="flex-1 cursor-pointer">
@@ -289,9 +282,9 @@ export function WorkerForm({
                 type="radio"
                 id="role-leader"
                 name="role"
-                checked={!!formData.password}
+                checked={formData.esJefe}
                 onChange={() =>
-                  setFormData({ ...formData, password: " ", brigadeId: "" })
+                  setFormData({ ...formData, esJefe: true, brigadeId: "" })
                 }
               />
               <label htmlFor="role-leader" className="flex-1 cursor-pointer">
@@ -299,46 +292,13 @@ export function WorkerForm({
                   Jefe de Brigada
                 </span>
                 <span className="text-xs text-gray-500 ml-2">
-                  Con contraseña y brigada
+                  Lidera su propia brigada
                 </span>
               </label>
             </div>
           </div>
         </div>
-        {formData.password && (
-          <div>
-            <Label
-              htmlFor="worker-password-input"
-              className="text-sm font-medium text-gray-700 mb-2 block"
-            >
-              Contraseña para Jefe de Brigada *
-            </Label>
-            <div className="relative">
-              <Input
-                id="worker-password-input"
-                type={showPassword ? "text" : "password"}
-                value={formData.password.trim()}
-                onChange={(e) =>
-                  setFormData({ ...formData, password: e.target.value })
-                }
-                placeholder="Ingrese contraseña"
-                className="pr-10"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center"
-              >
-                {showPassword ? (
-                  <EyeOff className="h-4 w-4 text-gray-400" />
-                ) : (
-                  <Eye className="h-4 w-4 text-gray-400" />
-                )}
-              </button>
-            </div>
-          </div>
-        )}
-        {!formData.password && (
+        {!formData.esJefe && (
           <div>
             <Label
               htmlFor="brigade-select"
@@ -370,7 +330,7 @@ export function WorkerForm({
             </Select>
           </div>
         )}
-        {formData.password && (
+        {formData.esJefe && (
           <div>
             <Label
               htmlFor="integrantes-select"
@@ -380,12 +340,12 @@ export function WorkerForm({
             </Label>
             <div className="border rounded p-3 max-h-48 overflow-y-auto">
               {workers.filter(
-                (w) => !w.tiene_contraseña && w.is_brigadista === true,
+                (w) => !w.es_jefe_brigada && w.is_brigadista === true,
               ).length > 0 ? (
                 <div className="grid grid-cols-1 gap-2">
                   {workers
                     .filter(
-                      (w) => !w.tiene_contraseña && w.is_brigadista === true,
+                      (w) => !w.es_jefe_brigada && w.is_brigadista === true,
                     )
                     .map((w) => (
                       <label

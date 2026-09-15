@@ -1,28 +1,20 @@
 import { useState } from 'react';
 import { Button } from '@/components/shared/atom/button';
-import { Crown, Eye, EyeOff, X } from 'lucide-react';
+import { Crown, X } from 'lucide-react';
 import type { Trabajador } from '@/lib/api-types';
 
 export function ConvertirJefeForm({ onSubmit, onCancel, loading, trabajador, trabajadores }: {
-  onSubmit: (data: { contrasena: string, integrantes: string[] }) => void,
+  onSubmit: (data: { integrantes: string[] }) => void,
   onCancel: () => void,
   loading?: boolean,
   trabajador: Trabajador,
   trabajadores: Trabajador[],
 }) {
-  const [contrasena, setContrasena] = useState('');
   const [integrantes, setIntegrantes] = useState<string[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-    if (!contrasena.trim()) {
-      setError('La contraseña es obligatoria');
-      return;
-    }
-    onSubmit({ contrasena, integrantes });
+    onSubmit({ integrantes });
   };
 
   return (
@@ -32,33 +24,11 @@ export function ConvertirJefeForm({ onSubmit, onCancel, loading, trabajador, tra
         <div className="bg-gray-100 rounded px-2 py-1">{trabajador.nombre} ({trabajador.CI})</div>
       </div>
       <div>
-        <label className="block text-sm font-medium mb-1">Contraseña</label>
-        <div className="relative">
-          <input 
-            type={showPassword ? "text" : "password"} 
-            className="border px-2 py-1 rounded w-full pr-10" 
-            value={contrasena} 
-            onChange={e => setContrasena(e.target.value)} 
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            className="absolute inset-y-0 right-0 pr-3 flex items-center"
-          >
-            {showPassword ? (
-              <EyeOff className="h-4 w-4 text-gray-400" />
-            ) : (
-              <Eye className="h-4 w-4 text-gray-400" />
-            )}
-          </button>
-        </div>
-      </div>
-      <div>
         <label className="block text-sm font-medium mb-1">Integrantes (opcional)</label>
         <div className="border rounded p-3 max-h-48 overflow-y-auto">
-          {trabajadores.filter(t => !t.tiene_contraseña && t.CI !== trabajador.CI && (t.is_brigadista === true || t.is_brigadista === undefined)).length > 0 ? (
+          {trabajadores.filter(t => !t.es_jefe_brigada && t.CI !== trabajador.CI && (t.is_brigadista === true || t.is_brigadista === undefined)).length > 0 ? (
             <div className="grid grid-cols-1 gap-2">
-              {trabajadores.filter(t => !t.tiene_contraseña && t.CI !== trabajador.CI && (t.is_brigadista === true || t.is_brigadista === undefined)).map(t => (
+              {trabajadores.filter(t => !t.es_jefe_brigada && t.CI !== trabajador.CI && (t.is_brigadista === true || t.is_brigadista === undefined)).map(t => (
                 <label key={t.id || t.CI} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
                   <input
                     type="checkbox"
@@ -91,7 +61,6 @@ export function ConvertirJefeForm({ onSubmit, onCancel, loading, trabajador, tra
           </p>
         )}
       </div>
-      {error && <div className="text-red-600 text-sm">{error}</div>}
       <div className="flex justify-end gap-2 pt-2">
         <Button
           type="button"
@@ -122,4 +91,4 @@ export function ConvertirJefeForm({ onSubmit, onCancel, loading, trabajador, tra
       </div>
     </form>
   );
-} 
+}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import type { Trabajador, Brigada } from "@/lib/api-types"
+import type { Trabajador } from "@/lib/api-types"
 import { Button } from "@/components/shared/atom/button"
 import { Badge } from "@/components/shared/atom/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card"
@@ -9,11 +9,10 @@ import { Label } from "@/components/shared/atom/label"
 import { useToast } from "@/hooks/use-toast"
 import { TrabajadorService, RecursosHumanosService } from "@/lib/api-services"
 import { WorkerAvatar, WorkerAvatarUploader } from "@/components/feats/worker/worker-avatar"
-import { Calculator, Clock, Crown, KeyRound, Search, Trash2, Users, X } from "lucide-react"
+import { Calculator, Clock, Crown, Search, Trash2, UserMinus, Users, X } from "lucide-react"
 
 interface TrabajadoresTableProps {
   trabajadores: Trabajador[]
-  brigadas: Brigada[]
   onAssignBrigada: (trabajador: Trabajador) => void
   onConvertJefe: (trabajador: Trabajador) => void
   onRefresh: () => void
@@ -21,21 +20,13 @@ interface TrabajadoresTableProps {
 
 export function TrabajadoresTable({
   trabajadores,
-  brigadas,
   onAssignBrigada,
   onConvertJefe,
   onRefresh,
 }: TrabajadoresTableProps) {
   const { toast } = useToast()
 
-  // Quien es jefe "de verdad": lidera una brigada existente en brigadas_completas.
-  // No usamos tiene_contraseña para mostrar el rol porque esa credencial puede
-  // sobrevivir a que se borre o reasigne la brigada, dejando trabajadores
-  // marcados como jefes sin liderar ninguna brigada.
-  const jefesReales = new Set(
-    brigadas.map(b => b.lider?.CI).filter((ci): ci is string => Boolean(ci))
-  )
-  const esJefeDeBrigada = (worker: Trabajador) => jefesReales.has(worker.CI)
+  const esJefeDeBrigada = (worker: Trabajador) => Boolean(worker.es_jefe_brigada)
 
   const [selectedWorker, setSelectedWorker] = useState<Trabajador | null>(null)
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
@@ -57,12 +48,10 @@ export function TrabajadoresTable({
   const [fechaTodosInicio, setFechaTodosInicio] = useState("")
   const [fechaTodosFin, setFechaTodosFin] = useState("")
 
-  const [isRemovePasswordLoading, setIsRemovePasswordLoading] = useState<string | null>(null)
-  const [confirmRemovePassword, setConfirmRemovePassword] = useState<Trabajador | null>(null)
+  const [isRemovingJefeLoading, setIsRemovingJefeLoading] = useState<string | null>(null)
+  const [confirmRemoveJefe, setConfirmRemoveJefe] = useState<Trabajador | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<Trabajador | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
-
-  const hasPassword = (worker: Trabajador) => Boolean(worker.tiene_contraseña)
 
   useEffect(() => {
     const now = new Date()
@@ -132,24 +121,26 @@ export function TrabajadoresTable({
     }
   }
 
-  const handleRemovePassword = async (worker: Trabajador) => {
-    setIsRemovePasswordLoading(worker.CI)
+  const handleQuitarJefe = async (worker: Trabajador) => {
+    setIsRemovingJefeLoading(worker.CI)
     try {
-      await TrabajadorService.eliminarContrasenaTrabajador(worker.CI)
+      // Baja de jefe a instalador regular: no toca is_brigadista, el backend se
+      // encarga de borrar su brigada y limpiar su credencial de jefe.
+      await RecursosHumanosService.actualizarTrabajadorRRHH(worker.CI, { es_jefe_brigada: false })
       toast({
-        title: "Contraseña eliminada",
-        description: `El trabajador ${worker.nombre} ahora es trabajador normal.`,
+        title: "Jefe de brigada removido",
+        description: `${worker.nombre} ahora es un instalador regular.`,
       })
       onRefresh()
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "No se pudo eliminar la contraseña",
+        description: error.message || "No se pudo quitar como jefe de brigada",
         variant: "destructive",
       })
     } finally {
-      setIsRemovePasswordLoading(null)
-      setConfirmRemovePassword(null)
+      setIsRemovingJefeLoading(null)
+      setConfirmRemoveJefe(null)
     }
   }
 
@@ -246,22 +237,22 @@ export function TrabajadoresTable({
                   <Users className="h-4 w-4" />
                 </Button>
 
-                {hasPassword(worker) ? (
+                {esJefeDeBrigada(worker) ? (
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={() => setConfirmRemovePassword(worker)}
+                    onClick={() => setConfirmRemoveJefe(worker)}
                     className="border-yellow-300 text-yellow-700 hover:bg-yellow-50 touch-manipulation"
-                    title="Eliminar contraseña (convertir en trabajador normal)"
-                    aria-label="Eliminar contraseña (convertir en trabajador normal)"
-                    disabled={isRemovePasswordLoading === worker.CI}
+                    title="Quitar como jefe de brigada"
+                    aria-label="Quitar como jefe de brigada"
+                    disabled={isRemovingJefeLoading === worker.CI}
                   >
-                    {isRemovePasswordLoading === worker.CI ? (
+                    {isRemovingJefeLoading === worker.CI ? (
                       <span className="animate-spin">
-                        <KeyRound className="h-4 w-4" />
+                        <UserMinus className="h-4 w-4" />
                       </span>
                     ) : (
-                      <KeyRound className="h-4 w-4" />
+                      <UserMinus className="h-4 w-4" />
                     )}
                   </Button>
                 ) : (
@@ -350,22 +341,22 @@ export function TrabajadoresTable({
                     >
                       <Users className="h-4 w-4" />
                     </Button>
-                    {hasPassword(worker) ? (
+                    {esJefeDeBrigada(worker) ? (
                       <Button
                         variant="outline"
                         size="icon"
-                        onClick={() => setConfirmRemovePassword(worker)}
+                        onClick={() => setConfirmRemoveJefe(worker)}
                         className="border-yellow-300 text-yellow-700 hover:bg-yellow-50"
-                        title="Eliminar contraseña (convertir en trabajador normal)"
-                        aria-label="Eliminar contraseña (convertir en trabajador normal)"
-                        disabled={isRemovePasswordLoading === worker.CI}
+                        title="Quitar como jefe de brigada"
+                        aria-label="Quitar como jefe de brigada"
+                        disabled={isRemovingJefeLoading === worker.CI}
                       >
-                        {isRemovePasswordLoading === worker.CI ? (
+                        {isRemovingJefeLoading === worker.CI ? (
                           <span className="animate-spin">
-                            <KeyRound className="h-4 w-4" />
+                            <UserMinus className="h-4 w-4" />
                           </span>
                         ) : (
-                          <KeyRound className="h-4 w-4" />
+                          <UserMinus className="h-4 w-4" />
                         )}
                       </Button>
                     ) : (
@@ -601,24 +592,28 @@ export function TrabajadoresTable({
         </DialogContent>
       </Dialog>
 
-      {confirmRemovePassword && (
-        <Dialog open={!!confirmRemovePassword} onOpenChange={() => setConfirmRemovePassword(null)}>
+      {confirmRemoveJefe && (
+        <Dialog open={!!confirmRemoveJefe} onOpenChange={() => setConfirmRemoveJefe(null)}>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Confirmar eliminación de contraseña</DialogTitle>
+              <DialogTitle>Quitar como jefe de brigada</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <p>
-                ¿Estás seguro de que quieres eliminar la contraseña de{" "}
-                <span className="font-semibold">{confirmRemovePassword.nombre}</span> (CI:{" "}
-                {confirmRemovePassword.CI})? Esta acción convertirá al jefe en trabajador normal.
+                ¿Estás seguro de que quieres quitarle el rol de jefe de brigada a{" "}
+                <span className="font-semibold">{confirmRemoveJefe.nombre}</span> (CI:{" "}
+                {confirmRemoveJefe.CI})?
+              </p>
+              <p className="text-sm text-gray-600">
+                Sigue siendo instalador. Si lideraba una brigada, se elimina; sus integrantes
+                quedan sin brigada hasta que se les asigne otro jefe.
               </p>
             </div>
             <DialogFooter>
               <Button
                 variant="outline"
-                onClick={() => setConfirmRemovePassword(null)}
-                disabled={isRemovePasswordLoading === confirmRemovePassword.CI}
+                onClick={() => setConfirmRemoveJefe(null)}
+                disabled={isRemovingJefeLoading === confirmRemoveJefe.CI}
                 size="icon"
                 className="w-10 sm:w-auto sm:px-4 touch-manipulation"
                 title="Cancelar"
@@ -630,19 +625,19 @@ export function TrabajadoresTable({
               </Button>
               <Button
                 variant="destructive"
-                onClick={() => handleRemovePassword(confirmRemovePassword)}
-                disabled={isRemovePasswordLoading === confirmRemovePassword.CI}
+                onClick={() => handleQuitarJefe(confirmRemoveJefe)}
+                disabled={isRemovingJefeLoading === confirmRemoveJefe.CI}
                 size="icon"
                 className="w-10 sm:w-auto sm:px-4 touch-manipulation"
-                title="Eliminar contraseña"
-                aria-label="Eliminar contraseña"
+                title="Quitar como jefe"
+                aria-label="Quitar como jefe"
               >
-                <Trash2 className="h-4 w-4" />
+                <UserMinus className="h-4 w-4" />
                 <span className="hidden sm:inline">
-                  {isRemovePasswordLoading === confirmRemovePassword.CI ? "Eliminando..." : "Eliminar contraseña"}
+                  {isRemovingJefeLoading === confirmRemoveJefe.CI ? "Procesando..." : "Quitar como jefe"}
                 </span>
                 <span className="sr-only">
-                  {isRemovePasswordLoading === confirmRemovePassword.CI ? "Eliminando..." : "Eliminar contraseña"}
+                  {isRemovingJefeLoading === confirmRemoveJefe.CI ? "Procesando..." : "Quitar como jefe"}
                 </span>
               </Button>
             </DialogFooter>

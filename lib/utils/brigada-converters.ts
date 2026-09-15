@@ -14,7 +14,7 @@ export function convertTrabajadorToWorker(trabajador: Trabajador): Worker {
     id: trabajador.id || trabajador.CI, // Usar CI como fallback si no hay ID
     name: trabajador.nombre,
     ci: trabajador.CI,
-    role: trabajador.tiene_contraseña ? "jefe" : "trabajador",
+    role: trabajador.es_jefe_brigada ? "jefe" : "trabajador",
     phone: trabajador.telefono,
     email: trabajador.email,
   }

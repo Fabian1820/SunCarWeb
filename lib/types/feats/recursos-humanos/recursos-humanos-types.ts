@@ -13,6 +13,8 @@ export interface TrabajadorRRHH {
   dias_no_trabajados: number[]
   is_brigadista?: boolean
   tiene_contraseña?: boolean
+  es_jefe_brigada?: boolean
+  brigada_id?: string | null
   sede_id?: string | null
   sede_nombre?: string | null
   departamento_id?: string | null
@@ -51,6 +53,8 @@ export interface ActualizarTrabajadorRRHHRequest {
   telefono?: string
   pertenece_mipyme?: boolean
   pertenece_tcp?: boolean
+  // Solo se envía en false: baja de jefe a instalador regular sin tocar is_brigadista.
+  es_jefe_brigada?: boolean
 }
 
 export interface CrearTrabajadorRRHHRequest {

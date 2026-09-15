@@ -6,6 +6,9 @@ export interface Trabajador {
   nombre: string
   tiene_contraseña: boolean
   is_brigadista?: boolean
+  // Fuente de verdad de "es jefe de brigada" — no se deduce de tiene_contraseña.
+  es_jefe_brigada?: boolean
+  brigada_id?: string | null
   activo?: boolean
   telefono?: string
   email?: string

@@ -25,8 +25,19 @@ export function BrigadeForm({ initialData, onSubmit, onCancel, isEditing = false
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [selectedJefe, setSelectedJefe] = useState('')
-  const [selectedIntegrantes, setSelectedIntegrantes] = useState<string[]>([])
+  // Precargados con la brigada actual al editar: si no, "Editar" obligaba a
+  // reseleccionar jefe e integrantes desde cero cada vez.
+  const [selectedJefe, setSelectedJefe] = useState(initialData?.leader.ci || '')
+  const [selectedIntegrantes, setSelectedIntegrantes] = useState<string[]>(
+    initialData?.members.map((m) => m.ci) || [],
+  )
+
+  const esCandidatoValido = (w: any) => w.is_brigadista === true || w.is_brigadista === undefined
+  const candidatosJefe = existingWorkers.filter(esCandidatoValido)
+  // No puede ser integrante quien ya lidera OTRA brigada, ni quien está elegido como jefe aquí.
+  const candidatosIntegrantes = existingWorkers.filter(
+    (w) => esCandidatoValido(w) && w.CI !== selectedJefe && !w.es_jefe_brigada,
+  )
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
@@ -80,10 +91,15 @@ export function BrigadeForm({ initialData, onSubmit, onCancel, isEditing = false
             <select
               className={`border px-2 py-2 rounded w-full ${errors.selectedJefe ? 'border-red-300' : ''}`}
               value={selectedJefe}
-              onChange={e => setSelectedJefe(e.target.value)}
+              onChange={e => {
+                const nuevoJefe = e.target.value
+                setSelectedJefe(nuevoJefe)
+                // No puede quedar seleccionado como integrante y como jefe a la vez.
+                setSelectedIntegrantes(selectedIntegrantes.filter(ci => ci !== nuevoJefe))
+              }}
             >
               <option value="">Seleccionar jefe</option>
-              {existingWorkers.filter(w => w.tiene_contraseña && (w.is_brigadista === true || w.is_brigadista === undefined)).map((worker) => (
+              {candidatosJefe.map((worker) => (
                 <option key={worker.CI} value={worker.CI}>
                   {worker.nombre} ({worker.CI})
                 </option>
@@ -103,9 +119,9 @@ export function BrigadeForm({ initialData, onSubmit, onCancel, isEditing = false
             Seleccionar trabajadores existentes *
           </Label>
           <div className="border rounded p-3 max-h-48 overflow-y-auto">
-            {existingWorkers.filter(w => !w.tiene_contraseña && (w.is_brigadista === true || w.is_brigadista === undefined)).length > 0 ? (
+            {candidatosIntegrantes.length > 0 ? (
               <div className="grid grid-cols-1 gap-2">
-                {existingWorkers.filter(w => !w.tiene_contraseña && (w.is_brigadista === true || w.is_brigadista === undefined)).map(w => (
+                {candidatosIntegrantes.map(w => (
                   <label key={w.id || w.CI} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
                     <input
                       type="checkbox"

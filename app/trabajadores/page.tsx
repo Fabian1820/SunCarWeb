@@ -54,19 +54,11 @@ export default function TrabajadoresPage() {
     ? trabajadores.filter((w) => w.activo !== false)
     : [];
 
-  // Quien es jefe "de verdad": lidera una brigada existente en brigadas_completas.
-  // No usamos tiene_contrase\u00F1a porque esa credencial puede sobrevivir a que se
-  // borre o reasigne su brigada, dejando trabajadores marcados como jefes sin serlo.
-  const jefesReales = new Set(
-    brigadasTrabajadores.map(b => b.lider?.CI).filter((ci): ci is string => Boolean(ci))
-  )
-  const esJefeDeBrigada = (ci: string) => jefesReales.has(ci)
-
   // Filtrar solo brigadistas (is_brigadista = true)
   const filteredTrabajadores = trabajadoresActivos.filter(w =>
     // Solo mostrar trabajadores que son brigadistas
     (w.is_brigadista === true || w.is_brigadista === undefined) // Mantener compatibilidad con datos sin el campo
-    && (workerType === 'todos' ? true : workerType === 'jefes' ? esJefeDeBrigada(w.CI) : !esJefeDeBrigada(w.CI))
+    && (workerType === 'todos' ? true : workerType === 'jefes' ? w.es_jefe_brigada : !w.es_jefe_brigada)
     && (workerSearch === '' || w.nombre.toLowerCase().includes(workerSearch.toLowerCase()) || w.CI.includes(workerSearch))
   );
 
@@ -106,7 +98,7 @@ export default function TrabajadoresPage() {
         numero: i + 1,
         nombre: w.nombre || "",
         ci: w.CI || "",
-        rol: esJefeDeBrigada(w.CI) ? "Jefe de brigada" : "Trabajador",
+        rol: w.es_jefe_brigada ? "Jefe de brigada" : "Trabajador",
         telefono: w.telefono || "",
         brigada: jefePorCi.get(w.CI) || "Sin brigada",
       })),
@@ -150,11 +142,11 @@ export default function TrabajadoresPage() {
   }
 
   // Handler para convertir trabajador a jefe de brigada
-  const handleConvertirJefe = async (data: { contrasena: string, integrantes: string[] }) => {
+  const handleConvertirJefe = async (data: { integrantes: string[] }) => {
     setLoadingAction(true)
     try {
       const integrantesArr = data.integrantes.map(ci => ({ CI: ci }))
-      await TrabajadorService.convertirTrabajadorAJefe(selectedTrabajador.CI, data.contrasena, integrantesArr)
+      await TrabajadorService.convertirTrabajadorAJefe(selectedTrabajador.CI, integrantesArr)
       toast({
         title: "Exito",
         description: 'Trabajador convertido en jefe de brigada correctamente',
@@ -199,12 +191,12 @@ export default function TrabajadoresPage() {
           ? 'Instalador asignado a brigada correctamente'
           : 'Instalador creado y asignado a brigada correctamente'
       } else if (data.mode === 'jefe') {
-        await TrabajadorService.crearJefeBrigada(data.ci, data.name, data.password, [])
+        await TrabajadorService.crearJefeBrigada(data.ci, data.name, undefined, [])
         await RecursosHumanosService.actualizarTrabajadorRRHH(data.ci, { is_brigadista: true })
         baseMessage = 'Jefe de brigada creado correctamente'
       } else if (data.mode === 'jefe_brigada') {
         const integrantesArr = data.integrantes.map((ci: string) => ({ CI: ci }))
-        await TrabajadorService.crearJefeBrigada(data.ci, data.name, data.password, integrantesArr)
+        await TrabajadorService.crearJefeBrigada(data.ci, data.name, undefined, integrantesArr)
         await RecursosHumanosService.actualizarTrabajadorRRHH(data.ci, { is_brigadista: true })
         baseMessage = 'Jefe de brigada creado con integrantes correctamente'
       }
@@ -310,7 +302,6 @@ export default function TrabajadoresPage() {
           <CardContent>
             <TrabajadoresTable
               trabajadores={filteredTrabajadores}
-              brigadas={brigadasTrabajadores}
               onAssignBrigada={trabajador => { setSelectedTrabajador(trabajador); setIsAssignBrigadeDialogOpen(true); }}
               onConvertJefe={trabajador => { setSelectedTrabajador(trabajador); setIsConvertJefeDialogOpen(true); }}
               onRefresh={async () => { await Promise.all([refetch(), loadBrigadas()]); }}

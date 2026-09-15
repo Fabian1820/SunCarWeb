@@ -88,7 +88,7 @@ export class TrabajadorService {
   static async crearJefeBrigada(
     ci: string,
     nombre: string,
-    contrasena: string,
+    contrasena: string | undefined,
     integrantes: { CI: string; nombre?: string }[],
     relaciones?: TrabajadorRelacionesPayload
   ): Promise<string> {
@@ -132,10 +132,9 @@ export class TrabajadorService {
 
   static async convertirTrabajadorAJefe(
     ci: string,
-    contrasena: string,
     integrantes: { CI: string; nombre?: string }[]
   ): Promise<boolean> {
-    console.log('Calling convertirTrabajadorAJefe with:', { ci, contrasena, integrantes })
+    console.log('Calling convertirTrabajadorAJefe with:', { ci, integrantes })
     try {
       let integrantesFinal = integrantes
       if (integrantes.length > 0 && !integrantes[0].nombre) {
@@ -147,7 +146,7 @@ export class TrabajadorService {
       }
       const response = await apiRequest<{ success: boolean }>(`/trabajadores/${ci}/convertir_jefe`, {
         method: 'POST',
-        body: JSON.stringify({ contrasena, integrantes: integrantesFinal }),
+        body: JSON.stringify({ integrantes: integrantesFinal }),
       })
       console.log('convertirTrabajadorAJefe response:', response)
       return response.success === true
