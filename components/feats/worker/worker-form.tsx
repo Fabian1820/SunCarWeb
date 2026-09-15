@@ -204,6 +204,7 @@ export function WorkerForm({
                   }))}
                   placeholder="Seleccione un trabajador"
                   searchPlaceholder="Buscar por nombre o CI..."
+                  disablePortal
                   className={errors.workerId ? "border-red-300" : ""}
                 />
               )}
