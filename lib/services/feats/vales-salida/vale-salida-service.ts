@@ -52,6 +52,8 @@ export class ValeSalidaService {
       /** Filtros de rango sobre `fecha_creacion` del vale (YYYY-MM-DD). */
       fecha_desde?: string;
       fecha_hasta?: string;
+      /** `_id` de un cliente de la instaladora: vales de sus solicitudes de materiales. */
+      cliente_id?: string;
       estado?: "usado" | "anulado" | string;
       skip?: number;
       limit?: number;
@@ -76,6 +78,7 @@ export class ValeSalidaService {
       search.append("creador_solicitud", params.creador_solicitud);
     if (params.fecha_desde) search.append("fecha_desde", params.fecha_desde);
     if (params.fecha_hasta) search.append("fecha_hasta", params.fecha_hasta);
+    if (params.cliente_id) search.append("cliente_id", params.cliente_id);
     if (params.estado) search.append("estado", params.estado);
     if (params.skip != null) search.append("skip", String(params.skip));
     if (params.limit != null) search.append("limit", String(params.limit));

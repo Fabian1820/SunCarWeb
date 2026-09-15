@@ -54,6 +54,7 @@ import {
   Sun,
   Ban,
   RotateCcw,
+  FileOutput,
 } from "lucide-react";
 import { ClienteService } from "@/lib/api-services";
 import type { EquipoEnOferta } from "@/lib/services/feats/customer/cliente-service";
@@ -67,6 +68,7 @@ import { apiRequest } from "@/lib/api-config";
 import { compareStrings } from "@/lib/utils/string-utils";
 import MapPicker from "@/components/shared/organism/MapPickerNoSSR";
 import { ClienteDetallesDialog } from "@/components/feats/customer/cliente-detalles-dialog";
+import { ClienteValesSalidaDialog } from "@/components/feats/customer-service/cliente-vales-salida-dialog";
 import { EstadoInstalacionMultipleDialog } from "@/components/feats/customer-service/estado-instalacion-multiple-dialog";
 import { useOfertasPersonalizadas } from "@/hooks/use-ofertas-personalizadas";
 import { OfertasPersonalizadasTable } from "@/components/feats/ofertas-personalizadas/ofertas-personalizadas-table";
@@ -781,6 +783,7 @@ export function ClientsTable({
     useState<OfertaPersonalizada | null>(null);
   const [ofertaSubmitting, setOfertaSubmitting] = useState(false);
   const [showAveriasDialog, setShowAveriasDialog] = useState(false);
+  const [clientForVales, setClientForVales] = useState<Cliente | null>(null);
   const [clientForAverias, setClientForAverias] = useState<Cliente | null>(
     null,
   );
@@ -4447,6 +4450,19 @@ export function ClientsTable({
                             <Button
                               variant="ghost"
                               size="sm"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setClientForVales(client);
+                              }}
+                              className="h-7 w-7 p-0 text-gray-500 hover:text-emerald-700 hover:bg-emerald-50"
+                              title="Ver vales de salida"
+                            >
+                              <FileOutput className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => handleViewClientDetails(client)}
                               className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 h-7 w-7 p-0"
                               title="Ver detalles"
@@ -4819,6 +4835,15 @@ export function ClientsTable({
         cliente={clientForDetails}
         fotosCliente={fotosClientDetails}
         loadingFotosCliente={loadingFotosClientDetails}
+      />
+
+      {/* Vales de salida del cliente, con sus materiales y quién los recibió */}
+      <ClienteValesSalidaDialog
+        cliente={clientForVales}
+        open={clientForVales !== null}
+        onOpenChange={(open) => {
+          if (!open) setClientForVales(null);
+        }}
       />
 
       {/* Fijar estado de instalación por oferta, para clientes con 2+ confirmadas */}
