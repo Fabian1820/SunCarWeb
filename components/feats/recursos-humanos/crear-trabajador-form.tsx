@@ -21,6 +21,7 @@ import {
 } from "@/components/shared/atom/select"
 import { DepartamentoForm } from "@/components/feats/departamentos/departamento-form"
 import { SedeForm } from "@/components/feats/sedes/sede-form"
+import { CargoInput } from "@/components/feats/recursos-humanos/cargo-input"
 import { DepartamentoService, SedeService } from "@/lib/api-services"
 import { useToast } from "@/hooks/use-toast"
 import type {
@@ -52,7 +53,7 @@ export function CrearTrabajadorForm({
   const [formData, setFormData] = useState<CrearTrabajadorRRHHRequest>({
     ci: "",
     nombre: "",
-    cargo: "Técnico",
+    cargo: "",
     salario_fijo: 0,
     porcentaje_fijo_estimulo: 0,
     porcentaje_variable_estimulo: 0,
@@ -280,12 +281,10 @@ export function CrearTrabajadorForm({
 
           <div>
             <Label htmlFor="cargo">Cargo</Label>
-            <Input
+            <CargoInput
               id="cargo"
-              type="text"
-              value={formData.cargo}
-              onChange={(e) => setFormData({ ...formData, cargo: e.target.value })}
-              placeholder="Técnico"
+              value={formData.cargo ?? ""}
+              onChange={(cargo) => setFormData((prev) => ({ ...prev, cargo }))}
               disabled={submitting}
             />
           </div>

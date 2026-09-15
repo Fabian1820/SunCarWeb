@@ -96,3 +96,13 @@ export interface CargosResumen {
 export interface CargosResumenResponse {
   cargos: CargosResumen[]
 }
+
+export interface CargoEnUso {
+  cargo: string
+  cantidad: number
+  activos: number
+}
+
+export interface CargosEnUsoResponse {
+  cargos: CargoEnUso[]
+}

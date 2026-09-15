@@ -12,6 +12,7 @@ import { Badge }   from "@/components/shared/atom/badge"
 import { Toaster } from "@/components/shared/molecule/toaster"
 import { useToast } from "@/hooks/use-toast"
 import { useRecursosHumanos } from "@/hooks/use-recursos-humanos"
+import { CargoInput } from "@/components/feats/recursos-humanos/cargo-input"
 import { DepartamentoService, SedeService, IngresoMensualService, PermisosService } from "@/lib/api-services"
 import type { Sede }        from "@/lib/types/feats/sedes/sede-types"
 import type { Departamento } from "@/lib/types/feats/departamentos/departamento-types"
@@ -108,6 +109,39 @@ function CampoEditable({ label, value, onSave, type = "text", placeholder = "—
       ) : (
         <div className="flex items-center gap-1.5 cursor-pointer" onClick={() => { setDraft(value); setEditing(true) }}>
           <p className="text-sm text-gray-800 flex-1 hover:text-[#012928]">{value || <span className="text-gray-400">{placeholder}</span>}</p>
+          <span className="opacity-0 group-hover:opacity-100 h-6 w-6 rounded-md hover:bg-gray-100 flex items-center justify-center text-gray-400 transition-all shrink-0">
+            <Pencil className="h-3 w-3" />
+          </span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── cargo inline: sugiere los cargos existentes para no crear variantes ─────
+function CampoCargo({ value, onSave }: { value: string; onSave: (v: string) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value)
+  const commit = () => { onSave(draft); setEditing(false) }
+  const cancel = () => { setDraft(value); setEditing(false) }
+  return (
+    <div className="group">
+      <p className="text-xs text-gray-400 mb-0.5">Cargo</p>
+      {editing ? (
+        <div className="flex items-start gap-1">
+          <CargoInput value={draft} onChange={setDraft} onEnter={commit} onEscape={cancel} autoFocus
+            className="flex-1"
+            inputClassName="h-8 text-sm border-[#012928]/30 rounded-lg px-2 py-1 focus-visible:ring-[#AFEB17] focus-visible:ring-offset-0" />
+          <button onClick={commit} className="h-8 w-7 rounded-lg bg-[#AFEB17]/20 hover:bg-[#AFEB17]/40 flex items-center justify-center text-[#012928]">
+            <Check className="h-3.5 w-3.5" />
+          </button>
+          <button onClick={cancel} className="h-8 w-7 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-1.5 cursor-pointer" onClick={() => { setDraft(value); setEditing(true) }}>
+          <p className="text-sm text-gray-800 flex-1 hover:text-[#012928]">{value || <span className="text-gray-400">Sin cargo</span>}</p>
           <span className="opacity-0 group-hover:opacity-100 h-6 w-6 rounded-md hover:bg-gray-100 flex items-center justify-center text-gray-400 transition-all shrink-0">
             <Pencil className="h-3 w-3" />
           </span>
@@ -592,8 +626,7 @@ function TabLaboral({ emp, sedes, departamentos, onUpdate }: {
           <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
             <Briefcase className="h-4 w-4 text-[#012928]" /> Puesto
           </h3>
-          <CampoEditable label="Cargo" value={emp.cargo || ""}
-            onSave={v => onUpdate("cargo", v)} placeholder="Sin cargo" />
+          <CampoCargo value={emp.cargo || ""} onSave={v => onUpdate("cargo", v)} />
           <CampoSelect
             label="Departamento"
             value={emp.departamento_id || ""}

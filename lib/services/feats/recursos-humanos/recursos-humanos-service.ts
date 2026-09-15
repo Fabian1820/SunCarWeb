@@ -4,6 +4,8 @@ import type {
   ActualizarTrabajadorRRHHRequest,
   SuccessResponse,
   CargosResumenResponse,
+  CargoEnUso,
+  CargosEnUsoResponse,
 } from '../../../recursos-humanos-types'
 
 export class RecursosHumanosService {
@@ -32,5 +34,11 @@ export class RecursosHumanosService {
     const response = await apiRequest<CargosResumenResponse>('/recursos-humanos/estadisticas-por-cargo')
     console.log('RecursosHumanosService.getCargosResumen response:', response)
     return response
+  }
+
+  /** Cargos que ya tiene algún trabajador, del más usado al menos (sin salarios). */
+  static async getCargosEnUso(): Promise<CargoEnUso[]> {
+    const response = await apiRequest<CargosEnUsoResponse>('/recursos-humanos/cargos')
+    return response.cargos ?? []
   }
 }
