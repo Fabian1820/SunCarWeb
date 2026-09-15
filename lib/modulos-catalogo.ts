@@ -13,6 +13,7 @@ import {
   Wrench,
   PackageSearch,
   PackagePlus,
+  PackageCheck,
   Calculator,
   UserPlus,
   Clipboard,
@@ -813,6 +814,15 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     grupo: "gestion-almacenes",
   },
   {
+    key: "entregas-devoluciones",
+    label: "Entregas y devoluciones",
+    descripcion: "Lo que sale del almacén cada día, a quién y qué se devolvió.",
+    icon: PackageCheck,
+    iconClass: "text-sky-700",
+    href: "/entregas-devoluciones",
+    grupo: "gestion-almacenes",
+  },
+  {
     key: "almacenes-suncar",
     label: "Almacenes Suncar",
     descripcion: "Gestión de almacenes y control de inventario.",
@@ -994,6 +1004,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
       { key: "app/visitas", label: "Visitas" },
       { key: "app/planificacion", label: "Planificación" },
       { key: "app/solicitudes-materiales", label: "Solicitudes de materiales al almacén" },
+      { key: "app/entregas", label: "Entregas y devoluciones de materiales" },
     ],
   },
 ]
