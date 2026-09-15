@@ -54,11 +54,19 @@ export default function TrabajadoresPage() {
     ? trabajadores.filter((w) => w.activo !== false)
     : [];
 
+  // Quien es jefe "de verdad": lidera una brigada existente en brigadas_completas.
+  // No usamos tiene_contrase\u00F1a porque esa credencial puede sobrevivir a que se
+  // borre o reasigne su brigada, dejando trabajadores marcados como jefes sin serlo.
+  const jefesReales = new Set(
+    brigadasTrabajadores.map(b => b.lider?.CI).filter((ci): ci is string => Boolean(ci))
+  )
+  const esJefeDeBrigada = (ci: string) => jefesReales.has(ci)
+
   // Filtrar solo brigadistas (is_brigadista = true)
   const filteredTrabajadores = trabajadoresActivos.filter(w =>
     // Solo mostrar trabajadores que son brigadistas
     (w.is_brigadista === true || w.is_brigadista === undefined) // Mantener compatibilidad con datos sin el campo
-    && (workerType === 'todos' ? true : workerType === 'jefes' ? w["tiene_contrase\u00F1a"] : !w["tiene_contrase\u00F1a"])
+    && (workerType === 'todos' ? true : workerType === 'jefes' ? esJefeDeBrigada(w.CI) : !esJefeDeBrigada(w.CI))
     && (workerSearch === '' || w.nombre.toLowerCase().includes(workerSearch.toLowerCase()) || w.CI.includes(workerSearch))
   );
 
@@ -98,7 +106,7 @@ export default function TrabajadoresPage() {
         numero: i + 1,
         nombre: w.nombre || "",
         ci: w.CI || "",
-        rol: w["tiene_contraseña"] ? "Jefe de brigada" : "Trabajador",
+        rol: esJefeDeBrigada(w.CI) ? "Jefe de brigada" : "Trabajador",
         telefono: w.telefono || "",
         brigada: jefePorCi.get(w.CI) || "Sin brigada",
       })),

@@ -21,12 +21,21 @@ interface TrabajadoresTableProps {
 
 export function TrabajadoresTable({
   trabajadores,
-  brigadas: _brigadas,
+  brigadas,
   onAssignBrigada,
   onConvertJefe,
   onRefresh,
 }: TrabajadoresTableProps) {
   const { toast } = useToast()
+
+  // Quien es jefe "de verdad": lidera una brigada existente en brigadas_completas.
+  // No usamos tiene_contraseña para mostrar el rol porque esa credencial puede
+  // sobrevivir a que se borre o reasigne la brigada, dejando trabajadores
+  // marcados como jefes sin liderar ninguna brigada.
+  const jefesReales = new Set(
+    brigadas.map(b => b.lider?.CI).filter((ci): ci is string => Boolean(ci))
+  )
+  const esJefeDeBrigada = (worker: Trabajador) => jefesReales.has(worker.CI)
 
   const [selectedWorker, setSelectedWorker] = useState<Trabajador | null>(null)
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
@@ -213,8 +222,8 @@ export function TrabajadoresTable({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
                       <p className="font-semibold text-gray-900 truncate">{worker.nombre}</p>
-                      <Badge variant={hasPassword(worker) ? "outline" : "secondary"} className="shrink-0">
-                        {hasPassword(worker) ? "Jefe" : "Trabajador"}
+                      <Badge variant={esJefeDeBrigada(worker) ? "outline" : "secondary"} className="shrink-0">
+                        {esJefeDeBrigada(worker) ? "Jefe" : "Trabajador"}
                       </Badge>
                     </div>
                     <p className="text-sm text-gray-600 mt-1">CI: {worker.CI}</p>
@@ -322,8 +331,8 @@ export function TrabajadoresTable({
                 </td>
                 <td className="py-4 px-4">{worker.CI}</td>
                 <td className="py-4 px-4">
-                  <Badge variant={hasPassword(worker) ? "outline" : "secondary"}>
-                    {hasPassword(worker) ? "Jefe de brigada" : "Trabajador"}
+                  <Badge variant={esJefeDeBrigada(worker) ? "outline" : "secondary"}>
+                    {esJefeDeBrigada(worker) ? "Jefe de brigada" : "Trabajador"}
                   </Badge>
                 </td>
                 <td className="py-4 px-4">
@@ -406,12 +415,12 @@ export function TrabajadoresTable({
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
-                    {hasPassword(selectedWorker) ? (
+                    {esJefeDeBrigada(selectedWorker) ? (
                       <Crown className="h-5 w-5 text-emerald-500" />
                     ) : (
                       <Users className="h-5 w-5 text-blue-500" />
                     )}
-                    <span>{hasPassword(selectedWorker) ? "Jefe de Brigada" : "Trabajador"}</span>
+                    <span>{esJefeDeBrigada(selectedWorker) ? "Jefe de Brigada" : "Trabajador"}</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
