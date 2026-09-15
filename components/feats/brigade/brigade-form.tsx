@@ -5,7 +5,7 @@ import { useState } from "react"
 import { Button } from "@/components/shared/atom/button"
 import { Label } from "@/components/shared/atom/label"
 import { Save, X, Crown, Users } from "lucide-react"
-import type { Brigade, BrigadeFormData } from "@/lib/brigade-types"
+import type { Brigade, BrigadeFormData, Brigada as BackendBrigada } from "@/lib/brigade-types"
 
 interface BrigadeFormProps {
   initialData?: Brigade
@@ -13,9 +13,10 @@ interface BrigadeFormProps {
   onCancel: () => void
   isEditing?: boolean
   existingWorkers?: any[] // Trabajadores existentes para seleccionar como jefe o integrantes
+  brigadas?: BackendBrigada[] // Todas las brigadas, para no ofrecer a quien ya está en otra
 }
 
-export function BrigadeForm({ initialData, onSubmit, onCancel, isEditing = false, existingWorkers = [] }: BrigadeFormProps) {
+export function BrigadeForm({ initialData, onSubmit, onCancel, isEditing = false, existingWorkers = [], brigadas = [] }: BrigadeFormProps) {
   const [formData, setFormData] = useState<BrigadeFormData>({
     leaderName: initialData?.leader.name || "",
     leaderCi: initialData?.leader.ci || "",
@@ -32,7 +33,18 @@ export function BrigadeForm({ initialData, onSubmit, onCancel, isEditing = false
     initialData?.members.map((m) => m.ci) || [],
   )
 
-  const esCandidatoValido = (w: any) => w.is_brigadista === true || w.is_brigadista === undefined
+  // CIs que ya pertenecen a OTRA brigada (jefe o integrante) — no tiene sentido
+  // ofrecerlos aquí, ya están ocupados. La brigada que se está editando no cuenta
+  // como "otra": sus propios jefe/integrantes actuales siguen siendo válidos.
+  const cisEnOtraBrigada = new Set(
+    brigadas
+      .filter((b) => b.id !== initialData?.id)
+      .flatMap((b) => [b.lider?.CI, ...(b.integrantes || []).map((m) => m.CI)])
+      .filter((ci): ci is string => Boolean(ci)),
+  )
+
+  const esCandidatoValido = (w: any) =>
+    (w.is_brigadista === true || w.is_brigadista === undefined) && !cisEnOtraBrigada.has(w.CI)
   const candidatosJefe = existingWorkers.filter(esCandidatoValido)
   // No puede ser integrante quien ya lidera OTRA brigada, ni quien está elegido como jefe aquí.
   const candidatosIntegrantes = existingWorkers.filter(

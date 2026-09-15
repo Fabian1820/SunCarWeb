@@ -57,6 +57,12 @@ export function WorkerForm({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // CIs que ya pertenecen a alguna brigada (jefe o integrante) — no tiene sentido
+  // ofrecerlos como integrantes de una brigada nueva, ya están ocupados.
+  const cisEnBrigada = new Set(
+    brigades.flatMap((b) => [b.leader.ci, ...b.members.map((m) => m.ci)]),
+  );
+
   const seleccionarTrabajadorExistente = (worker: Trabajador) => {
     setFormData({
       ...formData,
@@ -340,12 +346,12 @@ export function WorkerForm({
             </Label>
             <div className="border rounded p-3 max-h-48 overflow-y-auto">
               {workers.filter(
-                (w) => !w.es_jefe_brigada && w.is_brigadista === true,
+                (w) => !w.es_jefe_brigada && w.is_brigadista === true && !cisEnBrigada.has(w.CI),
               ).length > 0 ? (
                 <div className="grid grid-cols-1 gap-2">
                   {workers
                     .filter(
-                      (w) => !w.es_jefe_brigada && w.is_brigadista === true,
+                      (w) => !w.es_jefe_brigada && w.is_brigadista === true && !cisEnBrigada.has(w.CI),
                     )
                     .map((w) => (
                       <label

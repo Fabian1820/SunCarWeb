@@ -2,20 +2,35 @@ import { useState } from 'react';
 import { Button } from '@/components/shared/atom/button';
 import { Crown, X } from 'lucide-react';
 import type { Trabajador } from '@/lib/api-types';
+import type { Brigade } from '@/lib/brigade-types';
 
-export function ConvertirJefeForm({ onSubmit, onCancel, loading, trabajador, trabajadores }: {
+export function ConvertirJefeForm({ onSubmit, onCancel, loading, trabajador, trabajadores, brigades = [] }: {
   onSubmit: (data: { integrantes: string[] }) => void,
   onCancel: () => void,
   loading?: boolean,
   trabajador: Trabajador,
   trabajadores: Trabajador[],
+  brigades?: Brigade[],
 }) {
   const [integrantes, setIntegrantes] = useState<string[]>([]);
+
+  // CIs que ya pertenecen a alguna brigada (jefe o integrante) — no tiene sentido
+  // ofrecerlos como integrantes de la brigada nueva de este jefe.
+  const cisEnBrigada = new Set(
+    brigades.flatMap((b) => [b.leader.ci, ...b.members.map((m) => m.ci)]),
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit({ integrantes });
   };
+
+  const candidatos = trabajadores.filter(t =>
+    !t.es_jefe_brigada &&
+    t.CI !== trabajador.CI &&
+    (t.is_brigadista === true || t.is_brigadista === undefined) &&
+    !cisEnBrigada.has(t.CI),
+  );
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -26,9 +41,9 @@ export function ConvertirJefeForm({ onSubmit, onCancel, loading, trabajador, tra
       <div>
         <label className="block text-sm font-medium mb-1">Integrantes (opcional)</label>
         <div className="border rounded p-3 max-h-48 overflow-y-auto">
-          {trabajadores.filter(t => !t.es_jefe_brigada && t.CI !== trabajador.CI && (t.is_brigadista === true || t.is_brigadista === undefined)).length > 0 ? (
+          {candidatos.length > 0 ? (
             <div className="grid grid-cols-1 gap-2">
-              {trabajadores.filter(t => !t.es_jefe_brigada && t.CI !== trabajador.CI && (t.is_brigadista === true || t.is_brigadista === undefined)).map(t => (
+              {candidatos.map(t => (
                 <label key={t.id || t.CI} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
                   <input
                     type="checkbox"

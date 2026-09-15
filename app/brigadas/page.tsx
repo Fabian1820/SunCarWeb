@@ -21,6 +21,7 @@ import { RouteGuard } from "@/components/auth/route-guard"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { ExportButtons } from "@/components/shared/molecule/export-buttons"
 import type { ExportOptions } from "@/lib/export-service"
+import { exportListToPDF } from "@/lib/export-list-pdf"
 
 export default function BrigadasPage() {
   return (
@@ -164,7 +165,7 @@ function BrigadasPageContent() {
         { header: "Jefe de brigada", key: "jefe", width: 30 },
         { header: "CI jefe", key: "jefe_ci", width: 16 },
         { header: "Teléfono jefe", key: "jefe_telefono", width: 16 },
-        { header: "Cant. integrantes", key: "cantidad", width: 12 },
+        { header: "Cantidad", key: "cantidad", width: 12 },
         { header: "Integrantes (CI)", key: "integrantes", width: 42 },
       ],
       data: brigades.map((b, i) => ({
@@ -201,6 +202,7 @@ function BrigadasPageContent() {
               getExportOptions={getExportOptions}
               baseFilename="brigadas"
               variant="compact"
+              pdfExporter={exportListToPDF}
             />
           )}
           <Dialog open={isAddBrigadeDialogOpen} onOpenChange={setIsAddBrigadeDialogOpen}>
@@ -228,6 +230,7 @@ function BrigadasPageContent() {
                 }}
                 onCancel={() => setIsAddBrigadeDialogOpen(false)}
                 existingWorkers={trabajadores || []}
+                brigadas={backendBrigades}
               />
               <div className="text-xs text-gray-500 mt-2">
                 Trabajadores disponibles: {trabajadores?.length || 0}
@@ -324,6 +327,8 @@ function BrigadasPageContent() {
                   setEditingBrigade(null)
                 }}
                 isEditing
+                existingWorkers={trabajadores || []}
+                brigadas={backendBrigades}
               />
             )}
           </DialogContent>

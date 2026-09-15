@@ -340,6 +340,7 @@ export default function TrabajadoresPage() {
                 loading={loadingAction}
                 trabajador={selectedTrabajador}
                 trabajadores={trabajadoresActivos}
+                brigades={brigades}
               />
             )}
           </DialogContent>
