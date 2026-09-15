@@ -595,6 +595,15 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     grupo: "operaciones",
   },
   {
+    key: "entregas-devoluciones",
+    label: "Entregas y devoluciones",
+    descripcion: "Lo que sale del almacén cada día, a quién y qué se devolvió.",
+    icon: PackageCheck,
+    iconClass: "text-indigo-600",
+    href: "/entregas-devoluciones",
+    grupo: "operaciones",
+  },
+  {
     key: "historial",
     label: "Historial",
     descripcion: "Todo lo que ha pasado con cada cliente, en orden, y qué equipos lleva cada uno.",
@@ -821,15 +830,6 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     icon: Package,
     iconClass: "text-sky-700",
     href: "/inventario",
-    grupo: "gestion-almacenes",
-  },
-  {
-    key: "entregas-devoluciones",
-    label: "Entregas y devoluciones",
-    descripcion: "Lo que sale del almacén cada día, a quién y qué se devolvió.",
-    icon: PackageCheck,
-    iconClass: "text-sky-700",
-    href: "/entregas-devoluciones",
     grupo: "gestion-almacenes",
   },
   {
