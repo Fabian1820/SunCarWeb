@@ -2,6 +2,140 @@
 
 ---
 
+## 📅 15 de Septiembre, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**25 commits reales** — yany1509 (todos). Día extremadamente activo. Dos módulos completamente nuevos: **Historial** (por clientes y por equipos, con 5 commits iterativos) y **Entregas y Devoluciones** (con 5 commits + fix de build). Además: módulo de **Organigramas** en RRHH, refactor completo de roles de trabajadores/instaladores (`es_jefe_brigada` reemplaza `tiene_contraseña`), fix de fechas UTC en vales de salida, reportes comerciales de materiales, sugerencia de cargos en RRHH, y múltiples fixes de UI en brigadas.
+
+---
+
+### Área 1: feat(historial) × 5 — módulo Historial por clientes y por equipos (15:49–20:17)
+
+- **`feat(historial): módulo Historial por clientes y por equipos`** (15:49) — Módulo nuevo en Operaciones con permiso `historial`. Por clientes: búsqueda y, al elegir uno, todo lo ocurrido en orden cronológico (registro, ofertas creadas y confirmadas, pagos, visitas, materiales salidos y devoluciones, trabajos diarios y averías), con filtros por tipo y orden antiguo/reciente. Por equipos: inversores, baterías y paneles de ofertas confirmadas con potencia, clientes, unidades y ofertas; al tocar uno, quién lo tiene y cuántos, y de cada cliente el mismo historial. Ruta `app/historial`.
+
+- **`feat(historial): rediseño con colores por tipo y cosas conectadas`** (16:28) — Línea de tiempo por días con colores por tipo (ofertas verde, visitas índigo, materiales violeta, devoluciones ámbar, trabajos azul, averías rojo). Los eventos conectados (vale ↔ trabajo que lo usó, avería ↔ trabajo que la solucionó) se pueden tocar para saltar entre ellos. Cabecera del cliente con iniciales y filtros con su color.
+
+- **`feat(historial): Ver historial en Clientes con todo lo comercial`** (20:00) — Botón "Ver historial" en la tabla de clientes que abre el historial en vista comercial: lead de origen, ofertas creadas/editadas (con qué cambió)/cambios de estado/confirmadas/canceladas, pagos con sus ediciones, cancelaciones y devoluciones, citas, cambios del cliente y todo lo de operaciones, enlazado. Colores nuevos: comercial en fucsia/rosa, pagos en cian.
+
+- **`feat(historial): filtros de clientes y flechas entre lo conectado`** (20:08) — Lista de clientes con filtros por estado, provincia, municipio y fecha de creación (desde/hasta), con el número de filtros activos. Las conexiones entre eventos (avería → solución, avería → trabajo, vale → trabajo, vale → devolución, oferta creada → confirmada, pago → devolución) se dibujan como flechas en un carril a la derecha, del color del destino.
+
+- **`feat(historial): marcar los tipos que se quieren ver`** (20:17) — En vez de tachar lo que no se quiere ver, se marca lo que se quiere ver; sin nada marcado (Todo) se ve todo. El estado del cliente tiene su color.
+
+---
+
+### Área 2: feat(entregas) × 5 + fix(build) — módulo Entregas y Devoluciones nuevo (15:14–20:32)
+
+- **`feat(entregas): módulo Entregas y devoluciones`** (15:14) — Por día: los vales que salieron del almacén con cliente, almacén, quién recogió y quién entregó; al abrir cada uno, sus materiales con lo devuelto y cada devolución. Aparte, las devoluciones del día de vales de otros días. Buscador, filtro por almacén y ver anulados. Permiso `entregas-devoluciones` (Gestión de almacenes) y `app/entregas`.
+
+- **`feat(entregas): pestañas Entregas y Devoluciones bien distintas`** (16:15) — Entregas en verde: cada vale muestra si tiene devolución (sin devolución, devolvieron X de Y, se devolvió todo o anulado). Devoluciones en ámbar con fondo cálido: lo que volvió al almacén ese día, de vales de hoy y de otros días, con los materiales a la vista. La pestaña vive en la URL (`?ver=devoluciones`).
+
+- **`feat(entregas): materiales más separados y fáciles de distinguir`** (16:16) — Tabla con número de fila, filas alternas, código bajo el nombre y cantidades en pastilla; en devoluciones cada material en su propia franja ámbar.
+
+- **`feat(entregas): Entregas y devoluciones en Operaciones`** (20:25) — Pasa del grupo Gestión de almacenes al de Operaciones, junto a Planificación e Historial. El permiso sigue siendo `entregas-devoluciones`.
+
+- **`feat(reportes): Entregas y devoluciones también en Reportes de Comercial`** (20:32) — Tarjeta en Reportes de Comercial que lleva al mismo módulo; la página acepta el permiso `entregas-devoluciones` o `reportes-comercial`.
+
+- **`fix(build): subir export-list-pdf y pdfExporter que usa brigadas`** (20:30) — El commit 153d7892 importó `@/lib/export-list-pdf` y la prop `pdfExporter` de `ExportButtons` sin subir los archivos, causando "module not found" en el build. Se suben ese archivo, el cambio de export-buttons y su uso en trabajadores.
+
+---
+
+### Área 3: feat/fix(trabajadores) × 4 + feat(brigadas) — gestión de roles de instaladores (13:43–18:18)
+
+- **`fix(trabajadores): filtrar jefe de brigada por brigadas_completas, no por tiene_contraseña`** (13:43) — `tiene_contraseña` solo refleja si el trabajador tiene adminPass configurado, que no se limpia al borrar o reasignar su brigada. Dejaba instaladores marcados como "Jefe de brigada" en el listado aunque ya no lideraran ninguna brigada real. Ahora el filtro y los badges usan la pertenencia real a `brigadas_completas` (ya disponible vía `brigadasTrabajadores`).
+
+- **`feat(trabajadores): permitir seleccionar trabajador existente al agregar instalador`** (14:11) — "Agregar Instalador" solo dejaba escribir CI/nombre a mano, lo que podía crear duplicados en `trabajadores` si la persona ya existía en RRHH. Ahora el formulario ofrece "Trabajador existente" (lista de quienes aún no son brigadistas) o "Persona nueva". Para un existente solo se actualiza `is_brigadista` y se asigna la brigada, sin POST de creación.
+
+- **`fix(trabajadores): quitar rol de instalador sin desactivar al trabajador`** (14:26) — "Dar de baja" desactivaba al trabajador entero (`activo=false`), bloqueando su login. Ahora el botón ("Quitar rol de instalador") solo pone `is_brigadista=false` vía PUT `/rrhh`, dejando `activo` intacto. El selector de "Trabajador existente" pasa a `SearchableSelect`. Se quitan Sede y Departamento del formulario de Agregar Instalador.
+
+- **`fix(trabajadores): el buscador de trabajador existente no funcionaba dentro del modal`** (14:38) — `SearchableSelect` portalea su popover a `document.body` por defecto, chocando con el focus-trap de Radix Dialog. Fix: `disablePortal`, igual que ya se aplica en otros diálogos del proyecto.
+
+- **`feat(brigadas): es_jefe_brigada explícito reemplaza tiene_contraseña como rol de jefe`** (18:18) — Sigue el cambio equivalente en SunCarBackend: `es_jefe_brigada + brigada_id` pasan a ser la fuente de verdad del rol. Se quita el campo de contraseña al convertir en jefe. Se borra `JefeBrigadaForm.tsx` (código muerto). El botón "Convertir en jefe" cambia a "Quitar como jefe de brigada" cuando ya lo es (PUT `.../rrhh` con `es_jefe_brigada=false`). La edición de brigada precarga jefe e integrantes actuales (antes arrancaba vacío) y acepta cualquier instalador como jefe.
+
+---
+
+### Área 4: fix(brigadas) — no candidato si ya está en otra brigada (20:16)
+
+- **`fix(brigadas): no ofrecer como candidato a quien ya está en otra brigada`** — Los selectores de jefe/integrantes solo filtraban por `is_brigadista`. Ahora se excluyen los CI que ya aparecen como líder o integrante de alguna brigada. Al editar, los miembros actuales de la propia brigada siguen siendo válidos. Fix adicional: el diálogo "Editar Brigada" no pasaba `existingWorkers` a `BrigadeForm` — los selects arrancaban vacíos.
+
+---
+
+### Área 5: feat(organigramas) — módulo nuevo en RRHH (14:13)
+
+- **`feat(organigramas): editor de organigramas por área con vista previa y PDF`** — Módulo "Organigramas" en Recursos Humanos (permiso `organigramas`). Listado con miniaturas; editor en árbol con cargo principal, cargos de apoyo a izquierda o derecha, áreas, subáreas y unidades (Tiendas 1·2·3). Enter crea el siguiente cargo, tocar una caja de la vista previa lleva a su campo, autoguardado y deshacer. Un único motor de diagramado alimenta la vista SVG y el PDF (16:9 como los de RRHH, o Carta para imprimir).
+
+---
+
+### Área 6: feat(clientes) × 2 — vales y acciones adicionales (15:30, 20:04)
+
+- **`feat(clientes): ver los vales de salida de cada cliente`** (15:30) — Botón en acciones de la tabla que abre los vales del cliente del más reciente al más antiguo, con filtro por fechas. Cada vale dice a quién se entregó, la recogida, quién lo emitió y la solicitud; se despliega para ver materiales y "Ver vale" abre el detalle completo. Usa `GET /operaciones/vales-salida/summary?cliente_id=` (backend 6c2f85a).
+
+- **`feat(clientes): equipos en servicio y entregas dentro de más acciones`** (20:04) — Los botones de equipos en servicio y de equipo entregado pasan de la fila al menú de los tres puntos con su etiqueta. Conservan el color según el estado del cliente y el indicador de carga.
+
+---
+
+### Área 7: fix(vales-salida) — fechas en hora de Cuba (20:04)
+
+- **`fix(vales-salida): mostrar las fechas de los vales en hora de Cuba`** — El backend guarda instantes en UTC pero los manda sin la `Z` (`2026-06-18T16:40:45.960000`); `new Date()` los tomaba como hora local y todo salía 4-5 horas adelantado. `parseFechaUtc` (`lib/utils/fecha-utc.ts`) los lee como UTC. Se usa en el detalle del vale, la tabla, los adjuntos, las devoluciones, el Excel del listado, el PDF del vale y los vales del cliente. `fecha_recogida` no se toca: es un día, no un instante.
+
+---
+
+### Área 8: feat(reportes-comercial) — materiales en ofertas por precio (14:17)
+
+- **`feat(reportes-comercial): materiales en ofertas por precio, con cliente, estado y Excel`** — Nueva tarjeta "Materiales en Ofertas" en Reportes de Comercial. Se eligen uno o varios materiales y se ve en qué ofertas están, agrupado por precio unitario, con el cliente o lead y su estado. Filtros por estado de la oferta, por estado del cliente ("Falta instalar" = pendiente + en proceso) y por texto. Excel descargable con dos hojas: Resumen (por precio y por estado) y Ofertas por precio (detalle con subtotales).
+
+---
+
+### Área 9: feat(visitas) — estudio energético extendido (13:44)
+
+- **`feat(visitas): estudio energético con varias baterías, días y horario, escalera y andamio`** — El formulario del estudio energético extiende su capacidad: varias baterías distintas, días de uso y horario de consumo, y campos para escalera y andamio en la instalación.
+
+---
+
+### Área 10: feat(recursos-humanos) — sugerir cargos al escribir (15:33)
+
+- **`feat(recursos-humanos): sugerir los cargos existentes al escribir el cargo`** — El campo Cargo en el alta de RRHH y en la ficha del trabajador ahora sugiere los cargos en uso con cuántas personas tiene cada uno, y avisa si lo escrito ya existe con otra forma, si se parece a uno existente o si es un cargo nuevo. El alta ya no propone "Técnico" por defecto (creaba ese cargo sin querer si no se cambiaba).
+
+---
+
+### Área 11: feat(planificacion) — acceso directo a Actualizaciones (14:56)
+
+- **`feat(planificacion): acceso Actualizaciones en el día`** — Abre "Añadir un trabajo" con el tipo actualización preseleccionado: ningún estado del cliente sugiere automáticamente quién necesita actualización, así que se planifican a mano.
+
+---
+
+### Puede dar bateo
+
+1. **feat(historial) módulo nuevo — confirmar endpoints de historial en backend de producción**: El módulo llama a endpoints propios (historial por cliente, por equipo, equipos con clientes). Si no están deployados, el módulo completo falla.
+
+2. **feat(historial) flechas entre eventos — eventos sin ID de enlace no muestran flecha**: Si documentos históricos anteriores no tienen los campos de referencia cruzada, esas flechas no se dibujan. Confirmar comportamiento sin datos de enlace (¿silencioso o mensaje?).
+
+3. **feat(historial) colores fucsia/cian para comercial y pagos — confirmar en tailwind.config.ts**: Si los valores se declararon como tokens de Tailwind (no como clases JIT arbitrarias), confirmar que están en `tailwind.config.ts` para que el build los incluya.
+
+4. **feat(entregas) módulo nuevo — confirmar `GET /operaciones/vales-salida/summary` en backend de producción**: El commit de `feat(clientes)` cita el commit de backend `6c2f85a`. Confirmar que ese commit está deployado.
+
+5. **feat(entregas) permiso `entregas-devoluciones` reubicado de Gestión de almacenes a Operaciones**: Si usuarios ya tenían el permiso asignado, el string del permiso es el mismo y la asignación persiste, pero la card aparece en otro grupo en Gestión de Permisos. Confirmar que no hay referencias hardcodeadas al grupo anterior.
+
+6. **feat(brigadas) `es_jefe_brigada` — confirmar campo deployado en SunCarBackend de producción**: GET `/trabajadores` debe devolver `es_jefe_brigada` y PUT `/rrhh` debe aceptarlo. Si el backend no está actualizado, el botón toggle de jefe no funcionará.
+
+7. **fix(brigadas) exclusión de candidatos — confirmar que `brigadas_completas` se carga antes de los diálogos**: La exclusión filtra contra `brigadas_completas`. Si el listado de brigadas no se ha cargado al abrir el selector, los candidatos aparecen sin filtrar.
+
+8. **feat(organigramas) módulo nuevo — confirmar permiso `organigramas` en MODULOS_CATALOGO**: Si no está añadido al catálogo, el RouteGuard no lo reconocerá y el permiso no se puede asignar desde Gestión de Permisos.
+
+9. **feat(recursos-humanos) sugerencia de cargos — confirmar si usa endpoint nuevo o filtra localmente**: Si llama a un endpoint nuevo (GET `/trabajadores/cargos` o similar), confirmar que existe en backend. Si filtra sobre la lista ya cargada de trabajadores, sin problema.
+
+10. **fix(vales-salida) `parseFechaUtc` — confirmar que `fecha_recogida` no pasa por la función**: El commit dice explícitamente que `fecha_recogida` (un día) no se toca. Confirmar que no hay ninguna vista que aplique `parseFechaUtc` a ese campo.
+
+11. **fix(build) export-list-pdf/pdfExporter — confirmar deploy post-fix sin module not found**: Verificar que `lib/export-list-pdf.ts` y el prop `pdfExporter` de `ExportButtons` están correctamente exportados e importados en todos los puntos de uso.
+
+12. **feat(brigadas) `JefeBrigadaForm.tsx` eliminado — confirmar ausencia de imports residuales**: Si hay imports desde otros archivos, causarán error de compilación.
+
+13. **feat(visitas) estudio energético extendido — confirmar que los campos nuevos son opcionales en backend**: Varias baterías, días/horario, escalera y andamio son campos nuevos. Si el backend tiene validación estricta, formularios parciales pueden fallar con 422.
+
+14. **feat(planificacion) tipo actualización — confirmar que el tipo es válido en el endpoint de creación de trabajos**: Si `actualización` no es un tipo reconocido, el formulario preseleccionado causará 422 o silencio al enviar.
+
+---
+
 ## 📅 14 de Septiembre, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -330,136 +464,45 @@ Quince commits encadenados en menos de 6 horas reescribieron el módulo de plani
 
 ### Puede dar bateo
 
-1. **feat(auditoria) pantalla nueva — confirmar endpoint `GET /api/auditoria/` en backend de producción**: Si no está deployado, la pantalla completa falla con 404 sin mensaje claro.
+1. **feat(ofertas) `*_incluidos_en_nombre` — confirmar campos deployados en backend; si no, combo de checkboxes no persiste entre sesiones (Sep 9)**.
 
-2. **feat(auditoria) pestaña rendimiento — confirmar endpoint `GET /api/auditoria/rendimiento` por separado**: Si solo existe el endpoint principal, la pestaña de rendimiento falla al cargar.
+2. **feat(terminos) variantes secciones fijas — confirmar tres endpoints nuevos en backend de producción (Sep 9)**.
 
-3. **feat(auditoria) filtro de entidad sustituye otros filtros — estado de filtros previos se pierde**: Si el usuario llega desde un drill-down con filtros activos (p.ej. filtrado por PUT), el botón de entidad los borra todos. No hay forma de recuperar el estado anterior sin volver a filtrar manualmente.
+3. **fix(permisos) `soloPermiso` — confirmar que todos los iteradores del catálogo de módulos (no solo mapas de navegación) filtran o manejan este flag (Sep 9)**.
 
-4. **feat(planificacion) módulo completamente nuevo — confirmar todos los endpoints CRUD en backend de producción**: El módulo depende de endpoints propios (`POST/GET/PATCH /planificacion/` u equivalentes). Si no están deployados, el módulo falla al guardar o al cargar el plan del día.
+4. **feat(salidas) agrupación de vales — confirmar que el matching de cliente + responsable usa comparación normalizada (Sep 9)**.
 
-5. **fix(planificacion) draft en localStorage — colisión entre usuarios distintos en el mismo dispositivo compartido**: El borrador se guarda por URL/página, no por usuario. En un dispositivo compartido (tablet de brigada), el borrador de un usuario puede ofrecerse al siguiente. Valorar incluir el `ci` del usuario en la clave de localStorage.
+5. **feat(visitas) firmas digitales — fallo parcial (JSON ok, imágenes fallan) deja visita sin firmas sin aviso al usuario (Sep 9)**.
 
-6. **feat(planificacion) caché en memoria — datos obsoletos si el plan cambia en otro dispositivo**: Si un segundo usuario edita el plan en paralelo, el primero ve candidatos y asignaciones desactualizados hasta recargar la página. Relevante en equipos que planifican a la vez.
+6. **feat(ofertas) foto de portada S3 — confirmar existencia del endpoint `/genericas/fotos-portada` en backend de producción (Sep 9)**.
 
-7. **feat(wallet) campo persona — confirmar que `persona_ci` es opcional en backend**: Si el campo es requerido y el usuario escribe un nombre libre (sin CI), el POST puede fallar con 422 sin mensaje claro.
+7. **feat(actualizaciones) módulo sin `superAdminOnly` — confirmar que el historial no contiene información sensible para personal operativo (Sep 9)**.
 
-8. **feat(wallet) iframe tamaño carta — si el PDF del backend es A4 habrá recorte**: El iframe especifica 216×279 mm (carta) pero si el backend genera el PDF en A4 (210×297 mm), el contenido inferior puede cortarse al imprimir.
+8. **feat(clientes) modal de dev — confirmar funcionamiento correcto en contexto de leads-table.tsx no actualizado (Sep 9)**.
 
-9. **feat(wallet-alertas) módulo nuevo — confirmar que `/wallet-alertas` está en `MODULOS_CATALOGO`**: Si la ruta no tiene entrada en el catálogo, no se podrá asignar el permiso desde la pantalla de Gestión de Permisos más allá de superAdmin y "wallet admins" hardcodeados.
+9. **fix(fotos) revert parcial — confirmar ausencia de TypeScript errors residuales; estado final: no subible pero sí filtrable (Sep 9)**.
 
-10. **feat(wallet-alertas) Twilio — tarjeta de estado muestra "configurado" por presencia de variable, no por validez**: Si la variable de entorno existe pero tiene un valor incorrecto, la tarjeta dirá "configurado" pero las alertas no llegarán. El botón de prueba es la única forma de verificar la validez real.
+10. **fix(estudio) campos sin condición de paneles — confirmar que backend acepta estos campos siempre sin 422 (Sep 9)**.
 
-11. **fix(ofertas) umbral accesorio ≤ 0,3 kW — `potenciaKW: null` no se asume accesorio**: Si un material tiene `potenciaKW` nulo (capacidad desconocida), el código lo trata como material real (no accesorio). En categorías con 2+ materiales donde alguno tiene capacidad nula, el guardado se bloqueará aunque el usuario haya marcado los que quiere. Confirmar que todos los materiales relevantes tienen `potenciaKW` definido en el catálogo.
-
-12. **feat(peticiones) filtros server-side — confirmar nuevos query params en `/api/solicitudes-desarrollo/`**: Si el backend no los acepta, todas las peticiones devuelven resultados sin filtrar o responden 422. El filtro de estado (implementada) queda en cliente según el commit, pero los demás son server-side.
-
----
-
-## 📅 7 de Septiembre, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**11 commits reales** — yany1509 (10) y Fabian1820 (1, co-authored Claude Opus 5). Sesión muy activa con dos autores. Áreas: fix crítico de facturación (validación de stock + agrupación de líneas), refactors de UI en clientes, nuevo formulario estructurado de estudio energético para visitas (reemplaza subida de Excel), captura GPS automática, panel de actualizaciones del sistema en inicio, fix de pestañas de notificaciones, secciones personalizadas con variantes en términos y condiciones, responder peticiones desde la burbuja flotante, y fix de orden de secciones en términos.
-
----
-
-### Área 1: refactor(clientes) — quita el filtro de tiempo y pliega el de equipo instalado (12:11)
-
-- **`refactor(clientes): quita el filtro de tiempo y pliega el de equipo instalado`** — El bloque de filtros ocupaba casi media pantalla. Se elimina el filtro "Cualquier tiempo" (días desde la creación) junto con `TIEMPO_BUCKETS/TIEMPO_LABELS`, `TIEMPO_RANGES`, `getDiasDesdeCreacionCliente` y el campo del tipo. "Equipo instalado" pasa a ser un Collapsible que arranca plegado. Plegado sigue visible si hay filtro puesto: la cabecera muestra la etiqueta "activo" y el botón de limpiar.
-
----
-
-### Área 2: refactor(clientes) — quita el encabezado de la tabla, mueve exportar al header (12:18)
-
-- **`refactor(clientes): quita el encabezado de la tabla, mueve exportar al header`** — La Card de la tabla tenía su propio CardHeader ("Clientes" + "Mostrando N clientes") con los botones de exportar. Se quita: la Card empieza directo con la tabla. Los botones de exportar se mueven al ModuleHeader, junto a "Gestionar fuentes" (mismo lugar de leads). Se elimina el prop `exportButtons` de `ClientsTable`.
-
----
-
-### Área 3: fix(visitas) — evita reutilizar/pisar una visita antigua ya completada (14:06)
-
-- **`fix(visitas): evita reutilizar/pisar una visita antigua ya completada al completar una nueva visita`** — `seleccionarVisitaPendiente` ya no cae en "agarrar cualquiera" (`visitas[0]`) como último recurso; solo reutiliza una visita si está genuinamente abierta. `buscarVisitaExistenteId` ya no lanza error si no encuentra una reutilizable. Guard síncrono (`useRef`) en `handleMarcarSinInfo` y `handleSubmit` para evitar doble envío por doble clic rápido.
-
----
-
-### Área 4: feat(visitas) — formulario estructurado del estudio energético (reemplaza Excel) (15:46)
-
-- **`feat(visitas): reemplaza la subida de Excel del estudio energético por un formulario estructurado`** — Nuevo componente `EstudioEnergeticoForm` con 8 secciones (punto de suministro, consumo/acometida, vivienda, instalación de paneles, equipamiento estimado, protecciones, cableado, inventario de cargas) más 4 fotos etiquetadas. Todos los campos opcionales, con visibilidad condicional y cálculo en vivo de % de desbalance y carga total.
-
----
-
-### Área 5: fix(visitas) — captura automática de ubicación GPS en el estudio energético (15:59)
-
-- **`fix(visitas): captura automática de ubicación GPS en el estudio energético`** — Al abrir el formulario, se pide la ubicación una sola vez vía `navigator.geolocation` (silencioso si falla). Se muestra indicador de estado. El campo `ubicacion_gps` ya estaba definido pero nunca conectado a la captura real.
-
----
-
-### Área 6: feat(inicio) — panel de actualizaciones del sistema + notificar a trabajadores (17:07)
-
-- **`feat(inicio): panel de actualizaciones del sistema + notificar a trabajadores`** — Nueva sección en Inicio. `SystemUpdatesPanel`: lista agrupada Hoy/Ayer con badge de categoría. `PublicarActualizacionDialog`: solo visible para superAdmin. `NotificarTrabajadoresDialog` + `TrabajadoresMultiSelector`: envía la actualización por la campana de cada trabajador seleccionado. Nuevo tipo de notificación `aviso_sistema` con pestaña "Avisos".
-
----
-
-### Área 7: fix(notificaciones) — las pestañas de categorías no cabían (17:32)
-
-- **`fix(notificaciones): las pestañas de categorías no cabían y no se podían ver`** — Cada pestaña tenía `flex-1`; con 6 categorías no entraban legibles. Ahora cada pestaña tiene ancho natural (`shrink-0`, `whitespace-nowrap`) y la fila desliza horizontalmente.
-
----
-
-### Área 8: feat(terminos,dashboard) — secciones personalizadas con variantes + tinte de icono (18:41)
-
-- **`feat(terminos,dashboard): secciones personalizadas con variantes + tinte de icono`** — Términos y condiciones: secciones propias con título + texto, 2+ variantes de texto por sección y toggle para apagarla sin borrarla. Al exportar, selector de variante si hay más de una. `export-selection-dialog.tsx` pasa de recibir HTML ya armado a recibir el documento completo. Dashboard: fondo del contenedor de icono se tiñe según el color del icono.
-
----
-
-### Área 9: feat(peticiones) — responder desde la burbuja, sin ir al módulo (18:54)
-
-- **`feat(peticiones): responder desde la burbuja, sin ir al módulo`** — Para superAdmin, cada petición tiene botón "Responder" (o "Cambiar respuesta") que expande inline el mismo formulario del módulo. Checkbox "Ya está implementada" para las marcadas como posibles. Formulario inline (no modal) porque el panel flotante es angosto (w-96).
-
----
-
-### Área 10: feat(terminos) — orden elegible al agregar sección + activar/desactivar las fijas (20:00)
-
-- **`feat(terminos): orden elegible al agregar sección + activar/desactivar las fijas`** — `terminos-service.ts`: `agregarSeccionPersonalizada` acepta `insertarDespues`; nuevas `alternarSeccionFija` y `reordenarSecciones`. Diálogo: Switch Activa/Apagada por sección fija; Select "Ubicación" al agregar sección. `terminos-condiciones-export.ts`: arma secciones siguiendo `orden_secciones` y respetando `secciones_fijas_desactivadas`.
-
----
-
-### Área 11: fix(facturas) — valida existencia al facturar y agrupa líneas por material (20:28)
-
-- **`fix(facturas): valida existencia al facturar y agrupa líneas por material`** — Fix crítico: siete facturas se emitieron sin descontar inventario. La pantalla solo bloqueaba existencia exactamente 0; el backend rechazaba con 400 pero el error se perdía (apiRequest devuelve el error como valor). `ContabilidadService` ahora comprueba el resultado y lanza `StockInsuficienteError`. Si el backend rechaza, la factura NO se guarda. Líneas agrupadas por material; precio unitario ponderado por cantidad.
-
----
-
-### Puede dar bateo
-
-1. **fix(facturas) `StockInsuficienteError` — si el componente captura genéricamente todos los errores**: El aviso de faltante no llega al usuario.
-
-2. **fix(facturas) precio ponderado — decimales en BD**: Confirmar que el backend acepta precios con decimales en líneas de factura.
-
-3. **fix(facturas) agrupación — materiales no vinculados al catálogo**: Nombre puede quedar vacío. Confirmar fallback.
-
-4. **feat(visitas) JSON + fotos en dos peticiones — fallo parcial**: Visita queda con datos pero sin fotos sin aviso al usuario.
-
-5. **fix(visitas) GPS silencioso — campo opcional en backend**: Confirmar si `ubicacion_gps` es opcional o su ausencia puede causar 422.
-
-6. **feat(inicio) `SystemUpdatesPanel` — confirmar endpoint real en producción**: Verificar que no consume datos mock hardcodeados.
-
-7. **feat(inicio) `NotificarTrabajadoresDialog` — endpoint de notificación sin confirmar**: Si el endpoint no existe en producción, el envío fallará silenciosamente o con 404.
-
-8. **feat(notificaciones) tipo `aviso_sistema` — solo en frontend**: Si el backend no envía notificaciones con este tipo, la pestaña "Avisos" quedará siempre vacía.
-
-9. **feat(terminos) `insertarDespues`/`alternarSeccionFija`/`reordenarSecciones` — confirmar en backend de producción**: Si no están deployados, las secciones personalizadas se crearán sin orden configurable y los switches no persistirán.
-
-10. **feat(terminos) `export-selection-dialog` ahora recibe documento completo — callers con HTML pre-armado**: Si hay callers que todavía pasen HTML pre-armado, el export producirá contenido inesperado sin error de compilación.
-
-11. **feat(peticiones) respuesta inline — sin confirmación al cerrar**: Si el superAdmin escribe una respuesta y cierra el panel sin pulsar "Guardar", la respuesta se pierde sin aviso.
-
-12. **refactor(clientes) filtro de tiempo eliminado**: `getDiasDesdeCreacionCliente` y `TIEMPO_BUCKETS` se eliminan. No hay filtro de tiempo alternativo.
+11. **fix(estudio) `observaciones` eliminado — confirmar que ninguna vista de detalle o informe lo lee directamente y lo muestra en blanco (Sep 9)**.
 
 ---
 
 ## Seguimientos vigentes
 
+- **feat(historial) módulo nuevo — confirmar endpoints de historial en backend de producción (Sep 15)**.
+- **feat(historial) flechas entre eventos — confirmar comportamiento sin datos de enlace en documentos históricos (Sep 15)**.
+- **feat(historial) colores fucsia/cian — confirmar tokens en tailwind.config.ts o uso de clases JIT (Sep 15)**.
+- **feat(entregas) módulo nuevo — confirmar `GET /operaciones/vales-salida/summary` deployado en backend (Sep 15)**.
+- **feat(entregas) permiso reubicado a Operaciones — confirmar ausencia de referencias hardcodeadas al grupo anterior (Sep 15)**.
+- **feat(brigadas) `es_jefe_brigada` — confirmar campo deployado en SunCarBackend: GET devuelve campo, PUT lo acepta (Sep 15)**.
+- **fix(brigadas) exclusión candidatos — confirmar que `brigadas_completas` se carga antes de abrir los selectores (Sep 15)**.
+- **feat(organigramas) módulo nuevo — confirmar permiso `organigramas` en MODULOS_CATALOGO (Sep 15)**.
+- **feat(recursos-humanos) sugerencia cargos — confirmar si usa endpoint nuevo o filtra localmente (Sep 15)**.
+- **fix(vales-salida) parseFechaUtc — confirmar que `fecha_recogida` (solo día) no pasa por la función (Sep 15)**.
+- **fix(build) export-list-pdf/pdfExporter — confirmar deploy post-fix sin module not found (Sep 15)**.
+- **feat(visitas) estudio energético extendido — confirmar que campos nuevos son opcionales en backend (Sep 15)**.
+- **feat(planificacion) tipo actualización — confirmar que el tipo es válido en el endpoint de creación de trabajos (Sep 15)**.
 - **planificacion - calendario con puntos verdes — confirmar endpoint de días planificados en backend de producción (Sep 14)**.
 - **planificacion - permiso `planificacion` — confirmar que existe en `MODULOS_CATALOGO` para asignación futura a otros roles (Sep 14)**.
 - **planificacion - leads en planes históricos — confirmar qué ocurre al abrir para edición planes con entradas que referencian leads (Sep 14)**.
@@ -530,4 +573,4 @@ Quince commits encadenados en menos de 6 horas reescribieron el módulo de plani
 
 ---
 
-> ⚠️ **Nota de mantenimiento**: La entrada del **2 de Septiembre** fue eliminada el 10 de Septiembre al superar los 7 días de antigüedad (política de retención semanal). Las entradas del **31 de Agosto** y **1 de Septiembre** fueron eliminadas el 9 de Septiembre al superar los 7 días de antigüedad (política de retención semanal). Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. La entrada del **28 de Julio** fue eliminada el 5 de Agosto al superar los 7 días. La entrada del **30 de Julio** fue eliminada el 7 de Agosto al superar los 7 días. La entrada del **31 de Julio** fue eliminada el 8 de Agosto al superar los 7 días. Las entradas del **1, 2 y 3 de Agosto** fueron eliminadas el 10 de Agosto al superar los 7 días. La entrada del **4 de Agosto** fue eliminada el 12 de Agosto al superar los 7 días. La entrada del **5 de Agosto** fue eliminada el 13 de Agosto al superar los 7 días. La entrada del **6 de Agosto** fue eliminada el 14 de Agosto al superar los 7 días. La entrada del **7 de Agosto** fue eliminada el 15 de Agosto al superar los 7 días. La entrada del **8 de Agosto** fue eliminada el 17 de Agosto al superar los 7 días. La entrada del **10 de Agosto** fue eliminada el 18 de Agosto al superar los 7 días. La entrada del **11 de Agosto** fue eliminada el 19 de Agosto al superar los 7 días. La entrada del **12 de Agosto** fue eliminada el 20 de Agosto al superar los 7 días. La entrada del **13 de Agosto** fue eliminada el 21 de Agosto al superar los 7 días. La entrada del **14 de Agosto** fue eliminada el 22 de Agosto al superar los 7 días. La entrada del **15 de Agosto** fue eliminada el 25 de Agosto al superar los 7 días. La entrada del **17 de Agosto** fue eliminada el 25 de Agosto al superar los 7 días. La entrada del **18 de Agosto** fue eliminada el 26 de Agosto al superar los 7 días. La entrada del **19 de Agosto** fue eliminada el 27 de Agosto al superar los 7 días. La entrada del **20 de Agosto** fue eliminada el 28 de Agosto al superar los 7 días. La entrada del **21 de Agosto** fue eliminada el 29 de Agosto al superar los 7 días. La entrada del **22 de Agosto** fue eliminada el 30 de Agosto al superar los 7 días. La entrada del **23 de Agosto** fue eliminada el 31 de Agosto al superar los 7 días. La entrada del **24 de Agosto** fue eliminada el 1 de Septiembre al superar los 7 días. La entrada del **25 de Agosto** fue eliminada el 2 de Septiembre al superar los 7 días. Las entradas del **26, 27, 28, 29 y 30 de Agosto** fueron eliminadas el 7 de Septiembre al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
+> ⚠️ **Nota de mantenimiento**: La entrada del **7 de Septiembre** fue eliminada el 15 de Septiembre al superar los 7 días de antigüedad (política de retención semanal). La entrada del **2 de Septiembre** fue eliminada el 10 de Septiembre al superar los 7 días de antigüedad (política de retención semanal). Las entradas del **31 de Agosto** y **1 de Septiembre** fueron eliminadas el 9 de Septiembre al superar los 7 días de antigüedad (política de retención semanal). Las entradas del **19, 20 y 21 de Junio** y del **23 de Junio** fueron eliminadas al superar los 7 días de antigüedad (política de retención semanal). La entrada del **26 de Junio** fue eliminada el 4 de Julio al superar los 7 días. La entrada del **28 de Junio** fue eliminada el 6 de Julio al superar los 7 días. La entrada del **29 de Junio** fue eliminada el 7 de Julio al superar los 7 días. La entrada del **30 de Junio** fue eliminada el 8 de Julio al superar los 7 días. Las entradas del **1 y 2 de Julio** fueron eliminadas el 10 de Julio al superar los 7 días. La entrada del **3 de Julio** fue eliminada el 11 de Julio al superar los 7 días. Las entradas del **4 y 5 de Julio** fueron eliminadas el 13 de Julio al superar los 7 días. La entrada del **6 de Julio** fue eliminada el 14 de Julio al superar los 7 días. La entrada del **7 de Julio** fue eliminada el 15 de Julio al superar los 7 días. La entrada del **8 de Julio** fue eliminada el 17 de Julio al superar los 7 días. La entrada del **10 de Julio** fue eliminada el 18 de Julio al superar los 7 días. La entrada del **11 de Julio** fue eliminada el 19 de Julio al superar los 7 días. La entrada del **13 de Julio** fue eliminada el 21 de Julio al superar los 7 días. La entrada del **14 de Julio** fue eliminada el 22 de Julio al superar los 7 días. La entrada del **15 de Julio** fue eliminada el 23 de Julio al superar los 7 días. La entrada del **17 de Julio** fue eliminada el 25 de Julio al superar los 7 días. La entrada del **18 de Julio** fue eliminada el 26 de Julio al superar los 7 días. La entrada del **19 de Julio** fue eliminada el 27 de Julio al superar los 7 días. La entrada del **20 de Julio** fue eliminada el 28 de Julio al superar los 7 días. La entrada del **21 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **22 de Julio** fue eliminada el 30 de Julio al superar los 7 días. La entrada del **23 de Julio** fue eliminada el 31 de Julio al superar los 7 días. La entrada del **24 de Julio** fue eliminada el 1 de Agosto al superar los 7 días. La entrada del **25 de Julio** fue eliminada el 2 de Agosto al superar los 7 días. La entrada del **26 de Julio** fue eliminada el 3 de Agosto al superar los 7 días. La entrada del **27 de Julio** fue eliminada el 4 de Agosto al superar los 7 días. La entrada del **28 de Julio** fue eliminada el 5 de Agosto al superar los 7 días. La entrada del **30 de Julio** fue eliminada el 7 de Agosto al superar los 7 días. La entrada del **31 de Julio** fue eliminada el 8 de Agosto al superar los 7 días. Las entradas del **1, 2 y 3 de Agosto** fueron eliminadas el 10 de Agosto al superar los 7 días. La entrada del **4 de Agosto** fue eliminada el 12 de Agosto al superar los 7 días. La entrada del **5 de Agosto** fue eliminada el 13 de Agosto al superar los 7 días. La entrada del **6 de Agosto** fue eliminada el 14 de Agosto al superar los 7 días. La entrada del **7 de Agosto** fue eliminada el 15 de Agosto al superar los 7 días. La entrada del **8 de Agosto** fue eliminada el 17 de Agosto al superar los 7 días. La entrada del **10 de Agosto** fue eliminada el 18 de Agosto al superar los 7 días. La entrada del **11 de Agosto** fue eliminada el 19 de Agosto al superar los 7 días. La entrada del **12 de Agosto** fue eliminada el 20 de Agosto al superar los 7 días. La entrada del **13 de Agosto** fue eliminada el 21 de Agosto al superar los 7 días. La entrada del **14 de Agosto** fue eliminada el 22 de Agosto al superar los 7 días. La entrada del **15 de Agosto** fue eliminada el 25 de Agosto al superar los 7 días. La entrada del **17 de Agosto** fue eliminada el 25 de Agosto al superar los 7 días. La entrada del **18 de Agosto** fue eliminada el 26 de Agosto al superar los 7 días. La entrada del **19 de Agosto** fue eliminada el 27 de Agosto al superar los 7 días. La entrada del **20 de Agosto** fue eliminada el 28 de Agosto al superar los 7 días. La entrada del **21 de Agosto** fue eliminada el 29 de Agosto al superar los 7 días. La entrada del **22 de Agosto** fue eliminada el 30 de Agosto al superar los 7 días. La entrada del **23 de Agosto** fue eliminada el 31 de Agosto al superar los 7 días. La entrada del **24 de Agosto** fue eliminada el 1 de Septiembre al superar los 7 días. La entrada del **25 de Agosto** fue eliminada el 2 de Septiembre al superar los 7 días. Las entradas del **26, 27, 28, 29 y 30 de Agosto** fueron eliminadas el 7 de Septiembre al superar los 7 días. Anteriores eliminadas: 16, 17 y 18 de Junio, 5, 6, 7, 9, 11, 12 y 15 de Junio, y días de Mayo.
