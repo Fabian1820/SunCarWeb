@@ -1,5 +1,6 @@
 "use client";
 
+import { BotonHistorialCliente } from "@/components/feats/historial/boton-historial-cliente";
 import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/shared/atom/button";
 import { Badge } from "@/components/shared/atom/badge";
@@ -4460,6 +4461,7 @@ export function ClientsTable({
                             >
                               <FileOutput className="h-3 w-3" />
                             </Button>
+                            <BotonHistorialCliente numero={client.numero} nombre={client.nombre} />
                             <Button
                               variant="ghost"
                               size="sm"

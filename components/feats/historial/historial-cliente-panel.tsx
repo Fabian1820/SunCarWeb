@@ -16,6 +16,18 @@ import {
   RotateCcw,
   UserPlus,
   Wrench,
+  ArrowRightLeft,
+  Ban,
+  Banknote,
+  CalendarClock,
+  FilePen,
+  FilePlus2,
+  Megaphone,
+  PencilLine,
+  Trash2,
+  Undo2,
+  UserCog,
+  XCircle,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/shared/atom/button";
@@ -23,7 +35,7 @@ import { cn } from "@/lib/utils";
 import { HistorialService } from "@/lib/services/feats/historial/historial-service";
 import type { EventoHistorial, HistorialCliente } from "@/lib/types/feats/historial/historial-types";
 
-type Grupo = "ofertas" | "visitas" | "materiales" | "trabajos" | "averias" | "registro";
+type Grupo = "comercial" | "ofertas" | "pagos" | "visitas" | "materiales" | "trabajos" | "averias" | "registro";
 
 interface Tono {
   grupo: Grupo;
@@ -47,6 +59,102 @@ const TONOS: Record<string, Tono> = {
     tarjeta: "border-gray-200 bg-white",
     fuerte: "text-gray-900",
     suave: "text-gray-600",
+  },
+  lead: {
+    grupo: "comercial",
+    Icono: Megaphone,
+    nodo: "bg-fuchsia-600",
+    tarjeta: "border-fuchsia-200 bg-fuchsia-50",
+    fuerte: "text-fuchsia-950",
+    suave: "text-fuchsia-900",
+  },
+  cita: {
+    grupo: "comercial",
+    Icono: CalendarClock,
+    nodo: "bg-pink-600",
+    tarjeta: "border-pink-200 bg-pink-50",
+    fuerte: "text-pink-950",
+    suave: "text-pink-900",
+  },
+  cliente_cambio: {
+    grupo: "comercial",
+    Icono: UserCog,
+    nodo: "bg-slate-600",
+    tarjeta: "border-slate-200 bg-slate-50",
+    fuerte: "text-slate-950",
+    suave: "text-slate-700",
+  },
+  oferta_creada: {
+    grupo: "ofertas",
+    Icono: FilePlus2,
+    nodo: "bg-emerald-800",
+    tarjeta: "border-emerald-200 bg-white",
+    fuerte: "text-emerald-950",
+    suave: "text-emerald-900",
+  },
+  oferta_editada: {
+    grupo: "ofertas",
+    Icono: FilePen,
+    nodo: "bg-emerald-500",
+    tarjeta: "border-emerald-100 bg-white",
+    fuerte: "text-emerald-950",
+    suave: "text-emerald-900",
+  },
+  oferta_estado: {
+    grupo: "ofertas",
+    Icono: ArrowRightLeft,
+    nodo: "bg-emerald-700",
+    tarjeta: "border-emerald-200 bg-emerald-50",
+    fuerte: "text-emerald-950",
+    suave: "text-emerald-900",
+  },
+  oferta_cancelada: {
+    grupo: "ofertas",
+    Icono: XCircle,
+    nodo: "bg-gray-500",
+    tarjeta: "border-gray-200 bg-gray-100",
+    fuerte: "text-gray-900",
+    suave: "text-gray-700",
+  },
+  oferta_eliminada: {
+    grupo: "ofertas",
+    Icono: Trash2,
+    nodo: "bg-gray-500",
+    tarjeta: "border-gray-200 bg-gray-100",
+    fuerte: "text-gray-900",
+    suave: "text-gray-700",
+  },
+  pago: {
+    grupo: "pagos",
+    Icono: Banknote,
+    nodo: "bg-cyan-700",
+    tarjeta: "border-cyan-200 bg-cyan-50",
+    fuerte: "text-cyan-950",
+    suave: "text-cyan-900",
+  },
+  pago_editado: {
+    grupo: "pagos",
+    Icono: PencilLine,
+    nodo: "bg-cyan-500",
+    tarjeta: "border-cyan-100 bg-white",
+    fuerte: "text-cyan-950",
+    suave: "text-cyan-900",
+  },
+  pago_cancelado: {
+    grupo: "pagos",
+    Icono: Ban,
+    nodo: "bg-gray-500",
+    tarjeta: "border-gray-200 bg-gray-100",
+    fuerte: "text-gray-900",
+    suave: "text-gray-700",
+  },
+  devolucion_pago: {
+    grupo: "pagos",
+    Icono: Undo2,
+    nodo: "bg-orange-600",
+    tarjeta: "border-orange-200 bg-orange-50",
+    fuerte: "text-orange-950",
+    suave: "text-orange-900",
   },
   oferta_confirmada: {
     grupo: "ofertas",
@@ -109,7 +217,9 @@ const TONOS: Record<string, Tono> = {
 const tonoDe = (tipo: string | undefined): Tono => (tipo && TONOS[tipo]) || TONOS.cliente;
 
 const GRUPOS: { clave: Grupo; nombre: string; punto: string }[] = [
+  { clave: "comercial", nombre: "Comercial", punto: "bg-fuchsia-600" },
   { clave: "ofertas", nombre: "Ofertas", punto: "bg-emerald-600" },
+  { clave: "pagos", nombre: "Pagos", punto: "bg-cyan-700" },
   { clave: "visitas", nombre: "Visitas", punto: "bg-indigo-600" },
   { clave: "materiales", nombre: "Materiales", punto: "bg-violet-600" },
   { clave: "trabajos", nombre: "Trabajos diarios", punto: "bg-sky-700" },
@@ -142,6 +252,10 @@ export function iniciales(nombre: string): string {
 
 interface Props {
   numero: string;
+  /** "comercial" suma lo de comercial: de dónde vino, ofertas y sus cambios, pagos, citas. */
+  vista?: "operaciones" | "comercial";
+  /** Dentro de un diálogo: sin botón de volver y con los días pegados bajo su cabecera. */
+  enDialogo?: boolean;
   /** En pantallas estrechas el historial ocupa la vista entera: vuelve a la lista. */
   onVolver: () => void;
   volverTexto: string;
@@ -155,7 +269,7 @@ interface Props {
  * usó sus materiales, la avería con el trabajo que la solucionó. Tocar un enlace
  * lleva hasta ese momento y lo marca.
  */
-export function HistorialClientePanel({ numero, onVolver, volverTexto }: Props) {
+export function HistorialClientePanel({ numero, vista = "operaciones", enDialogo = false, onVolver, volverTexto }: Props) {
   const [datos, setDatos] = useState<HistorialCliente | null>(null);
   const [error, setError] = useState(false);
   const [recarga, setRecarga] = useState(0);
@@ -168,13 +282,13 @@ export function HistorialClientePanel({ numero, onVolver, volverTexto }: Props) 
     setDatos(null);
     setError(false);
     setOcultos(new Set());
-    HistorialService.cliente(numero)
+    HistorialService.cliente(numero, vista)
       .then((d) => !cancelado && setDatos(d))
       .catch(() => !cancelado && setError(true));
     return () => {
       cancelado = true;
     };
-  }, [numero, recarga]);
+  }, [numero, recarga, vista]);
 
   useEffect(() => {
     if (!resaltado) return;
@@ -232,7 +346,7 @@ export function HistorialClientePanel({ numero, onVolver, volverTexto }: Props) 
     );
   }
 
-  const volver = (
+  const volver = enDialogo ? null : (
     <button
       type="button"
       onClick={onVolver}
@@ -344,7 +458,7 @@ export function HistorialClientePanel({ numero, onVolver, volverTexto }: Props) 
         <ol className="mt-6">
           {dias.map(({ dia, eventos }) => (
             <li key={dia} className="mb-3">
-              <div className="sticky top-16 z-10 mb-3 flex items-center gap-2 bg-gray-50 py-1">
+              <div className={cn("sticky z-10 mb-3 flex items-center gap-2 bg-gray-50 py-1", enDialogo ? "top-[5.5rem]" : "top-16")}>
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-900 px-3 py-1 text-xs font-semibold capitalize text-white">
                   <CalendarDays className="h-3.5 w-3.5" aria-hidden />
                   {dia === "sin-fecha" ? "Sin fecha" : nombreDelDia(dia)}

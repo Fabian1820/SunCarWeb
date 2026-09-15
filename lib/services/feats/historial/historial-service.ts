@@ -17,9 +17,9 @@ export const HistorialService = {
   },
 
   /** Todo lo que ha pasado con el cliente, del principio a hoy. */
-  async cliente(numero: string): Promise<HistorialCliente> {
+  async cliente(numero: string, vista: "operaciones" | "comercial" = "operaciones"): Promise<HistorialCliente> {
     const r = await apiRequest<{ success: boolean; data: HistorialCliente }>(
-      `/historial/clientes/${encodeURIComponent(numero)}`,
+      `/historial/clientes/${encodeURIComponent(numero)}?vista=${vista}`,
     );
     return r.data;
   },

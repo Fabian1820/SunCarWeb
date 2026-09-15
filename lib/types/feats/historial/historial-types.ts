@@ -10,7 +10,18 @@ export type TipoEventoHistorial =
   | "devolucion"
   | "trabajo_diario"
   | "averia"
-  | "averia_solucionada";
+  | "averia_solucionada"
+  // Solo en la vista comercial:
+  | "lead"
+  | "cita"
+  | "cliente_cambio"
+  | "oferta_editada"
+  | "oferta_estado"
+  | "oferta_cancelada"
+  | "oferta_eliminada"
+  | "pago_editado"
+  | "pago_cancelado"
+  | "devolucion_pago";
 
 export interface MaterialEvento {
   nombre: string;
