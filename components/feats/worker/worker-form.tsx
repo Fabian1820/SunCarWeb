@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/molecule/input";
 import { Label } from "@/components/shared/atom/label";
@@ -12,11 +12,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/shared/atom/select";
-import { Save, X, Eye, EyeOff, Loader2 } from "lucide-react";
+import { SearchableSelect } from "@/components/shared/molecule/searchable-select";
+import { Save, X, Eye, EyeOff } from "lucide-react";
 import type { Brigade } from "@/lib/brigade-types";
-import { DepartamentoService, SedeService } from "@/lib/api-services";
-import type { Departamento, Sede, Trabajador } from "@/lib/api-types";
-import { isValidObjectId } from "@/lib/utils/object-id";
+import type { Trabajador } from "@/lib/api-types";
 
 interface WorkerFormSubmitData {
   ci: string;
@@ -25,8 +24,6 @@ interface WorkerFormSubmitData {
   brigadeId?: string;
   password?: string;
   integrantes?: string[];
-  sede_id?: string | null;
-  departamento_id?: string | null;
   // true = el CI ya existe en `trabajadores` (venía de RRHH sin ser instalador);
   // no se debe volver a crear el documento, solo actualizarlo.
   existente?: boolean;
@@ -38,8 +35,6 @@ interface WorkerFormProps {
   brigades: Brigade[];
   workers: Trabajador[];
 }
-
-const NONE_OPTION = "__none__";
 
 export function WorkerForm({
   onSubmit,
@@ -57,17 +52,12 @@ export function WorkerForm({
     name: "",
     ci: "",
     brigadeId: "",
-    sedeId: "",
-    departamentoId: "",
     password: "",
     integrantes: [] as string[],
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
-  const [sedes, setSedes] = useState<Sede[]>([]);
-  const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
-  const [loadingCatalogos, setLoadingCatalogos] = useState(false);
 
   const seleccionarTrabajadorExistente = (worker: Trabajador) => {
     setFormData({
@@ -75,30 +65,8 @@ export function WorkerForm({
       workerId: worker.id || worker.CI,
       ci: worker.CI,
       name: worker.nombre,
-      sedeId: worker.sede_id || "",
-      departamentoId: worker.departamento_id || "",
     });
   };
-
-  useEffect(() => {
-    const loadCatalogos = async () => {
-      setLoadingCatalogos(true);
-      try {
-        const [sedesData, departamentosData] = await Promise.all([
-          SedeService.getSedes(true),
-          DepartamentoService.getDepartamentos(true),
-        ]);
-        setSedes(sedesData);
-        setDepartamentos(departamentosData);
-      } catch (error) {
-        console.error("Error loading sede/departamento catalogs:", error);
-      } finally {
-        setLoadingCatalogos(false);
-      }
-    };
-
-    loadCatalogos();
-  }, []);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -113,14 +81,6 @@ export function WorkerForm({
 
     if (!formData.ci.trim()) {
       newErrors.ci = "El CI es requerido";
-    }
-
-    if (formData.sedeId && !isValidObjectId(formData.sedeId)) {
-      newErrors.sedeId = "La sede seleccionada es inválida";
-    }
-
-    if (formData.departamentoId && !isValidObjectId(formData.departamentoId)) {
-      newErrors.departamentoId = "El departamento seleccionado es inválido";
     }
 
     setErrors(newErrors);
@@ -141,8 +101,6 @@ export function WorkerForm({
           ci: formData.ci,
           name: formData.name,
           brigadeId: formData.brigadeId,
-          sede_id: formData.sedeId || null,
-          departamento_id: formData.departamentoId || null,
           mode: "trabajador_asignar",
           existente,
         });
@@ -150,8 +108,6 @@ export function WorkerForm({
         onSubmit({
           ci: formData.ci,
           name: formData.name,
-          sede_id: formData.sedeId || null,
-          departamento_id: formData.departamentoId || null,
           mode: "trabajador",
           existente,
         });
@@ -164,8 +120,6 @@ export function WorkerForm({
           name: formData.name,
           password: formData.password,
           integrantes: formData.integrantes,
-          sede_id: formData.sedeId || null,
-          departamento_id: formData.departamentoId || null,
           mode: "jefe_brigada",
           existente,
         });
@@ -174,8 +128,6 @@ export function WorkerForm({
           ci: formData.ci,
           name: formData.name,
           password: formData.password,
-          sede_id: formData.sedeId || null,
-          departamento_id: formData.departamentoId || null,
           mode: "jefe",
           existente,
         });
@@ -200,8 +152,6 @@ export function WorkerForm({
                   ci: "",
                   name: "",
                   workerId: "",
-                  sedeId: "",
-                  departamentoId: "",
                 })
               }
               className={`p-2 rounded-lg border text-sm font-medium ${
@@ -221,8 +171,6 @@ export function WorkerForm({
                   ci: "",
                   name: "",
                   workerId: "",
-                  sedeId: "",
-                  departamentoId: "",
                 })
               }
               className={`p-2 rounded-lg border text-sm font-medium ${
@@ -237,34 +185,28 @@ export function WorkerForm({
 
           {formData.origen === "existente" ? (
             <>
-              <Select
-                value={formData.workerId}
-                onValueChange={(value) => {
-                  const worker = trabajadoresDisponibles.find(
-                    (w) => (w.id || w.CI) === value,
-                  );
-                  if (worker) seleccionarTrabajadorExistente(worker);
-                }}
-              >
-                <SelectTrigger
+              {trabajadoresDisponibles.length === 0 ? (
+                <div className="px-2 py-4 text-sm text-gray-500 text-center border rounded-md">
+                  No hay trabajadores sin asignar. Use "Persona nueva".
+                </div>
+              ) : (
+                <SearchableSelect
+                  value={formData.workerId}
+                  onValueChange={(value) => {
+                    const worker = trabajadoresDisponibles.find(
+                      (w) => (w.id || w.CI) === value,
+                    );
+                    if (worker) seleccionarTrabajadorExistente(worker);
+                  }}
+                  options={trabajadoresDisponibles.map((w) => ({
+                    value: w.id || w.CI,
+                    label: `${w.nombre} (CI: ${w.CI})`,
+                  }))}
+                  placeholder="Seleccione un trabajador"
+                  searchPlaceholder="Buscar por nombre o CI..."
                   className={errors.workerId ? "border-red-300" : ""}
-                >
-                  <SelectValue placeholder="Seleccione un trabajador" />
-                </SelectTrigger>
-                <SelectContent>
-                  {trabajadoresDisponibles.length === 0 ? (
-                    <div className="px-2 py-4 text-sm text-gray-500 text-center">
-                      No hay trabajadores sin asignar. Use "Persona nueva".
-                    </div>
-                  ) : (
-                    trabajadoresDisponibles.map((w) => (
-                      <SelectItem key={w.id || w.CI} value={w.id || w.CI}>
-                        {w.nombre} (CI: {w.CI})
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
+                />
+              )}
               {errors.workerId && (
                 <p className="text-red-600 text-sm mt-1">{errors.workerId}</p>
               )}
@@ -313,79 +255,6 @@ export function WorkerForm({
               </div>
             </div>
           )}
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div>
-            <Label className="text-sm font-medium text-gray-700 mb-2 block">
-              Sede
-            </Label>
-            <Select
-              value={formData.sedeId || NONE_OPTION}
-              onValueChange={(value) =>
-                setFormData({
-                  ...formData,
-                  sedeId: value === NONE_OPTION ? "" : value,
-                })
-              }
-            >
-              <SelectTrigger className={errors.sedeId ? "border-red-300" : ""}>
-                <SelectValue placeholder="Sin sede" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE_OPTION}>Sin sede</SelectItem>
-                {sedes.map((sede) => (
-                  <SelectItem key={sede.id} value={sede.id}>
-                    {sede.nombre}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {loadingCatalogos && (
-              <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Cargando sedes...
-              </p>
-            )}
-            {errors.sedeId && (
-              <p className="text-red-600 text-sm mt-1">{errors.sedeId}</p>
-            )}
-          </div>
-
-          <div>
-            <Label className="text-sm font-medium text-gray-700 mb-2 block">
-              Departamento
-            </Label>
-            <Select
-              value={formData.departamentoId || NONE_OPTION}
-              onValueChange={(value) =>
-                setFormData({
-                  ...formData,
-                  departamentoId: value === NONE_OPTION ? "" : value,
-                })
-              }
-            >
-              <SelectTrigger className={errors.departamentoId ? "border-red-300" : ""}>
-                <SelectValue placeholder="Sin departamento" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE_OPTION}>Sin departamento</SelectItem>
-                {departamentos.map((departamento) => (
-                  <SelectItem key={departamento.id} value={departamento.id}>
-                    {departamento.nombre}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {loadingCatalogos && (
-              <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Cargando departamentos...
-              </p>
-            )}
-            {errors.departamentoId && (
-              <p className="text-red-600 text-sm mt-1">{errors.departamentoId}</p>
-            )}
-          </div>
         </div>
         <div>
           <Label

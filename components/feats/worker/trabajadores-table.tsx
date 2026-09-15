@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { useToast } from "@/hooks/use-toast"
-import { TrabajadorService } from "@/lib/api-services"
+import { TrabajadorService, RecursosHumanosService } from "@/lib/api-services"
 import { WorkerAvatar, WorkerAvatarUploader } from "@/components/feats/worker/worker-avatar"
 import { Calculator, Clock, Crown, KeyRound, Search, Trash2, Users, X } from "lucide-react"
 
@@ -156,16 +156,19 @@ export function TrabajadoresTable({
   const handleDelete = async (worker: Trabajador) => {
     setIsDeleting(true)
     try {
-      await TrabajadorService.darBajaTrabajador(worker.CI)
+      // No se desactiva al trabajador (puede seguir activo, solo cambió de área):
+      // se le quita el rol de instalador/jefe de brigada. El backend se encarga de
+      // desvincularlo de su brigada (borrarla si era jefe, sacarlo si era integrante).
+      await RecursosHumanosService.actualizarTrabajadorRRHH(worker.CI, { is_brigadista: false })
       toast({
-        title: "Instalador dado de baja",
-        description: `El instalador ${worker.nombre} se dio de baja correctamente.`,
+        title: "Instalador removido",
+        description: `${worker.nombre} ya no es instalador ni jefe de brigada. Sigue activo en el sistema.`,
       })
       onRefresh()
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "No se pudo dar de baja el instalador",
+        description: error.message || "No se pudo quitar el rol de instalador",
         variant: "destructive",
       })
     } finally {
@@ -290,8 +293,8 @@ export function TrabajadoresTable({
                   size="icon"
                   onClick={() => setConfirmDelete(worker)}
                   className="border-red-300 text-red-700 hover:bg-red-50 touch-manipulation"
-                  title="Dar de baja instalador"
-                  aria-label="Dar de baja instalador"
+                  title="Quitar rol de instalador"
+                  aria-label="Quitar rol de instalador"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -392,8 +395,8 @@ export function TrabajadoresTable({
                       size="icon"
                       onClick={() => setConfirmDelete(worker)}
                       className="border-red-300 text-red-700 hover:bg-red-50"
-                      title="Dar de baja instalador"
-                      aria-label="Dar de baja instalador"
+                      title="Quitar rol de instalador"
+                      aria-label="Quitar rol de instalador"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -651,15 +654,17 @@ export function TrabajadoresTable({
         <Dialog open={!!confirmDelete} onOpenChange={() => setConfirmDelete(null)}>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Confirmar baja de instalador</DialogTitle>
+              <DialogTitle>Quitar rol de instalador</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <p>
-                ¿Estás seguro de que quieres dar de baja al instalador{" "}
+                ¿Estás seguro de que quieres quitarle el rol de instalador/jefe de brigada a{" "}
                 <span className="font-semibold">{confirmDelete.nombre}</span> (CI: {confirmDelete.CI})?
               </p>
-              <p className="text-sm text-red-600">
-                Esta acción no elimina el registro, pero lo ocultará de los listados de instaladores activos.
+              <p className="text-sm text-gray-600">
+                No se desactiva al trabajador (sigue activo en el sistema, por ejemplo si cambió
+                de área). Solo deja de aparecer como instalador. Si era jefe de brigada, su
+                brigada se elimina; si era integrante, se le saca de la lista de integrantes.
               </p>
             </div>
             <DialogFooter>
@@ -682,15 +687,15 @@ export function TrabajadoresTable({
                 disabled={isDeleting}
                 size="icon"
                 className="w-10 sm:w-auto sm:px-4 touch-manipulation"
-                title="Dar de baja instalador"
-                aria-label="Dar de baja instalador"
+                title="Quitar rol de instalador"
+                aria-label="Quitar rol de instalador"
               >
                 <Trash2 className="h-4 w-4" />
                 <span className="hidden sm:inline">
-                  {isDeleting ? "Procesando..." : "Dar de baja"}
+                  {isDeleting ? "Procesando..." : "Quitar rol"}
                 </span>
                 <span className="sr-only">
-                  {isDeleting ? "Procesando..." : "Dar de baja"}
+                  {isDeleting ? "Procesando..." : "Quitar rol"}
                 </span>
               </Button>
             </DialogFooter>

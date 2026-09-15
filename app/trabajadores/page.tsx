@@ -176,25 +176,22 @@ export default function TrabajadoresPage() {
   const handleCreateWorker = async (data: any) => {
     setLoadingAction(true)
     try {
-      const relaciones = {
-        sede_id: data.sede_id ?? null,
-        departamento_id: data.departamento_id ?? null,
-      }
-
       // Un trabajador "existente" ya tiene documento en `trabajadores` (venía de RRHH sin
       // ser instalador). Crearlo de nuevo con POST /trabajadores/ duplicaría el CI, porque
       // ese endpoint hace insert_one sin comprobar si ya existe. Para esos casos solo se
       // actualiza el registro (is_brigadista + brigada), nunca se vuelve a crear.
+      // Sede y departamento no se piden aquí: son datos de Recursos Humanos, se asignan
+      // desde ese módulo, no al agregar instalador.
       let baseMessage = ''
       if (data.mode === 'trabajador') {
         if (!data.existente) {
-          await TrabajadorService.crearTrabajador(data.ci, data.name, undefined, relaciones)
+          await TrabajadorService.crearTrabajador(data.ci, data.name)
         }
         await RecursosHumanosService.actualizarTrabajadorRRHH(data.ci, { is_brigadista: true })
         baseMessage = data.existente ? 'Instalador asignado correctamente' : 'Instalador creado correctamente'
       } else if (data.mode === 'trabajador_asignar') {
         if (!data.existente) {
-          await TrabajadorService.crearTrabajador(data.ci, data.name, undefined, relaciones)
+          await TrabajadorService.crearTrabajador(data.ci, data.name)
         }
         await RecursosHumanosService.actualizarTrabajadorRRHH(data.ci, { is_brigadista: true })
         await TrabajadorService.asignarTrabajadorABrigada(data.brigadeId, data.ci, data.name)
@@ -202,12 +199,12 @@ export default function TrabajadoresPage() {
           ? 'Instalador asignado a brigada correctamente'
           : 'Instalador creado y asignado a brigada correctamente'
       } else if (data.mode === 'jefe') {
-        await TrabajadorService.crearJefeBrigada(data.ci, data.name, data.password, [], relaciones)
+        await TrabajadorService.crearJefeBrigada(data.ci, data.name, data.password, [])
         await RecursosHumanosService.actualizarTrabajadorRRHH(data.ci, { is_brigadista: true })
         baseMessage = 'Jefe de brigada creado correctamente'
       } else if (data.mode === 'jefe_brigada') {
         const integrantesArr = data.integrantes.map((ci: string) => ({ CI: ci }))
-        await TrabajadorService.crearJefeBrigada(data.ci, data.name, data.password, integrantesArr, relaciones)
+        await TrabajadorService.crearJefeBrigada(data.ci, data.name, data.password, integrantesArr)
         await RecursosHumanosService.actualizarTrabajadorRRHH(data.ci, { is_brigadista: true })
         baseMessage = 'Jefe de brigada creado con integrantes correctamente'
       }
@@ -219,10 +216,6 @@ export default function TrabajadoresPage() {
           ? `${baseMessage}. Contraseña del dashboard: ${DEFAULT_ADMIN_PASS} (puede cambiarla desde su perfil).`
           : `${baseMessage}. Asigne la contraseña del dashboard manualmente desde /permisos.`,
       })
-
-      if (relaciones.sede_id || relaciones.departamento_id) {
-        await TrabajadorService.actualizarRelacionesTrabajador(data.ci, relaciones)
-      }
 
       setIsCreateWorkerDialogOpen(false)
       await Promise.all([refetch(), loadBrigadas()]);
