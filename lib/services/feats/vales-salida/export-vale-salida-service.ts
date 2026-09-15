@@ -3,6 +3,7 @@ import autoTable from "jspdf-autotable";
 import ExcelJS from "exceljs";
 import { MaterialService } from "../../../api-services";
 import { imprimirPdf } from "../../../utils/imprimir-pdf";
+import { parseFechaUtc } from "../../../utils/fecha-utc";
 import type {
   ValeSalida,
   ValeSalidaMaterialItemDetalle,
@@ -45,9 +46,8 @@ const EMPRESA_NOMBRE = "Empresa Solar Carros";
 const AUTORIZADO_POR = "Alexander Calero";
 
 const formatDateTime = (value?: string): string => {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
+  const date = parseFechaUtc(value);
+  if (!date) return "-";
   return date.toLocaleString("es-ES", {
     year: "numeric",
     month: "2-digit",

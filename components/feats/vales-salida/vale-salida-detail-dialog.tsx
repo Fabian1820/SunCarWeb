@@ -26,6 +26,7 @@ import {
   formatFechaRecogida,
   getFechaRecogidaBadge,
 } from "@/lib/utils/fecha-recogida";
+import { parseFechaUtc } from "@/lib/utils/fecha-utc";
 
 interface ValeSalidaDetailDialogProps {
   open: boolean;
@@ -65,18 +66,15 @@ export function ValeSalidaDetailDialog({
   const adjuntos = vale.adjuntos ?? [];
 
   const formatDate = (dateStr?: string) => {
-    if (!dateStr) return "-";
-    try {
-      return new Date(dateStr).toLocaleDateString("es-ES", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    } catch {
-      return "-";
-    }
+    const fecha = parseFechaUtc(dateStr);
+    if (!fecha) return "-";
+    return fecha.toLocaleDateString("es-ES", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
   const getMaterialName = (mat: ValeSalida["materiales"][number]) =>

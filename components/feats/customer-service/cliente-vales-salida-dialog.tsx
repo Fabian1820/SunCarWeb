@@ -28,6 +28,7 @@ import { ValeSalidaService } from "@/lib/api-services";
 import type { Cliente, ValeSalida, ValeSalidaSummary } from "@/lib/api-types";
 import { ValeSalidaDetailDialog } from "@/components/feats/vales-salida/vale-salida-detail-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { parseFechaUtc } from "@/lib/utils/fecha-utc";
 
 // Un cliente de la instaladora tiene pocas decenas de vales: con este tope se
 // ven todos sin paginar, y si alguno lo pasa se avisa debajo de la lista.
@@ -38,15 +39,6 @@ interface ClienteValesSalidaDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
-
-// Motor lee las fechas de Mongo sin zona horaria y el backend las manda sin
-// la Z, pero son UTC: sin ella el navegador las tomaria como hora local.
-const parseFechaUtc = (value?: string | null): Date | null => {
-  if (!value) return null;
-  const conZona = /(Z|[+-]\d{2}:?\d{2})$/i.test(value) ? value : `${value}Z`;
-  const fecha = new Date(conZona);
-  return Number.isNaN(fecha.getTime()) ? null : fecha;
-};
 
 const formatFechaHora = (value?: string | null) => {
   const fecha = parseFechaUtc(value);

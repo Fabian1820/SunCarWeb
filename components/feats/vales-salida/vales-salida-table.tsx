@@ -22,6 +22,7 @@ import {
   Paperclip,
 } from "lucide-react";
 import type { ValeSalidaSummary } from "@/lib/api-types";
+import { parseFechaUtc } from "@/lib/utils/fecha-utc";
 
 interface ValesSalidaTableProps {
   vales: ValeSalidaSummary[];
@@ -67,21 +68,19 @@ export function ValesSalidaTable({
 }: ValesSalidaTableProps) {
   const formatDate = (dateStr?: string | null) => {
     if (!dateStr) return "-";
-    try {
-      // Si ya viene en formato "YYYY-MM-DD", convertir a "DD/MM/YYYY"
-      if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        const [year, month, day] = dateStr.split("-");
-        return `${day}/${month}/${year}`;
-      }
-      // Si es ISO 8601, usar toLocaleDateString
-      return new Date(dateStr).toLocaleDateString("es-ES", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      });
-    } catch {
-      return "-";
+    // Si ya viene en formato "YYYY-MM-DD", convertir a "DD/MM/YYYY"
+    if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      const [year, month, day] = dateStr.split("-");
+      return `${day}/${month}/${year}`;
     }
+    // Si es un instante ISO 8601, llega en UTC sin la Z
+    const fecha = parseFechaUtc(dateStr);
+    if (!fecha) return "-";
+    return fecha.toLocaleDateString("es-ES", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
   };
 
   if (vales.length === 0) {

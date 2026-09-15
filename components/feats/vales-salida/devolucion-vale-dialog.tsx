@@ -16,6 +16,7 @@ import { Input } from "@/components/shared/molecule/input";
 import { Textarea } from "@/components/shared/molecule/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { DevolucionValeService, TrabajadorService } from "@/lib/api-services";
+import { parseFechaUtc } from "@/lib/utils/fecha-utc";
 import type {
   DevolucionVale,
   DevolucionValeResumenMaterial,
@@ -63,9 +64,8 @@ const formatCantidad = (value: number): string =>
   });
 
 const formatFecha = (value?: string): string => {
-  if (!value) return "-";
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "-";
+  const parsed = parseFechaUtc(value);
+  if (!parsed) return "-";
   return parsed.toLocaleString("es-ES", {
     day: "2-digit",
     month: "2-digit",

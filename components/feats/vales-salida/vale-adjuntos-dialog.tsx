@@ -30,6 +30,7 @@ import {
   comprimirImagenSiAplica,
   formatearTamano,
 } from "@/lib/utils/comprimir-imagen";
+import { parseFechaUtc } from "@/lib/utils/fecha-utc";
 import type {
   AdjuntoValeSalida,
   TokenSubidaMovilVale,
@@ -48,18 +49,15 @@ const esImagen = (adjunto: AdjuntoValeSalida) =>
   adjunto.tipo === "imagen" || adjunto.mime_type?.startsWith("image/");
 
 const formatearFecha = (iso?: string) => {
-  if (!iso) return "";
-  try {
-    return new Date(iso).toLocaleString("es-ES", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return "";
-  }
+  const fecha = parseFechaUtc(iso);
+  if (!fecha) return "";
+  return fecha.toLocaleString("es-ES", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 };
 
 export function ValeAdjuntosDialog({

@@ -4,6 +4,7 @@ import type {
   ValeSalidaSummaryMaterial,
 } from "@/lib/api-types";
 import { exportToExcel, generateFilename } from "@/lib/export-service";
+import { parseFechaUtc } from "@/lib/utils/fecha-utc";
 
 interface MaterialInfo {
   precio?: number;
@@ -53,21 +54,19 @@ const TIPO_LABEL: Record<string, string> = {
 
 const formatDateDDMMYYYY = (value?: string | null): string => {
   if (!value) return "";
-  if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
-    const [y, m, d] = value.slice(0, 10).split("-");
+  // Solo un dia (fecha_recogida): se copia tal cual. Un instante ISO no entra
+  // aqui: cortarle la fecha daria el dia en UTC, no el de Cuba.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [y, m, d] = value.split("-");
     return `${d}/${m}/${y}`;
   }
-  try {
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return "";
-    return d.toLocaleDateString("es-ES", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-  } catch {
-    return "";
-  }
+  const d = parseFechaUtc(value);
+  if (!d) return "";
+  return d.toLocaleDateString("es-ES", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 };
 
 const formatMaterialCodigo = (m: ValeSalidaSummaryMaterial): string =>
