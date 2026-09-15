@@ -2,7 +2,7 @@
 
 import { ModuleCard } from "@/components/shared/molecule/module-card"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
-import { BarChart3, Clock, PackageSearch, TrendingUp } from "lucide-react"
+import { BarChart3, Clock, PackageCheck, PackageSearch, TrendingUp } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 
 export default function ReportesComercialPage() {
@@ -44,6 +44,16 @@ export default function ReportesComercialPage() {
       icon: PackageSearch,
       iconClass: 'text-emerald-600',
       href: '/reportes-comercial/materiales-ofertas',
+      hidden: false
+    },
+    {
+      // El mismo módulo de Operaciones: lo que salió del almacén cada día y lo que volvió.
+      id: 'entregas-devoluciones',
+      title: 'Entregas y devoluciones',
+      description: 'Lo que sale del almacén cada día, a quién y qué se devolvió',
+      icon: PackageCheck,
+      iconClass: 'text-emerald-600',
+      href: '/entregas-devoluciones',
       hidden: false
     }
   ]
