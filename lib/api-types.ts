@@ -170,6 +170,14 @@ export type {
 } from "./types/feats/departamentos/departamento-types";
 
 export type {
+  CargoOrganigrama,
+  LadoCargo,
+  NodoOrganigrama,
+  Organigrama,
+  OrganigramaUpsertRequest,
+} from "./types/feats/organigramas/organigrama-types";
+
+export type {
   Reserva,
   MaterialReserva,
   MaterialReservaConsumir,

@@ -31,6 +31,7 @@ export { WalletAlertasService } from "./services/feats/wallet-alertas/wallet-ale
 export { AuditoriaService } from "./services/feats/auditoria/auditoria-service";
 export { SedeService } from "./services/feats/sedes/sede-service";
 export { DepartamentoService } from "./services/feats/departamentos/departamento-service";
+export { OrganigramaService } from "./services/feats/organigramas/organigrama-service";
 export { InstalacionesService } from "./services/feats/instalaciones/instalaciones-service";
 export { TrabajosDiariosService } from "./services/feats/instalaciones/trabajos-diarios-service";
 export { ContabilidadService } from "./services/feats/contabilidad/contabilidad-service";

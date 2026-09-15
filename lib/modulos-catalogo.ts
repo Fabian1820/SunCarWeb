@@ -42,6 +42,7 @@ import {
   FlaskConical,
   Send,
   Megaphone,
+  Network,
 } from "lucide-react"
 
 /**
@@ -118,7 +119,7 @@ export const MODULO_GRUPOS: ModuloGrupo[] = [
   {
     key: "recursos-humanos",
     title: "Recursos Humanos",
-    subtitle: "Personal, sedes, departamentos y asignaciones de recursos.",
+    subtitle: "Personal, sedes, departamentos, organigramas y asignaciones de recursos.",
   },
   {
     key: "area-direccion",
@@ -877,6 +878,15 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     icon: Building,
     iconClass: "text-violet-600",
     href: "/departamentos",
+    grupo: "recursos-humanos",
+  },
+  {
+    key: "organigramas",
+    label: "Organigramas",
+    descripcion: "Organigramas por área con sus cargos y plazas, exportables a PDF.",
+    icon: Network,
+    iconClass: "text-violet-600",
+    href: "/organigramas",
     grupo: "recursos-humanos",
   },
   {
