@@ -81,6 +81,15 @@ const TONOS: Record<string, Tono> = {
     fuerte: "text-pink-950",
     suave: "text-pink-900",
   },
+  cliente_estado: {
+    grupo: "registro",
+    Icono: UserCog,
+    nodo: "bg-slate-600",
+    flecha: "stroke-slate-600 fill-slate-600",
+    tarjeta: "border-slate-200 bg-slate-50",
+    fuerte: "text-slate-950",
+    suave: "text-slate-700",
+  },
   cliente_cambio: {
     grupo: "comercial",
     Icono: UserCog,
@@ -327,7 +336,8 @@ export function HistorialClientePanel({ numero, vista = "operaciones", enDialogo
   const [datos, setDatos] = useState<HistorialCliente | null>(null);
   const [error, setError] = useState(false);
   const [recarga, setRecarga] = useState(0);
-  const [ocultos, setOcultos] = useState<Set<Grupo>>(new Set());
+  /** Los tipos marcados para ver. Sin ninguno marcado se ve todo. */
+  const [marcados, setMarcados] = useState<Set<Grupo>>(new Set());
   const [recientePrimero, setRecientePrimero] = useState(false);
   const [resaltado, setResaltado] = useState<string | null>(null);
 
@@ -335,7 +345,7 @@ export function HistorialClientePanel({ numero, vista = "operaciones", enDialogo
     let cancelado = false;
     setDatos(null);
     setError(false);
-    setOcultos(new Set());
+    setMarcados(new Set());
     HistorialService.cliente(numero, vista)
       .then((d) => !cancelado && setDatos(d))
       .catch(() => !cancelado && setError(true));
@@ -362,7 +372,7 @@ export function HistorialClientePanel({ numero, vista = "operaciones", enDialogo
   }, [datos]);
 
   const dias = useMemo(() => {
-    const visibles = (datos?.eventos ?? []).filter((e) => !ocultos.has(tonoDe(e.tipo).grupo));
+    const visibles = (datos?.eventos ?? []).filter((e) => marcados.size === 0 || marcados.has(tonoDe(e.tipo).grupo));
     const ordenados = recientePrimero ? [...visibles].reverse() : visibles;
     const grupos: { dia: string; eventos: EventoHistorial[] }[] = [];
     for (const e of ordenados) {
@@ -372,10 +382,10 @@ export function HistorialClientePanel({ numero, vista = "operaciones", enDialogo
       else grupos.push({ dia, eventos: [e] });
     }
     return grupos;
-  }, [datos, ocultos, recientePrimero]);
+  }, [datos, marcados, recientePrimero]);
 
   function alternar(grupo: Grupo) {
-    setOcultos((previos) => {
+    setMarcados((previos) => {
       const nuevos = new Set(previos);
       if (nuevos.has(grupo)) nuevos.delete(grupo);
       else nuevos.add(grupo);
@@ -385,10 +395,11 @@ export function HistorialClientePanel({ numero, vista = "operaciones", enDialogo
 
   function irA(id: string) {
     const grupo = tonoDe(tipoPorId.get(id)).grupo;
-    setOcultos((previos) => {
-      if (!previos.has(grupo)) return previos;
+    // Si lo que se va a ver no está entre lo marcado, se marca también.
+    setMarcados((previos) => {
+      if (previos.size === 0 || previos.has(grupo)) return previos;
       const nuevos = new Set(previos);
-      nuevos.delete(grupo);
+      nuevos.add(grupo);
       return nuevos;
     });
     setResaltado(id);
@@ -543,25 +554,42 @@ export function HistorialClientePanel({ numero, vista = "operaciones", enDialogo
       </header>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          aria-pressed={marcados.size === 0}
+          onClick={() => setMarcados(new Set())}
+          className={cn(
+            "inline-flex min-h-9 items-center gap-2 rounded-full border px-3 text-sm transition-colors",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600",
+            marcados.size === 0
+              ? "border-gray-900 bg-gray-900 font-semibold text-white"
+              : "border-gray-300 bg-white text-gray-800 hover:border-gray-400",
+          )}
+        >
+          Todo
+          <span className={cn("tabular-nums", marcados.size === 0 ? "text-gray-300" : "text-gray-500")}>
+            {datos.eventos.length}
+          </span>
+        </button>
         {GRUPOS.filter((g) => (cuantos.get(g.clave) ?? 0) > 0).map((g) => {
-          const activo = !ocultos.has(g.clave);
+          const marcado = marcados.has(g.clave);
           return (
             <button
               key={g.clave}
               type="button"
-              aria-pressed={activo}
+              aria-pressed={marcado}
               onClick={() => alternar(g.clave)}
               className={cn(
                 "inline-flex min-h-9 items-center gap-2 rounded-full border px-3 text-sm transition-colors",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600",
-                activo
-                  ? "border-gray-300 bg-white font-medium text-gray-900 shadow-sm"
-                  : "border-dashed border-gray-300 text-gray-500 line-through",
+                marcado
+                  ? "border-gray-900 bg-gray-900 font-semibold text-white"
+                  : "border-gray-300 bg-white text-gray-800 hover:border-gray-400",
               )}
             >
-              <span className={cn("h-2.5 w-2.5 rounded-full", g.punto, !activo && "opacity-40")} aria-hidden />
+              <span className={cn("h-2.5 w-2.5 rounded-full ring-2", g.punto, marcado ? "ring-white/80" : "ring-transparent")} aria-hidden />
               {g.nombre}
-              <span className="tabular-nums text-gray-500 no-underline">{cuantos.get(g.clave)}</span>
+              <span className={cn("tabular-nums", marcado ? "text-gray-300" : "text-gray-500")}>{cuantos.get(g.clave)}</span>
             </button>
           );
         })}
@@ -574,7 +602,7 @@ export function HistorialClientePanel({ numero, vista = "operaciones", enDialogo
           {recientePrimero ? "Lo más reciente primero" : "Lo más antiguo primero"}
         </button>
       </div>
-      <p className="mt-1.5 text-xs text-gray-500">Toca un tipo para ocultarlo o volver a verlo.</p>
+      <p className="mt-1.5 text-xs text-gray-500">Marca los tipos que quieres ver; sin marcar ninguno se ve todo.</p>
 
       {dias.length === 0 ? (
         <p className="mt-6 rounded-2xl border border-dashed border-gray-300 bg-white px-6 py-10 text-center text-sm text-gray-600">

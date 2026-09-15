@@ -15,6 +15,7 @@ export type TipoEventoHistorial =
   | "lead"
   | "cita"
   | "cliente_cambio"
+  | "cliente_estado"
   | "oferta_editada"
   | "oferta_estado"
   | "oferta_cancelada"
