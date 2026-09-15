@@ -4371,83 +4371,6 @@ export function ClientsTable({
                                 </Button>
                               );
                             })()}
-                            {(() => {
-                              const numeroCliente = normalizeClienteNumero(
-                                client.numero,
-                              );
-                              const consultandoServicio =
-                                consultandoEquiposEnServicioNumero ===
-                                numeroCliente;
-                              const tieneServicio = getServicioStatus(client);
-
-                              return (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    void handleOpenEquiposEnServicioDialog(
-                                      client,
-                                    );
-                                  }}
-                                  disabled={consultandoServicio}
-                                  className={
-                                    tieneServicio
-                                      ? "h-7 w-7 p-0 text-purple-700 hover:text-purple-800 hover:bg-purple-50"
-                                      : "h-7 w-7 p-0 text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                                  }
-                                  title="Equipos en servicio"
-                                >
-                                  {consultandoServicio ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                  ) : (
-                                    <Zap className="h-3 w-3" />
-                                  )}
-                                </Button>
-                              );
-                            })()}
-                            {(() => {
-                              const numeroCliente = normalizeClienteNumero(
-                                client.numero,
-                              );
-                              const consultandoEquipo =
-                                consultandoEquipoEntregadoNumero ===
-                                numeroCliente;
-                              const equipoEntregado =
-                                getEquipoEntregadoStatus(client);
-
-                              return (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    void handleOpenEquipoEntregadoDialog(
-                                      client,
-                                    );
-                                  }}
-                                  disabled={consultandoEquipo}
-                                  className={
-                                    equipoEntregado
-                                      ? "h-7 w-7 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-                                      : "h-7 w-7 p-0 text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                                  }
-                                  title={
-                                    equipoEntregado
-                                      ? "Ver equipos entregados"
-                                      : "Ver estado de equipo entregado"
-                                  }
-                                >
-                                  {consultandoEquipo ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                  ) : (
-                                    <Truck className="h-3 w-3" />
-                                  )}
-                                </Button>
-                              );
-                            })()}
                             <Button
                               variant="ghost"
                               size="sm"
@@ -4549,6 +4472,86 @@ export function ClientsTable({
                                       Agregar fotos
                                     </span>
                                   </Button>
+                                  {(() => {
+                                    const numeroCliente =
+                                      normalizeClienteNumero(client.numero);
+                                    const consultandoServicio =
+                                      consultandoEquiposEnServicioNumero ===
+                                      numeroCliente;
+                                    const tieneServicio =
+                                      getServicioStatus(client);
+
+                                    return (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          void handleOpenEquiposEnServicioDialog(
+                                            client,
+                                          );
+                                        }}
+                                        disabled={consultandoServicio}
+                                        className="h-auto flex-col items-center justify-center gap-1 py-3"
+                                        title="Equipos en servicio"
+                                      >
+                                        {consultandoServicio ? (
+                                          <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
+                                        ) : (
+                                          <Zap
+                                            className={`h-5 w-5 ${tieneServicio ? "text-purple-700" : "text-gray-400"}`}
+                                          />
+                                        )}
+                                        <span className="text-xs text-gray-700 leading-tight text-center">
+                                          En servicio
+                                        </span>
+                                      </Button>
+                                    );
+                                  })()}
+                                  {(() => {
+                                    const numeroCliente =
+                                      normalizeClienteNumero(client.numero);
+                                    const consultandoEquipo =
+                                      consultandoEquipoEntregadoNumero ===
+                                      numeroCliente;
+                                    const equipoEntregado =
+                                      getEquipoEntregadoStatus(client);
+
+                                    return (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          void handleOpenEquipoEntregadoDialog(
+                                            client,
+                                          );
+                                        }}
+                                        disabled={consultandoEquipo}
+                                        className="h-auto flex-col items-center justify-center gap-1 py-3"
+                                        title={
+                                          equipoEntregado
+                                            ? "Ver equipos entregados"
+                                            : "Ver estado de equipo entregado"
+                                        }
+                                      >
+                                        {consultandoEquipo ? (
+                                          <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
+                                        ) : (
+                                          <Truck
+                                            className={`h-5 w-5 ${equipoEntregado ? "text-emerald-600" : "text-gray-400"}`}
+                                          />
+                                        )}
+                                        <span className="text-xs text-gray-700 leading-tight text-center">
+                                          Entregas
+                                        </span>
+                                      </Button>
+                                    );
+                                  })()}
                                 </div>
                               </PopoverContent>
                             </Popover>
