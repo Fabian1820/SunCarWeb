@@ -14,6 +14,7 @@ import {
   PackageSearch,
   PackagePlus,
   PackageCheck,
+  History,
   Calculator,
   UserPlus,
   Clipboard,
@@ -594,6 +595,15 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     grupo: "operaciones",
   },
   {
+    key: "historial",
+    label: "Historial",
+    descripcion: "Todo lo que ha pasado con cada cliente, en orden, y qué equipos lleva cada uno.",
+    icon: History,
+    iconClass: "text-indigo-600",
+    href: "/historial",
+    grupo: "operaciones",
+  },
+  {
     key: "instalaciones",
     label: "Instalaciones",
     descripcion: "Instalaciones en proceso, nuevas y averías.",
@@ -1005,6 +1015,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
       { key: "app/planificacion", label: "Planificación" },
       { key: "app/solicitudes-materiales", label: "Solicitudes de materiales al almacén" },
       { key: "app/entregas", label: "Entregas y devoluciones de materiales" },
+      { key: "app/historial", label: "Historial de clientes y equipos" },
     ],
   },
 ]
