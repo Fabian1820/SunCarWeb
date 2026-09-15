@@ -2,7 +2,7 @@
 
 import { ModuleCard } from "@/components/shared/molecule/module-card"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
-import { BarChart3, Clock, TrendingUp } from "lucide-react"
+import { BarChart3, Clock, PackageSearch, TrendingUp } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 
 export default function ReportesComercialPage() {
@@ -35,6 +35,15 @@ export default function ReportesComercialPage() {
       icon: BarChart3,
       iconClass: 'text-emerald-600',
       href: '/reportes-comercial/estado-equipos',
+      hidden: false
+    },
+    {
+      id: 'materiales-ofertas',
+      title: 'Materiales en Ofertas',
+      description: 'En qué ofertas está un material, a qué precio y con qué cliente',
+      icon: PackageSearch,
+      iconClass: 'text-emerald-600',
+      href: '/reportes-comercial/materiales-ofertas',
       hidden: false
     }
   ]
