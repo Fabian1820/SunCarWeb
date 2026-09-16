@@ -171,6 +171,9 @@ const parseClientDate = (value?: string): Date | null => {
 
 // El backend solo expone `numero` como codigo del Cliente; codigo_cliente y
 // numero_cliente pertenecen a otras entidades (DevolucionPago, FacturaContabilidad).
+const fmtMoneyExport = (n: number): string =>
+  `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
 const getCodigoCliente = (client: Cliente): string =>
   typeof client.numero === "string" ? client.numero.trim() : "";
 
@@ -997,7 +1000,10 @@ export default function ClientesPage() {
     void client;
   };
 
-  const buildClientesExportData = (clientesToExport: Cliente[]) => {
+  const buildClientesExportData = (
+    clientesToExport: Cliente[],
+    pendientesData: Map<string, PendientePagoCliente> | null,
+  ) => {
     const tieneInstalacionEnProceso = clientesToExport.some(
       (c) => c.estado === "Instalación en Proceso",
     );
@@ -1040,10 +1046,17 @@ export default function ClientesPage() {
         ? `${String(fechaCreacion.getDate()).padStart(2, "0")}/${String(fechaCreacion.getMonth() + 1).padStart(2, "0")}/${fechaCreacion.getFullYear()}`
         : "N/A";
 
+      const numeroNormalizado = normalizeClienteNumeroPendientes(client.numero);
+      const pendiente = numeroNormalizado
+        ? pendientesData?.get(numeroNormalizado)
+        : undefined;
+      const montoPendiente = pendiente?.montoPendiente ?? 0;
+
       const baseData: Record<string, string | number> = {
         numero: index + 1,
         nombre: client.nombre || "N/A",
         telefono: client.telefono || "N/A",
+        comercial: client.comercial || "N/A",
         fecha_creacion: fechaFormateada,
         provincia: client.provincia_montaje || "N/A",
         municipio: client.municipio || "N/A",
@@ -1058,6 +1071,7 @@ export default function ClientesPage() {
       }
 
       baseData.oferta = ofertaTexto;
+      baseData.saldo_pendiente = montoPendiente > 0 ? fmtMoneyExport(montoPendiente) : "$0.00";
       return baseData;
     });
 
@@ -1065,6 +1079,7 @@ export default function ClientesPage() {
       { header: "No.", key: "numero", width: 4 },
       { header: "Nombre", key: "nombre", width: 14 },
       { header: "Teléfono", key: "telefono", width: 14 },
+      { header: "Comercial", key: "comercial", width: 20 },
       { header: "Fecha de Creación", key: "fecha_creacion", width: 14 },
       { header: "Provincia", key: "provincia", width: 12 },
       { header: "Municipio", key: "municipio", width: 12 },
@@ -1075,6 +1090,7 @@ export default function ClientesPage() {
       columns.push({ header: "Falta", key: "falta", width: 20 });
     }
     columns.push({ header: "Oferta", key: "oferta", width: 23.57 });
+    columns.push({ header: "Saldo pendiente", key: "saldo_pendiente", width: 14 });
 
     return { data: exportData, columns };
   };
@@ -1091,8 +1107,14 @@ export default function ClientesPage() {
       titulo = `Listado de Clientes - ${appliedFilters.estado.length} estados`;
     }
 
+    // Se pide antes (y no en paralelo) para que, si el filtro de saldo
+    // pendiente también necesita el mapa, lo encuentre ya en caché.
+    const pendientesData = await cargarPendientesPago();
     const allFilteredClients = await getAllFilteredClientsForExport();
-    const { data, columns } = buildClientesExportData(allFilteredClients);
+    const { data, columns } = buildClientesExportData(
+      allFilteredClients,
+      pendientesData,
+    );
 
     return {
       title: `Suncar SRL: ${titulo}`,
