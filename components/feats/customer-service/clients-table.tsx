@@ -903,6 +903,24 @@ export function ClientsTable({
   const [consultandoOfertaCliente, setConsultandoOfertaCliente] = useState<
     string | null
   >(null);
+  // Menú "Acciones" por fila: se abre al pasar el mouse, no al hacer click.
+  const [openAccionesFor, setOpenAccionesFor] = useState<string | null>(null);
+  const accionesCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const openAccionesMenu = useCallback((key: string) => {
+    if (accionesCloseTimer.current) {
+      clearTimeout(accionesCloseTimer.current);
+      accionesCloseTimer.current = null;
+    }
+    setOpenAccionesFor(key);
+  }, []);
+  const scheduleCloseAccionesMenu = useCallback(() => {
+    if (accionesCloseTimer.current) clearTimeout(accionesCloseTimer.current);
+    accionesCloseTimer.current = setTimeout(() => {
+      setOpenAccionesFor(null);
+    }, 150);
+  }, []);
   const [showUploadFotosDialog, setShowUploadFotosDialog] = useState(false);
   const [clientForUploadFotos, setClientForUploadFotos] =
     useState<Cliente | null>(null);
@@ -4293,7 +4311,17 @@ export function ClientsTable({
                           })()}
                         </td>
                         <td className="px-4 py-3 align-top">
-                          <div className="flex items-center justify-end gap-1 flex-wrap">
+                          <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewClientDetails(client)}
+                              className="h-7 px-2 gap-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                              title="Ver detalles"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              <span className="text-xs font-medium">Ver</span>
+                            </Button>
                             <Button
                               variant="ghost"
                               size="sm"
@@ -4319,7 +4347,7 @@ export function ClientsTable({
                               }
                               className={(() => {
                                 const tieneOferta = getOfertaStatus(client);
-                                const base = "h-7 w-7 p-0";
+                                const base = "h-7 px-2 gap-1";
                                 if (tieneOferta)
                                   return `${base} text-green-600 hover:text-green-700 hover:bg-green-50`;
                                 return `${base} text-gray-500 hover:text-gray-700 hover:bg-gray-50`;
@@ -4331,230 +4359,230 @@ export function ClientsTable({
                               })()}
                             >
                               <FileCheck
-                                className={`h-3 w-3 ${consultandoOfertaCliente === client.numero ? "animate-pulse" : ""}`}
+                                className={`h-3.5 w-3.5 ${consultandoOfertaCliente === client.numero ? "animate-pulse" : ""}`}
                               />
+                              <span className="text-xs font-medium">
+                                Ofertas
+                              </span>
                             </Button>
                             {(() => {
-                              const numeroCliente = normalizeClienteNumero(
-                                client.numero,
-                              );
-                              const listoParaPagar =
-                                clienteListoParaPagarMap[numeroCliente] ===
-                                true;
-
-                              const procesandoPago =
-                                updatingClienteListoParaPagarNumero ===
-                                numeroCliente;
-
+                              const accionesKey = client.id || client.numero;
                               return (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    void handleOpenListoPagoDialog(client);
+                                <Popover
+                                  open={openAccionesFor === accionesKey}
+                                  onOpenChange={(open) => {
+                                    if (open) openAccionesMenu(accionesKey);
+                                    else scheduleCloseAccionesMenu();
                                   }}
-                                  disabled={procesandoPago}
-                                  className={
-                                    listoParaPagar
-                                      ? "h-7 w-7 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-                                      : "h-7 w-7 p-0 text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                                  }
-                                  title="Validar y marcar cliente listo para pagar"
                                 >
-                                  {procesandoPago ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                  ) : (
-                                    <CreditCard className="h-3 w-3" />
-                                  )}
-                                </Button>
-                              );
-                            })()}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setClientForVales(client);
-                              }}
-                              className="h-7 w-7 p-0 text-gray-500 hover:text-emerald-700 hover:bg-emerald-50"
-                              title="Ver vales de salida"
-                            >
-                              <FileOutput className="h-3 w-3" />
-                            </Button>
-                            <BotonHistorialCliente numero={client.numero} nombre={client.nombre} />
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleViewClientDetails(client)}
-                              className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 h-7 w-7 p-0"
-                              title="Ver detalles"
-                            >
-                              <Eye className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => onEdit(client)}
-                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 h-7 w-7 p-0"
-                              title="Editar"
-                            >
-                              <Edit className="h-3 w-3" />
-                            </Button>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-gray-600 hover:text-gray-700 hover:bg-gray-50 h-7 w-7 p-0"
-                                  title="Más acciones"
-                                >
-                                  <MoreHorizontal className="h-3 w-3" />
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent align="end" className="w-56 p-3">
-                                <div className="grid grid-cols-2 gap-3">
-                                  {onSetClienteStatus && (
+                                  <PopoverTrigger asChild>
                                     <Button
-                                      type="button"
                                       variant="ghost"
                                       size="sm"
-                                      onClick={() =>
-                                        handleToggleClienteStatusClick(client)
+                                      onMouseEnter={() =>
+                                        openAccionesMenu(accionesKey)
                                       }
-                                      className="h-auto flex-col items-center justify-center gap-1 py-3"
-                                      title={
-                                        client.activo === false
-                                          ? "Reactivar cliente"
-                                          : "Anular cliente"
-                                      }
+                                      onMouseLeave={scheduleCloseAccionesMenu}
+                                      className="h-7 px-2 gap-1 text-gray-600 hover:text-gray-700 hover:bg-gray-50"
+                                      title="Más acciones"
                                     >
-                                      {client.activo === false ? (
-                                        <RotateCcw className="h-5 w-5 text-emerald-600" />
-                                      ) : (
-                                        <Ban className="h-5 w-5 text-red-600" />
-                                      )}
-                                      <span className="text-xs text-gray-700 leading-tight text-center">
-                                        {client.activo === false
-                                          ? "Reactivar"
-                                          : "Anular"}
+                                      <MoreHorizontal className="h-3.5 w-3.5" />
+                                      <span className="text-xs font-medium">
+                                        Acciones
                                       </span>
                                     </Button>
-                                  )}
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => openAveriasCliente(client)}
-                                    className="h-auto flex-col items-center justify-center gap-1 py-3"
-                                    title={getAveriaStatus(client).title}
-                                  >
-                                    <AlertTriangle className="h-5 w-5 text-amber-600" />
-                                    <span className="text-xs text-gray-700 leading-tight text-center">
-                                      Avería
-                                    </span>
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() =>
-                                      openUploadFotosDialog(client)
+                                  </PopoverTrigger>
+                                  <PopoverContent
+                                    align="end"
+                                    className="w-64 p-2"
+                                    onMouseEnter={() =>
+                                      openAccionesMenu(accionesKey)
                                     }
-                                    disabled={!onUploadFotos}
-                                    className="h-auto flex-col items-center justify-center gap-1 py-3"
-                                    title="Agregar fotos o videos"
+                                    onMouseLeave={scheduleCloseAccionesMenu}
                                   >
-                                    <Camera className="h-5 w-5 text-violet-600" />
-                                    <span className="text-xs text-gray-700 leading-tight text-center">
-                                      Agregar fotos
-                                    </span>
-                                  </Button>
-                                  {(() => {
-                                    const numeroCliente =
-                                      normalizeClienteNumero(client.numero);
-                                    const consultandoServicio =
-                                      consultandoEquiposEnServicioNumero ===
-                                      numeroCliente;
-                                    const tieneServicio =
-                                      getServicioStatus(client);
+                                    <div className="flex flex-col">
+                                      {(() => {
+                                        const numeroCliente =
+                                          normalizeClienteNumero(
+                                            client.numero,
+                                          );
+                                        const listoParaPagar =
+                                          clienteListoParaPagarMap[
+                                            numeroCliente
+                                          ] === true;
+                                        const procesandoPago =
+                                          updatingClienteListoParaPagarNumero ===
+                                          numeroCliente;
 
-                                    return (
-                                      <Button
+                                        return (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.preventDefault();
+                                              e.stopPropagation();
+                                              void handleOpenListoPagoDialog(
+                                                client,
+                                              );
+                                            }}
+                                            disabled={procesandoPago}
+                                            className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                          >
+                                            {procesandoPago ? (
+                                              <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
+                                            ) : (
+                                              <CreditCard
+                                                className={`h-4 w-4 ${listoParaPagar ? "text-emerald-600" : "text-gray-500"}`}
+                                              />
+                                            )}
+                                            {listoParaPagar
+                                              ? "Listo para pagar"
+                                              : "Marcar listo para pagar"}
+                                          </button>
+                                        );
+                                      })()}
+                                      <button
                                         type="button"
-                                        variant="ghost"
-                                        size="sm"
                                         onClick={(e) => {
                                           e.preventDefault();
                                           e.stopPropagation();
-                                          void handleOpenEquiposEnServicioDialog(
-                                            client,
-                                          );
+                                          setClientForVales(client);
                                         }}
-                                        disabled={consultandoServicio}
-                                        className="h-auto flex-col items-center justify-center gap-1 py-3"
-                                        title="Equipos en servicio"
+                                        className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100"
                                       >
-                                        {consultandoServicio ? (
-                                          <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
-                                        ) : (
-                                          <Zap
-                                            className={`h-5 w-5 ${tieneServicio ? "text-purple-700" : "text-gray-400"}`}
-                                          />
-                                        )}
-                                        <span className="text-xs text-gray-700 leading-tight text-center">
-                                          En servicio
-                                        </span>
-                                      </Button>
-                                    );
-                                  })()}
-                                  {(() => {
-                                    const numeroCliente =
-                                      normalizeClienteNumero(client.numero);
-                                    const consultandoEquipo =
-                                      consultandoEquipoEntregadoNumero ===
-                                      numeroCliente;
-                                    const equipoEntregado =
-                                      getEquipoEntregadoStatus(client);
-
-                                    return (
-                                      <Button
+                                        <FileOutput className="h-4 w-4 text-gray-500" />
+                                        Ver vales de salida
+                                      </button>
+                                      <BotonHistorialCliente
+                                        numero={client.numero}
+                                        nombre={client.nombre}
+                                        asMenuItem
+                                      />
+                                      <button
                                         type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={(e) => {
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                          void handleOpenEquipoEntregadoDialog(
-                                            client,
-                                          );
-                                        }}
-                                        disabled={consultandoEquipo}
-                                        className="h-auto flex-col items-center justify-center gap-1 py-3"
-                                        title={
-                                          equipoEntregado
-                                            ? "Ver equipos entregados"
-                                            : "Ver estado de equipo entregado"
+                                        onClick={() => onEdit(client)}
+                                        className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100"
+                                      >
+                                        <Edit className="h-4 w-4 text-blue-600" />
+                                        Editar
+                                      </button>
+                                      {onSetClienteStatus && (
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            handleToggleClienteStatusClick(
+                                              client,
+                                            )
+                                          }
+                                          className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100"
+                                        >
+                                          {client.activo === false ? (
+                                            <RotateCcw className="h-4 w-4 text-emerald-600" />
+                                          ) : (
+                                            <Ban className="h-4 w-4 text-red-600" />
+                                          )}
+                                          {client.activo === false
+                                            ? "Reactivar"
+                                            : "Anular"}
+                                        </button>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          openAveriasCliente(client)
                                         }
+                                        className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100"
                                       >
-                                        {consultandoEquipo ? (
-                                          <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
-                                        ) : (
-                                          <Truck
-                                            className={`h-5 w-5 ${equipoEntregado ? "text-emerald-600" : "text-gray-400"}`}
-                                          />
-                                        )}
-                                        <span className="text-xs text-gray-700 leading-tight text-center">
-                                          Entregas
-                                        </span>
-                                      </Button>
-                                    );
-                                  })()}
-                                </div>
-                              </PopoverContent>
-                            </Popover>
+                                        <AlertTriangle className="h-4 w-4 text-amber-600" />
+                                        Avería
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          openUploadFotosDialog(client)
+                                        }
+                                        disabled={!onUploadFotos}
+                                        className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                      >
+                                        <Camera className="h-4 w-4 text-violet-600" />
+                                        Agregar fotos
+                                      </button>
+                                      {(() => {
+                                        const numeroCliente =
+                                          normalizeClienteNumero(
+                                            client.numero,
+                                          );
+                                        const consultandoServicio =
+                                          consultandoEquiposEnServicioNumero ===
+                                          numeroCliente;
+                                        const tieneServicio =
+                                          getServicioStatus(client);
+
+                                        return (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.preventDefault();
+                                              e.stopPropagation();
+                                              void handleOpenEquiposEnServicioDialog(
+                                                client,
+                                              );
+                                            }}
+                                            disabled={consultandoServicio}
+                                            className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                          >
+                                            {consultandoServicio ? (
+                                              <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
+                                            ) : (
+                                              <Zap
+                                                className={`h-4 w-4 ${tieneServicio ? "text-purple-700" : "text-gray-400"}`}
+                                              />
+                                            )}
+                                            En servicio
+                                          </button>
+                                        );
+                                      })()}
+                                      {(() => {
+                                        const numeroCliente =
+                                          normalizeClienteNumero(
+                                            client.numero,
+                                          );
+                                        const consultandoEquipo =
+                                          consultandoEquipoEntregadoNumero ===
+                                          numeroCliente;
+                                        const equipoEntregado =
+                                          getEquipoEntregadoStatus(client);
+
+                                        return (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.preventDefault();
+                                              e.stopPropagation();
+                                              void handleOpenEquipoEntregadoDialog(
+                                                client,
+                                              );
+                                            }}
+                                            disabled={consultandoEquipo}
+                                            className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                          >
+                                            {consultandoEquipo ? (
+                                              <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
+                                            ) : (
+                                              <Truck
+                                                className={`h-4 w-4 ${equipoEntregado ? "text-emerald-600" : "text-gray-400"}`}
+                                              />
+                                            )}
+                                            {equipoEntregado
+                                              ? "Ver equipos entregados"
+                                              : "Entregas"}
+                                          </button>
+                                        );
+                                      })()}
+                                    </div>
+                                  </PopoverContent>
+                                </Popover>
+                              );
+                            })()}
                           </div>
                         </td>
                       </tr>
