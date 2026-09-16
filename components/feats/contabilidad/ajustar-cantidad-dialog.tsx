@@ -21,6 +21,8 @@ interface AjustarCantidadDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   materiales: MaterialContabilidad[]
+  /** Si viene de la fila de la tabla, llega ya elegido. */
+  materialPreseleccionado?: MaterialContabilidad | null
   onSubmit: (materialId: string, cantidadNueva: number, motivo: string) => Promise<void>
   loading: boolean
 }
@@ -29,6 +31,7 @@ export function AjustarCantidadDialog({
   open,
   onOpenChange,
   materiales,
+  materialPreseleccionado,
   onSubmit,
   loading,
 }: AjustarCantidadDialogProps) {
@@ -39,12 +42,12 @@ export function AjustarCantidadDialog({
 
   useEffect(() => {
     if (open) {
-      setMaterialId("")
+      setMaterialId(materialPreseleccionado?.id ?? "")
       setCantidad("")
       setMotivo("")
       setErrores({})
     }
-  }, [open])
+  }, [open, materialPreseleccionado])
 
   const seleccionado = materiales.find((m) => m.id === materialId)
   const nueva = parseFloat(cantidad)

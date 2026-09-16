@@ -8,14 +8,27 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/shared/molecule/table"
+import { Button } from "@/components/shared/atom/button"
+import { Pencil, SlidersHorizontal, Trash2 } from "lucide-react"
 import type { MaterialContabilidad } from "@/lib/types/feats/contabilidad/contabilidad-types"
 
 interface ContabilidadTableProps {
   materiales: MaterialContabilidad[]
   loading?: boolean
+  /** Si no se pasan, la tabla se muestra sin columna de acciones. */
+  onEditar?: (material: MaterialContabilidad) => void
+  onAjustar?: (material: MaterialContabilidad) => void
+  onEliminar?: (material: MaterialContabilidad) => void
 }
 
-export function ContabilidadTable({ materiales, loading }: ContabilidadTableProps) {
+export function ContabilidadTable({
+  materiales,
+  loading,
+  onEditar,
+  onAjustar,
+  onEliminar,
+}: ContabilidadTableProps) {
+  const conAcciones = Boolean(onEditar || onAjustar || onEliminar)
   if (materiales.length === 0) {
     return (
       <div className="text-center py-12">
@@ -35,6 +48,7 @@ export function ContabilidadTable({ materiales, loading }: ContabilidadTableProp
             <TableHead className="text-center">U/M</TableHead>
             <TableHead className="text-right">Cantidad</TableHead>
             <TableHead className="text-right">Precio (CUP)</TableHead>
+            {conAcciones && <TableHead className="text-right">Acciones</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -71,6 +85,43 @@ export function ContabilidadTable({ materiales, loading }: ContabilidadTableProp
                   </div>
                 )}
               </TableCell>
+              {conAcciones && (
+                <TableCell className="text-right whitespace-nowrap">
+                  <div className="flex justify-end gap-1">
+                    {onEditar && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onEditar(material)}
+                        title="Editar datos y precio"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {onAjustar && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onAjustar(material)}
+                        title="Ajustar cantidad a la baja"
+                      >
+                        <SlidersHorizontal className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {onEliminar && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onEliminar(material)}
+                        title="Dar de baja de Existencias Contabilidad"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </TableCell>
+              )}
             </TableRow>
           ))}
         </TableBody>

@@ -12,6 +12,7 @@ import {
 import { SearchableSelect } from "@/components/shared/molecule/searchable-select"
 import { Button } from "@/components/shared/atom/button"
 import { Input } from "@/components/shared/atom/input"
+import { Textarea } from "@/components/shared/molecule/textarea"
 import { Label } from "@/components/shared/atom/label"
 import { Save, X } from "lucide-react"
 import type { Material } from "@/lib/api-types"
@@ -25,6 +26,8 @@ export interface DatosMaterialContabilidad {
   cantidad: number
   precio: number
   material_catalogo_id: string | null
+  /** Solo se manda al editar el precio; en el alta no aplica. */
+  motivo?: string
 }
 
 interface MaterialContabilidadDialogProps {
@@ -73,6 +76,7 @@ export function MaterialContabilidadDialog({
             cantidad: material.cantidadContabilidad ?? 0,
             precio: material.precioContabilidad ?? 0,
             material_catalogo_id: material.materialCatalogoId ?? null,
+            motivo: "",
           }
         : VACIO
     )
@@ -111,8 +115,14 @@ export function MaterialContabilidadDialog({
     setErrores({})
   }
 
+  const precioOriginal = material?.precioContabilidad ?? 0
+  const cambiaPrecio = esEdicion && Number.isFinite(datos.precio) && datos.precio !== precioOriginal
+
   const validar = () => {
     const nuevos: Record<string, string> = {}
+    if (cambiaPrecio && (datos.motivo || "").trim().length < 3) {
+      nuevos.motivo = "Explique por qué cambia el precio"
+    }
     if (!datos.codigo_contabilidad.trim()) {
       nuevos.codigo_contabilidad = "El código de contabilidad es obligatorio"
     }
@@ -136,6 +146,7 @@ export function MaterialContabilidadDialog({
       codigo_contabilidad: datos.codigo_contabilidad.trim(),
       nombre: datos.nombre.trim(),
       material_catalogo_id: datos.material_catalogo_id || null,
+      motivo: cambiaPrecio ? (datos.motivo || "").trim() : undefined,
     })
   }
 
@@ -233,7 +244,9 @@ export function MaterialContabilidadDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="cantidad">Cantidad</Label>
+              <Label htmlFor="cantidad">
+                {esEdicion ? "Cantidad (no editable aquí)" : "Cantidad inicial"}
+              </Label>
               <Input
                 id="cantidad"
                 type="number"
@@ -242,9 +255,16 @@ export function MaterialContabilidadDialog({
                 value={datos.cantidad}
                 onChange={(e) => setDatos({ ...datos, cantidad: parseFloat(e.target.value) || 0 })}
                 className={errores.cantidad ? "border-red-500" : ""}
-                disabled={loading}
+                disabled={loading || esEdicion}
               />
-              {errores.cantidad && <p className="text-sm text-red-500 mt-1">{errores.cantidad}</p>}
+              {esEdicion ? (
+                <p className="text-xs text-gray-500 mt-1">
+                  La existencia se mueve con Dar Entrada o Ajustar Cantidad, que dejan
+                  constancia del movimiento.
+                </p>
+              ) : (
+                errores.cantidad && <p className="text-sm text-red-500 mt-1">{errores.cantidad}</p>
+              )}
             </div>
             <div>
               <Label htmlFor="precio">Precio (CUP)</Label>
@@ -261,6 +281,29 @@ export function MaterialContabilidadDialog({
               {errores.precio && <p className="text-sm text-red-500 mt-1">{errores.precio}</p>}
             </div>
           </div>
+
+          {cambiaPrecio && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-4">
+              <Label htmlFor="motivo-precio">
+                Motivo del cambio de precio <span className="text-red-500">*</span>
+              </Label>
+              <p className="text-xs text-amber-800 mt-1 mb-2">
+                De {precioOriginal.toLocaleString("es-ES", { minimumFractionDigits: 2 })} a{" "}
+                {datos.precio.toLocaleString("es-ES", { minimumFractionDigits: 2 })} CUP. Cambiar el
+                precio revaloriza todo lo que hay en existencia, así que queda registrado.
+              </p>
+              <Textarea
+                id="motivo-precio"
+                value={datos.motivo || ""}
+                onChange={(e) => setDatos({ ...datos, motivo: e.target.value })}
+                placeholder="Ej: nueva lista de precios de contabilidad, corrección de tarifa..."
+                rows={2}
+                className={errores.motivo ? "border-red-500" : ""}
+                disabled={loading}
+              />
+              {errores.motivo && <p className="text-sm text-red-500 mt-1">{errores.motivo}</p>}
+            </div>
+          )}
 
         </div>
 

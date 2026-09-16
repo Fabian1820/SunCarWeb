@@ -37,7 +37,7 @@ export default function ExistenciasContabilidadPage() {
 }
 
 function ExistenciasContabilidadPageContent() {
-  const { materiales, allMateriales, loading, error, registrarEntrada, crearTicket, crearMaterial, editarMaterial, ajustarCantidad, loadAllMateriales, clearError } =
+  const { materiales, allMateriales, loading, error, registrarEntrada, crearTicket, crearMaterial, editarMaterial, ajustarCantidad, eliminarMaterial, loadAllMateriales, clearError } =
     useContabilidad()
   const { toast } = useToast()
 
@@ -45,6 +45,7 @@ function ExistenciasContabilidadPageContent() {
   const [ticketDialogOpen, setTicketDialogOpen] = useState(false)
   const [materialDialogOpen, setMaterialDialogOpen] = useState(false)
   const [ajusteDialogOpen, setAjusteDialogOpen] = useState(false)
+  const [materialParaAjustar, setMaterialParaAjustar] = useState<MaterialContabilidad | null>(null)
   const [materialEnEdicion, setMaterialEnEdicion] = useState<MaterialContabilidad | null>(null)
   const [searchCodigoContabilidad, setSearchCodigoContabilidad] = useState("")
 
@@ -102,6 +103,38 @@ function ExistenciasContabilidadPageContent() {
     setMaterialDialogOpen(true)
   }
 
+  const abrirEdicion = (material: MaterialContabilidad) => {
+    setMaterialEnEdicion(material)
+    setMaterialDialogOpen(true)
+  }
+
+  const abrirAjuste = (material: MaterialContabilidad) => {
+    setMaterialParaAjustar(material)
+    setAjusteDialogOpen(true)
+  }
+
+  const handleEliminar = async (material: MaterialContabilidad) => {
+    const confirmado = window.confirm(
+      `¿Dar de baja "${material.nombre || material.descripcion}" de Existencias Contabilidad?\n\n` +
+        `El material sigue en el catálogo del sistema, y los tickets y facturas que lo ` +
+        `referencian conservan su propio detalle.`,
+    )
+    if (!confirmado) return
+
+    if (await eliminarMaterial(material.id)) {
+      toast({
+        title: "Material dado de baja",
+        description: `${material.nombre || material.descripcion} ya no está en Existencias Contabilidad.`,
+      })
+    } else {
+      toast({
+        title: "No se pudo dar de baja",
+        description: error || "Intente de nuevo.",
+        variant: "destructive",
+      })
+    }
+  }
+
   const handleAjustar = async (materialId: string, cantidadNueva: number, motivo: string) => {
     const material = materiales.find((m) => m.id === materialId)
     const ok = await ajustarCantidad(materialId, cantidadNueva, motivo)
@@ -111,6 +144,7 @@ function ExistenciasContabilidadPageContent() {
         description: `${material?.nombre || "El material"} queda en ${cantidadNueva}. El ajuste quedó registrado con su motivo.`,
       })
       setAjusteDialogOpen(false)
+      setMaterialParaAjustar(null)
     } else {
       toast({
         title: "No se pudo ajustar",
@@ -122,8 +156,11 @@ function ExistenciasContabilidadPageContent() {
 
   const handleGuardarMaterial = async (datos: DatosMaterialContabilidad) => {
     const esEdicion = materialEnEdicion !== null
+    // Al editar no se manda la cantidad: la existencia solo se mueve por entrada,
+    // ajuste o ticket, que dejan constancia del movimiento.
+    const { cantidad, ...sinCantidad } = datos
     const ok = esEdicion
-      ? await editarMaterial(materialEnEdicion.id, datos)
+      ? await editarMaterial(materialEnEdicion.id, sinCantidad)
       : await crearMaterial(datos)
 
     if (ok) {
@@ -264,7 +301,13 @@ function ExistenciasContabilidadPageContent() {
                 />
               </div>
             </div>
-            <ContabilidadTable materiales={materialesFiltrados} loading={loading} />
+            <ContabilidadTable
+              materiales={materialesFiltrados}
+              loading={loading}
+              onEditar={abrirEdicion}
+              onAjustar={abrirAjuste}
+              onEliminar={handleEliminar}
+            />
           </CardContent>
         </Card>
       </main>
@@ -288,8 +331,12 @@ function ExistenciasContabilidadPageContent() {
 
       <AjustarCantidadDialog
         open={ajusteDialogOpen}
-        onOpenChange={setAjusteDialogOpen}
+        onOpenChange={(abierto) => {
+          setAjusteDialogOpen(abierto)
+          if (!abierto) setMaterialParaAjustar(null)
+        }}
         materiales={materiales}
+        materialPreseleccionado={materialParaAjustar}
         onSubmit={handleAjustar}
         loading={loading}
       />
