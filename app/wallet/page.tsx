@@ -58,6 +58,7 @@ import {
   RefreshCcw,
   Search,
   SendHorizontal,
+  Trash2,
   TrendingDown,
   TrendingUp,
   Users,
@@ -857,8 +858,14 @@ function WalletPageContent() {
   const { permiso: walletPermiso } = useMyWalletPermiso();
   const canSeeAll = !!walletPermiso?.verTodos;
   const isWalletAdmin = !!walletPermiso?.esAdmin;
-  const { bancos, loading: loadingBancos, creando: creandoBanco, crear: crearBanco } =
-    useBancos(isWalletAdmin);
+  const {
+    bancos,
+    loading: loadingBancos,
+    creando: creandoBanco,
+    eliminando: eliminandoBanco,
+    crear: crearBanco,
+    eliminar: eliminarBanco,
+  } = useBancos(isWalletAdmin);
   const {
     wallet,
     wallets,
@@ -868,8 +875,6 @@ function WalletPageContent() {
     selectedWalletTransactions,
     totalTransactions,
     totalSelectedWalletTransactions,
-    txTotalsByCurrency,
-    memberTxTotalsByCurrency,
     currencies,
     loadingWallet,
     loadingWallets,
@@ -992,6 +997,7 @@ function WalletPageContent() {
   const [creatingBancoTransaction, setCreatingBancoTransaction] = useState(false);
   const [selectedBancoTransaction, setSelectedBancoTransaction] = useState<WalletTransaction | null>(null);
   const [isBancoTransactionDetailOpen, setIsBancoTransactionDetailOpen] = useState(false);
+  const [confirmarEliminarBanco, setConfirmarEliminarBanco] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setBancoDebouncedSearch(bancoSearchQuery), 400);
@@ -1233,6 +1239,26 @@ function WalletPageContent() {
   const openBancoTransactionDetail = (transaction: WalletTransaction) => {
     setSelectedBancoTransaction(transaction);
     setIsBancoTransactionDetailOpen(true);
+  };
+
+  const handleEliminarBanco = async () => {
+    if (!viewedBanco) return;
+    const nombreBanco = viewedBanco.nombre;
+    try {
+      await eliminarBanco(viewedBanco.id);
+      setConfirmarEliminarBanco(false);
+      handleSelectPersonalFromMenu();
+      toast({
+        title: "Banco eliminado",
+        description: `"${nombreBanco}" ya no aparecerá en la lista. Su historial no se borró.`,
+      });
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "No se pudo eliminar el banco",
+        variant: "destructive",
+      });
+    }
   };
 
   // Debounce de búsqueda: espera 400ms antes de disparar la consulta
@@ -1926,9 +1952,20 @@ function WalletPageContent() {
                       <p className="text-sm text-blue-100 font-medium">{viewedBanco.nombre}</p>
                     </div>
                   </div>
-                  {loadingBancoDetail && (
-                    <RefreshCcw className="h-4 w-4 text-blue-200 animate-spin" />
-                  )}
+                  <div className="flex items-center gap-2">
+                    {loadingBancoDetail && (
+                      <RefreshCcw className="h-4 w-4 text-blue-200 animate-spin" />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setConfirmarEliminarBanco(true)}
+                      title="Eliminar banco"
+                      aria-label="Eliminar banco"
+                      className="rounded-full p-1.5 text-blue-200 hover:bg-white/10 hover:text-white transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
 
                 {bancoWallet?.balances && bancoWallet.balances.length > 0 ? (
@@ -2382,6 +2419,42 @@ function WalletPageContent() {
               onOpenChange={setIsBancoTransactionDetailOpen}
               fallbackCurrency={bancoWallet?.moneda || "USD"}
             />
+
+            <Dialog open={confirmarEliminarBanco} onOpenChange={setConfirmarEliminarBanco}>
+              <DialogContent className="max-w-sm">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2 text-rose-700">
+                    <Trash2 className="h-4 w-4" />
+                    Eliminar banco
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <p className="text-sm text-slate-600">
+                    ¿Eliminar <span className="font-semibold">{viewedBanco.nombre}</span>? Dejará
+                    de aparecer en la lista de bancos, pero su historial de movimientos{" "}
+                    <span className="font-semibold">no se borra</span> — queda guardado por si
+                    hace falta más adelante.
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => setConfirmarEliminarBanco(false)}
+                      disabled={eliminandoBanco}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      className="flex-1 bg-rose-600 hover:bg-rose-700"
+                      onClick={() => void handleEliminarBanco()}
+                      disabled={eliminandoBanco}
+                    >
+                      {eliminandoBanco ? "Eliminando..." : "Eliminar"}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
           </>
         ) : (
         <>
@@ -3444,35 +3517,6 @@ function WalletPageContent() {
           <CardContent className="px-4 pb-4 space-y-3">
             {memberView ? (
               <>
-                {/* Totales por moneda — historial del miembro */}
-                {!loadingSelectedWalletDetail && memberTxTotalsByCurrency.length > 0 && (
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2">
-                      <p className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wider mb-1.5">Total Ingresos</p>
-                      {memberTxTotalsByCurrency.map((t) => (
-                        <p key={t.currency_code} className="text-[12px] text-emerald-700 font-semibold">
-                          {t.currency_code}: {t.ingreso_total.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </p>
-                      ))}
-                    </div>
-                    <div className="rounded-lg border border-rose-100 bg-rose-50 px-3 py-2">
-                      <p className="text-[10px] font-semibold text-rose-500 uppercase tracking-wider mb-1.5">Total Gastos</p>
-                      {memberTxTotalsByCurrency.map((t) => (
-                        <p key={t.currency_code} className="text-[12px] text-rose-600 font-semibold">
-                          {t.currency_code}: {t.gasto_total.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </p>
-                      ))}
-                    </div>
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Total</p>
-                      {memberTxTotalsByCurrency.map((t) => (
-                        <p key={t.currency_code} className="text-[12px] font-semibold text-slate-700">
-                          {t.currency_code}: {(t.ingreso_total + t.gasto_total).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                )}
                 <TransactionsResponsiveList
                   transactions={selectedWalletTransactions}
                   loading={loadingSelectedWalletDetail}
@@ -3520,35 +3564,6 @@ function WalletPageContent() {
               </>
             ) : (
               <>
-                {/* Totales por moneda — historial global */}
-                {!loadingTransactions && txTotalsByCurrency.length > 0 && (
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2">
-                      <p className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wider mb-1.5">Total Ingresos</p>
-                      {txTotalsByCurrency.map((t) => (
-                        <p key={t.currency_code} className="text-[12px] text-emerald-700 font-semibold">
-                          {t.currency_code}: {t.ingreso_total.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </p>
-                      ))}
-                    </div>
-                    <div className="rounded-lg border border-rose-100 bg-rose-50 px-3 py-2">
-                      <p className="text-[10px] font-semibold text-rose-500 uppercase tracking-wider mb-1.5">Total Gastos</p>
-                      {txTotalsByCurrency.map((t) => (
-                        <p key={t.currency_code} className="text-[12px] text-rose-600 font-semibold">
-                          {t.currency_code}: {t.gasto_total.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </p>
-                      ))}
-                    </div>
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Total</p>
-                      {txTotalsByCurrency.map((t) => (
-                        <p key={t.currency_code} className="text-[12px] font-semibold text-slate-700">
-                          {t.currency_code}: {(t.ingreso_total + t.gasto_total).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                )}
                 <TransactionsResponsiveList
                   transactions={filteredWalletTransactions}
                   loading={loadingTransactions}

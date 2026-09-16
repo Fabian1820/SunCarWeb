@@ -111,4 +111,19 @@ export class BancoService {
     }
     return response.data;
   }
+
+  /**
+   * Borrado suave: el banco deja de listarse y de poder operarse, pero su
+   * wallet y transacciones quedan intactas — no se pierde el histórico.
+   */
+  static async eliminar(bancoId: string): Promise<void> {
+    const response = await apiRequest<{ success: boolean } | ApiErrorResponse>(
+      `/wallet/bancos/${bancoId}`,
+      { method: "DELETE" },
+    );
+
+    if (isApiErrorResponse(response)) {
+      throw new Error(getApiErrorMessage(response, "No se pudo eliminar el banco"));
+    }
+  }
 }

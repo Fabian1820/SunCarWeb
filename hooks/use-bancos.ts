@@ -6,6 +6,7 @@ export function useBancos(enabled: boolean) {
   const [bancos, setBancos] = useState<Banco[]>([])
   const [loading, setLoading] = useState(false)
   const [creando, setCreando] = useState(false)
+  const [eliminando, setEliminando] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
@@ -41,9 +42,24 @@ export function useBancos(enabled: boolean) {
     [],
   )
 
+  const eliminar = useCallback(async (bancoId: string): Promise<void> => {
+    setEliminando(true)
+    setError(null)
+    try {
+      await BancoService.eliminar(bancoId)
+      setBancos((prev) => prev.filter((b) => b.id !== bancoId))
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No se pudo eliminar el banco"
+      setError(message)
+      throw new Error(message)
+    } finally {
+      setEliminando(false)
+    }
+  }, [])
+
   useEffect(() => {
     void load()
   }, [load])
 
-  return { bancos, loading, creando, error, reload: load, crear }
+  return { bancos, loading, creando, eliminando, error, reload: load, crear, eliminar }
 }
