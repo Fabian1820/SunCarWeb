@@ -42,7 +42,6 @@ function BrigadasPageContent() {
     searchTerm,
     setSearchTerm,
     createBrigada,
-    updateBrigada,
     deleteBrigada,
     addTrabajador,
     removeTrabajador,
@@ -59,8 +58,6 @@ function BrigadasPageContent() {
   const brigades = Array.isArray(backendFilteredBrigades) ? backendFilteredBrigades.map(convertBrigadaToFrontend) : [];
 
   const [isAddBrigadeDialogOpen, setIsAddBrigadeDialogOpen] = useState(false)
-  const [isEditBrigadeDialogOpen, setIsEditBrigadeDialogOpen] = useState(false)
-  const [editingBrigade, setEditingBrigade] = useState<Brigade | null>(null)
   const [isAddWorkerDialogOpen, setIsAddWorkerDialogOpen] = useState(false)
   const [brigadeToAddTo, setBrigadeToAddTo] = useState<Brigade | null>(null)
   const [loadingAction, setLoadingAction] = useState(false)
@@ -98,30 +95,6 @@ function BrigadasPageContent() {
       });
     } finally {
       setLoadingAction(false);
-    }
-  }
-
-  const handleUpdateBrigada = async (formData: BrigadeFormData) => {
-    if (!editingBrigade) return
-
-    const brigadaRequest = convertBrigadeFormDataToRequest(formData)
-    const success = await updateBrigada(editingBrigade.id, brigadaRequest)
-    if (success) {
-      toast({
-        title: "Éxito",
-        description: 'Brigada actualizada correctamente',
-      })
-      setIsEditBrigadeDialogOpen(false)
-      setEditingBrigade(null)
-      // updateBrigada ya recarga backendBrigades; falta refrescar trabajadores
-      // (su es_jefe_brigada/brigada_id cambia si se reasignó el jefe).
-      await refetch()
-    } else {
-      toast({
-        title: "Error",
-        description: 'No se pudo actualizar la brigada',
-        variant: "destructive",
-      })
     }
   }
 
@@ -167,11 +140,6 @@ function BrigadasPageContent() {
       setLoadingAction(false);
     }
   };
-
-  const openEditDialog = (brigade: Brigade) => {
-    setEditingBrigade(brigade)
-    setIsEditBrigadeDialogOpen(true)
-  }
 
   const openAddWorkerDialog = (brigade: Brigade) => {
     setBrigadeToAddTo(brigade)
@@ -355,7 +323,6 @@ function BrigadasPageContent() {
             ) : (
             <BrigadesTable
                 brigades={brigades}
-              onEdit={openEditDialog}
                 onDelete={handleDeleteBrigada}
                 onRemoveWorker={handleRemoveWorker}
                 onAddWorker={openAddWorkerDialog}
@@ -364,32 +331,6 @@ function BrigadasPageContent() {
             )}
           </CardContent>
         </Card>
-
-        {/* Edit Dialog */}
-        <Dialog open={isEditBrigadeDialogOpen} onOpenChange={setIsEditBrigadeDialogOpen}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Editar Brigada</DialogTitle>
-            </DialogHeader>
-            {editingBrigade && (
-              <BrigadeForm
-                initialData={editingBrigade}
-                onSubmit={(data) => {
-                  if ('leaderName' in data && 'leaderCi' in data) {
-                    handleUpdateBrigada(data)
-                  }
-                }}
-                onCancel={() => {
-                  setIsEditBrigadeDialogOpen(false)
-                  setEditingBrigade(null)
-                }}
-                isEditing
-                existingWorkers={trabajadores || []}
-                brigadas={backendBrigades}
-              />
-            )}
-          </DialogContent>
-        </Dialog>
 
         {/* Add Worker Dialog */}
         <Dialog open={isAddWorkerDialogOpen} onOpenChange={(open) => {
