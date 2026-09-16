@@ -18,7 +18,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/shared/atom/select"
-import { AlertCircle, Loader2, RefreshCw } from "lucide-react"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/shared/molecule/tabs"
+import {
+  AlertCircle,
+  ArrowRightLeft,
+  Loader2,
+  Package,
+  RefreshCw,
+} from "lucide-react"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import { useMaterialesStock } from "@/hooks/use-materiales-stock"
@@ -26,6 +38,7 @@ import { MaterialService, MarcaService } from "@/lib/api-services"
 import type { MarcaSimplificada } from "@/lib/types/feats/marcas/marca-types"
 import { MaterialesStockTable } from "@/components/feats/inventario/materiales-stock-table"
 import { StockajesMinimosSection } from "@/components/feats/inventario/stockajes-minimos-section"
+import { TransferenciasAlmacenesTable } from "@/components/feats/inventario/transferencias-almacenes-table"
 import { useToast } from "@/hooks/use-toast"
 
 export default function InventarioPage() {
@@ -145,175 +158,205 @@ export default function InventarioPage() {
         className="bg-white shadow-sm border-b border-emerald-100"
       />
 
-      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8 space-y-6">
-        <StockajesMinimosSection defaultCollapsed />
+      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
+        <Tabs defaultValue="stock" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2 sm:max-w-md">
+            <TabsTrigger value="stock">
+              <Package className="h-4 w-4 mr-2" />
+              Stock
+            </TabsTrigger>
+            <TabsTrigger value="transferencias">
+              <ArrowRightLeft className="h-4 w-4 mr-2" />
+              Transferencias
+            </TabsTrigger>
+          </TabsList>
 
-        <Card>
-          <CardHeader className="space-y-4">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <CardTitle>{cardTitle}</CardTitle>
-                <CardDescription>{cardDescription}</CardDescription>
-              </div>
-              <Button variant="outline" onClick={refetch} disabled={loading}>
-                {loading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4" />
-                )}
-                <span className="ml-2">Refrescar</span>
-              </Button>
-            </div>
+          <TabsContent value="stock" className="space-y-6">
+            <StockajesMinimosSection defaultCollapsed />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4">
-              <div>
-                <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                  Almacén
-                </Label>
-                <Select
-                  value={filters.almacen_id}
-                  onValueChange={(value) => setFilters({ almacen_id: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos los almacenes</SelectItem>
-                    {almacenesDisponibles.map((almacen) => (
-                      <SelectItem key={almacen.id} value={almacen.id}>
-                        {almacen.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <Card>
+              <CardHeader className="space-y-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <CardTitle>{cardTitle}</CardTitle>
+                    <CardDescription>{cardDescription}</CardDescription>
+                  </div>
+                  <Button variant="outline" onClick={refetch} disabled={loading}>
+                    {loading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4" />
+                    )}
+                    <span className="ml-2">Refrescar</span>
+                  </Button>
+                </div>
 
-              <div>
-                <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                  Buscar material
-                </Label>
-                <Input
-                  value={filters.q}
-                  onChange={(e) => setFilters({ q: e.target.value })}
-                  placeholder="Código o nombre"
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                      Almacén
+                    </Label>
+                    <Select
+                      value={filters.almacen_id}
+                      onValueChange={(value) => setFilters({ almacen_id: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todos" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos los almacenes</SelectItem>
+                        {almacenesDisponibles.map((almacen) => (
+                          <SelectItem key={almacen.id} value={almacen.id}>
+                            {almacen.nombre}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                      Buscar material
+                    </Label>
+                    <Input
+                      value={filters.q}
+                      onChange={(e) => setFilters({ q: e.target.value })}
+                      placeholder="Código o nombre"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                      Categoría
+                    </Label>
+                    <Select
+                      value={filters.categoria}
+                      onValueChange={(value) => setFilters({ categoria: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todas" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas</SelectItem>
+                        {categorias.map((cat) => (
+                          <SelectItem key={cat} value={cat}>
+                            {cat}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                      Marca
+                    </Label>
+                    <Select
+                      value={filters.marca_id}
+                      onValueChange={(value) => setFilters({ marca_id: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todas" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas</SelectItem>
+                        {marcas.map((marca) => (
+                          <SelectItem key={marca.id} value={marca.id}>
+                            {marca.nombre}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                      Potencia (KW)
+                    </Label>
+                    <Input
+                      value={filters.potencia_kw === "all" ? "" : filters.potencia_kw}
+                      onChange={(e) =>
+                        setFilters({
+                          potencia_kw: e.target.value.trim() === "" ? "all" : e.target.value,
+                        })
+                      }
+                      placeholder="ej. 10"
+                      inputMode="decimal"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                      Disponibilidad
+                    </Label>
+                    <Select
+                      value={filters.cantidad_filter}
+                      onValueChange={(value) =>
+                        setFilters({
+                          cantidad_filter: value as
+                            | "all"
+                            | "con_stock"
+                            | "sin_stock",
+                        })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todos" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        <SelectItem value="con_stock">Con stock</SelectItem>
+                        <SelectItem value="sin_stock">Sin stock</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </CardHeader>
+
+              <CardContent>
+                <MaterialesStockTable
+                  data={data}
+                  loading={loading}
+                  almacenSeleccionadoId={almacenSeleccionado?.id}
+                  almacenSeleccionadoNombre={almacenSeleccionado?.nombre}
+                  sort={sort}
+                  onSortChange={(sort_by) => {
+                    if (sort.sort_by === sort_by) {
+                      setSort({
+                        sort_dir: sort.sort_dir === "asc" ? "desc" : "asc",
+                      })
+                    } else {
+                      setSort({ sort_by, sort_dir: "asc" })
+                    }
+                  }}
+                  onEditStockMinimo={handleEditStockMinimo}
+                  pagination={{
+                    page: meta.page,
+                    totalPages: meta.totalPages,
+                    total: meta.total,
+                    limit: meta.limit,
+                    onPageChange: setPage,
+                  }}
                 />
-              </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-              <div>
-                <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                  Categoría
-                </Label>
-                <Select
-                  value={filters.categoria}
-                  onValueChange={(value) => setFilters({ categoria: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todas" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    {categorias.map((cat) => (
-                      <SelectItem key={cat} value={cat}>
-                        {cat}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                  Marca
-                </Label>
-                <Select
-                  value={filters.marca_id}
-                  onValueChange={(value) => setFilters({ marca_id: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todas" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    {marcas.map((marca) => (
-                      <SelectItem key={marca.id} value={marca.id}>
-                        {marca.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                  Potencia (KW)
-                </Label>
-                <Input
-                  value={filters.potencia_kw === "all" ? "" : filters.potencia_kw}
-                  onChange={(e) =>
-                    setFilters({
-                      potencia_kw: e.target.value.trim() === "" ? "all" : e.target.value,
-                    })
-                  }
-                  placeholder="ej. 10"
-                  inputMode="decimal"
-                />
-              </div>
-
-              <div>
-                <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                  Disponibilidad
-                </Label>
-                <Select
-                  value={filters.cantidad_filter}
-                  onValueChange={(value) =>
-                    setFilters({
-                      cantidad_filter: value as
-                        | "all"
-                        | "con_stock"
-                        | "sin_stock",
-                    })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="con_stock">Con stock</SelectItem>
-                    <SelectItem value="sin_stock">Sin stock</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </CardHeader>
-
-          <CardContent>
-            <MaterialesStockTable
-              data={data}
-              loading={loading}
-              almacenSeleccionadoId={almacenSeleccionado?.id}
-              almacenSeleccionadoNombre={almacenSeleccionado?.nombre}
-              sort={sort}
-              onSortChange={(sort_by) => {
-                if (sort.sort_by === sort_by) {
-                  setSort({
-                    sort_dir: sort.sort_dir === "asc" ? "desc" : "asc",
-                  })
-                } else {
-                  setSort({ sort_by, sort_dir: "asc" })
-                }
-              }}
-              onEditStockMinimo={handleEditStockMinimo}
-              pagination={{
-                page: meta.page,
-                totalPages: meta.totalPages,
-                total: meta.total,
-                limit: meta.limit,
-                onPageChange: setPage,
-              }}
-            />
-          </CardContent>
-        </Card>
+          <TabsContent value="transferencias">
+            <Card>
+              <CardHeader>
+                <CardTitle>Transferencias entre almacenes</CardTitle>
+                <CardDescription>
+                  Todos los traspasos solicitados entre almacenes, con su estado,
+                  materiales y responsables. Expande una fila para ver el detalle.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <TransferenciasAlmacenesTable />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   )
