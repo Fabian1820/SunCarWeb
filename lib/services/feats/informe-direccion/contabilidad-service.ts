@@ -3,12 +3,17 @@
 import { apiRequest } from "@/lib/api-config";
 import { ensureValidObjectId } from "@/lib/utils/object-id";
 import type {
+  BilleterasResumen,
   ContabilidadResumen,
+  MovimientoCategoriaUpdateRequest,
+  MovimientoExclusionUpdateRequest,
   PersonaCategoria,
   PersonaCategoriaUpsertRequest,
 } from "@/lib/types/feats/informe-direccion/contabilidad-types";
 
 const RESUMEN_ENDPOINT = "/informe-direccion/contabilidad";
+const BILLETERAS_ENDPOINT = "/informe-direccion/contabilidad/billeteras";
+const MOVIMIENTOS_ENDPOINT = "/informe-direccion/contabilidad/movimientos";
 const BASE_ENDPOINT = "/informe-direccion/contabilidad/personas-categoria";
 const COLLECTION_ENDPOINT = "/informe-direccion/contabilidad/personas-categoria/";
 
@@ -41,6 +46,28 @@ export const ContabilidadFinancieraService = {
   async obtenerResumen(desde: string, hasta: string): Promise<ContabilidadResumen> {
     const query = new URLSearchParams({ desde, hasta });
     return apiRequest<ContabilidadResumen>(`${RESUMEN_ENDPOINT}?${query.toString()}`);
+  },
+
+  async obtenerBilleteras(): Promise<BilleterasResumen> {
+    return apiRequest<BilleterasResumen>(BILLETERAS_ENDPOINT);
+  },
+
+  async actualizarExclusion(movimientoId: string, data: MovimientoExclusionUpdateRequest): Promise<void> {
+    const raw = await apiRequest<any>(`${MOVIMIENTOS_ENDPOINT}/${encodeURIComponent(movimientoId)}/exclusion`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+    const error = extractApiError(raw);
+    if (error) throw new Error(error);
+  },
+
+  async actualizarCategoria(movimientoId: string, data: MovimientoCategoriaUpdateRequest): Promise<void> {
+    const raw = await apiRequest<any>(`${MOVIMIENTOS_ENDPOINT}/${encodeURIComponent(movimientoId)}/categoria`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+    const error = extractApiError(raw);
+    if (error) throw new Error(error);
   },
 };
 

@@ -6,6 +6,7 @@ export type CategoriaContabilidad =
   | "logistica_transporte_seguridad"
   | "socios_ceo"
   | "director"
+  | "transferencias_bancarias"
   | "otros_ingresos";
 
 export const CATEGORIAS_CONTABILIDAD: { value: CategoriaContabilidad; label: string }[] = [
@@ -16,6 +17,7 @@ export const CATEGORIAS_CONTABILIDAD: { value: CategoriaContabilidad; label: str
   { value: "logistica_transporte_seguridad", label: "Logística, transporte y seguridad" },
   { value: "socios_ceo", label: "Ingresos socios o CEO" },
   { value: "director", label: "Ingresos director" },
+  { value: "transferencias_bancarias", label: "Transferencias bancarias" },
   { value: "otros_ingresos", label: "Otros ingresos" },
 ];
 
@@ -34,11 +36,21 @@ export interface IngresosPorPersona {
 }
 
 export interface ContabilidadMovimiento {
+  id: string;
   tipo: string;
   persona: string;
   detalle: string;
   moneda: string;
   monto: number;
+  excluido: boolean;
+}
+
+export interface MovimientoExclusionUpdateRequest {
+  excluido: boolean;
+}
+
+export interface MovimientoCategoriaUpdateRequest {
+  categoria: CategoriaContabilidad | null;
 }
 
 export interface ContabilidadIngresos {
@@ -48,9 +60,22 @@ export interface ContabilidadIngresos {
   movimientos: ContabilidadMovimiento[];
 }
 
+export interface ContabilidadGastoMovimiento {
+  fecha: string;
+  persona: string;
+  detalle: string;
+  moneda: string;
+  monto: number;
+}
+
+export interface ContabilidadGastos {
+  por_moneda: MontosPorMoneda;
+  movimientos: ContabilidadGastoMovimiento[];
+}
+
 export interface ContabilidadGeneral {
   ingresos: ContabilidadIngresos;
-  gastos: { por_moneda: MontosPorMoneda };
+  gastos: ContabilidadGastos;
   saldo: { por_moneda: MontosPorMoneda };
 }
 
@@ -65,6 +90,17 @@ export interface ContabilidadResumen {
   fin: string;
   general: ContabilidadGeneral;
   por_categoria: ContabilidadCategoriaResumen[];
+}
+
+export interface BilleteraConSaldo {
+  persona: string;
+  estado: string;
+  por_moneda: MontosPorMoneda;
+}
+
+export interface BilleterasResumen {
+  por_moneda: MontosPorMoneda;
+  billeteras: BilleteraConSaldo[];
 }
 
 export interface PersonaCategoria {

@@ -572,16 +572,17 @@ function InformeDireccionContent() {
             </TabsList>
 
             {(puedeContabilidad || puedeContabilidadConfig) && (
-              <TabsContent value="contabilidad" className="space-y-6">
-                {puedeContabilidadConfig && (
-                  <div className="flex justify-end">
-                    <Button variant="outline" onClick={() => setPersonaCategoriaOpen(true)}>
-                      <Users className="h-4 w-4 mr-2" />
-                      Personas y categorías
-                    </Button>
-                  </div>
-                )}
-                <ContabilidadSection />
+              <TabsContent value="contabilidad">
+                <ContabilidadSection
+                  accionExtra={
+                    puedeContabilidadConfig ? (
+                      <Button variant="outline" onClick={() => setPersonaCategoriaOpen(true)}>
+                        <Users className="h-4 w-4 mr-2" />
+                        Personas y categorías
+                      </Button>
+                    ) : undefined
+                  }
+                />
               </TabsContent>
             )}
 
