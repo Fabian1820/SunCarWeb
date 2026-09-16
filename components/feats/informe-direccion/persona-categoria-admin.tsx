@@ -16,14 +16,9 @@ import {
   DialogTitle,
 } from "@/components/shared/molecule/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { PersonaCategoriaService } from "@/lib/api-services";
-import { CATEGORIAS_CONTABILIDAD } from "@/lib/api-types";
+import { CategoriaIngresoService, PersonaCategoriaService } from "@/lib/api-services";
 import type { PersonaCategoria, PersonaCategoriaUpsertRequest } from "@/lib/api-types";
 import { PersonaCategoriaForm } from "./persona-categoria-form";
-
-const LABEL_POR_CATEGORIA = Object.fromEntries(
-  CATEGORIAS_CONTABILIDAD.map((c) => [c.value, c.label]),
-);
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
@@ -36,6 +31,7 @@ export function PersonaCategoriaAdmin() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editing, setEditing] = useState<PersonaCategoria | null>(null);
   const [deleting, setDeleting] = useState<PersonaCategoria | null>(null);
+  const [labelPorCategoria, setLabelPorCategoria] = useState<Record<string, string>>({});
   const { toast } = useToast();
 
   const cargar = useCallback(async () => {
@@ -56,6 +52,9 @@ export function PersonaCategoriaAdmin() {
 
   useEffect(() => {
     cargar();
+    CategoriaIngresoService.getAll().then((data) => {
+      setLabelPorCategoria(Object.fromEntries(data.map((c) => [c.codigo, c.label])));
+    });
   }, [cargar]);
 
   const handleCreate = async (payload: PersonaCategoriaUpsertRequest) => {
@@ -150,7 +149,7 @@ export function PersonaCategoriaAdmin() {
                   <tr key={p.id} className="border-b border-gray-100 hover:bg-teal-50/40">
                     <td className="py-2 px-3 font-medium text-gray-900">{p.persona_nombre}</td>
                     <td className="py-2 px-3 text-gray-600">{p.persona_ci || "—"}</td>
-                    <td className="py-2 px-3">{LABEL_POR_CATEGORIA[p.categoria] ?? p.categoria}</td>
+                    <td className="py-2 px-3">{labelPorCategoria[p.categoria] ?? p.categoria}</td>
                     <td className="py-2 px-3">
                       <span
                         className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
