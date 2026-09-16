@@ -82,3 +82,66 @@ export function calcularDescuentosOferta(
     tieneDescuento: totalDescontado > 0,
   };
 }
+
+/**
+ * Recorta descuento y compensación para que el total a pagar quede redondeado
+ * con la misma regla que `precio_final`: múltiplo de 10 hacia arriba.
+ *
+ * `precio_final` ya sale redondeado, pero descuento y compensación se restan
+ * después y dejaban el neto con centavos (un 18% sobre $4,490 dejaba al
+ * cliente pagando $3,681.80). El recorte sale entero de uno de los dos ajustes
+ * —del descuento antes que de la compensación— y nunca deja un monto en 0: si
+ * redondear se comería el ajuste entero (montos por debajo de $10) se deja tal
+ * como se tecleó.
+ *
+ * Es el espejo de `_redondear_total_a_pagar` en el backend, que es quien manda
+ * al guardar; aquí sirve para que el formulario muestre lo que se va a guardar.
+ */
+export interface AjustesRedondeados {
+  montoDescuento: number;
+  montoCompensacion: number;
+  totalAPagar: number;
+}
+
+export function ajustarDescuentosAlRedondeo(
+  precioFinal: number,
+  montoDescuento: number,
+  montoCompensacion: number,
+): AjustesRedondeados {
+  const precio = aNumero(precioFinal);
+  const descuento = Math.max(0, aNumero(montoDescuento));
+  const compensacion = Math.max(0, aNumero(montoCompensacion));
+  const sinAjuste: AjustesRedondeados = {
+    montoDescuento: descuento,
+    montoCompensacion: compensacion,
+    totalAPagar: Math.max(0, precio - descuento - compensacion),
+  };
+
+  const totalDescontado = descuento + compensacion;
+  if (totalDescontado <= 0) return sinAjuste;
+
+  const neto = Math.round((precio - totalDescontado) * 100) / 100;
+  if (neto <= 0) return sinAjuste;
+
+  const netoRedondeado = Math.ceil(neto / 10 - 1e-9) * 10;
+  const recorte = Math.round((netoRedondeado - neto) * 100) / 100;
+  if (recorte <= 0) return sinAjuste;
+
+  if (descuento > recorte) {
+    return {
+      montoDescuento: Math.round((descuento - recorte) * 100) / 100,
+      montoCompensacion: compensacion,
+      totalAPagar: netoRedondeado,
+    };
+  }
+
+  if (compensacion > recorte) {
+    return {
+      montoDescuento: descuento,
+      montoCompensacion: Math.round((compensacion - recorte) * 100) / 100,
+      totalAPagar: netoRedondeado,
+    };
+  }
+
+  return sinAjuste;
+}
