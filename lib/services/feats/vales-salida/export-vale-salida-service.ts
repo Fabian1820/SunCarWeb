@@ -331,253 +331,330 @@ export class ExportValeSalidaService {
     const cliente = getClienteInfo(vale);
     const materiales = vale.materiales || [];
 
-    const marginLeft = 14;
-    const marginRight = 14;
-    const contentWidth = pageWidth - marginLeft - marginRight;
+    // Este vale se imprime a diario como constancia de entrega: prima meter el
+    // mayor número de materiales por hoja sobre la estética del documento.
+    const margin = 10;
+    const contentWidth = pageWidth - margin * 2;
     const logo = await loadLogoBase64();
 
-    // Logo a 18mm del borde y contenido a 21mm, el mismo margen superior que
-    // usa el comprobante de billetera. Más arriba cae en la zona no
+    // El contenido arranca a 18mm del borde: más arriba cae en la zona no
     // imprimible de la impresora y la cabecera se pierde en el papel, aunque
     // en pantalla el PDF se vea completo.
-    let y = 21;
+    doc.setTextColor(0, 0, 0);
     if (logo) {
-      doc.addImage(logo, "PNG", marginLeft, 18, 22, 22);
+      doc.addImage(logo, "PNG", margin, 18, 13, 13);
+    }
+    const textX = logo ? margin + 15 : margin;
+    const textWidth = pageWidth - margin - textX;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text("Vale de entrega de almacén", textX, 22);
+    doc.setFontSize(10);
+    doc.text(header.codigoVale, pageWidth - margin, 22, { align: "right" });
+
+    let y = 26.5;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.8);
+    doc.text(
+      [
+        header.empresa,
+        `Almacén: ${header.almacen}`,
+        `Fecha: ${header.fechaCreacion}`,
+        `Solicitud: ${header.codigoSolicitud}`,
+        `Materiales: ${header.cantidadMateriales}`,
+      ].join("  ·  "),
+      textX,
+      y,
+    );
+    y += 3.6;
+
+    const clienteLines = doc
+      .splitTextToSize(
+        [
+          `Cliente: ${cliente.nombre}`,
+          `No.: ${cliente.numero}`,
+          `Tel.: ${cliente.telefono}`,
+          `Dir.: ${cliente.direccion}`,
+        ].join("  ·  "),
+        textWidth,
+      )
+      .slice(0, 2);
+    doc.text(clienteLines, textX, y);
+    y += clienteLines.length * 3.4;
+
+    if (vale.estado === "anulado") {
+      y += 1.2;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.5);
+      const anuladoTexto = doc.splitTextToSize(
+        `VALE ANULADO · Motivo: ${vale.motivo_anulacion || "No especificado"}`,
+        textWidth - 3,
+      )[0];
+      doc.setLineWidth(0.3);
+      doc.rect(textX - 1.2, y - 3.1, doc.getTextWidth(anuladoTexto) + 2.4, 4.4);
+      doc.text(anuladoTexto, textX, y);
+      y += 4.4;
     }
 
-    doc.setTextColor(0, 0, 0);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.text(header.empresa, logo ? marginLeft + 26 : marginLeft, y + 2);
+    y = Math.max(y, 32) + 1.5;
 
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9.2);
-    doc.text(
-      `Almacén: ${header.almacen}`,
-      logo ? marginLeft + 26 : marginLeft,
-      y + 8,
-    );
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12.5);
-    doc.text("Vale de entrega de almacén", pageWidth - marginRight, y + 2, {
-      align: "right",
+    // Columnas que no aportan nada en este vale se omiten: así el ancho libre
+    // se lo reparten código y material y se evita que una fila parta en dos.
+    const mostrarSeries = materiales.some((material) => {
+      const serie = (material.numero_serie || "").trim();
+      return serie.length > 0 && serie !== "-";
     });
+    const precios = materiales.map((material) => getMaterialPrice(material));
+    const mostrarPrecio = precios.some((precio) => precio > 0);
 
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8.7);
-    doc.text(
-      `Solicitud: ${header.codigoSolicitud}`,
-      pageWidth - marginRight,
-      y + 7,
-      {
-        align: "right",
-      },
+    const codigos = materiales.map((material) => getMaterialCode(material));
+    const nombres = materiales.map((material) => getMaterialNombre(material));
+    const ums = materiales.map((material) => getMaterialUm(material));
+    const cantidades = materiales.map((material) =>
+      String(material.cantidad ?? 0),
     );
-    doc.text(`Código: ${header.codigoVale}`, pageWidth - marginRight, y + 12, {
-      align: "right",
-    });
-    doc.text(
-      `Fecha: ${header.fechaCreacion}`,
-      pageWidth - marginRight,
-      y + 17,
-      {
-        align: "right",
-      },
+    const seriesTexto = materiales.map(
+      (material) => material.numero_serie || "-",
     );
+    const preciosTexto = precios.map((precio) => formatMoney(precio));
 
-    y += 26;
-    doc.setLineWidth(0.2);
-    doc.line(marginLeft, y, pageWidth - marginRight, y);
-    y += 5;
+    const cellPadX = 1.4;
+    const padTotal = cellPadX * 2 + 0.8;
 
-    const columnGap = 8;
-    const columnWidth = (contentWidth - columnGap) / 2;
-    const leftColumnX = marginLeft;
-    const rightColumnX = marginLeft + columnWidth + columnGap;
-    const labelOffset = 24;
-
-    const drawColumnTitle = (title: string, x: number, yPos: number): void => {
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9.8);
-      doc.text(title, x, yPos);
-    };
-
-    const drawField = (
-      x: number,
-      yPos: number,
-      label: string,
-      value: string,
-      availableWidth: number,
-    ): number => {
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
-      doc.text(label, x, yPos);
-
+    const measure = (value: string, size: number): number => {
       doc.setFont("helvetica", "normal");
-      const textWidth = Math.max(10, availableWidth - labelOffset);
-      const lines = doc.splitTextToSize(value || "-", textWidth);
-      doc.text(lines, x + labelOffset, yPos);
-      return Math.max(1, lines.length) * 4;
+      doc.setFontSize(size);
+      return doc.getTextWidth(value);
+    };
+    const maxWidth = (values: string[], size: number): number =>
+      values.reduce((acc, value) => Math.max(acc, measure(value, size)), 0);
+
+    type TableLayout = {
+      size: number;
+      codigoW: number;
+      materialW: number;
+      umW: number;
+      cantW: number;
+      seriesW: number;
+      precioW: number;
+      overflow: number;
     };
 
-    const columnsTopY = y;
+    const buildLayout = (size: number): TableLayout => {
+      const codigoW = Math.min(
+        Math.max(maxWidth([...codigos, "Código"], size) + padTotal, 15),
+        46,
+      );
+      const umW = Math.max(maxWidth([...ums, "U/M"], size) + padTotal, 8);
+      const cantW = Math.max(
+        maxWidth([...cantidades, "Cant."], size) + padTotal,
+        10,
+      );
+      const seriesW = mostrarSeries
+        ? Math.min(
+            Math.max(
+              maxWidth([...seriesTexto, "N° Serie"], size) + padTotal,
+              14,
+            ),
+            34,
+          )
+        : 0;
+      const precioW = mostrarPrecio
+        ? Math.max(maxWidth([...preciosTexto, "Precio"], size) + padTotal, 12)
+        : 0;
+      const materialW =
+        contentWidth - codigoW - umW - cantW - seriesW - precioW;
 
-    let leftY = columnsTopY;
-    drawColumnTitle("Responsables", leftColumnX, leftY);
-    leftY += 6;
-    leftY += drawField(
-      leftColumnX,
-      leftY,
-      "Despachado:",
-      header.despachadoPor || "-",
-      columnWidth,
-    );
-    leftY += 1;
-    leftY += drawField(
-      leftColumnX,
-      leftY,
-      "Recibido:",
-      header.recibidoPor || "-",
-      columnWidth,
-    );
+      const overflow = materiales.reduce((acc, _material, index) => {
+        const codigoCabe =
+          measure(codigos[index], size) <= codigoW - padTotal + 0.4;
+        const nombreCabe =
+          measure(nombres[index], size) <= materialW - padTotal + 0.4;
+        return acc + (codigoCabe && nombreCabe ? 0 : 1);
+      }, 0);
 
-    let rightY = columnsTopY;
-    drawColumnTitle("Datos del cliente", rightColumnX, rightY);
-    rightY += 6;
-    rightY += drawField(
-      rightColumnX,
-      rightY,
-      "Nombre:",
-      cliente.nombre || "-",
-      columnWidth,
-    );
-    rightY += 1;
-    rightY += drawField(
-      rightColumnX,
-      rightY,
-      "No. cliente:",
-      cliente.numero || "-",
-      columnWidth,
-    );
-    rightY += 1;
-    rightY += drawField(
-      rightColumnX,
-      rightY,
-      "Teléfono:",
-      cliente.telefono || "-",
-      columnWidth,
-    );
-    rightY += 1;
-    rightY += drawField(
-      rightColumnX,
-      rightY,
-      "Dirección:",
-      cliente.direccion || "-",
-      columnWidth,
-    );
+      return {
+        size,
+        codigoW,
+        materialW,
+        umW,
+        cantW,
+        seriesW,
+        precioW,
+        overflow,
+      };
+    };
 
-    y = Math.max(leftY, rightY) + 3;
+    const headRow = ["Código", "Material", "U/M", "Cant."];
+    if (mostrarSeries) headRow.push("N° Serie");
+    if (mostrarPrecio) headRow.push("Precio");
 
-    doc.setLineWidth(0.2);
-    doc.line(marginLeft, y, pageWidth - marginRight, y);
-    y += 5;
+    const body =
+      materiales.length > 0
+        ? materiales.map((material, index) => {
+            const fila = [
+              codigos[index],
+              nombres[index],
+              ums[index],
+              cantidades[index],
+            ];
+            if (mostrarSeries) fila.push(seriesTexto[index]);
+            if (mostrarPrecio) fila.push(preciosTexto[index]);
+            return fila;
+          })
+        : [
+            headRow.map((_column, index) =>
+              index === 1 ? "Sin materiales" : "-",
+            ),
+          ];
 
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10.2);
-    doc.text("Materiales entregados", marginLeft, y);
+    const columnStylesDe = (
+      tabla: TableLayout,
+    ): Record<
+      number,
+      { cellWidth: number; halign?: "left" | "center" | "right" }
+    > => {
+      const estilos: Record<
+        number,
+        { cellWidth: number; halign?: "left" | "center" | "right" }
+      > = {
+        0: { cellWidth: tabla.codigoW },
+        1: { cellWidth: tabla.materialW },
+        2: { cellWidth: tabla.umW, halign: "center" },
+        3: { cellWidth: tabla.cantW, halign: "right" },
+      };
+      let columnIndex = 4;
+      if (mostrarSeries) {
+        estilos[columnIndex] = {
+          cellWidth: tabla.seriesW,
+          halign: "center",
+        };
+        columnIndex += 1;
+      }
+      if (mostrarPrecio) {
+        estilos[columnIndex] = {
+          cellWidth: tabla.precioW,
+          halign: "right",
+        };
+      }
+      return estilos;
+    };
 
-    autoTable(doc, {
-      startY: y + 2,
-      margin: { left: marginLeft, right: marginRight },
-      head: [
-        ["Código", "Material", "U/M", "Cantidad", "N° Series", "Precio"],
-      ],
-      body:
-        materiales.length > 0
-          ? materiales.map((material) => {
-              return [
-                getMaterialCode(material),
-                getMaterialNombre(material),
-                getMaterialUm(material),
-                String(material.cantidad || 0),
-                material.numero_serie || "-",
-                formatMoney(getMaterialPrice(material)),
-              ];
-            })
-          : [["-", "Sin materiales", "-", "0", "-", "0.00"]],
-      theme: "grid",
+    // Reserva fija para las firmas: evita que se vayan solas a una hoja extra.
+    const firmasReserva = 23;
+
+    const opcionesTabla = (tabla: TableLayout) => ({
+      startY: y,
+      margin: {
+        left: margin,
+        right: margin,
+        top: 18,
+        bottom: firmasReserva,
+      },
+      head: [headRow],
+      body,
+      theme: "grid" as const,
       headStyles: {
-        fillColor: [255, 255, 255],
-        textColor: [0, 0, 0],
-        fontStyle: "bold",
-        lineColor: [0, 0, 0],
-        lineWidth: 0.2,
+        fillColor: [255, 255, 255] as [number, number, number],
+        textColor: [0, 0, 0] as [number, number, number],
+        fontStyle: "bold" as const,
+        lineColor: [0, 0, 0] as [number, number, number],
+        lineWidth: 0.15,
+        cellPadding: { top: 0.9, bottom: 0.9, left: cellPadX, right: cellPadX },
       },
       styles: {
         font: "helvetica",
-        fontSize: 9,
-        cellPadding: 2,
-        lineColor: [0, 0, 0],
-        lineWidth: 0.2,
-        textColor: [0, 0, 0],
+        fontSize: tabla.size,
+        cellPadding: { top: 0.8, bottom: 0.8, left: cellPadX, right: cellPadX },
+        lineColor: [0, 0, 0] as [number, number, number],
+        lineWidth: 0.15,
+        textColor: [0, 0, 0] as [number, number, number],
+        overflow: "linebreak" as const,
+        valign: "middle" as const,
       },
-      columnStyles: {
-        0: { cellWidth: 20 },
-        1: { cellWidth: 75 },
-        2: { cellWidth: 12, halign: "center" },
-        3: { cellWidth: 18, halign: "right" },
-        4: { cellWidth: 28, halign: "center" },
-        5: { cellWidth: 24, halign: "right" },
-      },
+      columnStyles: columnStylesDe(tabla),
     });
 
-    let footerY =
+    /** Hojas que ocuparía la tabla con ese layout, dibujándola en un PDF aparte. */
+    const hojasQueOcupa = (tabla: TableLayout): number => {
+      const prueba = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "letter",
+      });
+      autoTable(prueba, opcionesTabla(tabla));
+      return prueba.getNumberOfPages();
+    };
+
+    // Gana el layout que gaste menos hojas; a igualdad, el que menos filas
+    // parta en dos, y a igualdad de eso, la letra más grande.
+    const layout = [8, 7.5, 7, 6.6]
+      .map(buildLayout)
+      .map((tabla) => ({ tabla, hojas: hojasQueOcupa(tabla) }))
+      .reduce((mejor, actual) => {
+        if (actual.hojas !== mejor.hojas) {
+          return actual.hojas < mejor.hojas ? actual : mejor;
+        }
+        return actual.tabla.overflow < mejor.tabla.overflow ? actual : mejor;
+      }).tabla;
+
+    autoTable(doc, opcionesTabla(layout));
+
+    let signatureY =
       ((doc as jsPDF & { lastAutoTable?: { finalY?: number } }).lastAutoTable
-        ?.finalY || y + 30) + 7;
+        ?.finalY || y) + 9;
 
-    if (footerY + 28 > pageHeight - marginRight) {
+    if (signatureY + 6 > pageHeight - 12) {
       doc.addPage();
-      footerY = 22;
-    }
-
-    if (vale.estado === "anulado") {
-      doc.rect(
-        marginLeft,
-        footerY - 5,
-        pageWidth - marginLeft - marginRight,
-        12,
-      );
-      doc.setFont("helvetica", "bold");
-      doc.text("Vale anulado", marginLeft + 3, footerY - 1);
-      doc.setFont("helvetica", "normal");
-      doc.text(
-        `Motivo: ${vale.motivo_anulacion || "No especificado"}`,
-        marginLeft + 3,
-        footerY + 3,
-      );
-      footerY += 15;
+      signatureY = 30;
     }
 
     // Dos firmas (despacha y recibe) repartidas a lo ancho de la hoja.
-    const signatureLineY = footerY + 15;
-    const gap = 20;
-    const blockWidth = (pageWidth - marginLeft - marginRight - gap) / 2;
-    const firstX = marginLeft;
-    const secondX = firstX + blockWidth + gap;
+    const blockGap = 20;
+    const blockWidth = (contentWidth - blockGap) / 2;
+    const firmas: Array<[string, string]> = [
+      ["Despachado por", header.despachadoPor || "-"],
+      ["Recibido por", header.recibidoPor || "-"],
+    ];
 
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.text("Despachado por:", firstX, signatureLineY - 7);
-    doc.line(firstX, signatureLineY, firstX + blockWidth, signatureLineY);
-    doc.setFont("helvetica", "normal");
-    doc.text(header.despachadoPor, firstX, signatureLineY + 4);
+    firmas.forEach(([label, nombre], index) => {
+      const x = margin + index * (blockWidth + blockGap);
+      doc.setLineWidth(0.2);
+      doc.line(x, signatureY, x + blockWidth, signatureY);
 
-    doc.setFont("helvetica", "bold");
-    doc.text("Recibido por:", secondX, signatureLineY - 7);
-    doc.line(secondX, signatureLineY, secondX + blockWidth, signatureLineY);
-    doc.setFont("helvetica", "normal");
-    doc.text(header.recibidoPor, secondX, signatureLineY + 4);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.5);
+      const labelText = `${label}: `;
+      doc.text(labelText, x, signatureY + 3.4);
+      const labelWidth = doc.getTextWidth(labelText);
+
+      doc.setFont("helvetica", "normal");
+      const nombreTexto = doc.splitTextToSize(
+        nombre,
+        Math.max(12, blockWidth - labelWidth),
+      )[0];
+      doc.text(nombreTexto, x + labelWidth, signatureY + 3.4);
+    });
+
+    // El folio va arriba (la 1 ya lleva el código en la cabecera): abajo cae
+    // en el borde que la impresora recorta.
+    const totalPages = doc.getNumberOfPages();
+    if (totalPages > 1) {
+      for (let page = 2; page <= totalPages; page += 1) {
+        doc.setPage(page);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7);
+        doc.setTextColor(90, 90, 90);
+        doc.text(
+          `${header.codigoVale} · Pág. ${page}/${totalPages}`,
+          pageWidth - margin,
+          15,
+          { align: "right" },
+        );
+      }
+      doc.setTextColor(0, 0, 0);
+    }
 
     const fechaArchivo = new Date().toISOString().slice(0, 10);
     const filename = `Vale_Entrega_${sanitizeFilenamePart(header.codigoVale)}_${fechaArchivo}.pdf`;
