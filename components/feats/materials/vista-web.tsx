@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/shared/atom/button";
 import { MaterialImage } from "@/components/shared/molecule/material-image";
 import { Input } from "@/components/shared/molecule/input";
@@ -32,6 +32,11 @@ import {
   Loader2,
 } from "lucide-react";
 import type { Material } from "@/lib/material-types";
+import { DisponibilidadProvinciasPopover } from "./disponibilidad-provincias-popover";
+import {
+  DisponibilidadWebService,
+  type ResumenDisponibilidad,
+} from "@/lib/services/feats/materials/disponibilidad-web-service";
 
 interface VistaWebProps {
   materials: Material[];
@@ -107,6 +112,39 @@ export function VistaWeb({
       return matchesSearch && matchesCategory && matchesMarca && matchesWeb;
     });
   }, [materials, searchTerm, selectedCategory, selectedMarca, webFilter]);
+
+  // Resumen de provincias por material. Se pide en bloque para los materiales
+  // visibles en vez de una llamada por tarjeta: con el catálogo entero abierto
+  // serían decenas de peticiones para pintar un contador.
+  const [resumenProvincias, setResumenProvincias] = useState<
+    Record<string, ResumenDisponibilidad>
+  >({});
+
+  const idsVisibles = useMemo(
+    () =>
+      filteredMaterials
+        .filter((m) => m.habilitar_venta_web && m.material_id)
+        .map((m) => m.material_id as string),
+    [filteredMaterials],
+  );
+
+  useEffect(() => {
+    if (idsVisibles.length === 0) {
+      setResumenProvincias({});
+      return;
+    }
+    let cancelado = false;
+    DisponibilidadWebService.getResumen(idsVisibles)
+      .then((data) => {
+        if (!cancelado) setResumenProvincias(data);
+      })
+      .catch((e) => console.error("Error cargando resumen de provincias:", e));
+    return () => {
+      cancelado = true;
+    };
+    // idsVisibles se recalcula por referencia en cada render del memo, pero su
+    // contenido solo cambia con los filtros: la clave estable es el join.
+  }, [idsVisibles.join(",")]);
 
   const handleToggleWeb = async (material: Material) => {
     const key = `${material.producto_id}_${material.codigo}`;
@@ -466,6 +504,32 @@ export function VistaWeb({
                       )}
                       {material.habilitar_venta_web ? "On" : "Off"}
                     </button>
+
+                    {/* Provincias donde se vende. Deshabilitado si la venta web
+                        está apagada: el flag global manda sobre las provincias. */}
+                    <DisponibilidadProvinciasPopover
+                      materialId={material.material_id ?? ""}
+                      precioBase={material.precio ?? 0}
+                      totalActivas={
+                        resumenProvincias[material.material_id ?? ""]
+                          ?.total_provincias ?? 0
+                      }
+                      disabled={
+                        !material.habilitar_venta_web || !material.material_id
+                      }
+                      onGuardado={(total) =>
+                        setResumenProvincias((prev) => ({
+                          ...prev,
+                          [material.material_id ?? ""]: {
+                            ...(prev[material.material_id ?? ""] ?? {
+                              provincias_activas: [],
+                              tiene_precio_diferenciado: false,
+                            }),
+                            total_provincias: total,
+                          } as ResumenDisponibilidad,
+                        }))
+                      }
+                    />
 
                     {/* Specifications */}
                     <button
