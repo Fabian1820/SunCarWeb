@@ -32,6 +32,7 @@ import {
   PopoverTrigger,
 } from "@/components/shared/molecule/popover";
 import { Checkbox } from "@/components/shared/molecule/checkbox";
+import { Switch } from "@/components/shared/molecule/switch";
 import {
   FileCheck,
   Camera,
@@ -56,6 +57,7 @@ import {
   Ban,
   RotateCcw,
   FileOutput,
+  Wallet,
 } from "lucide-react";
 import { ClienteService } from "@/lib/api-services";
 import type { EquipoEnOferta } from "@/lib/services/feats/customer/cliente-service";
@@ -66,7 +68,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/shared/molecule/collapsible";
 import { apiRequest } from "@/lib/api-config";
-import { compareStrings } from "@/lib/utils/string-utils";
+import { compareStrings, normalizeSearchText } from "@/lib/utils/string-utils";
 import MapPicker from "@/components/shared/organism/MapPickerNoSSR";
 import { ClienteDetallesDialog } from "@/components/feats/customer/cliente-detalles-dialog";
 import { ClienteValesSalidaDialog } from "@/components/feats/customer-service/cliente-vales-salida-dialog";
@@ -98,6 +100,7 @@ import type {
 } from "@/lib/types/feats/ofertas-personalizadas/oferta-personalizada-types";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
+import type { PendientePagoCliente } from "@/lib/services/feats/obras-terminadas/pendientes-pago-service";
 import { useComercialEquipoMap } from "@/hooks/use-comercial-equipo-map";
 import type {
   CapacidadEquipos,
@@ -171,8 +174,13 @@ interface ClientsTableProps {
     bateriaCantidad: string;
     panelCodigo: string;
     panelCantidad: string;
+    conSaldoPendiente: boolean;
   }) => void;
   initialSearchTerm?: string;
+  /** Saldos pendientes por cliente (todos los estados), cargados aparte y bajo demanda. */
+  pendientesPago?: Map<string, PendientePagoCliente> | null;
+  cargandoPendientesPago?: boolean;
+  onRequestPendientesPago?: () => Promise<unknown>;
 }
 
 const CLIENT_ESTADOS = ESTADOS_CLIENTE;
@@ -408,6 +416,12 @@ const normalizeClienteNumero = (value?: string) =>
     .normalize("NFKC")
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, "");
+
+const fmtSaldoPendiente = (n: number): string =>
+  `$${n.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 
 // El unico codigo que trae el backend para un Cliente es `numero`; codigo_cliente
 // y numero_cliente pertenecen a otras entidades (DevolucionPago, FacturaContabilidad).
@@ -731,11 +745,19 @@ export function ClientsTable({
   loading = false,
   onFiltersChange,
   initialSearchTerm = "",
+  pendientesPago = null,
+  cargandoPendientesPago = false,
+  onRequestPendientesPago,
 }: ClientsTableProps) {
   const { toast } = useToast();
-  const { hasExactPermission } = useAuth();
+  const { hasExactPermission, user } = useAuth();
   // Subpermiso ADITIVO: solo quien lo tenga (o superAdmin) ve costos y totales.
   const verCostos = hasExactPermission("costos-materiales-cliente");
+  // Cargo "Comercial": se le precarga (y bloquea) el filtro a su propio nombre,
+  // y es a quien más le sirve el botón de "Saldo pendiente" de abajo.
+  const esComercial =
+    !user?.is_superAdmin &&
+    normalizeSearchText(user?.rol || "").includes("comercial");
   const {
     ofertas,
     loading: ofertasLoading,
@@ -963,6 +985,7 @@ export function ClientsTable({
     municipio: [] as string[],
     ofertas: "",
     mostrarAnulados: false,
+    conSaldoPendiente: false,
     inversorKwMin: "",
     inversorKwMax: "",
     bateriaKwhMin: "",
@@ -971,6 +994,29 @@ export function ClientsTable({
     panelesMax: "",
     ...MODELO_FILTROS_VACIOS,
   });
+
+  // Un comercial siempre ve primero lo suyo: se le precarga el filtro con su
+  // propio nombre (lo puede cambiar si de verdad quiere ver a otro).
+  useEffect(() => {
+    if (!esComercial || !user?.nombre) return;
+    setFilters((prev) =>
+      prev.comercial ? prev : { ...prev, comercial: user.nombre },
+    );
+  }, [esComercial, user?.nombre]);
+
+  // Los saldos pendientes son una consulta aparte y pesada (recorre TODAS las
+  // ofertas con deuda, sin importar el estado del cliente): solo se piden
+  // cuando el filtro se activa, no en cada carga de la tabla.
+  useEffect(() => {
+    if (filters.conSaldoPendiente && !pendientesPago && !cargandoPendientesPago) {
+      onRequestPendientesPago?.();
+    }
+  }, [
+    filters.conSaldoPendiente,
+    pendientesPago,
+    cargandoPendientesPago,
+    onRequestPendientesPago,
+  ]);
   const {
     equipos: equiposComerciales,
     comercialesDeEquipo,
@@ -1248,6 +1294,7 @@ export function ClientsTable({
         municipio: filters.municipio,
         ofertas: filters.ofertas,
         mostrarAnulados: filters.mostrarAnulados,
+        conSaldoPendiente: filters.conSaldoPendiente,
         inversorKwMin: debouncedCapacidad.inversorKwMin,
         inversorKwMax: debouncedCapacidad.inversorKwMax,
         bateriaKwhMin: debouncedCapacidad.bateriaKwhMin,
@@ -1317,6 +1364,23 @@ export function ClientsTable({
     filters.municipio,
     filters.ofertas,
   ]);
+
+  // Resumen de saldo pendiente sobre lo que se ve en pantalla (ya viene
+  // paginado/filtrado desde el padre cuando el filtro de saldo está activo).
+  const resumenSaldoPendiente = useMemo(() => {
+    if (!pendientesPago) return { total: 0, clientes: 0 };
+    let total = 0;
+    let clientesConSaldo = 0;
+    for (const client of sortedClients) {
+      const numero = normalizeClienteNumero(client.numero);
+      const pendiente = numero ? pendientesPago.get(numero) : undefined;
+      if (pendiente && pendiente.montoPendiente > 0) {
+        total += pendiente.montoPendiente;
+        clientesConSaldo += 1;
+      }
+    }
+    return { total, clientes: clientesConSaldo };
+  }, [sortedClients, pendientesPago]);
 
   useEffect(() => {
     if (!cargaSetOfertasTerminada) return;
@@ -1610,6 +1674,7 @@ export function ClientsTable({
     filters.provincia.length > 0 ||
     filters.municipio.length > 0 ||
     filters.ofertas ||
+    filters.conSaldoPendiente ||
     tieneFiltroEquipo;
 
   // El debounce se adelanta a mano al limpiar: si no, quedaría medio segundo
@@ -1639,6 +1704,7 @@ export function ClientsTable({
       municipio: [],
       ofertas: "",
       mostrarAnulados: false,
+      conSaldoPendiente: false,
       ...CAPACIDAD_FILTROS_VACIOS,
       ...MODELO_FILTROS_VACIOS,
     });
@@ -3469,6 +3535,37 @@ export function ClientsTable({
                 </Label>
               </div>
             )}
+            <div className="flex items-center gap-2 shrink-0">
+              <Switch
+                id="con-saldo-pendiente"
+                checked={filters.conSaldoPendiente}
+                onCheckedChange={(checked) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    conSaldoPendiente: checked === true,
+                  }))
+                }
+              />
+              <Label
+                htmlFor="con-saldo-pendiente"
+                className="text-sm text-gray-600 cursor-pointer whitespace-nowrap flex items-center gap-1"
+              >
+                <Wallet className="h-3.5 w-3.5 text-amber-600" />
+                Con saldo pendiente
+              </Label>
+              {filters.conSaldoPendiente && cargandoPendientesPago && (
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" />
+              )}
+              {filters.conSaldoPendiente &&
+                !cargandoPendientesPago &&
+                pendientesPago && (
+                  <Badge className="bg-amber-100 text-amber-800 whitespace-nowrap">
+                    {resumenSaldoPendiente.clientes}{" "}
+                    {resumenSaldoPendiente.clientes === 1 ? "cliente" : "clientes"} ·{" "}
+                    {fmtSaldoPendiente(resumenSaldoPendiente.total)}
+                  </Badge>
+                )}
+            </div>
             <Button
               variant="outline"
               onClick={handleClearFilters}
@@ -4093,6 +4190,23 @@ export function ClientsTable({
                                   Anulado
                                 </Badge>
                               )}
+                              {(() => {
+                                const numero = normalizeClienteNumero(client.numero);
+                                const pendiente = numero
+                                  ? pendientesPago?.get(numero)
+                                  : undefined;
+                                if (!pendiente || pendiente.montoPendiente <= 0)
+                                  return null;
+                                return (
+                                  <Badge
+                                    className="bg-red-100 text-red-800 text-xs px-2 py-0.5 mb-0.5 inline-flex items-center gap-1"
+                                    title={`${pendiente.obras} oferta${pendiente.obras === 1 ? "" : "s"} con saldo`}
+                                  >
+                                    <Wallet className="h-3 w-3" />
+                                    Debe {fmtSaldoPendiente(pendiente.montoPendiente)}
+                                  </Badge>
+                                );
+                              })()}
                               <p className="text-[13px] text-gray-500 truncate">
                                 {client.numero}
                               </p>
@@ -4591,6 +4705,52 @@ export function ClientsTable({
                 </tbody>
               </table>
             </div>
+            </div>
+          )}
+          {esComercial && (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+              <div className="flex items-center gap-2 text-sm text-amber-900">
+                <Wallet className="h-4 w-4 text-amber-700 shrink-0" />
+                {filters.conSaldoPendiente && pendientesPago ? (
+                  <span>
+                    Tienes{" "}
+                    <strong>
+                      {resumenSaldoPendiente.clientes}{" "}
+                      {resumenSaldoPendiente.clientes === 1 ? "cliente" : "clientes"}
+                    </strong>{" "}
+                    con saldo pendiente, por un total de{" "}
+                    <strong>{fmtSaldoPendiente(resumenSaldoPendiente.total)}</strong>.
+                  </span>
+                ) : (
+                  <span>Consulta cuánto te falta por cobrar entre tus clientes.</span>
+                )}
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant={filters.conSaldoPendiente ? "outline" : "default"}
+                className={
+                  filters.conSaldoPendiente
+                    ? "border-amber-300 text-amber-800 hover:bg-amber-100"
+                    : "bg-amber-600 hover:bg-amber-700 text-white"
+                }
+                disabled={cargandoPendientesPago}
+                onClick={() =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    conSaldoPendiente: !prev.conSaldoPendiente,
+                  }))
+                }
+              >
+                {cargandoPendientesPago ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                ) : (
+                  <Wallet className="h-3.5 w-3.5 mr-1.5" />
+                )}
+                {filters.conSaldoPendiente
+                  ? "Ver todos mis clientes"
+                  : "Ver mis pagos pendientes"}
+              </Button>
             </div>
           )}
         </CardContent>

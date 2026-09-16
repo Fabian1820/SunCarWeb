@@ -36,6 +36,11 @@ import type { ExportOptions } from "@/lib/export-service";
 import { downloadFile } from "@/lib/utils/download-file";
 import { extraerComponentesDeOfertaConfeccion } from "@/lib/utils/oferta-confeccion-items";
 import { EditClientDialog } from "@/components/feats/cliente/edit-client-dialog";
+import {
+  fetchPendientesPago,
+  normalizeClienteNumeroPendientes,
+  type PendientePagoCliente,
+} from "@/lib/services/feats/obras-terminadas/pendientes-pago-service";
 
 type ClientesFilters = {
   searchTerm: string;
@@ -50,6 +55,8 @@ type ClientesFilters = {
   municipio: string[];
   ofertas: string;
   mostrarAnulados: boolean;
+  /** Solo clientes con saldo pendiente en alguna oferta, sin importar su estado. */
+  conSaldoPendiente: boolean;
   // Capacidad acumulada del equipo. Se guardan como texto porque vienen de
   // inputs numéricos: "" es "sin límite" y 0 es un límite legítimo, y esa
   // distinción se pierde si se normaliza a number antes de tiempo.
@@ -239,7 +246,9 @@ const matchesClientLocalFilters = (
     | "provincia"
     | "municipio"
     | "ofertas"
+    | "conSaldoPendiente"
   >,
+  pendientesPago: Map<string, PendientePagoCliente> | null,
 ): boolean => {
   if (filters.provincia.length > 0) {
     if (!filters.provincia.includes((client.provincia_montaje || "").trim()))
@@ -259,6 +268,11 @@ const matchesClientLocalFilters = (
       return false;
     if (filters.ofertas === "sin_confirmadas" && totalConfirmadas > 0)
       return false;
+  }
+  if (filters.conSaldoPendiente) {
+    const numero = normalizeClienteNumeroPendientes(client.numero);
+    const pendiente = numero ? pendientesPago?.get(numero) : undefined;
+    if (!pendiente || pendiente.montoPendiente <= 0) return false;
   }
   return matchesClientDateFilters(client, filters);
 };
@@ -331,6 +345,7 @@ export default function ClientesPage() {
     municipio: [] as string[],
     ofertas: "",
     mostrarAnulados: false,
+    conSaldoPendiente: false,
     inversorKwMin: "",
     inversorKwMax: "",
     bateriaKwhMin: "",
@@ -370,6 +385,7 @@ export default function ClientesPage() {
           prev.municipio.join(",") !== newFilters.municipio.join(",") ||
           prev.ofertas !== newFilters.ofertas ||
           prev.mostrarAnulados !== newFilters.mostrarAnulados ||
+          prev.conSaldoPendiente !== newFilters.conSaldoPendiente ||
           CAPACIDAD_FILTER_KEYS.some((key) => prev[key] !== newFilters[key]) ||
           MODELO_FILTER_KEYS.some((key) => prev[key] !== newFilters[key]);
 
@@ -400,6 +416,47 @@ export default function ClientesPage() {
     timestamp: number;
   } | null>(null);
   const FETCH_ALL_CACHE_TTL_MS = 60_000; // 1 minuto
+
+  // Saldos pendientes por cliente (todas las ofertas con deuda, sin importar
+  // el estado del cliente). Es una consulta aparte y pesada, así que solo se
+  // dispara cuando hace falta (filtro activado o badge visible) y se cachea.
+  const [pendientesPago, setPendientesPago] = useState<Map<
+    string,
+    PendientePagoCliente
+  > | null>(null);
+  const [cargandoPendientesPago, setCargandoPendientesPago] = useState(false);
+  const pendientesPagoRef = useRef<{
+    data: Map<string, PendientePagoCliente>;
+    timestamp: number;
+  } | null>(null);
+  const pendientesPagoRequestRef = useRef(0);
+  const PENDIENTES_PAGO_CACHE_TTL_MS = 60_000;
+
+  const cargarPendientesPago = useCallback(async (forzar = false) => {
+    const cached = pendientesPagoRef.current;
+    if (
+      !forzar &&
+      cached &&
+      Date.now() - cached.timestamp < PENDIENTES_PAGO_CACHE_TTL_MS
+    ) {
+      setPendientesPago(cached.data);
+      return cached.data;
+    }
+    const id = ++pendientesPagoRequestRef.current;
+    setCargandoPendientesPago(true);
+    try {
+      const data = await fetchPendientesPago();
+      pendientesPagoRef.current = { data, timestamp: Date.now() };
+      if (id === pendientesPagoRequestRef.current) setPendientesPago(data);
+      return data;
+    } catch (error) {
+      console.error("Error cargando saldos pendientes:", error);
+      return null;
+    } finally {
+      if (id === pendientesPagoRequestRef.current)
+        setCargandoPendientesPago(false);
+    }
+  }, []);
 
   const fetchAllClientsByBaseFilters = useCallback(
     async (baseParams: {
@@ -528,7 +585,11 @@ export default function ClientesPage() {
         const multiProvincia = filters.provincia.length > 1;
         const multiMunicipio = filters.municipio.length > 1;
         const hasLocalOnlyFilter = Boolean(
-          filters.mes || filters.ofertas || multiProvincia || multiMunicipio,
+          filters.mes ||
+            filters.ofertas ||
+            filters.conSaldoPendiente ||
+            multiProvincia ||
+            multiMunicipio,
         );
 
         // Pasar al backend solo si hay exactamente 1 valor (compatibilidad API)
@@ -556,15 +617,23 @@ export default function ClientesPage() {
           // Provincias/municipios extra (>1) se filtran localmente; si hay 1 ya lo aplicó el backend
           const localProvincia = multiProvincia ? filters.provincia : [];
           const localMunicipio = multiMunicipio ? filters.municipio : [];
+          const pendientesData = filters.conSaldoPendiente
+            ? await cargarPendientesPago()
+            : pendientesPago;
           const filtered = all.filter((client) =>
-            matchesClientLocalFilters(client, {
-              fechaDesde: "",
-              fechaHasta: "",
-              mes: filters.mes,
-              provincia: localProvincia,
-              municipio: localMunicipio,
-              ofertas: filters.ofertas,
-            }),
+            matchesClientLocalFilters(
+              client,
+              {
+                fechaDesde: "",
+                fechaHasta: "",
+                mes: filters.mes,
+                provincia: localProvincia,
+                municipio: localMunicipio,
+                ofertas: filters.ofertas,
+                conSaldoPendiente: filters.conSaldoPendiente,
+              },
+              pendientesData,
+            ),
           );
           const sorted = sortClientsByCodigo(filtered);
           const page = sorted.slice(
@@ -597,7 +666,7 @@ export default function ClientesPage() {
         setLoading(false);
       }
     },
-    [appliedFilters, fetchAllClientsByBaseFilters],
+    [appliedFilters, fetchAllClientsByBaseFilters, cargarPendientesPago, pendientesPago],
   );
 
   const getAllFilteredClientsForExport = useCallback(async (): Promise<
@@ -631,20 +700,28 @@ export default function ClientesPage() {
 
     const localProvinciaExport = appliedFilters.provincia.length > 1 ? appliedFilters.provincia : [];
     const localMunicipioExport = appliedFilters.municipio.length > 1 ? appliedFilters.municipio : [];
+    const pendientesDataExport = appliedFilters.conSaldoPendiente
+      ? await cargarPendientesPago()
+      : pendientesPago;
 
     const filtered = result.filter((client) =>
-      matchesClientLocalFilters(client, {
-        fechaDesde: "",
-        fechaHasta: "",
-        mes: appliedFilters.mes,
-        provincia: localProvinciaExport,
-        municipio: localMunicipioExport,
-        ofertas: appliedFilters.ofertas,
-      }),
+      matchesClientLocalFilters(
+        client,
+        {
+          fechaDesde: "",
+          fechaHasta: "",
+          mes: appliedFilters.mes,
+          provincia: localProvinciaExport,
+          municipio: localMunicipioExport,
+          ofertas: appliedFilters.ofertas,
+          conSaldoPendiente: appliedFilters.conSaldoPendiente,
+        },
+        pendientesDataExport,
+      ),
     );
 
     return sortClientsByCodigo(filtered);
-  }, [appliedFilters, fetchAllClientsByBaseFilters]);
+  }, [appliedFilters, fetchAllClientsByBaseFilters, cargarPendientesPago, pendientesPago]);
 
   // Cargar datos iniciales
   const loadInitialData = async () => {
@@ -679,6 +756,7 @@ export default function ClientesPage() {
     appliedFilters.provincia,
     appliedFilters.municipio,
     appliedFilters.ofertas,
+    appliedFilters.conSaldoPendiente,
     appliedFilters.skip,
     appliedFilters.limit,
   ]);
@@ -1096,6 +1174,9 @@ export default function ClientesPage() {
             loading={loading}
             onFiltersChange={handleFiltersChange}
             initialSearchTerm={buscarParam}
+            pendientesPago={pendientesPago}
+            cargandoPendientesPago={cargandoPendientesPago}
+            onRequestPendientesPago={cargarPendientesPago}
           />
           {totalClients > appliedFilters.limit && appliedFilters.limit > 0 && (
             <SmartPagination
