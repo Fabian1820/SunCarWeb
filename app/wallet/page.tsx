@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/atom/input";
@@ -44,10 +44,15 @@ import {
   ChevronLeft,
   ChevronRight,
   Coins,
+  Download,
   Eye,
   FileSpreadsheet,
+  FileText,
   Info,
   Landmark,
+  Loader2,
+  Paperclip,
+  Percent,
   Plus,
   Printer,
   RefreshCcw,
@@ -62,19 +67,25 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useWallet } from "@/hooks/use-wallet";
 import { useMyWalletPermiso } from "@/hooks/use-wallet-permisos";
-import { BancoGlobalSheet } from "@/components/feats/wallet/banco-global-sheet";
+import { useBancos } from "@/hooks/use-bancos";
 import { WalletsConSaldoButton } from "@/components/feats/wallet/wallets-con-saldo-dialog";
-import { TrabajadorService, WalletService } from "@/lib/api-services";
+import { BancosMenu } from "@/components/feats/wallet/bancos-menu";
+import { AdjuntoComprobanteField } from "@/components/feats/wallet/adjunto-comprobante-field";
+import { TrabajadorService, WalletService, BancoService } from "@/lib/api-services";
 import { exportToExcel } from "@/lib/export-service";
 import type { Trabajador } from "@/lib/api-types";
 import type {
+  AdjuntoWalletTransaction,
+  TotalPorMoneda,
   WalletCurrency,
   Wallet as WalletType,
   WalletTransaction,
   WalletTransactionType,
 } from "@/lib/types/feats/wallet/wallet-types";
+import type { Banco } from "@/lib/types/feats/wallet/banco-types";
 import { normalizeSearchText } from "@/lib/utils/string-utils";
 import { imprimirPdf } from "@/lib/utils/imprimir-pdf";
+import { comprimirImagenSiAplica } from "@/lib/utils/comprimir-imagen";
 
 const formatMoney = (amount: number, currency = "USD"): string => {
   try {
@@ -173,6 +184,15 @@ const TransactionTypeBadge = ({ transaction }: { transaction: WalletTransaction 
   }
 
   const tipo = transaction.tipo;
+  if (tipo === "comision") {
+    return (
+      <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[11px]">
+        <Percent className="h-3 w-3 mr-1" />
+        Comisión
+      </Badge>
+    );
+  }
+
   const ingreso = tipo === "ingreso";
   return (
     <Badge
@@ -191,6 +211,9 @@ const TransactionTypeBadge = ({ transaction }: { transaction: WalletTransaction 
     </Badge>
   );
 };
+
+const tieneAdjuntos = (transaction: WalletTransaction): boolean =>
+  Array.isArray(transaction.adjuntos) && transaction.adjuntos.length > 0;
 
 /**
  * El comprobante (membrete + firmas) solo tiene sentido de negocio para
@@ -368,6 +391,9 @@ function TransactionsResponsiveList({
                   </span>
                 </div>
                 <div className="flex items-center gap-0.5 shrink-0">
+                  {tieneAdjuntos(transaction) && (
+                    <Paperclip className="h-3.5 w-3.5 text-slate-400" />
+                  )}
                   {tieneComprobante(transaction) && (
                     <ComprobanteButton transaction={transaction} />
                   )}
@@ -504,6 +530,9 @@ function TransactionsResponsiveList({
                   </TableCell>
                   <TableCell className="w-20 text-right">
                     <div className="flex items-center justify-end gap-0.5">
+                      {tieneAdjuntos(transaction) && (
+                        <Paperclip className="h-3.5 w-3.5 text-slate-400" />
+                      )}
                       {tieneComprobante(transaction) && (
                         <ComprobanteButton transaction={transaction} />
                       )}
@@ -519,6 +548,131 @@ function TransactionsResponsiveList({
       </div>
       </div>
     </>
+  );
+}
+
+/**
+ * Comprobante(s) de una transacción: carga las URLs firmadas al abrir y deja
+ * agregar uno nuevo en el momento (la transacción ya existe, así que aquí la
+ * subida es directa — a diferencia del formulario de creación, que sube
+ * después de crear el movimiento).
+ */
+function ComprobanteAdjuntoSection({ transactionId }: { transactionId: string }) {
+  const { toast } = useToast();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [adjuntos, setAdjuntos] = useState<AdjuntoWalletTransaction[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [subiendo, setSubiendo] = useState(false);
+
+  useEffect(() => {
+    let cancelado = false;
+    setCargando(true);
+    WalletService.getTransactionAdjuntos(transactionId)
+      .then((data) => {
+        if (!cancelado) setAdjuntos(data);
+      })
+      .catch(() => {
+        if (!cancelado) setAdjuntos([]);
+      })
+      .finally(() => {
+        if (!cancelado) setCargando(false);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [transactionId]);
+
+  const handleFile = async (files: FileList | null) => {
+    const elegido = files?.[0];
+    if (!elegido) return;
+    setSubiendo(true);
+    try {
+      const comprimido = await comprimirImagenSiAplica(elegido);
+      const subidos = await WalletService.uploadTransactionAdjunto(transactionId, [comprimido]);
+      setAdjuntos((prev) => [...prev, ...subidos]);
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "No se pudo adjuntar el comprobante",
+        variant: "destructive",
+      });
+    } finally {
+      setSubiendo(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-slate-200 p-3">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[10px] uppercase tracking-wider font-bold text-slate-400">
+          Comprobante
+        </p>
+        <input
+          ref={inputRef}
+          type="file"
+          className="hidden"
+          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.heic,.heif"
+          onChange={(e) => void handleFile(e.target.files)}
+        />
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          disabled={subiendo}
+          className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 hover:text-blue-800 disabled:opacity-50"
+        >
+          {subiendo ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <Paperclip className="h-3 w-3" />
+          )}
+          Adjuntar
+        </button>
+      </div>
+
+      {cargando ? (
+        <div className="flex items-center gap-2 text-xs text-slate-400 py-1">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          Cargando...
+        </div>
+      ) : adjuntos.length === 0 ? (
+        <p className="text-xs text-slate-400">Sin comprobante adjunto</p>
+      ) : (
+        <ul className="space-y-1.5">
+          {adjuntos.map((adjunto) => (
+            <li key={adjunto.id} className="flex items-center gap-2">
+              {adjunto.tipo === "imagen" && adjunto.download_url ? (
+                <a href={adjunto.download_url} target="_blank" rel="noopener noreferrer">
+                  <img
+                    src={adjunto.download_url}
+                    alt={adjunto.nombre}
+                    className="h-10 w-10 rounded object-cover border border-slate-200"
+                  />
+                </a>
+              ) : (
+                <div className="h-10 w-10 rounded bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
+                  <FileText className="h-4 w-4 text-slate-400" />
+                </div>
+              )}
+              <span className="text-xs text-slate-600 truncate flex-1 min-w-0">
+                {adjunto.nombre}
+              </span>
+              {adjunto.download_url && (
+                <a
+                  href={adjunto.download_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50 shrink-0"
+                  title="Abrir o descargar"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                </a>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -646,6 +800,9 @@ function TransactionDetailsDialog({
             </p>
           </div>
 
+          {/* Comprobante (foto/documento) — se puede ver o adjuntar aquí mismo */}
+          <ComprobanteAdjuntoSection transactionId={transaction.id} />
+
           {/* Saldos */}
           <div className="grid grid-cols-2 gap-2">
             <div className="rounded-xl border border-slate-200 p-3">
@@ -699,8 +856,9 @@ function WalletPageContent() {
   const { toast } = useToast();
   const { permiso: walletPermiso } = useMyWalletPermiso();
   const canSeeAll = !!walletPermiso?.verTodos;
-  const canManageBancoGlobal = !!walletPermiso?.gestionarBancoGlobal;
-  const [isBancoGlobalOpen, setIsBancoGlobalOpen] = useState(false);
+  const isWalletAdmin = !!walletPermiso?.esAdmin;
+  const { bancos, loading: loadingBancos, creando: creandoBanco, crear: crearBanco } =
+    useBancos(isWalletAdmin);
   const {
     wallet,
     wallets,
@@ -752,6 +910,7 @@ function WalletPageContent() {
   const [tipo, setTipo] = useState<WalletTransactionType>("ingreso");
   const [montosPorMoneda, setMontosPorMoneda] = useState<Record<string, string>>({});
   const [motivo, setMotivo] = useState("");
+  const [comprobanteFile, setComprobanteFile] = useState<File | null>(null);
   // Persona a la que se le entrega el dinero en un gasto (opcional): o se
   // elige un trabajador de la lista (personaCi) o se escribe a mano
   // (personaNombreManual), nunca las dos cosas a la vez.
@@ -803,6 +962,278 @@ function WalletPageContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedCounterpartCi, setSelectedCounterpartCi] = useState("");
+
+  // ─── Vista de Banco ──────────────────────────────────────────────────────
+  // Un banco es, para efectos de lectura, "otra wallet" — pero solo un
+  // wallet-admin puede verla/operarla, así que se carga con BancoService (no
+  // con loadWalletDetail, que autoriza por `ver_todos`).
+  type BancoActiveAction = "ingreso" | "gasto" | "transferencia" | "comision" | null;
+
+  const [viewedBanco, setViewedBanco] = useState<Banco | null>(null);
+  const [bancoWallet, setBancoWallet] = useState<WalletType | null>(null);
+  const [bancoTransactions, setBancoTransactions] = useState<WalletTransaction[]>([]);
+  const [totalBancoTransactions, setTotalBancoTransactions] = useState(0);
+  const [bancoTxTotalsByCurrency, setBancoTxTotalsByCurrency] = useState<TotalPorMoneda[]>([]);
+  const [loadingBancoDetail, setLoadingBancoDetail] = useState(false);
+  const [bancoFiltroTipo, setBancoFiltroTipo] = useState<"todos" | WalletTransactionType>("todos");
+  const [bancoTxPage, setBancoTxPage] = useState(0);
+  const [bancoSearchQuery, setBancoSearchQuery] = useState("");
+  const [bancoDebouncedSearch, setBancoDebouncedSearch] = useState("");
+
+  const [bancoActiveAction, setBancoActiveAction] = useState<BancoActiveAction>(null);
+  const [bancoMonto, setBancoMonto] = useState("");
+  const [bancoCurrencyId, setBancoCurrencyId] = useState("");
+  const [bancoMotivo, setBancoMotivo] = useState("");
+  const [bancoReferencia, setBancoReferencia] = useState("");
+  const [bancoComprobanteFile, setBancoComprobanteFile] = useState<File | null>(null);
+  const [bancoTransferenciaAsociadaId, setBancoTransferenciaAsociadaId] = useState("");
+  const [bancoTransferDestinoCi, setBancoTransferDestinoCi] = useState("");
+  const [bancoTransferTargetSearch, setBancoTransferTargetSearch] = useState("");
+  const [creatingBancoTransaction, setCreatingBancoTransaction] = useState(false);
+  const [selectedBancoTransaction, setSelectedBancoTransaction] = useState<WalletTransaction | null>(null);
+  const [isBancoTransactionDetailOpen, setIsBancoTransactionDetailOpen] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setBancoDebouncedSearch(bancoSearchQuery), 400);
+    return () => clearTimeout(t);
+  }, [bancoSearchQuery]);
+
+  useEffect(() => {
+    setBancoTxPage(0);
+  }, [bancoFiltroTipo, bancoDebouncedSearch]);
+
+  const bancoCurrentFilters = useMemo(
+    () => ({
+      limit: TX_PAGE_SIZE,
+      skip: bancoTxPage * TX_PAGE_SIZE,
+      tipo: bancoFiltroTipo === "todos" ? undefined : bancoFiltroTipo,
+      q: bancoDebouncedSearch.trim() || undefined,
+    }),
+    [bancoFiltroTipo, bancoTxPage, bancoDebouncedSearch],
+  );
+
+  const loadBancoDetail = useCallback(
+    async (bancoId: string, filters: Parameters<typeof BancoService.getDetalle>[1] = {}) => {
+      setLoadingBancoDetail(true);
+      try {
+        const detalle = await BancoService.getDetalle(bancoId, filters);
+        setBancoWallet(detalle.wallet);
+        setBancoTransactions(detalle.transacciones);
+        setTotalBancoTransactions(detalle.total);
+        setBancoTxTotalsByCurrency(detalle.totals_by_currency);
+        return detalle;
+      } catch (err) {
+        toast({
+          title: "Error",
+          description: err instanceof Error ? err.message : "No se pudo cargar el banco",
+          variant: "destructive",
+        });
+        throw err;
+      } finally {
+        setLoadingBancoDetail(false);
+      }
+    },
+    [toast],
+  );
+
+  useEffect(() => {
+    if (!viewedBanco) return;
+    void loadBancoDetail(viewedBanco.id, bancoCurrentFilters);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewedBanco, bancoCurrentFilters]);
+
+  const resetBancoForm = () => {
+    setBancoMonto("");
+    setBancoCurrencyId(currencies[0]?.id || "");
+    setBancoMotivo("");
+    setBancoReferencia("");
+    setBancoComprobanteFile(null);
+    setBancoTransferenciaAsociadaId("");
+    setBancoTransferDestinoCi("");
+    setBancoTransferTargetSearch("");
+  };
+
+  const handleSelectBancoFromMenu = (banco: Banco) => {
+    setViewedBanco(banco);
+    setBancoActiveAction(null);
+    setBancoTxPage(0);
+    setBancoFiltroTipo("todos");
+    setBancoSearchQuery("");
+    resetBancoForm();
+  };
+
+  const handleSelectPersonalFromMenu = () => {
+    setViewedBanco(null);
+    setBancoWallet(null);
+    setBancoTransactions([]);
+    setBancoActiveAction(null);
+  };
+
+  const handleToggleBancoAction = (action: Exclude<BancoActiveAction, null>) => {
+    if (bancoActiveAction === action) {
+      setBancoActiveAction(null);
+    } else {
+      setBancoActiveAction(action);
+    }
+    resetBancoForm();
+  };
+
+  const subirComprobanteBancoSiAplica = async (transactionId: string) => {
+    if (!bancoComprobanteFile) return;
+    try {
+      await WalletService.uploadTransactionAdjunto(transactionId, [bancoComprobanteFile]);
+    } catch (err) {
+      toast({
+        title: "Comprobante no adjuntado",
+        description:
+          err instanceof Error
+            ? err.message
+            : "El movimiento se registró, pero no se pudo subir el comprobante.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSaveBancoTransaction = async () => {
+    if (!viewedBanco || !bancoActiveAction || bancoActiveAction === "transferencia") return;
+    const montoNum = Number(bancoMonto.replace(",", "."));
+    if (!bancoCurrencyId || !bancoMonto || !Number.isFinite(montoNum) || montoNum <= 0) {
+      toast({ title: "Monto inválido", description: "Ingresa un monto mayor que 0.", variant: "destructive" });
+      return;
+    }
+    const trimmedReason = bancoMotivo.trim();
+    if (trimmedReason.length < 5) {
+      toast({ title: "Motivo requerido", description: "Escribe un motivo con al menos 5 caracteres.", variant: "destructive" });
+      return;
+    }
+
+    setCreatingBancoTransaction(true);
+    try {
+      const creada = await BancoService.crearTransaccion(viewedBanco.id, {
+        tipo: bancoActiveAction,
+        currency_id: bancoCurrencyId,
+        monto: montoNum,
+        motivo: trimmedReason,
+        referencia_externa: bancoReferencia.trim() || undefined,
+        ...(bancoActiveAction === "comision" && bancoTransferenciaAsociadaId
+          ? { transferencia_id: bancoTransferenciaAsociadaId }
+          : {}),
+      });
+      await subirComprobanteBancoSiAplica(creada.id);
+      const monedaCodigo = currencies.find((c) => c.id === bancoCurrencyId)?.codigo || "USD";
+      toast({
+        title: "Movimiento registrado",
+        description: `${formatMoney(montoNum, monedaCodigo)} registrado en ${viewedBanco.nombre}.`,
+      });
+      setBancoActiveAction(null);
+      resetBancoForm();
+      await loadBancoDetail(viewedBanco.id, bancoCurrentFilters);
+    } catch (err: unknown) {
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "No se pudo registrar el movimiento",
+        variant: "destructive",
+      });
+    } finally {
+      setCreatingBancoTransaction(false);
+    }
+  };
+
+  const bancoTransferTargets = useMemo(() => {
+    const query = normalizeSearchText(bancoTransferTargetSearch.trim());
+    const candidatos = walletsLookup.filter((w) => w.user_ci !== bancoWallet?.user_ci);
+    if (!query) return candidatos;
+    return candidatos.filter(
+      (w) =>
+        normalizeSearchText(w.user_nombre).includes(query) ||
+        w.user_ci.includes(bancoTransferTargetSearch.trim()),
+    );
+  }, [walletsLookup, bancoTransferTargetSearch, bancoWallet]);
+
+  const selectedBancoTransferTarget = useMemo(
+    () => walletsLookup.find((w) => w.user_ci === bancoTransferDestinoCi) || null,
+    [walletsLookup, bancoTransferDestinoCi],
+  );
+
+  const handleSaveBancoTransfer = async () => {
+    if (!viewedBanco || !bancoWallet || !selectedBancoTransferTarget) {
+      toast({ title: "Destino requerido", description: "Elige a quién transferir.", variant: "destructive" });
+      return;
+    }
+    const montoNum = Number(bancoMonto.replace(",", "."));
+    if (!bancoCurrencyId || !bancoMonto || !Number.isFinite(montoNum) || montoNum <= 0) {
+      toast({ title: "Monto inválido", description: "Ingresa un monto mayor que 0.", variant: "destructive" });
+      return;
+    }
+    const trimmedReason = bancoMotivo.trim();
+    if (trimmedReason.length < 5) {
+      toast({ title: "Motivo requerido", description: "Escribe un motivo con al menos 5 caracteres.", variant: "destructive" });
+      return;
+    }
+
+    setCreatingBancoTransaction(true);
+    try {
+      let destWalletId = selectedBancoTransferTarget.id;
+      if (!destWalletId) {
+        const ensured = await WalletService.ensureWallet(
+          selectedBancoTransferTarget.user_ci,
+          selectedBancoTransferTarget.user_nombre,
+        );
+        destWalletId = ensured.id;
+        void loadWalletsLookup({ limit: 1000 });
+      }
+
+      await createTransfer({
+        wallet_origen_id: bancoWallet.id,
+        wallet_destino_id: destWalletId,
+        currency_id: bancoCurrencyId,
+        monto: montoNum,
+        motivo: trimmedReason,
+        referencia_externa: bancoReferencia.trim() || undefined,
+      });
+      toast({
+        title: "Transferencia enviada",
+        description: `Esperando que ${selectedBancoTransferTarget.user_nombre} la acepte.`,
+      });
+      setBancoActiveAction(null);
+      resetBancoForm();
+      await loadBancoDetail(viewedBanco.id, bancoCurrentFilters);
+    } catch (err: unknown) {
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "No se pudo registrar la transferencia",
+        variant: "destructive",
+      });
+    } finally {
+      setCreatingBancoTransaction(false);
+    }
+  };
+
+  const bancoTransferenciasRecientes = useMemo(
+    () =>
+      bancoTransactions
+        .filter(
+          (t) =>
+            (t.tipo === "transferencia_entrada" || t.tipo === "transferencia_salida") &&
+            t.transferencia_id,
+        )
+        .reduce<Array<{ id: string; label: string }>>((acc, t) => {
+          if (acc.some((item) => item.id === t.transferencia_id)) return acc;
+          const contraparte = t.contraparte_user_nombre || "—";
+          const direccion = t.tipo === "transferencia_salida" ? "a" : "de";
+          acc.push({
+            id: t.transferencia_id as string,
+            label: `${formatMoney(t.monto, t.currency_code || "USD")} ${direccion} ${contraparte} · ${formatDateTime(t.created_at)}`,
+          });
+          return acc;
+        }, []),
+    [bancoTransactions],
+  );
+
+  const openBancoTransactionDetail = (transaction: WalletTransaction) => {
+    setSelectedBancoTransaction(transaction);
+    setIsBancoTransactionDetailOpen(true);
+  };
 
   // Debounce de búsqueda: espera 400ms antes de disparar la consulta
   useEffect(() => {
@@ -1056,9 +1487,11 @@ function WalletPageContent() {
         : {};
 
     try {
-      // Crear una transacción por cada moneda con monto
+      // Crear una transacción por cada moneda con monto. Si hay comprobante,
+      // se sube después de cada una (mismo archivo si son varias monedas a
+      // la vez — es el mismo recibo).
       for (const entry of entries) {
-        await createTransaction(
+        const creada = await createTransaction(
           {
             tipo,
             currency_id: entry.currency_id,
@@ -1068,9 +1501,24 @@ function WalletPageContent() {
           },
           currentFilters,
         );
+        if (comprobanteFile) {
+          try {
+            await WalletService.uploadTransactionAdjunto(creada.id, [comprobanteFile]);
+          } catch (err) {
+            toast({
+              title: "Comprobante no adjuntado",
+              description:
+                err instanceof Error
+                  ? err.message
+                  : "El movimiento se registró, pero no se pudo subir el comprobante.",
+              variant: "destructive",
+            });
+          }
+        }
       }
       setMontosPorMoneda({});
       setMotivo("");
+      setComprobanteFile(null);
       limpiarPersona();
       const resumen = entries
         .map((e) => formatMoney(e.amount, e.code))
@@ -1393,11 +1841,13 @@ function WalletPageContent() {
       setActiveAction(null);
       setMontosPorMoneda({});
       setMotivo("");
+      setComprobanteFile(null);
       limpiarPersona();
     } else {
       setActiveAction(action);
       setMontosPorMoneda({});
       setMotivo("");
+      setComprobanteFile(null);
       limpiarPersona();
       if (action === "ingreso") setTipo("ingreso");
       if (action === "gasto") setTipo("gasto");
@@ -1414,27 +1864,22 @@ function WalletPageContent() {
     <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <Toaster />
 
-      <BancoGlobalSheet
-        open={isBancoGlobalOpen}
-        onOpenChange={setIsBancoGlobalOpen}
-      />
-
       <ModuleHeader
         title="Billetera"
         subtitle="Control de saldos y movimientos"
         actions={
           <>
             {walletPermiso?.esAdmin && <WalletsConSaldoButton />}
-            {canManageBancoGlobal && (
-              <Button
-                variant="outline"
-                onClick={() => setIsBancoGlobalOpen(true)}
-                className="gap-1.5 border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700"
-                title="Banco CubespAuto"
-              >
-                <Landmark className="h-4 w-4" />
-                <span className="hidden sm:inline text-sm">Banco Cubespauto</span>
-              </Button>
+            {isWalletAdmin && (
+              <BancosMenu
+                bancos={bancos}
+                loadingBancos={loadingBancos}
+                viewedBancoId={viewedBanco?.id ?? null}
+                onSelectPersonal={handleSelectPersonalFromMenu}
+                onSelectBanco={handleSelectBancoFromMenu}
+                onCrearBanco={(nombre) => crearBanco({ nombre })}
+                creando={creandoBanco}
+              />
             )}
             <Button
               variant="outline"
@@ -1464,6 +1909,482 @@ function WalletPageContent() {
           se ensancha para aprovechar la laptop, alineado con el max-w-7xl que
           usa el resto de los módulos. */}
       <main className={`content-with-fixed-header mx-auto px-4 py-4 sm:py-6 space-y-4 ${canSeeAll ? "max-w-4xl lg:max-w-7xl" : "max-w-2xl lg:max-w-5xl"}`}>
+        {viewedBanco ? (
+          <>
+            {/* Balance Hero Card del banco */}
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-700 via-blue-800 to-blue-900 p-5 text-white shadow-lg">
+              <div className="absolute -top-8 -right-8 h-36 w-36 rounded-full bg-white/5" />
+              <div className="absolute -bottom-10 -left-4 h-28 w-28 rounded-full bg-white/5" />
+              <div className="relative">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="bg-white/10 rounded-full p-1.5">
+                      <Landmark className="h-4 w-4 text-white/80" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-blue-300 uppercase tracking-wider mb-0.5">Banco</p>
+                      <p className="text-sm text-blue-100 font-medium">{viewedBanco.nombre}</p>
+                    </div>
+                  </div>
+                  {loadingBancoDetail && (
+                    <RefreshCcw className="h-4 w-4 text-blue-200 animate-spin" />
+                  )}
+                </div>
+
+                {bancoWallet?.balances && bancoWallet.balances.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {bancoWallet.balances.map((b) => (
+                      <div key={b.currency_id} className="rounded-xl px-3 py-2 bg-white/5 border border-white/10">
+                        <p className="text-[10px] uppercase tracking-wider text-blue-300 font-semibold">
+                          {b.currency_code}
+                        </p>
+                        <p className="text-base sm:text-lg font-bold tracking-tight tabular-nums truncate">
+                          {formatMoney(b.amount, b.currency_code)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-2xl font-bold tracking-tight">—</p>
+                )}
+                <p className="text-xs text-blue-300 mt-3">
+                  {totalBancoTransactions} movimiento{totalBancoTransactions === 1 ? "" : "s"} registrado
+                  {totalBancoTransactions === 1 ? "" : "s"}
+                </p>
+              </div>
+            </div>
+
+            {/* Quick actions del banco */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <button
+                onClick={() => handleToggleBancoAction("ingreso")}
+                className={`flex flex-col items-center gap-1.5 rounded-xl p-3 border transition-all ${
+                  bancoActiveAction === "ingreso"
+                    ? "bg-emerald-500 border-emerald-500 text-white shadow-md shadow-emerald-200"
+                    : "bg-white border-slate-200 text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
+                }`}
+              >
+                <div className={`rounded-full p-2 ${bancoActiveAction === "ingreso" ? "bg-white/20" : "bg-emerald-100"}`}>
+                  <TrendingUp className={`h-4 w-4 ${bancoActiveAction === "ingreso" ? "text-white" : "text-emerald-600"}`} />
+                </div>
+                <span className="text-xs font-medium">Ingreso</span>
+              </button>
+
+              <button
+                onClick={() => handleToggleBancoAction("gasto")}
+                className={`flex flex-col items-center gap-1.5 rounded-xl p-3 border transition-all ${
+                  bancoActiveAction === "gasto"
+                    ? "bg-rose-500 border-rose-500 text-white shadow-md shadow-rose-200"
+                    : "bg-white border-slate-200 text-slate-700 hover:border-rose-300 hover:bg-rose-50"
+                }`}
+              >
+                <div className={`rounded-full p-2 ${bancoActiveAction === "gasto" ? "bg-white/20" : "bg-rose-100"}`}>
+                  <TrendingDown className={`h-4 w-4 ${bancoActiveAction === "gasto" ? "text-white" : "text-rose-600"}`} />
+                </div>
+                <span className="text-xs font-medium">Gasto</span>
+              </button>
+
+              <button
+                onClick={() => handleToggleBancoAction("transferencia")}
+                className={`flex flex-col items-center gap-1.5 rounded-xl p-3 border transition-all ${
+                  bancoActiveAction === "transferencia"
+                    ? "bg-violet-500 border-violet-500 text-white shadow-md shadow-violet-200"
+                    : "bg-white border-slate-200 text-slate-700 hover:border-violet-300 hover:bg-violet-50"
+                }`}
+              >
+                <div className={`rounded-full p-2 ${bancoActiveAction === "transferencia" ? "bg-white/20" : "bg-violet-100"}`}>
+                  <SendHorizontal className={`h-4 w-4 ${bancoActiveAction === "transferencia" ? "text-white" : "text-violet-600"}`} />
+                </div>
+                <span className="text-xs font-medium">Enviar</span>
+              </button>
+
+              <button
+                onClick={() => handleToggleBancoAction("comision")}
+                className={`flex flex-col items-center gap-1.5 rounded-xl p-3 border transition-all ${
+                  bancoActiveAction === "comision"
+                    ? "bg-amber-500 border-amber-500 text-white shadow-md shadow-amber-200"
+                    : "bg-white border-slate-200 text-slate-700 hover:border-amber-300 hover:bg-amber-50"
+                }`}
+              >
+                <div className={`rounded-full p-2 ${bancoActiveAction === "comision" ? "bg-white/20" : "bg-amber-100"}`}>
+                  <Percent className={`h-4 w-4 ${bancoActiveAction === "comision" ? "text-white" : "text-amber-600"}`} />
+                </div>
+                <span className="text-xs font-medium">Comisión</span>
+              </button>
+            </div>
+
+            {/* Formulario ingreso / gasto / comisión */}
+            {(bancoActiveAction === "ingreso" || bancoActiveAction === "gasto" || bancoActiveAction === "comision") && (
+              <Card className="border-slate-200 shadow-sm rounded-2xl overflow-hidden">
+                <CardHeader
+                  className={`pb-3 pt-4 px-4 ${
+                    bancoActiveAction === "ingreso"
+                      ? "bg-emerald-50"
+                      : bancoActiveAction === "gasto"
+                      ? "bg-rose-50"
+                      : "bg-amber-50"
+                  }`}
+                >
+                  <CardTitle
+                    className={`text-sm font-semibold ${
+                      bancoActiveAction === "ingreso"
+                        ? "text-emerald-800"
+                        : bancoActiveAction === "gasto"
+                        ? "text-rose-800"
+                        : "text-amber-800"
+                    }`}
+                  >
+                    {bancoActiveAction === "ingreso"
+                      ? "Registrar ingreso"
+                      : bancoActiveAction === "gasto"
+                      ? "Registrar gasto"
+                      : "Registrar comisión"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Monto</Label>
+                      <Input
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={bancoMonto}
+                        onChange={(e) => setBancoMonto(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Moneda</Label>
+                      <Select value={bancoCurrencyId} onValueChange={setBancoCurrencyId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Moneda" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {currencies.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.codigo} — {c.nombre}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs">Motivo</Label>
+                    <Textarea
+                      placeholder="Descripción del movimiento (mín. 5 caracteres)"
+                      value={bancoMotivo}
+                      onChange={(e) => setBancoMotivo(e.target.value)}
+                      rows={2}
+                      className="resize-none text-sm"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs">Referencia externa (opcional)</Label>
+                    <Input
+                      placeholder="Nº factura, ID pago, etc."
+                      value={bancoReferencia}
+                      onChange={(e) => setBancoReferencia(e.target.value)}
+                    />
+                  </div>
+
+                  {bancoActiveAction === "comision" && (
+                    <div className="space-y-1">
+                      <Label className="text-xs">Transferencia asociada (opcional)</Label>
+                      <Select
+                        value={bancoTransferenciaAsociadaId || "__ninguna__"}
+                        onValueChange={(v) =>
+                          setBancoTransferenciaAsociadaId(v === "__ninguna__" ? "" : v)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Comisión suelta" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__ninguna__">Comisión suelta (sin asociar)</SelectItem>
+                          {bancoTransferenciasRecientes.map((t) => (
+                            <SelectItem key={t.id} value={t.id}>
+                              {t.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {bancoTransferenciasRecientes.length === 0 && (
+                        <p className="text-[11px] text-slate-400">
+                          Solo aparecen las transferencias visibles con los filtros actuales del historial.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <AdjuntoComprobanteField
+                    file={bancoComprobanteFile}
+                    onChange={setBancoComprobanteFile}
+                    disabled={creatingBancoTransaction}
+                  />
+
+                  <Button
+                    onClick={() => void handleSaveBancoTransaction()}
+                    disabled={creatingBancoTransaction}
+                    className={`w-full h-10 font-medium ${
+                      bancoActiveAction === "ingreso"
+                        ? "bg-emerald-600 hover:bg-emerald-700"
+                        : bancoActiveAction === "gasto"
+                        ? "bg-rose-600 hover:bg-rose-700"
+                        : "bg-amber-600 hover:bg-amber-700"
+                    }`}
+                  >
+                    {creatingBancoTransaction ? "Registrando..." : "Guardar"}
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Formulario de transferencia */}
+            {bancoActiveAction === "transferencia" && (
+              <Card className="border-slate-200 shadow-sm rounded-2xl overflow-hidden">
+                <CardHeader className="pb-3 pt-4 px-4 bg-violet-50">
+                  <CardTitle className="text-sm font-semibold text-violet-800">
+                    Transferir desde {viewedBanco.nombre}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 space-y-3">
+                  <div className="space-y-1 relative">
+                    <Label className="text-xs">Destino</Label>
+                    <Input
+                      placeholder="Buscar por nombre o CI..."
+                      value={
+                        selectedBancoTransferTarget
+                          ? selectedBancoTransferTarget.user_nombre
+                          : bancoTransferTargetSearch
+                      }
+                      onChange={(e) => {
+                        setBancoTransferDestinoCi("");
+                        setBancoTransferTargetSearch(e.target.value);
+                      }}
+                    />
+                    {!selectedBancoTransferTarget && bancoTransferTargetSearch.trim() && (
+                      <div className="absolute z-10 mt-1 w-full max-h-52 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+                        {bancoTransferTargets.length === 0 ? (
+                          <p className="px-3 py-2 text-xs text-slate-400">Sin resultados</p>
+                        ) : (
+                          bancoTransferTargets.slice(0, 20).map((w) => (
+                            <button
+                              key={w.user_ci}
+                              type="button"
+                              onClick={() => {
+                                setBancoTransferDestinoCi(w.user_ci);
+                                setBancoTransferTargetSearch("");
+                              }}
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-violet-50 transition-colors"
+                            >
+                              <p className="font-medium text-slate-800 truncate">{w.user_nombre}</p>
+                              <p className="text-[11px] text-slate-400">CI: {w.user_ci}</p>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+                    {selectedBancoTransferTarget && (
+                      <button
+                        type="button"
+                        onClick={() => setBancoTransferDestinoCi("")}
+                        className="text-[11px] text-violet-600 hover:underline"
+                      >
+                        Cambiar destino
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Monto</Label>
+                      <Input
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={bancoMonto}
+                        onChange={(e) => setBancoMonto(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Moneda</Label>
+                      <Select value={bancoCurrencyId} onValueChange={setBancoCurrencyId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Moneda" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {currencies.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.codigo} — {c.nombre}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs">Motivo</Label>
+                    <Textarea
+                      placeholder="Descripción de la transferencia (mín. 5 caracteres)"
+                      value={bancoMotivo}
+                      onChange={(e) => setBancoMotivo(e.target.value)}
+                      rows={2}
+                      className="resize-none text-sm"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs">Referencia externa (opcional)</Label>
+                    <Input
+                      placeholder="Nº factura, ID pago, etc."
+                      value={bancoReferencia}
+                      onChange={(e) => setBancoReferencia(e.target.value)}
+                    />
+                  </div>
+
+                  <p className="text-[11px] text-slate-400">
+                    El comprobante se puede adjuntar después, abriendo el detalle de la
+                    transferencia una vez aceptada.
+                  </p>
+
+                  <Button
+                    onClick={() => void handleSaveBancoTransfer()}
+                    disabled={creatingBancoTransaction}
+                    className="w-full h-10 font-medium bg-violet-600 hover:bg-violet-700"
+                  >
+                    {creatingBancoTransaction ? "Enviando..." : "Enviar transferencia"}
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Historial de movimientos del banco */}
+            <Card className="border-slate-200 shadow-sm rounded-2xl overflow-hidden">
+              <CardHeader className="pb-3 pt-4 px-4">
+                <div className="flex items-center justify-between gap-2">
+                  <CardTitle className="text-sm font-semibold text-slate-800">
+                    Movimientos de {viewedBanco.nombre}
+                  </CardTitle>
+                </div>
+                {bancoTxTotalsByCurrency.length > 0 && (
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1">
+                    {bancoTxTotalsByCurrency.map((t) => (
+                      <span key={t.currency_code} className="text-[11px] text-slate-500">
+                        <span className="font-semibold text-slate-600">{t.currency_code}</span>{" "}
+                        <span className="text-emerald-600">+{formatMoney(t.ingreso_total, t.currency_code)}</span>
+                        {" · "}
+                        <span className="text-rose-600">-{formatMoney(t.gasto_total, t.currency_code)}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </CardHeader>
+              <CardContent className="p-4 space-y-3">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                  <Input
+                    placeholder="Buscar por motivo o contraparte..."
+                    value={bancoSearchQuery}
+                    onChange={(e) => setBancoSearchQuery(e.target.value)}
+                    className="h-8 pl-8 text-xs"
+                  />
+                </div>
+
+                <div className="flex gap-1.5 flex-wrap">
+                  {(["todos", "ingreso", "gasto", "transferencia", "comision"] as const).map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => setBancoFiltroTipo(f)}
+                      className={`px-3 py-1 rounded-full text-xs font-medium transition-all border ${
+                        bancoFiltroTipo === f
+                          ? f === "ingreso"
+                            ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                            : f === "gasto"
+                            ? "bg-rose-100 text-rose-700 border-rose-200"
+                            : f === "transferencia"
+                            ? "bg-violet-100 text-violet-700 border-violet-200"
+                            : f === "comision"
+                            ? "bg-amber-100 text-amber-700 border-amber-200"
+                            : "bg-slate-800 text-white border-slate-800"
+                          : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
+                      }`}
+                    >
+                      {f === "todos"
+                        ? "Todos"
+                        : f === "ingreso"
+                        ? "Ingresos"
+                        : f === "gasto"
+                        ? "Gastos"
+                        : f === "transferencia"
+                        ? "Transferencias"
+                        : "Comisiones"}
+                    </button>
+                  ))}
+                </div>
+
+                <TransactionsResponsiveList
+                  transactions={bancoTransactions}
+                  loading={loadingBancoDetail}
+                  emptyMessage={
+                    bancoDebouncedSearch || bancoFiltroTipo !== "todos"
+                      ? "No se encontraron movimientos con ese criterio."
+                      : "Este banco no tiene movimientos registrados."
+                  }
+                  fallbackCurrency={bancoWallet?.moneda || "USD"}
+                  showWalletOwner={false}
+                  onSelect={openBancoTransactionDetail}
+                />
+
+                {totalBancoTransactions > TX_PAGE_SIZE && (
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                    <p className="text-xs text-slate-500">
+                      {bancoTxPage * TX_PAGE_SIZE + 1}–
+                      {Math.min((bancoTxPage + 1) * TX_PAGE_SIZE, totalBancoTransactions)} de{" "}
+                      {totalBancoTransactions}
+                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setBancoTxPage((p) => p - 1)}
+                        disabled={bancoTxPage === 0 || loadingBancoDetail}
+                        className="h-8 w-8 p-0"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <span className="text-xs font-medium text-slate-600 min-w-[80px] text-center">
+                        {bancoTxPage + 1} / {Math.ceil(totalBancoTransactions / TX_PAGE_SIZE)}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setBancoTxPage((p) => p + 1)}
+                        disabled={(bancoTxPage + 1) * TX_PAGE_SIZE >= totalBancoTransactions || loadingBancoDetail}
+                        className="h-8 w-8 p-0"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <TransactionDetailsDialog
+              transaction={selectedBancoTransaction}
+              open={isBancoTransactionDetailOpen}
+              onOpenChange={setIsBancoTransactionDetailOpen}
+              fallbackCurrency={bancoWallet?.moneda || "USD"}
+            />
+          </>
+        ) : (
+        <>
         {error && (
           <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 flex items-center justify-between">
             <p className="text-sm text-rose-700">{error}</p>
@@ -1773,6 +2694,12 @@ function WalletPageContent() {
                   )}
                 </div>
               )}
+
+              <AdjuntoComprobanteField
+                file={comprobanteFile}
+                onChange={setComprobanteFile}
+                disabled={creatingTransaction}
+              />
 
               <Button
                 onClick={handleCreateTransaction}
@@ -2670,6 +3597,8 @@ function WalletPageContent() {
             )}
           </CardContent>
         </Card>
+        </>
+        )}
       </main>
 
       {/* Currency Distribution Modal */}

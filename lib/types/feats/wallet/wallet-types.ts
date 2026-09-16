@@ -3,7 +3,27 @@ export type WalletTransactionType =
   | "gasto"
   | "transferencia"
   | "transferencia_entrada"
-  | "transferencia_salida";
+  | "transferencia_salida"
+  // Solo existe en la billetera de un banco. Contablemente resta, igual que
+  // un gasto (ver domain/entities/banco.py en el backend).
+  | "comision";
+
+export type TipoAdjuntoWallet = "imagen" | "documento";
+
+export interface AdjuntoWalletTransaction {
+  id: string;
+  /** Ruta interna del objeto (bucket privado): no sirve para abrir el archivo. */
+  url: string;
+  tipo: TipoAdjuntoWallet;
+  nombre: string;
+  tamano: number;
+  mime_type: string;
+  categoria: "comprobante";
+  subido_por_ci?: string | null;
+  created_at: string;
+  /** URL firmada temporal — la única que abre/descarga el archivo. */
+  download_url?: string | null;
+}
 
 export interface WalletBalance {
   currency_id: string;
@@ -62,6 +82,7 @@ export interface WalletTransaction {
   /** Persona a la que se le entregó el dinero. Solo la llevan los gastos. */
   persona_ci?: string | null;
   persona_nombre?: string | null;
+  adjuntos?: AdjuntoWalletTransaction[];
 }
 
 export interface WalletTransactionCreateData {
@@ -78,6 +99,9 @@ export interface WalletTransactionCreateData {
    */
   persona_ci?: string;
   persona_nombre?: string;
+  /** Solo tiene sentido para tipo="comision": asocia el movimiento a una
+   * transferencia existente del banco. Si se omite, la comisión queda suelta. */
+  transferencia_id?: string;
 }
 
 export interface WalletTransactionsFilters {

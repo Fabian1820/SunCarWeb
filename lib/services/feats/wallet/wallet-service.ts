@@ -1,5 +1,6 @@
 import { apiRequest } from "../../../api-config";
 import type {
+  AdjuntoWalletTransaction,
   WalletBalance,
   WalletConSaldo,
   WalletsConSaldoResult,
@@ -631,51 +632,63 @@ export class WalletService {
     return normalizeCurrency(pickData<WalletCurrency>(response));
   }
 
-  // ─── Banco Global CubespAuto ───────────────────────────────────────────────
+  // ─── Adjuntos (comprobante opcional) ───────────────────────────────────────
+  // Genérico: aplica igual a una transacción personal o de un banco. Subida
+  // en dos pasos (crear la transacción, luego adjuntar), como en vales-salida.
 
-  static async getBancoGlobal(
-    filters: WalletTransactionsFilters = {},
-  ): Promise<{ wallet: Wallet; transacciones: WalletTransaction[]; total: number }> {
-    const search = new URLSearchParams();
-    if (filters.tipo) search.append("tipo", filters.tipo);
-    if (typeof filters.skip === "number") search.append("skip", String(filters.skip));
-    if (typeof filters.limit === "number") search.append("limit", String(filters.limit));
-    if (filters.fecha_desde) search.append("fecha_desde", filters.fecha_desde);
-    if (filters.fecha_hasta) search.append("fecha_hasta", filters.fecha_hasta);
-    if (filters.q) search.append("q", filters.q);
-
-    const qs = search.toString();
+  static async getTransactionAdjuntos(
+    transaccionId: string,
+  ): Promise<AdjuntoWalletTransaction[]> {
     const response = await this.requestWalletEndpoint<
-      { success: boolean; wallet: Wallet; transacciones: WalletTransaction[]; total: number } | ApiErrorResponse
-    >(`/wallet/banco-global${qs ? `?${qs}` : ""}`);
+      WrappedResponse<AdjuntoWalletTransaction[]> | ApiErrorResponse
+    >(`/wallet/transacciones/${transaccionId}/adjuntos`);
 
     if (isApiErrorResponse(response)) {
-      throw new Error(getApiErrorMessage(response, "No se pudo cargar el Banco Global"));
+      throw new Error(
+        getApiErrorMessage(response, "No se pudieron cargar los comprobantes"),
+      );
     }
-
-    const raw = response as { wallet: Wallet; transacciones: WalletTransaction[]; total: number };
-    return {
-      wallet: normalizeWallet(raw.wallet),
-      transacciones: Array.isArray(raw.transacciones) ? raw.transacciones : [],
-      total: raw.total ?? 0,
-    };
+    return Array.isArray(response.data) ? response.data : [];
   }
 
-  static async createBancoGlobalTransaction(
-    data: WalletTransactionCreateData,
-  ): Promise<WalletTransaction> {
+  static async uploadTransactionAdjunto(
+    transaccionId: string,
+    files: File[],
+  ): Promise<AdjuntoWalletTransaction[]> {
+    const formData = new FormData();
+    files.forEach((f) => formData.append("archivos", f));
+
     const response = await this.requestWalletEndpoint<
-      WalletTransaction | WrappedResponse<WalletTransaction> | ApiErrorResponse
-    >("/wallet/banco-global/transaccion", {
+      WrappedResponse<AdjuntoWalletTransaction[]> | ApiErrorResponse
+    >(`/wallet/transacciones/${transaccionId}/adjuntos`, {
       method: "POST",
-      body: JSON.stringify(data),
+      body: formData,
     });
 
     if (isApiErrorResponse(response)) {
-      throw new Error(getApiErrorMessage(response, "No se pudo registrar la transacción"));
+      throw new Error(
+        getApiErrorMessage(response, "No se pudo adjuntar el comprobante"),
+      );
     }
+    return Array.isArray(response.data) ? response.data : [];
+  }
 
-    return pickData<WalletTransaction>(response);
+  static async deleteTransactionAdjunto(
+    transaccionId: string,
+    adjuntoId: string,
+  ): Promise<void> {
+    const response = await this.requestWalletEndpoint<
+      WrappedResponse<void> | ApiErrorResponse
+    >(
+      `/wallet/transacciones/${transaccionId}/adjuntos/${encodeURIComponent(adjuntoId)}`,
+      { method: "DELETE" },
+    );
+
+    if (isApiErrorResponse(response)) {
+      throw new Error(
+        getApiErrorMessage(response, "No se pudo eliminar el comprobante"),
+      );
+    }
   }
 
   /**

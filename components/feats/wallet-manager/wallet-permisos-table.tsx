@@ -6,7 +6,7 @@ import { Button } from "@/components/shared/atom/button"
 import { Switch } from "@/components/shared/molecule/switch"
 import { TrabajadorService } from "@/lib/api-services"
 import { Trabajador } from "@/lib/api-types"
-import { Search, Loader2, Wallet, Shield, Eye, Landmark } from "lucide-react"
+import { Search, Loader2, Shield, Eye } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useWalletPermisos } from "@/hooks/use-wallet-permisos"
 import { normalizeSearchText } from '@/lib/utils/string-utils'
@@ -41,9 +41,9 @@ export function WalletPermisosTable() {
   }
 
   const permisosByCi = useMemo(() => {
-    const map = new Map<string, { verTodos: boolean; esAdmin: boolean; gestionarBancoGlobal: boolean }>()
+    const map = new Map<string, { verTodos: boolean; esAdmin: boolean }>()
     for (const p of permisos) {
-      map.set(p.usuarioCi, { verTodos: p.verTodos, esAdmin: p.esAdmin, gestionarBancoGlobal: p.gestionarBancoGlobal })
+      map.set(p.usuarioCi, { verTodos: p.verTodos, esAdmin: p.esAdmin })
     }
     return map
   }, [permisos])
@@ -58,8 +58,8 @@ export function WalletPermisosTable() {
     filtered.sort((a, b) => {
       const aP = permisosByCi.get(a.CI)
       const bP = permisosByCi.get(b.CI)
-      const aHas = !!(aP && (aP.verTodos || aP.esAdmin || aP.gestionarBancoGlobal))
-      const bHas = !!(bP && (bP.verTodos || bP.esAdmin || bP.gestionarBancoGlobal))
+      const aHas = !!(aP && (aP.verTodos || aP.esAdmin))
+      const bHas = !!(bP && (bP.verTodos || bP.esAdmin))
       if (aHas && !bHas) return -1
       if (!aHas && bHas) return 1
       return a.nombre.localeCompare(b.nombre)
@@ -69,17 +69,16 @@ export function WalletPermisosTable() {
 
   const togglePermiso = async (
     ci: string,
-    field: "verTodos" | "esAdmin" | "gestionarBancoGlobal",
+    field: "verTodos" | "esAdmin",
     value: boolean
   ) => {
-    const current = permisosByCi.get(ci) || { verTodos: false, esAdmin: false, gestionarBancoGlobal: false }
+    const current = permisosByCi.get(ci) || { verTodos: false, esAdmin: false }
     const next = { ...current, [field]: value }
     setSavingCi(ci)
     try {
       const ok = await update(ci, {
         ver_todos: next.verTodos,
         es_admin: next.esAdmin,
-        gestionar_banco_global: next.gestionarBancoGlobal,
       })
       if (ok) {
         toast({
@@ -101,7 +100,7 @@ export function WalletPermisosTable() {
   const isLoading = loadingTrabajadores || loadingPermisos
   const conPermisosCount = trabajadores.filter((t) => {
     const p = permisosByCi.get(t.CI)
-    return p && (p.verTodos || p.esAdmin || p.gestionarBancoGlobal)
+    return p && (p.verTodos || p.esAdmin)
   }).length
 
   return (
@@ -173,12 +172,6 @@ export function WalletPermisosTable() {
                     Admin
                   </div>
                 </th>
-                <th className="text-center px-4 py-3 font-semibold text-sm text-gray-700">
-                  <div className="inline-flex items-center gap-1">
-                    <Landmark className="h-3.5 w-3.5" />
-                    Banco Global
-                  </div>
-                </th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -186,9 +179,8 @@ export function WalletPermisosTable() {
                 const p = permisosByCi.get(t.CI) || {
                   verTodos: false,
                   esAdmin: false,
-                  gestionarBancoGlobal: false,
                 }
-                const tieneAlguno = p.verTodos || p.esAdmin || p.gestionarBancoGlobal
+                const tieneAlguno = p.verTodos || p.esAdmin
                 const isSaving = savingCi === t.CI
                 return (
                   <tr
@@ -214,15 +206,6 @@ export function WalletPermisosTable() {
                         disabled={isSaving}
                         onCheckedChange={(v) =>
                           void togglePermiso(t.CI, "esAdmin", v)
-                        }
-                      />
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <Switch
-                        checked={p.gestionarBancoGlobal}
-                        disabled={isSaving}
-                        onCheckedChange={(v) =>
-                          void togglePermiso(t.CI, "gestionarBancoGlobal", v)
                         }
                       />
                     </td>
