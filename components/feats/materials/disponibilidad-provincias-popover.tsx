@@ -73,6 +73,8 @@ export function DisponibilidadProvinciasPopover({
   const marcarTodas = (activo: boolean) =>
     setFilas((prev) => prev.map((f) => ({ ...f, activo })));
 
+  const sinProvincias = !cargando && filas.length === 0;
+
   const guardar = async () => {
     setGuardando(true);
     setError(null);
@@ -125,15 +127,14 @@ export function DisponibilidadProvinciasPopover({
           <span className="text-xs text-gray-500">{activas}/16</span>
         </div>
 
-        <div className="flex gap-2 px-3 py-2 border-b bg-gray-50">
+        <div className="flex items-center gap-2 px-3 py-2 border-b bg-gray-50">
           <Button size="sm" variant="outline" className="h-7 text-xs"
                   onClick={() => marcarTodas(true)} disabled={cargando || guardando}>
             Todas
           </Button>
-          <Button size="sm" variant="outline" className="h-7 text-xs"
-                  onClick={() => marcarTodas(false)} disabled={cargando || guardando}>
-            Ninguna
-          </Button>
+          <span className="text-[11px] text-gray-500">
+            Para retirarlo de la web, usa el interruptor On/Off.
+          </span>
         </div>
 
         {cargando ? (
@@ -141,6 +142,11 @@ export function DisponibilidadProvinciasPopover({
             <Loader2 className="h-4 w-4 animate-spin mr-2" /> Cargando…
           </div>
         ) : (
+          sinProvincias ? (
+            <p className="px-3 py-6 text-center text-xs text-gray-500">
+              No se pudo obtener la lista de provincias.
+            </p>
+          ) : (
           <div className="max-h-72 overflow-y-auto divide-y">
             {filas.map((f) => (
               <div key={f.provincia_codigo} className="flex items-center gap-2 px-3 py-2">
@@ -172,6 +178,7 @@ export function DisponibilidadProvinciasPopover({
               </div>
             ))}
           </div>
+          )
         )}
 
         {error && (

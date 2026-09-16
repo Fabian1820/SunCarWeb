@@ -17,6 +17,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/shared/molecule/dialog";
@@ -30,6 +31,7 @@ import {
   X,
   Save,
   Loader2,
+  MoreHorizontal,
 } from "lucide-react";
 import type { Material } from "@/lib/material-types";
 import { DisponibilidadProvinciasPopover } from "./disponibilidad-provincias-popover";
@@ -531,14 +533,15 @@ export function VistaWeb({
                       }
                     />
 
-                    {/* Specifications */}
+                    {/* Especificaciones: solo icono. El titulo explica que es,
+                        porque sin etiqueta los tres puntos no dicen nada. */}
                     <button
                       onClick={() => openSpecsDialog(material)}
-                      className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
-                      title="Especificaciones"
+                      className="flex items-center justify-center w-8 h-8 rounded-md bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
+                      title="Especificaciones técnicas que se muestran en la web"
+                      aria-label="Especificaciones técnicas"
                     >
-                      <FileText className="h-3.5 w-3.5" />
-                      Espec.
+                      <MoreHorizontal className="h-4 w-4" />
                     </button>
 
                     {/* Price by quantity */}
@@ -563,9 +566,24 @@ export function VistaWeb({
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              Especificaciones -{" "}
-              {selectedMaterial?.nombre || selectedMaterial?.descripcion}
+              Especificaciones técnicas
             </DialogTitle>
+            <DialogDescription className="space-y-2 pt-1">
+              <span className="block font-medium text-gray-900">
+                {selectedMaterial?.nombre || selectedMaterial?.descripcion}
+              </span>
+              <span className="block">
+                Esto es lo que el cliente ve en la ficha del producto en
+                suncarsrl.com, en una tabla de dos columnas. Son pares libres:
+                pon el nombre del dato a la izquierda (Voltaje, Garantía,
+                Capacidad) y su valor a la derecha, tal como quieras que se lea.
+              </span>
+              <span className="block text-gray-500">
+                Si lo dejas vacío, la ficha simplemente no muestra la tabla.
+                Escribe solo lo que ayude a decidir la compra — no hace falta
+                repetir el precio ni el nombre.
+              </span>
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             {editSpecs.map((spec, index) => (
