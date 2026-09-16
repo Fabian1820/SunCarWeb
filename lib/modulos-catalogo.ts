@@ -45,6 +45,7 @@ import {
   Send,
   Megaphone,
   Network,
+  Headphones,
 } from "lucide-react"
 
 /**
@@ -286,6 +287,28 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
   },
 
   // ───────── Comercial Instaladora ─────────
+  {
+    key: "atencion-cliente",
+    label: "Atención al Cliente",
+    descripcion:
+      "Guardia de WhatsApp: quién atiende en cada turno, registro de los leads que salen de esas conversaciones y reparto a los comerciales.",
+    icon: Headphones,
+    iconClass: "text-emerald-600",
+    href: "/atencion-cliente",
+    grupo: "comercial-instaladora",
+    subPermisos: [
+      {
+        // ADITIVO a propósito: el módulo base es para quien atiende (registrar
+        // leads y repartirlos). Planificar la rotación y ver el trabajo de los
+        // demás es otro rol, y tener uno no debe conceder el otro.
+        key: "atencion-cliente/planificar",
+        label: "Planificar y supervisar",
+        descripcion:
+          "Definir horarios y turnos, generar la rotación, registrar suplencias y ver el trabajo de cada persona de atención.",
+        aditivo: true,
+      },
+    ],
+  },
   {
     key: "leads",
     label: "Leads",

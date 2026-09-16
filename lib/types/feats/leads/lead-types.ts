@@ -88,6 +88,16 @@ export interface Lead {
   provincia_montaje?: string;
   municipio?: string;
   comercial?: string;
+  /** CI del comercial asignado. Se guarda al repartir desde Atención al
+   *  Cliente; los leads anteriores solo tienen el nombre en `comercial`. */
+  comercial_ci?: string;
+  /** Quién registró el lead en el sistema, del usuario autenticado. No es el
+   *  comercial: es quien lo tecleó. Ausente en leads anteriores y en los que
+   *  crea el bot. */
+  registrado_por_ci?: string;
+  /** Cuándo se tecleó (ISO, UTC). Distinto de `fecha_contacto`, que la pone
+   *  el usuario a mano y puede ser cualquier día. */
+  fecha_registro?: string;
   tipo_negocio?: string; // "BTB" | "BTC", del lead en sí (no del equipo del comercial)
   ofertas?: OfertaEmbebida[];
   fotos?: LeadFoto[];
@@ -126,6 +136,7 @@ export interface LeadCreateData {
   provincia_montaje?: string;
   municipio?: string;
   comercial?: string;
+  comercial_ci?: string;
   tipo_negocio?: string; // "BTB" | "BTC", del lead en sí (no del equipo del comercial)
   ofertas?: OfertaAsignacion[]; // Al crear: solo enviar oferta_id + cantidad
   elementos_personalizados?: ElementoPersonalizado[];
@@ -152,6 +163,7 @@ export interface LeadUpdateData {
   provincia_montaje?: string;
   municipio?: string;
   comercial?: string;
+  comercial_ci?: string;
   tipo_negocio?: string; // "BTB" | "BTC", del lead en sí (no del equipo del comercial)
   ofertas?: OfertaAsignacion[]; // Al actualizar: solo enviar oferta_id + cantidad
   elementos_personalizados?: ElementoPersonalizado[];
