@@ -10,8 +10,8 @@ export type CategoriaContabilidad =
 
 export const CATEGORIAS_CONTABILIDAD: { value: CategoriaContabilidad; label: string }[] = [
   { value: "instaladora_habana", label: "Instaladora Habana" },
-  { value: "instaladora_santa_clara", label: "Instaladora Santa Clara" },
-  { value: "instaladora_las_tunas", label: "Instaladora Las Tunas" },
+  { value: "instaladora_santa_clara", label: "UEB Santa Clara" },
+  { value: "instaladora_las_tunas", label: "UEB Las Tunas" },
   { value: "ventas_habana", label: "Suncar Ventas Habana" },
   { value: "logistica_transporte_seguridad", label: "Logística, transporte y seguridad" },
   { value: "socios_ceo", label: "Ingresos socios o CEO" },
@@ -19,28 +19,36 @@ export const CATEGORIAS_CONTABILIDAD: { value: CategoriaContabilidad; label: str
   { value: "otros_ingresos", label: "Otros ingresos" },
 ];
 
+/** Montos por código de moneda (USD, CUP, EUR, MLC...), sin convertir. */
+export type MontosPorMoneda = Record<string, number>;
+
+export interface IngresosPorTipo {
+  tipo: string;
+  label: string;
+  por_moneda: MontosPorMoneda;
+}
+
+export interface IngresosPorPersona {
+  persona: string;
+  por_moneda: MontosPorMoneda;
+}
+
+export interface ContabilidadIngresos {
+  por_moneda: MontosPorMoneda;
+  por_tipo: IngresosPorTipo[];
+  por_persona: IngresosPorPersona[];
+}
+
 export interface ContabilidadGeneral {
-  ingresos: number;
-  ingresos_instaladora: number;
-  ingresos_ventas: number;
-  ingresos_otros_wallet: number;
-  gastos: number;
-  saldo: number;
+  ingresos: ContabilidadIngresos;
+  gastos: { por_moneda: MontosPorMoneda };
+  saldo: { por_moneda: MontosPorMoneda };
 }
 
 export interface ContabilidadCategoriaResumen {
   categoria: CategoriaContabilidad;
   label: string;
-  ingresos: number;
-  gastos: number;
-  saldo: number;
-}
-
-export interface ContabilidadSinCategoria {
-  ingresos: number;
-  gastos: number;
-  saldo: number;
-  personas: string[];
+  ingresos: ContabilidadIngresos;
 }
 
 export interface ContabilidadResumen {
@@ -48,7 +56,6 @@ export interface ContabilidadResumen {
   fin: string;
   general: ContabilidadGeneral;
   por_categoria: ContabilidadCategoriaResumen[];
-  sin_categoria: ContabilidadSinCategoria;
 }
 
 export interface PersonaCategoria {

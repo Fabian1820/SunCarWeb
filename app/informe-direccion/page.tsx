@@ -24,7 +24,13 @@ import {
 } from "@/components/shared/molecule/card";
 import { Toaster } from "@/components/shared/molecule/toaster";
 import { useToast } from "@/hooks/use-toast";
-import { CalendarRange, FileDown, Loader2, RefreshCw, Wallet } from "lucide-react";
+import { CalendarRange, FileDown, Loader2, RefreshCw, Users, Wallet } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/shared/molecule/dialog";
 import {
   ESTADOS_CLIENTE,
   ESTADO_EQUIPO_INSTALADO,
@@ -526,6 +532,7 @@ function ReporteCobrosPendientes() {
 
 function InformeDireccionContent() {
   const { hasSubPermission } = useAuth();
+  const [personaCategoriaOpen, setPersonaCategoriaOpen] = useState(false);
 
   // Los dos informes son independientes en permisos: el acceso completo al
   // módulo (`informe-direccion`) los concede ambos, pero cada uno se puede dar
@@ -566,8 +573,15 @@ function InformeDireccionContent() {
 
             {(puedeContabilidad || puedeContabilidadConfig) && (
               <TabsContent value="contabilidad" className="space-y-6">
-                {(puedeContabilidad || puedeContabilidadConfig) && <ContabilidadSection />}
-                {puedeContabilidadConfig && <PersonaCategoriaAdmin />}
+                {puedeContabilidadConfig && (
+                  <div className="flex justify-end">
+                    <Button variant="outline" onClick={() => setPersonaCategoriaOpen(true)}>
+                      <Users className="h-4 w-4 mr-2" />
+                      Personas y categorías
+                    </Button>
+                  </div>
+                )}
+                <ContabilidadSection />
               </TabsContent>
             )}
 
@@ -582,6 +596,17 @@ function InformeDireccionContent() {
           </Tabs>
         )}
       </main>
+
+      {puedeContabilidadConfig && (
+        <Dialog open={personaCategoriaOpen} onOpenChange={setPersonaCategoriaOpen}>
+          <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Personas y categorías</DialogTitle>
+            </DialogHeader>
+            <PersonaCategoriaAdmin />
+          </DialogContent>
+        </Dialog>
+      )}
 
       <Toaster />
     </div>

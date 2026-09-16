@@ -166,9 +166,12 @@ export type {
 
 export type {
   CategoriaContabilidad,
+  MontosPorMoneda,
+  IngresosPorTipo,
+  IngresosPorPersona,
+  ContabilidadIngresos,
   ContabilidadGeneral,
   ContabilidadCategoriaResumen,
-  ContabilidadSinCategoria,
   ContabilidadResumen,
   PersonaCategoria,
   PersonaCategoriaUpsertRequest,
