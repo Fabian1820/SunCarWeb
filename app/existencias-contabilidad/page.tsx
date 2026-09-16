@@ -5,10 +5,11 @@ import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Label } from "@/components/shared/atom/label"
 import { Input } from "@/components/shared/molecule/input"
-import { PackageSearch, ClipboardList, Plus, Search } from "lucide-react"
+import { PackageSearch, ClipboardList, Plus, Search, SlidersHorizontal } from "lucide-react"
 import { ContabilidadTable } from "@/components/feats/contabilidad/contabilidad-table"
 import { EntradaManualDialog } from "@/components/feats/contabilidad/entrada-manual-dialog"
 import { CrearTicketDialog } from "@/components/feats/contabilidad/crear-ticket-dialog"
+import { AjustarCantidadDialog } from "@/components/feats/contabilidad/ajustar-cantidad-dialog"
 import {
   MaterialContabilidadDialog,
   type DatosMaterialContabilidad,
@@ -36,13 +37,14 @@ export default function ExistenciasContabilidadPage() {
 }
 
 function ExistenciasContabilidadPageContent() {
-  const { materiales, allMateriales, loading, error, registrarEntrada, crearTicket, crearMaterial, editarMaterial, loadAllMateriales, clearError } =
+  const { materiales, allMateriales, loading, error, registrarEntrada, crearTicket, crearMaterial, editarMaterial, ajustarCantidad, loadAllMateriales, clearError } =
     useContabilidad()
   const { toast } = useToast()
 
   const [entradaDialogOpen, setEntradaDialogOpen] = useState(false)
   const [ticketDialogOpen, setTicketDialogOpen] = useState(false)
   const [materialDialogOpen, setMaterialDialogOpen] = useState(false)
+  const [ajusteDialogOpen, setAjusteDialogOpen] = useState(false)
   const [materialEnEdicion, setMaterialEnEdicion] = useState<MaterialContabilidad | null>(null)
   const [searchCodigoContabilidad, setSearchCodigoContabilidad] = useState("")
 
@@ -98,6 +100,24 @@ function ExistenciasContabilidadPageContent() {
   const abrirAlta = () => {
     setMaterialEnEdicion(null)
     setMaterialDialogOpen(true)
+  }
+
+  const handleAjustar = async (materialId: string, cantidadNueva: number, motivo: string) => {
+    const material = materiales.find((m) => m.id === materialId)
+    const ok = await ajustarCantidad(materialId, cantidadNueva, motivo)
+    if (ok) {
+      toast({
+        title: "Cantidad ajustada",
+        description: `${material?.nombre || "El material"} queda en ${cantidadNueva}. El ajuste quedó registrado con su motivo.`,
+      })
+      setAjusteDialogOpen(false)
+    } else {
+      toast({
+        title: "No se pudo ajustar",
+        description: error || "Revise la cantidad: este ajuste es solo a la baja.",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleGuardarMaterial = async (datos: DatosMaterialContabilidad) => {
@@ -209,6 +229,10 @@ function ExistenciasContabilidadPageContent() {
                 <ClipboardList className="h-4 w-4 mr-2" />
                 Crear Ticket de Salida
               </Button>
+              <Button onClick={() => setAjusteDialogOpen(true)} variant="outline">
+                <SlidersHorizontal className="h-4 w-4 mr-2" />
+                Ajustar Cantidad
+              </Button>
               <Button
                 onClick={abrirAlta}
                 variant="outline"
@@ -259,6 +283,14 @@ function ExistenciasContabilidadPageContent() {
         onOpenChange={setTicketDialogOpen}
         materiales={materiales}
         onSubmit={handleCrearTicket}
+        loading={loading}
+      />
+
+      <AjustarCantidadDialog
+        open={ajusteDialogOpen}
+        onOpenChange={setAjusteDialogOpen}
+        materiales={materiales}
+        onSubmit={handleAjustar}
         loading={loading}
       />
 

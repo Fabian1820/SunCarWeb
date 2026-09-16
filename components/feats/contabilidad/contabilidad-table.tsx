@@ -52,6 +52,24 @@ export function ContabilidadTable({ materiales, loading }: ContabilidadTableProp
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
+                {/* Traza del último cambio de precio. El historial completo está
+                    en la auditoría; aquí basta con ver de cuánto venía. */}
+                {material.precioAnterior !== undefined && (
+                  <div
+                    className="text-[10px] text-amber-700"
+                    title={
+                      material.precioActualizadoEn
+                        ? `Cambiado el ${new Date(material.precioActualizadoEn).toLocaleDateString("es-ES")}`
+                        : undefined
+                    }
+                  >
+                    antes{" "}
+                    {material.precioAnterior.toLocaleString("es-ES", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </div>
+                )}
               </TableCell>
             </TableRow>
           ))}

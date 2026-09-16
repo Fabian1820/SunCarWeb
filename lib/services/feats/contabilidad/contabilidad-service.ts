@@ -168,6 +168,23 @@ export class ContabilidadService {
   }
 
   /**
+   * Ajusta la existencia A LA BAJA con motivo obligatorio.
+   * Para subirla está registrarEntrada, que es otro movimiento.
+   */
+  static async ajustarCantidad(
+    materialId: string,
+    cantidadNueva: number,
+    motivo: string
+  ): Promise<MaterialContabilidadBackend> {
+    const response = await apiRequest<MaterialContabilidadBackend>(
+      `/materiales/${materialId}/contabilidad/ajuste`,
+      { method: 'POST', body: JSON.stringify({ cantidad_nueva: cantidadNueva, motivo }) }
+    )
+    lanzarSiFallo(response, 'ajustar la cantidad')
+    return response
+  }
+
+  /**
    * Da de baja un material de Existencias Contabilidad.
    * Los tickets y facturas que lo referencian conservan su propio snapshot.
    */

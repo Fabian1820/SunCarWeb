@@ -72,7 +72,7 @@ export function MaterialContabilidadDialog({
             um: material.um || "u",
             cantidad: material.cantidadContabilidad ?? 0,
             precio: material.precioContabilidad ?? 0,
-            material_catalogo_id: null,
+            material_catalogo_id: material.materialCatalogoId ?? null,
           }
         : VACIO
     )
@@ -90,6 +90,26 @@ export function MaterialContabilidadDialog({
     ],
     [materialesCatalogo]
   )
+
+  // El catálogo es un ATAJO al dar de alta, no un vínculo que se añade después:
+  // rellena lo que ya está escrito en otro sitio para no teclearlo de nuevo.
+  // Lo que no se toca es el precio: el del catálogo está en USD y este va en CUP.
+  const tomarDelCatalogo = (idCatalogo: string) => {
+    if (!idCatalogo) {
+      setDatos((prev) => ({ ...prev, material_catalogo_id: null }))
+      return
+    }
+    const encontrado = materialesCatalogo.find((m) => String(m.id) === idCatalogo)
+    if (!encontrado) return
+    setDatos((prev) => ({
+      ...prev,
+      material_catalogo_id: idCatalogo,
+      nombre: String(encontrado.nombre || encontrado.descripcion || prev.nombre),
+      descripcion: String(encontrado.descripcion || prev.descripcion),
+      um: String(encontrado.um || prev.um),
+    }))
+    setErrores({})
+  }
 
   const validar = () => {
     const nuevos: Record<string, string> = {}
@@ -133,6 +153,29 @@ export function MaterialContabilidadDialog({
         </DialogHeader>
 
         <div className="space-y-4">
+          {!esEdicion && (
+            <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4">
+              <Label>¿Está en el catálogo del sistema?</Label>
+              <p className="text-xs text-gray-500 mt-1 mb-2">
+                Búsquelo y se rellenan solos el nombre, la unidad y la descripción.
+                Si no está, deje esto en blanco y escríbalo usted.
+              </p>
+              <SearchableSelect
+                options={opcionesCatalogo}
+                value={datos.material_catalogo_id || ""}
+                onValueChange={tomarDelCatalogo}
+                placeholder="Buscar en el catálogo (opcional)"
+                searchPlaceholder="Buscar por código o nombre..."
+                disabled={loading}
+              />
+              {datos.material_catalogo_id && (
+                <p className="text-xs text-emerald-700 mt-2">
+                  Datos tomados del catálogo. Puede corregirlos abajo antes de guardar.
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="codigo_contabilidad">
@@ -219,22 +262,6 @@ export function MaterialContabilidadDialog({
             </div>
           </div>
 
-          <div className="rounded-lg bg-gray-50 p-4">
-            <Label>Vincular con el catálogo (opcional)</Label>
-            <p className="text-xs text-gray-500 mt-1 mb-2">
-              Si este material también existe en el catálogo del sistema, vincularlo
-              hace que las facturas de Solar Carro lo reconozcan solas. Si no existe,
-              déjelo sin vincular.
-            </p>
-            <SearchableSelect
-              options={opcionesCatalogo}
-              value={datos.material_catalogo_id || ""}
-              onValueChange={(v) => setDatos({ ...datos, material_catalogo_id: v || null })}
-              placeholder="Sin vincular"
-              searchPlaceholder="Buscar por código o nombre..."
-              disabled={loading}
-            />
-          </div>
         </div>
 
         <DialogFooter>

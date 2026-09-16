@@ -14,6 +14,9 @@ export interface MaterialContabilidadBackend {
   /** Material del catálogo que respalda esta línea, si lo hay. Opcional: la
    *  contabilidad puede anotar materiales que el catálogo no tiene. */
   material_catalogo_id?: string | null
+  /** Precio anterior, si alguna vez se cambió. La traza completa está en la auditoría. */
+  precio_anterior?: number | null
+  precio_actualizado_en?: string | null
 }
 
 // Material contable (frontend)
@@ -27,6 +30,8 @@ export type MaterialContabilidad = {
   cantidadContabilidad: number
   precioContabilidad: number  // CUP
   materialCatalogoId?: string
+  precioAnterior?: number
+  precioActualizadoEn?: string
 }
 
 // Ticket de salida (backend)
@@ -89,6 +94,8 @@ export function convertMaterialContabilidadToFrontend(
     cantidadContabilidad: backend.cantidad_contabilidad,
     precioContabilidad: backend.precio_contabilidad,
     materialCatalogoId: backend.material_catalogo_id ?? undefined,
+    precioAnterior: backend.precio_anterior ?? undefined,
+    precioActualizadoEn: backend.precio_actualizado_en ?? undefined,
   }
 }
 

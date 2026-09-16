@@ -155,6 +155,25 @@ export function useContabilidad() {
     [loadMateriales]
   )
 
+  const ajustarCantidad = useCallback(
+    async (materialId: string, cantidadNueva: number, motivo: string): Promise<boolean> => {
+      setLoading(true)
+      setError(null)
+      try {
+        await ContabilidadService.ajustarCantidad(materialId, cantidadNueva, motivo)
+        await loadMateriales()
+        return true
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error al ajustar la cantidad')
+        console.error('Error ajustando cantidad:', err)
+        return false
+      } finally {
+        setLoading(false)
+      }
+    },
+    [loadMateriales]
+  )
+
   const eliminarMaterial = useCallback(
     async (materialId: string): Promise<boolean> => {
       setLoading(true)
@@ -188,6 +207,7 @@ export function useContabilidad() {
     crearTicket,
     crearMaterial,
     editarMaterial,
+    ajustarCantidad,
     eliminarMaterial,
     loadTickets,
     loadAllMateriales,
