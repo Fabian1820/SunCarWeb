@@ -103,12 +103,25 @@ function BrigadasPageContent() {
 
   const handleUpdateBrigada = async (formData: BrigadeFormData) => {
     if (!editingBrigade) return
-    
+
     const brigadaRequest = convertBrigadeFormDataToRequest(formData)
     const success = await updateBrigada(editingBrigade.id, brigadaRequest)
     if (success) {
+      toast({
+        title: "Éxito",
+        description: 'Brigada actualizada correctamente',
+      })
       setIsEditBrigadeDialogOpen(false)
       setEditingBrigade(null)
+      // updateBrigada ya recarga backendBrigades; falta refrescar trabajadores
+      // (su es_jefe_brigada/brigada_id cambia si se reasignó el jefe).
+      await refetch()
+    } else {
+      toast({
+        title: "Error",
+        description: 'No se pudo actualizar la brigada',
+        variant: "destructive",
+      })
     }
   }
 
@@ -155,9 +168,9 @@ function BrigadasPageContent() {
     }
   };
 
-  const openEditDialog = (_brigade: Brigade) => {
-    // Función inhabilitada para MVP
-    console.log('Función de editar brigada inhabilitada para MVP')
+  const openEditDialog = (brigade: Brigade) => {
+    setEditingBrigade(brigade)
+    setIsEditBrigadeDialogOpen(true)
   }
 
   const openAddWorkerDialog = (brigade: Brigade) => {

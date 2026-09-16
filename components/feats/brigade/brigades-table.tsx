@@ -5,7 +5,7 @@ import { Button } from "@/components/shared/atom/button"
 import { Badge } from "@/components/shared/atom/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, ConfirmDeleteDialog } from "@/components/shared/molecule/dialog"
-import { Trash2, Users, Crown, Phone, Mail, UserMinus, UserPlus, Eye, Calendar, FileText, ChevronDown, ChevronUp } from "lucide-react"
+import { Trash2, Users, Crown, Phone, Mail, UserMinus, UserPlus, Pencil, Eye, Calendar, FileText, ChevronDown, ChevronUp } from "lucide-react"
 import type { Brigade } from "@/lib/brigade-types"
 import { BrigadaService } from "@/lib/api-services"
 import { useToast } from "@/hooks/use-toast"
@@ -277,7 +277,17 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onAd
 	                  </Button>
 	                </div>
 
-	                <div className="grid grid-cols-3 gap-2">
+	                <div className="grid grid-cols-4 gap-2">
+	                  <Button
+	                    variant="outline"
+	                    className="h-11 w-full border-blue-300 text-blue-700 hover:bg-blue-50 touch-manipulation"
+	                    onClick={() => onEdit(brigade)}
+	                    aria-label="Editar brigada"
+	                    title="Editar brigada"
+	                  >
+	                    <Pencil className="h-4 w-4" />
+	                    <span className="sr-only">Editar</span>
+	                  </Button>
 	                  <Button
 	                    variant="outline"
 	                    className="h-11 w-full border-emerald-300 text-emerald-700 hover:bg-emerald-50 touch-manipulation"
@@ -407,6 +417,15 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onAd
                     <Button
                       variant="outline"
                       size="sm"
+                      onClick={() => onEdit(brigade)}
+                      className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                      title="Editar brigada"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => onAddWorker(brigade)}
                       className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
                       title="Agregar integrante"
@@ -450,9 +469,21 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onAd
               {/* Jefe de Brigada */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Crown className="h-5 w-5 text-emerald-500" />
-                    <span>Jefe de Brigada</span>
+                  <CardTitle className="flex items-center justify-between gap-2">
+                    <div className="flex items-center space-x-2">
+                      <Crown className="h-5 w-5 text-emerald-500" />
+                      <span>Jefe de Brigada</span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onEdit(selectedBrigade)}
+                      className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                      title="Editar brigada"
+                    >
+                      <Pencil className="h-4 w-4 mr-1" />
+                      Editar
+                    </Button>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
