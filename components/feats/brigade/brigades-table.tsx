@@ -1,11 +1,10 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState } from "react"
 import { Button } from "@/components/shared/atom/button"
-import { Badge } from "@/components/shared/atom/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, ConfirmDeleteDialog } from "@/components/shared/molecule/dialog"
-import { Trash2, Users, Crown, Phone, Mail, UserMinus, UserPlus, Eye, Calendar, FileText, ChevronDown, ChevronUp } from "lucide-react"
+import { Card, CardContent } from "@/components/shared/molecule/card"
+import { ConfirmDeleteDialog } from "@/components/shared/molecule/dialog"
+import { Trash2, Users, Crown, UserPlus, X } from "lucide-react"
 import type { Brigade } from "@/lib/brigade-types"
 import { BrigadaService } from "@/lib/api-services"
 import { useToast } from "@/hooks/use-toast"
@@ -19,42 +18,21 @@ interface BrigadesTableProps {
 }
 
 export function BrigadesTable({ brigades, onDelete, onRemoveWorker, onAddWorker, onRefresh }: BrigadesTableProps) {
-  const [selectedBrigade, setSelectedBrigade] = useState<Brigade | null>(null)
-  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
   const [isDeleteBrigadeDialogOpen, setIsDeleteBrigadeDialogOpen] = useState(false)
+  const [brigadeToDelete, setBrigadeToDelete] = useState<Brigade | null>(null)
   const [isDeleteWorkerDialogOpen, setIsDeleteWorkerDialogOpen] = useState(false)
   const [workerToDelete, setWorkerToDelete] = useState<{ liderCi: string, workerId: string, workerName: string } | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
-  const [expandedBrigadeId, setExpandedBrigadeId] = useState<string | null>(null)
-  const [isReportDialogOpen, setIsReportDialogOpen] = useState(false)
-  const [reportLiderCi, setReportLiderCi] = useState<string | null>(null)
-  const [dateRange, setDateRange] = useState<{ from: string; to: string }>({ from: '', to: '' })
-  const [category, setCategory] = useState('')
-  const [isLoadingReport, setIsLoadingReport] = useState(false)
-  const [reportError, setReportError] = useState<string | null>(null)
-  const [reportResults, setReportResults] = useState<any>(null)
-  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
-  const fromInputRef = useRef<HTMLInputElement>(null)
-  const toInputRef = useRef<HTMLInputElement>(null)
-
-  const openDetailDialog = (brigade: Brigade) => {
-    setSelectedBrigade(brigade)
-    setIsDetailDialogOpen(true)
-  }
-
-  const toggleExpanded = (brigadeId: string) => {
-    setExpandedBrigadeId((current) => (current === brigadeId ? null : brigadeId))
-  }
 
   const handleDeleteBrigade = async () => {
-    if (!selectedBrigade) return
-    
+    if (!brigadeToDelete) return
+
     setIsLoading(true)
     try {
       // El backend identifica la brigada por el CI del líder (DELETE /brigadas/{lider_ci}),
       // no por su _id de Mongo.
-      const eliminada = await BrigadaService.eliminarBrigada(selectedBrigade.leader.ci)
+      const eliminada = await BrigadaService.eliminarBrigada(brigadeToDelete.leader.ci)
       if (!eliminada) {
         throw new Error("La brigada no fue encontrada en el servidor")
       }
@@ -72,12 +50,13 @@ export function BrigadesTable({ brigades, onDelete, onRemoveWorker, onAddWorker,
       })
     } finally {
       setIsLoading(false)
+      setBrigadeToDelete(null)
     }
   }
 
   const handleRemoveWorker = async () => {
     if (!workerToDelete) return
-    
+
     setIsLoading(true)
     try {
       // El backend identifica la brigada por el CI del líder
@@ -103,105 +82,18 @@ export function BrigadesTable({ brigades, onDelete, onRemoveWorker, onAddWorker,
       })
     } finally {
       setIsLoading(false)
+      setWorkerToDelete(null)
     }
   }
 
   const openDeleteBrigadeDialog = (brigade: Brigade) => {
-    setSelectedBrigade(brigade)
+    setBrigadeToDelete(brigade)
     setIsDeleteBrigadeDialogOpen(true)
   }
 
   const openDeleteWorkerDialog = (liderCi: string, workerId: string, workerName: string) => {
     setWorkerToDelete({ liderCi, workerId, workerName })
     setIsDeleteWorkerDialogOpen(true)
-  }
-
-  // Abre el modal para una brigada específica o para todas (null)
-  const openReportDialog = (liderCi: string | null = null) => {
-    setReportLiderCi(liderCi)
-    setIsReportDialogOpen(true)
-    setReportResults(null)
-    setReportError(null)
-    setCategory('')
-  }
-  const closeReportDialog = () => {
-    setIsReportDialogOpen(false)
-    setReportLiderCi(null)
-    setDateRange({ from: '', to: '' })
-    setCategory('')
-    setReportResults(null)
-    setReportError(null)
-  }
-
-  // Lógica para consumir el endpoint y mostrar resultados
-  async function handleCalculateReport(e: React.FormEvent) {
-    e.preventDefault()
-    setIsLoadingReport(true)
-    setReportError(null)
-    setReportResults(null)
-    try {
-      const { apiRequest } = await import('@/lib/api-config')
-      const rango = `fecha_inicio=${dateRange.from}&fecha_fin=${dateRange.to}`
-      const filtroCategoria = category ? `&categoria=${encodeURIComponent(category)}` : ''
-      if (reportLiderCi) {
-        // El backend identifica la brigada por el CI del lider, no por su _id.
-        const url = `/reportes/materiales-usados/brigada?lider_ci=${encodeURIComponent(reportLiderCi)}&${rango}${filtroCategoria}`
-        const data = await apiRequest<{ materiales?: unknown }>(url)
-        setReportResults(data.materiales ?? [])
-      } else {
-        const url = `/reportes/materiales-usados/todas-brigadas?${rango}${filtroCategoria}`
-        const data = await apiRequest<{ brigadas?: unknown }>(url)
-        setReportResults(data.brigadas ?? [])
-      }
-    } catch (err: any) {
-      setReportError(err.message || 'Error desconocido')
-    } finally {
-      setIsLoadingReport(false)
-    }
-  }
-
-  // Función para generar PDF
-  async function handleGeneratePDF() {
-    if (!dateRange.from || !dateRange.to) {
-      setReportError('Debe seleccionar un rango de fechas para generar el PDF')
-      return
-    }
-
-    setIsGeneratingPDF(true)
-    setReportError(null)
-    
-    try {
-      const { apiRequest } = await import('@/lib/api-config')
-      const blob = await apiRequest<Blob>('/pdf/nomina-pagos-prueba', {
-        method: 'GET',
-        responseType: 'blob'
-      })
-
-      // Crear url y descargar el PDF
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `nomina_pagos_${dateRange.from}_${dateRange.to}.pdf`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
-
-      toast({
-        title: "PDF generado",
-        description: "El PDF de nómina de pagos ha sido generado y descargado exitosamente.",
-        variant: "default",
-      })
-    } catch (err: any) {
-      setReportError(err.message || 'Error al generar el PDF')
-      toast({
-        title: "Error",
-        description: err.message || "Error al generar el PDF",
-        variant: "destructive",
-      })
-    } finally {
-      setIsGeneratingPDF(false)
-    }
   }
 
   if (brigades.length === 0) {
@@ -216,339 +108,77 @@ export function BrigadesTable({ brigades, onDelete, onRemoveWorker, onAddWorker,
 
   return (
     <>
-	      {/* Mobile: tarjeta/accordion con acciones grandes */}
-	      <div className="sm:hidden space-y-3">
-	        <Button
-	          variant="outline"
-	          className="w-full border-green-400 text-green-700 hover:bg-green-50 touch-manipulation"
-	          onClick={() => openReportDialog(null)}
-	          aria-label="Calcular materiales (todas)"
-	          title="Calcular materiales usados de todas las brigadas"
-	        >
-	          <Calendar className="h-4 w-4" />
-	          <span className="sr-only">Calcular materiales (todas)</span>
-	        </Button>
-
-        {brigades.map((brigade) => {
-          const isExpanded = expandedBrigadeId === brigade.id
-
-          return (
-            <Card key={brigade.id} className="border-gray-200">
-              <CardHeader className="p-4 pb-2">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3 min-w-0">
-                    <div className="bg-blue-100 p-2 rounded-lg shrink-0">
-                      <Crown className="h-4 w-4 text-emerald-500" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-semibold text-gray-900 truncate">{brigade.leader.name}</p>
-                      <p className="text-sm text-gray-600">CI: {brigade.leader.ci}</p>
-                    </div>
-                  </div>
-
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => toggleExpanded(brigade.id)}
-                    className="touch-manipulation"
-                    aria-label={isExpanded ? "Ocultar miembros" : "Ver miembros"}
-                  >
-                    {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                  </Button>
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+        {brigades.map((brigade) => (
+          <Card key={brigade.id || brigade.leader.ci} className="border-gray-200">
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="bg-blue-50 p-2 rounded-lg shrink-0">
+                  <Crown className="h-4 w-4 text-blue-600" />
                 </div>
-              </CardHeader>
-
-              <CardContent className="p-4 pt-0 space-y-3">
-                <div className="flex items-center justify-between gap-3">
-	                  <Badge variant="outline" className="bg-gray-50">
-	                    {brigade.members.length} trabajadores
-	                  </Badge>
-	                  <Button
-	                    variant="outline"
-	                    size="icon"
-	                    className="h-10 w-10 border-blue-300 text-blue-700 hover:bg-blue-50 touch-manipulation"
-	                    onClick={() => openDetailDialog(brigade)}
-	                    aria-label="Ver detalles"
-	                    title="Ver detalles"
-	                  >
-	                    <Eye className="h-4 w-4" />
-	                    <span className="sr-only">Detalles</span>
-	                  </Button>
-	                </div>
-
-	                <div className="grid grid-cols-3 gap-2">
-	                  <Button
-	                    variant="outline"
-	                    className="h-11 w-full border-emerald-300 text-emerald-700 hover:bg-emerald-50 touch-manipulation"
-	                    onClick={() => onAddWorker(brigade)}
-	                    aria-label="Agregar integrante"
-	                    title="Agregar integrante"
-	                  >
-	                    <UserPlus className="h-4 w-4" />
-	                    <span className="sr-only">Agregar integrante</span>
-	                  </Button>
-	                  <Button
-	                    variant="outline"
-	                    className="h-11 w-full border-red-300 text-red-700 hover:bg-red-50 touch-manipulation"
-	                    onClick={() => openDeleteBrigadeDialog(brigade)}
-	                    aria-label="Eliminar brigada"
-	                    title="Eliminar brigada"
-	                  >
-	                    <Trash2 className="h-4 w-4" />
-	                    <span className="sr-only">Eliminar</span>
-	                  </Button>
-	                  <Button
-	                    variant="outline"
-	                    className="h-11 w-full border-green-400 text-green-700 hover:bg-green-50 touch-manipulation"
-	                    title="Calcular materiales usados de esta brigada"
-	                    onClick={() => openReportDialog(brigade.leader.ci)}
-	                    aria-label="Materiales"
-	                  >
-	                    <Calendar className="h-4 w-4" />
-	                    <span className="sr-only">Materiales</span>
-	                  </Button>
-	                </div>
-
-                {isExpanded && (
-                  <div className="pt-3 border-t border-gray-100">
-                    <div className="text-sm font-semibold text-gray-900 mb-2">Miembros</div>
-                    {brigade.members.length > 0 ? (
-                      <div className="space-y-2">
-                        {brigade.members.map((member) => (
-                          <div
-                            key={member.id || member.ci}
-                            className="flex items-center justify-between gap-2 rounded-lg bg-gray-50 p-2"
-                          >
-                            <div className="min-w-0">
-                              <p className="text-sm font-medium text-gray-900 truncate">{member.name}</p>
-                              <p className="text-xs text-gray-600">CI: {member.ci}</p>
-                            </div>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={() => openDeleteWorkerDialog(brigade.leader.ci, member.ci, member.name)}
-                              className="border-red-300 text-red-700 hover:bg-red-50 touch-manipulation"
-                              title="Remover trabajador"
-                            >
-                              <UserMinus className="h-4 w-4" />
-                              <span className="sr-only">Remover trabajador</span>
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-gray-500">No hay trabajadores asignados a esta brigada</p>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )
-        })}
-      </div>
-
-      {/* Desktop: tabla (se mantiene) */}
-      <div
-        className="hidden sm:block overflow-x-auto overscroll-x-contain touch-pan-x"
-        style={{ WebkitOverflowScrolling: "touch" }}
-      >
-        <table className="w-full min-w-[720px]">
-          <thead>
-            <tr className="border-b border-gray-200">
-              <th className="text-left py-3 px-4 font-semibold text-gray-900">Jefe (Nombre y CI)</th>
-              <th className="text-left py-3 px-4 font-semibold text-gray-900">Miembros</th>
-              <th className="text-left py-3 px-4 font-semibold text-gray-900">Acciones</th>
-              <th className="text-right py-3 px-4 font-semibold text-gray-900">
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-gray-900 truncate">{brigade.leader.name}</p>
+                  <p className="text-xs text-gray-500">CI: {brigade.leader.ci}</p>
+                </div>
                 <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-green-400 text-green-700 hover:bg-green-50"
-                  onClick={() => openReportDialog(null)}
-                  title="Calcular materiales usados de todas las brigadas"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => openDeleteBrigadeDialog(brigade)}
+                  className="h-8 w-8 shrink-0 text-gray-400 hover:text-red-600 touch-manipulation"
+                  aria-label="Eliminar brigada"
+                  title="Eliminar brigada"
                 >
-                  <Calendar className="h-4 w-4 mr-1" />
-                  Calcular Materiales
+                  <Trash2 className="h-4 w-4" />
                 </Button>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {brigades.map((brigade) => (
-              <tr key={brigade.id || brigade.leader.ci} className="border-b border-gray-100 hover:bg-gray-50">
-                <td className="py-4 px-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="bg-blue-100 p-2 rounded-lg">
-                      <Crown className="h-4 w-4 text-emerald-500" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-900">{brigade.leader.name}</p>
-                      <p className="text-sm text-gray-600">CI: {brigade.leader.ci}</p>
-                    </div>
-                  </div>
-                </td>
-                <td className="py-4 px-4">
-                  <div className="flex items-center space-x-2">
-                    <Badge variant="outline" className="bg-gray-50">
-                      {brigade.members.length} trabajadores
-                    </Badge>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => openDetailDialog(brigade)}
-                      className="text-blue-600 hover:text-blue-800"
+              </div>
+
+              <div className="flex flex-wrap gap-1.5 min-h-[1.75rem]">
+                {brigade.members.length > 0 ? (
+                  brigade.members.map((member) => (
+                    <span
+                      key={member.id || member.ci}
+                      className="inline-flex items-center gap-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full pl-2.5 pr-1 py-1"
                     >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </td>
-                <td className="py-4 px-4">
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onAddWorker(brigade)}
-                      className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-                      title="Agregar integrante"
-                    >
-                      <UserPlus className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openDeleteBrigadeDialog(brigade)}
-                      className="border-red-300 text-red-700 hover:bg-red-50"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="border-green-400 text-green-700 hover:bg-green-50"
-                      title="Calcular materiales usados de esta brigada"
-                      onClick={() => openReportDialog(brigade.leader.ci)}
-                    >
-                      <Calendar className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </td>
-                <td className="py-4 px-4"></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                      {member.name}
+                      <button
+                        type="button"
+                        onClick={() => openDeleteWorkerDialog(brigade.leader.ci, member.ci, member.name)}
+                        className="rounded-full p-0.5 text-gray-400 hover:text-red-600 touch-manipulation"
+                        title={`Quitar a ${member.name}`}
+                        aria-label={`Quitar a ${member.name} de la brigada`}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-xs text-gray-400">Sin integrantes</span>
+                )}
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onAddWorker(brigade)}
+                className="w-full border-emerald-300 text-emerald-700 hover:bg-emerald-50 touch-manipulation"
+              >
+                <UserPlus className="h-4 w-4 mr-1.5" />
+                Agregar integrante
+              </Button>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      {/* Detail Dialog */}
-      <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Detalles de la Brigada</DialogTitle>
-          </DialogHeader>
-          {selectedBrigade && (
-            <div className="space-y-6">
-              {/* Jefe de Brigada */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Crown className="h-5 w-5 text-emerald-500" />
-                    <span>Jefe de Brigada</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <p className="font-semibold text-gray-900">{selectedBrigade.leader.name}</p>
-                    <p className="text-sm text-gray-600">CI: {selectedBrigade.leader.ci}</p>
-                    {selectedBrigade.leader.phone && (
-                      <p className="text-sm text-gray-600 flex items-center">
-                        <Phone className="h-4 w-4 mr-2" />
-                        {selectedBrigade.leader.phone}
-                      </p>
-                    )}
-                    {selectedBrigade.leader.email && (
-                      <p className="text-sm text-gray-600 flex items-center">
-                        <Mail className="h-4 w-4 mr-2" />
-                        {selectedBrigade.leader.email}
-                      </p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Trabajadores */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between gap-2">
-                    <div className="flex items-center space-x-2">
-                      <Users className="h-5 w-5 text-blue-500" />
-                      <span>Trabajadores ({selectedBrigade.members.length})</span>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onAddWorker(selectedBrigade)}
-                      className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-                      title="Agregar integrante"
-                    >
-                      <UserPlus className="h-4 w-4 mr-1" />
-                      Agregar
-                    </Button>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {selectedBrigade.members.length > 0 ? (
-                    <div className="space-y-3">
-                      {selectedBrigade.members.map((member) => (
-                        <div key={member.id || member.ci} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                          <div>
-                            <p className="font-medium text-gray-900">{member.name}</p>
-                            <p className="text-sm text-gray-600">CI: {member.ci}</p>
-                            <div className="flex items-center space-x-4 text-sm text-gray-600">
-                              {member.phone && (
-                                <span className="flex items-center">
-                                  <Phone className="h-3 w-3 mr-1" />
-                                  {member.phone}
-                                </span>
-                              )}
-                              {member.email && (
-                                <span className="flex items-center">
-                                  <Mail className="h-3 w-3 mr-1" />
-                                  {member.email}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openDeleteWorkerDialog(selectedBrigade.leader.ci, member.ci, member.name)}
-                            className="border-red-300 text-red-700 hover:bg-red-50"
-                          >
-                            <UserMinus className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-center py-4">No hay trabajadores asignados a esta brigada</p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Confirm Delete Brigade Dialog */}
       <ConfirmDeleteDialog
         open={isDeleteBrigadeDialogOpen}
         onOpenChange={setIsDeleteBrigadeDialogOpen}
         title="Eliminar Brigada"
-        message={`¿Estás seguro de que quieres eliminar la brigada liderada por ${selectedBrigade?.leader.name}? Esta acción no se puede deshacer.`}
+        message={`¿Estás seguro de que quieres eliminar la brigada liderada por ${brigadeToDelete?.leader.name}? Esta acción no se puede deshacer.`}
         onConfirm={handleDeleteBrigade}
         isLoading={isLoading}
       />
 
-      {/* Confirm Delete Worker Dialog */}
       <ConfirmDeleteDialog
         open={isDeleteWorkerDialogOpen}
         onOpenChange={setIsDeleteWorkerDialogOpen}
@@ -558,146 +188,6 @@ export function BrigadesTable({ brigades, onDelete, onRemoveWorker, onAddWorker,
         confirmText="Remover"
         isLoading={isLoading}
       />
-
-      {/* Modal para seleccionar rango de fechas para el reporte */}
-      <Dialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {reportLiderCi
-                ? "Reporte de materiales usados por brigada"
-                : "Reporte de materiales usados por todas las brigadas"}
-            </DialogTitle>
-          </DialogHeader>
-          <form
-            onSubmit={handleCalculateReport}
-            className="space-y-4"
-          >
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Desde</label>
-                <input
-                  ref={fromInputRef}
-                  type="date"
-                  className="w-full border rounded px-3 py-2"
-                  value={dateRange.from}
-                  onChange={e => setDateRange({ ...dateRange, from: e.target.value })}
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Hasta</label>
-                <input
-                  ref={toInputRef}
-                  type="date"
-                  className="w-full border rounded px-3 py-2"
-                  value={dateRange.to}
-                  onChange={e => setDateRange({ ...dateRange, to: e.target.value })}
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Categoría (opcional)</label>
-                <input
-                  type="text"
-                  className="w-full border rounded px-3 py-2"
-                  value={category}
-                  onChange={e => setCategory(e.target.value)}
-                  placeholder="Ej: Lubricantes"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={closeReportDialog}>Cancelar</Button>
-              <Button type="submit" className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white" disabled={isLoadingReport}>
-                {isLoadingReport ? 'Calculando...' : 'Calcular'}
-              </Button>
-              <Button 
-                type="button" 
-                className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white" 
-                disabled={isGeneratingPDF || !dateRange.from || !dateRange.to}
-                onClick={handleGeneratePDF}
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                {isGeneratingPDF ? 'Generando PDF...' : 'Generar PDF'}
-              </Button>
-            </div>
-          </form>
-          {/* Resultados del reporte */}
-          {reportError && (
-            <div className="mt-4 text-red-600 bg-red-50 border border-red-200 rounded p-3">{reportError}</div>
-          )}
-          {isLoadingReport && !reportError && (
-            <div className="mt-4 text-emerald-600">Cargando reporte...</div>
-          )}
-          {reportResults && (
-            <div className="mt-8">
-              {reportLiderCi ? (
-                // Tabla para una brigada
-                <div className="overflow-x-auto -mx-2 px-2 overscroll-x-contain touch-pan-x" style={{ WebkitOverflowScrolling: "touch" }}>
-                  <table className="w-full min-w-[640px] text-sm border-separate border-spacing-y-2">
-                    <thead>
-                      <tr className="bg-green-50">
-                        <th className="py-2 px-4 text-left font-semibold text-green-900 rounded-tl-lg">Código</th>
-                        <th className="py-2 px-4 text-left font-semibold text-green-900">UM</th>
-                        <th className="py-2 px-4 text-left font-semibold text-green-900">Descripción</th>
-                        <th className="py-2 px-4 text-left font-semibold text-green-900 rounded-tr-lg">Cantidad total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {Array.isArray(reportResults) && reportResults.length > 0 ? reportResults.map((mat: any, idx: number) => (
-                        <tr key={mat.codigo + idx} className="bg-white border-b border-gray-100 hover:bg-green-50">
-                          <td className="py-2 px-4">{mat.codigo}</td>
-                          <td className="py-2 px-4">{mat.um}</td>
-                          <td className="py-2 px-4">{mat.descripcion}</td>
-                          <td className="py-2 px-4 font-bold text-green-700">{mat.cantidad}</td>
-                        </tr>
-                      )) : (
-                        <tr><td colSpan={4} className="text-center text-gray-500 py-4">No hay materiales usados en este rango</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                // Tabla para todas las brigadas
-                <div className="space-y-8">
-                  {Array.isArray(reportResults) && reportResults.length > 0 ? reportResults.map((brigada: any, idx: number) => (
-                    <div key={brigada.lider_nombre + idx}>
-                      <div className="font-bold text-lg text-green-800 mb-2">Jefe de Brigada: {brigada.lider_nombre || <span className='text-gray-400'>(Sin nombre)</span>}</div>
-                      <div className="overflow-x-auto -mx-2 px-2 overscroll-x-contain touch-pan-x" style={{ WebkitOverflowScrolling: "touch" }}>
-                        <table className="w-full min-w-[640px] text-sm border-separate border-spacing-y-2 mb-4">
-                          <thead>
-                            <tr className="bg-green-50">
-                              <th className="py-2 px-4 text-left font-semibold text-green-900 rounded-tl-lg">Código</th>
-                              <th className="py-2 px-4 text-left font-semibold text-green-900">UM</th>
-                              <th className="py-2 px-4 text-left font-semibold text-green-900">Descripción</th>
-                              <th className="py-2 px-4 text-left font-semibold text-green-900 rounded-tr-lg">Cantidad total</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {Array.isArray(brigada.materiales) && brigada.materiales.length > 0 ? brigada.materiales.map((mat: any, idx2: number) => (
-                              <tr key={mat.codigo + idx2} className="bg-white border-b border-gray-100 hover:bg-green-50">
-                                <td className="py-2 px-4">{mat.codigo}</td>
-                                <td className="py-2 px-4">{mat.um}</td>
-                                <td className="py-2 px-4">{mat.descripcion}</td>
-                                <td className="py-2 px-4 font-bold text-green-700">{mat.cantidad}</td>
-                              </tr>
-                            )) : (
-                              <tr><td colSpan={4} className="text-center text-gray-500 py-4">No hay materiales usados en este rango</td></tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )) : (
-                    <div className="text-center text-gray-500 py-4">No hay materiales usados en este rango</div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </>
   )
 }
