@@ -28,7 +28,6 @@ export type {
   Cliente,
   CapacidadEquipos,
   ClienteFoto,
-  ClienteFotoTipoSubible,
   ClienteResponse,
   ClienteCreateData,
   ClienteSimpleCreateData,

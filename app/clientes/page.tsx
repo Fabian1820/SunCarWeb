@@ -11,11 +11,6 @@ import {
 } from "@/components/shared/molecule/dialog";
 import { ClienteService } from "@/lib/api-services";
 import { ClientsTable } from "@/components/feats/customer-service/clients-table";
-import {
-  describirFallidos,
-  subirFotosEnLote,
-  type UploadFotosResultado,
-} from "@/lib/utils/upload-fotos-lote";
 import { PageLoader } from "@/components/shared/atom/page-loader";
 import { useToast } from "@/hooks/use-toast";
 import { useFuentesSync } from "@/hooks/use-fuentes-sync";
@@ -28,7 +23,6 @@ import { SmartPagination } from "@/components/shared/molecule/smart-pagination";
 import type {
   Cliente,
   ClienteCreateData,
-  ClienteFotoTipoSubible,
   ClienteUpdateData,
   OfertaEmbebida,
 } from "@/lib/api-types";
@@ -904,50 +898,34 @@ export default function ClientesPage() {
     }
   };
 
-  // El backend acepta un archivo por petición, así que el lote se sube de uno
-  // en uno. Se informa el progreso y se devuelven los fallidos para que el
-  // diálogo permita reintentar solo esos sin duplicar los ya guardados.
+  // Todos los archivos del lote comparten concepto, así que se suben en una
+  // sola petición (el backend los agrupa bajo un mismo grupo_id).
   const handleUploadClientFoto = async (
     client: Cliente,
-    payload: { files: File[]; tipo: ClienteFotoTipoSubible },
-    onProgress?: (procesados: number) => void,
-  ): Promise<UploadFotosResultado> => {
-    const tipoLabel = payload.tipo === "averia" ? "avería" : "instalación";
-
-    const { subidos, fallidos } = await subirFotosEnLote(
-      payload.files,
-      (file) =>
-        ClienteService.uploadFotoCliente(client.numero, {
-          file,
-          tipo: payload.tipo,
-        }),
-      onProgress,
-    );
-
-    if (subidos > 0) {
-      await fetchClients();
-    }
-
-    if (fallidos.length === 0) {
-      toast({
-        title: subidos === 1 ? "Archivo agregado" : "Archivos agregados",
-        description:
-          subidos === 1
-            ? `Se adjuntó correctamente como ${tipoLabel}.`
-            : `Se adjuntaron ${subidos} archivos como ${tipoLabel}.`,
+    payload: { files: File[]; concepto: string },
+  ): Promise<void> => {
+    try {
+      const fotos = await ClienteService.uploadFotoCliente(client.numero, {
+        files: payload.files,
+        concepto: payload.concepto,
       });
-    } else {
+      await fetchClients();
       toast({
-        title:
-          subidos > 0
-            ? `Se subieron ${subidos} de ${payload.files.length}`
-            : "No se pudo subir ningún archivo",
-        description: describirFallidos(fallidos),
+        title: fotos.length === 1 ? "Archivo adjuntado" : "Archivos adjuntados",
+        description:
+          fotos.length === 1
+            ? `Se adjuntó correctamente: ${payload.concepto}.`
+            : `Se adjuntaron ${fotos.length} archivos: ${payload.concepto}.`,
+      });
+    } catch (error: unknown) {
+      toast({
+        title: "No se pudo adjuntar el/los archivo(s)",
+        description:
+          error instanceof Error ? error.message : "Error desconocido",
         variant: "destructive",
       });
+      throw error;
     }
-
-    return { subidos, fallidos };
   };
 
   const handleDownloadClientComprobante = async (client: Cliente) => {

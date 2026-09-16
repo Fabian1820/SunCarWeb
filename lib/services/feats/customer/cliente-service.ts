@@ -2,7 +2,6 @@ import { apiRequest } from "../../../api-config";
 import type {
   Cliente,
   ClienteFoto,
-  ClienteFotoTipoSubible,
   ClienteResponse,
   ClienteCreateData,
   ClienteSimpleCreateData,
@@ -78,8 +77,8 @@ export const MODELO_CANTIDAD_PARAM_KEYS = [
 ] as const;
 
 export type ClienteFotoUploadPayload = {
-  file: File;
-  tipo: ClienteFotoTipoSubible;
+  files: File[];
+  concepto: string;
 };
 
 type ClienteFotosResponse = {
@@ -404,15 +403,16 @@ export class ClienteService {
 
   static async uploadFotoCliente(
     numero: string,
-    { file, tipo }: ClienteFotoUploadPayload,
-  ): Promise<void> {
+    { files, concepto }: ClienteFotoUploadPayload,
+  ): Promise<ClienteFoto[]> {
     const formData = new FormData();
-    formData.append("archivo", file);
-    formData.append("tipo", tipo);
+    files.forEach((file) => formData.append("archivos", file));
+    formData.append("concepto", concepto);
 
     const response = await apiRequest<{
       success?: boolean;
       message?: string;
+      data?: ClienteFoto[];
     }>(`/clientes/${encodeURIComponent(numero)}/fotos`, {
       method: "POST",
       body: formData,
@@ -420,9 +420,11 @@ export class ClienteService {
 
     if (response?.success === false) {
       throw new Error(
-        response.message || "Error al subir foto/video del cliente",
+        response.message || "Error al subir el/los archivo(s) del cliente",
       );
     }
+
+    return Array.isArray(response?.data) ? response.data : [];
   }
 
   static async getFotosCliente(numero: string): Promise<ClienteFoto[]> {

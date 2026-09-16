@@ -46,11 +46,8 @@ import {
   Plus,
   Search,
   ChevronDown,
-  AlertTriangle,
   Loader2,
   MoreHorizontal,
-  CreditCard,
-  Truck,
   Zap,
   Battery,
   Sun,
@@ -106,7 +103,6 @@ import type {
   CapacidadEquipos,
   Cliente,
   ClienteFoto,
-  ClienteFotoTipoSubible,
 } from "@/lib/api-types";
 import { extraerComponentesDeOfertaConfeccion } from "@/lib/utils/oferta-confeccion-items";
 import { ESTADOS_CLIENTE } from "@/lib/constants/estados-cliente";
@@ -122,7 +118,6 @@ import {
   agregarArchivosSinDuplicar,
   fileKey,
   formatBytes,
-  type UploadFotosResultado,
 } from "@/lib/utils/upload-fotos-lote";
 
 
@@ -141,9 +136,8 @@ interface ClientsTableProps {
   onViewLocation: (client: Cliente) => void;
   onUploadFotos?: (
     client: Cliente,
-    payload: { files: File[]; tipo: ClienteFotoTipoSubible },
-    onProgress?: (completados: number) => void,
-  ) => Promise<UploadFotosResultado>;
+    payload: { files: File[]; concepto: string },
+  ) => Promise<void>;
   onUpdatePrioridad?: (
     clientId: string,
     prioridad: "Ninguna" | "Urgente" | "Alta" | "Media" | "Baja",
@@ -946,12 +940,9 @@ export function ClientsTable({
   const [showUploadFotosDialog, setShowUploadFotosDialog] = useState(false);
   const [clientForUploadFotos, setClientForUploadFotos] =
     useState<Cliente | null>(null);
-  const [uploadFotoTipo, setUploadFotoTipo] = useState<ClienteFotoTipoSubible>(
-    "instalacion",
-  );
+  const [uploadFotoConcepto, setUploadFotoConcepto] = useState("");
   const [uploadFotoFiles, setUploadFotoFiles] = useState<File[]>([]);
   const [uploadingFoto, setUploadingFoto] = useState(false);
-  const [uploadFotoProgreso, setUploadFotoProgreso] = useState(0);
 
   // Estados para editar/eliminar/exportar ofertas
   const [mostrarDialogoEditar, setMostrarDialogoEditar] = useState(false);
@@ -1805,18 +1796,16 @@ export function ClientsTable({
   const openUploadFotosDialog = (client: Cliente) => {
     if (!onUploadFotos) return;
     setClientForUploadFotos(client);
-    setUploadFotoTipo("instalacion");
+    setUploadFotoConcepto("");
     setUploadFotoFiles([]);
-    setUploadFotoProgreso(0);
     setShowUploadFotosDialog(true);
   };
 
   const closeUploadFotosDialog = () => {
     setShowUploadFotosDialog(false);
     setClientForUploadFotos(null);
-    setUploadFotoTipo("instalacion");
+    setUploadFotoConcepto("");
     setUploadFotoFiles([]);
-    setUploadFotoProgreso(0);
     setUploadingFoto(false);
   };
 
@@ -1840,31 +1829,25 @@ export function ClientsTable({
   };
 
   const handleUploadFotosCliente = async () => {
-    if (!clientForUploadFotos || uploadFotoFiles.length === 0 || !onUploadFotos)
+    if (
+      !clientForUploadFotos ||
+      uploadFotoFiles.length === 0 ||
+      !uploadFotoConcepto.trim() ||
+      !onUploadFotos
+    )
       return;
 
     try {
       setUploadingFoto(true);
-      setUploadFotoProgreso(0);
-      const resultado = await onUploadFotos(
-        clientForUploadFotos,
-        { files: uploadFotoFiles, tipo: uploadFotoTipo },
-        (completados) => setUploadFotoProgreso(completados),
-      );
-
-      if (!resultado || resultado.fallidos.length === 0) {
-        closeUploadFotosDialog();
-        return;
-      }
-
-      // Subida parcial: dejamos solo los que fallaron para reintentar sin
-      // duplicar los que ya quedaron guardados.
-      setUploadFotoFiles(resultado.fallidos.map((fallido) => fallido.file));
+      await onUploadFotos(clientForUploadFotos, {
+        files: uploadFotoFiles,
+        concepto: uploadFotoConcepto.trim(),
+      });
+      closeUploadFotosDialog();
     } catch (error) {
-      console.error("Error subiendo fotos/videos del cliente:", error);
+      console.error("Error subiendo archivos del cliente:", error);
     } finally {
       setUploadingFoto(false);
-      setUploadFotoProgreso(0);
     }
   };
 
@@ -4515,45 +4498,6 @@ export function ClientsTable({
                                     onMouseLeave={scheduleCloseAccionesMenu}
                                   >
                                     <div className="flex flex-col">
-                                      {(() => {
-                                        const numeroCliente =
-                                          normalizeClienteNumero(
-                                            client.numero,
-                                          );
-                                        const listoParaPagar =
-                                          clienteListoParaPagarMap[
-                                            numeroCliente
-                                          ] === true;
-                                        const procesandoPago =
-                                          updatingClienteListoParaPagarNumero ===
-                                          numeroCliente;
-
-                                        return (
-                                          <button
-                                            type="button"
-                                            onClick={(e) => {
-                                              e.preventDefault();
-                                              e.stopPropagation();
-                                              void handleOpenListoPagoDialog(
-                                                client,
-                                              );
-                                            }}
-                                            disabled={procesandoPago}
-                                            className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
-                                          >
-                                            {procesandoPago ? (
-                                              <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
-                                            ) : (
-                                              <CreditCard
-                                                className={`h-4 w-4 ${listoParaPagar ? "text-emerald-600" : "text-gray-500"}`}
-                                              />
-                                            )}
-                                            {listoParaPagar
-                                              ? "Listo para pagar"
-                                              : "Marcar listo para pagar"}
-                                          </button>
-                                        );
-                                      })()}
                                       <button
                                         type="button"
                                         onClick={(e) => {
@@ -4602,16 +4546,6 @@ export function ClientsTable({
                                       <button
                                         type="button"
                                         onClick={() =>
-                                          openAveriasCliente(client)
-                                        }
-                                        className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100"
-                                      >
-                                        <AlertTriangle className="h-4 w-4 text-amber-600" />
-                                        Avería
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() =>
                                           openUploadFotosDialog(client)
                                         }
                                         disabled={!onUploadFotos}
@@ -4620,78 +4554,6 @@ export function ClientsTable({
                                         <Camera className="h-4 w-4 text-violet-600" />
                                         Agregar fotos
                                       </button>
-                                      {(() => {
-                                        const numeroCliente =
-                                          normalizeClienteNumero(
-                                            client.numero,
-                                          );
-                                        const consultandoServicio =
-                                          consultandoEquiposEnServicioNumero ===
-                                          numeroCliente;
-                                        const tieneServicio =
-                                          getServicioStatus(client);
-
-                                        return (
-                                          <button
-                                            type="button"
-                                            onClick={(e) => {
-                                              e.preventDefault();
-                                              e.stopPropagation();
-                                              void handleOpenEquiposEnServicioDialog(
-                                                client,
-                                              );
-                                            }}
-                                            disabled={consultandoServicio}
-                                            className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
-                                          >
-                                            {consultandoServicio ? (
-                                              <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
-                                            ) : (
-                                              <Zap
-                                                className={`h-4 w-4 ${tieneServicio ? "text-purple-700" : "text-gray-400"}`}
-                                              />
-                                            )}
-                                            En servicio
-                                          </button>
-                                        );
-                                      })()}
-                                      {(() => {
-                                        const numeroCliente =
-                                          normalizeClienteNumero(
-                                            client.numero,
-                                          );
-                                        const consultandoEquipo =
-                                          consultandoEquipoEntregadoNumero ===
-                                          numeroCliente;
-                                        const equipoEntregado =
-                                          getEquipoEntregadoStatus(client);
-
-                                        return (
-                                          <button
-                                            type="button"
-                                            onClick={(e) => {
-                                              e.preventDefault();
-                                              e.stopPropagation();
-                                              void handleOpenEquipoEntregadoDialog(
-                                                client,
-                                              );
-                                            }}
-                                            disabled={consultandoEquipo}
-                                            className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
-                                          >
-                                            {consultandoEquipo ? (
-                                              <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
-                                            ) : (
-                                              <Truck
-                                                className={`h-4 w-4 ${equipoEntregado ? "text-emerald-600" : "text-gray-400"}`}
-                                              />
-                                            )}
-                                            {equipoEntregado
-                                              ? "Ver equipos entregados"
-                                              : "Entregas"}
-                                          </button>
-                                        );
-                                      })()}
                                     </div>
                                   </PopoverContent>
                                 </Popover>
@@ -4834,7 +4696,7 @@ export function ClientsTable({
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Agregar fotos/videos del cliente</DialogTitle>
+            <DialogTitle>Adjuntar archivo foto o video</DialogTitle>
             <DialogDescription>
               {clientForUploadFotos
                 ? `${clientForUploadFotos.nombre} (${clientForUploadFotos.numero})`
@@ -4844,24 +4706,18 @@ export function ClientsTable({
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="cliente-foto-tipo">Tipo</Label>
-              <Select
-                value={uploadFotoTipo}
-                onValueChange={(value: ClienteFotoTipoSubible) =>
-                  setUploadFotoTipo(value)
-                }
+              <Label htmlFor="cliente-foto-concepto">Qué es</Label>
+              <Input
+                id="cliente-foto-concepto"
+                type="text"
+                placeholder="Ej: Fotos de la instalación terminada"
+                value={uploadFotoConcepto}
+                onChange={(e) => setUploadFotoConcepto(e.target.value)}
                 disabled={uploadingFoto}
-              >
-                <SelectTrigger id="cliente-foto-tipo">
-                  <SelectValue placeholder="Selecciona un tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="instalacion">Instalación</SelectItem>
-                  <SelectItem value="averia">Avería</SelectItem>
-                </SelectContent>
-              </Select>
+              />
               <p className="text-xs text-gray-500">
-                El tipo se aplica a todos los archivos seleccionados.
+                Si son varios archivos, este concepto se aplica a todos porque
+                son la misma cosa.
               </p>
             </div>
 
@@ -4899,57 +4755,38 @@ export function ClientsTable({
                 </div>
 
                 <div className="max-h-48 overflow-y-auto rounded-md border border-gray-200 divide-y divide-gray-100">
-                  {uploadFotoFiles.map((file, index) => {
-                    // "Procesado" (no "subido"): el resultado por archivo se
-                    // conoce al terminar el lote, y los que fallen se quedan
-                    // en el diálogo para reintentarlos.
-                    const procesado = uploadingFoto && index < uploadFotoProgreso;
-                    const enCurso = uploadingFoto && index === uploadFotoProgreso;
-
-                    return (
-                      <div
-                        key={fileKey(file)}
-                        className="flex items-center gap-2 px-2 py-1.5"
-                      >
-                        {procesado ? (
-                          <FileCheck className="h-4 w-4 shrink-0 text-gray-400" />
-                        ) : enCurso ? (
-                          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-violet-600" />
-                        ) : file.type.startsWith("video/") ? (
-                          <Eye className="h-4 w-4 shrink-0 text-gray-400" />
-                        ) : (
-                          <Camera className="h-4 w-4 shrink-0 text-gray-400" />
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-xs text-gray-700">
-                            {file.name}
-                          </p>
-                          <p className="text-[11px] text-gray-400">
-                            {formatBytes(file.size)}
-                          </p>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 shrink-0 p-0 text-gray-400 hover:text-red-600"
-                          onClick={() => quitarArchivoFoto(file)}
-                          disabled={uploadingFoto}
-                          title="Quitar de la lista"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                  {uploadFotoFiles.map((file) => (
+                    <div
+                      key={fileKey(file)}
+                      className="flex items-center gap-2 px-2 py-1.5"
+                    >
+                      {file.type.startsWith("video/") ? (
+                        <Eye className="h-4 w-4 shrink-0 text-gray-400" />
+                      ) : (
+                        <Camera className="h-4 w-4 shrink-0 text-gray-400" />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs text-gray-700">
+                          {file.name}
+                        </p>
+                        <p className="text-[11px] text-gray-400">
+                          {formatBytes(file.size)}
+                        </p>
                       </div>
-                    );
-                  })}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 shrink-0 p-0 text-gray-400 hover:text-red-600"
+                        onClick={() => quitarArchivoFoto(file)}
+                        disabled={uploadingFoto}
+                        title="Quitar de la lista"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
                 </div>
-
-                {uploadingFoto && (
-                  <p className="text-xs text-violet-700">
-                    Subiendo {Math.min(uploadFotoProgreso + 1, uploadFotoFiles.length)}{" "}
-                    de {uploadFotoFiles.length}...
-                  </p>
-                )}
               </div>
             )}
 
@@ -4966,7 +4803,10 @@ export function ClientsTable({
                 type="button"
                 onClick={handleUploadFotosCliente}
                 disabled={
-                  uploadFotoFiles.length === 0 || uploadingFoto || !onUploadFotos
+                  uploadFotoFiles.length === 0 ||
+                  !uploadFotoConcepto.trim() ||
+                  uploadingFoto ||
+                  !onUploadFotos
                 }
                 className="bg-violet-600 hover:bg-violet-700 text-white"
               >

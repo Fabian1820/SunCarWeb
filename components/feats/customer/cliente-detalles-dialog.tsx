@@ -421,15 +421,24 @@ export function ClienteDetallesDialog({
                         )}
                       </div>
                       <div className="flex items-center justify-between gap-1">
-                        <Badge className="border-blue-200 bg-blue-100 px-1.5 py-0 text-[10px] text-blue-700">
-                          {archivo.tipo === "instalacion"
-                            ? "Instalación"
-                            : archivo.tipo === "visita"
-                              ? "Visita"
-                              : "Avería"}
-                        </Badge>
-                        <span className="text-[10px] text-gray-500">{formatFechaArchivo(archivo.fecha)}</span>
+                        {archivo.tipo ? (
+                          <Badge className="border-blue-200 bg-blue-100 px-1.5 py-0 text-[10px] text-blue-700">
+                            {archivo.tipo === "instalacion"
+                              ? "Instalación"
+                              : archivo.tipo === "visita"
+                                ? "Visita"
+                                : "Avería"}
+                          </Badge>
+                        ) : (
+                          <span className="truncate text-[10px] font-medium text-gray-700" title={archivo.concepto || undefined}>
+                            {archivo.concepto || "Sin concepto"}
+                          </span>
+                        )}
+                        <span className="shrink-0 text-[10px] text-gray-500">{formatFechaArchivo(archivo.fecha)}</span>
                       </div>
+                      {archivo.subida_por && (
+                        <p className="mt-0.5 text-[10px] text-gray-400">Subido por {archivo.subida_por}</p>
+                      )}
                       <div className="mt-2 flex gap-1.5">
                         <Button
                           type="button"

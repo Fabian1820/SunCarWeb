@@ -34,6 +34,8 @@ interface MediaEntry {
   url: string;
   fecha?: string;
   tipo?: string;
+  concepto?: string;
+  subidaPor?: string;
   nombre?: string;
   contentType?: string;
   kind: MediaKind;
@@ -136,6 +138,8 @@ const normalizeMedia = (raw: unknown): MediaEntry | null => {
     url,
     fecha: normalizeText(record.fecha || record.created_at || record.updated_at),
     tipo: normalizeText(record.tipo || record.categoria || record.origen),
+    concepto: normalizeText(record.concepto),
+    subidaPor: normalizeText(record.subida_por || record.subidaPor),
     nombre: normalizeText(record.nombre || record.name || record.filename) || getFileNameFromUrl(url),
     contentType,
     kind: resolveKind(url, contentType),
@@ -143,11 +147,10 @@ const normalizeMedia = (raw: unknown): MediaEntry | null => {
 };
 
 const getTipoLabel = (tipo?: string) => {
-  if (!tipo) return "Sin tipo";
   if (tipo === "instalacion") return "Instalación";
   if (tipo === "averia") return "Avería";
   if (tipo === "visita") return "Visita";
-  return tipo;
+  return tipo || null;
 };
 
 const getKindLabel = (kind: MediaKind) => {
@@ -345,21 +348,30 @@ export function ClienteFotosDialog({
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
+                      {getTipoLabel(item.tipo) && (
+                        <Badge
+                          variant="outline"
+                          className="bg-slate-50 text-slate-700 border-slate-300"
+                        >
+                          {getTipoLabel(item.tipo)}
+                        </Badge>
+                      )}
                       <Badge
                         variant="outline"
-                        className="bg-slate-50 text-slate-700 border-slate-300"
-                      >
-                        {getTipoLabel(item.tipo)}
-                      </Badge>
-                      <Badge
-                        variant="outline"
-                        className="bg-white text-slate-600 border-slate-300"
+                        className="bg-white text-slate-600 border-slate-300 ml-auto"
                       >
                         {getKindLabel(item.kind)}
                       </Badge>
                     </div>
 
-                    <p className="text-xs text-slate-500">{formatFecha(item.fecha)}</p>
+                    {item.concepto && (
+                      <p className="text-xs font-medium text-slate-700">{item.concepto}</p>
+                    )}
+
+                    <p className="text-xs text-slate-500">
+                      {formatFecha(item.fecha)}
+                      {item.subidaPor ? ` · Subido por ${item.subidaPor}` : ""}
+                    </p>
 
                     <div className="flex items-center gap-2 text-xs text-slate-600">
                       {item.kind === "video" ? (

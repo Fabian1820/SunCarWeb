@@ -10,15 +10,17 @@ export interface ClienteFoto {
   url: string;
   fecha: string;
   /**
-   * "visita" solo aparece en registros antiguos: la evidencia de una visita se
-   * adjunta desde el módulo de visitas, no desde este historial. Se sigue
-   * leyendo para no esconder lo ya guardado.
+   * Categoría histórica: solo aparece en registros antiguos (instalacion/averia/visita).
+   * Los archivos nuevos ya no se categorizan al subir, así que llega null/undefined.
    */
-  tipo: "instalacion" | "averia" | "visita";
+  tipo?: "instalacion" | "averia" | "visita" | null;
+  /** Qué es el archivo, puesto por quien lo sube. Solo en archivos nuevos. */
+  concepto?: string | null;
+  /** Nombre de quien subió el archivo. Solo en archivos nuevos. */
+  subida_por?: string | null;
+  /** Agrupa varios archivos subidos juntos bajo el mismo concepto. */
+  grupo_id?: string | null;
 }
-
-/** Tipos que se pueden elegir al subir una foto nueva al historial. */
-export type ClienteFotoTipoSubible = Exclude<ClienteFoto["tipo"], "visita">;
 
 /**
  * Equipo principal del cliente, acumulando todas sus ofertas confirmadas: una
