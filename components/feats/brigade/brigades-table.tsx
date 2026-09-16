@@ -108,31 +108,21 @@ export function BrigadesTable({ brigades, onDelete, onRemoveWorker, onAddWorker,
 
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className="space-y-3">
         {brigades.map((brigade) => (
           <Card key={brigade.id || brigade.leader.ci} className="border-gray-200">
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-center gap-3">
+            <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="flex items-center gap-3 sm:w-56 shrink-0">
                 <div className="bg-blue-50 p-2 rounded-lg shrink-0">
                   <Crown className="h-4 w-4 text-blue-600" />
                 </div>
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0">
                   <p className="font-semibold text-gray-900 truncate">{brigade.leader.name}</p>
                   <p className="text-xs text-gray-500">CI: {brigade.leader.ci}</p>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => openDeleteBrigadeDialog(brigade)}
-                  className="h-8 w-8 shrink-0 text-gray-400 hover:text-red-600 touch-manipulation"
-                  aria-label="Eliminar brigada"
-                  title="Eliminar brigada"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
               </div>
 
-              <div className="flex flex-wrap gap-1.5 min-h-[1.75rem]">
+              <div className="flex-1 flex flex-wrap items-center gap-1.5 min-h-[1.75rem] sm:border-l sm:border-gray-100 sm:pl-4">
                 {brigade.members.length > 0 ? (
                   brigade.members.map((member) => (
                     <span
@@ -156,15 +146,27 @@ export function BrigadesTable({ brigades, onDelete, onRemoveWorker, onAddWorker,
                 )}
               </div>
 
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onAddWorker(brigade)}
-                className="w-full border-emerald-300 text-emerald-700 hover:bg-emerald-50 touch-manipulation"
-              >
-                <UserPlus className="h-4 w-4 mr-1.5" />
-                Agregar integrante
-              </Button>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onAddWorker(brigade)}
+                  className="w-full sm:w-auto border-emerald-300 text-emerald-700 hover:bg-emerald-50 touch-manipulation"
+                >
+                  <UserPlus className="h-4 w-4 sm:mr-1.5" />
+                  <span>Agregar integrante</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => openDeleteBrigadeDialog(brigade)}
+                  className="h-9 w-9 shrink-0 text-gray-400 hover:text-red-600 touch-manipulation"
+                  aria-label="Eliminar brigada"
+                  title="Eliminar brigada"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ))}
