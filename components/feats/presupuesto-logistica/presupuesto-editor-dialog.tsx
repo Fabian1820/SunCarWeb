@@ -21,6 +21,13 @@ import {
   SelectValue,
 } from "@/components/shared/atom/select";
 import { cn } from "@/lib/utils";
+import { InputConSugerencias } from "@/components/shared/molecule/input-con-sugerencias";
+import {
+  BLOQUES_SEMILLA,
+  LOCALES_SEMILLA,
+  MATERIALES_SEMILLA,
+  combinarConSemilla,
+} from "@/lib/services/feats/presupuesto-logistica/sugerencias-semilla";
 import { TablaTotales } from "./tabla-totales";
 import type { Sede } from "@/lib/types/feats/sedes/sede-types";
 import type {
@@ -326,6 +333,21 @@ export function PresupuestoEditorDialog({
     }
   };
 
+  // Historial real del módulo primero; la semilla del presupuesto de
+  // septiembre rellena mientras no haya meses cargados.
+  const materialesSugeridos = useMemo(
+    () => combinarConSemilla(sugerencias.materiales, MATERIALES_SEMILLA),
+    [sugerencias.materiales],
+  );
+  const localesSugeridos = useMemo(
+    () => combinarConSemilla(sugerencias.locales, LOCALES_SEMILLA),
+    [sugerencias.locales],
+  );
+  const bloquesSugeridos = useMemo(
+    () => combinarConSemilla(sugerencias.sedes_libres, BLOQUES_SEMILLA),
+    [sugerencias.sedes_libres],
+  );
+
   const sedesUnicas = useMemo(() => {
     // La colección tiene nombres repetidos; se deduplica para que el desplegable
     // no muestre dos veces la misma sede.
@@ -477,20 +499,15 @@ export function PresupuestoEditorDialog({
                   </div>
                   <div className="min-w-[220px] flex-1">
                     <Label>Nombre en el documento</Label>
-                    <Input
-                      list={`sedes-libres-${indiceBloque}`}
+                    <InputConSugerencias
                       value={bloque.sede_nombre}
                       disabled={bloque.sede_id !== null}
                       placeholder="Ej: Inversiones Almacen calle 30"
-                      onChange={(e) =>
-                        cambiarBloque(indiceBloque, { sede_nombre: e.target.value })
+                      sugerencias={bloquesSugeridos}
+                      onValueChange={(valor) =>
+                        cambiarBloque(indiceBloque, { sede_nombre: valor })
                       }
                     />
-                    <datalist id={`sedes-libres-${indiceBloque}`}>
-                      {sugerencias.sedes_libres.map((nombre) => (
-                        <option key={nombre} value={nombre} />
-                      ))}
-                    </datalist>
                   </div>
                   <Button
                     type="button"
@@ -525,25 +542,25 @@ export function PresupuestoEditorDialog({
                               {item.numero}
                             </td>
                             <td className="py-1 pr-1">
-                              <Input
-                                list={`locales-${indiceBloque}`}
-                                className="h-8"
+                              <InputConSugerencias
                                 value={item.local}
-                                onChange={(e) =>
+                                sugerencias={localesSugeridos}
+                                onValueChange={(valor) =>
                                   cambiarItem(indiceBloque, indiceItem, {
-                                    local: e.target.value,
+                                    local: valor,
                                   })
                                 }
                               />
                             </td>
                             <td className="py-1 pr-1">
-                              <Input
-                                list={`materiales-${indiceBloque}`}
-                                className={cn("h-8", congelado && "border-emerald-300")}
+                              <InputConSugerencias
                                 value={item.material}
-                                onChange={(e) =>
+                                sugerencias={materialesSugeridos}
+                                placeholder="Cemento, Split 1T, Mano de Obra…"
+                                className={cn(congelado && "[&_input]:border-emerald-300")}
+                                onValueChange={(valor) =>
                                   cambiarItem(indiceBloque, indiceItem, {
-                                    material: e.target.value,
+                                    material: valor,
                                   })
                                 }
                               />
@@ -607,16 +624,6 @@ export function PresupuestoEditorDialog({
                     </tbody>
                   </table>
 
-                  <datalist id={`materiales-${indiceBloque}`}>
-                    {sugerencias.materiales.map((m) => (
-                      <option key={m} value={m} />
-                    ))}
-                  </datalist>
-                  <datalist id={`locales-${indiceBloque}`}>
-                    {sugerencias.locales.map((l) => (
-                      <option key={l} value={l} />
-                    ))}
-                  </datalist>
                 </div>
 
                 <Button

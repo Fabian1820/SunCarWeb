@@ -38,11 +38,6 @@ export type {
 export type { Trabajador, Brigada } from "./types/feats/brigade/brigade-types";
 
 export type {
-  MensajeCliente,
-  RespuestaMensaje,
-} from "./types/feats/customer-service/customer-service-types";
-
-export type {
   ElementoOferta,
   CreateElementoRequest,
   UpdateElementoRequest,

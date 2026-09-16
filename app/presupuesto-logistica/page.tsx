@@ -168,7 +168,9 @@ function Contenido() {
         }
       />
 
-      <div className="mx-auto max-w-7xl space-y-4 px-4 py-6">
+      {/* `content-with-fixed-header` es obligatorio: ModuleHeader se pinta con
+          position:fixed y sin esta clase el contenido queda por debajo. */}
+      <main className="content-with-fixed-header mx-auto max-w-7xl space-y-4 px-4 sm:px-6 lg:px-8 pb-8">
         <div className="flex flex-wrap gap-3">
           <Select
             value={String(anioFilter)}
@@ -359,7 +361,7 @@ function Contenido() {
             </div>
           ))
         )}
-      </div>
+      </main>
 
       <PresupuestoEditorDialog
         abierto={editorAbierto}
