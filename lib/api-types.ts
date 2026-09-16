@@ -170,6 +170,7 @@ export type {
   IngresosPorTipo,
   IngresosPorPersona,
   ContabilidadIngresos,
+  ContabilidadMovimiento,
   ContabilidadGeneral,
   ContabilidadCategoriaResumen,
   ContabilidadResumen,

@@ -33,10 +33,19 @@ export interface IngresosPorPersona {
   por_moneda: MontosPorMoneda;
 }
 
+export interface ContabilidadMovimiento {
+  tipo: string;
+  persona: string;
+  detalle: string;
+  moneda: string;
+  monto: number;
+}
+
 export interface ContabilidadIngresos {
   por_moneda: MontosPorMoneda;
   por_tipo: IngresosPorTipo[];
   por_persona: IngresosPorPersona[];
+  movimientos: ContabilidadMovimiento[];
 }
 
 export interface ContabilidadGeneral {

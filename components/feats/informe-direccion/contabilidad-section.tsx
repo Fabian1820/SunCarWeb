@@ -17,6 +17,7 @@ import { ContabilidadFinancieraService } from "@/lib/api-services";
 import type {
   CategoriaContabilidad,
   ContabilidadIngresos,
+  ContabilidadMovimiento,
   ContabilidadResumen,
   MontosPorMoneda,
 } from "@/lib/api-types";
@@ -36,18 +37,123 @@ function formatMonto(codigo: string, monto: number) {
   return formatoMoneda(codigo).format(monto);
 }
 
+const ORDEN_MONEDAS = ["USD", "EUR", "CUP", "MLC"];
+
+function ordenarMonedas(monedas: Iterable<string>): string[] {
+  return Array.from(new Set(monedas)).sort((a, b) => {
+    const ia = ORDEN_MONEDAS.indexOf(a);
+    const ib = ORDEN_MONEDAS.indexOf(b);
+    if (ia !== -1 || ib !== -1) return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+    return a.localeCompare(b);
+  });
+}
+
+/**
+ * Lista vertical alineada por moneda, para las 3 tarjetas de resumen: recibe
+ * siempre el mismo `monedas` (unión de las 3 tarjetas) para que USD/EUR/CUP
+ * queden en la misma fila en las tres, aunque una tarjeta tenga 0 en alguna.
+ */
+function MontosPorMonedaLista({ monedas, montos }: { monedas: string[]; montos: MontosPorMoneda }) {
+  return (
+    <div className="space-y-0.5">
+      {monedas.map((moneda) => (
+        <div key={moneda} className="flex items-baseline justify-between gap-3">
+          <span className="text-xs font-medium text-gray-500">{moneda}</span>
+          <span className="tabular-nums">{formatMonto(moneda, montos[moneda] ?? 0)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Chips en línea (envuelven), pensados para celdas o cabeceras compactas. */
 function MontosPorMonedaLine({ montos }: { montos: MontosPorMoneda }) {
-  const entradas = Object.entries(montos);
-  if (entradas.length === 0) {
+  const monedas = ordenarMonedas(Object.keys(montos));
+  if (monedas.length === 0) {
     return <span className="text-gray-400">—</span>;
   }
   return (
-    <div className="flex flex-col items-end gap-0.5">
-      {entradas.map(([moneda, monto]) => (
-        <span key={moneda} className="whitespace-nowrap">
-          {formatMonto(moneda, monto)}
+    <div className="flex flex-wrap justify-end gap-1.5">
+      {monedas.map((moneda) => (
+        <span
+          key={moneda}
+          className="inline-flex whitespace-nowrap rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700"
+        >
+          {formatMonto(moneda, montos[moneda])}
         </span>
       ))}
+    </div>
+  );
+}
+
+type AgrupacionIngresos = "tipo" | "persona";
+
+/**
+ * Lista de grupos (tipo o persona), cada uno desplegable para ver los
+ * movimientos individuales que lo componen (ej. qué oferta/cliente pagó qué).
+ */
+function ListaGruposDesglosable({
+  grupos,
+  movimientos,
+  agruparPor,
+}: {
+  grupos: { clave: string; etiqueta: string; por_moneda: MontosPorMoneda }[];
+  movimientos: ContabilidadMovimiento[];
+  agruparPor: AgrupacionIngresos;
+}) {
+  const [abierto, setAbierto] = useState<string | null>(null);
+
+  if (grupos.length === 0) {
+    return <p className="text-sm text-gray-400 px-3 py-3">Sin datos.</p>;
+  }
+
+  return (
+    <div className="divide-y divide-gray-100">
+      {grupos.map((g) => {
+        const detalle = movimientos.filter((m) => (agruparPor === "tipo" ? m.tipo : m.persona) === g.clave);
+        const isOpen = abierto === g.clave;
+        return (
+          <div key={g.clave}>
+            <button
+              type="button"
+              onClick={() => setAbierto(isOpen ? null : g.clave)}
+              disabled={detalle.length === 0}
+              className="w-full flex items-center justify-between gap-4 px-3 py-2.5 text-left hover:bg-gray-50 disabled:hover:bg-white"
+            >
+              <span className="flex items-center gap-2 text-sm text-gray-800">
+                {detalle.length > 0 ? (
+                  isOpen ? (
+                    <ChevronDown className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                  ) : (
+                    <ChevronRight className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                  )
+                ) : (
+                  <span className="w-3.5 shrink-0" />
+                )}
+                {g.etiqueta}
+              </span>
+              <MontosPorMonedaLine montos={g.por_moneda} />
+            </button>
+
+            {isOpen && detalle.length > 0 && (
+              <div className="bg-gray-50/70 px-3 py-2">
+                <table className="w-full text-xs">
+                  <tbody>
+                    {detalle.map((m, i) => (
+                      <tr key={i} className="border-b border-gray-100 last:border-0">
+                        <td className="py-1.5 pr-3 text-gray-600">{m.detalle}</td>
+                        <td className="py-1.5 text-right tabular-nums text-gray-700 whitespace-nowrap">
+                          {formatMonto(m.moneda, m.monto)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -86,6 +192,8 @@ function IngresosDesplegable({
   onToggle: () => void;
 }) {
   const sinDatos = Object.keys(ingresos.por_moneda).length === 0;
+  const [agrupacion, setAgrupacion] = useState<AgrupacionIngresos>("tipo");
+
   return (
     <div className="border rounded-lg overflow-hidden">
       <button
@@ -108,28 +216,41 @@ function IngresosDesplegable({
       </button>
 
       {abierto && !sinDatos && (
-        <div className="border-t bg-gray-50/60 px-4 py-3 space-y-4">
-          <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Por tipo</p>
-            <div className="space-y-1.5">
-              {ingresos.por_tipo.map((t) => (
-                <div key={t.tipo} className="flex items-center justify-between gap-4 text-sm">
-                  <span className="text-gray-700">{t.label}</span>
-                  <MontosPorMonedaLine montos={t.por_moneda} />
-                </div>
-              ))}
-            </div>
+        <div className="border-t bg-gray-50/60">
+          <div className="flex items-center gap-1 px-3 py-2 border-b bg-white">
+            <button
+              type="button"
+              onClick={() => setAgrupacion("tipo")}
+              className={`rounded px-2.5 py-1 text-xs font-medium ${
+                agrupacion === "tipo" ? "bg-emerald-700 text-white" : "text-gray-600 hover:bg-gray-100"
+              }`}
+            >
+              Por tipo
+            </button>
+            <button
+              type="button"
+              onClick={() => setAgrupacion("persona")}
+              className={`rounded px-2.5 py-1 text-xs font-medium ${
+                agrupacion === "persona" ? "bg-emerald-700 text-white" : "text-gray-600 hover:bg-gray-100"
+              }`}
+            >
+              Por persona
+            </button>
           </div>
-          <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Por persona</p>
-            <div className="space-y-1.5">
-              {ingresos.por_persona.map((p) => (
-                <div key={p.persona} className="flex items-center justify-between gap-4 text-sm">
-                  <span className="text-gray-700">{p.persona}</span>
-                  <MontosPorMonedaLine montos={p.por_moneda} />
-                </div>
-              ))}
-            </div>
+          <div className="bg-white">
+            {agrupacion === "tipo" ? (
+              <ListaGruposDesglosable
+                agruparPor="tipo"
+                movimientos={ingresos.movimientos}
+                grupos={ingresos.por_tipo.map((t) => ({ clave: t.tipo, etiqueta: t.label, por_moneda: t.por_moneda }))}
+              />
+            ) : (
+              <ListaGruposDesglosable
+                agruparPor="persona"
+                movimientos={ingresos.movimientos}
+                grupos={ingresos.por_persona.map((p) => ({ clave: p.persona, etiqueta: p.persona, por_moneda: p.por_moneda }))}
+              />
+            )}
           </div>
         </div>
       )}
@@ -146,7 +267,7 @@ export function ContabilidadSection() {
   });
   const [resumen, setResumen] = useState<ContabilidadResumen | null>(null);
   const [loading, setLoading] = useState(false);
-  const [expandidos, setExpandidos] = useState<Set<string>>(new Set(["general"]));
+  const [expandidos, setExpandidos] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   const { desde, hasta } = useMemo(() => {
@@ -283,30 +404,39 @@ export function ContabilidadSection() {
 
         {resumen ? (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="rounded-lg border bg-rose-50/60 p-4">
-                <p className="text-xs font-medium text-rose-800">Gastos totales (empresa)</p>
-                <div className="text-lg font-semibold text-rose-900 mt-1">
-                  <MontosPorMonedaLine montos={resumen.general.gastos.por_moneda} />
+            {(() => {
+              const monedasResumen = ordenarMonedas([
+                ...Object.keys(resumen.general.ingresos.por_moneda),
+                ...Object.keys(resumen.general.gastos.por_moneda),
+                ...Object.keys(resumen.general.saldo.por_moneda),
+              ]);
+              return (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="rounded-lg border bg-emerald-50/60 p-4">
+                    <p className="text-xs font-medium text-emerald-800 mb-2">Ingresos totales</p>
+                    <div className="text-base font-semibold text-emerald-900">
+                      <MontosPorMonedaLista monedas={monedasResumen} montos={resumen.general.ingresos.por_moneda} />
+                    </div>
+                  </div>
+                  <div className="rounded-lg border bg-rose-50/60 p-4">
+                    <p className="text-xs font-medium text-rose-800 mb-2">Gastos totales (empresa)</p>
+                    <div className="text-base font-semibold text-rose-900">
+                      <MontosPorMonedaLista monedas={monedasResumen} montos={resumen.general.gastos.por_moneda} />
+                    </div>
+                  </div>
+                  <div className="rounded-lg border bg-teal-50/60 p-4">
+                    <p className="text-xs font-medium text-teal-800 mb-2">Saldo disponible (empresa)</p>
+                    <div className="text-base font-semibold text-teal-900">
+                      <MontosPorMonedaLista monedas={monedasResumen} montos={resumen.general.saldo.por_moneda} />
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div className="rounded-lg border bg-teal-50/60 p-4">
-                <p className="text-xs font-medium text-teal-800">Saldo disponible (empresa)</p>
-                <div className="text-lg font-semibold text-teal-900 mt-1">
-                  <MontosPorMonedaLine montos={resumen.general.saldo.por_moneda} />
-                </div>
-              </div>
-            </div>
+              );
+            })()}
 
             <div>
-              <p className="text-sm font-semibold text-gray-700 mb-2">Ingresos</p>
+              <p className="text-sm font-semibold text-gray-700 mb-2">Ingresos por categoría</p>
               <div className="space-y-2">
-                <IngresosDesplegable
-                  titulo="General (todas las categorías)"
-                  ingresos={resumen.general.ingresos}
-                  abierto={expandidos.has("general")}
-                  onToggle={() => toggleExpandido("general")}
-                />
                 {resumen.por_categoria.map((c) => (
                   <IngresosDesplegable
                     key={c.categoria}

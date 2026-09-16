@@ -553,7 +553,7 @@ function InformeDireccionContent() {
         subtitle="Informes de dirección generados en el momento a partir de la base de datos."
       />
 
-      <main className="content-with-fixed-header max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+      <main className="content-with-fixed-header w-full px-4 sm:px-6 lg:px-8 pb-8">
         {!puedeContabilidad && !puedeContabilidadConfig && !puedeAlgoDeOtros ? (
           <div className="rounded-lg border bg-white/70 p-8 text-center">
             <p className="text-gray-700">No tienes ningún informe asignado en este módulo.</p>
