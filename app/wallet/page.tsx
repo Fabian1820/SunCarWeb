@@ -64,8 +64,10 @@ import {
   Users,
   Wallet,
   X,
+  Calculator,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/auth-context";
 import { useWallet } from "@/hooks/use-wallet";
 import { useMyWalletPermiso } from "@/hooks/use-wallet-permisos";
 import { useBancos } from "@/hooks/use-bancos";
@@ -855,6 +857,8 @@ type ActiveAction = "ingreso" | "gasto" | "transferencia" | null;
 
 function WalletPageContent() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isSuperAdmin = !!user?.is_superAdmin;
   const { permiso: walletPermiso } = useMyWalletPermiso();
   const canSeeAll = !!walletPermiso?.verTodos;
   const isWalletAdmin = !!walletPermiso?.esAdmin;
@@ -907,11 +911,15 @@ function WalletPageContent() {
     cancelPendingTransfer,
     counterparts,
     loadCounterparts,
+    txTotalsByCurrency,
+    memberTxTotalsByCurrency,
   } = useWallet();
 
   const TX_PAGE_SIZE = 50;
 
   const [activeAction, setActiveAction] = useState<ActiveAction>(null);
+  const [showGlobalTotal, setShowGlobalTotal] = useState(false);
+  const [showMemberTotal, setShowMemberTotal] = useState(false);
   const [tipo, setTipo] = useState<WalletTransactionType>("ingreso");
   const [montosPorMoneda, setMontosPorMoneda] = useState<Record<string, string>>({});
   const [motivo, setMotivo] = useState("");
@@ -3379,6 +3387,37 @@ function WalletPageContent() {
                     </button>
                   ))}
                 </div>
+
+                {/* Total filtrado (solo superAdmin, oculto por defecto) */}
+                {isSuperAdmin && (
+                  <div className="pt-1">
+                    <button
+                      onClick={() => setShowMemberTotal((v) => !v)}
+                      className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-600"
+                    >
+                      <Calculator className="h-3 w-3" />
+                      {showMemberTotal ? "Ocultar total filtrado" : "Ver total filtrado"}
+                    </button>
+                    {showMemberTotal && (
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {memberTxTotalsByCurrency.length === 0 ? (
+                          <span className="text-[11px] text-slate-400">Sin movimientos en el rango filtrado</span>
+                        ) : (
+                          memberTxTotalsByCurrency.map((t) => (
+                            <span
+                              key={t.currency_code}
+                              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-50 border border-slate-200 text-[11px]"
+                            >
+                              <span className="font-semibold text-slate-500">{t.currency_code}</span>
+                              <span className="text-emerald-600 tabular-nums">+{formatMoney(t.ingreso_total, t.currency_code)}</span>
+                              <span className="text-rose-600 tabular-nums">-{formatMoney(t.gasto_total, t.currency_code)}</span>
+                            </span>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </>
             ) : (
               /* ── GLOBAL VIEW HEADER ── */
@@ -3509,6 +3548,37 @@ function WalletPageContent() {
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+                )}
+
+                {/* Total filtrado (solo superAdmin, oculto por defecto) */}
+                {isSuperAdmin && (
+                  <div className="pt-1">
+                    <button
+                      onClick={() => setShowGlobalTotal((v) => !v)}
+                      className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-600"
+                    >
+                      <Calculator className="h-3 w-3" />
+                      {showGlobalTotal ? "Ocultar total filtrado" : "Ver total filtrado"}
+                    </button>
+                    {showGlobalTotal && (
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {txTotalsByCurrency.length === 0 ? (
+                          <span className="text-[11px] text-slate-400">Sin movimientos en el rango filtrado</span>
+                        ) : (
+                          txTotalsByCurrency.map((t) => (
+                            <span
+                              key={t.currency_code}
+                              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-50 border border-slate-200 text-[11px]"
+                            >
+                              <span className="font-semibold text-slate-500">{t.currency_code}</span>
+                              <span className="text-emerald-600 tabular-nums">+{formatMoney(t.ingreso_total, t.currency_code)}</span>
+                              <span className="text-rose-600 tabular-nums">-{formatMoney(t.gasto_total, t.currency_code)}</span>
+                            </span>
+                          ))
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </>
