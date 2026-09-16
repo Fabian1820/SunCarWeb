@@ -64,6 +64,7 @@ import {
   sumaEsquemaPago,
   type EsquemaPago,
 } from "@/lib/utils/esquema-pago";
+import { ajustarDescuentosAlRedondeo } from "@/lib/utils/oferta-descuentos";
 
 interface OfertaItem {
   id: string;
@@ -2452,20 +2453,15 @@ export function ConfeccionOfertasView({
     }
   }, [modoAsumidoPorEmpresa, porcentajeAsumidoPorEmpresa, precioFinal]);
 
-  // Calcular monto pendiente restando compensación y asumido por empresa
-  const montoPendiente = useMemo(() => {
-    let pendiente = precioFinal;
-
-    if (tieneCompensacion && montoCompensacion > 0) {
-      pendiente -= montoCompensacion;
-    }
-
-    if (tieneAsumidoPorEmpresa && montoAsumidoPorEmpresa > 0) {
-      pendiente -= montoAsumidoPorEmpresa;
-    }
-
-    // Asegurar que no sea negativo
-    return Math.max(0, pendiente);
+  // Descuento y compensación recortados para que el total a pagar quede
+  // redondeado igual que el precio final (múltiplo de 10 hacia arriba). Es lo
+  // que el backend guarda, así que es también lo que se muestra y se envía.
+  const ajustesRedondeados = useMemo(() => {
+    return ajustarDescuentosAlRedondeo(
+      precioFinal,
+      tieneAsumidoPorEmpresa ? montoAsumidoPorEmpresa : 0,
+      tieneCompensacion ? montoCompensacion : 0,
+    );
   }, [
     precioFinal,
     tieneCompensacion,
@@ -2473,6 +2469,10 @@ export function ConfeccionOfertasView({
     tieneAsumidoPorEmpresa,
     montoAsumidoPorEmpresa,
   ]);
+
+  const montoCompensacionAjustado = ajustesRedondeados.montoCompensacion;
+  const montoAsumidoPorEmpresaAjustado = ajustesRedondeados.montoDescuento;
+  const montoPendiente = ajustesRedondeados.totalAPagar;
 
   // Crear mapa de marcas por ID
   const marcasMap = useMemo(() => {
@@ -4676,7 +4676,7 @@ export function ConfeccionOfertasView({
             return;
           }
           ofertaData.compensacion = {
-            monto_usd: montoCompensacion,
+            monto_usd: montoCompensacionAjustado,
             justificacion,
           };
         } else if (modoEdicion) {
@@ -4708,7 +4708,7 @@ export function ConfeccionOfertasView({
             return;
           }
           ofertaData.asumido_por_empresa = {
-            monto_usd: montoAsumidoPorEmpresa,
+            monto_usd: montoAsumidoPorEmpresaAjustado,
             justificacion,
           };
         } else if (modoEdicion) {
@@ -7066,10 +7066,17 @@ export function ConfeccionOfertasView({
                           <div className="flex items-center justify-between text-xs text-emerald-600">
                             <span>Monto calculado:</span>
                             <span className="font-semibold">
-                              ${formatCurrency(montoCompensacion)}
+                              ${formatCurrency(montoCompensacionAjustado)}
                             </span>
                           </div>
                         </div>
+                      )}
+
+                      {montoCompensacionAjustado !== montoCompensacion && (
+                        <p className="text-xs text-emerald-600">
+                          Ajustado de ${formatCurrency(montoCompensacion)} para que el total
+                          a pagar quede redondeado al múltiplo de 10.
+                        </p>
                       )}
 
                       <div>
@@ -7194,10 +7201,17 @@ export function ConfeccionOfertasView({
                           <div className="flex items-center justify-between text-xs text-blue-600">
                             <span>Monto calculado:</span>
                             <span className="font-semibold">
-                              ${formatCurrency(montoAsumidoPorEmpresa)}
+                              ${formatCurrency(montoAsumidoPorEmpresaAjustado)}
                             </span>
                           </div>
                         </div>
+                      )}
+
+                      {montoAsumidoPorEmpresaAjustado !== montoAsumidoPorEmpresa && (
+                        <p className="text-xs text-blue-600">
+                          Ajustado de ${formatCurrency(montoAsumidoPorEmpresa)} para que el total
+                          a pagar quede redondeado al múltiplo de 10.
+                        </p>
                       )}
 
                       <div>
@@ -7844,7 +7858,7 @@ export function ConfeccionOfertasView({
                                 Compensación
                               </span>
                               <span className="font-medium text-emerald-700">
-                                - {formatCurrency(montoCompensacion)}
+                                - {formatCurrency(montoCompensacionAjustado)}
                               </span>
                             </div>
                           )}
@@ -7853,7 +7867,7 @@ export function ConfeccionOfertasView({
                               <div className="flex items-center justify-between text-sm">
                                 <span className="text-blue-700">Descuento</span>
                                 <span className="font-medium text-blue-700">
-                                  - {formatCurrency(montoAsumidoPorEmpresa)}
+                                  - {formatCurrency(montoAsumidoPorEmpresaAjustado)}
                                 </span>
                               </div>
                             )}
