@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ContactoService } from '@/lib/api-services';
-import { Contacto, ContactoUpdateData } from '@/lib/contacto-types';
+import { Contacto, ContactoCreateData, ContactoUpdateData } from '@/lib/contacto-types';
 
 export const useContactos = () => {
   const [contactos, setContactos] = useState<Contacto[]>([]);
@@ -36,6 +36,20 @@ export const useContactos = () => {
     }
   };
 
+  const createContacto = async (data: ContactoCreateData) => {
+    try {
+      const nuevo = await ContactoService.createContacto(data);
+      // Se recarga en vez de insertar a mano: el backend asigna el id y
+      // normaliza el codigo de provincia ('3' -> '03'), asi que la lista tiene
+      // que venir de el o el selector no encontraria el contacto recien creado.
+      await fetchContactos();
+      return nuevo;
+    } catch (err) {
+      setError('Error al crear el contacto');
+      throw err;
+    }
+  };
+
   useEffect(() => {
     fetchContactos();
   }, []);
@@ -46,5 +60,6 @@ export const useContactos = () => {
     error,
     fetchContactos,
     updateContacto,
+    createContacto,
   };
 };

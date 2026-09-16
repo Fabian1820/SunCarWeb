@@ -1,5 +1,5 @@
 import { apiRequest } from '../../../api-config'
-import type { Contacto, ContactoResponse, ContactoUpdateData } from '../../../contacto-types'
+import type { Contacto, ContactoCreateData, ContactoResponse, ContactoUpdateData } from '../../../contacto-types'
 
 export const ContactoService = {
   async getContactos(): Promise<Contacto[]> {
@@ -22,6 +22,21 @@ export const ContactoService = {
       console.error('Error al obtener contacto por ID:', error)
       throw new Error(
         `No se pudo cargar el contacto con ID ${id}. El endpoint /api/contactos/${id} no está disponible en el backend.`
+      )
+    }
+  },
+
+  async createContacto(data: ContactoCreateData): Promise<Contacto> {
+    try {
+      const response = await apiRequest<ContactoResponse>('/contactos/', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      })
+      return response.data as Contacto
+    } catch (error) {
+      console.error('Error al crear contacto:', error)
+      throw new Error(
+        'No se pudo crear el contacto. Revisa que el teléfono y el correo tengan un formato válido.'
       )
     }
   },

@@ -1,1 +1,1 @@
-export type { Contacto, ContactoResponse, ContactoUpdateData } from './types/feats/contactos/contacto-types'
+export type { Contacto, ContactoResponse, ContactoUpdateData, ContactoCreateData } from './types/feats/contactos/contacto-types'
