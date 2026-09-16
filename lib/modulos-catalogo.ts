@@ -718,6 +718,25 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     ],
   },
   {
+    key: "logistica/presupuesto",
+    label: "Presupuesto de Logística",
+    descripcion:
+      "Planificación mensual de Logística, Transporte y Seguridad Interna: bloques por sede, ítems y aprobación.",
+    icon: ClipboardList,
+    iconClass: "text-amber-600",
+    href: "/presupuesto-logistica",
+    grupo: "economia",
+    subPermisos: [
+      {
+        key: "logistica/presupuesto/aprobar",
+        label: "Aprobar y rechazar presupuestos",
+        descripcion:
+          "Incluye crear y enviar. Habilita revisar ítem por ítem, aprobar el presupuesto o devolverlo para ajuste. ADITIVO: tener 'logistica/presupuesto' NO lo concede; hay que asignarlo explícitamente. No asignes el padre pelado a quien ya tiene este, o podría aprobarse a sí mismo.",
+        aditivo: true,
+      },
+    ],
+  },
+  {
     key: "tasa-cambio-diaria",
     label: "Tasa de Cambio diaria",
     descripcion: "Registro diario de 1 USD en EUR y CUP para contabilidad.",
