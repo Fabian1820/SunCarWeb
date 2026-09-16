@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Save, X } from "lucide-react";
 import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/molecule/input";
@@ -13,8 +13,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/shared/atom/select";
-import { CATEGORIAS_CONTABILIDAD } from "@/lib/api-types";
-import type { PersonaCategoriaUpsertRequest } from "@/lib/api-types";
+import { CategoriaIngresoService } from "@/lib/api-services";
+import type { CategoriaIngreso, PersonaCategoriaUpsertRequest } from "@/lib/api-types";
 
 interface PersonaCategoriaFormProps {
   initialData?: Partial<PersonaCategoriaUpsertRequest>;
@@ -33,9 +33,18 @@ export function PersonaCategoriaForm({
 }: PersonaCategoriaFormProps) {
   const [personaNombre, setPersonaNombre] = useState(initialData?.persona_nombre ?? "");
   const [personaCi, setPersonaCi] = useState(initialData?.persona_ci ?? "");
-  const [categoria, setCategoria] = useState(initialData?.categoria ?? CATEGORIAS_CONTABILIDAD[0].value);
+  const [categorias, setCategorias] = useState<CategoriaIngreso[]>([]);
+  const [categoria, setCategoria] = useState(initialData?.categoria ?? "");
   const [activo, setActivo] = useState(initialData?.activo ?? true);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    CategoriaIngresoService.getAll().then((data) => {
+      setCategorias(data);
+      if (!categoria && data.length > 0) setCategoria(data[0].codigo);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const canSubmit = useMemo(() => personaNombre.trim().length > 0, [personaNombre]);
 
@@ -89,8 +98,8 @@ export function PersonaCategoriaForm({
             <SelectValue placeholder="Selecciona una categoría" />
           </SelectTrigger>
           <SelectContent>
-            {CATEGORIAS_CONTABILIDAD.map((c) => (
-              <SelectItem key={c.value} value={c.value}>
+            {categorias.map((c) => (
+              <SelectItem key={c.codigo} value={c.codigo}>
                 {c.label}
               </SelectItem>
             ))}

@@ -2,10 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ArrowRight,
   ChevronDown,
   ChevronRight,
-  Eye,
-  EyeOff,
   FileDown,
   Loader2,
   RefreshCw,
@@ -14,6 +13,7 @@ import {
 import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/molecule/input";
 import { Label } from "@/components/shared/atom/label";
+import { Switch } from "@/components/shared/molecule/switch";
 import { MonthPicker } from "@/components/shared/molecule/month-picker";
 import {
   Select,
@@ -23,15 +23,9 @@ import {
   SelectValue,
 } from "@/components/shared/atom/select";
 import { Card, CardContent } from "@/components/shared/molecule/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/shared/molecule/dialog";
+import { ToastAction } from "@/components/shared/molecule/toast";
 import { useToast } from "@/hooks/use-toast";
 import { ContabilidadFinancieraService } from "@/lib/api-services";
-import { CATEGORIAS_CONTABILIDAD } from "@/lib/api-types";
 import type {
   CategoriaContabilidad,
   ContabilidadGastoMovimiento,
@@ -60,6 +54,8 @@ const ACENTOS_CATEGORIA = [
   "border-l-lime-600",
   "border-l-slate-500",
 ];
+
+type CategoriaOpcion = { value: string; label: string };
 
 function ordenarMonedas(monedas: Iterable<string>): string[] {
   return Array.from(new Set(monedas)).sort((a, b) => {
@@ -175,81 +171,121 @@ type AgrupacionIngresos = "tipo" | "persona";
 function FilaMovimiento({
   m,
   categoriaActual,
+  categoriasDisponibles,
   onCambio,
 }: {
   m: ContabilidadMovimiento;
   categoriaActual: CategoriaContabilidad;
+  categoriasDisponibles: CategoriaOpcion[];
   onCambio: () => void;
 }) {
   const { toast } = useToast();
   const [guardando, setGuardando] = useState(false);
+  const movido = m.categoria_automatica !== categoriaActual;
+  const labelDe = (codigo: string) => categoriasDisponibles.find((c) => c.value === codigo)?.label ?? codigo;
 
-  const cambiarCategoria = async (nueva: string) => {
+  const cambiarCategoria = async (nueva: string, opts?: { silencioso?: boolean }) => {
     if (nueva === categoriaActual || guardando) return;
+    const anterior = categoriaActual;
     setGuardando(true);
     try {
       await ContabilidadFinancieraService.actualizarCategoria(m.id, { categoria: nueva as CategoriaContabilidad });
       onCambio();
+      if (!opts?.silencioso) {
+        toast({
+          title: "Ingreso movido de categoría",
+          description: `"${m.detalle}" ahora cuenta en ${labelDe(nueva)}.`,
+          action: (
+            <ToastAction altText="Deshacer" onClick={() => cambiarCategoria(anterior, { silencioso: true })}>
+              Deshacer
+            </ToastAction>
+          ),
+        });
+      }
     } catch (error: unknown) {
       toast({
         title: "Error al mover el ingreso",
         description: getErrorMessage(error, "No se pudo cambiar la categoría."),
         variant: "destructive",
       });
+    } finally {
       setGuardando(false);
     }
   };
 
-  const alternarIncluido = async () => {
+  const alternarIncluido = async (incluir: boolean, opts?: { silencioso?: boolean }) => {
     if (guardando) return;
     setGuardando(true);
     try {
-      await ContabilidadFinancieraService.actualizarExclusion(m.id, { excluido: !m.excluido });
+      await ContabilidadFinancieraService.actualizarExclusion(m.id, { excluido: !incluir });
       onCambio();
+      if (!opts?.silencioso) {
+        toast({
+          title: incluir ? "Ingreso incluido de nuevo" : "Ingreso excluido de los totales",
+          description: incluir
+            ? `"${m.detalle}" vuelve a sumar en este módulo.`
+            : `"${m.detalle}" ya no suma aquí. El dato original (Pago/Wallet) no cambia; el resto del sistema lo sigue usando igual.`,
+          action: (
+            <ToastAction altText="Deshacer" onClick={() => alternarIncluido(!incluir, { silencioso: true })}>
+              Deshacer
+            </ToastAction>
+          ),
+        });
+      }
     } catch (error: unknown) {
       toast({
         title: "Error al actualizar el ingreso",
         description: getErrorMessage(error, "No se pudo actualizar el ingreso."),
         variant: "destructive",
       });
+    } finally {
       setGuardando(false);
     }
   };
 
   return (
     <tr className={`border-b border-gray-100 last:border-0 ${m.excluido ? "opacity-50" : ""}`}>
-      <td className="py-1.5 pr-2 text-gray-600">{m.detalle}</td>
-      <td className="py-1.5 pr-2">
+      <td className="py-2.5 pr-3 text-gray-700 align-top text-base">
+        <div>{m.detalle}</div>
+        {movido && (
+          <div className="flex flex-wrap items-center gap-1 text-sm text-amber-700 mt-1">
+            <span>Movido: {labelDe(m.categoria_automatica)}</span>
+            <ArrowRight className="h-3.5 w-3.5" />
+            <span className="font-medium">{labelDe(categoriaActual)}</span>
+          </div>
+        )}
+      </td>
+      <td className="py-2.5 pr-3 align-top">
         <select
           value={categoriaActual}
           onChange={(e) => cambiarCategoria(e.target.value)}
           disabled={guardando}
-          className="text-xs border rounded px-1.5 py-1 bg-white disabled:opacity-50"
+          className="text-sm border rounded px-2 py-1.5 bg-white disabled:opacity-50"
         >
-          {CATEGORIAS_CONTABILIDAD.map((c) => (
+          {categoriasDisponibles.map((c) => (
             <option key={c.value} value={c.value}>
               {c.label}
             </option>
           ))}
         </select>
       </td>
-      <td className="py-1.5 pr-2 text-center">
-        <button
-          type="button"
-          onClick={alternarIncluido}
-          disabled={guardando}
-          title={m.excluido ? "Incluir en los totales de este módulo" : "Excluir de los totales de este módulo"}
-          className="p-1 rounded hover:bg-gray-100 disabled:opacity-50"
+      <td className="py-2.5 pr-3 align-top">
+        <div
+          className="flex items-center gap-2"
+          title="Si lo excluyes, deja de sumar en los totales de este módulo (categoría y general), pero el Pago/Wallet original no se toca y el resto del sistema lo sigue usando igual. Se puede deshacer en cualquier momento."
         >
-          {m.excluido ? (
-            <EyeOff className="h-4 w-4 text-gray-400" />
-          ) : (
-            <Eye className="h-4 w-4 text-emerald-600" />
-          )}
-        </button>
+          <Switch
+            checked={!m.excluido}
+            onCheckedChange={(checked: boolean) => alternarIncluido(checked)}
+            disabled={guardando}
+          />
+          <span className={`text-sm font-medium whitespace-nowrap ${m.excluido ? "text-gray-400" : "text-emerald-700"}`}>
+            {m.excluido ? "Excluido de los totales" : "Incluido en los totales"}
+          </span>
+        </div>
       </td>
       <td
-        className={`py-1.5 text-right tabular-nums whitespace-nowrap ${
+        className={`py-2.5 text-right tabular-nums whitespace-nowrap align-top text-base ${
           m.excluido ? "line-through text-gray-400" : "text-gray-800"
         }`}
       >
@@ -269,12 +305,14 @@ function ListaGruposDesglosable({
   movimientos,
   agruparPor,
   categoriaActual,
+  categoriasDisponibles,
   onCambio,
 }: {
   grupos: { clave: string; etiqueta: string; por_moneda: MontosPorMoneda }[];
   movimientos: ContabilidadMovimiento[];
   agruparPor: AgrupacionIngresos;
   categoriaActual: CategoriaContabilidad;
+  categoriasDisponibles: CategoriaOpcion[];
   onCambio: () => void;
 }) {
   const [abierto, setAbierto] = useState<string | null>(null);
@@ -296,7 +334,7 @@ function ListaGruposDesglosable({
               disabled={detalle.length === 0}
               className="w-full flex items-center justify-between gap-4 px-3 py-2 text-left hover:bg-gray-50 disabled:hover:bg-white"
             >
-              <span className="flex items-center gap-2 text-sm text-gray-800">
+              <span className="flex items-center gap-2 text-base text-gray-800">
                 {detalle.length > 0 ? (
                   isOpen ? (
                     <ChevronDown className="h-3.5 w-3.5 text-gray-400 shrink-0" />
@@ -313,18 +351,24 @@ function ListaGruposDesglosable({
 
             {isOpen && detalle.length > 0 && (
               <div className="bg-gray-50/70 px-3 py-2">
-                <table className="w-full text-sm">
+                <table className="w-full text-base">
                   <thead>
-                    <tr className="text-xs text-gray-400">
-                      <th className="text-left font-normal pb-1">Detalle</th>
-                      <th className="text-left font-normal pb-1">Categoría</th>
-                      <th className="text-center font-normal pb-1">Incluir</th>
-                      <th className="text-right font-normal pb-1">Monto</th>
+                    <tr className="text-sm text-gray-500">
+                      <th className="text-left font-semibold pb-1.5">Detalle</th>
+                      <th className="text-left font-semibold pb-1.5">Categoría</th>
+                      <th className="text-left font-semibold pb-1.5">¿Cuenta en el total?</th>
+                      <th className="text-right font-semibold pb-1.5">Monto</th>
                     </tr>
                   </thead>
                   <tbody>
                     {detalle.map((m) => (
-                      <FilaMovimiento key={m.id} m={m} categoriaActual={categoriaActual} onCambio={onCambio} />
+                      <FilaMovimiento
+                        key={m.id}
+                        m={m}
+                        categoriaActual={categoriaActual}
+                        categoriasDisponibles={categoriasDisponibles}
+                        onCambio={onCambio}
+                      />
                     ))}
                   </tbody>
                 </table>
@@ -364,6 +408,7 @@ function IngresosDesplegable({
   accento,
   ingresos,
   monedasColumnas,
+  categoriasDisponibles,
   abierto,
   onToggle,
   onCambio,
@@ -373,6 +418,7 @@ function IngresosDesplegable({
   accento: string;
   ingresos: ContabilidadIngresos;
   monedasColumnas: string[];
+  categoriasDisponibles: CategoriaOpcion[];
   abierto: boolean;
   onToggle: () => void;
   onCambio: () => void;
@@ -433,6 +479,7 @@ function IngresosDesplegable({
                 agruparPor="tipo"
                 movimientos={ingresos.movimientos}
                 categoriaActual={categoria}
+                categoriasDisponibles={categoriasDisponibles}
                 onCambio={onCambio}
                 grupos={ingresos.por_tipo.map((t) => ({ clave: t.tipo, etiqueta: t.label, por_moneda: t.por_moneda }))}
               />
@@ -441,6 +488,7 @@ function IngresosDesplegable({
                 agruparPor="persona"
                 movimientos={ingresos.movimientos}
                 categoriaActual={categoria}
+                categoriasDisponibles={categoriasDisponibles}
                 onCambio={onCambio}
                 grupos={ingresos.por_persona.map((p) => ({
                   clave: p.persona,
@@ -540,7 +588,7 @@ function GastosSection({ gastos }: { gastos: ContabilidadGeneral["gastos"] }) {
                   onClick={() => setAbierto(isOpen ? null : p.persona)}
                   className="w-full flex items-center justify-between gap-4 px-3 py-2 text-left hover:bg-gray-50"
                 >
-                  <span className="flex items-center gap-2 text-sm text-gray-800">
+                  <span className="flex items-center gap-2 text-base text-gray-800">
                     {isOpen ? (
                       <ChevronDown className="h-3.5 w-3.5 text-gray-400 shrink-0" />
                     ) : (
@@ -586,7 +634,7 @@ export function ContabilidadSection({ accionExtra }: { accionExtra?: React.React
   const [resumen, setResumen] = useState<ContabilidadResumen | null>(null);
   const [loading, setLoading] = useState(false);
   const [expandidos, setExpandidos] = useState<Set<string>>(new Set());
-  const [billeterasOpen, setBilleterasOpen] = useState(false);
+  const [vista, setVista] = useState<"ingresos" | "gastos" | "saldo" | null>(null);
   const [billeteras, setBilleteras] = useState<Awaited<ReturnType<typeof ContabilidadFinancieraService.obtenerBilleteras>> | null>(null);
   const [loadingBilleteras, setLoadingBilleteras] = useState(false);
   const { toast } = useToast();
@@ -621,20 +669,22 @@ export function ContabilidadSection({ accionExtra }: { accionExtra?: React.React
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [desde, hasta]);
 
-  const abrirBilleteras = async () => {
-    setBilleterasOpen(true);
-    setLoadingBilleteras(true);
-    try {
-      const data = await ContabilidadFinancieraService.obtenerBilleteras();
-      setBilleteras(data);
-    } catch (error: unknown) {
-      toast({
-        title: "Error al cargar billeteras",
-        description: getErrorMessage(error, "No se pudieron cargar las billeteras."),
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingBilleteras(false);
+  const seleccionarVista = async (v: "ingresos" | "gastos" | "saldo") => {
+    setVista((actual) => (actual === v ? null : v));
+    if (v === "saldo" && !billeteras) {
+      setLoadingBilleteras(true);
+      try {
+        const data = await ContabilidadFinancieraService.obtenerBilleteras();
+        setBilleteras(data);
+      } catch (error: unknown) {
+        toast({
+          title: "Error al cargar billeteras",
+          description: getErrorMessage(error, "No se pudieron cargar las billeteras."),
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingBilleteras(false);
+      }
     }
   };
 
@@ -662,6 +712,13 @@ export function ContabilidadSection({ accionExtra }: { accionExtra?: React.React
   }, [resumen, monedaFiltro]);
 
   const columnasMoneda = monedaFiltro === "todas" ? monedasDisponibles : [monedaFiltro];
+
+  // Las categorías vienen del propio resumen (siempre trae todas, incluso
+  // sin movimientos) — evita otra llamada al backend solo para el <select>.
+  const categoriasDisponibles: CategoriaOpcion[] = useMemo(
+    () => resumen?.por_categoria.map((c) => ({ value: c.categoria, label: c.label })) ?? [],
+    [resumen],
+  );
 
   const exportarPdf = async () => {
     if (!resumenMostrado) return;
@@ -774,24 +831,38 @@ export function ContabilidadSection({ accionExtra }: { accionExtra?: React.React
         </div>
 
         {resumenMostrado ? (
-          <div className="space-y-5">
+          <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="rounded-lg border bg-emerald-50/60 p-3">
+              <button
+                type="button"
+                onClick={() => seleccionarVista("ingresos")}
+                className={`rounded-lg border p-3 text-left transition-colors ${
+                  vista === "ingresos" ? "bg-emerald-100/80 border-emerald-400" : "bg-emerald-50/60 hover:bg-emerald-100/60"
+                }`}
+              >
                 <p className="text-sm font-medium text-emerald-800 mb-1">Ingresos totales</p>
                 <div className="font-semibold text-emerald-900">
                   <MontosPorMonedaLista monedas={columnasMoneda} montos={resumenMostrado.general.ingresos.por_moneda} />
                 </div>
-              </div>
-              <div className="rounded-lg border bg-rose-50/60 p-3">
+              </button>
+              <button
+                type="button"
+                onClick={() => seleccionarVista("gastos")}
+                className={`rounded-lg border p-3 text-left transition-colors ${
+                  vista === "gastos" ? "bg-rose-100/80 border-rose-400" : "bg-rose-50/60 hover:bg-rose-100/60"
+                }`}
+              >
                 <p className="text-sm font-medium text-rose-800 mb-1">Gastos totales (empresa)</p>
                 <div className="font-semibold text-rose-900">
                   <MontosPorMonedaLista monedas={columnasMoneda} montos={resumenMostrado.general.gastos.por_moneda} />
                 </div>
-              </div>
+              </button>
               <button
                 type="button"
-                onClick={abrirBilleteras}
-                className="rounded-lg border bg-teal-50/60 p-3 text-left hover:bg-teal-100/60 transition-colors"
+                onClick={() => seleccionarVista("saldo")}
+                className={`rounded-lg border p-3 text-left transition-colors ${
+                  vista === "saldo" ? "bg-teal-100/80 border-teal-400" : "bg-teal-50/60 hover:bg-teal-100/60"
+                }`}
               >
                 <p className="text-sm font-medium text-teal-800 mb-1 flex items-center gap-1.5">
                   Saldo disponible (empresa)
@@ -803,43 +874,70 @@ export function ContabilidadSection({ accionExtra }: { accionExtra?: React.React
               </button>
             </div>
 
-            <div>
-              <p className="text-base font-semibold text-gray-700 mb-2">Ingresos por categoría</p>
-              {columnasMoneda.length > 0 && (
-                <div
-                  className="grid items-center gap-2 px-3 pb-1 text-xs font-semibold text-gray-400 uppercase"
-                  style={{ gridTemplateColumns: `1.25rem minmax(160px,1fr) repeat(${columnasMoneda.length}, minmax(110px,auto))` }}
-                >
-                  <span />
-                  <span>Categoría</span>
-                  {columnasMoneda.map((m) => (
-                    <span key={m} className="text-right">
-                      {m}
-                    </span>
+            {vista === "ingresos" && (
+              <div>
+                <p className="text-base font-semibold text-gray-700 mb-2">Ingresos por categoría</p>
+                {columnasMoneda.length > 0 && (
+                  <div
+                    className="grid items-center gap-2 px-3 pb-1.5 text-sm font-semibold text-gray-500 uppercase"
+                    style={{ gridTemplateColumns: `1.25rem minmax(160px,1fr) repeat(${columnasMoneda.length}, minmax(110px,auto))` }}
+                  >
+                    <span />
+                    <span>Categoría</span>
+                    {columnasMoneda.map((m) => (
+                      <span key={m} className="text-right">
+                        {m}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className="space-y-2">
+                  {resumenMostrado.por_categoria.map((c, i) => (
+                    <IngresosDesplegable
+                      key={c.categoria}
+                      categoria={c.categoria}
+                      titulo={c.label}
+                      accento={ACENTOS_CATEGORIA[i % ACENTOS_CATEGORIA.length]}
+                      ingresos={c.ingresos}
+                      monedasColumnas={columnasMoneda}
+                      categoriasDisponibles={categoriasDisponibles}
+                      abierto={expandidos.has(c.categoria)}
+                      onToggle={() => toggleExpandido(c.categoria)}
+                      onCambio={cargar}
+                    />
                   ))}
                 </div>
-              )}
-              <div className="space-y-2">
-                {resumenMostrado.por_categoria.map((c, i) => (
-                  <IngresosDesplegable
-                    key={c.categoria}
-                    categoria={c.categoria}
-                    titulo={c.label}
-                    accento={ACENTOS_CATEGORIA[i % ACENTOS_CATEGORIA.length]}
-                    ingresos={c.ingresos}
-                    monedasColumnas={columnasMoneda}
-                    abierto={expandidos.has(c.categoria)}
-                    onToggle={() => toggleExpandido(c.categoria)}
-                    onCambio={cargar}
-                  />
-                ))}
               </div>
-            </div>
+            )}
 
-            <div>
-              <p className="text-base font-semibold text-gray-700 mb-2">Gastos</p>
-              <GastosSection gastos={resumenMostrado.general.gastos} />
-            </div>
+            {vista === "gastos" && (
+              <div>
+                <p className="text-base font-semibold text-gray-700 mb-2">Gastos</p>
+                <GastosSection gastos={resumenMostrado.general.gastos} />
+              </div>
+            )}
+
+            {vista === "saldo" && (
+              <div>
+                <p className="text-base font-semibold text-gray-700 mb-2">Billeteras con saldo</p>
+                {loadingBilleteras ? (
+                  <div className="py-8 text-center">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-teal-700" />
+                  </div>
+                ) : billeteras && billeteras.billeteras.length > 0 ? (
+                  <div className="divide-y divide-gray-100 border rounded-lg">
+                    {billeteras.billeteras.map((b) => (
+                      <div key={b.persona} className="flex items-center justify-between gap-4 px-3 py-2">
+                        <span className="text-sm text-gray-800">{soloNombre(b.persona)}</span>
+                        <MontosPorMonedaLine montos={b.por_moneda} />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 py-4">Ninguna billetera tiene saldo actualmente.</p>
+                )}
+              </div>
+            )}
           </div>
         ) : loading ? (
           <div className="py-10 text-center">
@@ -847,36 +945,6 @@ export function ContabilidadSection({ accionExtra }: { accionExtra?: React.React
           </div>
         ) : null}
       </CardContent>
-
-      <Dialog open={billeterasOpen} onOpenChange={setBilleterasOpen}>
-        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Billeteras con saldo</DialogTitle>
-          </DialogHeader>
-          {loadingBilleteras ? (
-            <div className="py-8 text-center">
-              <Loader2 className="h-6 w-6 animate-spin mx-auto text-teal-700" />
-            </div>
-          ) : billeteras && billeteras.billeteras.length > 0 ? (
-            <div className="space-y-3">
-              <div className="rounded-lg border bg-teal-50/60 p-3">
-                <p className="text-sm font-medium text-teal-800 mb-1">Total en billeteras</p>
-                <MontosPorMonedaLista monedas={ordenarMonedas(Object.keys(billeteras.por_moneda))} montos={billeteras.por_moneda} />
-              </div>
-              <div className="divide-y divide-gray-100 border rounded-lg">
-                {billeteras.billeteras.map((b) => (
-                  <div key={b.persona} className="flex items-center justify-between gap-4 px-3 py-2">
-                    <span className="text-sm text-gray-800">{soloNombre(b.persona)}</span>
-                    <MontosPorMonedaLine montos={b.por_moneda} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm text-gray-500 py-4">Ninguna billetera tiene saldo actualmente.</p>
-          )}
-        </DialogContent>
-      </Dialog>
     </Card>
   );
 }

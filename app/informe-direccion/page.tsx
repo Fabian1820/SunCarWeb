@@ -24,7 +24,7 @@ import {
 } from "@/components/shared/molecule/card";
 import { Toaster } from "@/components/shared/molecule/toaster";
 import { useToast } from "@/hooks/use-toast";
-import { CalendarRange, FileDown, Loader2, RefreshCw, Users, Wallet } from "lucide-react";
+import { CalendarRange, FileDown, Loader2, RefreshCw, Tag, Users, Wallet } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -55,6 +55,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/shared/molecule/tabs";
 import { ContabilidadSection } from "@/components/feats/informe-direccion/contabilidad-section";
 import { PersonaCategoriaAdmin } from "@/components/feats/informe-direccion/persona-categoria-admin";
+import { CategoriaIngresoAdmin } from "@/components/feats/informe-direccion/categoria-ingreso-admin";
 
 const MODULE = "informe-direccion";
 
@@ -533,6 +534,7 @@ function ReporteCobrosPendientes() {
 function InformeDireccionContent() {
   const { hasSubPermission } = useAuth();
   const [personaCategoriaOpen, setPersonaCategoriaOpen] = useState(false);
+  const [categoriasOpen, setCategoriasOpen] = useState(false);
 
   // Los dos informes son independientes en permisos: el acceso completo al
   // módulo (`informe-direccion`) los concede ambos, pero cada uno se puede dar
@@ -576,10 +578,16 @@ function InformeDireccionContent() {
                 <ContabilidadSection
                   accionExtra={
                     puedeContabilidadConfig ? (
-                      <Button variant="outline" onClick={() => setPersonaCategoriaOpen(true)}>
-                        <Users className="h-4 w-4 mr-2" />
-                        Personas y categorías
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button variant="outline" onClick={() => setCategoriasOpen(true)}>
+                          <Tag className="h-4 w-4 mr-2" />
+                          Categorías
+                        </Button>
+                        <Button variant="outline" onClick={() => setPersonaCategoriaOpen(true)}>
+                          <Users className="h-4 w-4 mr-2" />
+                          Personas y categorías
+                        </Button>
+                      </div>
                     ) : undefined
                   }
                 />
@@ -605,6 +613,17 @@ function InformeDireccionContent() {
               <DialogTitle>Personas y categorías</DialogTitle>
             </DialogHeader>
             <PersonaCategoriaAdmin />
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {puedeContabilidadConfig && (
+        <Dialog open={categoriasOpen} onOpenChange={setCategoriasOpen}>
+          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Categorías de ingresos</DialogTitle>
+            </DialogHeader>
+            <CategoriaIngresoAdmin />
           </DialogContent>
         </Dialog>
       )}

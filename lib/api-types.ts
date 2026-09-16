@@ -182,8 +182,9 @@ export type {
   BilleterasResumen,
   PersonaCategoria,
   PersonaCategoriaUpsertRequest,
+  CategoriaIngreso,
+  CategoriaIngresoUpsertRequest,
 } from "./types/feats/informe-direccion/contabilidad-types";
-export { CATEGORIAS_CONTABILIDAD } from "./types/feats/informe-direccion/contabilidad-types";
 
 export type {
   CargoOrganigrama,

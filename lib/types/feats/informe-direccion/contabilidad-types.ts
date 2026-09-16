@@ -1,25 +1,16 @@
-export type CategoriaContabilidad =
-  | "instaladora_habana"
-  | "instaladora_santa_clara"
-  | "instaladora_las_tunas"
-  | "ventas_habana"
-  | "logistica_transporte_seguridad"
-  | "socios_ceo"
-  | "director"
-  | "transferencias_bancarias"
-  | "otros_ingresos";
+/** Antes era una unión fija; ahora las categorías son dinámicas (se pueden
+ * crear y editar desde el panel), así que el código es cualquier string. */
+export type CategoriaContabilidad = string;
 
-export const CATEGORIAS_CONTABILIDAD: { value: CategoriaContabilidad; label: string }[] = [
-  { value: "instaladora_habana", label: "Instaladora Habana" },
-  { value: "instaladora_santa_clara", label: "UEB Santa Clara" },
-  { value: "instaladora_las_tunas", label: "UEB Las Tunas" },
-  { value: "ventas_habana", label: "Suncar Ventas Habana" },
-  { value: "logistica_transporte_seguridad", label: "Logística, transporte y seguridad" },
-  { value: "socios_ceo", label: "Ingresos socios o CEO" },
-  { value: "director", label: "Ingresos director" },
-  { value: "transferencias_bancarias", label: "Transferencias bancarias" },
-  { value: "otros_ingresos", label: "Otros ingresos" },
-];
+export interface CategoriaIngreso {
+  id: string;
+  codigo: string;
+  label: string;
+}
+
+export interface CategoriaIngresoUpsertRequest {
+  label: string;
+}
 
 /** Montos por código de moneda (USD, CUP, EUR, MLC...), sin convertir. */
 export type MontosPorMoneda = Record<string, number>;
@@ -43,6 +34,7 @@ export interface ContabilidadMovimiento {
   moneda: string;
   monto: number;
   excluido: boolean;
+  categoria_automatica: CategoriaContabilidad;
 }
 
 export interface MovimientoExclusionUpdateRequest {

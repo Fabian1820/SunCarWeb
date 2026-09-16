@@ -34,6 +34,7 @@ export { DepartamentoService } from "./services/feats/departamentos/departamento
 export {
   ContabilidadFinancieraService,
   PersonaCategoriaService,
+  CategoriaIngresoService,
 } from "./services/feats/informe-direccion/contabilidad-service";
 export { OrganigramaService } from "./services/feats/organigramas/organigrama-service";
 export { InstalacionesService } from "./services/feats/instalaciones/instalaciones-service";

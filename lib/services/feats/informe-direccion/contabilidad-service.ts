@@ -4,6 +4,8 @@ import { apiRequest } from "@/lib/api-config";
 import { ensureValidObjectId } from "@/lib/utils/object-id";
 import type {
   BilleterasResumen,
+  CategoriaIngreso,
+  CategoriaIngresoUpsertRequest,
   ContabilidadResumen,
   MovimientoCategoriaUpdateRequest,
   MovimientoExclusionUpdateRequest,
@@ -16,6 +18,8 @@ const BILLETERAS_ENDPOINT = "/informe-direccion/contabilidad/billeteras";
 const MOVIMIENTOS_ENDPOINT = "/informe-direccion/contabilidad/movimientos";
 const BASE_ENDPOINT = "/informe-direccion/contabilidad/personas-categoria";
 const COLLECTION_ENDPOINT = "/informe-direccion/contabilidad/personas-categoria/";
+const CATEGORIAS_BASE_ENDPOINT = "/informe-direccion/contabilidad/categorias";
+const CATEGORIAS_COLLECTION_ENDPOINT = "/informe-direccion/contabilidad/categorias/";
 
 const extractApiError = (response: any): string | null => {
   if (!response) return null;
@@ -40,6 +44,12 @@ const mapPersonaCategoria = (raw: any): PersonaCategoria => ({
   persona_nombre: String(raw?.persona_nombre ?? ""),
   categoria: raw?.categoria,
   activo: Boolean(raw?.activo ?? true),
+});
+
+const mapCategoriaIngreso = (raw: any): CategoriaIngreso => ({
+  id: String(raw?.id ?? raw?._id ?? ""),
+  codigo: String(raw?.codigo ?? ""),
+  label: String(raw?.label ?? ""),
 });
 
 export const ContabilidadFinancieraService = {
@@ -113,6 +123,45 @@ export class PersonaCategoriaService {
 
     const raw = await apiRequest<any>(`${BASE_ENDPOINT}/${encodeURIComponent(safeId)}`, {
       method: "DELETE",
+    });
+    const error = extractApiError(raw);
+    if (error) throw new Error(error);
+  }
+}
+
+/** Categorías de negocio de Contabilidad: se pueden crear y editar el
+ * nombre; a propósito no hay borrado (ver backend). */
+export class CategoriaIngresoService {
+  static async getAll(): Promise<CategoriaIngreso[]> {
+    const raw = await apiRequest<any>(CATEGORIAS_COLLECTION_ENDPOINT);
+    const error = extractApiError(raw);
+    if (error) throw new Error(error);
+
+    const payload = unwrapPayload(raw);
+    const list = Array.isArray(payload) ? payload : [];
+    return list.map(mapCategoriaIngreso);
+  }
+
+  static async create(label: string): Promise<CategoriaIngreso> {
+    if (!label.trim()) {
+      throw new Error("El nombre de la categoría es obligatorio.");
+    }
+    const raw = await apiRequest<any>(CATEGORIAS_COLLECTION_ENDPOINT, {
+      method: "POST",
+      body: JSON.stringify({ label }),
+    });
+    const error = extractApiError(raw);
+    if (error) throw new Error(error);
+    return mapCategoriaIngreso(unwrapPayload(raw));
+  }
+
+  static async update(id: string, data: CategoriaIngresoUpsertRequest): Promise<void> {
+    const safeId = ensureValidObjectId(id, "categoria_id");
+    if (!safeId) throw new Error("categoria_id inválido.");
+
+    const raw = await apiRequest<any>(`${CATEGORIAS_BASE_ENDPOINT}/${encodeURIComponent(safeId)}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
     });
     const error = extractApiError(raw);
     if (error) throw new Error(error);
