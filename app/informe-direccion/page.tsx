@@ -46,6 +46,9 @@ import {
   ObrasTerminadasService,
   type ObraTerminada,
 } from "@/lib/services/feats/obras-terminadas/obras-terminadas-service";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/shared/molecule/tabs";
+import { ContabilidadSection } from "@/components/feats/informe-direccion/contabilidad-section";
+import { PersonaCategoriaAdmin } from "@/components/feats/informe-direccion/persona-categoria-admin";
 
 const MODULE = "informe-direccion";
 
@@ -532,6 +535,9 @@ function InformeDireccionContent() {
     hasSubPermission(MODULE, SUBPERMISO_SECCION[k]),
   );
   const puedeCobrosPendientes = hasSubPermission(MODULE, "cobros-pendientes");
+  const puedeContabilidad = hasSubPermission(MODULE, "contabilidad");
+  const puedeContabilidadConfig = hasSubPermission(MODULE, "contabilidad-config");
+  const puedeAlgoDeOtros = puedeComparativo || puedeCobrosPendientes;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
@@ -541,7 +547,7 @@ function InformeDireccionContent() {
       />
 
       <main className="content-with-fixed-header max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-        {!puedeComparativo && !puedeCobrosPendientes ? (
+        {!puedeContabilidad && !puedeContabilidadConfig && !puedeAlgoDeOtros ? (
           <div className="rounded-lg border bg-white/70 p-8 text-center">
             <p className="text-gray-700">No tienes ningún informe asignado en este módulo.</p>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -550,10 +556,30 @@ function InformeDireccionContent() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-            {puedeComparativo && <ReporteComparativoDesempeno />}
-            {puedeCobrosPendientes && <ReporteCobrosPendientes />}
-          </div>
+          <Tabs defaultValue={puedeContabilidad || puedeContabilidadConfig ? "contabilidad" : "otros"}>
+            <TabsList>
+              {(puedeContabilidad || puedeContabilidadConfig) && (
+                <TabsTrigger value="contabilidad">Contabilidad</TabsTrigger>
+              )}
+              {puedeAlgoDeOtros && <TabsTrigger value="otros">Otros</TabsTrigger>}
+            </TabsList>
+
+            {(puedeContabilidad || puedeContabilidadConfig) && (
+              <TabsContent value="contabilidad" className="space-y-6">
+                {(puedeContabilidad || puedeContabilidadConfig) && <ContabilidadSection />}
+                {puedeContabilidadConfig && <PersonaCategoriaAdmin />}
+              </TabsContent>
+            )}
+
+            {puedeAlgoDeOtros && (
+              <TabsContent value="otros">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                  {puedeComparativo && <ReporteComparativoDesempeno />}
+                  {puedeCobrosPendientes && <ReporteCobrosPendientes />}
+                </div>
+              </TabsContent>
+            )}
+          </Tabs>
         )}
       </main>
 

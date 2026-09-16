@@ -165,6 +165,17 @@ export type {
 } from "./types/feats/departamentos/departamento-types";
 
 export type {
+  CategoriaContabilidad,
+  ContabilidadGeneral,
+  ContabilidadCategoriaResumen,
+  ContabilidadSinCategoria,
+  ContabilidadResumen,
+  PersonaCategoria,
+  PersonaCategoriaUpsertRequest,
+} from "./types/feats/informe-direccion/contabilidad-types";
+export { CATEGORIAS_CONTABILIDAD } from "./types/feats/informe-direccion/contabilidad-types";
+
+export type {
   CargoOrganigrama,
   LadoCargo,
   NodoOrganigrama,

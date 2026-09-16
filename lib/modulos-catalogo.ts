@@ -998,6 +998,18 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
         descripcion:
           "Ver los clientes con saldo por cobrar (filtrables por comercial y estado) y exportarlos a PDF. Asignado solo, da acceso a este informe y a ningún otro del módulo.",
       },
+      {
+        key: "informe-direccion/contabilidad",
+        label: "Contabilidad",
+        descripcion:
+          "Ver ingresos, gastos y saldo de la empresa por rango de fechas, en general y divididos por categoría de negocio.",
+      },
+      {
+        key: "informe-direccion/contabilidad-config",
+        label: "Configurar personas y categorías (Contabilidad)",
+        descripcion:
+          "Editar qué persona pertenece a cada categoría de negocio para la división de Contabilidad. Incluye el acceso de solo lectura.",
+      },
     ],
   },
 
