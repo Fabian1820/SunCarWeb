@@ -9,9 +9,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Plus, Search, Loader2 } from "lucide-react"
 import { BrigadesTable } from "@/components/feats/brigade/brigades-table"
 import { BrigadeForm } from "@/components/feats/brigade/brigade-form"
+import { AgregarIntegranteForm } from "@/components/feats/brigade/AgregarIntegranteForm"
 import { useBrigadas } from "@/hooks/use-brigadas"
 import { convertBrigadaToFrontend, convertBrigadeFormDataToRequest } from "@/lib/utils/brigada-converters"
 import type { Brigade, BrigadeFormData } from "@/lib/brigade-types"
+import type { Trabajador } from "@/lib/api-types"
 import { useBrigadasTrabajadores } from '@/hooks/use-brigadas-trabajadores'
 import { BrigadaService } from '@/lib/api-services'
 import { PageLoader } from "@/components/shared/atom/page-loader"
@@ -59,8 +61,20 @@ function BrigadasPageContent() {
   const [isAddBrigadeDialogOpen, setIsAddBrigadeDialogOpen] = useState(false)
   const [isEditBrigadeDialogOpen, setIsEditBrigadeDialogOpen] = useState(false)
   const [editingBrigade, setEditingBrigade] = useState<Brigade | null>(null)
+  const [isAddWorkerDialogOpen, setIsAddWorkerDialogOpen] = useState(false)
+  const [brigadeToAddTo, setBrigadeToAddTo] = useState<Brigade | null>(null)
   const [loadingAction, setLoadingAction] = useState(false)
   const { toast } = useToast()
+
+  // Candidatos para "Agregar integrante": brigadistas que no son jefes ni ya
+  // pertenecen a alguna brigada (ni siquiera a la que se les está por agregar,
+  // sería redundante).
+  const cisEnAlgunaBrigada = new Set(
+    backendBrigades.flatMap((b) => [b.lider?.CI, ...(b.integrantes || []).map((i) => i.CI)]).filter(Boolean),
+  )
+  const candidatosParaAgregar: Trabajador[] = (trabajadores || []).filter(
+    (t) => (t.is_brigadista === true || t.is_brigadista === undefined) && !t.es_jefe_brigada && !cisEnAlgunaBrigada.has(t.CI),
+  )
 
   const handleCreateBrigada = async (data: BrigadeFormData) => {
     console.log('handleCreateBrigada called with data:', data);
@@ -144,6 +158,35 @@ function BrigadasPageContent() {
   const openEditDialog = (_brigade: Brigade) => {
     // Función inhabilitada para MVP
     console.log('Función de editar brigada inhabilitada para MVP')
+  }
+
+  const openAddWorkerDialog = (brigade: Brigade) => {
+    setBrigadeToAddTo(brigade)
+    setIsAddWorkerDialogOpen(true)
+  }
+
+  const handleAddWorker = async ({ trabajador }: { trabajador: Trabajador }) => {
+    if (!brigadeToAddTo?.id) return
+    setLoadingAction(true)
+    try {
+      const ok = await addTrabajador(brigadeToAddTo.id, { nombre: trabajador.nombre, CI: trabajador.CI })
+      if (!ok) throw new Error('El servidor no pudo agregar al trabajador')
+      toast({
+        title: "Éxito",
+        description: `${trabajador.nombre} fue agregado a la brigada correctamente`,
+      })
+      setIsAddWorkerDialogOpen(false)
+      setBrigadeToAddTo(null)
+      await refetch()
+    } catch (e: any) {
+      toast({
+        title: "Error",
+        description: 'Error al agregar trabajador a la brigada: ' + (e.message || 'Error desconocido'),
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingAction(false)
+    }
   }
 
 
@@ -302,6 +345,7 @@ function BrigadasPageContent() {
               onEdit={openEditDialog}
                 onDelete={handleDeleteBrigada}
                 onRemoveWorker={handleRemoveWorker}
+                onAddWorker={openAddWorkerDialog}
                 onRefresh={async () => { await Promise.all([refetch(), loadBrigadas()]); }}
             />
             )}
@@ -331,6 +375,26 @@ function BrigadasPageContent() {
                 brigadas={backendBrigades}
               />
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Add Worker Dialog */}
+        <Dialog open={isAddWorkerDialogOpen} onOpenChange={(open) => {
+          setIsAddWorkerDialogOpen(open)
+          if (!open) setBrigadeToAddTo(null)
+        }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                Agregar integrante a la brigada de {brigadeToAddTo?.leader.name}
+              </DialogTitle>
+            </DialogHeader>
+            <AgregarIntegranteForm
+              onSubmit={handleAddWorker}
+              onCancel={() => { setIsAddWorkerDialogOpen(false); setBrigadeToAddTo(null) }}
+              loading={loadingAction}
+              candidatos={candidatosParaAgregar}
+            />
           </DialogContent>
         </Dialog>
 

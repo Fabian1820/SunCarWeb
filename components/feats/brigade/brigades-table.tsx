@@ -5,7 +5,7 @@ import { Button } from "@/components/shared/atom/button"
 import { Badge } from "@/components/shared/atom/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, ConfirmDeleteDialog } from "@/components/shared/molecule/dialog"
-import { Trash2, Users, Crown, Phone, Mail, UserMinus, Eye, Calendar, FileText, ChevronDown, ChevronUp } from "lucide-react"
+import { Trash2, Users, Crown, Phone, Mail, UserMinus, UserPlus, Eye, Calendar, FileText, ChevronDown, ChevronUp } from "lucide-react"
 import type { Brigade } from "@/lib/brigade-types"
 import { BrigadaService } from "@/lib/api-services"
 import { useToast } from "@/hooks/use-toast"
@@ -15,10 +15,11 @@ interface BrigadesTableProps {
   onEdit: (brigade: Brigade) => void
   onDelete: (liderCi: string) => void
   onRemoveWorker: (liderCi: string, workerCi: string) => void
+  onAddWorker: (brigade: Brigade) => void
   onRefresh: () => void
 }
 
-export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRefresh }: BrigadesTableProps) {
+export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onAddWorker, onRefresh }: BrigadesTableProps) {
   const [selectedBrigade, setSelectedBrigade] = useState<Brigade | null>(null)
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
   const [isDeleteBrigadeDialogOpen, setIsDeleteBrigadeDialogOpen] = useState(false)
@@ -276,7 +277,17 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
 	                  </Button>
 	                </div>
 
-	                <div className="grid grid-cols-2 gap-2">
+	                <div className="grid grid-cols-3 gap-2">
+	                  <Button
+	                    variant="outline"
+	                    className="h-11 w-full border-emerald-300 text-emerald-700 hover:bg-emerald-50 touch-manipulation"
+	                    onClick={() => onAddWorker(brigade)}
+	                    aria-label="Agregar integrante"
+	                    title="Agregar integrante"
+	                  >
+	                    <UserPlus className="h-4 w-4" />
+	                    <span className="sr-only">Agregar integrante</span>
+	                  </Button>
 	                  <Button
 	                    variant="outline"
 	                    className="h-11 w-full border-red-300 text-red-700 hover:bg-red-50 touch-manipulation"
@@ -396,6 +407,15 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
                     <Button
                       variant="outline"
                       size="sm"
+                      onClick={() => onAddWorker(brigade)}
+                      className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                      title="Agregar integrante"
+                    >
+                      <UserPlus className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => openDeleteBrigadeDialog(brigade)}
                       className="border-red-300 text-red-700 hover:bg-red-50"
                     >
@@ -458,9 +478,21 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
               {/* Trabajadores */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Users className="h-5 w-5 text-blue-500" />
-                    <span>Trabajadores ({selectedBrigade.members.length})</span>
+                  <CardTitle className="flex items-center justify-between gap-2">
+                    <div className="flex items-center space-x-2">
+                      <Users className="h-5 w-5 text-blue-500" />
+                      <span>Trabajadores ({selectedBrigade.members.length})</span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onAddWorker(selectedBrigade)}
+                      className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                      title="Agregar integrante"
+                    >
+                      <UserPlus className="h-4 w-4 mr-1" />
+                      Agregar
+                    </Button>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
