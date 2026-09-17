@@ -4726,14 +4726,14 @@ export function ClientsTable({
               <Input
                 id="cliente-foto-archivo"
                 type="file"
-                accept="image/*,video/*"
                 multiple
                 onChange={handleSeleccionarArchivosFoto}
                 disabled={uploadingFoto}
               />
               <p className="text-xs text-gray-500">
-                Acepta imágenes y videos. Puedes seleccionar uno o varios, y
-                repetir la selección para ir agregando más.
+                Cualquier tipo de archivo (fotos, videos, documentos...).
+                Puedes seleccionar uno o varios, y repetir la selección para
+                ir agregando más.
               </p>
             </div>
 

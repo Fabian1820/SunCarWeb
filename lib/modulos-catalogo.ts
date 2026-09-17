@@ -291,7 +291,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     key: "atencion-cliente",
     label: "Atención al Cliente",
     descripcion:
-      "Guardia de WhatsApp: quién atiende en cada turno, registro de los leads que salen de esas conversaciones y reparto a los comerciales.",
+      "Guardia de WhatsApp: turnos de atención, leads registrados y su reparto a comerciales.",
     icon: Headphones,
     iconClass: "text-emerald-600",
     href: "/atencion-cliente",
