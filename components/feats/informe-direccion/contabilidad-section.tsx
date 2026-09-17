@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   ArrowRight,
@@ -16,11 +16,8 @@ import {
 } from "lucide-react";
 import {
   CartesianGrid,
-  Cell,
   Line,
   LineChart,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -347,8 +344,51 @@ function PanelGrafico({
   );
 }
 
-/** Pastel de distribución con la leyenda al lado: el nombre junto al color
- * y la cantidad debajo. Una sola moneda (mezclarlas no tendría sentido). */
+const RADIAN = Math.PI / 180;
+/** Geometría del pastel 3D: elipse en perspectiva + pared extruida. */
+const ALTO_PASTEL = 390;
+const RADIO_X = 152;
+const RADIO_Y = 68;
+const PROFUNDIDAD = 34;
+const CENTRO_Y = 172;
+/** Separación vertical mínima entre etiquetas del mismo lado. */
+const SEPARACION_ETIQUETA = 36;
+/** Piso visual: una categoría minúscula ocupa al menos esta fracción del
+ * pastel para que se pueda ver y tocar. El monto y el % mostrados son los
+ * reales — solo el ancho de la porción tiene mínimo. */
+const PISO_PORCION = 0.035;
+
+/** Sombra de la pared lateral: el mismo color, más oscuro. */
+function oscurecer(hex: string, factor: number) {
+  const n = parseInt(hex.slice(1), 16);
+  const canal = (desplazamiento: number) =>
+    Math.max(0, Math.min(255, Math.round(((n >> desplazamiento) & 255) * factor)));
+  const rgb = (canal(16) << 16) | (canal(8) << 8) | canal(0);
+  return `#${(rgb | 0x1000000).toString(16).slice(1)}`;
+}
+
+function puntoElipse(cx: number, cy: number, rx: number, ry: number, grados: number) {
+  return { x: cx + rx * Math.cos(grados * RADIAN), y: cy - ry * Math.sin(grados * RADIAN) };
+}
+
+/** Recorta el nombre al ancho disponible (SVG no ajusta texto solo). */
+function recortarTexto(texto: string, anchoPx: number) {
+  const maximo = Math.max(8, Math.floor(anchoPx / 6.6));
+  return texto.length <= maximo ? texto : `${texto.slice(0, maximo - 1)}…`;
+}
+
+type PorcionPastel = {
+  codigo: string;
+  label: string;
+  valor: number;
+  porcentaje: number;
+  inicio: number;
+  fin: number;
+  medio: number;
+};
+
+/** Pastel 3D en perspectiva, con el nombre, el monto y el % de cada
+ * categoría sobre el propio gráfico unidos por una línea guía. */
 function DistribucionIngresosPie({
   datos,
   seleccionada,
@@ -362,79 +402,259 @@ function DistribucionIngresosPie({
   moneda: string;
   colorDe: (codigo: string) => string;
 }) {
-  const total = datos.reduce((s, d) => s + d.valor, 0);
+  const contenedor = useRef<HTMLDivElement>(null);
+  const [ancho, setAncho] = useState(0);
+
+  // El SVG se dibuja en píxeles (no en %) para que las líneas guía caigan
+  // exactamente sobre su porción, así que hace falta medir el contenedor.
+  useEffect(() => {
+    const nodo = contenedor.current;
+    if (!nodo) return;
+    setAncho(nodo.getBoundingClientRect().width);
+    const observador = new ResizeObserver(([entrada]) => setAncho(entrada.contentRect.width));
+    observador.observe(nodo);
+    return () => observador.disconnect();
+  }, []);
+
+  const total = datos.reduce((suma, d) => suma + d.valor, 0);
+
+  // Ángulos propios (no los de recharts) para poder anclar etiquetas y
+  // aplicar el piso visual de las porciones finas.
+  const porciones = useMemo<PorcionPastel[]>(() => {
+    if (total <= 0) return [];
+    const piso = total * PISO_PORCION;
+    const conPiso = datos.map((d) => ({ ...d, valorGrafico: Math.max(d.valor, piso) }));
+    const totalGrafico = conPiso.reduce((suma, d) => suma + d.valorGrafico, 0);
+    let acumulado = 0;
+    return conPiso.map((d) => {
+      const inicio = 90 - (acumulado / totalGrafico) * 360;
+      acumulado += d.valorGrafico;
+      const fin = 90 - (acumulado / totalGrafico) * 360;
+      return {
+        codigo: d.codigo,
+        label: d.label,
+        valor: d.valor,
+        porcentaje: (d.valor / total) * 100,
+        inicio,
+        fin,
+        medio: (inicio + fin) / 2,
+      };
+    });
+  }, [datos, total]);
+
+  // En pantallas estrechas no cabe una etiqueta a cada lado: el pastel se
+  // encoge y los nombres pasan a una leyenda debajo.
+  const compacto = ancho > 0 && ancho < 620;
+  const cx = ancho / 2;
+  const rx = compacto ? Math.max(68, Math.min(RADIO_X, ancho / 2 - 22)) : RADIO_X;
+  const ry = (rx * RADIO_Y) / RADIO_X;
+  const profundidad = (rx * PROFUNDIDAD) / RADIO_X;
+  const cy = compacto ? ry + 24 : CENTRO_Y;
+  const alto = compacto ? Math.round(cy + ry + profundidad + 16) : ALTO_PASTEL;
+
+  // Etiquetas: se reparten a izquierda/derecha y se separan para no pisarse.
+  const etiquetas = useMemo(() => {
+    const porLado: Record<"izq" | "der", { indice: number; y: number }[]> = { izq: [], der: [] };
+    porciones.forEach((p, indice) => {
+      const seno = Math.sin(p.medio * RADIAN);
+      const lado = Math.cos(p.medio * RADIAN) >= 0 ? "der" : "izq";
+      porLado[lado].push({ indice, y: cy - (ry + 16) * seno + (seno < 0 ? profundidad : 0) });
+    });
+    const posiciones: Record<number, { y: number; lado: "izq" | "der" }> = {};
+    (["izq", "der"] as const).forEach((lado) => {
+      const items = [...porLado[lado]].sort((a, b) => a.y - b.y);
+      let ultimo = -Infinity;
+      items.forEach(({ indice, y }) => {
+        const yFinal = Math.max(y, ultimo + SEPARACION_ETIQUETA);
+        posiciones[indice] = { y: yFinal, lado };
+        ultimo = yFinal;
+      });
+      const desborde = ultimo - (alto - 20);
+      if (desborde > 0) {
+        const primera = items.length > 0 ? posiciones[items[0].indice].y : 0;
+        const ajuste = Math.min(desborde, primera - 20);
+        if (ajuste > 0) items.forEach(({ indice }) => (posiciones[indice].y -= ajuste));
+      }
+    });
+    return posiciones;
+  }, [porciones, cy, ry, profundidad, alto]);
 
   if (datos.length === 0 || total <= 0) {
     return <p className="py-16 text-center text-base text-gray-400">Sin ingresos que graficar en {moneda}.</p>;
   }
 
-  return (
-    <div className="flex flex-col-reverse items-center gap-5 lg:flex-row">
-      <ul className="w-full space-y-1 lg:flex-1">
-        {datos.map((d) => {
-          const activo = seleccionada === d.codigo;
-          return (
-            <li key={d.codigo}>
-              <button
-                type="button"
-                onClick={() => onSeleccionar(d.codigo)}
-                className={`w-full rounded-xl px-3 py-2 text-left transition-colors ${
-                  activo ? "bg-[#E6F4EF]" : "hover:bg-gray-50"
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <span
-                    className="h-3 w-3 shrink-0 rounded-full ring-2 ring-white"
-                    style={{ backgroundColor: colorDe(d.codigo) }}
-                  />
-                  <span className="truncate text-sm font-medium text-gray-700">{d.label}</span>
-                </span>
-                <span className="mt-0.5 flex items-baseline gap-2 pl-5">
-                  <span className="text-lg font-semibold tabular-nums text-[#012928]">{formatNumero(d.valor)}</span>
-                  <span className="text-xs font-medium text-gray-400">{Math.round((d.valor / total) * 100)}%</span>
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+  /** Cara superior de la porción (elipse en perspectiva). */
+  const caraSuperior = (p: PorcionPastel) => {
+    const a = puntoElipse(cx, cy, rx, ry, p.inicio);
+    const b = puntoElipse(cx, cy, rx, ry, p.fin);
+    const arcoGrande = p.inicio - p.fin > 180 ? 1 : 0;
+    return `M ${cx} ${cy} L ${a.x} ${a.y} A ${rx} ${ry} 0 ${arcoGrande} 1 ${b.x} ${b.y} Z`;
+  };
 
-      <div className="relative h-56 w-56 shrink-0">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={datos}
-              dataKey="valor"
-              nameKey="label"
-              innerRadius="58%"
-              outerRadius="96%"
-              paddingAngle={1.5}
-              stroke="#ffffff"
-              strokeWidth={2}
-              onClick={(_, index) => onSeleccionar(datos[index].codigo)}
-              isAnimationActive
-              animationDuration={500}
-            >
-              {datos.map((d) => (
-                <Cell
-                  key={d.codigo}
-                  fill={colorDe(d.codigo)}
-                  className="cursor-pointer outline-none"
-                  opacity={seleccionada === null || seleccionada === d.codigo ? 1 : 0.4}
-                />
-              ))}
-            </Pie>
-            <Tooltip
-              formatter={(value: number) => formatMonto(moneda, value)}
-              contentStyle={{ borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 13 }}
-            />
-          </PieChart>
-        </ResponsiveContainer>
-        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Total {moneda}</span>
-          <span className="text-xl font-semibold tabular-nums text-[#012928]">{formatNumero(total)}</span>
-        </div>
+  /** Pared lateral: solo la parte de la porción que mira al frente. */
+  const paredLateral = (p: PorcionPastel) => {
+    const desde = Math.min(p.inicio, 0);
+    const hasta = Math.max(p.fin, -180);
+    if (desde <= hasta) return null;
+    const a = puntoElipse(cx, cy, rx, ry, desde);
+    const b = puntoElipse(cx, cy, rx, ry, hasta);
+    return [
+      `M ${a.x} ${a.y}`,
+      `A ${rx} ${ry} 0 0 1 ${b.x} ${b.y}`,
+      `L ${b.x} ${b.y + profundidad}`,
+      `A ${rx} ${ry} 0 0 0 ${a.x} ${a.y + profundidad}`,
+      "Z",
+    ].join(" ");
+  };
+
+  return (
+    <div>
+      <div className="mb-1 flex items-baseline gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Total {moneda}</span>
+        <span className="text-xl font-semibold tabular-nums text-[#012928]">{formatNumero(total)}</span>
       </div>
+
+      <div ref={contenedor} className="relative w-full" style={{ height: alto }}>
+        {ancho > 0 && (
+          <svg width={ancho} height={alto} className="block">
+            <defs>
+              <filter id="pastel-sombra" x="-30%" y="-30%" width="160%" height="160%">
+                <feGaussianBlur stdDeviation="7" />
+              </filter>
+            </defs>
+
+            <ellipse
+              cx={cx}
+              cy={cy + profundidad + 10}
+              rx={rx * 0.98}
+              ry={ry * 0.82}
+              fill="rgba(1,41,40,0.18)"
+              filter="url(#pastel-sombra)"
+            />
+
+            {/* Paredes primero: las caras superiores van encima. */}
+            {porciones.map((p) => {
+              const pared = paredLateral(p);
+              if (!pared) return null;
+              const desplazada = seleccionada === p.codigo;
+              return (
+                <path
+                  key={`pared-${p.codigo}`}
+                  d={pared}
+                  fill={oscurecer(colorDe(p.codigo), 0.68)}
+                  transform={
+                    desplazada
+                      ? `translate(${rx * 0.065 * Math.cos(p.medio * RADIAN)}, ${-ry * 0.09 * Math.sin(p.medio * RADIAN)})`
+                      : undefined
+                  }
+                />
+              );
+            })}
+
+            {porciones.map((p) => {
+              const desplazada = seleccionada === p.codigo;
+              return (
+                <path
+                  key={`cara-${p.codigo}`}
+                  d={caraSuperior(p)}
+                  fill={colorDe(p.codigo)}
+                  stroke="#ffffff"
+                  strokeWidth={desplazada ? 3 : 1.5}
+                  className="cursor-pointer outline-none"
+                  onClick={() => onSeleccionar(p.codigo)}
+                  transform={
+                    desplazada
+                      ? `translate(${rx * 0.065 * Math.cos(p.medio * RADIAN)}, ${-ry * 0.09 * Math.sin(p.medio * RADIAN)})`
+                      : undefined
+                  }
+                />
+              );
+            })}
+
+            {/* Etiquetas con línea guía: nombre, monto y % junto a su porción. */}
+            {!compacto && porciones.map((p, indice) => {
+              const pos = etiquetas[indice];
+              if (!pos) return null;
+              const activa = seleccionada === p.codigo;
+              const color = colorDe(p.codigo);
+              const seno = Math.sin(p.medio * RADIAN);
+              const coseno = Math.cos(p.medio * RADIAN);
+              const direccion = pos.lado === "der" ? 1 : -1;
+              const origen = puntoElipse(cx, cy, rx + 3, ry + 2, p.medio);
+              const yOrigen = origen.y + (seno < 0 ? profundidad * 0.6 : 0);
+              const xCodo = cx + direccion * Math.max(Math.abs((rx + 22) * coseno), rx * 0.55);
+              const xFin = cx + direccion * (rx + 40);
+              const xTexto = xFin + direccion * 8;
+              const anchoTexto = pos.lado === "der" ? ancho - 6 - xTexto : xTexto - 6;
+              return (
+                <g
+                  key={`etiqueta-${p.codigo}`}
+                  className="cursor-pointer"
+                  onClick={() => onSeleccionar(p.codigo)}
+                >
+                  <polyline
+                    points={`${origen.x},${yOrigen} ${xCodo},${pos.y} ${xFin},${pos.y}`}
+                    fill="none"
+                    stroke={color}
+                    strokeWidth={activa ? 2 : 1.5}
+                  />
+                  <circle cx={xFin} cy={pos.y} r={activa ? 4 : 3} fill={color} />
+                  <text
+                    x={xTexto}
+                    y={pos.y - 3}
+                    textAnchor={pos.lado === "der" ? "start" : "end"}
+                    fontSize={13}
+                    fontWeight={activa ? 700 : 500}
+                    fill="#1f2937"
+                  >
+                    {recortarTexto(p.label, anchoTexto)}
+                  </text>
+                  <text
+                    x={xTexto}
+                    y={pos.y + 14}
+                    textAnchor={pos.lado === "der" ? "start" : "end"}
+                    fontSize={13}
+                    fontWeight={600}
+                    fill={MARCA.emerald}
+                    className="tabular-nums"
+                  >
+                    {formatNumero(p.valor)}
+                    <tspan fontSize={12} fontWeight={500} fill="#9ca3af">
+                      {`  ${p.porcentaje < 1 ? p.porcentaje.toFixed(1) : Math.round(p.porcentaje)}%`}
+                    </tspan>
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
+        )}
+      </div>
+
+      {compacto && (
+        <ul className="mt-3 space-y-1.5">
+          {porciones.map((p) => {
+            const activa = seleccionada === p.codigo;
+            return (
+              <li key={p.codigo}>
+                <button
+                  type="button"
+                  onClick={() => onSeleccionar(p.codigo)}
+                  className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm ${
+                    activa ? "bg-[#E6F4EF] font-semibold" : "bg-white"
+                  }`}
+                >
+                  <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: colorDe(p.codigo) }} />
+                  <span className="min-w-0 flex-1 truncate text-gray-800">{p.label}</span>
+                  <span className="shrink-0 tabular-nums text-[#012928]">{formatNumero(p.valor)}</span>
+                  <span className="w-10 shrink-0 text-right tabular-nums text-gray-400">
+                    {p.porcentaje < 1 ? p.porcentaje.toFixed(1) : Math.round(p.porcentaje)}%
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }
@@ -1248,20 +1468,24 @@ export function ContabilidadSection({ accionExtra }: { accionExtra?: React.React
 
             {vista === "ingresos" && (
               <>
-                <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-                  <PanelGrafico titulo="Distribución de ingresos" icono={PieChartIcon} acciones={selectorMonedaGraficos}>
-                    <DistribucionIngresosPie
-                      datos={datosPie}
-                      seleccionada={categoriaSeleccionada}
-                      onSeleccionar={setCategoriaSeleccionada}
-                      moneda={monedaGraficos}
-                      colorDe={colorDeCategoria}
-                    />
-                  </PanelGrafico>
+                <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
+                  <div className="xl:col-span-7">
+                    <PanelGrafico titulo="Distribución de ingresos" icono={PieChartIcon} acciones={selectorMonedaGraficos}>
+                      <DistribucionIngresosPie
+                        datos={datosPie}
+                        seleccionada={categoriaSeleccionada}
+                        onSeleccionar={setCategoriaSeleccionada}
+                        moneda={monedaGraficos}
+                        colorDe={colorDeCategoria}
+                      />
+                    </PanelGrafico>
+                  </div>
 
-                  <PanelGrafico titulo={`Ingresos por mes · ${monedaGraficos}`} icono={Activity}>
-                    <TendenciaChart datos={tendencia} serie="ingresos" moneda={monedaGraficos} cargando={loadingTendencia} />
-                  </PanelGrafico>
+                  <div className="xl:col-span-5">
+                    <PanelGrafico titulo={`Ingresos por mes · ${monedaGraficos}`} icono={Activity}>
+                      <TendenciaChart datos={tendencia} serie="ingresos" moneda={monedaGraficos} cargando={loadingTendencia} />
+                    </PanelGrafico>
+                  </div>
                 </div>
 
                 {categoriaSeleccionadaResumen ? (
