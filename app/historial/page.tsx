@@ -519,33 +519,53 @@ function EquiposDeUeb({ ueb, onVolver }: { ueb: UebResumen; onVolver: () => void
           {texto ? "Ningún inversor con esa búsqueda." : "Ninguna oferta confirmada de esta UEB lleva inversor."}
         </p>
       ) : (
-        <ul className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {equipos.map((e) => {
-            const p = potencia(e.potencia_kw, "inversores");
-            return (
-              <li key={e.material_codigo}>
-                <button
-                  type="button"
-                  onClick={() => setEquipo(e)}
-                  className="flex h-full w-full gap-3 rounded-2xl border border-gray-200 bg-white p-3 text-left shadow-sm transition hover:border-emerald-600 hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
-                >
-                  <FotoEquipo foto={e.foto} categoria="inversores" tamano="h-20 w-20" />
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="line-clamp-2 text-sm font-semibold text-gray-900">{e.descripcion.trim()}</span>
-                    {e.marca && <span className="mt-0.5 text-xs text-gray-500">{e.marca}</span>}
-                    <span className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 pt-2">
-                      {p && <span className="rounded-md bg-gray-900 px-2 py-0.5 text-xs font-bold text-white">{p}</span>}
-                      <span className="text-sm font-semibold text-emerald-800">
-                        {numero(e.clientes)} {e.clientes === 1 ? "cliente" : "clientes"}
-                      </span>
-                      <span className="text-xs text-gray-500">· {numero(e.unidades)} ud.</span>
-                    </span>
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+        <div className="mt-4 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  <th className="px-4 py-3">Foto</th>
+                  <th className="px-4 py-3">Nombre</th>
+                  <th className="px-4 py-3">Marca</th>
+                  <th className="px-4 py-3">Potencia</th>
+                  <th className="px-4 py-3 text-right">Clientes</th>
+                  <th className="px-4 py-3 text-right">Unidades</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {equipos.map((e) => {
+                  const p = potencia(e.potencia_kw, "inversores");
+                  return (
+                    <tr
+                      key={e.material_codigo}
+                      onClick={() => setEquipo(e)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(ev) => {
+                        if (ev.key === "Enter" || ev.key === " ") {
+                          ev.preventDefault();
+                          setEquipo(e);
+                        }
+                      }}
+                      className="cursor-pointer transition-colors hover:bg-emerald-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600"
+                    >
+                      <td className="px-4 py-2">
+                        <FotoEquipo foto={e.foto} categoria="inversores" tamano="h-12 w-12" />
+                      </td>
+                      <td className="px-4 py-3 font-semibold text-gray-900">{e.descripcion.trim()}</td>
+                      <td className="px-4 py-3 text-gray-600">{e.marca || "—"}</td>
+                      <td className="px-4 py-3">
+                        {p ? <span className="rounded-md bg-gray-900 px-2 py-0.5 text-xs font-bold text-white">{p}</span> : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold text-emerald-800">{numero(e.clientes)}</td>
+                      <td className="px-4 py-3 text-right text-gray-600">{numero(e.unidades)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
     </div>
   );
