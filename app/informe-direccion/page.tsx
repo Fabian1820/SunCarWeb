@@ -579,13 +579,25 @@ function InformeDireccionContent() {
                   accionExtra={
                     puedeContabilidadConfig ? (
                       <div className="flex items-center gap-2">
-                        <Button variant="outline" onClick={() => setCategoriasOpen(true)}>
-                          <Tag className="h-4 w-4 mr-2" />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-9"
+                          onClick={() => setCategoriasOpen(true)}
+                          title="Crear o renombrar categorías de ingreso"
+                        >
+                          <Tag className="mr-1.5 h-4 w-4" />
                           Categorías
                         </Button>
-                        <Button variant="outline" onClick={() => setPersonaCategoriaOpen(true)}>
-                          <Users className="h-4 w-4 mr-2" />
-                          Personas y categorías
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-9"
+                          onClick={() => setPersonaCategoriaOpen(true)}
+                          title="Asignar personas a cada categoría"
+                        >
+                          <Users className="mr-1.5 h-4 w-4" />
+                          Personas
                         </Button>
                       </div>
                     ) : undefined

@@ -2,20 +2,32 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Activity,
   ArrowRight,
   ChevronDown,
   ChevronRight,
   FileDown,
   Loader2,
+  PieChart as PieChartIcon,
   RefreshCw,
   TrendingDown,
   TrendingUp,
   Wallet as WalletIcon,
 } from "lucide-react";
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import {
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/molecule/input";
-import { Label } from "@/components/shared/atom/label";
 import { Switch } from "@/components/shared/molecule/switch";
 import { MonthPicker } from "@/components/shared/molecule/month-picker";
 import {
@@ -45,22 +57,33 @@ type MonedaFiltro = "todas" | string;
 type Vista = "ingresos" | "gastos" | "saldo";
 
 const ORDEN_MONEDAS = ["USD", "EUR", "CUP", "MLC"];
+const MESES_TENDENCIA = 6;
 
-// Paleta estable por posición de categoría — se usa tanto en el gráfico de
-// distribución como en los puntos de color de la leyenda.
+// Marca Suncar 2026 (tailwind.config.ts → colors.brand)
+const MARCA = {
+  emerald: "#012928", // Emerald Circuit
+  volt: "#AFEB17", // Volt Green
+  solar: "#F2C300", // Solar Radiance
+  midnight: "#0A052D", // Midnight Voltage
+  clean: "#E6F4EF", // Clean Current
+};
+
+// Paleta viva anclada en la marca: incluso una porción finísima del pastel
+// se distingue. El orden es estable por posición de categoría.
 const PALETA_CATEGORIA = [
-  "#10b981", // emerald
-  "#3b82f6", // blue
-  "#8b5cf6", // violet
-  "#f59e0b", // amber
-  "#f43f5e", // rose
-  "#06b6d4", // cyan
-  "#d946ef", // fuchsia
-  "#84cc16", // lime
-  "#94a3b8", // slate
+  "#AFEB17", // Volt Green (marca)
+  "#00B894", // esmeralda viva
+  "#F2C300", // Solar Radiance (marca)
+  "#3B5BDB", // azul vivo (familia Midnight)
+  "#FF7A1A", // naranja vivo
+  "#E84393", // magenta vivo
+  "#00CFE8", // cian vivo
+  "#7C5CFC", // violeta vivo
+  "#E11D48", // carmín vivo
 ];
 
 type CategoriaOpcion = { value: string; label: string };
+type PuntoTendencia = { mes: string; ingresos: number; gastos: number };
 
 function ordenarMonedas(monedas: Iterable<string>): string[] {
   return Array.from(new Set(monedas)).sort((a, b) => {
@@ -79,6 +102,14 @@ function formatMonto(codigo: string, monto: number) {
 
 function formatNumero(monto: number) {
   return new Intl.NumberFormat("es-CU", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(monto);
+}
+
+/** Etiquetas cortas para el eje Y del gráfico de tendencia. */
+function formatNumeroCorto(valor: number) {
+  const abs = Math.abs(valor);
+  if (abs >= 1_000_000) return `${(valor / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000) return `${Math.round(valor / 1_000)}k`;
+  return String(Math.round(valor));
 }
 
 /** Quita el "(ci=...)" que se agrega para distinguir personas con nombres repetidos. */
@@ -130,6 +161,53 @@ function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
 
+function iso(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+
+function mesActualYYYYMM(): string {
+  const hoy = new Date();
+  return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function primerYUltimoDiaDeMes(mesInput: string): { desde: string; hasta: string } | null {
+  if (!mesInput) return null;
+  const [anioStr, mesStr] = mesInput.split("-");
+  const anio = Number(anioStr);
+  const mes = Number(mesStr);
+  if (!anio || !mes) return null;
+  return { desde: iso(new Date(anio, mes - 1, 1)), hasta: iso(new Date(anio, mes, 0)) };
+}
+
+/** Serie de los últimos meses para los gráficos de tendencia. Reusa el mismo
+ * endpoint del resumen, un mes por punto, en paralelo. */
+async function obtenerTendenciaMensual(moneda: string, meses = MESES_TENDENCIA): Promise<PuntoTendencia[]> {
+  const hoy = new Date();
+  const periodos = Array.from({ length: meses }, (_, i) => {
+    const d = new Date(hoy.getFullYear(), hoy.getMonth() - (meses - 1 - i), 1);
+    return {
+      mes: d.toLocaleDateString("es-CU", { month: "short" }).replace(".", ""),
+      desde: iso(new Date(d.getFullYear(), d.getMonth(), 1)),
+      hasta: iso(new Date(d.getFullYear(), d.getMonth() + 1, 0)),
+    };
+  });
+  const resumenes = await Promise.all(periodos.map((p) => ContabilidadFinancieraService.obtenerResumen(p.desde, p.hasta)));
+  // Un mes que venga con forma inesperada cuenta 0 en vez de tumbar el gráfico.
+  return periodos.map((p, i) => ({
+    mes: p.mes,
+    ingresos: resumenes[i]?.general?.ingresos?.por_moneda?.[moneda] ?? 0,
+    gastos: resumenes[i]?.general?.gastos?.por_moneda?.[moneda] ?? 0,
+  }));
+}
+
+/** El backend puede responder con un objeto de error (apiRequest convierte
+ * los 400 en `{success:false,...}` en vez de lanzar), así que se valida la
+ * forma antes de usarla — si no, la vista entera se cae en blanco. */
+function esResumenValido(data: unknown): data is ContabilidadResumen {
+  const r = data as ContabilidadResumen | undefined;
+  return Boolean(r?.general?.ingresos?.por_moneda && r?.general?.gastos && Array.isArray(r?.por_categoria));
+}
+
 /** Chips en línea (envuelven), pensados para celdas o cabeceras compactas. */
 function MontosPorMonedaLine({ montos }: { montos: MontosPorMoneda }) {
   const monedas = ordenarMonedas(Object.keys(montos));
@@ -150,18 +228,51 @@ function MontosPorMonedaLine({ montos }: { montos: MontosPorMoneda }) {
   );
 }
 
-/**
- * Marcador de resumen: Ingresos / Gastos / Saldo disponible en un solo panel
- * oscuro tipo tablero, con el segmento activo resaltado por una línea de
- * acento abajo — reemplaza las 3 tarjetas sueltas de antes.
- */
-const SEGMENTOS_SCOREBOARD: { key: Vista; label: string; icon: typeof TrendingUp; barra: string }[] = [
-  { key: "ingresos", label: "Ingresos", icon: TrendingUp, barra: "bg-emerald-400" },
-  { key: "gastos", label: "Gastos", icon: TrendingDown, barra: "bg-rose-400" },
-  { key: "saldo", label: "Saldo disponible", icon: WalletIcon, barra: "bg-sky-400" },
+/* ── Tarjetas de resumen (colores de marca) ──────────────────────────── */
+
+const TARJETAS: {
+  key: Vista;
+  label: string;
+  icon: typeof TrendingUp;
+  superficie: string;
+  anillo: string;
+  chip: string;
+  valor: string;
+  etiqueta: string;
+}[] = [
+  {
+    key: "ingresos",
+    label: "Ingresos",
+    icon: TrendingUp,
+    superficie: "bg-[#E6F4EF]",
+    anillo: "ring-[#AFEB17]",
+    chip: "bg-[#AFEB17] text-[#012928]",
+    valor: "text-[#012928]",
+    etiqueta: "text-[#012928]/70",
+  },
+  {
+    key: "gastos",
+    label: "Gastos",
+    icon: TrendingDown,
+    superficie: "bg-[#FDF5DC]",
+    anillo: "ring-[#F2C300]",
+    chip: "bg-[#F2C300] text-[#012928]",
+    valor: "text-[#5C4300]",
+    etiqueta: "text-[#5C4300]/75",
+  },
+  {
+    key: "saldo",
+    label: "Saldo disponible",
+    icon: WalletIcon,
+    superficie: "bg-[#ECEEF8]",
+    anillo: "ring-[#0A052D]",
+    chip: "bg-[#0A052D] text-white",
+    valor: "text-[#0A052D]",
+    etiqueta: "text-[#0A052D]/70",
+  },
 ];
 
-function ResumenScoreboard({
+function TarjetasResumen({
   monedas,
   valores,
   vista,
@@ -173,47 +284,71 @@ function ResumenScoreboard({
   onSeleccionar: (v: Vista) => void;
 }) {
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 shadow-[0_24px_60px_-24px_rgba(0,0,0,0.55)]">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
-      <div className="grid grid-cols-1 divide-y divide-white/10 sm:grid-cols-3 sm:divide-y-0 sm:divide-x">
-        {SEGMENTOS_SCOREBOARD.map((s) => {
-          const Icon = s.icon;
-          const activo = vista === s.key;
-          return (
-            <button
-              key={s.key}
-              type="button"
-              onClick={() => onSeleccionar(s.key)}
-              className={`relative px-5 py-5 text-left transition-colors ${activo ? "bg-white/[0.07]" : "hover:bg-white/[0.04]"}`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-white/45">{s.label}</span>
-                <Icon className={`h-4 w-4 transition-colors ${activo ? "text-white/80" : "text-white/30"}`} />
-              </div>
-              <div className="mt-3 space-y-1">
-                {monedas.map((m) => (
-                  <div key={m} className="flex items-baseline justify-between gap-3">
-                    <span className="text-[11px] font-medium text-white/35">{m}</span>
-                    <span className="text-2xl font-semibold tabular-nums tracking-tight text-white">
-                      {formatNumero(valores[s.key][m] ?? 0)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <span
-                className={`absolute inset-x-5 bottom-0 h-0.5 rounded-full transition-opacity ${s.barra} ${activo ? "opacity-100" : "opacity-0"}`}
-              />
-            </button>
-          );
-        })}
-      </div>
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      {TARJETAS.map((t) => {
+        const Icon = t.icon;
+        const activo = vista === t.key;
+        return (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => onSeleccionar(t.key)}
+            className={`rounded-2xl ${t.superficie} p-5 text-left shadow-[0_12px_28px_-20px_rgba(1,41,40,0.5)] transition-all ${
+              activo ? `ring-2 ${t.anillo}` : "ring-1 ring-black/5 hover:ring-black/15"
+            }`}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <span className={`text-xs font-semibold uppercase tracking-[0.14em] ${t.etiqueta}`}>{t.label}</span>
+              <span className={`flex h-8 w-8 items-center justify-center rounded-full ${t.chip}`}>
+                <Icon className="h-4 w-4" />
+              </span>
+            </div>
+            <div className="mt-4 space-y-1.5">
+              {monedas.map((m) => (
+                <div key={m} className="flex items-baseline justify-between gap-3">
+                  <span className={`text-xs font-semibold ${t.etiqueta}`}>{m}</span>
+                  <span className={`text-2xl font-semibold tabular-nums tracking-tight ${t.valor}`}>
+                    {formatNumero(valores[t.key][m] ?? 0)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </button>
+        );
+      })}
     </div>
   );
 }
 
-/** Gráfico de pastel de la distribución de ingresos por categoría en una
- * sola moneda (mezclar monedas en un pastel no tiene sentido), con leyenda
- * clicable debajo que también selecciona la categoría. */
+/* ── Gráficos ────────────────────────────────────────────────────────── */
+
+function PanelGrafico({
+  titulo,
+  icono: Icono,
+  acciones,
+  children,
+}: {
+  titulo: string;
+  icono: typeof PieChartIcon;
+  acciones?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl border bg-white p-5 shadow-[0_12px_28px_-24px_rgba(1,41,40,0.45)]">
+      <header className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Icono className="h-4 w-4 text-[#012928]" />
+          <h3 className="text-base font-semibold text-[#012928]">{titulo}</h3>
+        </div>
+        {acciones}
+      </header>
+      {children}
+    </div>
+  );
+}
+
+/** Pastel de distribución con la leyenda al lado: el nombre junto al color
+ * y la cantidad debajo. Una sola moneda (mezclarlas no tendría sentido). */
 function DistribucionIngresosPie({
   datos,
   seleccionada,
@@ -230,22 +365,52 @@ function DistribucionIngresosPie({
   const total = datos.reduce((s, d) => s + d.valor, 0);
 
   if (datos.length === 0 || total <= 0) {
-    return <p className="py-14 text-center text-base text-gray-400">Sin ingresos que graficar en {moneda}.</p>;
+    return <p className="py-16 text-center text-base text-gray-400">Sin ingresos que graficar en {moneda}.</p>;
   }
 
   return (
-    <div>
-      <div className="relative h-60 sm:h-64">
+    <div className="flex flex-col-reverse items-center gap-5 lg:flex-row">
+      <ul className="w-full space-y-1 lg:flex-1">
+        {datos.map((d) => {
+          const activo = seleccionada === d.codigo;
+          return (
+            <li key={d.codigo}>
+              <button
+                type="button"
+                onClick={() => onSeleccionar(d.codigo)}
+                className={`w-full rounded-xl px-3 py-2 text-left transition-colors ${
+                  activo ? "bg-[#E6F4EF]" : "hover:bg-gray-50"
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <span
+                    className="h-3 w-3 shrink-0 rounded-full ring-2 ring-white"
+                    style={{ backgroundColor: colorDe(d.codigo) }}
+                  />
+                  <span className="truncate text-sm font-medium text-gray-700">{d.label}</span>
+                </span>
+                <span className="mt-0.5 flex items-baseline gap-2 pl-5">
+                  <span className="text-lg font-semibold tabular-nums text-[#012928]">{formatNumero(d.valor)}</span>
+                  <span className="text-xs font-medium text-gray-400">{Math.round((d.valor / total) * 100)}%</span>
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+
+      <div className="relative h-56 w-56 shrink-0">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
               data={datos}
               dataKey="valor"
               nameKey="label"
-              innerRadius="62%"
-              outerRadius="94%"
-              paddingAngle={2}
-              stroke="none"
+              innerRadius="58%"
+              outerRadius="96%"
+              paddingAngle={1.5}
+              stroke="#ffffff"
+              strokeWidth={2}
               onClick={(_, index) => onSeleccionar(datos[index].codigo)}
               isAnimationActive
               animationDuration={500}
@@ -255,45 +420,90 @@ function DistribucionIngresosPie({
                   key={d.codigo}
                   fill={colorDe(d.codigo)}
                   className="cursor-pointer outline-none"
-                  opacity={seleccionada === null || seleccionada === d.codigo ? 1 : 0.32}
+                  opacity={seleccionada === null || seleccionada === d.codigo ? 1 : 0.4}
                 />
               ))}
             </Pie>
             <Tooltip
               formatter={(value: number) => formatMonto(moneda, value)}
-              contentStyle={{ borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 13 }}
+              contentStyle={{ borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 13 }}
             />
           </PieChart>
         </ResponsiveContainer>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-xs font-medium uppercase tracking-wide text-gray-400">Total {moneda}</span>
-          <span className="text-xl font-semibold tabular-nums text-gray-800">{formatNumero(total)}</span>
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Total {moneda}</span>
+          <span className="text-xl font-semibold tabular-nums text-[#012928]">{formatNumero(total)}</span>
         </div>
-      </div>
-      <div className="mt-3 space-y-1">
-        {datos.map((d) => (
-          <button
-            key={d.codigo}
-            type="button"
-            onClick={() => onSeleccionar(d.codigo)}
-            className={`flex w-full items-center justify-between gap-3 rounded-md px-2.5 py-2 text-left transition-colors ${
-              seleccionada === d.codigo ? "bg-gray-100" : "hover:bg-gray-50"
-            }`}
-          >
-            <span className="flex min-w-0 items-center gap-2 text-base text-gray-700">
-              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: colorDe(d.codigo) }} />
-              <span className="truncate">{d.label}</span>
-            </span>
-            <span className="flex shrink-0 items-center gap-2">
-              <span className="tabular-nums text-sm text-gray-400">{Math.round((d.valor / total) * 100)}%</span>
-              <span className="tabular-nums text-base font-medium text-gray-800">{formatNumero(d.valor)}</span>
-            </span>
-          </button>
-        ))}
       </div>
     </div>
   );
 }
+
+function TendenciaChart({
+  datos,
+  serie,
+  moneda,
+  cargando,
+}: {
+  datos: PuntoTendencia[] | null;
+  serie: "ingresos" | "gastos";
+  moneda: string;
+  cargando: boolean;
+}) {
+  const color = serie === "ingresos" ? MARCA.emerald : "#A57C00";
+  const colorPunto = serie === "ingresos" ? MARCA.volt : MARCA.solar;
+
+  if (cargando && !datos) {
+    return (
+      <div className="flex h-56 items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-[#012928]/50" />
+      </div>
+    );
+  }
+  if (!datos || datos.length === 0) {
+    return <p className="py-16 text-center text-base text-gray-400">Sin datos de meses anteriores.</p>;
+  }
+
+  return (
+    <div className="h-56">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={datos} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+          <CartesianGrid stroke="#f1f5f4" vertical={false} />
+          <XAxis
+            dataKey="mes"
+            tick={{ fontSize: 12, fill: "#6b7280" }}
+            axisLine={false}
+            tickLine={false}
+            dy={6}
+          />
+          <YAxis
+            tick={{ fontSize: 11, fill: "#9ca3af" }}
+            axisLine={false}
+            tickLine={false}
+            width={46}
+            tickFormatter={formatNumeroCorto}
+          />
+          <Tooltip
+            formatter={(value: number) => formatMonto(moneda, value)}
+            contentStyle={{ borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 13 }}
+          />
+          <Line
+            type="monotone"
+            dataKey={serie}
+            stroke={color}
+            strokeWidth={2.5}
+            dot={{ r: 4, fill: colorPunto, stroke: color, strokeWidth: 2 }}
+            activeDot={{ r: 6, fill: colorPunto, stroke: color, strokeWidth: 2 }}
+            isAnimationActive
+            animationDuration={600}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+/* ── Detalle por movimiento ──────────────────────────────────────────── */
 
 type AgrupacionIngresos = "tipo" | "persona";
 
@@ -377,10 +587,10 @@ function FilaMovimiento({
 
   return (
     <tr className={`border-b border-gray-100 last:border-0 ${m.excluido ? "opacity-50" : ""}`}>
-      <td className="py-2.5 pr-3 text-gray-700 align-top text-base">
+      <td className="py-2.5 pr-3 align-top text-base text-gray-700">
         <div>{m.detalle}</div>
         {movido && (
-          <div className="flex flex-wrap items-center gap-1 text-sm text-amber-700 mt-1">
+          <div className="mt-1 flex flex-wrap items-center gap-1 text-sm text-amber-700">
             <span>Movido: {labelDe(m.categoria_automatica)}</span>
             <ArrowRight className="h-3.5 w-3.5" />
             <span className="font-medium">{labelDe(categoriaActual)}</span>
@@ -392,7 +602,7 @@ function FilaMovimiento({
           value={categoriaActual}
           onChange={(e) => cambiarCategoria(e.target.value)}
           disabled={guardando}
-          className="text-sm border rounded px-2 py-1.5 bg-white disabled:opacity-50"
+          className="rounded border bg-white px-2 py-1.5 text-sm disabled:opacity-50"
         >
           {categoriasDisponibles.map((c) => (
             <option key={c.value} value={c.value}>
@@ -411,14 +621,14 @@ function FilaMovimiento({
             onCheckedChange={(checked: boolean) => alternarIncluido(checked)}
             disabled={guardando}
           />
-          <span className={`text-sm font-medium whitespace-nowrap ${m.excluido ? "text-gray-400" : "text-emerald-700"}`}>
+          <span className={`whitespace-nowrap text-sm font-medium ${m.excluido ? "text-gray-400" : "text-[#012928]"}`}>
             {m.excluido ? "Excluido de los totales" : "Incluido en los totales"}
           </span>
         </div>
       </td>
       <td
-        className={`py-2.5 text-right tabular-nums whitespace-nowrap align-top text-base ${
-          m.excluido ? "line-through text-gray-400" : "text-gray-800"
+        className={`py-2.5 text-right align-top text-base tabular-nums whitespace-nowrap ${
+          m.excluido ? "text-gray-400 line-through" : "text-gray-800"
         }`}
       >
         {formatMonto(m.moneda, m.monto)}
@@ -441,11 +651,11 @@ function TablaMovimientos({
   return (
     <table className="w-full text-base">
       <thead>
-        <tr className="text-sm text-gray-500 bg-gray-50">
-          <th className="text-left font-semibold py-2 px-3">Detalle</th>
-          <th className="text-left font-semibold py-2 px-3">Categoría</th>
-          <th className="text-left font-semibold py-2 px-3">¿Cuenta en el total?</th>
-          <th className="text-right font-semibold py-2 px-3">Monto</th>
+        <tr className="bg-gray-50 text-sm text-gray-500">
+          <th className="px-3 py-2 text-left font-semibold">Detalle</th>
+          <th className="px-3 py-2 text-left font-semibold">Categoría</th>
+          <th className="px-3 py-2 text-left font-semibold">¿Cuenta en el total?</th>
+          <th className="px-3 py-2 text-right font-semibold">Monto</th>
         </tr>
       </thead>
       <tbody>
@@ -486,7 +696,7 @@ function ListaGruposDesglosable({
   const [abierto, setAbierto] = useState<string | null>(null);
 
   if (grupos.length === 0) {
-    return <p className="text-sm text-gray-400 px-3 py-3">Sin datos.</p>;
+    return <p className="px-3 py-3 text-sm text-gray-400">Sin datos.</p>;
   }
 
   return (
@@ -500,14 +710,14 @@ function ListaGruposDesglosable({
               type="button"
               onClick={() => setAbierto(isOpen ? null : g.clave)}
               disabled={detalle.length === 0}
-              className="w-full flex items-center justify-between gap-4 px-3 py-2 text-left hover:bg-gray-50 disabled:hover:bg-white"
+              className="flex w-full items-center justify-between gap-4 px-3 py-2 text-left hover:bg-gray-50 disabled:hover:bg-white"
             >
               <span className="flex items-center gap-2 text-base text-gray-800">
                 {detalle.length > 0 ? (
                   isOpen ? (
-                    <ChevronDown className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                    <ChevronDown className="h-3.5 w-3.5 shrink-0 text-gray-400" />
                   ) : (
-                    <ChevronRight className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                    <ChevronRight className="h-3.5 w-3.5 shrink-0 text-gray-400" />
                   )
                 ) : (
                   <span className="w-3.5 shrink-0" />
@@ -560,15 +770,39 @@ function PanelCategoriaSeleccionada({
   }, [categoria, soloUnTipo]);
 
   return (
-    <div key={categoria} className="animate-fade-in">
-      <p className="text-base font-semibold text-gray-800 mb-3">{label}</p>
+    <div key={categoria} className="animate-fade-in rounded-2xl border bg-white p-5 shadow-[0_12px_28px_-24px_rgba(1,41,40,0.45)]">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-base font-semibold text-[#012928]">Detalle · {label}</h3>
+        {!soloUnaPersona && !soloUnTipo && (
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setAgrupacion("tipo")}
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                agrupacion === "tipo" ? "bg-[#012928] text-white" : "text-gray-600 hover:bg-gray-100"
+              }`}
+            >
+              Por tipo
+            </button>
+            <button
+              type="button"
+              onClick={() => setAgrupacion("persona")}
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                agrupacion === "persona" ? "bg-[#012928] text-white" : "text-gray-600 hover:bg-gray-100"
+              }`}
+            >
+              Por persona
+            </button>
+          </div>
+        )}
+      </div>
 
       {ingresos.movimientos.length === 0 ? (
-        <p className="rounded-lg border py-10 text-center text-base text-gray-400">
+        <p className="rounded-xl border py-10 text-center text-base text-gray-400">
           Sin ingresos en esta categoría para el periodo.
         </p>
       ) : soloUnaPersona ? (
-        <div className="border rounded-lg overflow-hidden">
+        <div className="overflow-hidden rounded-xl border">
           <TablaMovimientos
             movimientos={ingresos.movimientos}
             categoriaActual={categoria}
@@ -577,29 +811,7 @@ function PanelCategoriaSeleccionada({
           />
         </div>
       ) : (
-        <div className="border rounded-lg overflow-hidden">
-          {!soloUnTipo && (
-            <div className="flex items-center gap-1 px-2 py-1.5 border-b bg-white">
-              <button
-                type="button"
-                onClick={() => setAgrupacion("tipo")}
-                className={`rounded px-2.5 py-1 text-sm font-medium ${
-                  agrupacion === "tipo" ? "bg-emerald-700 text-white" : "text-gray-600 hover:bg-gray-100"
-                }`}
-              >
-                Por tipo
-              </button>
-              <button
-                type="button"
-                onClick={() => setAgrupacion("persona")}
-                className={`rounded px-2.5 py-1 text-sm font-medium ${
-                  agrupacion === "persona" ? "bg-emerald-700 text-white" : "text-gray-600 hover:bg-gray-100"
-                }`}
-              >
-                Por persona
-              </button>
-            </div>
-          )}
+        <div className="overflow-hidden rounded-xl border">
           <ListaGruposDesglosable
             agruparPor={agrupacion}
             movimientos={ingresos.movimientos}
@@ -618,23 +830,7 @@ function PanelCategoriaSeleccionada({
   );
 }
 
-function iso(d: Date) {
-  return d.toISOString().slice(0, 10);
-}
-
-function mesActualYYYYMM(): string {
-  const hoy = new Date();
-  return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function primerYUltimoDiaDeMes(mesInput: string): { desde: string; hasta: string } | null {
-  if (!mesInput) return null;
-  const [anioStr, mesStr] = mesInput.split("-");
-  const anio = Number(anioStr);
-  const mes = Number(mesStr);
-  if (!anio || !mes) return null;
-  return { desde: iso(new Date(anio, mes - 1, 1)), hasta: iso(new Date(anio, mes, 0)) };
-}
+/* ── Gastos ──────────────────────────────────────────────────────────── */
 
 type AgrupacionGastos = "fecha" | "persona";
 
@@ -655,17 +851,17 @@ function GastosSection({ gastos }: { gastos: ContabilidadGeneral["gastos"] }) {
   }, [gastos.movimientos]);
 
   if (gastos.movimientos.length === 0) {
-    return <p className="text-sm text-gray-400 px-1">Sin gastos en este periodo.</p>;
+    return <p className="px-1 text-sm text-gray-400">Sin gastos en este periodo.</p>;
   }
 
   return (
-    <div className="border rounded-lg overflow-hidden">
-      <div className="flex items-center gap-1 px-2 py-1.5 border-b bg-white">
+    <div className="overflow-hidden rounded-2xl border bg-white shadow-[0_12px_28px_-24px_rgba(1,41,40,0.45)]">
+      <div className="flex items-center gap-1 border-b bg-white px-3 py-2">
         <button
           type="button"
           onClick={() => setAgrupacion("fecha")}
-          className={`rounded px-2.5 py-1 text-sm font-medium ${
-            agrupacion === "fecha" ? "bg-rose-700 text-white" : "text-gray-600 hover:bg-gray-100"
+          className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+            agrupacion === "fecha" ? "bg-[#012928] text-white" : "text-gray-600 hover:bg-gray-100"
           }`}
         >
           Por fecha
@@ -673,8 +869,8 @@ function GastosSection({ gastos }: { gastos: ContabilidadGeneral["gastos"] }) {
         <button
           type="button"
           onClick={() => setAgrupacion("persona")}
-          className={`rounded px-2.5 py-1 text-sm font-medium ${
-            agrupacion === "persona" ? "bg-rose-700 text-white" : "text-gray-600 hover:bg-gray-100"
+          className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+            agrupacion === "persona" ? "bg-[#012928] text-white" : "text-gray-600 hover:bg-gray-100"
           }`}
         >
           Por persona
@@ -686,21 +882,21 @@ function GastosSection({ gastos }: { gastos: ContabilidadGeneral["gastos"] }) {
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-gray-50">
               <tr className="border-b">
-                <th className="text-left py-2 px-3 font-medium text-gray-600">Fecha</th>
-                <th className="text-left py-2 px-3 font-medium text-gray-600">Persona</th>
-                <th className="text-left py-2 px-3 font-medium text-gray-600">Detalle</th>
-                <th className="text-right py-2 px-3 font-medium text-gray-600">Monto</th>
+                <th className="px-3 py-2 text-left font-medium text-gray-600">Fecha</th>
+                <th className="px-3 py-2 text-left font-medium text-gray-600">Persona</th>
+                <th className="px-3 py-2 text-left font-medium text-gray-600">Detalle</th>
+                <th className="px-3 py-2 text-right font-medium text-gray-600">Monto</th>
               </tr>
             </thead>
             <tbody>
               {gastos.movimientos.map((m: ContabilidadGastoMovimiento, i) => (
                 <tr key={i} className="border-b border-gray-100 last:border-0">
-                  <td className="py-1.5 px-3 text-gray-600 whitespace-nowrap">
+                  <td className="whitespace-nowrap px-3 py-1.5 text-gray-600">
                     {m.fecha ? new Date(m.fecha).toLocaleString("es-CU", { dateStyle: "short", timeStyle: "short" }) : "—"}
                   </td>
-                  <td className="py-1.5 px-3 text-gray-800">{soloNombre(m.persona)}</td>
-                  <td className="py-1.5 px-3 text-gray-600">{m.detalle}</td>
-                  <td className="py-1.5 px-3 text-right tabular-nums text-gray-800 whitespace-nowrap">
+                  <td className="px-3 py-1.5 text-gray-800">{soloNombre(m.persona)}</td>
+                  <td className="px-3 py-1.5 text-gray-600">{m.detalle}</td>
+                  <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums text-gray-800">
                     {formatMonto(m.moneda, m.monto)}
                   </td>
                 </tr>
@@ -718,13 +914,13 @@ function GastosSection({ gastos }: { gastos: ContabilidadGeneral["gastos"] }) {
                 <button
                   type="button"
                   onClick={() => setAbierto(isOpen ? null : p.persona)}
-                  className="w-full flex items-center justify-between gap-4 px-3 py-2 text-left hover:bg-gray-50"
+                  className="flex w-full items-center justify-between gap-4 px-3 py-2 text-left hover:bg-gray-50"
                 >
                   <span className="flex items-center gap-2 text-base text-gray-800">
                     {isOpen ? (
-                      <ChevronDown className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                      <ChevronDown className="h-3.5 w-3.5 shrink-0 text-gray-400" />
                     ) : (
-                      <ChevronRight className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                      <ChevronRight className="h-3.5 w-3.5 shrink-0 text-gray-400" />
                     )}
                     {soloNombre(p.persona)}
                   </span>
@@ -736,11 +932,11 @@ function GastosSection({ gastos }: { gastos: ContabilidadGeneral["gastos"] }) {
                       <tbody>
                         {detalle.map((m, i) => (
                           <tr key={i} className="border-b border-gray-100 last:border-0">
-                            <td className="py-1.5 pr-3 text-gray-500 whitespace-nowrap">
+                            <td className="whitespace-nowrap py-1.5 pr-3 text-gray-500">
                               {m.fecha ? new Date(m.fecha).toLocaleDateString("es-CU") : "—"}
                             </td>
                             <td className="py-1.5 pr-3 text-gray-600">{m.detalle}</td>
-                            <td className="py-1.5 text-right tabular-nums text-gray-700 whitespace-nowrap">
+                            <td className="whitespace-nowrap py-1.5 text-right tabular-nums text-gray-700">
                               {formatMonto(m.moneda, m.monto)}
                             </td>
                           </tr>
@@ -758,6 +954,8 @@ function GastosSection({ gastos }: { gastos: ContabilidadGeneral["gastos"] }) {
   );
 }
 
+/* ── Sección completa ────────────────────────────────────────────────── */
+
 export function ContabilidadSection({ accionExtra }: { accionExtra?: React.ReactNode }) {
   const [modo, setModo] = useState<ModoFiltro>("mes");
   const [mes, setMes] = useState(mesActualYYYYMM());
@@ -766,8 +964,10 @@ export function ContabilidadSection({ accionExtra }: { accionExtra?: React.React
   const [resumen, setResumen] = useState<ContabilidadResumen | null>(null);
   const [loading, setLoading] = useState(false);
   const [vista, setVista] = useState<Vista>("ingresos");
-  const [monedaPie, setMonedaPie] = useState("USD");
+  const [monedaGraficos, setMonedaGraficos] = useState("USD");
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<string | null>(null);
+  const [tendencia, setTendencia] = useState<PuntoTendencia[] | null>(null);
+  const [loadingTendencia, setLoadingTendencia] = useState(false);
   const [billeteras, setBilleteras] = useState<Awaited<ReturnType<typeof ContabilidadFinancieraService.obtenerBilleteras>> | null>(null);
   const [loadingBilleteras, setLoadingBilleteras] = useState(false);
   const { toast } = useToast();
@@ -784,6 +984,10 @@ export function ContabilidadSection({ accionExtra }: { accionExtra?: React.React
     setLoading(true);
     try {
       const data = await ContabilidadFinancieraService.obtenerResumen(desde, hasta);
+      if (!esResumenValido(data)) {
+        const mensaje = (data as { error?: { message?: string }; message?: string })?.error?.message;
+        throw new Error(mensaje || "El servidor devolvió una respuesta inesperada.");
+      }
       setResumen(data);
     } catch (error: unknown) {
       toast({
@@ -830,12 +1034,39 @@ export function ContabilidadSection({ accionExtra }: { accionExtra?: React.React
     ]);
   }, [resumen]);
 
-  // La moneda del pastel se ajusta sola si la elegida ya no aparece en el periodo.
+  // La moneda de los gráficos se ajusta sola si la elegida ya no aparece.
   useEffect(() => {
-    if (monedasDisponibles.length > 0 && !monedasDisponibles.includes(monedaPie)) {
-      setMonedaPie(monedasDisponibles[0]);
+    if (monedasDisponibles.length > 0 && !monedasDisponibles.includes(monedaGraficos)) {
+      setMonedaGraficos(monedasDisponibles[0]);
     }
-  }, [monedasDisponibles, monedaPie]);
+  }, [monedasDisponibles, monedaGraficos]);
+
+  // Tendencia de los últimos meses — solo cuando hace falta (ingresos o gastos).
+  useEffect(() => {
+    if (vista !== "ingresos" && vista !== "gastos") return;
+    let cancelado = false;
+    setLoadingTendencia(true);
+    obtenerTendenciaMensual(monedaGraficos)
+      .then((data) => {
+        if (!cancelado) setTendencia(data);
+      })
+      .catch((error: unknown) => {
+        if (!cancelado) {
+          toast({
+            title: "Error al cargar la tendencia",
+            description: getErrorMessage(error, "No se pudo calcular la tendencia de los meses anteriores."),
+            variant: "destructive",
+          });
+        }
+      })
+      .finally(() => {
+        if (!cancelado) setLoadingTendencia(false);
+      });
+    return () => {
+      cancelado = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monedaGraficos, vista]);
 
   const resumenMostrado = useMemo(() => {
     if (!resumen) return null;
@@ -862,22 +1093,41 @@ export function ContabilidadSection({ accionExtra }: { accionExtra?: React.React
   const datosPie = useMemo(() => {
     if (!resumen) return [];
     return resumen.por_categoria
-      .map((c) => ({ codigo: c.categoria, label: c.label, valor: c.ingresos.por_moneda[monedaPie] ?? 0 }))
-      .filter((d) => d.valor > 0);
-  }, [resumen, monedaPie]);
+      .map((c) => ({ codigo: c.categoria, label: c.label, valor: c.ingresos.por_moneda[monedaGraficos] ?? 0 }))
+      .filter((d) => d.valor > 0)
+      .sort((a, b) => b.valor - a.valor);
+  }, [resumen, monedaGraficos]);
 
-  // Elige una categoría por defecto (la más grande en la moneda del pastel)
-  // solo la primera vez; después la elección del usuario se conserva aunque
-  // cambien el periodo o el filtro.
+  // Elige una categoría por defecto (la más grande) solo la primera vez;
+  // después la elección del usuario se conserva.
   useEffect(() => {
     if (!resumen || categoriaSeleccionada !== null) return;
     const mejor = [...resumen.por_categoria].sort(
-      (a, b) => (b.ingresos.por_moneda[monedaPie] ?? 0) - (a.ingresos.por_moneda[monedaPie] ?? 0),
+      (a, b) => (b.ingresos.por_moneda[monedaGraficos] ?? 0) - (a.ingresos.por_moneda[monedaGraficos] ?? 0),
     )[0];
     setCategoriaSeleccionada(mejor?.categoria ?? null);
-  }, [resumen, monedaPie, categoriaSeleccionada]);
+  }, [resumen, monedaGraficos, categoriaSeleccionada]);
 
-  const categoriaSeleccionadaResumen = resumenMostrado?.por_categoria.find((c) => c.categoria === categoriaSeleccionada) ?? null;
+  const categoriaSeleccionadaResumen =
+    resumenMostrado?.por_categoria.find((c) => c.categoria === categoriaSeleccionada) ?? null;
+
+  const selectorMonedaGraficos =
+    monedasDisponibles.length > 1 ? (
+      <div className="flex shrink-0 overflow-hidden rounded-lg border text-sm">
+        {monedasDisponibles.map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => setMonedaGraficos(m)}
+            className={`px-2.5 py-1 font-medium transition-colors ${
+              monedaGraficos === m ? "bg-[#012928] text-white" : "bg-white text-gray-600 hover:bg-gray-50"
+            }`}
+          >
+            {m}
+          </button>
+        ))}
+      </div>
+    ) : null;
 
   const exportarPdf = async () => {
     if (!resumenMostrado) return;
@@ -910,79 +1160,73 @@ export function ContabilidadSection({ accionExtra }: { accionExtra?: React.React
   };
 
   return (
-    <Card>
-      <CardContent className="space-y-5 pt-4">
-        <div className="flex flex-wrap items-end gap-2">
-          <div className="flex rounded-md border overflow-hidden">
+    <Card className="border-none bg-transparent shadow-none">
+      <CardContent className="space-y-5 p-0">
+        {/* Barra de filtros compacta: una sola fila, sin etiquetas sueltas */}
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border bg-white px-3 py-2.5 shadow-[0_10px_24px_-22px_rgba(1,41,40,0.4)]">
+          <div className="flex overflow-hidden rounded-lg border text-sm">
             <button
               type="button"
               onClick={() => setModo("mes")}
-              className={`px-3 py-2 text-sm font-medium ${modo === "mes" ? "bg-emerald-700 text-white" : "bg-white text-gray-600"}`}
+              className={`px-3 py-1.5 font-medium transition-colors ${
+                modo === "mes" ? "bg-[#012928] text-white" : "bg-white text-gray-600 hover:bg-gray-50"
+              }`}
             >
               Mes
             </button>
             <button
               type="button"
               onClick={() => setModo("rango")}
-              className={`px-3 py-2 text-sm font-medium ${modo === "rango" ? "bg-emerald-700 text-white" : "bg-white text-gray-600"}`}
+              className={`px-3 py-1.5 font-medium transition-colors ${
+                modo === "rango" ? "bg-[#012928] text-white" : "bg-white text-gray-600 hover:bg-gray-50"
+              }`}
             >
-              Rango personalizado
+              Rango
             </button>
           </div>
 
           {modo === "mes" ? (
-            <div>
-              <Label htmlFor="contabilidad-mes">Mes</Label>
-              <MonthPicker id="contabilidad-mes" value={mes} onChange={setMes} />
-            </div>
+            <MonthPicker id="contabilidad-mes" value={mes} onChange={setMes} className="h-9" />
           ) : (
             <>
-              <div>
-                <Label htmlFor="contabilidad-desde">Desde</Label>
-                <Input
-                  id="contabilidad-desde"
-                  type="date"
-                  value={rango.desde}
-                  max={rango.hasta}
-                  onChange={(e) => setRango((r) => ({ ...r, desde: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label htmlFor="contabilidad-hasta">Hasta</Label>
-                <Input
-                  id="contabilidad-hasta"
-                  type="date"
-                  value={rango.hasta}
-                  min={rango.desde}
-                  onChange={(e) => setRango((r) => ({ ...r, hasta: e.target.value }))}
-                />
-              </div>
+              <Input
+                aria-label="Desde"
+                type="date"
+                value={rango.desde}
+                max={rango.hasta}
+                onChange={(e) => setRango((r) => ({ ...r, desde: e.target.value }))}
+                className="h-9 w-[148px]"
+              />
+              <Input
+                aria-label="Hasta"
+                type="date"
+                value={rango.hasta}
+                min={rango.desde}
+                onChange={(e) => setRango((r) => ({ ...r, hasta: e.target.value }))}
+                className="h-9 w-[148px]"
+              />
             </>
           )}
 
-          <div>
-            <Label htmlFor="contabilidad-moneda">Moneda</Label>
-            <Select value={monedaFiltro} onValueChange={setMonedaFiltro}>
-              <SelectTrigger id="contabilidad-moneda" className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todas">Todas</SelectItem>
-                {monedasDisponibles.map((m) => (
-                  <SelectItem key={m} value={m}>
-                    {m}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <Select value={monedaFiltro} onValueChange={setMonedaFiltro}>
+            <SelectTrigger aria-label="Moneda" className="h-9 w-[116px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todas">Todas</SelectItem>
+              {monedasDisponibles.map((m) => (
+                <SelectItem key={m} value={m}>
+                  {m}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-          <Button variant="outline" onClick={cargar} disabled={loading}>
-            {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-            Actualizar
+          <Button variant="outline" size="icon" className="h-9 w-9" onClick={cargar} disabled={loading} title="Actualizar">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           </Button>
-          <Button variant="outline" onClick={exportarPdf} disabled={!resumenMostrado}>
-            <FileDown className="h-4 w-4 mr-2" />
+          <Button variant="outline" size="sm" className="h-9" onClick={exportarPdf} disabled={!resumenMostrado}>
+            <FileDown className="mr-1.5 h-4 w-4" />
             PDF
           </Button>
 
@@ -991,7 +1235,7 @@ export function ContabilidadSection({ accionExtra }: { accionExtra?: React.React
 
         {resumenMostrado ? (
           <div className="space-y-5">
-            <ResumenScoreboard
+            <TarjetasResumen
               monedas={columnasMoneda}
               valores={{
                 ingresos: resumenMostrado.general.ingresos.por_moneda,
@@ -1003,82 +1247,74 @@ export function ContabilidadSection({ accionExtra }: { accionExtra?: React.React
             />
 
             {vista === "ingresos" && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                <div className="rounded-xl border p-4">
-                  <div className="flex items-center justify-between gap-3 mb-1">
-                    <p className="text-base font-semibold text-gray-800">Distribución de ingresos</p>
-                    {monedasDisponibles.length > 1 && (
-                      <div className="flex rounded-md border overflow-hidden text-sm shrink-0">
-                        {monedasDisponibles.map((m) => (
-                          <button
-                            key={m}
-                            type="button"
-                            onClick={() => setMonedaPie(m)}
-                            className={`px-2.5 py-1 font-medium ${monedaPie === m ? "bg-emerald-700 text-white" : "bg-white text-gray-600"}`}
-                          >
-                            {m}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <DistribucionIngresosPie
-                    datos={datosPie}
-                    seleccionada={categoriaSeleccionada}
-                    onSeleccionar={setCategoriaSeleccionada}
-                    moneda={monedaPie}
-                    colorDe={colorDeCategoria}
-                  />
+              <>
+                <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+                  <PanelGrafico titulo="Distribución de ingresos" icono={PieChartIcon} acciones={selectorMonedaGraficos}>
+                    <DistribucionIngresosPie
+                      datos={datosPie}
+                      seleccionada={categoriaSeleccionada}
+                      onSeleccionar={setCategoriaSeleccionada}
+                      moneda={monedaGraficos}
+                      colorDe={colorDeCategoria}
+                    />
+                  </PanelGrafico>
+
+                  <PanelGrafico titulo={`Ingresos por mes · ${monedaGraficos}`} icono={Activity}>
+                    <TendenciaChart datos={tendencia} serie="ingresos" moneda={monedaGraficos} cargando={loadingTendencia} />
+                  </PanelGrafico>
                 </div>
 
-                <div className="rounded-xl border p-4">
-                  {categoriaSeleccionadaResumen ? (
-                    <PanelCategoriaSeleccionada
-                      label={categoriaSeleccionadaResumen.label}
-                      categoria={categoriaSeleccionadaResumen.categoria}
-                      ingresos={categoriaSeleccionadaResumen.ingresos}
-                      categoriasDisponibles={categoriasDisponibles}
-                      onCambio={cargar}
-                    />
-                  ) : (
-                    <p className="py-10 text-center text-base text-gray-400">Elige una categoría en el gráfico.</p>
-                  )}
-                </div>
-              </div>
+                {categoriaSeleccionadaResumen ? (
+                  <PanelCategoriaSeleccionada
+                    label={categoriaSeleccionadaResumen.label}
+                    categoria={categoriaSeleccionadaResumen.categoria}
+                    ingresos={categoriaSeleccionadaResumen.ingresos}
+                    categoriasDisponibles={categoriasDisponibles}
+                    onCambio={cargar}
+                  />
+                ) : (
+                  <p className="py-10 text-center text-base text-gray-400">Elige una categoría en el gráfico.</p>
+                )}
+              </>
             )}
 
             {vista === "gastos" && (
-              <div>
-                <p className="text-base font-semibold text-gray-700 mb-2">Gastos</p>
+              <>
+                <PanelGrafico titulo={`Gastos por mes · ${monedaGraficos}`} icono={Activity} acciones={selectorMonedaGraficos}>
+                  <TendenciaChart datos={tendencia} serie="gastos" moneda={monedaGraficos} cargando={loadingTendencia} />
+                </PanelGrafico>
                 <GastosSection gastos={resumenMostrado.general.gastos} />
-              </div>
+              </>
             )}
 
             {vista === "saldo" && (
-              <div>
-                <p className="text-base font-semibold text-gray-700 mb-2">Billeteras con saldo</p>
+              <div className="rounded-2xl border bg-white p-5 shadow-[0_12px_28px_-24px_rgba(1,41,40,0.45)]">
+                <div className="mb-3 flex items-center gap-2">
+                  <WalletIcon className="h-4 w-4 text-[#012928]" />
+                  <h3 className="text-base font-semibold text-[#012928]">Billeteras con saldo</h3>
+                </div>
                 {loadingBilleteras ? (
                   <div className="py-8 text-center">
-                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-teal-700" />
+                    <Loader2 className="mx-auto h-6 w-6 animate-spin text-[#012928]/50" />
                   </div>
                 ) : billeteras && billeteras.billeteras.length > 0 ? (
-                  <div className="divide-y divide-gray-100 border rounded-lg">
+                  <div className="divide-y divide-gray-100 overflow-hidden rounded-xl border">
                     {billeteras.billeteras.map((b) => (
-                      <div key={b.persona} className="flex items-center justify-between gap-4 px-3 py-2">
-                        <span className="text-sm text-gray-800">{soloNombre(b.persona)}</span>
+                      <div key={b.persona} className="flex items-center justify-between gap-4 px-3 py-2.5">
+                        <span className="text-base text-gray-800">{soloNombre(b.persona)}</span>
                         <MontosPorMonedaLine montos={b.por_moneda} />
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-500 py-4">Ninguna billetera tiene saldo actualmente.</p>
+                  <p className="py-4 text-sm text-gray-500">Ninguna billetera tiene saldo actualmente.</p>
                 )}
               </div>
             )}
           </div>
         ) : loading ? (
           <div className="py-10 text-center">
-            <Loader2 className="h-6 w-6 animate-spin mx-auto text-emerald-700" />
+            <Loader2 className="mx-auto h-6 w-6 animate-spin text-[#012928]/50" />
           </div>
         ) : null}
       </CardContent>
