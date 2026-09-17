@@ -828,7 +828,26 @@ function TabEvaluaciones({ emp }: { emp: TrabajadorRRHH }) {
 }
 
 // ─── Tab Nómina ───────────────────────────────────────────────────────────────
-function TabNomina({ emp }: { emp: TrabajadorRRHH }) {
+function CampoEditableNumero({ label, value, onSave, suffix = "" }: {
+  label: string; value: number; onSave: (v: number) => void; suffix?: string
+}) {
+  return (
+    <CampoEditable
+      label={label}
+      value={String(value ?? 0)}
+      type="number"
+      onSave={v => {
+        const n = parseFloat(v)
+        onSave(isNaN(n) ? 0 : n)
+      }}
+    />
+  )
+}
+
+function TabNomina({ emp, onUpdate }: {
+  emp: TrabajadorRRHH
+  onUpdate: (campo: string, val: any) => Promise<void>
+}) {
   const ahora = new Date()
   const [mes]  = useState(ahora.getMonth() + 1)
   const [anio] = useState(ahora.getFullYear())
@@ -860,18 +879,26 @@ function TabNomina({ emp }: { emp: TrabajadorRRHH }) {
           <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
             <Coins className="h-4 w-4 text-[#012928]" /> Resumen {meses[mes - 1]} {anio}
           </h3>
-          {[
-            { label: "Salario fijo base",         value: emp.salario_fijo },
-            { label: `Proporcional (${diasTrabajados}/${emp.dias_trabajables} días)`, value: salarioProp },
-            { label: "Estímulo fijo",             value: estFijo },
-            { label: "Estímulo variable",          value: estVariable },
-            { label: "Alimentación",               value: emp.alimentacion },
-          ].map(({ label, value }) => (
-            <div key={label} className="flex justify-between items-center text-sm">
-              <span className="text-gray-500">{label}</span>
-              <span className="font-medium text-gray-800">{value.toFixed(2)} CUP</span>
-            </div>
-          ))}
+
+          <CampoEditableNumero label="Salario fijo base (CUP)" value={emp.salario_fijo}
+            onSave={v => onUpdate("salario_fijo", v)} />
+
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-gray-500">Proporcional ({diasTrabajados}/{emp.dias_trabajables} días)</span>
+            <span className="font-medium text-gray-800">{salarioProp.toFixed(2)} CUP</span>
+          </div>
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-gray-500">Estímulo fijo</span>
+            <span className="font-medium text-gray-800">{estFijo.toFixed(2)} CUP</span>
+          </div>
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-gray-500">Estímulo variable</span>
+            <span className="font-medium text-gray-800">{estVariable.toFixed(2)} CUP</span>
+          </div>
+
+          <CampoEditableNumero label="Alimentación (CUP)" value={emp.alimentacion}
+            onSave={v => onUpdate("alimentacion", v)} />
+
           <div className="border-t border-gray-100 pt-3 flex justify-between items-center">
             <span className="font-semibold text-gray-800">Total a cobrar</span>
             <span className="font-bold text-[#F2C300] text-lg">{total.toFixed(2)} CUP</span>
@@ -884,19 +911,18 @@ function TabNomina({ emp }: { emp: TrabajadorRRHH }) {
             <Briefcase className="h-4 w-4 text-[#012928]" /> Configuración de Estímulos
           </h3>
           <div className="space-y-3">
-            {[
-              { label: "% Estímulo fijo",     pct: emp.porcentaje_fijo_estimulo,     color: "bg-[#012928]" },
-              { label: "% Estímulo variable", pct: emp.porcentaje_variable_estimulo, color: "bg-[#AFEB17]" },
-            ].map(({ label, pct, color }) => (
-              <div key={label}>
-                <div className="flex justify-between text-xs text-gray-500 mb-1">
-                  <span>{label}</span><span>{pct}%</span>
-                </div>
-                <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
-                  <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
-                </div>
-              </div>
-            ))}
+            <CampoEditableNumero label="% Estímulo fijo" value={emp.porcentaje_fijo_estimulo}
+              onSave={v => onUpdate("porcentaje_fijo_estimulo", v)} />
+            <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+              <div className="h-full rounded-full bg-[#012928]" style={{ width: `${emp.porcentaje_fijo_estimulo}%` }} />
+            </div>
+
+            <CampoEditableNumero label="% Estímulo variable" value={emp.porcentaje_variable_estimulo}
+              onSave={v => onUpdate("porcentaje_variable_estimulo", v)} />
+            <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+              <div className="h-full rounded-full bg-[#AFEB17]" style={{ width: `${emp.porcentaje_variable_estimulo}%` }} />
+            </div>
+
             <p className="text-xs text-gray-400 pt-2 border-t border-gray-100">
               Monto total estímulos: <span className="font-medium text-gray-600">
                 {loadingIngreso ? "…" : `${montoEstimulos.toFixed(2)} CUP`}
@@ -911,6 +937,12 @@ function TabNomina({ emp }: { emp: TrabajadorRRHH }) {
         <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-4">
           <CalendarDays className="h-4 w-4 text-[#012928]" /> Asistencia {meses[mes - 1]}
         </h3>
+
+        <div className="max-w-xs mb-4">
+          <CampoEditableNumero label="Días trabajables del mes" value={emp.dias_trabajables}
+            onSave={v => onUpdate("dias_trabajables", v)} />
+        </div>
+
         <div className="flex flex-wrap gap-1.5">
           {Array.from({ length: emp.dias_trabajables }, (_, i) => i + 1).map(dia => {
             const ausente = emp.dias_no_trabajados?.includes(dia)
@@ -1067,7 +1099,7 @@ export default function EmpleadoDetallePage() {
         {activeTab === "personal"     && <TabPersonal emp={emp} onUpdate={handleUpdate} />}
         {activeTab === "laboral"      && <TabLaboral  emp={emp} sedes={sedes} departamentos={departamentos} onUpdate={handleUpdate} />}
         {activeTab === "evaluaciones" && <TabEvaluaciones emp={emp} />}
-        {activeTab === "nomina"       && <TabNomina emp={emp} />}
+        {activeTab === "nomina"       && <TabNomina emp={emp} onUpdate={handleUpdate} />}
 
       </main>
 
