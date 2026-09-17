@@ -13,6 +13,7 @@ import { Badge } from "@/components/shared/atom/badge";
 import { PriorityDot } from "@/components/shared/atom/priority-dot";
 import { Label } from "@/components/shared/atom/label";
 import { Input } from "@/components/shared/molecule/input";
+import { Textarea } from "@/components/shared/molecule/textarea";
 import {
   Select,
   SelectContent,
@@ -243,6 +244,7 @@ export function LeadsTable({
   const canEditarLead = hasExactPermission("leads/editar");
   const canAnularLead = hasExactPermission("leads/anular");
   const canConvertirLead = hasExactPermission("leads/convertir");
+  const canConvertirSinPago = hasExactPermission("leads/convertir-sin-pago");
   const canSubirFotosLead = hasExactPermission("leads/fotos");
   const {
     ofertas,
@@ -944,6 +946,20 @@ export function LeadsTable({
       });
       return;
     }
+    if (errorMessage.includes("justificación") || errorMessage.includes("justificacion")) {
+      setConversionErrors({
+        justificacion_sin_pago:
+          "Este lead no tiene ningún pago registrado. Indica una justificación para convertirlo igual.",
+      });
+      return;
+    }
+    if (errorMessage.includes("convertir un lead a cliente sin pago")) {
+      setConversionErrors({
+        general:
+          "Este lead no tiene pagos registrados y no tienes permiso para convertirlo sin pago.",
+      });
+      return;
+    }
     setConversionErrors({ general: errorMessage });
   };
 
@@ -1032,6 +1048,26 @@ export function LeadsTable({
       },
     ];
 
+    // Sin pago registrado, la conversión manual exige el permiso
+    // leads/convertir-sin-pago y una justificación (más abajo en el diálogo).
+    const tienePagoRegistrado = Boolean(lead?.oferta_confeccion?.tiene_pago);
+    const justificacionSinPago = (
+      conversionData.justificacion_sin_pago || ""
+    ).trim();
+    checks.push({
+      key: "pago",
+      label: "Pago registrado",
+      ok:
+        tienePagoRegistrado ||
+        (canConvertirSinPago && justificacionSinPago.length > 0),
+      bloqueante: true,
+      hint: tienePagoRegistrado
+        ? undefined
+        : canConvertirSinPago
+          ? "Este lead no tiene pagos registrados. Completa la justificación más abajo para convertirlo igual."
+          : "Este lead no tiene pagos registrados. Se convertirá automáticamente en cuanto se registre un pago, o puede convertirlo alguien con permiso para hacerlo sin pago.",
+    });
+
     // Solo tiene sentido hablar del equipo si ya hay una oferta confirmada;
     // si no la hay, el check de arriba ya lo dice.
     if (tieneOfertaConfirmada) {
@@ -1052,7 +1088,7 @@ export function LeadsTable({
     }
 
     return checks;
-  }, [leadToConvert]);
+  }, [leadToConvert, canConvertirSinPago, conversionData.justificacion_sin_pago]);
 
   const convertChecksOk = convertChecks
     .filter((c) => c.bloqueante)
@@ -1319,6 +1355,14 @@ export function LeadsTable({
       payload.equipo_propio = conversionData.equipo_propio;
     }
 
+    if (
+      conversionData.justificacion_sin_pago &&
+      conversionData.justificacion_sin_pago.trim()
+    ) {
+      payload.justificacion_sin_pago =
+        conversionData.justificacion_sin_pago.trim();
+    }
+
     return payload;
   };
 
@@ -1351,6 +1395,22 @@ export function LeadsTable({
 
     if (!conversionData.estado || !conversionData.estado.trim()) {
       errors.estado = "Debes seleccionar un estado para el cliente";
+    }
+
+    const tienePagoRegistrado = Boolean(
+      leadToConvert.oferta_confeccion?.tiene_pago,
+    );
+    if (!tienePagoRegistrado) {
+      if (!canConvertirSinPago) {
+        errors.general =
+          "Este lead no tiene pagos registrados y no tienes permiso para convertirlo sin pago.";
+      } else if (
+        !conversionData.justificacion_sin_pago ||
+        !conversionData.justificacion_sin_pago.trim()
+      ) {
+        errors.justificacion_sin_pago =
+          "Indica por qué conviertes este lead sin que haya pagado.";
+      }
     }
 
     if (Object.keys(errors).length > 0) {
@@ -2727,6 +2787,39 @@ export function LeadsTable({
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {!leadToConvert.oferta_confeccion?.tiene_pago &&
+                    canConvertirSinPago && (
+                      <div>
+                        <Label
+                          htmlFor="justificacion_sin_pago"
+                          className="text-xs sm:text-sm"
+                        >
+                          Justificación para convertir sin pago *
+                        </Label>
+                        <Textarea
+                          id="justificacion_sin_pago"
+                          placeholder="Explica por qué conviertes este lead a cliente aunque no tenga ningún pago registrado"
+                          value={conversionData.justificacion_sin_pago || ""}
+                          onChange={(e) =>
+                            handleConversionInputChange(
+                              "justificacion_sin_pago",
+                              e.target.value,
+                            )
+                          }
+                          className={
+                            conversionErrors.justificacion_sin_pago
+                              ? "border-red-500"
+                              : ""
+                          }
+                        />
+                        {conversionErrors.justificacion_sin_pago && (
+                          <p className="text-xs text-red-600 mt-1">
+                            {conversionErrors.justificacion_sin_pago}
+                          </p>
+                        )}
+                      </div>
+                    )}
                 </div>
               </div>
             </div>

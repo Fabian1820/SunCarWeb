@@ -364,6 +364,17 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
         descripcion: "Convertir un lead en cliente registrado.",
         aditivo: true,
       },
+      // ADITIVO a propósito: la conversión normal (leads/convertir) espera
+      // que el lead ya tenga un pago registrado; esto permite saltarse ese
+      // requisito dejando una justificación. No lo concede ni `leads` ni
+      // `leads/convertir` — hay que darlo aparte a quien deba poder hacerlo.
+      {
+        key: "leads/convertir-sin-pago",
+        label: "Convertir a cliente sin pago",
+        descripcion:
+          "Convertir un lead en cliente aunque no tenga ningún pago registrado, indicando una justificación.",
+        aditivo: true,
+      },
       {
         key: "leads/fotos",
         label: "Subir fotos y comprobantes",
@@ -628,7 +639,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
   },
   {
     key: "historial",
-    label: "Historial",
+    label: "Clientes",
     descripcion: "Todo lo que ha pasado con cada cliente, en orden, y qué equipos lleva cada uno.",
     icon: History,
     iconClass: "text-indigo-600",

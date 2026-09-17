@@ -52,6 +52,8 @@ export interface OfertaConfeccionResumen {
   total_ofertas: number;
   total_confirmadas: number;
   hay_confirmada: boolean;
+  /** True si alguna oferta confeccionada del lead ya tiene un pago registrado. */
+  tiene_pago: boolean;
   componentes_principales?: {
     inversor_seleccionado?: string | null;
     bateria_seleccionada?: string | null;
@@ -189,4 +191,6 @@ export interface LeadConversionRequest {
   fuente_referencia?: string;
   municipio?: string;
   equipo_propio?: boolean;
+  /** Obligatoria si el lead no tiene ningún pago registrado. */
+  justificacion_sin_pago?: string;
 }
