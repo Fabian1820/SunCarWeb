@@ -1,11 +1,14 @@
 import { apiRequest } from "@/lib/api-config";
 import type {
   CategoriaEquipos,
+  ClaveUeb,
   ClienteHistorial,
   ClientesDeEquipo,
+  EquiposUeb,
   FiltrosClienteHistorial,
   OpcionesFiltroClientes,
   HistorialCliente,
+  UebResumen,
 } from "@/lib/types/feats/historial/historial-types";
 
 export const HistorialService = {
@@ -45,10 +48,23 @@ export const HistorialService = {
     return r.data?.categorias ?? [];
   },
 
-  async clientesDeEquipo(materialCodigo: string): Promise<ClientesDeEquipo> {
+  async clientesDeEquipo(materialCodigo: string, ueb?: ClaveUeb): Promise<ClientesDeEquipo> {
+    const params = ueb ? `?ueb=${encodeURIComponent(ueb)}` : "";
     const r = await apiRequest<{ success: boolean; data: ClientesDeEquipo }>(
-      `/historial/equipos/${encodeURIComponent(materialCodigo)}/clientes`,
+      `/historial/equipos/${encodeURIComponent(materialCodigo)}/clientes${params}`,
     );
+    return r.data;
+  },
+
+  /** Instaladora Habana, UEB Las Tunas y UEB Santa Clara, con cuántos clientes tiene cada una. */
+  async ueb(): Promise<UebResumen[]> {
+    const r = await apiRequest<{ success: boolean; data: { ueb: UebResumen[] } }>(`/historial/ueb`);
+    return r.data?.ueb ?? [];
+  },
+
+  /** Los modelos de inversor de los clientes de una UEB. */
+  async equiposUeb(ueb: ClaveUeb): Promise<EquiposUeb> {
+    const r = await apiRequest<{ success: boolean; data: EquiposUeb }>(`/historial/ueb/${encodeURIComponent(ueb)}/equipos`);
     return r.data;
   },
 };

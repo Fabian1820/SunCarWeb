@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   BatteryCharging,
+  Building2,
   ChevronLeft,
   History,
   Loader2,
@@ -21,13 +22,14 @@ import { cn } from "@/lib/utils";
 import { HistorialClientePanel, iniciales } from "@/components/feats/historial/historial-cliente-panel";
 import { HistorialService } from "@/lib/services/feats/historial/historial-service";
 import type {
-  CategoriaEquipos,
   ClaveCategoriaEquipo,
+  ClaveUeb,
   ClienteHistorial,
   ClientesDeEquipo,
   EquipoHistorial,
   FiltrosClienteHistorial,
   OpcionesFiltroClientes,
+  UebResumen,
 } from "@/lib/types/feats/historial/historial-types";
 
 type Vista = "clientes" | "equipos";
@@ -62,11 +64,11 @@ export default function HistorialPage() {
  * uno y, al tocarlo, quiénes son.
  */
 function Historial() {
-  const [vista, setVista] = useState<Vista>("clientes");
+  const [vista, setVista] = useState<Vista>("equipos");
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <ModuleHeader title="Historial" subtitle="Lo que ha pasado con cada cliente y qué equipos lleva" />
+      <ModuleHeader title="Clientes" subtitle="Lo que ha pasado con cada cliente y qué equipos lleva" />
       <main className="content-with-fixed-header mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
         <div role="tablist" aria-label="Cómo ver el historial" className="grid grid-cols-2 gap-1 rounded-xl bg-gray-200/70 p-1 sm:inline-grid sm:w-[26rem]">
           {(
@@ -375,94 +377,151 @@ function FotoEquipo({ foto, categoria, tamano }: { foto?: string | null; categor
   );
 }
 
+/**
+ * Por equipos: primero la UEB (Instaladora Habana, UEB Las Tunas, UEB Santa
+ * Clara), según el comercial que atendió al cliente; luego los inversores de
+ * esa UEB, cuántos clientes tiene cada uno; y al tocar uno, quiénes son.
+ */
 function VistaEquipos() {
-  const [categorias, setCategorias] = useState<CategoriaEquipos[] | null>(null);
+  const [ueb, setUeb] = useState<UebResumen[] | null>(null);
   const [error, setError] = useState(false);
   const [recarga, setRecarga] = useState(0);
-  const [categoria, setCategoria] = useState<ClaveCategoriaEquipo>("inversores");
-  const [equipo, setEquipo] = useState<EquipoHistorial | null>(null);
-  const [q, setQ] = useState("");
+  const [uebActiva, setUebActiva] = useState<UebResumen | null>(null);
 
   useEffect(() => {
     let cancelado = false;
     setError(false);
-    HistorialService.equipos()
-      .then((c) => !cancelado && setCategorias(c))
+    HistorialService.ueb()
+      .then((u) => !cancelado && setUeb(u))
       .catch(() => !cancelado && setError(true));
     return () => {
       cancelado = true;
     };
   }, [recarga]);
 
-  if (error && !categorias) {
+  if (error && !ueb) {
     return (
       <div className="mt-10 flex flex-col items-center gap-3 text-center">
-        <p className="font-medium text-gray-900">No se pudieron cargar los equipos</p>
+        <p className="font-medium text-gray-900">No se pudieron cargar las UEB</p>
         <Button onClick={() => setRecarga((n) => n + 1)}>Reintentar</Button>
       </div>
     );
   }
-  if (!categorias) {
+  if (!ueb) {
     return (
       <p className="mt-10 flex items-center gap-2 text-sm text-gray-500">
         <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-        Contando los equipos de las ofertas confirmadas…
+        Contando los clientes de cada UEB…
       </p>
     );
   }
 
-  const actual = categorias.find((c) => c.clave === categoria);
+  if (uebActiva) {
+    return <EquiposDeUeb ueb={uebActiva} onVolver={() => setUebActiva(null)} />;
+  }
+
+  return (
+    <div className="mt-6">
+      <p className="text-sm text-gray-600">Elige una UEB para ver sus inversores y quién los tiene.</p>
+      <ul className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {ueb.map((u) => (
+          <li key={u.clave}>
+            <button
+              type="button"
+              onClick={() => setUebActiva(u)}
+              className="flex h-full w-full items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:border-emerald-600 hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+            >
+              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-800">
+                <Building2 className="h-6 w-6" aria-hidden />
+              </span>
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate text-base font-semibold text-gray-900">{u.nombre}</span>
+                <span className="mt-0.5 text-sm font-semibold text-emerald-800">
+                  {numero(u.clientes)} {u.clientes === 1 ? "cliente" : "clientes"}
+                </span>
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function EquiposDeUeb({ ueb, onVolver }: { ueb: UebResumen; onVolver: () => void }) {
+  const [datos, setDatos] = useState<{ ueb: UebResumen; equipos: EquipoHistorial[] } | null>(null);
+  const [error, setError] = useState(false);
+  const [recarga, setRecarga] = useState(0);
+  const [equipo, setEquipo] = useState<EquipoHistorial | null>(null);
+  const [q, setQ] = useState("");
+
+  useEffect(() => {
+    let cancelado = false;
+    setError(false);
+    setDatos(null);
+    HistorialService.equiposUeb(ueb.clave)
+      .then((d) => !cancelado && setDatos(d))
+      .catch(() => !cancelado && setError(true));
+    return () => {
+      cancelado = true;
+    };
+  }, [ueb.clave, recarga]);
+
   if (equipo) {
-    return <ClientesDelEquipo equipo={equipo} categoria={categoria} categoriaNombre={actual?.nombre ?? "Equipos"} onVolver={() => setEquipo(null)} />;
+    return (
+      <ClientesDelEquipo
+        equipo={equipo}
+        categoria="inversores"
+        categoriaNombre={ueb.nombre}
+        ueb={ueb.clave}
+        onVolver={() => setEquipo(null)}
+      />
+    );
   }
 
   const texto = q.trim().toLowerCase();
-  const equipos = (actual?.equipos ?? []).filter(
+  const equipos = (datos?.equipos ?? []).filter(
     (e) => !texto || [e.descripcion, e.marca, e.material_codigo].some((v) => (v ?? "").toLowerCase().includes(texto)),
   );
 
   return (
     <div className="mt-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex flex-wrap gap-2">
-          {categorias.map((c) => {
-            const Icono = ICONO_CATEGORIA[c.clave] ?? Package;
-            const activa = c.clave === categoria;
-            return (
-              <button
-                key={c.clave}
-                type="button"
-                aria-pressed={activa}
-                onClick={() => setCategoria(c.clave)}
-                className={cn(
-                  "inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm transition-colors",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600",
-                  activa ? "border-gray-900 bg-gray-900 font-semibold text-white" : "border-gray-300 bg-white text-gray-800 hover:border-gray-400",
-                )}
-              >
-                <Icono className="h-4 w-4" aria-hidden />
-                {c.nombre}
-                <span className={cn("tabular-nums", activa ? "text-gray-300" : "text-gray-500")}>{c.equipos.length}</span>
-              </button>
-            );
-          })}
-        </div>
+      <button type="button" onClick={onVolver} className="inline-flex items-center gap-1 text-sm font-medium text-emerald-800 hover:underline">
+        <ChevronLeft className="h-4 w-4" aria-hidden />
+        UEB
+      </button>
+
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <h2 className="text-lg font-semibold text-gray-900">{ueb.nombre}</h2>
+        <span className="text-sm font-semibold text-emerald-800">
+          {numero(ueb.clientes)} {ueb.clientes === 1 ? "cliente" : "clientes"}
+        </span>
         <label className="relative w-full sm:ml-auto sm:w-72">
-          <span className="sr-only">Buscar equipo</span>
+          <span className="sr-only">Buscar inversor</span>
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Modelo, marca o código" className={cn(CLASE_CAMPO, "pl-9")} />
         </label>
       </div>
-      <p className="mt-3 text-sm text-gray-600">De las ofertas confirmadas por los clientes. Toca un equipo para ver quién lo tiene.</p>
+      <p className="mt-3 text-sm text-gray-600">Inversores de las ofertas confirmadas de esta UEB. Toca uno para ver quién lo tiene.</p>
 
-      {equipos.length === 0 ? (
+      {error && !datos ? (
+        <div className="mt-4 flex flex-col items-center gap-3 rounded-2xl border border-dashed border-gray-300 bg-white px-6 py-10 text-center">
+          <p className="text-sm text-gray-600">No se pudieron cargar los inversores de esta UEB.</p>
+          <Button onClick={() => setRecarga((n) => n + 1)}>Reintentar</Button>
+        </div>
+      ) : !datos ? (
+        <p className="mt-4 flex items-center gap-2 text-sm text-gray-500">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          Contando los inversores…
+        </p>
+      ) : equipos.length === 0 ? (
         <p className="mt-4 rounded-2xl border border-dashed border-gray-300 bg-white px-6 py-10 text-center text-sm text-gray-600">
-          {texto ? "Ningún equipo con esa búsqueda." : "Ninguna oferta confirmada lleva equipos de este tipo."}
+          {texto ? "Ningún inversor con esa búsqueda." : "Ninguna oferta confirmada de esta UEB lleva inversor."}
         </p>
       ) : (
         <ul className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {equipos.map((e) => {
-            const p = potencia(e.potencia_kw, categoria);
+            const p = potencia(e.potencia_kw, "inversores");
             return (
               <li key={e.material_codigo}>
                 <button
@@ -470,7 +529,7 @@ function VistaEquipos() {
                   onClick={() => setEquipo(e)}
                   className="flex h-full w-full gap-3 rounded-2xl border border-gray-200 bg-white p-3 text-left shadow-sm transition hover:border-emerald-600 hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
                 >
-                  <FotoEquipo foto={e.foto} categoria={categoria} tamano="h-20 w-20" />
+                  <FotoEquipo foto={e.foto} categoria="inversores" tamano="h-20 w-20" />
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="line-clamp-2 text-sm font-semibold text-gray-900">{e.descripcion.trim()}</span>
                     {e.marca && <span className="mt-0.5 text-xs text-gray-500">{e.marca}</span>}
@@ -496,11 +555,13 @@ function ClientesDelEquipo({
   equipo,
   categoria,
   categoriaNombre,
+  ueb,
   onVolver,
 }: {
   equipo: EquipoHistorial;
   categoria: ClaveCategoriaEquipo;
   categoriaNombre: string;
+  ueb?: ClaveUeb;
   onVolver: () => void;
 }) {
   const [datos, setDatos] = useState<ClientesDeEquipo | null>(null);
@@ -509,13 +570,13 @@ function ClientesDelEquipo({
 
   useEffect(() => {
     let cancelado = false;
-    HistorialService.clientesDeEquipo(equipo.material_codigo)
+    HistorialService.clientesDeEquipo(equipo.material_codigo, ueb)
       .then((d) => !cancelado && setDatos(d))
       .catch(() => !cancelado && setError(true));
     return () => {
       cancelado = true;
     };
-  }, [equipo.material_codigo]);
+  }, [equipo.material_codigo, ueb]);
 
   const p = potencia(equipo.potencia_kw, categoria);
 

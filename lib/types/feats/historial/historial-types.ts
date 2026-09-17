@@ -118,3 +118,17 @@ export interface ClientesDeEquipo {
   };
   clientes: ClienteDeEquipo[];
 }
+
+/** Instaladora Habana, UEB Las Tunas o UEB Santa Clara: a qué UEB pertenece un cliente, según su comercial. */
+export type ClaveUeb = "instaladora_habana" | "instaladora_las_tunas" | "instaladora_santa_clara";
+
+export interface UebResumen {
+  clave: ClaveUeb;
+  nombre: string;
+  clientes: number;
+}
+
+export interface EquiposUeb {
+  ueb: UebResumen;
+  equipos: EquipoHistorial[];
+}
