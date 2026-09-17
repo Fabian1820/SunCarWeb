@@ -8,8 +8,11 @@ import {
   FileDown,
   Loader2,
   RefreshCw,
+  TrendingDown,
+  TrendingUp,
   Wallet as WalletIcon,
 } from "lucide-react";
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/molecule/input";
 import { Label } from "@/components/shared/atom/label";
@@ -39,20 +42,22 @@ import { exportListToPDF } from "@/lib/export-list-pdf";
 
 type ModoFiltro = "mes" | "rango";
 type MonedaFiltro = "todas" | string;
+type Vista = "ingresos" | "gastos" | "saldo";
 
 const ORDEN_MONEDAS = ["USD", "EUR", "CUP", "MLC"];
 
-// Un acento de color distinto por categoría, para diferenciarlas de un vistazo.
-const ACENTOS_CATEGORIA = [
-  "border-l-emerald-500",
-  "border-l-blue-500",
-  "border-l-violet-500",
-  "border-l-amber-500",
-  "border-l-rose-500",
-  "border-l-cyan-500",
-  "border-l-fuchsia-500",
-  "border-l-lime-600",
-  "border-l-slate-500",
+// Paleta estable por posición de categoría — se usa tanto en el gráfico de
+// distribución como en los puntos de color de la leyenda.
+const PALETA_CATEGORIA = [
+  "#10b981", // emerald
+  "#3b82f6", // blue
+  "#8b5cf6", // violet
+  "#f59e0b", // amber
+  "#f43f5e", // rose
+  "#06b6d4", // cyan
+  "#d946ef", // fuchsia
+  "#84cc16", // lime
+  "#94a3b8", // slate
 ];
 
 type CategoriaOpcion = { value: string; label: string };
@@ -125,24 +130,6 @@ function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
 
-/**
- * Lista vertical alineada por moneda, para las 3 tarjetas de resumen: recibe
- * siempre el mismo `monedas` (unión de las 3 tarjetas) para que USD/EUR/CUP
- * queden en la misma fila en las tres, aunque una tarjeta tenga 0 en alguna.
- */
-function MontosPorMonedaLista({ monedas, montos }: { monedas: string[]; montos: MontosPorMoneda }) {
-  return (
-    <div className="space-y-1">
-      {monedas.map((moneda) => (
-        <div key={moneda} className="flex items-baseline justify-between gap-3">
-          <span className="text-sm font-medium text-gray-500">{moneda}</span>
-          <span className="tabular-nums text-lg">{formatMonto(moneda, montos[moneda] ?? 0)}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 /** Chips en línea (envuelven), pensados para celdas o cabeceras compactas. */
 function MontosPorMonedaLine({ montos }: { montos: MontosPorMoneda }) {
   const monedas = ordenarMonedas(Object.keys(montos));
@@ -159,6 +146,151 @@ function MontosPorMonedaLine({ montos }: { montos: MontosPorMoneda }) {
           {formatMonto(moneda, montos[moneda])}
         </span>
       ))}
+    </div>
+  );
+}
+
+/**
+ * Marcador de resumen: Ingresos / Gastos / Saldo disponible en un solo panel
+ * oscuro tipo tablero, con el segmento activo resaltado por una línea de
+ * acento abajo — reemplaza las 3 tarjetas sueltas de antes.
+ */
+const SEGMENTOS_SCOREBOARD: { key: Vista; label: string; icon: typeof TrendingUp; barra: string }[] = [
+  { key: "ingresos", label: "Ingresos", icon: TrendingUp, barra: "bg-emerald-400" },
+  { key: "gastos", label: "Gastos", icon: TrendingDown, barra: "bg-rose-400" },
+  { key: "saldo", label: "Saldo disponible", icon: WalletIcon, barra: "bg-sky-400" },
+];
+
+function ResumenScoreboard({
+  monedas,
+  valores,
+  vista,
+  onSeleccionar,
+}: {
+  monedas: string[];
+  valores: Record<Vista, MontosPorMoneda>;
+  vista: Vista;
+  onSeleccionar: (v: Vista) => void;
+}) {
+  return (
+    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 shadow-[0_24px_60px_-24px_rgba(0,0,0,0.55)]">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+      <div className="grid grid-cols-1 divide-y divide-white/10 sm:grid-cols-3 sm:divide-y-0 sm:divide-x">
+        {SEGMENTOS_SCOREBOARD.map((s) => {
+          const Icon = s.icon;
+          const activo = vista === s.key;
+          return (
+            <button
+              key={s.key}
+              type="button"
+              onClick={() => onSeleccionar(s.key)}
+              className={`relative px-5 py-5 text-left transition-colors ${activo ? "bg-white/[0.07]" : "hover:bg-white/[0.04]"}`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-white/45">{s.label}</span>
+                <Icon className={`h-4 w-4 transition-colors ${activo ? "text-white/80" : "text-white/30"}`} />
+              </div>
+              <div className="mt-3 space-y-1">
+                {monedas.map((m) => (
+                  <div key={m} className="flex items-baseline justify-between gap-3">
+                    <span className="text-[11px] font-medium text-white/35">{m}</span>
+                    <span className="text-2xl font-semibold tabular-nums tracking-tight text-white">
+                      {formatNumero(valores[s.key][m] ?? 0)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <span
+                className={`absolute inset-x-5 bottom-0 h-0.5 rounded-full transition-opacity ${s.barra} ${activo ? "opacity-100" : "opacity-0"}`}
+              />
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** Gráfico de pastel de la distribución de ingresos por categoría en una
+ * sola moneda (mezclar monedas en un pastel no tiene sentido), con leyenda
+ * clicable debajo que también selecciona la categoría. */
+function DistribucionIngresosPie({
+  datos,
+  seleccionada,
+  onSeleccionar,
+  moneda,
+  colorDe,
+}: {
+  datos: { codigo: string; label: string; valor: number }[];
+  seleccionada: string | null;
+  onSeleccionar: (codigo: string) => void;
+  moneda: string;
+  colorDe: (codigo: string) => string;
+}) {
+  const total = datos.reduce((s, d) => s + d.valor, 0);
+
+  if (datos.length === 0 || total <= 0) {
+    return <p className="py-14 text-center text-base text-gray-400">Sin ingresos que graficar en {moneda}.</p>;
+  }
+
+  return (
+    <div>
+      <div className="relative h-60 sm:h-64">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={datos}
+              dataKey="valor"
+              nameKey="label"
+              innerRadius="62%"
+              outerRadius="94%"
+              paddingAngle={2}
+              stroke="none"
+              onClick={(_, index) => onSeleccionar(datos[index].codigo)}
+              isAnimationActive
+              animationDuration={500}
+            >
+              {datos.map((d) => (
+                <Cell
+                  key={d.codigo}
+                  fill={colorDe(d.codigo)}
+                  className="cursor-pointer outline-none"
+                  opacity={seleccionada === null || seleccionada === d.codigo ? 1 : 0.32}
+                />
+              ))}
+            </Pie>
+            <Tooltip
+              formatter={(value: number) => formatMonto(moneda, value)}
+              contentStyle={{ borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 13 }}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-xs font-medium uppercase tracking-wide text-gray-400">Total {moneda}</span>
+          <span className="text-xl font-semibold tabular-nums text-gray-800">{formatNumero(total)}</span>
+        </div>
+      </div>
+      <div className="mt-3 space-y-1">
+        {datos.map((d) => (
+          <button
+            key={d.codigo}
+            type="button"
+            onClick={() => onSeleccionar(d.codigo)}
+            className={`flex w-full items-center justify-between gap-3 rounded-md px-2.5 py-2 text-left transition-colors ${
+              seleccionada === d.codigo ? "bg-gray-100" : "hover:bg-gray-50"
+            }`}
+          >
+            <span className="flex min-w-0 items-center gap-2 text-base text-gray-700">
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: colorDe(d.codigo) }} />
+              <span className="truncate">{d.label}</span>
+            </span>
+            <span className="flex shrink-0 items-center gap-2">
+              <span className="tabular-nums text-sm text-gray-400">{Math.round((d.valor / total) * 100)}%</span>
+              <span className="tabular-nums text-base font-medium text-gray-800">{formatNumero(d.valor)}</span>
+            </span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -295,6 +427,42 @@ function FilaMovimiento({
   );
 }
 
+function TablaMovimientos({
+  movimientos,
+  categoriaActual,
+  categoriasDisponibles,
+  onCambio,
+}: {
+  movimientos: ContabilidadMovimiento[];
+  categoriaActual: CategoriaContabilidad;
+  categoriasDisponibles: CategoriaOpcion[];
+  onCambio: () => void;
+}) {
+  return (
+    <table className="w-full text-base">
+      <thead>
+        <tr className="text-sm text-gray-500 bg-gray-50">
+          <th className="text-left font-semibold py-2 px-3">Detalle</th>
+          <th className="text-left font-semibold py-2 px-3">Categoría</th>
+          <th className="text-left font-semibold py-2 px-3">¿Cuenta en el total?</th>
+          <th className="text-right font-semibold py-2 px-3">Monto</th>
+        </tr>
+      </thead>
+      <tbody>
+        {movimientos.map((m) => (
+          <FilaMovimiento
+            key={m.id}
+            m={m}
+            categoriaActual={categoriaActual}
+            categoriasDisponibles={categoriasDisponibles}
+            onCambio={onCambio}
+          />
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 /**
  * Lista de grupos (tipo o persona), cada uno desplegable para ver los
  * movimientos individuales que lo componen (ej. qué oferta/cliente pagó qué),
@@ -351,32 +519,101 @@ function ListaGruposDesglosable({
 
             {isOpen && detalle.length > 0 && (
               <div className="bg-gray-50/70 px-3 py-2">
-                <table className="w-full text-base">
-                  <thead>
-                    <tr className="text-sm text-gray-500">
-                      <th className="text-left font-semibold pb-1.5">Detalle</th>
-                      <th className="text-left font-semibold pb-1.5">Categoría</th>
-                      <th className="text-left font-semibold pb-1.5">¿Cuenta en el total?</th>
-                      <th className="text-right font-semibold pb-1.5">Monto</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {detalle.map((m) => (
-                      <FilaMovimiento
-                        key={m.id}
-                        m={m}
-                        categoriaActual={categoriaActual}
-                        categoriasDisponibles={categoriasDisponibles}
-                        onCambio={onCambio}
-                      />
-                    ))}
-                  </tbody>
-                </table>
+                <TablaMovimientos
+                  movimientos={detalle}
+                  categoriaActual={categoriaActual}
+                  categoriasDisponibles={categoriasDisponibles}
+                  onCambio={onCambio}
+                />
               </div>
             )}
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/** Detalle de la categoría elegida en el gráfico: se ajusta solo según los
+ * datos — una categoría de una sola persona (ej. Director) va directo a la
+ * lista de movimientos sin agrupar nada; una con un solo tipo de ingreso
+ * (ej. Socios/CEO, todo Wallet) agrupa por persona sin ofrecer "Por tipo". */
+function PanelCategoriaSeleccionada({
+  label,
+  categoria,
+  ingresos,
+  categoriasDisponibles,
+  onCambio,
+}: {
+  label: string;
+  categoria: string;
+  ingresos: ContabilidadIngresos;
+  categoriasDisponibles: CategoriaOpcion[];
+  onCambio: () => void;
+}) {
+  const soloUnaPersona = ingresos.por_persona.length <= 1;
+  const soloUnTipo = ingresos.por_tipo.length <= 1;
+  const [agrupacion, setAgrupacion] = useState<AgrupacionIngresos>(soloUnTipo ? "persona" : "tipo");
+
+  useEffect(() => {
+    setAgrupacion(soloUnTipo ? "persona" : "tipo");
+  }, [categoria, soloUnTipo]);
+
+  return (
+    <div key={categoria} className="animate-fade-in">
+      <p className="text-base font-semibold text-gray-800 mb-3">{label}</p>
+
+      {ingresos.movimientos.length === 0 ? (
+        <p className="rounded-lg border py-10 text-center text-base text-gray-400">
+          Sin ingresos en esta categoría para el periodo.
+        </p>
+      ) : soloUnaPersona ? (
+        <div className="border rounded-lg overflow-hidden">
+          <TablaMovimientos
+            movimientos={ingresos.movimientos}
+            categoriaActual={categoria}
+            categoriasDisponibles={categoriasDisponibles}
+            onCambio={onCambio}
+          />
+        </div>
+      ) : (
+        <div className="border rounded-lg overflow-hidden">
+          {!soloUnTipo && (
+            <div className="flex items-center gap-1 px-2 py-1.5 border-b bg-white">
+              <button
+                type="button"
+                onClick={() => setAgrupacion("tipo")}
+                className={`rounded px-2.5 py-1 text-sm font-medium ${
+                  agrupacion === "tipo" ? "bg-emerald-700 text-white" : "text-gray-600 hover:bg-gray-100"
+                }`}
+              >
+                Por tipo
+              </button>
+              <button
+                type="button"
+                onClick={() => setAgrupacion("persona")}
+                className={`rounded px-2.5 py-1 text-sm font-medium ${
+                  agrupacion === "persona" ? "bg-emerald-700 text-white" : "text-gray-600 hover:bg-gray-100"
+                }`}
+              >
+                Por persona
+              </button>
+            </div>
+          )}
+          <ListaGruposDesglosable
+            agruparPor={agrupacion}
+            movimientos={ingresos.movimientos}
+            categoriaActual={categoria}
+            categoriasDisponibles={categoriasDisponibles}
+            onCambio={onCambio}
+            grupos={
+              agrupacion === "tipo"
+                ? ingresos.por_tipo.map((t) => ({ clave: t.tipo, etiqueta: t.label, por_moneda: t.por_moneda }))
+                : ingresos.por_persona.map((p) => ({ clave: p.persona, etiqueta: soloNombre(p.persona), por_moneda: p.por_moneda }))
+            }
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -397,111 +634,6 @@ function primerYUltimoDiaDeMes(mesInput: string): { desde: string; hasta: string
   const mes = Number(mesStr);
   if (!anio || !mes) return null;
   return { desde: iso(new Date(anio, mes - 1, 1)), hasta: iso(new Date(anio, mes, 0)) };
-}
-
-/** Categoría desplegable: fila alineada en columnas (una por moneda, iguales
- * en todas las categorías) para poder comparar de un vistazo, con un acento
- * de color propio para diferenciarla del resto. */
-function IngresosDesplegable({
-  categoria,
-  titulo,
-  accento,
-  ingresos,
-  monedasColumnas,
-  categoriasDisponibles,
-  abierto,
-  onToggle,
-  onCambio,
-}: {
-  categoria: CategoriaContabilidad;
-  titulo: string;
-  accento: string;
-  ingresos: ContabilidadIngresos;
-  monedasColumnas: string[];
-  categoriasDisponibles: CategoriaOpcion[];
-  abierto: boolean;
-  onToggle: () => void;
-  onCambio: () => void;
-}) {
-  const sinDatos = ingresos.movimientos.length === 0;
-  const [agrupacion, setAgrupacion] = useState<AgrupacionIngresos>("tipo");
-  const columnas = `1.25rem minmax(160px,1fr) repeat(${monedasColumnas.length}, minmax(110px,auto))`;
-
-  return (
-    <div className={`border border-l-4 ${accento} rounded-lg overflow-hidden bg-white`}>
-      <button
-        type="button"
-        onClick={onToggle}
-        disabled={sinDatos}
-        className="w-full grid items-center gap-2 px-3 py-2.5 hover:bg-gray-50/80 disabled:hover:bg-white disabled:cursor-default text-left"
-        style={{ gridTemplateColumns: columnas }}
-      >
-        {sinDatos ? (
-          <span />
-        ) : abierto ? (
-          <ChevronDown className="h-4 w-4 text-gray-500" />
-        ) : (
-          <ChevronRight className="h-4 w-4 text-gray-500" />
-        )}
-        <span className="font-semibold text-gray-800 text-base">{titulo}</span>
-        {monedasColumnas.map((m) => (
-          <span key={m} className="text-right tabular-nums text-sm text-gray-700">
-            {ingresos.por_moneda[m] !== undefined ? formatNumero(ingresos.por_moneda[m]) : ""}
-          </span>
-        ))}
-      </button>
-
-      {abierto && !sinDatos && (
-        <div className="border-t bg-gray-50/60">
-          <div className="flex items-center gap-1 px-2 py-1.5 border-b bg-white">
-            <button
-              type="button"
-              onClick={() => setAgrupacion("tipo")}
-              className={`rounded px-2.5 py-1 text-sm font-medium ${
-                agrupacion === "tipo" ? "bg-emerald-700 text-white" : "text-gray-600 hover:bg-gray-100"
-              }`}
-            >
-              Por tipo
-            </button>
-            <button
-              type="button"
-              onClick={() => setAgrupacion("persona")}
-              className={`rounded px-2.5 py-1 text-sm font-medium ${
-                agrupacion === "persona" ? "bg-emerald-700 text-white" : "text-gray-600 hover:bg-gray-100"
-              }`}
-            >
-              Por persona
-            </button>
-          </div>
-          <div className="bg-white">
-            {agrupacion === "tipo" ? (
-              <ListaGruposDesglosable
-                agruparPor="tipo"
-                movimientos={ingresos.movimientos}
-                categoriaActual={categoria}
-                categoriasDisponibles={categoriasDisponibles}
-                onCambio={onCambio}
-                grupos={ingresos.por_tipo.map((t) => ({ clave: t.tipo, etiqueta: t.label, por_moneda: t.por_moneda }))}
-              />
-            ) : (
-              <ListaGruposDesglosable
-                agruparPor="persona"
-                movimientos={ingresos.movimientos}
-                categoriaActual={categoria}
-                categoriasDisponibles={categoriasDisponibles}
-                onCambio={onCambio}
-                grupos={ingresos.por_persona.map((p) => ({
-                  clave: p.persona,
-                  etiqueta: soloNombre(p.persona),
-                  por_moneda: p.por_moneda,
-                }))}
-              />
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
 }
 
 type AgrupacionGastos = "fecha" | "persona";
@@ -633,8 +765,9 @@ export function ContabilidadSection({ accionExtra }: { accionExtra?: React.React
   const [monedaFiltro, setMonedaFiltro] = useState<MonedaFiltro>("todas");
   const [resumen, setResumen] = useState<ContabilidadResumen | null>(null);
   const [loading, setLoading] = useState(false);
-  const [expandidos, setExpandidos] = useState<Set<string>>(new Set());
-  const [vista, setVista] = useState<"ingresos" | "gastos" | "saldo" | null>(null);
+  const [vista, setVista] = useState<Vista>("ingresos");
+  const [monedaPie, setMonedaPie] = useState("USD");
+  const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<string | null>(null);
   const [billeteras, setBilleteras] = useState<Awaited<ReturnType<typeof ContabilidadFinancieraService.obtenerBilleteras>> | null>(null);
   const [loadingBilleteras, setLoadingBilleteras] = useState(false);
   const { toast } = useToast();
@@ -669,8 +802,8 @@ export function ContabilidadSection({ accionExtra }: { accionExtra?: React.React
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [desde, hasta]);
 
-  const seleccionarVista = async (v: "ingresos" | "gastos" | "saldo") => {
-    setVista((actual) => (actual === v ? null : v));
+  const seleccionarVista = async (v: Vista) => {
+    setVista(v);
     if (v === "saldo" && !billeteras) {
       setLoadingBilleteras(true);
       try {
@@ -688,15 +821,6 @@ export function ContabilidadSection({ accionExtra }: { accionExtra?: React.React
     }
   };
 
-  const toggleExpandido = (key: string) => {
-    setExpandidos((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
-
   const monedasDisponibles = useMemo(() => {
     if (!resumen) return [];
     return ordenarMonedas([
@@ -705,6 +829,13 @@ export function ContabilidadSection({ accionExtra }: { accionExtra?: React.React
       ...Object.keys(resumen.general.saldo.por_moneda),
     ]);
   }, [resumen]);
+
+  // La moneda del pastel se ajusta sola si la elegida ya no aparece en el periodo.
+  useEffect(() => {
+    if (monedasDisponibles.length > 0 && !monedasDisponibles.includes(monedaPie)) {
+      setMonedaPie(monedasDisponibles[0]);
+    }
+  }, [monedasDisponibles, monedaPie]);
 
   const resumenMostrado = useMemo(() => {
     if (!resumen) return null;
@@ -719,6 +850,34 @@ export function ContabilidadSection({ accionExtra }: { accionExtra?: React.React
     () => resumen?.por_categoria.map((c) => ({ value: c.categoria, label: c.label })) ?? [],
     [resumen],
   );
+
+  const colorDeCategoria = useCallback(
+    (codigo: string) => {
+      const idx = categoriasDisponibles.findIndex((c) => c.value === codigo);
+      return PALETA_CATEGORIA[(idx < 0 ? 0 : idx) % PALETA_CATEGORIA.length];
+    },
+    [categoriasDisponibles],
+  );
+
+  const datosPie = useMemo(() => {
+    if (!resumen) return [];
+    return resumen.por_categoria
+      .map((c) => ({ codigo: c.categoria, label: c.label, valor: c.ingresos.por_moneda[monedaPie] ?? 0 }))
+      .filter((d) => d.valor > 0);
+  }, [resumen, monedaPie]);
+
+  // Elige una categoría por defecto (la más grande en la moneda del pastel)
+  // solo la primera vez; después la elección del usuario se conserva aunque
+  // cambien el periodo o el filtro.
+  useEffect(() => {
+    if (!resumen || categoriaSeleccionada !== null) return;
+    const mejor = [...resumen.por_categoria].sort(
+      (a, b) => (b.ingresos.por_moneda[monedaPie] ?? 0) - (a.ingresos.por_moneda[monedaPie] ?? 0),
+    )[0];
+    setCategoriaSeleccionada(mejor?.categoria ?? null);
+  }, [resumen, monedaPie, categoriaSeleccionada]);
+
+  const categoriaSeleccionadaResumen = resumenMostrado?.por_categoria.find((c) => c.categoria === categoriaSeleccionada) ?? null;
 
   const exportarPdf = async () => {
     if (!resumenMostrado) return;
@@ -751,8 +910,8 @@ export function ContabilidadSection({ accionExtra }: { accionExtra?: React.React
   };
 
   return (
-    <Card className="border-l-4 border-l-emerald-700">
-      <CardContent className="space-y-4 pt-4">
+    <Card>
+      <CardContent className="space-y-5 pt-4">
         <div className="flex flex-wrap items-end gap-2">
           <div className="flex rounded-md border overflow-hidden">
             <button
@@ -831,81 +990,59 @@ export function ContabilidadSection({ accionExtra }: { accionExtra?: React.React
         </div>
 
         {resumenMostrado ? (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <button
-                type="button"
-                onClick={() => seleccionarVista("ingresos")}
-                className={`rounded-lg border p-3 text-left transition-colors ${
-                  vista === "ingresos" ? "bg-emerald-100/80 border-emerald-400" : "bg-emerald-50/60 hover:bg-emerald-100/60"
-                }`}
-              >
-                <p className="text-sm font-medium text-emerald-800 mb-1">Ingresos totales</p>
-                <div className="font-semibold text-emerald-900">
-                  <MontosPorMonedaLista monedas={columnasMoneda} montos={resumenMostrado.general.ingresos.por_moneda} />
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={() => seleccionarVista("gastos")}
-                className={`rounded-lg border p-3 text-left transition-colors ${
-                  vista === "gastos" ? "bg-rose-100/80 border-rose-400" : "bg-rose-50/60 hover:bg-rose-100/60"
-                }`}
-              >
-                <p className="text-sm font-medium text-rose-800 mb-1">Gastos totales (empresa)</p>
-                <div className="font-semibold text-rose-900">
-                  <MontosPorMonedaLista monedas={columnasMoneda} montos={resumenMostrado.general.gastos.por_moneda} />
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={() => seleccionarVista("saldo")}
-                className={`rounded-lg border p-3 text-left transition-colors ${
-                  vista === "saldo" ? "bg-teal-100/80 border-teal-400" : "bg-teal-50/60 hover:bg-teal-100/60"
-                }`}
-              >
-                <p className="text-sm font-medium text-teal-800 mb-1 flex items-center gap-1.5">
-                  Saldo disponible (empresa)
-                  <WalletIcon className="h-3.5 w-3.5" />
-                </p>
-                <div className="font-semibold text-teal-900">
-                  <MontosPorMonedaLista monedas={columnasMoneda} montos={resumenMostrado.general.saldo.por_moneda} />
-                </div>
-              </button>
-            </div>
+          <div className="space-y-5">
+            <ResumenScoreboard
+              monedas={columnasMoneda}
+              valores={{
+                ingresos: resumenMostrado.general.ingresos.por_moneda,
+                gastos: resumenMostrado.general.gastos.por_moneda,
+                saldo: resumenMostrado.general.saldo.por_moneda,
+              }}
+              vista={vista}
+              onSeleccionar={seleccionarVista}
+            />
 
             {vista === "ingresos" && (
-              <div>
-                <p className="text-base font-semibold text-gray-700 mb-2">Ingresos por categoría</p>
-                {columnasMoneda.length > 0 && (
-                  <div
-                    className="grid items-center gap-2 px-3 pb-1.5 text-sm font-semibold text-gray-500 uppercase"
-                    style={{ gridTemplateColumns: `1.25rem minmax(160px,1fr) repeat(${columnasMoneda.length}, minmax(110px,auto))` }}
-                  >
-                    <span />
-                    <span>Categoría</span>
-                    {columnasMoneda.map((m) => (
-                      <span key={m} className="text-right">
-                        {m}
-                      </span>
-                    ))}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                <div className="rounded-xl border p-4">
+                  <div className="flex items-center justify-between gap-3 mb-1">
+                    <p className="text-base font-semibold text-gray-800">Distribución de ingresos</p>
+                    {monedasDisponibles.length > 1 && (
+                      <div className="flex rounded-md border overflow-hidden text-sm shrink-0">
+                        {monedasDisponibles.map((m) => (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => setMonedaPie(m)}
+                            className={`px-2.5 py-1 font-medium ${monedaPie === m ? "bg-emerald-700 text-white" : "bg-white text-gray-600"}`}
+                          >
+                            {m}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
-                <div className="space-y-2">
-                  {resumenMostrado.por_categoria.map((c, i) => (
-                    <IngresosDesplegable
-                      key={c.categoria}
-                      categoria={c.categoria}
-                      titulo={c.label}
-                      accento={ACENTOS_CATEGORIA[i % ACENTOS_CATEGORIA.length]}
-                      ingresos={c.ingresos}
-                      monedasColumnas={columnasMoneda}
+                  <DistribucionIngresosPie
+                    datos={datosPie}
+                    seleccionada={categoriaSeleccionada}
+                    onSeleccionar={setCategoriaSeleccionada}
+                    moneda={monedaPie}
+                    colorDe={colorDeCategoria}
+                  />
+                </div>
+
+                <div className="rounded-xl border p-4">
+                  {categoriaSeleccionadaResumen ? (
+                    <PanelCategoriaSeleccionada
+                      label={categoriaSeleccionadaResumen.label}
+                      categoria={categoriaSeleccionadaResumen.categoria}
+                      ingresos={categoriaSeleccionadaResumen.ingresos}
                       categoriasDisponibles={categoriasDisponibles}
-                      abierto={expandidos.has(c.categoria)}
-                      onToggle={() => toggleExpandido(c.categoria)}
                       onCambio={cargar}
                     />
-                  ))}
+                  ) : (
+                    <p className="py-10 text-center text-base text-gray-400">Elige una categoría en el gráfico.</p>
+                  )}
                 </div>
               </div>
             )}
