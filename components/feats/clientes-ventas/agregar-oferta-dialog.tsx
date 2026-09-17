@@ -109,6 +109,7 @@ export function AgregarOfertaDialog({
   ofertaToEdit,
 }: AgregarOfertaDialogProps) {
   const isEditMode = Boolean(ofertaToEdit);
+  const precioCero = Boolean(cliente.precio_cero);
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const { user } = useAuth();
@@ -293,7 +294,7 @@ export function AgregarOfertaDialog({
           codigo: mat.codigo,
           descripcion: mat.nombre ?? mat.descripcion ?? mat.codigo,
           um: mat.um ?? "u",
-          precio: mat.precio ?? 0,
+          precio: precioCero ? 0 : (mat.precio ?? 0),
           cantidad: 1,
           stock_disponible: mat.stock ?? null,
           descuento_porcentaje: 0,
@@ -621,7 +622,7 @@ export function AgregarOfertaDialog({
                     <div className="mt-auto space-y-1">
                       <div className="flex items-center justify-between gap-1">
                         <p className="text-sm font-semibold text-emerald-600">
-                          ${mat.precio != null ? fmt(mat.precio) : "0.00"}
+                          ${precioCero ? "0.00" : mat.precio != null ? fmt(mat.precio) : "0.00"}
                         </p>
                       </div>
 
@@ -1116,6 +1117,11 @@ export function AgregarOfertaDialog({
             <span className="text-emerald-600 font-semibold break-words min-w-0">{cliente.nombre}</span>
             {isEditMode && ofertaToEdit?.codigo && (
               <span className="text-xs sm:text-sm font-normal text-gray-500">({ofertaToEdit.codigo})</span>
+            )}
+            {precioCero && (
+              <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700 bg-amber-50">
+                Cliente interno · precio 0
+              </Badge>
             )}
           </DialogTitle>
         </DialogHeader>

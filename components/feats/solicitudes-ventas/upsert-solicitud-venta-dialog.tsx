@@ -215,6 +215,9 @@ export function UpsertSolicitudVentaDialog({
 }: UpsertSolicitudVentaDialogProps) {
   const [selectedClienteVenta, setSelectedClienteVenta] =
     useState<ClienteVenta | null>(null);
+  // Cliente interno (ej. Direccion Ejecutiva): el preview de precio en este
+  // formulario debe mostrar 0 sin esperar al guardado (el backend igual lo fuerza).
+  const precioCero = Boolean(selectedClienteVenta?.precio_cero);
   const [clienteSearch, setClienteSearch] = useState("");
   const [clienteSearchResults, setClienteSearchResults] = useState<
     ClienteVenta[]
@@ -718,7 +721,7 @@ export function UpsertSolicitudVentaDialog({
             {
               material_id: material.id,
               cantidad: 1,
-              precio: material.precio ?? 0,
+              precio: precioCero ? 0 : (material.precio ?? 0),
               descuento_porcentaje: 0,
               descuento_tipo: "%",
               descuento_display: "0",
@@ -967,16 +970,17 @@ export function UpsertSolicitudVentaDialog({
       id: reserva.cliente_id,
       nombre: reserva.cliente_nombre || reserva.cliente_id,
     };
-    if (!reserva.cliente_nombre) {
-      try {
-        const real = await ClienteVentaService.getClienteById(reserva.cliente_id);
-        if (real?.nombre) clienteObj = real;
-      } catch { /**/ }
-    }
+    // Siempre se fetchea el cliente real (aunque ya tengamos el nombre) porque
+    // aqui es donde se sabe si hay que forzar precio 0 (precio_cero).
+    try {
+      const real = await ClienteVentaService.getClienteById(reserva.cliente_id);
+      if (real) clienteObj = { ...clienteObj, ...real };
+    } catch { /**/ }
     setSelectedClienteVenta(clienteObj);
     setClienteSearch(formatClienteLabel(clienteObj));
     setClienteSearchResults([]);
     setShowClienteDropdown(false);
+    const precioCeroReserva = Boolean(clienteObj.precio_cero);
 
     // Pre-fill almacen
     setSelectedAlmacenId(reserva.almacen_id);
@@ -989,7 +993,7 @@ export function UpsertSolicitudVentaDialog({
         return {
           material_id: m.material_id,
           cantidad: Math.max(1, m.cantidad_reservada - (m.cantidad_consumida ?? 0)),
-          precio: cat?.precio ?? 0,
+          precio: precioCeroReserva ? 0 : (cat?.precio ?? 0),
           descuento_porcentaje: 0,
           descuento_tipo: "%" as const,
           descuento_display: "0",
@@ -1086,12 +1090,10 @@ export function UpsertSolicitudVentaDialog({
       id: oferta.cliente_venta_id,
       nombre: oferta.cliente_nombre || oferta.cliente_venta_id,
     };
-    if (!oferta.cliente_nombre) {
-      try {
-        const real = await ClienteVentaService.getClienteById(oferta.cliente_venta_id);
-        if (real?.nombre) clienteObj = real;
-      } catch { /**/ }
-    }
+    try {
+      const real = await ClienteVentaService.getClienteById(oferta.cliente_venta_id);
+      if (real) clienteObj = { ...clienteObj, ...real };
+    } catch { /**/ }
     setSelectedClienteVenta(clienteObj);
     setClienteSearch(formatClienteLabel(clienteObj));
     setClienteSearchResults([]);
@@ -1528,9 +1530,16 @@ export function UpsertSolicitudVentaDialog({
           ) : null}
 
           <div className="space-y-2">
-            <Label>
-              Cliente venta <span className="text-red-500">*</span>
-            </Label>
+            <div className="flex items-center gap-2">
+              <Label>
+                Cliente venta <span className="text-red-500">*</span>
+              </Label>
+              {precioCero && (
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border border-amber-300 text-amber-700 bg-amber-50">
+                  Cliente interno · precio 0
+                </span>
+              )}
+            </div>
 
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />

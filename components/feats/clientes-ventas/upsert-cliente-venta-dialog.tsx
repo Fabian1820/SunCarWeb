@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/shared/atom/select";
 import { Loader2, UserRoundPlus } from "lucide-react";
+import { Switch } from "@/components/shared/molecule/switch";
 import { apiRequest } from "@/lib/api-config";
 import type {
   ClienteVenta,
@@ -59,6 +60,7 @@ export function UpsertClienteVentaDialog({
   const [provincia, setProvincia] = useState("");
   const [municipio, setMunicipio] = useState("");
   const [comercial, setComercial] = useState("");
+  const [precioCero, setPrecioCero] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   // Error devuelto por el backend. Se muestra pegado al campo CI cuando se
   // trata de una CI ya registrada, que es el caso que generaba clientes
@@ -83,6 +85,7 @@ export function UpsertClienteVentaDialog({
     setProvincia(cliente?.provincia || "");
     setMunicipio(cliente?.municipio || "");
     setComercial(cliente?.comercial || "");
+    setPrecioCero(Boolean(cliente?.precio_cero));
     setSelectedProvinciaCodigo("");
     setSubmitError("");
   }, [open, cliente]);
@@ -164,6 +167,7 @@ export function UpsertClienteVentaDialog({
       provincia: provincia.trim() || undefined,
       municipio: municipio.trim() || undefined,
       comercial: comercial && comercial !== "sin-asignar" ? comercial.trim() : null,
+      precio_cero: precioCero,
     };
 
     console.log("🧾 [UpsertClienteVenta] payload a enviar:", JSON.stringify(payload, null, 2));
@@ -339,6 +343,24 @@ export function UpsertClienteVentaDialog({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="flex items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+            <div className="space-y-0.5">
+              <Label htmlFor="cliente-venta-precio-cero" className="cursor-pointer">
+                Cliente interno (precio siempre en 0)
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Toda oferta y solicitud de materiales de este cliente se creara con precio 0,
+                sin importar el catalogo.
+              </p>
+            </div>
+            <Switch
+              id="cliente-venta-precio-cero"
+              checked={precioCero}
+              onCheckedChange={setPrecioCero}
+              disabled={submitting}
+            />
           </div>
 
           <div className="flex justify-end gap-3 pt-2 border-t mt-6">

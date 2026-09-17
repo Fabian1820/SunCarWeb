@@ -16,6 +16,8 @@
   activo?: boolean;
   anulado_en?: string;
   anulado_por_ci?: string;
+  /** Cliente interno (ej. Direccion Ejecutiva): sus ofertas/solicitudes nuevas nacen en precio 0. */
+  precio_cero?: boolean;
 }
 
 export interface ClienteVentaCreateData {
@@ -26,6 +28,7 @@ export interface ClienteVentaCreateData {
   telefono?: string;
   ci?: string;
   comercial?: string | null;
+  precio_cero?: boolean;
 }
 
 export interface ClienteVentaUpdateData {
@@ -36,6 +39,7 @@ export interface ClienteVentaUpdateData {
   telefono?: string;
   ci?: string;
   comercial?: string | null;
+  precio_cero?: boolean;
 }
 
 export interface ClienteVentaListResponse {
