@@ -46,6 +46,7 @@ import {
   Megaphone,
   Network,
   Headphones,
+  MapPin,
 } from "lucide-react"
 
 /**
@@ -655,6 +656,10 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     href: "/instalaciones",
     grupo: "operaciones",
     tieneSubmodulos: true,
+    // Sus tarjetas ahora tienen acceso directo desde Operaciones (ver más abajo);
+    // esta tarjeta agrupadora se oculta del dashboard pero la página y los
+    // permisos `instalaciones/*` se mantienen igual.
+    hideFromDashboard: true,
     // Una tarjeta = un sub-permiso (`instalaciones/<tarjeta>`). Tener el módulo
     // `instalaciones` completo concede todas (herencia padre→hijo por el `/`).
     // Asignar solo un sub-permiso da acceso únicamente a esa tarjeta.
@@ -680,6 +685,74 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
       { key: "instalaciones/ordenes-trabajo", label: "Órdenes de Trabajo" },
     ],
   },
+  // Tarjetas de Instalaciones, ahora con acceso directo desde Operaciones en
+  // vez de entrar primero a la tarjeta agrupadora (arriba, oculta del
+  // dashboard). Mismas claves de permiso `instalaciones/<id>` de siempre.
+  {
+    key: "instalaciones/pendientes-visita",
+    label: "Visitas",
+    descripcion: "Pendientes, realizadas y todas las visitas.",
+    icon: MapPin,
+    iconClass: "text-teal-600",
+    href: "/instalaciones/pendientes-visita",
+    grupo: "operaciones",
+  },
+  {
+    key: "instalaciones/en-proceso",
+    label: "Instalaciones en Proceso",
+    descripcion: "Clientes con instalación en proceso.",
+    icon: Clock,
+    iconClass: "text-teal-600",
+    href: "/instalaciones/en-proceso",
+    grupo: "operaciones",
+  },
+  {
+    key: "instalaciones/nuevas",
+    label: "Instalaciones Nuevas",
+    descripcion: "Nuevas instalaciones por realizar.",
+    icon: Wrench,
+    iconClass: "text-teal-600",
+    href: "/instalaciones/nuevas",
+    grupo: "operaciones",
+  },
+  {
+    key: "instalaciones/trabajos-diarios",
+    label: "Trabajos Diarios",
+    descripcion: "Confirmar salida y entrega de materiales por vale.",
+    icon: CalendarDays,
+    iconClass: "text-teal-600",
+    href: "/instalaciones/trabajos-diarios",
+    grupo: "operaciones",
+  },
+  {
+    key: "instalaciones/averias",
+    label: "Averías",
+    descripcion: "Reportes de averías y mantenimiento.",
+    icon: AlertTriangle,
+    iconClass: "text-teal-600",
+    href: "/instalaciones/averias",
+    grupo: "operaciones",
+  },
+  {
+    key: "instalaciones/planificacion-diaria-trabajos",
+    label: "Planificación Diaria de Trabajos",
+    descripcion: "Planifica trabajos del día siguiente por brigadas.",
+    icon: CalendarCheck,
+    iconClass: "text-teal-600",
+    href: "/instalaciones/planificacion-diaria-trabajos",
+    grupo: "operaciones",
+    hideFromDashboard: true,
+  },
+  {
+    key: "instalaciones/ordenes-trabajo",
+    label: "Órdenes de Trabajo",
+    descripcion: "Crear y gestionar órdenes de trabajo operativas.",
+    icon: ClipboardList,
+    iconClass: "text-teal-600",
+    href: "/instalaciones/ordenes-trabajo",
+    grupo: "operaciones",
+    hideFromDashboard: true,
+  },
   {
     key: "trabajos:acceso-directo",
     label: "Trabajos Diarios (acceso directo)",
@@ -689,6 +762,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     href: "/operaciones/todos-trabajos",
     grupo: "operaciones",
     dashboardId: "todos-trabajos",
+    hideFromDashboard: true,
   },
   {
     key: "solicitudes-materiales",
