@@ -49,8 +49,6 @@ import {
   Loader2,
   MoreHorizontal,
   Zap,
-  Battery,
-  Sun,
   Ban,
   RotateCcw,
   FileOutput,
@@ -106,6 +104,13 @@ import type {
 } from "@/lib/api-types";
 import { extraerComponentesDeOfertaConfeccion } from "@/lib/utils/oferta-confeccion-items";
 import { ESTADOS_CLIENTE } from "@/lib/constants/estados-cliente";
+import {
+  EquiposClienteCell,
+  lineasActivas,
+  resumenCambios,
+  type LineaEquipo,
+} from "@/components/feats/customer/equipos-cliente-cell";
+import { EquiposClienteDialog } from "@/components/feats/customer/equipos-cliente-dialog";
 import {
   construirMarcasMap,
   generarOpcionesExportacionOferta,
@@ -776,6 +781,7 @@ export function ClientsTable({
   const [togglingStatus, setTogglingStatus] = useState(false);
   const [clienteParaEstadosMultiples, setClienteParaEstadosMultiples] =
     useState<Cliente | null>(null);
+  const [clienteEquipos, setClienteEquipos] = useState<Cliente | null>(null);
   const [showClientLocation, setShowClientLocation] = useState(false);
   const [clientLocation, setClientLocation] = useState<{
     lat: number;
@@ -4097,7 +4103,7 @@ export function ClientsTable({
                       Estado
                     </th>
                     <th className="text-left py-3 px-4 text-[13px] font-semibold text-gray-500 uppercase tracking-wider w-[34%] md:w-[24%]">
-                      Oferta
+                      Equipos
                     </th>
                     <th className="text-right py-3 px-4 text-[13px] font-semibold text-gray-500 uppercase tracking-wider w-[20%] md:w-[18%]">
                       Acciones
@@ -4257,6 +4263,50 @@ export function ClientsTable({
                                 {client.estado}
                               </Badge>
                             )}
+                            {(() => {
+                              // Ofertas del cliente junto a su estado: "Fijar estados" decide
+                              // el estado de instalación de cada oferta confirmada, así que
+                              // vive al lado del estado, no del equipo.
+                              const oc = client.oferta_confeccion;
+                              const totalOfertas = oc?.total_ofertas ?? 0;
+                              const totalConfirmadas = oc?.total_confirmadas ?? 0;
+                              if (!oc) {
+                                return (
+                                  <div className="mt-1.5 text-[13px] text-gray-400">Sin ofertas</div>
+                                );
+                              }
+                              return (
+                                <div className="mt-1.5">
+                              {oc && (
+                                <div className="flex flex-wrap gap-1">
+                                  <span className="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-[13px] font-medium text-gray-700">
+                                    {totalOfertas} {totalOfertas === 1 ? "oferta" : "ofertas"}
+                                  </span>
+                                  <span
+                                    className={`inline-flex items-center rounded px-2 py-0.5 text-[13px] font-medium ${
+                                      totalConfirmadas > 0
+                                        ? "bg-emerald-100 text-emerald-700"
+                                        : "bg-amber-100 text-amber-700"
+                                    }`}
+                                  >
+                                    {totalConfirmadas} confirmada{totalConfirmadas === 1 ? "" : "s"}
+                                  </span>
+                                  {totalConfirmadas > 1 && oc?.confirmadas_detalle && (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setClienteParaEstadosMultiples(client)
+                                      }
+                                      className="inline-flex items-center rounded bg-blue-100 px-2 py-0.5 text-[13px] font-medium text-blue-700 hover:bg-blue-200"
+                                    >
+                                      Fijar estados
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                                </div>
+                              );
+                            })()}
                             {client.comercial && (
                               <div className="text-[13px] text-gray-600 mt-1.5 truncate">
                                 {client.comercial}
@@ -4291,31 +4341,48 @@ export function ClientsTable({
                         </td>
                         <td className="px-4 py-3 align-top">
                           {(() => {
-                            let inv: { cantidad: number; descripcion: string } | null = null;
-                            let bats: { cantidad: number; descripcion: string }[] = [];
-                            let pan: { cantidad: number; descripcion: string } | null = null;
+                            // Con ficha de equipos se pinta lo que el cliente tiene hoy; sin
+                            // ella (aún no migrado, o sin instalar) lo que dice su oferta,
+                            // rotulado como tal para no presentarlo como algo ya instalado.
+                            const ficha = client.equipos ?? null;
+                            const tieneFicha = !!ficha && ficha.length > 0;
+                            let lineas: LineaEquipo[] = [];
 
-                            const embebidas = client.ofertas?.filter(
-                              (o) => o.inversor_codigo || o.bateria_codigo || o.panel_codigo || o.elementos_personalizados
-                            ) ?? [];
-                            const oc = client.oferta_confeccion;
+                            if (tieneFicha) {
+                              lineas = lineasActivas(ficha ?? []);
+                            } else {
+                              let inv: { cantidad: number; descripcion: string } | null = null;
+                              let bats: { cantidad: number; descripcion: string }[] = [];
+                              let pan: { cantidad: number; descripcion: string } | null = null;
 
-                            if (oc && oc.items?.length) {
-                              ({ inv, bats, pan } = extraerComponentesDeOfertaConfeccion(oc));
-                            } else if (embebidas.length > 0) {
-                              const oferta = embebidas[0];
-                              if (oferta.inversor_codigo && oferta.inversor_cantidad > 0) {
-                                inv = { cantidad: oferta.inversor_cantidad, descripcion: oferta.inversor_nombre || oferta.inversor_codigo };
+                              const embebidas = client.ofertas?.filter(
+                                (o) => o.inversor_codigo || o.bateria_codigo || o.panel_codigo || o.elementos_personalizados
+                              ) ?? [];
+                              const oc = client.oferta_confeccion;
+
+                              if (oc && oc.items?.length) {
+                                ({ inv, bats, pan } = extraerComponentesDeOfertaConfeccion(oc));
+                              } else if (embebidas.length > 0) {
+                                const oferta = embebidas[0];
+                                if (oferta.inversor_codigo && oferta.inversor_cantidad > 0) {
+                                  inv = { cantidad: oferta.inversor_cantidad, descripcion: oferta.inversor_nombre || oferta.inversor_codigo };
+                                }
+                                if (oferta.bateria_codigo && oferta.bateria_cantidad > 0) {
+                                  bats = [{ cantidad: oferta.bateria_cantidad, descripcion: oferta.bateria_nombre || oferta.bateria_codigo }];
+                                }
+                                if (oferta.panel_codigo && oferta.panel_cantidad > 0) {
+                                  pan = { cantidad: oferta.panel_cantidad, descripcion: oferta.panel_nombre || oferta.panel_codigo };
+                                }
                               }
-                              if (oferta.bateria_codigo && oferta.bateria_cantidad > 0) {
-                                bats = [{ cantidad: oferta.bateria_cantidad, descripcion: oferta.bateria_nombre || oferta.bateria_codigo }];
-                              }
-                              if (oferta.panel_codigo && oferta.panel_cantidad > 0) {
-                                pan = { cantidad: oferta.panel_cantidad, descripcion: oferta.panel_nombre || oferta.panel_codigo };
-                              }
+
+                              lineas = [
+                                ...(inv ? [{ categoria: "INVERSORES" as const, ...inv }] : []),
+                                ...bats.map((b) => ({ categoria: "BATERIAS" as const, ...b })),
+                                ...(pan ? [{ categoria: "PANELES" as const, ...pan }] : []),
+                              ];
                             }
 
-                            const sinComponentes = !inv && bats.length === 0 && !pan;
+                            const cambios = tieneFicha && ficha ? resumenCambios(ficha) : null;
                             const enProceso = client.estado === "Instalación en Proceso";
                             const instaladoConFalta =
                               compareStrings(client.estado || "", "Equipo instalado con éxito") &&
@@ -4329,81 +4396,20 @@ export function ClientsTable({
                               </div>
                             ) : null;
 
-                            if (sinComponentes && !oc) {
-                              return (
-                                <div className="space-y-1.5">
-                                  <div className="text-[14px] text-gray-400">Sin ofertas</div>
+                            return (
+                              <EquiposClienteCell
+                                lineas={lineas}
+                                segunOferta={!tieneFicha}
+                                ultimoCambio={cambios?.fecha}
+                                totalMovimientos={cambios?.movimientos}
+                                onVerDetalle={tieneFicha ? () => setClienteEquipos(client) : undefined}
+                                encabezado={
                                   <ResumenCapacidadEquipos
                                     capacidad={client.capacidad_equipos}
                                   />
-                                  {faltaInfo}
-                                </div>
-                              );
-                            }
-
-                            const totalOfertas = oc?.total_ofertas ?? 0;
-                            const totalConfirmadas = oc?.total_confirmadas ?? 0;
-
-                            return (
-                              <div className="space-y-1.5">
-                                <ResumenCapacidadEquipos
-                                  capacidad={client.capacidad_equipos}
-                                />
-                                {oc && (
-                                  <div className="flex flex-wrap gap-1">
-                                    <span className="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-[13px] font-medium text-gray-700">
-                                      {totalOfertas} {totalOfertas === 1 ? "oferta" : "ofertas"}
-                                    </span>
-                                    <span
-                                      className={`inline-flex items-center rounded px-2 py-0.5 text-[13px] font-medium ${
-                                        totalConfirmadas > 0
-                                          ? "bg-emerald-100 text-emerald-700"
-                                          : "bg-amber-100 text-amber-700"
-                                      }`}
-                                    >
-                                      {totalConfirmadas} confirmada{totalConfirmadas === 1 ? "" : "s"}
-                                    </span>
-                                    {totalConfirmadas > 1 && oc?.confirmadas_detalle && (
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          setClienteParaEstadosMultiples(client)
-                                        }
-                                        className="inline-flex items-center rounded bg-blue-100 px-2 py-0.5 text-[13px] font-medium text-blue-700 hover:bg-blue-200"
-                                      >
-                                        Fijar estados
-                                      </button>
-                                    )}
-                                  </div>
-                                )}
-                                <div className="space-y-1 text-[14px]">
-                                  {inv && (
-                                    <div className="flex items-center gap-1 text-gray-700" title={inv.descripcion}>
-                                      <Zap className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
-                                      <span className="font-medium">{inv.cantidad}x</span>
-                                      <span className="truncate">{inv.descripcion}</span>
-                                    </div>
-                                  )}
-                                  {bats.map((bat, i) => (
-                                    <div key={i} className="flex items-center gap-1 text-gray-700" title={bat.descripcion}>
-                                      <Battery className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
-                                      <span className="font-medium">{bat.cantidad}x</span>
-                                      <span className="truncate">{bat.descripcion}</span>
-                                    </div>
-                                  ))}
-                                  {pan && (
-                                    <div className="flex items-center gap-1 text-gray-700" title={pan.descripcion}>
-                                      <Sun className="h-3.5 w-3.5 text-yellow-500 flex-shrink-0" />
-                                      <span className="font-medium">{pan.cantidad}x</span>
-                                      <span className="truncate">{pan.descripcion}</span>
-                                    </div>
-                                  )}
-                                  {sinComponentes && oc && (
-                                    <div className="text-gray-400 text-[13px]">Sin componentes principales</div>
-                                  )}
-                                </div>
-                                {faltaInfo}
-                              </div>
+                                }
+                                pie={faltaInfo}
+                              />
                             );
                           })()}
                         </td>
@@ -4889,6 +4895,16 @@ export function ClientsTable({
         onOpenChange={(open) => {
           if (!open) setClienteParaEstadosMultiples(null);
         }}
+      />
+
+      {/* Ficha de equipos del cliente: lo que tiene hoy y su historial */}
+      <EquiposClienteDialog
+        open={clienteEquipos !== null}
+        onOpenChange={(open) => {
+          if (!open) setClienteEquipos(null);
+        }}
+        clienteNumero={clienteEquipos?.numero ?? null}
+        clienteNombre={clienteEquipos?.nombre ?? null}
       />
 
       {/* Anular/Reactivar Confirmation Dialog */}

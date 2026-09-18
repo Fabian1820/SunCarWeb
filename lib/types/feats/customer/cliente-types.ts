@@ -39,6 +39,107 @@ export interface CapacidadEquipos {
   fuente: "ofertas_confirmadas" | "snapshot_cliente" | "mixta" | null;
 }
 
+/**
+ * Familia de un equipo del cliente. La caja combinadora no tiene sección
+ * propia en las ofertas: el backend la reconoce por el nombre. Las estructuras
+ * no son equipo a propósito — se deducen del número de paneles.
+ */
+export type CategoriaEquipo =
+  | "INVERSORES"
+  | "BATERIAS"
+  | "PANELES"
+  | "MPPT"
+  | "CAJA_COMBINADORA"
+  | "OTRO";
+
+export type EstadoEquipo = "activo" | "retirado" | "sustituido";
+
+export type OrigenEquipo =
+  | "oferta_confirmada"
+  | "migracion_oferta"
+  | "migracion_snapshot"
+  | "alta_manual"
+  | "equipo_propio_cliente";
+
+/**
+ * Un equipo tal como está hoy en casa del cliente (`clientes.equipos`).
+ *
+ * Es la proyección de un log de movimientos, así que no se edita como campo:
+ * cada cambio es un movimiento con motivo. `cantidad_actual` es lo ofertado
+ * —la base— y `cantidad_entregada` lo que respalda un vale; la diferencia es
+ * la discrepancia, que en la mayoría de los clientes existe porque las
+ * entregas no se registraron.
+ */
+export interface EquipoCliente {
+  equipo_key: string;
+  material_id: string | null;
+  material_codigo: string | null;
+  descripcion: string;
+  categoria: CategoriaEquipo;
+  marca: string | null;
+  potencia_kw: number | null;
+  cantidad_actual: number;
+  cantidad_entregada: number;
+  estado: EstadoEquipo;
+  numeros_serie: string[];
+  es_equipo_propio: boolean;
+  origen_inicial: OrigenEquipo | null;
+  pendiente_resolver_material: boolean;
+  fecha_alta: string | null;
+  fecha_ultimo_cambio: string | null;
+  total_movimientos: number;
+  /** Solo viene en las respuestas de /equipos; en el listado se calcula. */
+  discrepancia?: number;
+  tiene_discrepancia?: boolean;
+}
+
+export type TipoMovimientoEquipo =
+  | "alta"
+  | "ajuste_cantidad"
+  | "sustitucion"
+  | "retiro"
+  | "correccion";
+
+export type MotivoCambioEquipo =
+  | "instalacion_inicial"
+  | "ampliacion"
+  | "garantia"
+  | "autorizado_direccion"
+  | "correccion_dato"
+  | "venta_adicional"
+  | "retiro"
+  | "migracion";
+
+/** Un cambio en los equipos de un cliente. Inmutable. */
+export interface MovimientoEquipoCliente {
+  id: string | null;
+  cliente_numero: string;
+  equipo_key: string;
+  tipo: TipoMovimientoEquipo;
+  cantidad_delta: number;
+  cantidad_entregada_delta: number;
+  material_id: string | null;
+  material_codigo: string | null;
+  descripcion: string;
+  categoria: CategoriaEquipo;
+  marca: string | null;
+  potencia_kw: number | null;
+  numero_serie: string | null;
+  origen: OrigenEquipo;
+  oferta_id: string | null;
+  numero_oferta: string | null;
+  sustituye_a: string | null;
+  motivo: MotivoCambioEquipo;
+  nota: string | null;
+  autorizado_por: string | null;
+  actor_ci: string | null;
+  actor_nombre: string | null;
+  /** Cuándo pasó en la realidad. */
+  fecha_efectiva: string;
+  /** Cuándo se tecleó. */
+  fecha_registro: string;
+}
+
 export interface Cliente {
   id?: string; // ID de MongoDB (transformado desde _id por el backend)
   numero: string;
@@ -78,6 +179,12 @@ export interface Cliente {
   tipo_negocio?: string; // "BTB" | "BTC", del cliente en sí (no del equipo del comercial)
   oferta_confeccion?: OfertaConfeccionResumen | null;
   capacidad_equipos?: CapacidadEquipos | null;
+  /**
+   * Ficha de equipos (log proyectado). Ausente mientras no se haya migrado el
+   * cliente o, en los nuevos, hasta que pase a "Equipo instalado con éxito".
+   */
+  equipos?: EquipoCliente[] | null;
+  equipos_actualizado_en?: string | null;
   es_trabajador_suncar?: boolean;
   activo?: boolean;
 }
