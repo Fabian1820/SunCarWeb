@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
+  ArrowUpDown,
   BatteryCharging,
   ChevronLeft,
   History,
@@ -169,6 +170,7 @@ function VistaClientes() {
   const [error, setError] = useState(false);
   const [seleccionado, setSeleccionado] = useState<string | null>(null);
   const [filtros, setFiltros] = useState<FiltrosClienteHistorial>({});
+  const [orden, setOrden] = useState<"reciente" | "antiguo">("reciente");
   const [verFiltros, setVerFiltros] = useState(false);
   const [opciones, setOpciones] = useState<OpcionesFiltroClientes | null>(null);
   const activos = Object.values(filtros).filter(Boolean).length;
@@ -186,7 +188,7 @@ function VistaClientes() {
     setCargando(true);
     const id = setTimeout(
       () => {
-        HistorialService.clientes(q, 0, 50, filtros)
+        HistorialService.clientes(q, 0, 50, filtros, orden)
           .then((r) => {
             if (cancelado) return;
             setClientes(r.data);
@@ -202,11 +204,11 @@ function VistaClientes() {
       cancelado = true;
       clearTimeout(id);
     };
-  }, [q, filtros]);
+  }, [q, filtros, orden]);
 
   function cargarMas() {
     setCargandoMas(true);
-    HistorialService.clientes(q, clientes.length, 50, filtros)
+    HistorialService.clientes(q, clientes.length, 50, filtros, orden)
       .then((r) => {
         const vistos = new Set(clientes.map((c) => c.numero));
         setClientes([...clientes, ...r.data.filter((c) => !vistos.has(c.numero))]);
@@ -231,22 +233,37 @@ function VistaClientes() {
             <p className="text-xs text-gray-500">
               {cargando ? "Buscando…" : `${total} ${total === 1 ? "cliente" : "clientes"}`}
             </p>
-            <button
-              type="button"
-              onClick={() => setVerFiltros((v) => !v)}
-              aria-expanded={verFiltros}
-              className={cn(
-                "inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-sm font-medium hover:bg-gray-100",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600",
-                activos > 0 ? "text-emerald-800" : "text-gray-700",
-              )}
-            >
-              <SlidersHorizontal className="h-4 w-4" aria-hidden />
-              Filtros
-              {activos > 0 && (
-                <span className="rounded-full bg-emerald-800 px-1.5 text-xs font-semibold leading-5 text-white">{activos}</span>
-              )}
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setOrden((o) => (o === "reciente" ? "antiguo" : "reciente"))}
+                title={
+                  orden === "reciente"
+                    ? "Los más recientes primero. Toca para ver los más viejos primero."
+                    : "Los más viejos primero. Toca para ver los más recientes primero."
+                }
+                className="inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-gray-700 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+              >
+                <ArrowUpDown className="h-4 w-4" aria-hidden />
+                {orden === "reciente" ? "Recientes" : "Antiguos"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setVerFiltros((v) => !v)}
+                aria-expanded={verFiltros}
+                className={cn(
+                  "inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-sm font-medium hover:bg-gray-100",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600",
+                  activos > 0 ? "text-emerald-800" : "text-gray-700",
+                )}
+              >
+                <SlidersHorizontal className="h-4 w-4" aria-hidden />
+                Filtros
+                {activos > 0 && (
+                  <span className="rounded-full bg-emerald-800 px-1.5 text-xs font-semibold leading-5 text-white">{activos}</span>
+                )}
+              </button>
+            </div>
           </div>
           {verFiltros && (
             <div className="mt-2 space-y-2 rounded-lg bg-gray-50 p-2">
@@ -426,27 +443,43 @@ function VistaEquipos() {
   return (
     <div className="mt-6">
       <p className="text-sm text-gray-600">Elige una provincia para ver sus inversores, baterías y paneles.</p>
-      <ul className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {provincias.map((p) => (
-          <li key={p.nombre}>
-            <button
-              type="button"
-              onClick={() => setProvinciaActiva(p)}
-              className="flex h-full w-full items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:border-emerald-600 hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
-            >
-              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-800">
-                <MapPin className="h-6 w-6" aria-hidden />
-              </span>
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-base font-semibold text-gray-900">{p.nombre}</span>
-                <span className="mt-0.5 text-sm font-semibold text-emerald-800">
-                  {numero(p.clientes)} {p.clientes === 1 ? "cliente" : "clientes"}
-                </span>
-              </span>
-            </button>
-          </li>
-        ))}
-      </ul>
+      <div className="mt-4 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[420px] text-sm">
+            <thead>
+              <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <th className="px-4 py-3">Provincia</th>
+                <th className="px-4 py-3 text-right">Clientes</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {provincias.map((p) => (
+                <tr
+                  key={p.nombre}
+                  onClick={() => setProvinciaActiva(p)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(ev) => {
+                    if (ev.key === "Enter" || ev.key === " ") {
+                      ev.preventDefault();
+                      setProvinciaActiva(p);
+                    }
+                  }}
+                  className="cursor-pointer transition-colors hover:bg-emerald-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600"
+                >
+                  <td className="px-4 py-3 font-semibold text-gray-900">
+                    <span className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 shrink-0 text-emerald-800" aria-hidden />
+                      {p.nombre}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right font-semibold text-emerald-800">{numero(p.clientes)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }

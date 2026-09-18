@@ -519,7 +519,6 @@ export function HistorialClientePanel({ numero, vista = "operaciones", enDialogo
   }
 
   const c = datos.cliente;
-  const primero = datos.eventos.find((e) => e.fecha)?.fecha;
 
   return (
     <div>
@@ -544,11 +543,6 @@ export function HistorialClientePanel({ numero, vista = "operaciones", enDialogo
                 {c.telefono}
               </p>
             )}
-            <p className="mt-2 text-sm text-gray-700">
-              <strong className="font-semibold text-gray-900">{datos.eventos.length}</strong>{" "}
-              {datos.eventos.length === 1 ? "cosa registrada" : "cosas registradas"}
-              {primero && <> desde el {nombreDelDia(primero.slice(0, 10))}</>}
-            </p>
           </div>
         </div>
       </header>

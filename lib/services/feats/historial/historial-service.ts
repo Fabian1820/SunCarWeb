@@ -16,8 +16,9 @@ export const HistorialService = {
     skip: number,
     limit = 50,
     filtros: FiltrosClienteHistorial = {},
+    orden: "reciente" | "antiguo" = "reciente",
   ): Promise<{ total: number; data: ClienteHistorial[] }> {
-    const params = new URLSearchParams({ skip: String(skip), limit: String(limit) });
+    const params = new URLSearchParams({ skip: String(skip), limit: String(limit), orden });
     if (q.trim()) params.set("q", q.trim());
     for (const [clave, valor] of Object.entries(filtros)) {
       if (valor) params.set(clave, valor);
