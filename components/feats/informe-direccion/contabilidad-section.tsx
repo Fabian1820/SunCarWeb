@@ -249,11 +249,11 @@ const TARJETAS: {
     key: "gastos",
     label: "Gastos",
     icon: TrendingDown,
-    superficie: "bg-[#FDF5DC]",
-    anillo: "ring-[#F2C300]",
-    chip: "bg-[#F2C300] text-[#012928]",
-    valor: "text-[#5C4300]",
-    etiqueta: "text-[#5C4300]/75",
+    superficie: "bg-[#FDECEC]",
+    anillo: "ring-[#F08A8A]",
+    chip: "bg-[#F4A3A3] text-[#6E1B1B]",
+    valor: "text-[#7A2020]",
+    etiqueta: "text-[#7A2020]/75",
   },
   {
     key: "saldo",
@@ -349,7 +349,7 @@ const RADIO_X = 152;
 const RADIO_Y = 68;
 const PROFUNDIDAD = 34;
 /** Separación vertical mínima entre etiquetas del mismo lado. */
-const SEPARACION_ETIQUETA = 38;
+const SEPARACION_ETIQUETA = 54;
 /** Espacio libre arriba para la primera etiqueta (su nombre va por encima de la línea). */
 const MARGEN_ETIQUETAS = 24;
 /** Piso visual: una categoría minúscula ocupa al menos esta fracción del
@@ -597,7 +597,7 @@ function DistribucionIngresosPie({
               // fuera del pastel y va a su etiqueta: nunca cruza por encima.
               const origen = puntoBorde(p.medio, -6);
               const codo = puntoBorde(p.medio, 16);
-              const xFin = cx + direccion * (rx + 44);
+              const xFin = cx + direccion * (rx + 56);
               const xTexto = xFin + direccion * 8;
               const anchoTexto = pos.lado === "der" ? ancho - 6 - xTexto : xTexto - 6;
               return (
@@ -684,8 +684,8 @@ function TendenciaChart({
   moneda: string;
   cargando: boolean;
 }) {
-  const color = serie === "ingresos" ? MARCA.emerald : "#A57C00";
-  const colorPunto = serie === "ingresos" ? MARCA.volt : MARCA.solar;
+  const color = serie === "ingresos" ? MARCA.emerald : "#C24141";
+  const colorPunto = serie === "ingresos" ? MARCA.volt : "#F4A3A3";
 
   if (cargando && !datos) {
     return (

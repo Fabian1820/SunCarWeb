@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Eye, Loader2, Pencil, Plus } from "lucide-react";
+import { CheckCircle2, Download, Eye, Loader2, Pencil, Plus, Printer } from "lucide-react";
 import { es } from "date-fns/locale";
 import { Calendar } from "@/components/shared/molecule/calendar";
 import { Button, buttonVariants } from "@/components/shared/atom/button";
@@ -13,10 +13,21 @@ import {
   DialogTitle,
 } from "@/components/shared/molecule/dialog";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/auth-context";
+import { useToast } from "@/hooks/use-toast";
 import { PlanificacionService } from "@/lib/services/feats/planificacion/planificacion-service";
+import { ExportPlanificacionService } from "@/lib/services/feats/planificacion/export-planificacion-service";
 import { aFecha, desplazar, isoLocal, nombreDia } from "@/components/feats/planificacion/fechas";
 import { TarjetaTrabajo } from "@/components/feats/planificacion/menu-dia";
 import type { Asignado, Planificacion, TrabajoPlanificado } from "@/lib/types/feats/planificacion/planificacion-types";
+
+const MODULO_CONFIRMAR = "planificacion/confirmar";
+
+function fechaHoraCorta(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("es", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+}
 
 interface Props {
   hoy: string;
@@ -63,9 +74,31 @@ function porEquipo(trabajos: TrabajoPlanificado[]): [string, TrabajoPlanificado[
  * los días que ya tienen trabajos llevan un punto verde.
  */
 export function InicioPlanificacion({ hoy, onElegir, eligiendoDia, onEligiendoDia }: Props) {
+  const { hasExactPermission } = useAuth();
+  const { toast } = useToast();
+  const puedeConfirmar = hasExactPermission(MODULO_CONFIRMAR);
   const [planes, setPlanes] = useState<Planificacion[] | null>(null);
   const [fallo, setFallo] = useState(false);
   const [viendo, setViendo] = useState<Planificacion | null>(null);
+  const [confirmando, setConfirmando] = useState<string | null>(null);
+
+  function reemplazar(actualizado: Planificacion) {
+    setPlanes((lista) => (lista ?? []).map((p) => (p.fecha === actualizado.fecha ? actualizado : p)));
+    setViendo((v) => (v && v.fecha === actualizado.fecha ? actualizado : v));
+  }
+
+  async function confirmar(fecha: string) {
+    setConfirmando(fecha);
+    try {
+      const actualizado = await PlanificacionService.confirmar(fecha);
+      reemplazar(actualizado);
+      toast({ title: "Planificación confirmada" });
+    } catch {
+      toast({ title: "No se pudo confirmar", description: "Intenta de nuevo.", variant: "destructive" });
+    } finally {
+      setConfirmando(null);
+    }
+  }
 
   useEffect(() => {
     let cancelado = false;
@@ -102,7 +135,7 @@ export function InicioPlanificacion({ hoy, onElegir, eligiendoDia, onEligiendoDi
   }
 
   return (
-    <div className="mx-auto max-w-3xl pt-2">
+    <div className="mx-auto max-w-5xl pt-2">
       <h2 className="text-2xl font-semibold text-gray-900">Planificaciones</h2>
       <p className="mt-1 text-sm text-gray-600">
         Mira o cambia un día ya planificado. Para uno nuevo, usa <span className="font-medium">Nueva</span>.
@@ -127,9 +160,28 @@ export function InicioPlanificacion({ hoy, onElegir, eligiendoDia, onEligiendoDi
         </div>
       ) : (
         <>
-          <ListaPlanes titulo="Próximas" vacio="No hay nada planificado de hoy en adelante." planes={proximas} hoy={hoy} onVer={setViendo} onEditar={elegir} />
+          <ListaPlanes
+            titulo="Próximas"
+            vacio="No hay nada planificado de hoy en adelante."
+            planes={proximas}
+            hoy={hoy}
+            onVer={setViendo}
+            onEditar={elegir}
+            puedeConfirmar={puedeConfirmar}
+            confirmando={confirmando}
+            onConfirmar={confirmar}
+          />
           {anteriores.length > 0 && (
-            <ListaPlanes titulo="Anteriores" planes={anteriores} hoy={hoy} onVer={setViendo} onEditar={elegir} />
+            <ListaPlanes
+              titulo="Anteriores"
+              planes={anteriores}
+              hoy={hoy}
+              onVer={setViendo}
+              onEditar={elegir}
+              puedeConfirmar={puedeConfirmar}
+              confirmando={confirmando}
+              onConfirmar={confirmar}
+            />
           )}
         </>
       )}
@@ -140,7 +192,17 @@ export function InicioPlanificacion({ hoy, onElegir, eligiendoDia, onEligiendoDi
             <>
               <DialogHeader>
                 <DialogTitle className="first-letter:uppercase">{nombreDia(viendo.fecha.slice(0, 10), hoy)}</DialogTitle>
-                <DialogDescription>{resumen(viendo)}</DialogDescription>
+                <DialogDescription>
+                  {resumen(viendo)}
+                  {viendo.confirmada_en && (
+                    <span className="mt-1 block text-emerald-700">
+                      Confirmada por {viendo.confirmada_por_nombre || "—"} el {fechaHoraCorta(viendo.confirmada_en)}
+                    </span>
+                  )}
+                  {(viendo.hecho_por?.length ?? 0) > 0 && (
+                    <span className="mt-1 block">Hecho por: {viendo.hecho_por!.join(", ")}</span>
+                  )}
+                </DialogDescription>
               </DialogHeader>
               <div className="space-y-5">
                 {porEquipo(viendo.trabajos).map(([quien, lista]) => (
@@ -238,6 +300,9 @@ function ListaPlanes({
   hoy,
   onVer,
   onEditar,
+  puedeConfirmar,
+  confirmando,
+  onConfirmar,
 }: {
   titulo: string;
   vacio?: string;
@@ -245,6 +310,9 @@ function ListaPlanes({
   hoy: string;
   onVer: (p: Planificacion) => void;
   onEditar: (fecha: string) => void;
+  puedeConfirmar: boolean;
+  confirmando: string | null;
+  onConfirmar: (fecha: string) => void;
 }) {
   return (
     <section className="mt-6">
@@ -252,32 +320,109 @@ function ListaPlanes({
       {planes.length === 0 ? (
         <p className="mt-3 text-sm text-gray-500">{vacio}</p>
       ) : (
-        <ul className="mt-3 divide-y rounded-lg border bg-white">
-          {planes.map((p) => {
-            const fecha = p.fecha.slice(0, 10);
-            const dia = nombreDia(fecha, hoy);
-            return (
-              <li key={fecha} className="flex items-center gap-1 py-2 pl-4 pr-2">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-gray-900 first-letter:uppercase">{dia}</p>
-                  <p className="text-xs text-gray-500">{resumen(p)}</p>
-                </div>
-                <Button variant="ghost" size="icon" onClick={() => onVer(p)} aria-label={`Ver el plan de ${dia}`} title="Ver">
-                  <Eye className="h-4 w-4" aria-hidden />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => onEditar(fecha)}
-                  aria-label={`Editar el plan de ${dia}`}
-                  title="Editar"
-                >
-                  <Pencil className="h-4 w-4" aria-hidden />
-                </Button>
-              </li>
-            );
-          })}
-        </ul>
+        <div className="mt-3 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  <th className="px-4 py-3">Día</th>
+                  <th className="px-4 py-3">Trabajos</th>
+                  <th className="px-4 py-3">Hecho por</th>
+                  <th className="px-4 py-3">Estado</th>
+                  <th className="px-4 py-3 text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {planes.map((p) => {
+                  const fecha = p.fecha.slice(0, 10);
+                  const dia = nombreDia(fecha, hoy);
+                  const confirmada = !!p.confirmada_en;
+                  const hechoPor = p.hecho_por ?? [];
+                  return (
+                    <tr key={fecha}>
+                      <td className="px-4 py-3 align-top font-medium text-gray-900 first-letter:uppercase">{dia}</td>
+                      <td className="px-4 py-3 align-top text-gray-600">{resumen(p)}</td>
+                      <td className="px-4 py-3 align-top text-gray-600">
+                        {hechoPor.length > 0 ? hechoPor.join(", ") : "—"}
+                      </td>
+                      <td className="px-4 py-3 align-top">
+                        {confirmada ? (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-900"
+                            title={`Confirmada por ${p.confirmada_por_nombre || "—"} el ${fechaHoraCorta(p.confirmada_en!)}`}
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+                            Confirmada
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center rounded-full border border-gray-300 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+                            Sin confirmar
+                          </span>
+                        )}
+                        {confirmada && (
+                          <p className="mt-1 text-xs text-gray-500">
+                            {p.confirmada_por_nombre} · {fechaHoraCorta(p.confirmada_en!)}
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 align-top">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => onVer(p)} aria-label={`Ver el plan de ${dia}`} title="Ver">
+                            <Eye className="h-4 w-4" aria-hidden />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => onEditar(fecha)}
+                            aria-label={`Editar el plan de ${dia}`}
+                            title="Editar"
+                          >
+                            <Pencil className="h-4 w-4" aria-hidden />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => ExportPlanificacionService.descargar(p, dia)}
+                            aria-label={`Descargar el plan de ${dia}`}
+                            title="Descargar"
+                          >
+                            <Download className="h-4 w-4" aria-hidden />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => ExportPlanificacionService.imprimir(p, dia)}
+                            aria-label={`Imprimir el plan de ${dia}`}
+                            title="Imprimir"
+                          >
+                            <Printer className="h-4 w-4" aria-hidden />
+                          </Button>
+                          {puedeConfirmar && !confirmada && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => onConfirmar(fecha)}
+                              disabled={confirmando === fecha}
+                              aria-label={`Confirmar el plan de ${dia}`}
+                              title="Confirmar planificación"
+                              className="text-emerald-800 hover:text-emerald-900"
+                            >
+                              {confirmando === fecha ? (
+                                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                              ) : (
+                                <CheckCircle2 className="h-4 w-4" aria-hidden />
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
     </section>
   );
