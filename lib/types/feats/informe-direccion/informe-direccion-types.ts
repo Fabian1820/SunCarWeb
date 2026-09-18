@@ -62,3 +62,39 @@ export type InformeComparativo = {
   periodo_a: PeriodoInforme;
   periodo_b: PeriodoInforme;
 };
+
+/* ── Desempeño (pestaña del módulo, mes a mes) ─────────────────────────── */
+
+/** Las métricas de Instaladora que se pueden atribuir a un comercial (todas
+ * salvo los vales de salida, que no tienen comercial). */
+export type MetricasInstaladora = Omit<InstaladoraGeneral, "vales_salida_total" | "vales_salida_promedio_dia">;
+
+export type ComercialInstaladoraDesempeno = MetricasInstaladora & {
+  nombre: string;
+  /** false = vende sin tener el cargo "Comercial Instaladora". */
+  en_plantilla?: boolean;
+};
+
+export type ComercialVentasDesempeno = VentasResumen & {
+  nombre: string;
+  clientes_nuevos: number;
+  en_plantilla?: boolean;
+};
+
+/** Un mes. El backend omite las secciones para las que no hay permiso. */
+export type MesDesempeno = {
+  mes: string; // "YYYY-MM"
+  inicio: string;
+  fin: string;
+  instaladora_general?: InstaladoraGeneral;
+  comercial_instaladora?: ComercialInstaladoraDesempeno[];
+  comercial_instaladora_sin_asignar?: ComercialInstaladoraDesempeno;
+  ventas?: VentasResumen;
+  comercial_ventas?: ComercialVentasDesempeno[];
+  comercial_ventas_sin_asignar?: ComercialVentasDesempeno;
+};
+
+export type DesempenoResponse = {
+  /** Del más antiguo al mes pedido (el último). */
+  meses: MesDesempeno[];
+};

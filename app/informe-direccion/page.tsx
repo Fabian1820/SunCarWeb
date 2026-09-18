@@ -54,6 +54,7 @@ import {
 } from "@/lib/services/feats/obras-terminadas/obras-terminadas-service";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/shared/molecule/tabs";
 import { ContabilidadSection } from "@/components/feats/informe-direccion/contabilidad-section";
+import { DesempenoSection } from "@/components/feats/informe-direccion/desempeno-section";
 import { PersonaCategoriaAdmin } from "@/components/feats/informe-direccion/persona-categoria-admin";
 import { CategoriaIngresoAdmin } from "@/components/feats/informe-direccion/categoria-ingreso-admin";
 
@@ -547,6 +548,15 @@ function InformeDireccionContent() {
   const puedeContabilidad = hasSubPermission(MODULE, "contabilidad");
   const puedeContabilidadConfig = hasSubPermission(MODULE, "contabilidad-config");
   const puedeAlgoDeOtros = puedeComparativo || puedeCobrosPendientes;
+  // Desempeño usa los mismos sub-permisos que las secciones del PDF comparativo.
+  const permisosDesempeno = {
+    instaladoraGeneral: hasSubPermission(MODULE, SUBPERMISO_SECCION.instaladoraGeneral),
+    comercialInstaladora: hasSubPermission(MODULE, SUBPERMISO_SECCION.comercialInstaladora),
+    ventas: hasSubPermission(MODULE, SUBPERMISO_SECCION.ventas),
+    comercialVentas: hasSubPermission(MODULE, SUBPERMISO_SECCION.comercialVentas),
+  };
+  const puedeDesempeno = puedeComparativo;
+  const puedeContabilidadAlgo = puedeContabilidad || puedeContabilidadConfig;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
@@ -556,7 +566,7 @@ function InformeDireccionContent() {
       />
 
       <main className="content-with-fixed-header w-full px-4 sm:px-6 lg:px-8 pb-8">
-        {!puedeContabilidad && !puedeContabilidadConfig && !puedeAlgoDeOtros ? (
+        {!puedeContabilidadAlgo && !puedeAlgoDeOtros ? (
           <div className="rounded-lg border bg-white/70 p-8 text-center">
             <p className="text-gray-700">No tienes ningún informe asignado en este módulo.</p>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -565,13 +575,24 @@ function InformeDireccionContent() {
             </p>
           </div>
         ) : (
-          <Tabs defaultValue={puedeContabilidad || puedeContabilidadConfig ? "contabilidad" : "otros"}>
+          <Tabs defaultValue={puedeContabilidadAlgo ? "contabilidad" : puedeDesempeno ? "desempeno" : "otros"}>
             <TabsList>
-              {(puedeContabilidad || puedeContabilidadConfig) && (
-                <TabsTrigger value="contabilidad">Contabilidad</TabsTrigger>
+              {puedeContabilidadAlgo && <TabsTrigger value="contabilidad">Contabilidad</TabsTrigger>}
+              {puedeDesempeno && (
+                <TabsTrigger value="desempeno">
+                  {/* En el móvil el nombre completo desborda la barra de pestañas. */}
+                  <span className="sm:hidden">Desempeño</span>
+                  <span className="hidden sm:inline">Desempeño de la empresa</span>
+                </TabsTrigger>
               )}
               {puedeAlgoDeOtros && <TabsTrigger value="otros">Otros</TabsTrigger>}
             </TabsList>
+
+            {puedeDesempeno && (
+              <TabsContent value="desempeno">
+                <DesempenoSection permisos={permisosDesempeno} />
+              </TabsContent>
+            )}
 
             {(puedeContabilidad || puedeContabilidadConfig) && (
               <TabsContent value="contabilidad">
