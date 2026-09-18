@@ -756,9 +756,6 @@ export function ClientsTable({
   const { hasExactPermission, user } = useAuth();
   // Subpermiso ADITIVO: solo quien lo tenga (o superAdmin) ve costos y totales.
   const verCostos = hasExactPermission("costos-materiales-cliente");
-  const canTransferenciaBancariaCliente = hasExactPermission(
-    "clientes/transferencia-bancaria",
-  );
   // Cargo "Comercial": se le precarga (y bloquea) el filtro a su propio nombre,
   // y es a quien más le sirve el botón de "Saldo pendiente" de abajo.
   const esComercial =
@@ -4594,20 +4591,18 @@ export function ClientsTable({
                                         <Camera className="h-4 w-4 text-violet-600" />
                                         Adjuntar archivo foto o video
                                       </button>
-                                      {canTransferenciaBancariaCliente && (
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            openTransferenciaBancariaDialog(
-                                              client,
-                                            )
-                                          }
-                                          className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100"
-                                        >
-                                          <Landmark className="h-4 w-4 text-blue-600" />
-                                          Transferencia bancaria
-                                        </button>
-                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          openTransferenciaBancariaDialog(
+                                            client,
+                                          )
+                                        }
+                                        className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100"
+                                      >
+                                        <Landmark className="h-4 w-4 text-blue-600" />
+                                        Transferencia bancaria
+                                      </button>
                                     </div>
                                   </PopoverContent>
                                 </Popover>
