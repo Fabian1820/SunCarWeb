@@ -1378,7 +1378,7 @@ function WalletPageContent() {
           selectedBancoTransferTarget.user_nombre,
         );
         destWalletId = ensured.id;
-        void loadWalletsLookup({ limit: 1000 });
+        void loadWalletsLookup({ limit: 1000, incluir_bancos: true });
       }
 
       await createTransfer({
@@ -1513,12 +1513,28 @@ function WalletPageContent() {
   // Fuente de destinos: TODOS los trabajadores. Si el trabajador ya tiene
   // wallet usamos su id; si no, queda con id="" y al confirmar se inicializa.
   const transferTargets = useMemo(() => {
-    const walletByCi = new Map<string, { id: string; user_ci: string; user_nombre: string }>();
+    const walletByCi = new Map<
+      string,
+      { id: string; user_ci: string; user_nombre: string; es_banco?: boolean }
+    >();
     const walletsSource = walletsLookup.length > 0 ? walletsLookup : wallets;
     for (const w of walletsSource) {
-      walletByCi.set(w.user_ci, { id: w.id, user_ci: w.user_ci, user_nombre: w.user_nombre });
+      walletByCi.set(w.user_ci, {
+        id: w.id,
+        user_ci: w.user_ci,
+        user_nombre: w.user_nombre,
+        // `wallets` (fallback cuando el lookup aún no cargó) es el tipo Wallet
+        // completo y no trae es_banco.
+        es_banco: "es_banco" in w ? w.es_banco : undefined,
+      });
     }
-    const targets: Array<{ id: string; user_ci: string; user_nombre: string; hasWallet: boolean }> = [];
+    const targets: Array<{
+      id: string;
+      user_ci: string;
+      user_nombre: string;
+      hasWallet: boolean;
+      es_banco?: boolean;
+    }> = [];
     for (const t of trabajadores) {
       if (!t.CI || t.CI === wallet?.user_ci) continue;
       const existing = walletByCi.get(t.CI);
@@ -1534,7 +1550,7 @@ function WalletPageContent() {
         });
       }
     }
-    // Añadir wallets sin trabajador asociado (raro, pero por consistencia)
+    // Añadir wallets sin trabajador asociado (bancos, o alguna sin trabajador)
     for (const w of walletByCi.values()) {
       if (w.user_ci === wallet?.user_ci) continue;
       targets.push({ ...w, hasWallet: true });
@@ -1602,7 +1618,7 @@ function WalletPageContent() {
   useEffect(() => {
     void loadWallet();
     void loadWallets({ limit: 500 });
-    void loadWalletsLookup({ limit: 1000 });
+    void loadWalletsLookup({ limit: 1000, incluir_bancos: true });
     void loadCurrencies();
     void loadPendingTransfers(canSeeAll);
     // Cargar trabajadores para permitir transferir a cualquiera (aún sin wallet)
@@ -1835,7 +1851,7 @@ function WalletPageContent() {
           selectedTransferTarget.user_nombre,
         );
         destWalletId = ensured.id;
-        void loadWalletsLookup({ limit: 1000 });
+        void loadWalletsLookup({ limit: 1000, incluir_bancos: true });
       }
 
       await createTransfer(
@@ -2429,10 +2445,15 @@ function WalletPageContent() {
                                 setBancoTransferDestinoCi(w.user_ci);
                                 setBancoTransferTargetSearch("");
                               }}
-                              className="w-full text-left px-3 py-2 text-sm hover:bg-violet-50 transition-colors"
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-violet-50 transition-colors flex items-center gap-2"
                             >
-                              <p className="font-medium text-slate-800 truncate">{w.user_nombre}</p>
-                              <p className="text-[11px] text-slate-400">CI: {w.user_ci}</p>
+                              {w.es_banco && (
+                                <Landmark className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                              )}
+                              <div className="min-w-0">
+                                <p className="font-medium text-slate-800 truncate">{w.user_nombre}</p>
+                                <p className="text-[11px] text-slate-400">CI: {w.user_ci}</p>
+                              </div>
                             </button>
                           ))
                         )}
@@ -3075,6 +3096,9 @@ function WalletPageContent() {
                             }}
                             className="w-full text-left px-3 py-2 text-sm hover:bg-violet-50 transition-colors flex items-center gap-2"
                           >
+                            {item.es_banco && (
+                              <Landmark className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                            )}
                             <div className="flex-1 min-w-0">
                               <p className="font-medium text-slate-800 truncate">
                                 {item.user_nombre}

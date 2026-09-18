@@ -369,18 +369,19 @@ export class WalletService {
 
   static async getWalletsLookup(
     filters: WalletsFilters = {},
-  ): Promise<Array<{ id: string; user_ci: string; user_nombre: string }>> {
+  ): Promise<Array<{ id: string; user_ci: string; user_nombre: string; es_banco?: boolean }>> {
     const search = new URLSearchParams();
     if (filters.q) search.append("q", filters.q);
     if (typeof filters.skip === "number")
       search.append("skip", String(filters.skip));
     if (typeof filters.limit === "number")
       search.append("limit", String(filters.limit));
+    if (filters.incluir_bancos) search.append("incluir_bancos", "true");
 
     const endpoint = `/wallet/wallets/lookup${search.toString() ? `?${search.toString()}` : ""}`;
     const response = await this.requestWalletEndpoint<
-      | Array<{ id: string; user_ci: string; user_nombre: string }>
-      | WrappedResponse<Array<{ id: string; user_ci: string; user_nombre: string }>>
+      | Array<{ id: string; user_ci: string; user_nombre: string; es_banco?: boolean }>
+      | WrappedResponse<Array<{ id: string; user_ci: string; user_nombre: string; es_banco?: boolean }>>
       | ApiErrorResponse
     >(endpoint);
 

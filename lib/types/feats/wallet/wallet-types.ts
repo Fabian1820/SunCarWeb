@@ -139,6 +139,8 @@ export interface WalletsFilters {
   q?: string;
   skip?: number;
   limit?: number;
+  /** Incluye las wallets de bancos en el resultado (por defecto quedan fuera). */
+  incluir_bancos?: boolean;
 }
 
 export interface WalletTransferCreateData {
