@@ -13,7 +13,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/shared/atom/select"
-import { AlertTriangle, ChevronDown, ChevronRight, Download, Info, Loader2, RefreshCw, Search } from "lucide-react"
+import { AlertTriangle, BookOpen, ChevronDown, ChevronRight, Download, Info, Loader2, RefreshCw, Search } from "lucide-react"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/shared/molecule/popover"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { normalizeSearchText } from "@/lib/utils/string-utils"
@@ -104,6 +105,128 @@ function EstadoPill({ estado }: { estado: string }) {
   )
 }
 
+/** Cabecera de columna con una ⓘ que explica qué es (se abre al tocar, también en móvil). */
+function Cabecera({ texto, ayuda, derecha = true }: { texto: string; ayuda: string; derecha?: boolean }) {
+  return (
+    <th className={cn("px-3 py-2 font-medium", derecha && "text-right")}>
+      <span className={cn("inline-flex items-center gap-1", derecha && "justify-end")}>
+        {texto}
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              aria-label={`Qué es «${texto}»`}
+              onClick={(e) => e.stopPropagation()}
+              className="rounded-full text-gray-400 hover:text-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+            >
+              <Info className="h-3.5 w-3.5" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-72 text-left text-xs font-normal normal-case tracking-normal text-gray-700">
+            {ayuda}
+          </PopoverContent>
+        </Popover>
+      </span>
+    </th>
+  )
+}
+
+/** "Faltan 370" / "Sobran 12" / "Justo": la diferencia dicha en palabras. */
+function SobraFalta({ valor }: { valor: number }) {
+  if (Math.abs(valor) < 0.005) return <span className="font-semibold text-gray-600">Justo</span>
+  const falta = valor < 0
+  return (
+    <span className={cn("font-semibold whitespace-nowrap", falta ? "text-red-700" : "text-emerald-700")}>
+      {falta ? "Faltan" : "Sobran"} {formatearCantidad(Math.abs(valor))}
+    </span>
+  )
+}
+
+const CLAVE_GUIA = "reportes-comercial:comprometidos:guia-plegada"
+
+function GuiaDeLectura({ estados }: { estados: string[] }) {
+  const [abierta, setAbierta] = useState(true)
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(CLAVE_GUIA) === "1") setAbierta(false)
+    } catch {}
+  }, [])
+  const cambiar = () => {
+    setAbierta((prev) => {
+      try {
+        localStorage.setItem(CLAVE_GUIA, prev ? "1" : "0")
+      } catch {}
+      return !prev
+    })
+  }
+
+  return (
+    <div className="rounded-lg border border-sky-200 bg-sky-50/70">
+      <button
+        type="button"
+        onClick={cambiar}
+        aria-expanded={abierta}
+        className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-sky-900"
+      >
+        <BookOpen className="h-4 w-4 flex-shrink-0" />
+        Cómo leer este reporte
+        {abierta ? <ChevronDown className="ml-auto h-4 w-4" /> : <ChevronRight className="ml-auto h-4 w-4" />}
+      </button>
+      {abierta && (
+        <div className="space-y-3 border-t border-sky-200 px-4 pb-4 pt-3 text-sm text-gray-700">
+          <p>
+            Aquí está el material que <strong>ya le debemos a clientes que pagaron</strong> y todavía no tienen el equipo
+            instalado: ofertas confirmadas, con al menos un pago, y el cliente en{" "}
+            {estados.map((e, i) => (
+              <Fragment key={e}>
+                {i > 0 && (i === estados.length - 1 ? " o " : ", ")}«{e}»
+              </Fragment>
+            ))}
+            .
+          </p>
+          <div className="rounded-md border border-sky-200 bg-white p-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Ejemplo con un material</p>
+            <ul className="space-y-1">
+              <li>
+                <strong>En las ofertas: 10.</strong> Las ofertas comprometidas llevan 10 paneles.
+              </li>
+              <li>
+                <strong>Ya salió del almacén: 4.</strong> Un vale ya se llevó 4 a la obra. Ya no están en el almacén.
+              </li>
+              <li>
+                <strong>Falta por sacar: 6.</strong> Esto es lo que tiene que haber en el almacén.
+              </li>
+              <li>
+                <strong>Stock disponible: 5 → Faltan 1.</strong> Con lo que hay no alcanza; hay que comprar o traer 1.
+              </li>
+            </ul>
+          </div>
+          <ul className="list-disc space-y-1 pl-5">
+            <li>
+              <strong>Ya salió del almacén</strong> se toma de lo anotado como entregado en la oferta o, si es mayor, de los
+              vales de salida del cliente (menos lo devuelto). Cuando lo dicen los vales verás la marca{" "}
+              <span className="rounded bg-sky-100 px-1 text-[11px] font-medium text-sky-800">según vales</span>.
+            </li>
+            <li>
+              <strong>Stock disponible</strong> es lo que puede salir para instalar en los almacenes marcados en «Comparar con el stock de»:
+              Instaladora + Común, sin lo apartado para ventas y sin lo reservado por otras ventas.
+            </li>
+            <li>
+              <strong>Por oferta</strong> ordena a los clientes por la fecha de su primer pago y dice a quién se le puede
+              instalar ya con el stock de hoy y qué le falta a cada uno.
+            </li>
+            <li>
+              Si un vale sacó un material distinto al de la oferta (un sustituto), la oferta lo sigue mostrando como
+              pendiente: revisa esos casos a mano.
+            </li>
+          </ul>
+          <p className="text-xs text-gray-500">Toca la ⓘ de cada columna para ver qué significa.</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function MaterialesComprometidosReport() {
   const { toast } = useToast()
   const [datos, setDatos] = useState<MaterialesComprometidosData | null>(null)
@@ -113,7 +236,7 @@ export function MaterialesComprometidosReport() {
   const [almacenes, setAlmacenes] = useState<string[]>([])
   const [estados, setEstados] = useState<string[]>([])
   const [incluirSinPago, setIncluirSinPago] = useState(false)
-  const [tipoMaterial, setTipoMaterial] = useState("todos")
+  const [tipoMaterial, setTipoMaterial] = useState("principales")
   const [soloFaltantes, setSoloFaltantes] = useState(false)
   const [busqueda, setBusqueda] = useState("")
   const [vista, setVista] = useState<Vista>("material")
@@ -273,6 +396,8 @@ export function MaterialesComprometidosReport() {
 
   return (
     <div className="space-y-6">
+      <GuiaDeLectura estados={datos.estados_sin_instalar} />
+
       {/* Filtros */}
       <Card className="border-l-4 border-l-emerald-600">
         <CardContent className="space-y-4 p-4">
@@ -424,7 +549,7 @@ export function MaterialesComprometidosReport() {
               {hayAlmacenes ? kpis.conFaltante : "—"}
               {hayAlmacenes && <span className="text-base font-normal text-gray-500"> de {filas.length}</span>}
             </p>
-            <p className="mt-1 text-xs text-gray-600">Lo que falta por salir supera el stock</p>
+            <p className="mt-1 text-xs text-gray-600">Lo que falta por sacar supera el stock disponible</p>
           </CardContent>
         </Card>
         <Card>
@@ -432,7 +557,7 @@ export function MaterialesComprometidosReport() {
             <p className="text-xs uppercase tracking-wide text-gray-500">Costo de reponer</p>
             <p className="mt-1 break-words text-xl font-semibold tabular-nums sm:text-2xl text-gray-900">{hayAlmacenes ? formatearMoneda(kpis.costo) : "—"}</p>
             <p className="mt-1 text-xs text-gray-600">
-              Al costo del kárdex
+              Comprar lo que falta, al costo del kárdex
               {kpis.sinCosto > 0 && <> · {kpis.sinCosto} sin costo conocido</>}
             </p>
           </CardContent>
@@ -510,19 +635,9 @@ export function MaterialesComprometidosReport() {
         <TablaOfertas cobertura={coberturaVisible} hayAlmacenes={hayAlmacenes} nombreAlmacen={nombreAlmacen} />
       )}
 
-      <div className="space-y-1 rounded-md border border-gray-200 bg-white p-3 text-xs text-gray-600">
-        <p>
-          <strong>Comprometida</strong>: oferta confirmada por el cliente, con al menos un pago, y cliente en{" "}
-          {datos.estados_sin_instalar.join(", ").toLowerCase()}. <strong>Por salir</strong> = lo que tiene la oferta menos lo que
-          ya salió del almacén, según las entregas anotadas en la oferta o los vales del cliente (la mayor de las dos).
-        </p>
-        <p>
-          <strong>Stock</strong> = lo que puede salir para instalar (Instaladora + Común), sin el apartado para ventas.
-          <strong> Diferencia</strong> = stock − reservas activas de otras ventas − por salir. Si un vale sacó un material
-          distinto al de la oferta (un sustituto), la oferta lo sigue dando por pendiente.
-        </p>
-        <p className="text-gray-400">Calculado el {formatearFecha(datos.generado_en)} a las {datos.generado_en.slice(11, 16)}.</p>
-      </div>
+      <p className="text-xs text-gray-400">
+Calculado el {formatearFecha(datos.generado_en)} a las {datos.generado_en.slice(11, 16)}. «Actualizar» vuelve a calcular.
+      </p>
     </div>
   )
 }
@@ -558,17 +673,39 @@ function TablaMateriales({
             <thead>
               <tr className="border-b bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
                 <th className="px-3 py-2 font-medium">Material</th>
-                <th className="px-3 py-2 text-right font-medium">Ofertas</th>
-                <th className="px-3 py-2 text-right font-medium">Comprometido</th>
-                <th className="px-3 py-2 text-right font-medium">Ya salió</th>
-                <th className="px-3 py-2 text-right font-medium">Por salir</th>
-                <th className="px-3 py-2 text-right font-medium">Stock</th>
-                <th className="px-3 py-2 text-right font-medium">Diferencia</th>
-                <th className="px-3 py-2 text-right font-medium">En compras</th>
-                <th className="px-3 py-2 text-right font-medium">Costo faltante</th>
-                <th className="px-3 py-2 text-right font-medium" title="Días desde el primer pago más antiguo">
-                  Espera
-                </th>
+                <Cabecera texto="Ofertas" ayuda="Cuántas ofertas comprometidas llevan este material." />
+                <Cabecera
+                  texto="En las ofertas"
+                  ayuda="Suma de lo que piden las ofertas comprometidas, incluido lo que ya salió del almacén."
+                />
+                <Cabecera
+                  texto="Ya salió del almacén"
+                  ayuda="Lo que ya se llevaron a las obras. Sale de lo anotado como entregado en la oferta o, si es mayor, de los vales de salida del cliente menos lo devuelto."
+                />
+                <Cabecera
+                  texto="Falta por sacar"
+                  ayuda="En las ofertas − ya salió. Es lo que todavía tiene que haber en el almacén para terminar esas instalaciones."
+                />
+                <Cabecera
+                  texto="Stock disponible"
+                  ayuda="Lo que puede salir para instalar en los almacenes marcados: Instaladora + Común, sin lo apartado para ventas. Si hay reservas activas de otras ventas se indican debajo y se descuentan."
+                />
+                <Cabecera
+                  texto="Sobra / Falta"
+                  ayuda="Stock disponible − reservado por otras ventas − falta por sacar. «Faltan» es lo que hay que comprar o traer de otro almacén."
+                />
+                <Cabecera
+                  texto="En compras"
+                  ayuda="Unidades en compras que aún no han entrado al almacén (solicitadas, enviadas o arribadas). Debajo, si alcanzan para cubrir lo que falta."
+                />
+                <Cabecera
+                  texto="Costo de lo que falta"
+                  ayuda="Faltante × costo unitario del kárdex (o del catálogo si el kárdex no lo tiene). No descuenta las compras en curso."
+                />
+                <Cabecera
+                  texto="Espera"
+                  ayuda="Días desde el primer pago del cliente que lleva más tiempo esperando este material. En rojo, más de 60 días."
+                />
               </tr>
             </thead>
             <tbody>
@@ -607,16 +744,11 @@ function TablaMateriales({
                       <td className="px-3 py-2 text-right tabular-nums">
                         {hayAlmacenes ? formatearCantidad(f.stock) : "—"}
                         {f.reservadoOtros > 0 && (
-                          <p className="text-[11px] text-gray-500">−{formatearCantidad(f.reservadoOtros)} reservado</p>
+                          <p className="text-[11px] text-gray-500">{formatearCantidad(f.reservadoOtros)} reservado por otras ventas</p>
                         )}
                       </td>
-                      <td
-                        className={cn(
-                          "px-3 py-2 text-right font-semibold tabular-nums",
-                          !hayAlmacenes ? "text-gray-400" : falta ? "text-red-700" : "text-emerald-700",
-                        )}
-                      >
-                        {hayAlmacenes ? (f.diferencia > 0 ? "+" : "") + formatearCantidad(f.diferencia) : "—"}
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        {hayAlmacenes ? <SobraFalta valor={f.diferencia} /> : <span className="text-gray-400">—</span>}
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums">
                         {f.enCamino ? (
@@ -624,7 +756,7 @@ function TablaMateriales({
                             {formatearCantidad(f.enCamino)}
                             {hayAlmacenes && falta && (
                               <p className={cn("text-[11px]", f.faltanteNeto > 0 ? "text-red-600" : "text-emerald-700")}>
-                                {f.faltanteNeto > 0 ? `aún faltan ${formatearCantidad(f.faltanteNeto)}` : "cubre lo que falta"}
+                                {f.faltanteNeto > 0 ? `y aún faltarían ${formatearCantidad(f.faltanteNeto)}` : "cubren lo que falta"}
                               </p>
                             )}
                           </>
@@ -724,7 +856,7 @@ function DetalleMaterial({
       )}
 
       <div className="overflow-x-auto rounded-md border border-gray-200 bg-white">
-        <table className="w-full min-w-[720px] text-sm">
+        <table className="w-full min-w-[820px] text-sm">
           <thead>
             <tr className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
               <th className="px-3 py-2 font-medium">Nº oferta</th>
@@ -732,12 +864,13 @@ function DetalleMaterial({
               <th className="px-3 py-2 font-medium">Estado</th>
               <th className="px-3 py-2 font-medium">Primer pago</th>
               <th className="px-3 py-2 text-right font-medium">Cobrado</th>
-              <th className="px-3 py-2 text-right font-medium">Cant.</th>
-              <th className="px-3 py-2 text-right font-medium">Por salir</th>
+              <th className="px-3 py-2 text-right font-medium">En la oferta</th>
+              <th className="px-3 py-2 text-right font-medium">Ya salió</th>
+              <th className="px-3 py-2 text-right font-medium">Falta por sacar</th>
             </tr>
           </thead>
           <tbody>
-            {fila.ofertas.map(({ oferta, cantidad, pendiente }) => (
+            {fila.ofertas.map(({ oferta, cantidad, salido, pendiente, segunVales }) => (
               <tr key={oferta.oferta_id} className="border-t border-gray-100 align-top">
                 <td className="px-3 py-2 font-medium whitespace-nowrap text-gray-900">
                   {oferta.numero_oferta || "—"}
@@ -756,6 +889,17 @@ function DetalleMaterial({
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums">{formatearMoneda(oferta.cobrado_usd)}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{formatearCantidad(cantidad)}</td>
+                <td className="px-3 py-2 text-right tabular-nums text-gray-700">
+                  {salido ? formatearCantidad(salido) : <span className="text-gray-300">–</span>}
+                  {segunVales && (
+                    <span
+                      className="ml-1 whitespace-nowrap rounded bg-sky-100 px-1 text-[10px] font-medium text-sky-800"
+                      title="La oferta no lo tiene anotado como entregado; lo dicen los vales de salida del cliente"
+                    >
+                      según vales
+                    </span>
+                  )}
+                </td>
                 <td className="px-3 py-2 text-right font-semibold tabular-nums">
                   {pendiente ? formatearCantidad(pendiente) : <span className="font-normal text-gray-400">salió todo</span>}
                 </td>
@@ -841,15 +985,15 @@ function TablaOfertas({
                       {c.estado === "nada_pendiente" ? (
                         <span className="text-xs text-gray-500">Ya salió todo del almacén</span>
                       ) : !hayAlmacenes ? (
-                        <span className="text-xs text-gray-500">{c.lineasPendientes} materiales por salir</span>
+                        <span className="text-xs text-gray-500">{c.lineasPendientes} materiales por sacar</span>
                       ) : c.estado === "completa" ? (
                         <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800">
-                          Hay todo ({c.lineasPendientes} materiales)
+                          Se puede instalar: hay todo ({c.lineasPendientes} materiales)
                         </span>
                       ) : (
                         <div className="space-y-1">
                           <span className="inline-flex rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-medium text-red-800">
-                            Faltan {c.faltan.length} de {c.lineasPendientes}
+                            Faltan {c.faltan.length} de {c.lineasPendientes} materiales
                           </span>
                           <ul className="text-xs text-gray-700">
                             {c.faltan.slice(0, 4).map((f) => (

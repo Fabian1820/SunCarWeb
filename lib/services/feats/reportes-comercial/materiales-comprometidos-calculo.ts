@@ -136,9 +136,17 @@ export function construirFilasMateriales(
       const previa = fila.ofertas.find((o) => o.oferta.oferta_id === oferta.oferta_id)
       if (previa) {
         previa.cantidad += linea.cantidad
+        previa.salido += linea.salido
         previa.pendiente += linea.pendiente
+        previa.segunVales ||= linea.salido_segun_vales
       } else {
-        fila.ofertas.push({ oferta, cantidad: linea.cantidad, pendiente: linea.pendiente })
+        fila.ofertas.push({
+          oferta,
+          cantidad: linea.cantidad,
+          salido: linea.salido,
+          pendiente: linea.pendiente,
+          segunVales: linea.salido_segun_vales,
+        })
       }
       const turno = oferta.tiene_pago ? oferta.fecha_primer_pago : null
       if (turno && (!fila.primerPago || turno < fila.primerPago)) fila.primerPago = turno

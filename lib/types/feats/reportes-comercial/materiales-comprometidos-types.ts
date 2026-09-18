@@ -110,7 +110,10 @@ export interface FiltrosComprometidos {
 export interface OfertaDeMaterial {
   oferta: OfertaComprometida
   cantidad: number
+  salido: number
   pendiente: number
+  /** Lo salido lo dicen los vales del cliente, no lo anotado en la oferta */
+  segunVales: boolean
 }
 
 export interface FilaMaterialComprometido {

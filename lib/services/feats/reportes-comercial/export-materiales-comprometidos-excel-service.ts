@@ -81,14 +81,14 @@ export class ExportMaterialesComprometidosExcelService {
         "Material",
         "Sección",
         "Ofertas",
-        "Comprometido",
-        "Ya salió",
-        "Por salir",
-        "Stock",
-        "Reservado otros",
-        "Diferencia",
-        "En compras",
-        "Falta tras compras",
+        "En las ofertas",
+        "Ya salió del almacén",
+        "Falta por sacar",
+        "Stock disponible",
+        "Reservado por otras ventas",
+        "Sobra (+) / Falta (−)",
+        "En compras en curso",
+        "Falta aunque lleguen las compras",
         "Costo unitario",
         "Costo faltante",
         "Valor venta pendiente",
@@ -143,7 +143,7 @@ export class ExportMaterialesComprometidosExcelService {
         "Cobrado (USD)",
         "Precio final",
         "Con pago",
-        "Materiales por salir",
+        "Materiales por sacar",
         "¿Hay todo?",
         "Qué falta",
       ],
@@ -181,12 +181,11 @@ export class ExportMaterialesComprometidosExcelService {
     const detalle = nuevaHoja(
       "Detalle",
       "Líneas comprometidas",
-      ["Código", "Material", "Nº oferta", "Cliente", "Estado", "Primer pago", "Cantidad", "Ya salió", "Por salir", "Salido según"],
+      ["Código", "Material", "Nº oferta", "Cliente", "Estado", "Primer pago", "En la oferta", "Ya salió del almacén", "Falta por sacar", "Lo salido según"],
       [16, 36, 18, 28, 22, 12, 10, 10, 10, 14],
     )
     for (const f of filas) {
-      for (const { oferta, cantidad, pendiente } of f.ofertas) {
-        const lineas = oferta.lineas.filter((l) => l.clave === f.material.clave)
+      for (const { oferta, cantidad, salido, pendiente, segunVales } of f.ofertas) {
         const row = detalle.addRow([
           f.material.codigo,
           f.material.nombre || f.material.descripcion || "",
@@ -195,9 +194,9 @@ export class ExportMaterialesComprometidosExcelService {
           oferta.estado,
           fechaExcel(oferta.fecha_primer_pago),
           cantidad,
-          cantidad - pendiente,
+          salido,
           pendiente,
-          lineas.some((l) => l.salido_segun_vales) ? "Vales" : cantidad - pendiente > 0 ? "Oferta" : "",
+          segunVales ? "Vales de salida" : salido > 0 ? "Oferta" : "",
         ])
         formatear(row, { 6: FECHA, 7: CANTIDAD, 8: CANTIDAD, 9: CANTIDAD })
       }
