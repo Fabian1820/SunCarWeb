@@ -628,6 +628,15 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-indigo-600",
     href: "/planificacion",
     grupo: "operaciones",
+    subPermisos: [
+      {
+        key: "planificacion/confirmar",
+        label: "Confirmar planificaciones",
+        descripcion:
+          "Da el botón para confirmar el plan de un día como definitivo, quedando registrado quién y cuándo. ADITIVO: tener 'planificacion' NO lo concede; hay que asignarlo explícitamente.",
+        aditivo: true,
+      },
+    ],
   },
   {
     key: "entregas-devoluciones",

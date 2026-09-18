@@ -47,6 +47,12 @@ export interface Planificacion {
   fecha: string;
   trabajos: TrabajoPlanificado[];
   creada_por?: string | null;
+  /** Quiénes crearon o editaron este plan, de la bitácora de auditoría; sin repetidos. */
+  hecho_por?: string[];
+  confirmada_por_ci?: string | null;
+  confirmada_por_nombre?: string | null;
+  /** ISO. Se limpia sola al volver a guardar el plan: hay que confirmarlo de nuevo. */
+  confirmada_en?: string | null;
 }
 
 /** Un cliente o lead que puede entrar en el plan. */

@@ -39,6 +39,15 @@ export const PlanificacionService = {
     return Array.isArray(response) ? response : response.data || [];
   },
 
+  /** Confirma el plan de un día como definitivo. Requiere permiso `planificacion/confirmar`. */
+  async confirmar(fecha: string): Promise<Planificacion> {
+    const response = await apiRequest<{ success: boolean; data: Planificacion }>(
+      `${BASE}/${fecha}/confirmar`,
+      { method: "POST" },
+    );
+    return response.data;
+  },
+
   /** Los clientes y leads que pueden entrar, según el estado que tengan. */
   async candidatos(tipo: string): Promise<CandidatoPlanificacion[]> {
     const response = await apiRequest<{
