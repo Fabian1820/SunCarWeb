@@ -79,6 +79,7 @@ import { useBancos } from "@/hooks/use-bancos";
 import { WalletsConSaldoButton } from "@/components/feats/wallet/wallets-con-saldo-dialog";
 import { BancosMenu } from "@/components/feats/wallet/bancos-menu";
 import { AdjuntoComprobanteField } from "@/components/feats/wallet/adjunto-comprobante-field";
+import { TransferenciaBancariaPendienteAlert } from "@/components/feats/wallet/transferencia-bancaria-pendiente-alert";
 import { TrabajadorService, WalletService, BancoService } from "@/lib/api-services";
 import { exportToExcel } from "@/lib/export-service";
 import type { Trabajador } from "@/lib/api-types";
@@ -2512,6 +2513,8 @@ function WalletPageContent() {
                 </CardContent>
               </Card>
             )}
+
+            <TransferenciaBancariaPendienteAlert bancoId={viewedBanco.id} />
 
             {/* Historial de movimientos del banco */}
             <Card className="border-slate-200 shadow-sm rounded-2xl overflow-hidden">

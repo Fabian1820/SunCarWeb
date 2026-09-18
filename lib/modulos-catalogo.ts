@@ -382,6 +382,17 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
         descripcion: "Adjuntar fotos, videos y comprobantes de pago al lead.",
         aditivo: true,
       },
+      // ADITIVO: registrar transferencias bancarias mueve dinero (aunque sea
+      // en modo "pendiente" hasta que el admin de wallet la acepte) y expone
+      // datos de facturación del cliente; el módulo base `leads` (o incluso
+      // `leads/editar`) no debe conceder esto automáticamente.
+      {
+        key: "leads/transferencia-bancaria",
+        label: "Registrar transferencia bancaria",
+        descripcion:
+          "Crear, editar y cancelar la transferencia bancaria asociada a una oferta confirmada del lead, desde el menú \"...\".",
+        aditivo: true,
+      },
       // Exportar es ADITIVO: hace público un dataset sensible; no debería
       // heredarse por defecto.
       {
@@ -407,6 +418,16 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
         label: "Ver costos de materiales (entregados/pendientes)",
         descripcion:
           "Muestra el costo de los materiales y los totales entregado/pendiente en el diálogo de entregas de Clientes, Instalaciones en Proceso e Instalaciones Nuevas. ADITIVO: tener el módulo padre NO lo concede; hay que asignarlo explícitamente a quien pueda ver costos.",
+        aditivo: true,
+      },
+      // ADITIVO, mismo criterio que "leads/transferencia-bancaria": mueve
+      // dinero y expone datos de facturación del cliente, así que el módulo
+      // padre `clientes` no lo concede por sí solo.
+      {
+        key: "clientes/transferencia-bancaria",
+        label: "Registrar transferencia bancaria",
+        descripcion:
+          "Crear, editar y cancelar la transferencia bancaria asociada a una oferta confirmada del cliente, desde el menú \"...\".",
         aditivo: true,
       },
     ],

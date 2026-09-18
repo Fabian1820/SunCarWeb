@@ -53,6 +53,7 @@ import {
   RotateCcw,
   FileOutput,
   Wallet,
+  Landmark,
 } from "lucide-react";
 import { ClienteService } from "@/lib/api-services";
 import type { EquipoEnOferta } from "@/lib/services/feats/customer/cliente-service";
@@ -73,6 +74,7 @@ import { OfertasPersonalizadasTable } from "@/components/feats/ofertas-personali
 import { CreateOfertaDialog } from "@/components/feats/ofertas-personalizadas/create-oferta-dialog";
 import { EditOfertaDialog } from "@/components/feats/ofertas-personalizadas/edit-oferta-dialog";
 import { GestionarAveriasDialog } from "@/components/feats/averias/gestionar-averias-dialog";
+import { TransferenciaBancariaDialog } from "@/components/feats/transferencias-bancarias/transferencia-bancaria-dialog";
 import { AsignarOfertaGenericaDialog } from "@/components/feats/ofertas/asignar-oferta-generica-dialog";
 import { VerOfertaClienteDialog } from "@/components/feats/ofertas/ver-oferta-cliente-dialog";
 import { DuplicarOfertaDialog } from "@/components/feats/ofertas/duplicar-oferta-dialog";
@@ -754,6 +756,9 @@ export function ClientsTable({
   const { hasExactPermission, user } = useAuth();
   // Subpermiso ADITIVO: solo quien lo tenga (o superAdmin) ve costos y totales.
   const verCostos = hasExactPermission("costos-materiales-cliente");
+  const canTransferenciaBancariaCliente = hasExactPermission(
+    "clientes/transferencia-bancaria",
+  );
   // Cargo "Comercial": se le precarga (y bloquea) el filtro a su propio nombre,
   // y es a quien más le sirve el botón de "Saldo pendiente" de abajo.
   const esComercial =
@@ -819,6 +824,10 @@ export function ClientsTable({
   const [ofertaSubmitting, setOfertaSubmitting] = useState(false);
   const [showAveriasDialog, setShowAveriasDialog] = useState(false);
   const [clientForVales, setClientForVales] = useState<Cliente | null>(null);
+  const [transferenciaBancariaClient, setTransferenciaBancariaClient] =
+    useState<Cliente | null>(null);
+  const openTransferenciaBancariaDialog = (client: Cliente) =>
+    setTransferenciaBancariaClient(client);
   const [clientForAverias, setClientForAverias] = useState<Cliente | null>(
     null,
   );
@@ -4585,6 +4594,20 @@ export function ClientsTable({
                                         <Camera className="h-4 w-4 text-violet-600" />
                                         Adjuntar archivo foto o video
                                       </button>
+                                      {canTransferenciaBancariaCliente && (
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            openTransferenciaBancariaDialog(
+                                              client,
+                                            )
+                                          }
+                                          className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100"
+                                        >
+                                          <Landmark className="h-4 w-4 text-blue-600" />
+                                          Transferencia bancaria
+                                        </button>
+                                      )}
                                     </div>
                                   </PopoverContent>
                                 </Popover>
@@ -4909,6 +4932,23 @@ export function ClientsTable({
           if (!open) setClientForVales(null);
         }}
       />
+
+      {transferenciaBancariaClient && (
+        <TransferenciaBancariaDialog
+          open={!!transferenciaBancariaClient}
+          onOpenChange={(open) => {
+            if (!open) setTransferenciaBancariaClient(null);
+          }}
+          origen={{
+            tipo: "cliente",
+            id: transferenciaBancariaClient.id ?? "",
+            numero: transferenciaBancariaClient.numero,
+            nombre: transferenciaBancariaClient.nombre,
+            telefono: transferenciaBancariaClient.telefono,
+            direccion: transferenciaBancariaClient.direccion,
+          }}
+        />
+      )}
 
       {/* Fijar estado de instalación por oferta, para clientes con 2+ confirmadas */}
       <EstadoInstalacionMultipleDialog
