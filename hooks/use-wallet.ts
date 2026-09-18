@@ -27,7 +27,7 @@ export function useWallet() {
   const [memberTxTotalsByCurrency, setMemberTxTotalsByCurrency] = useState<TotalPorMoneda[]>([]);
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [walletsLookup, setWalletsLookup] = useState<
-    Array<{ id: string; user_ci: string; user_nombre: string }>
+    Array<{ id: string; user_ci: string; user_nombre: string; es_banco?: boolean }>
   >([]);
   const [loadingWalletsLookup, setLoadingWalletsLookup] = useState(false);
   const [pendingIncoming, setPendingIncoming] = useState<WalletPendingTransfer[]>([]);

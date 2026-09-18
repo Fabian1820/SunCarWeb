@@ -53,7 +53,6 @@ import {
   RotateCcw,
   FileOutput,
   Wallet,
-  Landmark,
 } from "lucide-react";
 import { ClienteService } from "@/lib/api-services";
 import type { EquipoEnOferta } from "@/lib/services/feats/customer/cliente-service";
@@ -74,7 +73,6 @@ import { OfertasPersonalizadasTable } from "@/components/feats/ofertas-personali
 import { CreateOfertaDialog } from "@/components/feats/ofertas-personalizadas/create-oferta-dialog";
 import { EditOfertaDialog } from "@/components/feats/ofertas-personalizadas/edit-oferta-dialog";
 import { GestionarAveriasDialog } from "@/components/feats/averias/gestionar-averias-dialog";
-import { TransferenciaBancariaDialog } from "@/components/feats/transferencias-bancarias/transferencia-bancaria-dialog";
 import { AsignarOfertaGenericaDialog } from "@/components/feats/ofertas/asignar-oferta-generica-dialog";
 import { VerOfertaClienteDialog } from "@/components/feats/ofertas/ver-oferta-cliente-dialog";
 import { DuplicarOfertaDialog } from "@/components/feats/ofertas/duplicar-oferta-dialog";
@@ -245,9 +243,11 @@ const ResumenCapacidadEquipos = ({
     <div
       className="inline-flex items-center gap-1 rounded bg-sky-50 border border-sky-200 px-1.5 py-0.5 text-[12px] text-sky-800"
       title={
-        capacidad.fuente === "snapshot_cliente"
-          ? "Total acumulado, tomado del registro antiguo del cliente (no hay oferta confirmada)"
-          : "Total acumulado de las ofertas confirmadas del cliente"
+        capacidad.fuente === "ficha"
+          ? "Lo instalado según la ficha de equipos del cliente"
+          : capacidad.fuente === "snapshot_cliente"
+            ? "Total acumulado, tomado del registro antiguo del cliente (no hay oferta confirmada)"
+            : "Total acumulado de las ofertas confirmadas del cliente"
       }
     >
       <span className="font-medium">Equipo:</span>
@@ -789,11 +789,22 @@ export function ClientsTable({
   // Ficha actualizada tras un cambio en el diálogo, por número de cliente: la
   // lista llega por props y no se recarga, así que la fila se pinta con esto.
   const [equiposActualizados, setEquiposActualizados] = useState<
-    Record<string, { equipos: EquipoCliente[]; pendientes: number }>
+    Record<
+      string,
+      { equipos: EquipoCliente[]; pendientes: number; capacidad: CapacidadEquipos | null }
+    >
   >({});
   const onCambioEquipos = useCallback(
-    (numero: string, equipos: EquipoCliente[], pendientes: number) =>
-      setEquiposActualizados((prev) => ({ ...prev, [numero]: { equipos, pendientes } })),
+    (
+      numero: string,
+      equipos: EquipoCliente[],
+      pendientes: number,
+      capacidad: CapacidadEquipos | null,
+    ) =>
+      setEquiposActualizados((prev) => ({
+        ...prev,
+        [numero]: { equipos, pendientes, capacidad },
+      })),
     [],
   );
   const [showClientLocation, setShowClientLocation] = useState(false);
@@ -821,10 +832,6 @@ export function ClientsTable({
   const [ofertaSubmitting, setOfertaSubmitting] = useState(false);
   const [showAveriasDialog, setShowAveriasDialog] = useState(false);
   const [clientForVales, setClientForVales] = useState<Cliente | null>(null);
-  const [transferenciaBancariaClient, setTransferenciaBancariaClient] =
-    useState<Cliente | null>(null);
-  const openTransferenciaBancariaDialog = (client: Cliente) =>
-    setTransferenciaBancariaClient(client);
   const [clientForAverias, setClientForAverias] = useState<Cliente | null>(
     null,
   );
@@ -4447,7 +4454,7 @@ export function ClientsTable({
                                 onVerDetalle={() => setClienteEquipos(client)}
                                 encabezado={
                                   <ResumenCapacidadEquipos
-                                    capacidad={client.capacidad_equipos}
+                                    capacidad={actualizado?.capacidad ?? client.capacidad_equipos}
                                   />
                                 }
                                 pie={faltaInfo}
@@ -4601,18 +4608,6 @@ export function ClientsTable({
                                       >
                                         <Camera className="h-4 w-4 text-violet-600" />
                                         Adjuntar archivo foto o video
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          openTransferenciaBancariaDialog(
-                                            client,
-                                          )
-                                        }
-                                        className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100"
-                                      >
-                                        <Landmark className="h-4 w-4 text-blue-600" />
-                                        Transferencia bancaria
                                       </button>
                                     </div>
                                   </PopoverContent>
@@ -4938,23 +4933,6 @@ export function ClientsTable({
           if (!open) setClientForVales(null);
         }}
       />
-
-      {transferenciaBancariaClient && (
-        <TransferenciaBancariaDialog
-          open={!!transferenciaBancariaClient}
-          onOpenChange={(open) => {
-            if (!open) setTransferenciaBancariaClient(null);
-          }}
-          origen={{
-            tipo: "cliente",
-            id: transferenciaBancariaClient.id ?? "",
-            numero: transferenciaBancariaClient.numero,
-            nombre: transferenciaBancariaClient.nombre,
-            telefono: transferenciaBancariaClient.telefono,
-            direccion: transferenciaBancariaClient.direccion,
-          }}
-        />
-      )}
 
       {/* Fijar estado de instalación por oferta, para clientes con 2+ confirmadas */}
       <EstadoInstalacionMultipleDialog

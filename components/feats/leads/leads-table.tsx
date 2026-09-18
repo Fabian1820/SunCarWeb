@@ -31,7 +31,6 @@ import {
   ConfirmEditDialog,
 } from "@/components/shared/molecule/dialog";
 import { UploadComprobanteDialog } from "@/components/shared/molecule/upload-comprobante-dialog";
-import { TransferenciaBancariaDialog } from "@/components/feats/transferencias-bancarias/transferencia-bancaria-dialog";
 import { downloadFile } from "@/lib/utils/download-file";
 import { LeadService } from "@/lib/api-services";
 import { useAuth } from "@/contexts/auth-context";
@@ -71,7 +70,6 @@ import {
   CheckCircle2,
   XCircle,
   MoreHorizontal,
-  Landmark,
   type LucideIcon,
 } from "lucide-react";
 import { useOfertasPersonalizadas } from "@/hooks/use-ofertas-personalizadas";
@@ -305,8 +303,6 @@ export function LeadsTable({
   const [uploadFotoProgreso, setUploadFotoProgreso] = useState(0);
   const [fotosLeadDetails, setFotosLeadDetails] = useState<LeadFoto[]>([]);
   const [loadingFotosLeadDetails, setLoadingFotosLeadDetails] = useState(false);
-  const [leadForTransferenciaBancaria, setLeadForTransferenciaBancaria] =
-    useState<Lead | null>(null);
   const [showOfertasDialog, setShowOfertasDialog] = useState(false);
   const [selectedLeadForOfertas, setSelectedLeadForOfertas] =
     useState<Lead | null>(null);
@@ -744,10 +740,6 @@ export function LeadsTable({
     setUploadFotoFiles([]);
     setUploadFotoProgreso(0);
     setShowUploadFotosDialog(true);
-  };
-
-  const openTransferenciaBancariaDialog = (lead: Lead) => {
-    setLeadForTransferenciaBancaria(lead);
   };
 
   const closeUploadFotosDialog = () => {
@@ -1975,10 +1967,8 @@ export function LeadsTable({
                           <Edit className="h-3 w-3" />
                         </Button>
                       )}
-                      {/* El "..." siempre se muestra: registrar transferencia
-                          bancaria no requiere permiso granular propio, basta
-                          con tener acceso al módulo Leads. */}
-                      <Popover>
+                      {(canSubirFotosLead || canAnularLead) && (
+                        <Popover>
                           <PopoverTrigger asChild>
                             <Button
                               variant="ghost"
@@ -2030,23 +2020,10 @@ export function LeadsTable({
                                   </span>
                                 </Button>
                               )}
-                              <Button
-                                variant="ghost"
-                                onClick={() =>
-                                  openTransferenciaBancariaDialog(lead)
-                                }
-                                className="h-auto flex-col items-center justify-center gap-1 py-3"
-                                title="Registrar transferencia bancaria"
-                                disabled={disableActions}
-                              >
-                                <Landmark className="h-5 w-5 text-blue-600" />
-                                <span className="text-xs text-gray-700 leading-tight text-center">
-                                  Transferencia bancaria
-                                </span>
-                              </Button>
                             </div>
                           </PopoverContent>
                         </Popover>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -3641,22 +3618,6 @@ export function LeadsTable({
           onConfirm={handleToggleStatusConfirm}
           confirmText="Anular Lead"
           isLoading={togglingStatus}
-        />
-      )}
-
-      {leadForTransferenciaBancaria && (
-        <TransferenciaBancariaDialog
-          open={!!leadForTransferenciaBancaria}
-          onOpenChange={(open) => {
-            if (!open) setLeadForTransferenciaBancaria(null);
-          }}
-          origen={{
-            tipo: "lead",
-            id: leadForTransferenciaBancaria.id ?? "",
-            nombre: leadForTransferenciaBancaria.nombre,
-            telefono: leadForTransferenciaBancaria.telefono,
-            direccion: leadForTransferenciaBancaria.direccion,
-          }}
         />
       )}
     </>

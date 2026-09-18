@@ -108,8 +108,10 @@ export function extraerComponentesDeOfertaConfeccion(
       : [findItem(items, cp.bateria_seleccionada, "BATERIAS")].filter(Boolean) as ItemOfertaConfeccionResumen[];
 
   return {
-    inv: rawInv ? { cantidad: rawInv.cantidad, descripcion: rawInv.descripcion } : null,
-    bats: batsFinales.map((b) => ({ cantidad: b.cantidad, descripcion: b.descripcion })),
-    pan: rawPan ? { cantidad: rawPan.cantidad, descripcion: rawPan.descripcion } : null,
+    // Nombre de catálogo primero (criterio de 099c41e2): la descripción es la
+    // línea de la oferta, texto libre, y la ficha de equipos enseña el nombre.
+    inv: rawInv ? { cantidad: rawInv.cantidad, descripcion: rawInv.nombre || rawInv.descripcion } : null,
+    bats: batsFinales.map((b) => ({ cantidad: b.cantidad, descripcion: b.nombre || b.descripcion })),
+    pan: rawPan ? { cantidad: rawPan.cantidad, descripcion: rawPan.nombre || rawPan.descripcion } : null,
   };
 }

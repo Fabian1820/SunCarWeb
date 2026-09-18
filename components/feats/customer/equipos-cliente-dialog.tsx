@@ -39,7 +39,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/shared/molecule/tooltip"
-import type { EquipoCliente, MovimientoEquipoCliente } from "@/lib/api-types"
+import type { CapacidadEquipos, EquipoCliente, MovimientoEquipoCliente } from "@/lib/api-types"
 import {
   EquiposClienteService,
   type OfertaPendienteInstalar,
@@ -189,7 +189,10 @@ function FilaEquipo({
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
-            <span className="text-sm font-semibold text-gray-900">{num(equipo.cantidad_actual)}x</span>
+            {/* Un retirado o sustituido está a 0: la etiqueta ya dice qué le pasó. */}
+            {activo && (
+              <span className="text-sm font-semibold text-gray-900">{num(equipo.cantidad_actual)}x</span>
+            )}
             <span className="break-words text-sm text-gray-800">{equipo.nombre || equipo.descripcion}</span>
           </div>
           {onAccion && (
@@ -259,18 +262,25 @@ type GrupoHistorial = {
  * dice nada que no diga una. Lo que difiere en quién o por qué va aparte.
  */
 function agruparHistorial(movimientos: MovimientoEquipoCliente[]): GrupoHistorial[] {
+  // Dentro de un mismo día manda el orden en que se registró: la hora de la
+  // fecha efectiva no dice nada (el formulario la manda a mediodía y otras
+  // acciones con la hora real), y ordenar por ella desordenaba el día.
+  const ordenados = [...movimientos].sort((a, b) => {
+    const dia = (b.fecha_efectiva ?? "").slice(0, 10).localeCompare((a.fecha_efectiva ?? "").slice(0, 10))
+    return dia !== 0 ? dia : (b.fecha_registro ?? "").localeCompare(a.fecha_registro ?? "")
+  })
+  // Solo se juntan movimientos seguidos: juntar uno con otro separado por un
+  // tercero cambiaría el orden en que pasaron las cosas.
   const grupos: GrupoHistorial[] = []
-  const indice = new Map<string, GrupoHistorial>()
-  for (const m of movimientos) {
+  for (const m of ordenados) {
     const dia = (m.fecha_efectiva ?? "").slice(0, 10)
     const clave = [dia, m.motivo, m.numero_oferta ?? "", m.actor_ci ?? "", m.autorizado_por ?? ""].join("|")
-    let grupo = indice.get(clave)
-    if (!grupo) {
-      grupo = { clave, fecha: m.fecha_efectiva, movimientos: [] }
-      indice.set(clave, grupo)
-      grupos.push(grupo)
+    const ultimo = grupos[grupos.length - 1]
+    if (ultimo && ultimo.clave.startsWith(clave + "#")) {
+      ultimo.movimientos.push(m)
+    } else {
+      grupos.push({ clave: `${clave}#${grupos.length}`, fecha: m.fecha_efectiva, movimientos: [m] })
     }
-    grupo.movimientos.push(m)
   }
   return grupos
 }
@@ -303,7 +313,7 @@ function Historial({ movimientos }: { movimientos: MovimientoEquipoCliente[] }) 
         // técnico del dato (migración, alta automática) no le dice nada.
         const detalles = [
           primero.numero_oferta && `Oferta ${primero.numero_oferta}`,
-          grupo.movimientos.some((m) => m.origen === "equipo_propio_cliente") && "Equipo propio del cliente",
+          grupo.movimientos.every((m) => m.origen === "equipo_propio_cliente") && "Equipo propio del cliente",
           primero.actor_nombre && `por ${primero.actor_nombre}`,
           primero.autorizado_por && `autorizó ${primero.autorizado_por}`,
         ].filter(Boolean)
@@ -334,6 +344,10 @@ function Historial({ movimientos }: { movimientos: MovimientoEquipoCliente[] }) 
                   <li key={m.id ?? i} className="break-words text-gray-800">
                     {m.cantidad_delta !== 0 && <span className="font-semibold">{signo(m.cantidad_delta)} </span>}
                     {m.nombre || m.descripcion}
+                    {m.origen === "equipo_propio_cliente" &&
+                      !grupo.movimientos.every((x) => x.origen === "equipo_propio_cliente") && (
+                        <span className="text-gray-400"> · propio del cliente</span>
+                      )}
                     {variosTipos && (
                       <span className="text-gray-400"> · {TIPO_MOVIMIENTO_UI[m.tipo]?.label.toLowerCase()}</span>
                     )}
@@ -361,7 +375,12 @@ interface EquiposClienteDialogProps {
   clienteNombre?: string | null
   clienteEstado?: string | null
   /** Tras un cambio: la ficha nueva y cuántas ofertas siguen pendientes, para la fila de la tabla. */
-  onCambio?: (numero: string, equipos: EquipoCliente[], pendientes: number) => void
+  onCambio?: (
+    numero: string,
+    equipos: EquipoCliente[],
+    pendientes: number,
+    capacidad: CapacidadEquipos | null,
+  ) => void
 }
 
 const hoyISO = () => new Date().toISOString().slice(0, 10)
@@ -399,7 +418,13 @@ export function EquiposClienteDialog({
         setEquipos(vista.equipos)
         setPendientes(vista.pendientes)
         setHistorial(movimientos)
-        if (avisarCambio) onCambio?.(clienteNumero, vista.equipos, vista.pendientes.length)
+        if (avisarCambio)
+          onCambio?.(
+            clienteNumero,
+            vista.equipos,
+            vista.pendientes.length,
+            vista.capacidad ? { ...vista.capacidad, fuente: "ficha" } : null,
+          )
       } catch (err: unknown) {
         setEquipos([])
         setPendientes([])
