@@ -105,6 +105,8 @@ export interface CategoriaEquipos {
 export interface ClienteDeEquipo extends ClienteHistorial {
   cantidad: number;
   ofertas: string[];
+  /** Instaladora Habana, UEB Las Tunas o UEB Santa Clara, según su comercial; null si no se pudo determinar. */
+  ueb?: string | null;
 }
 
 export interface ClientesDeEquipo {
@@ -119,16 +121,12 @@ export interface ClientesDeEquipo {
   clientes: ClienteDeEquipo[];
 }
 
-/** Instaladora Habana, UEB Las Tunas o UEB Santa Clara: a qué UEB pertenece un cliente, según su comercial. */
-export type ClaveUeb = "instaladora_habana" | "instaladora_las_tunas" | "instaladora_santa_clara";
-
-export interface UebResumen {
-  clave: ClaveUeb;
+export interface ProvinciaResumen {
   nombre: string;
   clientes: number;
 }
 
-export interface EquiposUeb {
-  ueb: UebResumen;
-  equipos: EquipoHistorial[];
+export interface EquiposProvincia {
+  provincia: ProvinciaResumen;
+  categorias: CategoriaEquipos[];
 }

@@ -1,14 +1,13 @@
 import { apiRequest } from "@/lib/api-config";
 import type {
   CategoriaEquipos,
-  ClaveUeb,
   ClienteHistorial,
   ClientesDeEquipo,
-  EquiposUeb,
+  EquiposProvincia,
   FiltrosClienteHistorial,
   OpcionesFiltroClientes,
   HistorialCliente,
-  UebResumen,
+  ProvinciaResumen,
 } from "@/lib/types/feats/historial/historial-types";
 
 export const HistorialService = {
@@ -48,23 +47,25 @@ export const HistorialService = {
     return r.data?.categorias ?? [];
   },
 
-  async clientesDeEquipo(materialCodigo: string, ueb?: ClaveUeb): Promise<ClientesDeEquipo> {
-    const params = ueb ? `?ueb=${encodeURIComponent(ueb)}` : "";
+  async clientesDeEquipo(materialCodigo: string, provincia?: string): Promise<ClientesDeEquipo> {
+    const params = provincia ? `?provincia=${encodeURIComponent(provincia)}` : "";
     const r = await apiRequest<{ success: boolean; data: ClientesDeEquipo }>(
       `/historial/equipos/${encodeURIComponent(materialCodigo)}/clientes${params}`,
     );
     return r.data;
   },
 
-  /** Instaladora Habana, UEB Las Tunas y UEB Santa Clara, con cuántos clientes tiene cada una. */
-  async ueb(): Promise<UebResumen[]> {
-    const r = await apiRequest<{ success: boolean; data: { ueb: UebResumen[] } }>(`/historial/ueb`);
-    return r.data?.ueb ?? [];
+  /** Las provincias con clientes, con cuántos tiene cada una. */
+  async provincias(): Promise<ProvinciaResumen[]> {
+    const r = await apiRequest<{ success: boolean; data: { provincias: ProvinciaResumen[] } }>(`/historial/provincias`);
+    return r.data?.provincias ?? [];
   },
 
-  /** Los modelos de inversor de los clientes de una UEB. */
-  async equiposUeb(ueb: ClaveUeb): Promise<EquiposUeb> {
-    const r = await apiRequest<{ success: boolean; data: EquiposUeb }>(`/historial/ueb/${encodeURIComponent(ueb)}/equipos`);
+  /** Inversores, baterías y paneles de los clientes de una provincia. */
+  async equiposProvincia(provincia: string): Promise<EquiposProvincia> {
+    const r = await apiRequest<{ success: boolean; data: EquiposProvincia }>(
+      `/historial/provincias/${encodeURIComponent(provincia)}/equipos`,
+    );
     return r.data;
   },
 };

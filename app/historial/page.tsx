@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 import {
   BatteryCharging,
-  Building2,
   ChevronLeft,
   History,
   Loader2,
+  MapPin,
   Package,
   Search,
   SlidersHorizontal,
@@ -22,14 +22,15 @@ import { cn } from "@/lib/utils";
 import { HistorialClientePanel, iniciales } from "@/components/feats/historial/historial-cliente-panel";
 import { HistorialService } from "@/lib/services/feats/historial/historial-service";
 import type {
+  CategoriaEquipos,
   ClaveCategoriaEquipo,
-  ClaveUeb,
   ClienteHistorial,
   ClientesDeEquipo,
   EquipoHistorial,
+  EquiposProvincia,
   FiltrosClienteHistorial,
   OpcionesFiltroClientes,
-  UebResumen,
+  ProvinciaResumen,
 } from "@/lib/types/feats/historial/historial-types";
 
 type Vista = "clientes" | "equipos";
@@ -116,11 +117,13 @@ function FilaCliente({
   cliente: c,
   marcado,
   extra,
+  extraSubtitulo,
   onClick,
 }: {
   cliente: ClienteHistorial;
   marcado: boolean;
   extra?: React.ReactNode;
+  extraSubtitulo?: string | null;
   onClick: () => void;
 }) {
   return (
@@ -148,7 +151,7 @@ function FilaCliente({
             {c.nombre || c.numero}
           </span>
           <span className={cn("block truncate text-xs", marcado ? "text-emerald-100" : "text-gray-500")}>
-            {[c.numero, c.estado].filter(Boolean).join(" · ")}
+            {[c.numero, c.estado, extraSubtitulo].filter(Boolean).join(" · ")}
           </span>
         </span>
         {extra}
@@ -378,66 +381,66 @@ function FotoEquipo({ foto, categoria, tamano }: { foto?: string | null; categor
 }
 
 /**
- * Por equipos: primero la UEB (Instaladora Habana, UEB Las Tunas, UEB Santa
- * Clara), según el comercial que atendió al cliente; luego los inversores de
- * esa UEB, cuántos clientes tiene cada uno; y al tocar uno, quiénes son.
+ * Por equipos: primero la provincia del cliente; luego los inversores,
+ * baterías y paneles de esa provincia, cuántos clientes tiene cada uno; y al
+ * tocar uno, quiénes son.
  */
 function VistaEquipos() {
-  const [ueb, setUeb] = useState<UebResumen[] | null>(null);
+  const [provincias, setProvincias] = useState<ProvinciaResumen[] | null>(null);
   const [error, setError] = useState(false);
   const [recarga, setRecarga] = useState(0);
-  const [uebActiva, setUebActiva] = useState<UebResumen | null>(null);
+  const [provinciaActiva, setProvinciaActiva] = useState<ProvinciaResumen | null>(null);
 
   useEffect(() => {
     let cancelado = false;
     setError(false);
-    HistorialService.ueb()
-      .then((u) => !cancelado && setUeb(u))
+    HistorialService.provincias()
+      .then((p) => !cancelado && setProvincias(p))
       .catch(() => !cancelado && setError(true));
     return () => {
       cancelado = true;
     };
   }, [recarga]);
 
-  if (error && !ueb) {
+  if (error && !provincias) {
     return (
       <div className="mt-10 flex flex-col items-center gap-3 text-center">
-        <p className="font-medium text-gray-900">No se pudieron cargar las UEB</p>
+        <p className="font-medium text-gray-900">No se pudieron cargar las provincias</p>
         <Button onClick={() => setRecarga((n) => n + 1)}>Reintentar</Button>
       </div>
     );
   }
-  if (!ueb) {
+  if (!provincias) {
     return (
       <p className="mt-10 flex items-center gap-2 text-sm text-gray-500">
         <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-        Contando los clientes de cada UEB…
+        Contando los clientes de cada provincia…
       </p>
     );
   }
 
-  if (uebActiva) {
-    return <EquiposDeUeb ueb={uebActiva} onVolver={() => setUebActiva(null)} />;
+  if (provinciaActiva) {
+    return <EquiposDeProvincia provincia={provinciaActiva} onVolver={() => setProvinciaActiva(null)} />;
   }
 
   return (
     <div className="mt-6">
-      <p className="text-sm text-gray-600">Elige una UEB para ver sus inversores y quién los tiene.</p>
+      <p className="text-sm text-gray-600">Elige una provincia para ver sus inversores, baterías y paneles.</p>
       <ul className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {ueb.map((u) => (
-          <li key={u.clave}>
+        {provincias.map((p) => (
+          <li key={p.nombre}>
             <button
               type="button"
-              onClick={() => setUebActiva(u)}
+              onClick={() => setProvinciaActiva(p)}
               className="flex h-full w-full items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:border-emerald-600 hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
             >
               <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-800">
-                <Building2 className="h-6 w-6" aria-hidden />
+                <MapPin className="h-6 w-6" aria-hidden />
               </span>
               <span className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-base font-semibold text-gray-900">{u.nombre}</span>
+                <span className="truncate text-base font-semibold text-gray-900">{p.nombre}</span>
                 <span className="mt-0.5 text-sm font-semibold text-emerald-800">
-                  {numero(u.clientes)} {u.clientes === 1 ? "cliente" : "clientes"}
+                  {numero(p.clientes)} {p.clientes === 1 ? "cliente" : "clientes"}
                 </span>
               </span>
             </button>
@@ -448,10 +451,11 @@ function VistaEquipos() {
   );
 }
 
-function EquiposDeUeb({ ueb, onVolver }: { ueb: UebResumen; onVolver: () => void }) {
-  const [datos, setDatos] = useState<{ ueb: UebResumen; equipos: EquipoHistorial[] } | null>(null);
+function EquiposDeProvincia({ provincia, onVolver }: { provincia: ProvinciaResumen; onVolver: () => void }) {
+  const [datos, setDatos] = useState<EquiposProvincia | null>(null);
   const [error, setError] = useState(false);
   const [recarga, setRecarga] = useState(0);
+  const [categoria, setCategoria] = useState<ClaveCategoriaEquipo>("inversores");
   const [equipo, setEquipo] = useState<EquipoHistorial | null>(null);
   const [q, setQ] = useState("");
 
@@ -459,28 +463,30 @@ function EquiposDeUeb({ ueb, onVolver }: { ueb: UebResumen; onVolver: () => void
     let cancelado = false;
     setError(false);
     setDatos(null);
-    HistorialService.equiposUeb(ueb.clave)
+    HistorialService.equiposProvincia(provincia.nombre)
       .then((d) => !cancelado && setDatos(d))
       .catch(() => !cancelado && setError(true));
     return () => {
       cancelado = true;
     };
-  }, [ueb.clave, recarga]);
+  }, [provincia.nombre, recarga]);
 
   if (equipo) {
     return (
       <ClientesDelEquipo
         equipo={equipo}
-        categoria="inversores"
-        categoriaNombre={ueb.nombre}
-        ueb={ueb.clave}
+        categoria={categoria}
+        categoriaNombre={provincia.nombre}
+        provincia={provincia.nombre}
         onVolver={() => setEquipo(null)}
       />
     );
   }
 
+  const categorias: CategoriaEquipos[] = datos?.categorias ?? [];
+  const actual = categorias.find((c) => c.clave === categoria);
   const texto = q.trim().toLowerCase();
-  const equipos = (datos?.equipos ?? []).filter(
+  const equipos = (actual?.equipos ?? []).filter(
     (e) => !texto || [e.descripcion, e.marca, e.material_codigo].some((v) => (v ?? "").toLowerCase().includes(texto)),
   );
 
@@ -488,35 +494,61 @@ function EquiposDeUeb({ ueb, onVolver }: { ueb: UebResumen; onVolver: () => void
     <div className="mt-6">
       <button type="button" onClick={onVolver} className="inline-flex items-center gap-1 text-sm font-medium text-emerald-800 hover:underline">
         <ChevronLeft className="h-4 w-4" aria-hidden />
-        UEB
+        Provincias
       </button>
 
       <div className="mt-3 flex flex-wrap items-center gap-3">
-        <h2 className="text-lg font-semibold text-gray-900">{ueb.nombre}</h2>
+        <h2 className="text-lg font-semibold text-gray-900">{provincia.nombre}</h2>
         <span className="text-sm font-semibold text-emerald-800">
-          {numero(ueb.clientes)} {ueb.clientes === 1 ? "cliente" : "clientes"}
+          {numero(provincia.clientes)} {provincia.clientes === 1 ? "cliente" : "clientes"}
         </span>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap gap-2">
+          {categorias.map((c) => {
+            const Icono = ICONO_CATEGORIA[c.clave] ?? Package;
+            const activa = c.clave === categoria;
+            return (
+              <button
+                key={c.clave}
+                type="button"
+                aria-pressed={activa}
+                onClick={() => setCategoria(c.clave)}
+                className={cn(
+                  "inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm transition-colors",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600",
+                  activa ? "border-gray-900 bg-gray-900 font-semibold text-white" : "border-gray-300 bg-white text-gray-800 hover:border-gray-400",
+                )}
+              >
+                <Icono className="h-4 w-4" aria-hidden />
+                {c.nombre}
+                <span className={cn("tabular-nums", activa ? "text-gray-300" : "text-gray-500")}>{c.equipos.length}</span>
+              </button>
+            );
+          })}
+        </div>
         <label className="relative w-full sm:ml-auto sm:w-72">
-          <span className="sr-only">Buscar inversor</span>
+          <span className="sr-only">Buscar equipo</span>
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Modelo, marca o código" className={cn(CLASE_CAMPO, "pl-9")} />
         </label>
       </div>
-      <p className="mt-3 text-sm text-gray-600">Inversores de las ofertas confirmadas de esta UEB. Toca uno para ver quién lo tiene.</p>
+      <p className="mt-3 text-sm text-gray-600">De las ofertas confirmadas de esta provincia. Toca uno para ver quién lo tiene.</p>
 
       {error && !datos ? (
         <div className="mt-4 flex flex-col items-center gap-3 rounded-2xl border border-dashed border-gray-300 bg-white px-6 py-10 text-center">
-          <p className="text-sm text-gray-600">No se pudieron cargar los inversores de esta UEB.</p>
+          <p className="text-sm text-gray-600">No se pudieron cargar los equipos de esta provincia.</p>
           <Button onClick={() => setRecarga((n) => n + 1)}>Reintentar</Button>
         </div>
       ) : !datos ? (
         <p className="mt-4 flex items-center gap-2 text-sm text-gray-500">
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-          Contando los inversores…
+          Contando los equipos…
         </p>
       ) : equipos.length === 0 ? (
         <p className="mt-4 rounded-2xl border border-dashed border-gray-300 bg-white px-6 py-10 text-center text-sm text-gray-600">
-          {texto ? "Ningún inversor con esa búsqueda." : "Ninguna oferta confirmada de esta UEB lleva inversor."}
+          {texto ? "Ningún equipo con esa búsqueda." : "Ninguna oferta confirmada de esta provincia lleva equipos de este tipo."}
         </p>
       ) : (
         <div className="mt-4 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
@@ -534,7 +566,7 @@ function EquiposDeUeb({ ueb, onVolver }: { ueb: UebResumen; onVolver: () => void
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {equipos.map((e) => {
-                  const p = potencia(e.potencia_kw, "inversores");
+                  const p = potencia(e.potencia_kw, categoria);
                   return (
                     <tr
                       key={e.material_codigo}
@@ -550,7 +582,7 @@ function EquiposDeUeb({ ueb, onVolver }: { ueb: UebResumen; onVolver: () => void
                       className="cursor-pointer transition-colors hover:bg-emerald-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600"
                     >
                       <td className="px-4 py-2">
-                        <FotoEquipo foto={e.foto} categoria="inversores" tamano="h-12 w-12" />
+                        <FotoEquipo foto={e.foto} categoria={categoria} tamano="h-12 w-12" />
                       </td>
                       <td className="px-4 py-3 font-semibold text-gray-900">{e.descripcion.trim()}</td>
                       <td className="px-4 py-3 text-gray-600">{e.marca || "—"}</td>
@@ -575,13 +607,13 @@ function ClientesDelEquipo({
   equipo,
   categoria,
   categoriaNombre,
-  ueb,
+  provincia,
   onVolver,
 }: {
   equipo: EquipoHistorial;
   categoria: ClaveCategoriaEquipo;
   categoriaNombre: string;
-  ueb?: ClaveUeb;
+  provincia?: string;
   onVolver: () => void;
 }) {
   const [datos, setDatos] = useState<ClientesDeEquipo | null>(null);
@@ -590,13 +622,13 @@ function ClientesDelEquipo({
 
   useEffect(() => {
     let cancelado = false;
-    HistorialService.clientesDeEquipo(equipo.material_codigo, ueb)
+    HistorialService.clientesDeEquipo(equipo.material_codigo, provincia)
       .then((d) => !cancelado && setDatos(d))
       .catch(() => !cancelado && setError(true));
     return () => {
       cancelado = true;
     };
-  }, [equipo.material_codigo, ueb]);
+  }, [equipo.material_codigo, provincia]);
 
   const p = potencia(equipo.potencia_kw, categoria);
 
@@ -640,6 +672,7 @@ function ClientesDelEquipo({
                   cliente={c}
                   marcado={c.numero === seleccionado}
                   onClick={() => setSeleccionado(c.numero)}
+                  extraSubtitulo={c.ueb}
                   extra={
                     <span
                       className={cn(
