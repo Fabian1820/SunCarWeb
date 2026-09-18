@@ -81,6 +81,7 @@ const PALETA_CATEGORIA = [
 
 type CategoriaOpcion = { value: string; label: string };
 type PuntoTendencia = { mes: string; ingresos: number; gastos: number };
+type MesTendencia = { mes: string; resumen: ContabilidadResumen | null };
 
 function ordenarMonedas(monedas: Iterable<string>): string[] {
   return Array.from(new Set(monedas)).sort((a, b) => {
@@ -176,9 +177,10 @@ function primerYUltimoDiaDeMes(mesInput: string): { desde: string; hasta: string
   return { desde: iso(new Date(anio, mes - 1, 1)), hasta: iso(new Date(anio, mes, 0)) };
 }
 
-/** Serie de los últimos meses para los gráficos de tendencia. Reusa el mismo
- * endpoint del resumen, un mes por punto, en paralelo. */
-async function obtenerTendenciaMensual(moneda: string, meses = MESES_TENDENCIA): Promise<PuntoTendencia[]> {
+/** Resumen de cada uno de los últimos meses, para los gráficos de tendencia.
+ * Reusa el endpoint del resumen, un mes por punto, en paralelo. Cada resumen
+ * trae todas las monedas: cambiar de moneda no vuelve a pedir nada. */
+async function obtenerResumenesMensuales(meses = MESES_TENDENCIA): Promise<MesTendencia[]> {
   const hoy = new Date();
   const periodos = Array.from({ length: meses }, (_, i) => {
     const d = new Date(hoy.getFullYear(), hoy.getMonth() - (meses - 1 - i), 1);
@@ -190,11 +192,7 @@ async function obtenerTendenciaMensual(moneda: string, meses = MESES_TENDENCIA):
   });
   const resumenes = await Promise.all(periodos.map((p) => ContabilidadFinancieraService.obtenerResumen(p.desde, p.hasta)));
   // Un mes que venga con forma inesperada cuenta 0 en vez de tumbar el gráfico.
-  return periodos.map((p, i) => ({
-    mes: p.mes,
-    ingresos: resumenes[i]?.general?.ingresos?.por_moneda?.[moneda] ?? 0,
-    gastos: resumenes[i]?.general?.gastos?.por_moneda?.[moneda] ?? 0,
-  }));
+  return periodos.map((p, i) => ({ mes: p.mes, resumen: esResumenValido(resumenes[i]) ? resumenes[i] : null }));
 }
 
 /** El backend puede responder con un objeto de error (apiRequest convierte
@@ -331,7 +329,7 @@ function PanelGrafico({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border bg-white p-5 shadow-[0_12px_28px_-24px_rgba(1,41,40,0.45)]">
+    <div className="flex h-full flex-col rounded-2xl border bg-white p-5 shadow-[0_12px_28px_-24px_rgba(1,41,40,0.45)]">
       <header className="mb-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Icono className="h-4 w-4 text-[#012928]" />
@@ -339,20 +337,21 @@ function PanelGrafico({
         </div>
         {acciones}
       </header>
-      {children}
+      {/* Crece hasta el alto de la fila: el pastel y la tendencia, lado a lado, miden igual. */}
+      <div className="flex min-h-0 flex-1 flex-col">{children}</div>
     </div>
   );
 }
 
 const RADIAN = Math.PI / 180;
 /** Geometría del pastel 3D: elipse en perspectiva + pared extruida. */
-const ALTO_PASTEL = 390;
 const RADIO_X = 152;
 const RADIO_Y = 68;
 const PROFUNDIDAD = 34;
-const CENTRO_Y = 172;
 /** Separación vertical mínima entre etiquetas del mismo lado. */
-const SEPARACION_ETIQUETA = 36;
+const SEPARACION_ETIQUETA = 38;
+/** Espacio libre arriba para la primera etiqueta (su nombre va por encima de la línea). */
+const MARGEN_ETIQUETAS = 24;
 /** Piso visual: una categoría minúscula ocupa al menos esta fracción del
  * pastel para que se pueda ver y tocar. El monto y el % mostrados son los
  * reales — solo el ancho de la porción tiene mínimo. */
@@ -425,11 +424,16 @@ function DistribucionIngresosPie({
     const piso = total * PISO_PORCION;
     const conPiso = datos.map((d) => ({ ...d, valorGrafico: Math.max(d.valor, piso) }));
     const totalGrafico = conPiso.reduce((suma, d) => suma + d.valorGrafico, 0);
+    // Las porciones pequeñas (todas menos las dos mayores) se centran a las 9
+    // en punto: ahí sus etiquetas tienen altura para abrirse en abanico sin
+    // cruzarse. Arrancando a las 12 quedaban amontonadas arriba.
+    const cola = conPiso.slice(2).reduce((suma, d) => suma + (d.valorGrafico / totalGrafico) * 360, 0);
+    const giro = conPiso.length > 2 ? 180 - cola / 2 : 90;
     let acumulado = 0;
     return conPiso.map((d) => {
-      const inicio = 90 - (acumulado / totalGrafico) * 360;
+      const inicio = giro - (acumulado / totalGrafico) * 360;
       acumulado += d.valorGrafico;
-      const fin = 90 - (acumulado / totalGrafico) * 360;
+      const fin = giro - (acumulado / totalGrafico) * 360;
       return {
         codigo: d.codigo,
         label: d.label,
@@ -449,35 +453,46 @@ function DistribucionIngresosPie({
   const rx = compacto ? Math.max(68, Math.min(RADIO_X, ancho / 2 - 22)) : RADIO_X;
   const ry = (rx * RADIO_Y) / RADIO_X;
   const profundidad = (rx * PROFUNDIDAD) / RADIO_X;
-  const cy = compacto ? ry + 24 : CENTRO_Y;
-  const alto = compacto ? Math.round(cy + ry + profundidad + 16) : ALTO_PASTEL;
+  // Por encima del pastel caben unas cuantas etiquetas sin empujarlas fuera.
+  const cy = compacto ? ry + 24 : ry + MARGEN_ETIQUETAS + 50;
 
-  // Etiquetas: se reparten a izquierda/derecha y se separan para no pisarse.
+  /** Punto del borde (o de la pared, si mira al frente) a la altura de `radioExtra`. */
+  const puntoBorde = useCallback(
+    (grados: number, extra: number) => {
+      const punto = puntoElipse(cx, cy, rx + extra, ry + extra * 0.7, grados);
+      return { x: punto.x, y: punto.y + (Math.sin(grados * RADIAN) < 0 ? profundidad * 0.55 : 0) };
+    },
+    [cx, cy, rx, ry, profundidad],
+  );
+
+  // Etiquetas: cada lado es una columna en el MISMO orden vertical que sus
+  // porciones, así las líneas nunca se cruzan. El bloque se centra sobre la
+  // altura natural de sus porciones en vez de crecer solo hacia abajo.
   const etiquetas = useMemo(() => {
     const porLado: Record<"izq" | "der", { indice: number; y: number }[]> = { izq: [], der: [] };
     porciones.forEach((p, indice) => {
-      const seno = Math.sin(p.medio * RADIAN);
       const lado = Math.cos(p.medio * RADIAN) >= 0 ? "der" : "izq";
-      porLado[lado].push({ indice, y: cy - (ry + 16) * seno + (seno < 0 ? profundidad : 0) });
+      porLado[lado].push({ indice, y: puntoBorde(p.medio, 16).y });
     });
     const posiciones: Record<number, { y: number; lado: "izq" | "der" }> = {};
     (["izq", "der"] as const).forEach((lado) => {
       const items = [...porLado[lado]].sort((a, b) => a.y - b.y);
+      if (items.length === 0) return;
       let ultimo = -Infinity;
-      items.forEach(({ indice, y }) => {
-        const yFinal = Math.max(y, ultimo + SEPARACION_ETIQUETA);
-        posiciones[indice] = { y: yFinal, lado };
-        ultimo = yFinal;
-      });
-      const desborde = ultimo - (alto - 20);
-      if (desborde > 0) {
-        const primera = items.length > 0 ? posiciones[items[0].indice].y : 0;
-        const ajuste = Math.min(desborde, primera - 20);
-        if (ajuste > 0) items.forEach(({ indice }) => (posiciones[indice].y -= ajuste));
-      }
+      let finales = items.map(({ y }) => (ultimo = Math.max(y, ultimo + SEPARACION_ETIQUETA)));
+      const centrado = items.reduce((suma, i, k) => suma + i.y - finales[k], 0) / items.length;
+      finales = finales.map((y) => y + centrado);
+      const faltaArriba = MARGEN_ETIQUETAS - finales[0];
+      if (faltaArriba > 0) finales = finales.map((y) => y + faltaArriba);
+      items.forEach(({ indice }, k) => (posiciones[indice] = { y: finales[k], lado }));
     });
     return posiciones;
-  }, [porciones, cy, ry, profundidad, alto]);
+  }, [porciones, puntoBorde]);
+
+  const yUltimaEtiqueta = Object.values(etiquetas).reduce((maximo, e) => Math.max(maximo, e.y), 0);
+  const alto = Math.round(
+    compacto ? cy + ry + profundidad + 16 : Math.max(cy + ry + profundidad + 18, yUltimaEtiqueta + 26),
+  );
 
   if (datos.length === 0 || total <= 0) {
     return <p className="py-16 text-center text-base text-gray-400">Sin ingresos que graficar en {moneda}.</p>;
@@ -577,13 +592,12 @@ function DistribucionIngresosPie({
               if (!pos) return null;
               const activa = seleccionada === p.codigo;
               const color = colorDe(p.codigo);
-              const seno = Math.sin(p.medio * RADIAN);
-              const coseno = Math.cos(p.medio * RADIAN);
               const direccion = pos.lado === "der" ? 1 : -1;
-              const origen = puntoElipse(cx, cy, rx + 3, ry + 2, p.medio);
-              const yOrigen = origen.y + (seno < 0 ? profundidad * 0.6 : 0);
-              const xCodo = cx + direccion * Math.max(Math.abs((rx + 22) * coseno), rx * 0.55);
-              const xFin = cx + direccion * (rx + 40);
+              // Sale en línea recta desde el centro de su porción, dobla justo
+              // fuera del pastel y va a su etiqueta: nunca cruza por encima.
+              const origen = puntoBorde(p.medio, -6);
+              const codo = puntoBorde(p.medio, 16);
+              const xFin = cx + direccion * (rx + 44);
               const xTexto = xFin + direccion * 8;
               const anchoTexto = pos.lado === "der" ? ancho - 6 - xTexto : xTexto - 6;
               return (
@@ -593,7 +607,7 @@ function DistribucionIngresosPie({
                   onClick={() => onSeleccionar(p.codigo)}
                 >
                   <polyline
-                    points={`${origen.x},${yOrigen} ${xCodo},${pos.y} ${xFin},${pos.y}`}
+                    points={`${origen.x},${origen.y} ${codo.x},${codo.y} ${xFin - direccion * 10},${pos.y} ${xFin},${pos.y}`}
                     fill="none"
                     stroke={color}
                     strokeWidth={activa ? 2 : 1.5}
@@ -685,40 +699,44 @@ function TendenciaChart({
   }
 
   return (
-    <div className="h-56">
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={datos} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-          <CartesianGrid stroke="#f1f5f4" vertical={false} />
-          <XAxis
-            dataKey="mes"
-            tick={{ fontSize: 12, fill: "#6b7280" }}
-            axisLine={false}
-            tickLine={false}
-            dy={6}
-          />
-          <YAxis
-            tick={{ fontSize: 11, fill: "#9ca3af" }}
-            axisLine={false}
-            tickLine={false}
-            width={46}
-            tickFormatter={formatNumeroCorto}
-          />
-          <Tooltip
-            formatter={(value: number) => formatMonto(moneda, value)}
-            contentStyle={{ borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 13 }}
-          />
-          <Line
-            type="monotone"
-            dataKey={serie}
-            stroke={color}
-            strokeWidth={2.5}
-            dot={{ r: 4, fill: colorPunto, stroke: color, strokeWidth: 2 }}
-            activeDot={{ r: 6, fill: colorPunto, stroke: color, strokeWidth: 2 }}
-            isAnimationActive
-            animationDuration={600}
-          />
-        </LineChart>
-      </ResponsiveContainer>
+    // El alto sale del panel (flex): un height en % no se resuelve contra un
+    // min-height, así que el gráfico se ancla con absolute al hueco real.
+    <div className="relative min-h-56 flex-1">
+      <div className="absolute inset-0">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={datos} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+            <CartesianGrid stroke="#f1f5f4" vertical={false} />
+            <XAxis
+              dataKey="mes"
+              tick={{ fontSize: 12, fill: "#6b7280" }}
+              axisLine={false}
+              tickLine={false}
+              dy={6}
+            />
+            <YAxis
+              tick={{ fontSize: 11, fill: "#9ca3af" }}
+              axisLine={false}
+              tickLine={false}
+              width={46}
+              tickFormatter={formatNumeroCorto}
+            />
+            <Tooltip
+              formatter={(value: number) => formatMonto(moneda, value)}
+              contentStyle={{ borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 13 }}
+            />
+            <Line
+              type="monotone"
+              dataKey={serie}
+              stroke={color}
+              strokeWidth={2.5}
+              dot={{ r: 4, fill: colorPunto, stroke: color, strokeWidth: 2 }}
+              activeDot={{ r: 6, fill: colorPunto, stroke: color, strokeWidth: 2 }}
+              isAnimationActive
+              animationDuration={600}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }
@@ -1186,7 +1204,7 @@ export function ContabilidadSection({ accionExtra }: { accionExtra?: React.React
   const [vista, setVista] = useState<Vista>("ingresos");
   const [monedaGraficos, setMonedaGraficos] = useState("USD");
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<string | null>(null);
-  const [tendencia, setTendencia] = useState<PuntoTendencia[] | null>(null);
+  const [mesesTendencia, setMesesTendencia] = useState<MesTendencia[] | null>(null);
   const [loadingTendencia, setLoadingTendencia] = useState(false);
   const [billeteras, setBilleteras] = useState<Awaited<ReturnType<typeof ContabilidadFinancieraService.obtenerBilleteras>> | null>(null);
   const [loadingBilleteras, setLoadingBilleteras] = useState(false);
@@ -1261,14 +1279,17 @@ export function ContabilidadSection({ accionExtra }: { accionExtra?: React.React
     }
   }, [monedasDisponibles, monedaGraficos]);
 
-  // Tendencia de los últimos meses — solo cuando hace falta (ingresos o gastos).
+  // Tendencia de los últimos meses. Se pide de nuevo con cada resumen (así
+  // refleja lo que se incluye/excluye o se mueve), nunca al cambiar de
+  // moneda: antes, mientras cargaba, la línea seguía mostrando los datos de
+  // la moneda anterior bajo el título de la nueva.
   useEffect(() => {
-    if (vista !== "ingresos" && vista !== "gastos") return;
+    if (!resumen) return;
     let cancelado = false;
     setLoadingTendencia(true);
-    obtenerTendenciaMensual(monedaGraficos)
+    obtenerResumenesMensuales()
       .then((data) => {
-        if (!cancelado) setTendencia(data);
+        if (!cancelado) setMesesTendencia(data);
       })
       .catch((error: unknown) => {
         if (!cancelado) {
@@ -1286,7 +1307,17 @@ export function ContabilidadSection({ accionExtra }: { accionExtra?: React.React
       cancelado = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [monedaGraficos, vista]);
+  }, [resumen]);
+
+  const tendencia = useMemo<PuntoTendencia[] | null>(
+    () =>
+      mesesTendencia?.map((m) => ({
+        mes: m.mes,
+        ingresos: m.resumen?.general.ingresos.por_moneda[monedaGraficos] ?? 0,
+        gastos: m.resumen?.general.gastos.por_moneda[monedaGraficos] ?? 0,
+      })) ?? null,
+    [mesesTendencia, monedaGraficos],
+  );
 
   const resumenMostrado = useMemo(() => {
     if (!resumen) return null;
