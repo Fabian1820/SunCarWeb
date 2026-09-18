@@ -27,6 +27,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/shared/molecule/dropdown-menu"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/shared/molecule/tooltip"
 import type { EquipoCliente, MovimientoEquipoCliente } from "@/lib/api-types"
 import { EquiposClienteService } from "@/lib/services/feats/customer/equipos-cliente-service"
 import { CATEGORIA_EQUIPO_UI, formatFechaCorta } from "./equipos-cliente-cell"
@@ -82,18 +88,95 @@ const ordenar = (equipos: EquipoCliente[]) =>
       a.descripcion.localeCompare(b.descripcion),
   )
 
+/**
+ * Qué decir cuando lo entregado con vale no llega a lo ofertado. Solo "falta
+ * entregar" va en ámbar: es la única entrega pendiente de verdad. En un cliente
+ * instalado el hueco casi siempre tiene otra explicación, y pintarlo como
+ * alarma haría que nadie mirara las que sí lo son.
+ */
+const EXPLICACION_UI: Record<
+  NonNullable<EquipoCliente["explicacion_faltante"]>,
+  { texto: (n: string) => string; clase: string; ayuda: string }
+> = {
+  falta_entregar: {
+    texto: (n) => `Falta entregar ${n}`,
+    clase: "text-amber-700",
+    ayuda: "El cliente aún no está instalado y este equipo no ha salido de almacén.",
+  },
+  anterior_a_vales: {
+    texto: (n) => `${n} sin vale · anterior al sistema de vales`,
+    clase: "text-gray-500",
+    ayuda: "Se vendió antes de que existieran los vales de salida, así que no puede tener uno.",
+  },
+  sin_vale: {
+    texto: (n) => `${n} sin vale · probablemente del cliente`,
+    clase: "text-gray-500",
+    ayuda:
+      "El cliente está instalado y no hay vale de este equipo: lo más probable es que lo aportara él. También puede haber salido con otro material del catálogo del mismo modelo.",
+  },
+  propio_cliente: {
+    texto: () => "Propio del cliente · no pasa por almacén",
+    clase: "text-gray-500",
+    ayuda: "Equipo del cliente: no se entrega con vale.",
+  },
+}
+
+function LineaEntrega({ equipo }: { equipo: EquipoCliente }) {
+  const vales = equipo.vales_entrega ?? []
+  const diferencia = equipo.cantidad_actual - equipo.cantidad_entregada
+  const explicacion = equipo.explicacion_faltante ? EXPLICACION_UI[equipo.explicacion_faltante] : null
+
+  const entregado = (
+    <span className={vales.length > 0 ? "cursor-help underline decoration-dotted underline-offset-2" : ""}>
+      Entregado con vale: {num(equipo.cantidad_entregada)}
+    </span>
+  )
+
+  return (
+    <div className="mt-1 text-[12px] text-gray-500">
+      {vales.length > 0 ? (
+        <TooltipProvider delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>{entregado}</TooltipTrigger>
+            <TooltipContent side="top" className="max-w-sm text-xs">
+              <ul className="space-y-1">
+                {vales.map((v, i) => (
+                  <li key={`${v.codigo}-${i}`}>
+                    <span className="font-semibold">{v.codigo ?? "Vale"}</span>
+                    {v.fecha && ` · ${formatFechaCorta(v.fecha)}`}
+                    {` · ${num(v.cantidad)} u`}
+                    {v.devuelto > 0 && ` (devueltas ${num(v.devuelto)})`}
+                    {v.recogido_por && ` · recogió ${v.recogido_por}`}
+                  </li>
+                ))}
+              </ul>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      ) : (
+        entregado
+      )}
+      {explicacion && (
+        <span className={`ml-1 ${explicacion.clase}`} title={explicacion.ayuda}>
+          · {explicacion.texto(num(diferencia))}
+        </span>
+      )}
+      {diferencia < -0.001 && (
+        <span className="ml-1 text-blue-700">· Entregado de más {num(-diferencia)}</span>
+      )}
+    </div>
+  )
+}
+
 function FilaEquipo({
   equipo,
-  instalado,
   onAccion,
 }: {
   equipo: EquipoCliente
-  instalado: boolean
   onAccion: (modo: ModoAccionEquipo) => void
 }) {
   const ui = CATEGORIA_EQUIPO_UI[equipo.categoria] ?? CATEGORIA_EQUIPO_UI.OTRO
   const activo = equipo.estado === "activo" && equipo.cantidad_actual > 0
-  const diferencia = equipo.cantidad_actual - equipo.cantidad_entregada
   // Lo del registro antiguo es una referencia, no un dato comprobado. Cualquier
   // cambio posterior (una corrección, un ajuste) significa que alguien lo revisó.
   const porVerificar = equipo.origen_inicial === "migracion_snapshot" && equipo.total_movimientos <= 1
@@ -105,7 +188,7 @@ function FilaEquipo({
         <div className="flex items-start justify-between gap-2">
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
             <span className="text-sm font-semibold text-gray-900">{num(equipo.cantidad_actual)}x</span>
-            <span className="break-words text-sm text-gray-800">{equipo.descripcion}</span>
+            <span className="break-words text-sm text-gray-800">{equipo.nombre || equipo.descripcion}</span>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -149,27 +232,49 @@ function FilaEquipo({
             </Badge>
           )}
         </div>
-        {/* Lo entregado lo dice almacén, y solo existe para equipos del catálogo:
-            uno propio del cliente no pasa por un vale. */}
-        {activo && equipo.material_id && !equipo.es_equipo_propio && (
-          <div className="mt-1 text-[12px] text-gray-500">
-            Entregado con vale: {num(equipo.cantidad_entregada)}
-            {diferencia > 0.001 && (
-              <span className={instalado ? "ml-1 text-amber-700" : "ml-1"}>
-                · Falta entregar {num(diferencia)}
-              </span>
-            )}
-            {diferencia < -0.001 && (
-              <span className="ml-1 text-blue-700">· Entregado de más {num(-diferencia)}</span>
-            )}
-          </div>
-        )}
+        {/* Lo entregado lo dice almacén y solo existe para equipos del catálogo. */}
+        {activo && equipo.material_id && <LineaEntrega equipo={equipo} />}
         {equipo.numeros_serie.length > 0 && (
           <div className="mt-1 text-[12px] text-gray-500">Serie: {equipo.numeros_serie.join(", ")}</div>
         )}
       </div>
     </li>
   )
+}
+
+type GrupoHistorial = {
+  clave: string
+  fecha: string
+  movimientos: MovimientoEquipoCliente[]
+}
+
+/**
+ * Junta en una sola tarjeta lo que es el mismo hecho: misma fecha, mismo
+ * motivo, misma oferta y misma persona. Una instalación da de alta el inversor,
+ * las baterías y los paneles a la vez; verlos como tres tarjetas repetidas no
+ * dice nada que no diga una. Lo que difiere en quién o por qué va aparte.
+ */
+function agruparHistorial(movimientos: MovimientoEquipoCliente[]): GrupoHistorial[] {
+  const grupos: GrupoHistorial[] = []
+  const indice = new Map<string, GrupoHistorial>()
+  for (const m of movimientos) {
+    const dia = (m.fecha_efectiva ?? "").slice(0, 10)
+    const clave = [dia, m.motivo, m.numero_oferta ?? "", m.actor_ci ?? "", m.autorizado_por ?? ""].join("|")
+    let grupo = indice.get(clave)
+    if (!grupo) {
+      grupo = { clave, fecha: m.fecha_efectiva, movimientos: [] }
+      indice.set(clave, grupo)
+      grupos.push(grupo)
+    }
+    grupo.movimientos.push(m)
+  }
+  return grupos
+}
+
+function tipoDelGrupo(movimientos: MovimientoEquipoCliente[]): MovimientoEquipoCliente["tipo"] {
+  // Una sustitución son dos movimientos (sale uno, entra otro): manda ella.
+  if (movimientos.some((m) => m.tipo === "sustitucion")) return "sustitucion"
+  return movimientos[0].tipo
 }
 
 function Historial({ movimientos }: { movimientos: MovimientoEquipoCliente[] }) {
@@ -184,39 +289,59 @@ function Historial({ movimientos }: { movimientos: MovimientoEquipoCliente[] }) 
 
   return (
     <ol className="space-y-2">
-      {movimientos.map((m, idx) => {
-        const cfg = TIPO_MOVIMIENTO_UI[m.tipo] ?? { label: m.tipo, color: "bg-gray-100 text-gray-700", icon: FileText }
+      {agruparHistorial(movimientos).map((grupo) => {
+        const primero = grupo.movimientos[0]
+        const tipo = tipoDelGrupo(grupo.movimientos)
+        const cfg = TIPO_MOVIMIENTO_UI[tipo] ?? { label: tipo, color: "bg-gray-100 text-gray-700", icon: FileText }
         const Icon = cfg.icon
         // Solo lo que le sirve al operador: la oferta de la que salió, si el
         // equipo es del cliente, quién lo hizo y quién lo autorizó. El origen
         // técnico del dato (migración, alta automática) no le dice nada.
         const detalles = [
-          m.numero_oferta && `Oferta ${m.numero_oferta}`,
-          m.origen === "equipo_propio_cliente" && "Equipo propio del cliente",
-          m.actor_nombre && `por ${m.actor_nombre}`,
-          m.autorizado_por && `autorizó ${m.autorizado_por}`,
+          primero.numero_oferta && `Oferta ${primero.numero_oferta}`,
+          grupo.movimientos.some((m) => m.origen === "equipo_propio_cliente") && "Equipo propio del cliente",
+          primero.actor_nombre && `por ${primero.actor_nombre}`,
+          primero.autorizado_por && `autorizó ${primero.autorizado_por}`,
         ].filter(Boolean)
-        // La nota de los datos del registro antiguo la escribió el sistema,
-        // no una persona: la etiqueta "Por verificar" de la ficha ya lo dice.
-        const nota = m.origen === "migracion_snapshot" ? null : m.nota
+        // La nota de los datos del registro antiguo la escribió el sistema, no
+        // una persona: la etiqueta "Por verificar" de la ficha ya lo dice.
+        const notas = Array.from(
+          new Set(
+            grupo.movimientos
+              .filter((m) => m.origen !== "migracion_snapshot" && m.nota)
+              .map((m) => m.nota as string),
+          ),
+        )
+        const variosTipos = new Set(grupo.movimientos.map((m) => m.tipo)).size > 1
         return (
-          <li key={m.id ?? idx} className="flex gap-2 text-xs">
+          <li key={grupo.clave} className="flex gap-2 text-xs">
             <span className={`mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${cfg.color}`}>
               <Icon className="h-3.5 w-3.5" />
             </span>
             <div className="min-w-0 flex-1 rounded border border-gray-100 bg-white p-2">
-              <div className="mb-0.5 flex items-baseline justify-between gap-2">
+              <div className="mb-1 flex items-baseline justify-between gap-2">
                 <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${cfg.color}`}>
-                  {cfg.label} · {MOTIVO_LABEL[m.motivo] ?? m.motivo}
+                  {cfg.label} · {MOTIVO_LABEL[primero.motivo] ?? primero.motivo}
                 </span>
-                <span className="shrink-0 text-[11px] text-gray-400">{formatFechaCorta(m.fecha_efectiva)}</span>
+                <span className="shrink-0 text-[11px] text-gray-400">{formatFechaCorta(grupo.fecha)}</span>
               </div>
-              <p className="break-words text-gray-800">
-                {m.cantidad_delta !== 0 && <span className="font-semibold">{signo(m.cantidad_delta)} </span>}
-                {m.descripcion}
-              </p>
-              {detalles.length > 0 && <p className="mt-0.5 text-[11px] text-gray-500">{detalles.join(" · ")}</p>}
-              {nota && <p className="mt-1 whitespace-pre-wrap break-words text-gray-600">{nota}</p>}
+              <ul className="space-y-0.5">
+                {grupo.movimientos.map((m, i) => (
+                  <li key={m.id ?? i} className="break-words text-gray-800">
+                    {m.cantidad_delta !== 0 && <span className="font-semibold">{signo(m.cantidad_delta)} </span>}
+                    {m.nombre || m.descripcion}
+                    {variosTipos && (
+                      <span className="text-gray-400"> · {TIPO_MOVIMIENTO_UI[m.tipo]?.label.toLowerCase()}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              {detalles.length > 0 && <p className="mt-1 text-[11px] text-gray-500">{detalles.join(" · ")}</p>}
+              {notas.map((n) => (
+                <p key={n} className="mt-1 whitespace-pre-wrap break-words text-gray-600">
+                  {n}
+                </p>
+              ))}
             </div>
           </li>
         )
@@ -277,7 +402,7 @@ export function EquiposClienteDialog({
     if (open) void cargar(false)
   }, [open, cargar])
 
-  const { titulo, instalado } = tituloSegunEstado(clienteEstado)
+  const { titulo } = tituloSegunEstado(clienteEstado)
   const activos = ordenar(equipos.filter((e) => e.estado === "activo" && e.cantidad_actual > 0))
   const fuera = ordenar(equipos.filter((e) => !(e.estado === "activo" && e.cantidad_actual > 0)))
 
@@ -328,7 +453,6 @@ export function EquiposClienteDialog({
                       <FilaEquipo
                         key={e.equipo_key}
                         equipo={e}
-                        instalado={instalado}
                         onAccion={(modo) => setAccion({ modo, equipo: e })}
                       />
                     ))}
@@ -350,7 +474,6 @@ export function EquiposClienteDialog({
                       <FilaEquipo
                         key={e.equipo_key}
                         equipo={e}
-                        instalado={instalado}
                         onAccion={(modo) => setAccion({ modo, equipo: e })}
                       />
                     ))}

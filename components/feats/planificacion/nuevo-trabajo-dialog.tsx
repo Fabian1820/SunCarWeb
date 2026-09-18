@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/shared/molecule/dialog";
 import { cn } from "@/lib/utils";
+import { apiRequest } from "@/lib/api-config";
 import { ClienteService } from "@/lib/services/feats/customer/cliente-service";
 import { PlanificacionService } from "@/lib/services/feats/planificacion/planificacion-service";
 import { claveCandidato, claveTrabajo } from "@/components/feats/planificacion/selector-trabajos";
@@ -46,6 +47,12 @@ function tipoSugerido(estado?: string): TipoTrabajo | null {
   return null;
 }
 
+interface OfertaResumen {
+  id: string;
+  numero: string;
+  nombre: string;
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (abierto: boolean) => void;
@@ -54,7 +61,13 @@ interface Props {
   trabajos: TrabajoPlanificado[];
   brigadas: OpcionBrigada[];
   trabajadores: Asignado[];
-  onGuardar: (cliente: CandidatoPlanificacion, tipo: TipoTrabajo, quien: Asignado, nota: string) => void;
+  onGuardar: (
+    cliente: CandidatoPlanificacion,
+    tipo: TipoTrabajo,
+    quien: Asignado,
+    nota: string,
+    oferta: OfertaResumen | null,
+  ) => void;
   /** Tipo con el que se abre (Actualizaciones desde el menú del día). */
   tipoInicial?: TipoTrabajo | null;
 }
@@ -83,6 +96,9 @@ export function NuevoTrabajoDialog({
   const [tipo, setTipo] = useState<TipoTrabajo | null>(null);
   const [quien, setQuien] = useState("");
   const [nota, setNota] = useState("");
+  const [ofertas, setOfertas] = useState<OfertaResumen[]>([]);
+  const [ofertaId, setOfertaId] = useState<string | null>(null);
+  const [buscandoOfertas, setBuscandoOfertas] = useState(false);
   /** La última nota propuesta: si la nota sigue siendo esa, se puede cambiar por otra. */
   const notaSugeridaRef = useRef("");
 
@@ -95,8 +111,37 @@ export function NuevoTrabajoDialog({
     setTipo(tipoInicial ?? null);
     setQuien("");
     setNota("");
+    setOfertas([]);
+    setOfertaId(null);
     notaSugeridaRef.current = "";
   }, [open, tipoInicial]);
+
+  // Al elegir cliente, sus ofertas confirmadas, para saber cuál se va a montar.
+  useEffect(() => {
+    setOfertas([]);
+    setOfertaId(null);
+    if (!cliente?.cliente_numero) return;
+    let cancelado = false;
+    setBuscandoOfertas(true);
+    apiRequest<{ data?: any[] }>(
+      `/ofertas/confeccion/?cliente_numero=${encodeURIComponent(cliente.cliente_numero)}&estado=confirmada_por_cliente`,
+    )
+      .then((res) => {
+        if (cancelado) return;
+        const lista: OfertaResumen[] = (res.data || []).map((o) => ({
+          id: String(o.id ?? o._id ?? ""),
+          numero: o.numero_oferta || "",
+          nombre: o.nombre_automatico || o.nombre || "",
+        }));
+        setOfertas(lista);
+        setOfertaId(lista[0]?.id ?? null);
+      })
+      .catch(() => !cancelado && setOfertas([]))
+      .finally(() => !cancelado && setBuscandoOfertas(false));
+    return () => {
+      cancelado = true;
+    };
+  }, [cliente?.cliente_numero]);
 
   // Buscar a partir de tres letras, cuando se deja de teclear.
   useEffect(() => {
@@ -251,6 +296,34 @@ export function NuevoTrabajoDialog({
             )}
           </section>
 
+          {cliente && (buscandoOfertas || ofertas.length > 0) && (
+            <section>
+              <h3 className={TITULO_SECCION}>Oferta a montar</h3>
+              {buscandoOfertas ? (
+                <p className="flex items-center gap-2 text-sm text-gray-500">
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  Buscando ofertas confirmadas…
+                </p>
+              ) : (
+                <select
+                  value={ofertaId ?? ""}
+                  onChange={(e) => setOfertaId(e.target.value || null)}
+                  className={cn(CLASE_CAMPO, "h-10")}
+                  aria-label="Oferta a montar"
+                >
+                  {ofertas.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.nombre || o.numero || "Oferta confirmada"}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {ofertas.length > 1 && (
+                <p className="mt-1 text-xs text-gray-500">Este cliente tiene {ofertas.length} ofertas confirmadas.</p>
+              )}
+            </section>
+          )}
+
           <section>
             <h3 className={TITULO_SECCION}>Qué hay que hacer</h3>
             <div className="grid grid-cols-2 gap-2">
@@ -338,7 +411,8 @@ export function NuevoTrabajoDialog({
             disabled={!valido}
             onClick={() => {
               if (!valido || !cliente || !tipo || !quienElegido) return;
-              onGuardar(cliente, tipo, quienElegido, nota);
+              const oferta = ofertas.find((o) => o.id === ofertaId) ?? null;
+              onGuardar(cliente, tipo, quienElegido, nota, oferta);
               onOpenChange(false);
             }}
           >

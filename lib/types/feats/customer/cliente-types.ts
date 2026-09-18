@@ -80,6 +80,19 @@ export interface EquipoCliente {
   potencia_kw: number | null;
   /** Foto actual del material en el catálogo; solo en las respuestas de /equipos. */
   foto?: string | null;
+  /**
+   * Nombre del material en el catálogo. Mostrar este antes que `descripcion`,
+   * que es la línea de la oferta: texto libre, a veces largo o vago.
+   */
+  nombre?: string | null;
+  /** Vales que respaldan lo entregado; solo en las respuestas de /equipos. */
+  vales_entrega?: ValeEntregaEquipo[];
+  /**
+   * Por qué lo entregado con vale no llega a lo ofertado. Solo "falta_entregar"
+   * es una entrega pendiente de verdad: en un cliente instalado, el hueco casi
+   * siempre es de antes de los vales o equipo que aportó el cliente.
+   */
+  explicacion_faltante?: ExplicacionFaltante | null;
   cantidad_actual: number;
   /** Según almacén (vales menos devoluciones), calculado al leer la ficha. */
   cantidad_entregada: number;
@@ -94,6 +107,20 @@ export interface EquipoCliente {
   /** Solo viene en las respuestas de /equipos; en el listado se calcula. */
   discrepancia?: number;
   tiene_discrepancia?: boolean;
+}
+
+export type ExplicacionFaltante =
+  | "falta_entregar"
+  | "anterior_a_vales"
+  | "propio_cliente"
+  | "sin_vale";
+
+export interface ValeEntregaEquipo {
+  codigo: string | null;
+  fecha: string | null;
+  cantidad: number;
+  devuelto: number;
+  recogido_por: string | null;
 }
 
 export type TipoMovimientoEquipo =
@@ -124,6 +151,8 @@ export interface MovimientoEquipoCliente {
   material_id: string | null;
   material_codigo: string | null;
   descripcion: string;
+  /** Nombre de catálogo, añadido al leer el historial. */
+  nombre?: string | null;
   categoria: CategoriaEquipo;
   marca: string | null;
   potencia_kw: number | null;
