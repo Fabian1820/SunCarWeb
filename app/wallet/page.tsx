@@ -1520,10 +1520,13 @@ function WalletPageContent() {
             : {}
         : {};
 
+    // Crear una transacción por cada moneda con monto. Si una moneda falla a
+    // mitad de camino, las anteriores ya quedaron registradas en el
+    // servidor: se van quitando del formulario a medida que se confirman
+    // para que un reintento solo reenvíe lo que de verdad falta, en vez de
+    // duplicar lo que ya se guardó.
+    const creadas: Array<{ currency_id: string; code: string; amount: number }> = [];
     try {
-      // Crear una transacción por cada moneda con monto. Si hay comprobante,
-      // se sube después de cada una (mismo archivo si son varias monedas a
-      // la vez — es el mismo recibo).
       for (const entry of entries) {
         const creada = await createTransaction(
           {
@@ -1535,6 +1538,12 @@ function WalletPageContent() {
           },
           currentFilters,
         );
+        creadas.push(entry);
+        setMontosPorMoneda((prev) => {
+          const next = { ...prev };
+          delete next[entry.currency_id];
+          return next;
+        });
         if (comprobanteFile) {
           try {
             await WalletService.uploadTransactionAdjunto(creada.id, [comprobanteFile]);
@@ -1550,7 +1559,6 @@ function WalletPageContent() {
           }
         }
       }
-      setMontosPorMoneda({});
       setMotivo("");
       setComprobanteFile(null);
       limpiarPersona();
@@ -1563,7 +1571,20 @@ function WalletPageContent() {
       });
       setActiveAction(null);
     } catch (err: unknown) {
-      toast({ title: "Error", description: err instanceof Error ? err.message : "No se pudo registrar la transacción", variant: "destructive" });
+      const detalle = err instanceof Error ? err.message : "No se pudo registrar la transacción";
+      const pendientes = entries.filter(
+        (e) => !creadas.some((c) => c.currency_id === e.currency_id),
+      );
+      toast({
+        title: "Error",
+        description:
+          creadas.length > 0
+            ? `Se registraron ${creadas.map((c) => formatMoney(c.amount, c.code)).join(", ")}. Falta ${pendientes
+                .map((e) => formatMoney(e.amount, e.code))
+                .join(", ")}: ${detalle}. Corrige e intenta de nuevo, no se reenviará lo ya registrado.`
+            : detalle,
+        variant: "destructive",
+      });
     }
   };
 
