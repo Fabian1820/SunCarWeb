@@ -52,7 +52,7 @@ import { TodosPagosTable, calcularPendienteOferta } from "@/components/feats/pag
 import { TodosPagosPlanosTable } from "@/components/feats/pagos/todos-pagos-planos-table";
 import { FacturasContabilidadTable } from "@/components/feats/facturas/facturas-contabilidad-table";
 import type { FacturaContabilidadExportContext } from "@/lib/services/feats/facturas/export-factura-contabilidad-service";
-import { RegistrarPagoDialog } from "@/components/feats/pagos/registrar-pago-dialog";
+import { RegistrarPagoDialog, type RegistrarPagoSuccessPayload } from "@/components/feats/pagos/registrar-pago-dialog";
 import { StripePagosModal } from "@/components/feats/pagos/stripe-pagos-modal";
 import type { OfertaConfirmadaSinPago } from "@/lib/services/feats/pagos/pagos-service";
 import {
@@ -600,11 +600,18 @@ export default function PagosClientesPage() {
     ],
   );
 
-  const handlePagoSuccess = () => {
-    toast({
-      title: "Éxito",
-      description: "Pago registrado correctamente",
-    });
+  const handlePagoSuccess = (payload?: RegistrarPagoSuccessPayload) => {
+    toast(
+      payload?.transferenciaBancariaPendiente
+        ? {
+            title: "Transferencia registrada",
+            description: "Queda pendiente de aprobación por el administrador del banco",
+          }
+        : {
+            title: "Éxito",
+            description: "Pago registrado correctamente",
+          },
+    );
 
     if (viewMode === "anticipos-pendientes") {
       refetchOfertasSinPago({ skip: skipSinPago, q: searchTerm.trim() || undefined });

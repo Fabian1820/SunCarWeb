@@ -7,12 +7,13 @@ import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
 import { Textarea } from "@/components/shared/molecule/textarea"
-import { Loader2 } from "lucide-react"
+import { Loader2, Landmark } from "lucide-react"
 import type { OfertaConfirmadaSinPago } from "@/lib/services/feats/pagos/pagos-service"
 import { PagoService, type PagoCreateData } from "@/lib/services/feats/pagos/pago-service"
-import { API_BASE_URL } from "@/lib/api-config"
-import { TasaCambioService } from "@/lib/api-services"
+import { BancoService, TasaCambioService, TransferenciaBancariaService } from "@/lib/api-services"
 import type { TasaCambio } from "@/lib/types/feats/tasa-cambio/tasa-cambio-types"
+import type { Banco } from "@/lib/types/feats/wallet/banco-types"
+import type { TransferenciaBancariaCreateData } from "@/lib/types/feats/transferencias-bancarias/transferencia-bancaria-types"
 import { useAuth } from "@/contexts/auth-context"
 
 interface RegistrarPagoDialogProps {
@@ -25,6 +26,7 @@ interface RegistrarPagoDialogProps {
 
 export interface RegistrarPagoSuccessPayload {
     pagoId?: string
+    transferenciaBancariaPendiente?: boolean
 }
 
 export interface RegistrarPagoInitialData {
@@ -58,6 +60,20 @@ const getDefaultFormData = () => ({
     notas: '',
     justificacion_diferencia: '',
 })
+
+const getDefaultDatosFacturacion = () => ({
+    nombre_completo_cliente: '',
+    pais_residencia: '',
+    tipo_documento_identidad: '',
+    numero_documento_identidad: '',
+    direccion_residencia: '',
+    telefono: '',
+    correo: '',
+    contacto_en_cuba: '',
+    direccion_instalacion_cuba: '',
+})
+
+const ARCHIVOS_COMPROBANTE_VALIDOS = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf']
 
 const normalizeDate = (value?: string) => {
     if (!value) return new Date().toISOString().slice(0, 10)
@@ -121,18 +137,33 @@ export function RegistrarPagoDialog({
 }: RegistrarPagoDialogProps) {
     const { user } = useAuth()
     const [loading, setLoading] = useState(false)
-    const [uploadingFile, setUploadingFile] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [tasaDiaria, setTasaDiaria] = useState<TasaCambio | null>(null)
     const [loadingTasaDiaria, setLoadingTasaDiaria] = useState(false)
     const [errorTasaDiaria, setErrorTasaDiaria] = useState<string | null>(null)
-    
+
     const [formData, setFormData] = useState(getDefaultFormData)
 
     const [desgloseBilletes, setDesgloseBilletes] = useState<Record<string, number>>({})
 
-    const [selectedFile, setSelectedFile] = useState<File | null>(null)
     const [showConfirm, setShowConfirm] = useState(false)
+
+    // Campos específicos de "Transferencia bancaria" — mismo flujo de doble
+    // confirmación que Leads/Clientes: crea una TransferenciaBancaria
+    // "pendiente" que el admin de Wallet acepta o rechaza (ver
+    // transferencia-bancaria-dialog.tsx).
+    const [bancoId, setBancoId] = useState('')
+    const [bancos, setBancos] = useState<Banco[]>([])
+    const [loadingBancos, setLoadingBancos] = useState(false)
+    const [errorBancos, setErrorBancos] = useState<string | null>(null)
+    const [datosFacturacion, setDatosFacturacion] = useState(getDefaultDatosFacturacion)
+    const [comprobanteTransferencia, setComprobanteTransferencia] = useState<{
+        url: string
+        nombre: string
+        tamano?: number
+        mimeType?: string
+    } | null>(null)
+    const [subiendoComprobanteTransferencia, setSubiendoComprobanteTransferencia] = useState(false)
 
     // Reset/prellenado cuando se abre el diálogo
     useEffect(() => {
@@ -154,11 +185,45 @@ export function RegistrarPagoDialog({
                     }
                     : {}),
             })
-            setSelectedFile(null)
             setDesgloseBilletes({})
             setError(null)
+            setBancoId('')
+            setComprobanteTransferencia(null)
+            setDatosFacturacion({
+                ...getDefaultDatosFacturacion(),
+                nombre_completo_cliente: oferta?.contacto?.nombre ?? '',
+                telefono: oferta?.contacto?.telefono ?? '',
+                direccion_instalacion_cuba: oferta?.contacto?.direccion ?? '',
+            })
         }
-    }, [open, initialData, user])
+    }, [open, initialData, user, oferta])
+
+    // Cargar bancos (destino de la transferencia) al abrir el diálogo
+    useEffect(() => {
+        if (!open) {
+            setBancos([])
+            return
+        }
+
+        let cancelled = false
+        setLoadingBancos(true)
+        setErrorBancos(null)
+
+        BancoService.listar()
+            .then((data) => {
+                if (!cancelled) setBancos(data)
+            })
+            .catch((err: unknown) => {
+                if (!cancelled) setErrorBancos(getErrorMessage(err, 'No se pudieron cargar los bancos'))
+            })
+            .finally(() => {
+                if (!cancelled) setLoadingBancos(false)
+            })
+
+        return () => {
+            cancelled = true
+        }
+    }, [open])
 
     // Cargar tasa diaria por fecha seleccionada
     useEffect(() => {
@@ -273,51 +338,34 @@ export function RegistrarPagoDialog({
     const usdPorMoneda = getUsdPorMoneda(formData.moneda, formData.tasa_cambio)
     const tasaEnUsdPorMoneda = TASA_SE_ESCRIBE_EN_USD_POR_MONEDA[formData.moneda]
 
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleComprobanteTransferenciaChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (!file) return
 
-        // Validar tipo de archivo
-        const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf']
-        if (!validTypes.includes(file.type)) {
+        if (!ARCHIVOS_COMPROBANTE_VALIDOS.includes(file.type)) {
             setError('Solo se permiten archivos de imagen (JPG, PNG, WEBP) o PDF')
             return
         }
 
-        // Validar tamaño (máximo 5MB)
         if (file.size > 5 * 1024 * 1024) {
             setError('El archivo no puede superar los 5MB')
             return
         }
 
-        setSelectedFile(file)
         setError(null)
-
-        // Subir archivo inmediatamente
-        setUploadingFile(true)
+        setSubiendoComprobanteTransferencia(true)
         try {
-            const formData = new FormData()
-            formData.append('archivo', file)
-
-            const response = await fetch(`${API_BASE_URL}/pagos/upload-comprobante`, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('auth_token') || localStorage.getItem('token') || ''}`,
-                },
+            const res = await TransferenciaBancariaService.subirComprobante(file)
+            setComprobanteTransferencia({
+                url: res.url,
+                nombre: res.filename,
+                tamano: res.size,
+                mimeType: res.content_type,
             })
-
-            if (!response.ok) {
-                throw new Error('Error al subir el archivo')
-            }
-
-            const data = await response.json()
-            setFormData(prev => ({ ...prev, comprobante_transferencia: data.url }))
         } catch (err: unknown) {
-            setError(getErrorMessage(err, 'Error al subir el archivo'))
-            setSelectedFile(null)
+            setError(getErrorMessage(err, 'Error al subir el comprobante'))
         } finally {
-            setUploadingFile(false)
+            setSubiendoComprobanteTransferencia(false)
         }
     }
 
@@ -374,6 +422,45 @@ export function RegistrarPagoDialog({
             return
         }
 
+        if (formData.metodo_pago === 'transferencia_bancaria') {
+            if (!oferta.lead_id && !oferta.cliente_numero) {
+                setError('No se pudo determinar el cliente o lead de esta oferta para registrar la transferencia bancaria')
+                return
+            }
+            if (!bancoId) {
+                setError('Seleccione el banco destino de la transferencia')
+                return
+            }
+            if (!datosFacturacion.nombre_completo_cliente.trim()) {
+                setError('Falta el nombre completo del cliente')
+                return
+            }
+            if (!datosFacturacion.pais_residencia.trim()) {
+                setError('Falta el país de residencia')
+                return
+            }
+            if (!datosFacturacion.tipo_documento_identidad.trim()) {
+                setError('Falta el tipo de documento de identidad')
+                return
+            }
+            if (!datosFacturacion.numero_documento_identidad.trim()) {
+                setError('Falta el número de documento de identidad')
+                return
+            }
+            if (!datosFacturacion.direccion_residencia.trim()) {
+                setError('Falta la dirección de residencia')
+                return
+            }
+            if (!datosFacturacion.telefono.trim()) {
+                setError('Falta el teléfono')
+                return
+            }
+            if (!datosFacturacion.direccion_instalacion_cuba.trim()) {
+                setError('Falta la dirección de instalación en Cuba')
+                return
+            }
+        }
+
         console.log('✅ Todas las validaciones pasaron, pidiendo confirmación...')
 
         setShowConfirm(true)
@@ -383,10 +470,72 @@ export function RegistrarPagoDialog({
         if (!oferta) return
 
         const monto = parseFloat(formData.monto)
+        const montoEnUSD = usdPorMoneda > 0 ? monto * usdPorMoneda : monto
+        const excedePendiente = montoEnUSD > oferta.monto_pendiente
 
         setLoading(true)
 
         try {
+            if (formData.metodo_pago === 'transferencia_bancaria') {
+                const origenTransferencia = oferta.lead_id
+                    ? { lead_id: oferta.lead_id }
+                    : oferta.cliente_numero
+                        ? { cliente_numero: oferta.cliente_numero }
+                        : null
+
+                if (!origenTransferencia) {
+                    throw new Error('No se pudo determinar el cliente o lead de esta oferta para registrar la transferencia bancaria')
+                }
+
+                const notasConDiferencia = excedePendiente && formData.justificacion_diferencia.trim()
+                    ? [formData.notas.trim(), `Justificación del monto excedente: ${formData.justificacion_diferencia.trim()}`]
+                        .filter(Boolean)
+                        .join(' — ')
+                    : formData.notas.trim()
+
+                const transferenciaData: TransferenciaBancariaCreateData = {
+                    ...origenTransferencia,
+                    oferta_id: oferta.id,
+                    banco_id: bancoId,
+                    monto,
+                    moneda: formData.moneda,
+                    // Backend espera "USD por 1 moneda", igual que Pago
+                    tasa_cambio: usdPorMoneda > 0 ? usdPorMoneda : formData.tasa_cambio,
+                    nombre_completo_cliente: datosFacturacion.nombre_completo_cliente.trim(),
+                    pais_residencia: datosFacturacion.pais_residencia.trim(),
+                    tipo_documento_identidad: datosFacturacion.tipo_documento_identidad.trim(),
+                    numero_documento_identidad: datosFacturacion.numero_documento_identidad.trim(),
+                    direccion_residencia: datosFacturacion.direccion_residencia.trim(),
+                    telefono: datosFacturacion.telefono.trim(),
+                    direccion_instalacion_cuba: datosFacturacion.direccion_instalacion_cuba.trim(),
+                    correo: datosFacturacion.correo.trim() || undefined,
+                    contacto_en_cuba: datosFacturacion.contacto_en_cuba.trim() || undefined,
+                    notas: notasConDiferencia || undefined,
+                    ...(comprobanteTransferencia
+                        ? {
+                            comprobante_cliente: {
+                                url: comprobanteTransferencia.url,
+                                nombre: comprobanteTransferencia.nombre,
+                                tamano: comprobanteTransferencia.tamano ?? 0,
+                                mime_type: comprobanteTransferencia.mimeType ?? 'application/octet-stream',
+                            },
+                        }
+                        : {}),
+                }
+
+                await TransferenciaBancariaService.crear(transferenciaData)
+
+                setFormData(getDefaultFormData())
+                setDesgloseBilletes({})
+                setBancoId('')
+                setComprobanteTransferencia(null)
+                setDatosFacturacion(getDefaultDatosFacturacion())
+
+                onSuccess({ transferenciaBancariaPendiente: true })
+                onOpenChange(false)
+                return
+            }
+
             const pagoData: PagoCreateData = {
                 oferta_id: oferta.id,
                 monto: monto,
@@ -417,28 +566,16 @@ export function RegistrarPagoDialog({
                     pagoData.desglose_billetes = desgloseBilletes
                 }
             } else if (formData.comprobante_transferencia.trim()) {
-                // Solo agregar comprobante si se proporcionó
+                // Solo agregar comprobante si se proporcionó (Stripe)
                 pagoData.comprobante_transferencia = formData.comprobante_transferencia
             }
 
             // Agregar diferencia si el monto excede el pendiente
-            const montoEnUSD = usdPorMoneda > 0 ? monto * usdPorMoneda : monto
-            console.log('🔍 Validación diferencia:')
-            console.log('  - Monto en USD:', montoEnUSD)
-            console.log('  - Monto pendiente:', oferta.monto_pendiente)
-            console.log('  - Excede pendiente:', montoEnUSD > oferta.monto_pendiente)
-            console.log('  - Justificación:', formData.justificacion_diferencia)
-            
-            if (montoEnUSD > oferta.monto_pendiente && formData.justificacion_diferencia.trim()) {
+            if (excedePendiente && formData.justificacion_diferencia.trim()) {
                 pagoData.diferencia = {
                     justificacion: formData.justificacion_diferencia.trim()
                 }
-                console.log('✅ Campo diferencia agregado:', pagoData.diferencia)
-            } else if (montoEnUSD > oferta.monto_pendiente) {
-                console.warn('⚠️ Monto excede pendiente pero NO hay justificación')
             }
-
-            console.log('📤 Payload completo a enviar al backend:', JSON.stringify(pagoData, null, 2))
 
             const createdPago = await PagoService.crearPago(pagoData)
             const pagoIdCreado =
@@ -448,25 +585,17 @@ export function RegistrarPagoDialog({
 
             // Resetear formulario
             setFormData(getDefaultFormData())
-            setSelectedFile(null)
             setDesgloseBilletes({})
 
             onSuccess({ pagoId: pagoIdCreado })
             onOpenChange(false)
         } catch (err: unknown) {
-            console.error('❌ [RegistrarPago] Error capturado:', err)
-            console.error('📋 Tipo de error:', typeof err)
-            console.error('📋 Error completo:', JSON.stringify(err, null, 2))
-            console.error(
-                '📋 Error.message:',
-                err instanceof Error ? err.message : 'Sin mensaje'
-            )
-            console.error(
-                '📋 Error.response:',
-                isRecord(err) ? (err as Record<string, unknown>).response : undefined
-            )
-            
-            setError(getErrorMessage(err, 'Error al registrar el pago'))
+            setError(getErrorMessage(
+                err,
+                formData.metodo_pago === 'transferencia_bancaria'
+                    ? 'Error al registrar la transferencia bancaria'
+                    : 'Error al registrar el pago',
+            ))
         } finally {
             setLoading(false)
         }
@@ -850,31 +979,176 @@ export function RegistrarPagoDialog({
                             </>
                         )}
 
-                        {/* Comprobante archivo (para transferencia) */}
+                        {/* Transferencia bancaria: mismo flujo de doble aprobación que en Leads/Clientes */}
                         {formData.metodo_pago === 'transferencia_bancaria' && (
-                            <div className="space-y-2">
-                                <Label htmlFor="comprobante_file">
-                                    Comprobante de Transferencia (opcional)
-                                </Label>
-                                <div className="flex items-center gap-2">
-                                    <Input
-                                        id="comprobante_file"
-                                        type="file"
-                                        accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf"
-                                        onChange={handleFileChange}
-                                        disabled={uploadingFile}
-                                        className="flex-1"
-                                    />
-                                    {uploadingFile && <Loader2 className="h-4 w-4 animate-spin" />}
-                                </div>
-                                {selectedFile && (
-                                    <p className="text-xs text-green-600">
-                                        ✓ Archivo subido: {selectedFile.name}
+                            <div className="space-y-4 rounded-lg border border-blue-200 bg-blue-50/60 p-4">
+                                <div className="flex items-center gap-2 text-blue-900">
+                                    <Landmark className="h-4 w-4" />
+                                    <p className="text-sm font-medium">
+                                        Queda pendiente de aprobación por el administrador del banco
                                     </p>
-                                )}
-                                <p className="text-xs text-gray-500">
-                                    Formatos permitidos: JPG, PNG, WEBP, PDF (máx. 5MB)
-                                </p>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="banco_id">
+                                        Banco destino <span className="text-red-500">*</span>
+                                    </Label>
+                                    <Select
+                                        value={bancoId || undefined}
+                                        onValueChange={(value) => setBancoId(value)}
+                                        disabled={loadingBancos}
+                                    >
+                                        <SelectTrigger className="bg-white">
+                                            <SelectValue placeholder={loadingBancos ? 'Cargando bancos...' : 'Seleccione un banco'} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {bancos.map((b) => (
+                                                <SelectItem key={b.id} value={b.id}>
+                                                    {b.nombre}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    {errorBancos && <p className="text-xs text-red-600">{errorBancos}</p>}
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="comprobante_file">
+                                        Comprobante del cliente (opcional)
+                                    </Label>
+                                    <div className="flex items-center gap-2">
+                                        <Input
+                                            id="comprobante_file"
+                                            type="file"
+                                            accept={ARCHIVOS_COMPROBANTE_VALIDOS.join(',')}
+                                            onChange={handleComprobanteTransferenciaChange}
+                                            disabled={subiendoComprobanteTransferencia}
+                                            className="flex-1 bg-white"
+                                        />
+                                        {subiendoComprobanteTransferencia && <Loader2 className="h-4 w-4 animate-spin" />}
+                                    </div>
+                                    {comprobanteTransferencia && (
+                                        <p className="text-xs text-green-600">
+                                            ✓ Comprobante subido: {comprobanteTransferencia.nombre}
+                                        </p>
+                                    )}
+                                    <p className="text-xs text-gray-500">
+                                        Formatos permitidos: JPG, PNG, WEBP, PDF (máx. 5MB)
+                                    </p>
+                                </div>
+
+                                <div className="space-y-3 border-t border-blue-200 pt-3">
+                                    <p className="text-sm font-medium text-gray-700">Datos de facturación</p>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="tb_nombre_completo">
+                                            Nombre completo del cliente <span className="text-red-500">*</span>
+                                        </Label>
+                                        <Input
+                                            id="tb_nombre_completo"
+                                            className="bg-white"
+                                            value={datosFacturacion.nombre_completo_cliente}
+                                            onChange={(e) => setDatosFacturacion((prev) => ({ ...prev, nombre_completo_cliente: e.target.value }))}
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="tb_pais">
+                                                País de residencia <span className="text-red-500">*</span>
+                                            </Label>
+                                            <Input
+                                                id="tb_pais"
+                                                className="bg-white"
+                                                value={datosFacturacion.pais_residencia}
+                                                onChange={(e) => setDatosFacturacion((prev) => ({ ...prev, pais_residencia: e.target.value }))}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="tb_telefono">
+                                                Teléfono <span className="text-red-500">*</span>
+                                            </Label>
+                                            <Input
+                                                id="tb_telefono"
+                                                className="bg-white"
+                                                value={datosFacturacion.telefono}
+                                                onChange={(e) => setDatosFacturacion((prev) => ({ ...prev, telefono: e.target.value }))}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="tb_tipo_doc">
+                                                Tipo de documento de identidad <span className="text-red-500">*</span>
+                                            </Label>
+                                            <Input
+                                                id="tb_tipo_doc"
+                                                className="bg-white"
+                                                value={datosFacturacion.tipo_documento_identidad}
+                                                onChange={(e) => setDatosFacturacion((prev) => ({ ...prev, tipo_documento_identidad: e.target.value }))}
+                                                placeholder="Ej: Carnet de identidad, Pasaporte"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="tb_num_doc">
+                                                Número de documento de identidad <span className="text-red-500">*</span>
+                                            </Label>
+                                            <Input
+                                                id="tb_num_doc"
+                                                className="bg-white"
+                                                value={datosFacturacion.numero_documento_identidad}
+                                                onChange={(e) => setDatosFacturacion((prev) => ({ ...prev, numero_documento_identidad: e.target.value }))}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="tb_direccion_residencia">
+                                            Dirección del cliente en el país de residencia <span className="text-red-500">*</span>
+                                        </Label>
+                                        <Input
+                                            id="tb_direccion_residencia"
+                                            className="bg-white"
+                                            value={datosFacturacion.direccion_residencia}
+                                            onChange={(e) => setDatosFacturacion((prev) => ({ ...prev, direccion_residencia: e.target.value }))}
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="tb_correo">Correo</Label>
+                                            <Input
+                                                id="tb_correo"
+                                                type="email"
+                                                className="bg-white"
+                                                value={datosFacturacion.correo}
+                                                onChange={(e) => setDatosFacturacion((prev) => ({ ...prev, correo: e.target.value }))}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="tb_contacto_cuba">Datos de contacto en Cuba</Label>
+                                            <Input
+                                                id="tb_contacto_cuba"
+                                                className="bg-white"
+                                                value={datosFacturacion.contacto_en_cuba}
+                                                onChange={(e) => setDatosFacturacion((prev) => ({ ...prev, contacto_en_cuba: e.target.value }))}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="tb_direccion_instalacion">
+                                            Dirección de instalación en Cuba <span className="text-red-500">*</span>
+                                        </Label>
+                                        <Input
+                                            id="tb_direccion_instalacion"
+                                            className="bg-white"
+                                            value={datosFacturacion.direccion_instalacion_cuba}
+                                            onChange={(e) => setDatosFacturacion((prev) => ({ ...prev, direccion_instalacion_cuba: e.target.value }))}
+                                        />
+                                    </div>
+                                </div>
                             </div>
                         )}
 
@@ -914,14 +1188,14 @@ export function RegistrarPagoDialog({
                                 type="button"
                                 variant="outline"
                                 onClick={() => onOpenChange(false)}
-                                disabled={loading || uploadingFile}
+                                disabled={loading || subiendoComprobanteTransferencia}
                             >
                                 Cancelar
                             </Button>
                             <Button
                                 type="submit"
                                 className="bg-green-600 hover:bg-green-700"
-                                disabled={loading || uploadingFile}
+                                disabled={loading || subiendoComprobanteTransferencia}
                             >
                                 {loading ? (
                                     <>
@@ -929,7 +1203,7 @@ export function RegistrarPagoDialog({
                                         Registrando...
                                     </>
                                 ) : (
-                                    'Registrar Pago'
+                                    formData.metodo_pago === 'transferencia_bancaria' ? 'Registrar transferencia' : 'Registrar Pago'
                                 )}
                             </Button>
                         </div>
@@ -940,10 +1214,14 @@ export function RegistrarPagoDialog({
         <ConfirmEditDialog
             open={showConfirm}
             onOpenChange={setShowConfirm}
-            title="Confirmar registro de pago"
-            message={`¿Está seguro de registrar un pago de ${(parseFloat(formData.monto) || 0).toFixed(2)} ${formData.moneda}?`}
+            title={formData.metodo_pago === 'transferencia_bancaria' ? 'Confirmar transferencia bancaria' : 'Confirmar registro de pago'}
+            message={
+                formData.metodo_pago === 'transferencia_bancaria'
+                    ? `Se registrará una transferencia de ${(parseFloat(formData.monto) || 0).toFixed(2)} ${formData.moneda}, pendiente de aprobación por el administrador del banco. ¿Continuar?`
+                    : `¿Está seguro de registrar un pago de ${(parseFloat(formData.monto) || 0).toFixed(2)} ${formData.moneda}?`
+            }
             onConfirm={handleConfirmedSubmit}
-            confirmText="Sí, registrar pago"
+            confirmText={formData.metodo_pago === 'transferencia_bancaria' ? 'Sí, registrar transferencia' : 'Sí, registrar pago'}
             isLoading={loading}
         />
         </>
