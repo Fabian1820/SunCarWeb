@@ -163,6 +163,10 @@ export function PlanificarPorMapa({ tipo, delDia, trabajos, brigadas, trabajador
   const [ofertaAbierta, setOfertaAbierta] = useState<OfertaConfeccion | null>(null);
   const [abriendoOferta, setAbriendoOferta] = useState<string | null>(null);
   const [abriendoVisita, setAbriendoVisita] = useState<string | null>(null);
+  /** Cuando un cliente tiene más de una oferta confirmada, cuál se eligió para planificar. */
+  const [ofertaElegida, setOfertaElegida] = useState<Map<string, { id: string; numero: string; nombre: string }>>(
+    new Map(),
+  );
   const { toast } = useToast();
 
   // Se abre como se dejó la última vez: lista o mapa.
@@ -384,12 +388,32 @@ export function PlanificarPorMapa({ tipo, delDia, trabajos, brigadas, trabajador
   }
 
   function seleccionadoDe(u: Ubicado): Seleccionado {
+    const elegida = ofertaElegida.get(claveCandidato(u.c));
     return {
       tipo,
-      candidato: u.c,
+      candidato: elegida ? { ...u.c, oferta_confirmada: elegida } : u.c,
       zona: u.municipio?.id ?? u.provincia?.k ?? "",
       nombreZona: u.municipio?.n ?? u.provincia?.n ?? "Sin zona",
     };
+  }
+
+  /** Cambia qué oferta confirmada se va a montar; si ya estaba marcado, actualiza también la selección. */
+  function elegirOferta(u: Ubicado, o: { id: string; numero: string; nombre: string } | null) {
+    const k = claveCandidato(u.c);
+    setOfertaElegida((previa) => {
+      const nueva = new Map(previa);
+      if (o) nueva.set(k, o);
+      else nueva.delete(k);
+      return nueva;
+    });
+    const kSel = clave(tipo, u.c);
+    setSeleccion((previa) => {
+      const actual = previa.get(kSel);
+      if (!actual) return previa;
+      const nueva = new Map(previa);
+      nueva.set(kSel, { ...actual, candidato: { ...u.c, oferta_confirmada: o } });
+      return nueva;
+    });
   }
 
   function alternar(u: Ubicado) {
@@ -544,9 +568,11 @@ export function PlanificarPorMapa({ tipo, delDia, trabajos, brigadas, trabajador
                       marcado={seleccion.has(clave(tipo, u.c))}
                       enPlan={enPlan.get(clave(tipo, u.c))}
                       tipo={tipo}
-                      abriendoOferta={!!abriendoOferta && abriendoOferta === u.c.oferta_confirmada?.id}
+                      ofertaElegidaId={ofertaElegida.get(claveCandidato(u.c))?.id ?? u.c.oferta_confirmada?.id ?? null}
+                      abriendoOferta={!!abriendoOferta && abriendoOferta === (ofertaElegida.get(claveCandidato(u.c))?.id ?? u.c.oferta_confirmada?.id)}
                       abriendoVisita={!!abriendoVisita && abriendoVisita === u.c.visita_id}
                       onAlternar={() => alternar(u)}
+                      onElegirOferta={(o) => elegirOferta(u, o)}
                       onVerOferta={verOferta}
                       onVerVisita={verVisita}
                     />
@@ -929,9 +955,11 @@ function FilaPendiente({
   tipo,
   marcado,
   enPlan,
+  ofertaElegidaId,
   abriendoOferta,
   abriendoVisita,
   onAlternar,
+  onElegirOferta,
   onVerOferta,
   onVerVisita,
 }: {
@@ -939,15 +967,18 @@ function FilaPendiente({
   tipo: TipoTrabajo;
   marcado: boolean;
   enPlan?: TrabajoPlanificado;
+  ofertaElegidaId: string | null;
   abriendoOferta: boolean;
   abriendoVisita: boolean;
   onAlternar: () => void;
+  onElegirOferta: (oferta: { id: string; numero: string; nombre: string } | null) => void;
   onVerOferta: (id: string) => void;
   onVerVisita: (id: string) => void;
 }) {
   const c = u.c;
   const bloqueado = !!enPlan;
-  const oferta = c.oferta_confirmada;
+  const ofertas = c.ofertas_confirmadas?.length ? c.ofertas_confirmadas : c.oferta_confirmada ? [c.oferta_confirmada] : [];
+  const oferta = ofertas.find((o) => o.id === ofertaElegidaId) ?? ofertas[0] ?? null;
   const [, mes, dia] = (c.visita_fecha ?? "").slice(0, 10).split("-");
   const fecha = dia && mes ? ` · ${dia}/${mes}` : "";
   // Lo que se mira para planificar: cuánto espera, qué equipo lleva y si ya hay visita.
@@ -1006,20 +1037,56 @@ function FilaPendiente({
               Esperando {textoEspera(dias)}
             </span>
           )}
-          {oferta && (
-            <button
-              type="button"
-              onClick={() => onVerOferta(oferta.id)}
-              title={`Oferta confirmada ${oferta.numero}`}
-              className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
-            >
-              {abriendoOferta ? (
-                <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
-              ) : (
-                <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              )}
-              <span className="truncate">{oferta.nombre || oferta.numero || "Oferta confirmada"}</span>
-            </button>
+          {ofertas.length > 1 ? (
+            <span className="inline-flex max-w-full items-center gap-1 rounded-full bg-emerald-50 pl-2.5 pr-1 py-1 text-xs font-semibold text-emerald-800">
+              <select
+                value={oferta?.id ?? ""}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  onElegirOferta(ofertas.find((o) => o.id === e.target.value) ?? null);
+                }}
+                onClick={(e) => e.stopPropagation()}
+                aria-label="Oferta confirmada a planificar"
+                className="max-w-[10rem] truncate border-none bg-transparent text-xs font-semibold text-emerald-800 focus-visible:outline-none"
+              >
+                {ofertas.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.nombre || o.numero || "Oferta confirmada"}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (oferta) onVerOferta(oferta.id);
+                }}
+                title="Ver la oferta elegida"
+                className="shrink-0 rounded-full p-1 hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+              >
+                {abriendoOferta ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                ) : (
+                  <FileText className="h-3.5 w-3.5" aria-hidden />
+                )}
+              </button>
+            </span>
+          ) : (
+            oferta && (
+              <button
+                type="button"
+                onClick={() => onVerOferta(oferta.id)}
+                title={`Oferta confirmada ${oferta.numero}`}
+                className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+              >
+                {abriendoOferta ? (
+                  <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
+                ) : (
+                  <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                )}
+                <span className="truncate">{oferta.nombre || oferta.numero || "Oferta confirmada"}</span>
+              </button>
+            )
           )}
           {c.visita_id ? (
             <button

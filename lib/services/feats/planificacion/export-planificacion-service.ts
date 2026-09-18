@@ -45,14 +45,16 @@ function construirDoc(plan: Planificacion, tituloFecha: string): jsPDF {
       nombreDe(t.asignado),
       ETIQUETA_TIPO[t.tipo],
       t.nombre,
+      t.telefono || "",
       t.direccion,
+      t.oferta_nombre || t.oferta_numero || "",
       t.nota || "",
       ETIQUETA_ESTADO_TRABAJO[t.estado],
     ]);
 
   autoTable(doc, {
     startY: 39,
-    head: [["Equipo", "Tipo", "Cliente", "Dirección", "Nota", "Estado"]],
+    head: [["Equipo", "Tipo", "Cliente", "Teléfono", "Dirección", "Oferta", "Nota", "Estado"]],
     body: filas,
     theme: "grid",
     styles: { fontSize: 8, cellPadding: 2, textColor: [40, 40, 40] },
