@@ -78,7 +78,10 @@ export interface EquipoCliente {
   categoria: CategoriaEquipo;
   marca: string | null;
   potencia_kw: number | null;
+  /** Foto actual del material en el catálogo; solo en las respuestas de /equipos. */
+  foto?: string | null;
   cantidad_actual: number;
+  /** Según almacén (vales menos devoluciones), calculado al leer la ficha. */
   cantidad_entregada: number;
   estado: EstadoEquipo;
   numeros_serie: string[];

@@ -30,6 +30,15 @@ export const formatFechaCorta = (valor?: string | null): string | null => {
   return d.toLocaleDateString("es-CU", { day: "2-digit", month: "2-digit", year: "numeric" })
 }
 
+/**
+ * Si el cliente ya tiene el equipo puesto. Tolera mayúsculas y tildes: hay
+ * clientes con "Equipo Instalado con Éxito".
+ */
+export function esClienteInstalado(estado?: string | null): boolean {
+  const e = (estado ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim()
+  return e === "equipo instalado con exito"
+}
+
 const formatCantidad = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2))
 
 /** Lo que el cliente tiene hoy: activos con cantidad, en el orden de la ficha. */
@@ -69,6 +78,11 @@ interface EquiposClienteCellProps {
    * no presentar lo ofertado a un cliente sin instalar como algo que ya tiene.
    */
   segunOferta: boolean
+  /**
+   * Hay ficha pero el cliente aún no está instalado: lo que se ve es lo
+   * contratado, no lo que tiene puesto, y hay que decirlo.
+   */
+  pendienteInstalar?: boolean
   ultimoCambio?: string | null
   totalMovimientos?: number
   /** Solo se pasa cuando hay ficha: sin ella no hay historial que abrir. */
@@ -81,6 +95,7 @@ interface EquiposClienteCellProps {
 export function EquiposClienteCell({
   lineas,
   segunOferta,
+  pendienteInstalar = false,
   ultimoCambio,
   totalMovimientos = 0,
   onVerDetalle,
@@ -115,6 +130,9 @@ export function EquiposClienteCell({
       )}
       {segunOferta && lineas.length > 0 && (
         <div className="text-[12px] text-gray-400">Según oferta · sin ficha de equipos</div>
+      )}
+      {pendienteInstalar && lineas.length > 0 && (
+        <div className="text-[12px] text-gray-400">Contratado · pendiente de instalar</div>
       )}
       {!segunOferta && fecha && (
         <div className="flex items-center gap-1 text-[12px] text-gray-500">

@@ -101,11 +101,13 @@ import type {
   CapacidadEquipos,
   Cliente,
   ClienteFoto,
+  EquipoCliente,
 } from "@/lib/api-types";
 import { extraerComponentesDeOfertaConfeccion } from "@/lib/utils/oferta-confeccion-items";
 import { ESTADOS_CLIENTE } from "@/lib/constants/estados-cliente";
 import {
   EquiposClienteCell,
+  esClienteInstalado,
   lineasActivas,
   resumenCambios,
   type LineaEquipo,
@@ -782,6 +784,16 @@ export function ClientsTable({
   const [clienteParaEstadosMultiples, setClienteParaEstadosMultiples] =
     useState<Cliente | null>(null);
   const [clienteEquipos, setClienteEquipos] = useState<Cliente | null>(null);
+  // Ficha actualizada tras un cambio en el diálogo, por número de cliente: la
+  // lista llega por props y no se recarga, así que la fila se pinta con esto.
+  const [equiposActualizados, setEquiposActualizados] = useState<
+    Record<string, EquipoCliente[]>
+  >({});
+  const onCambioEquipos = useCallback(
+    (numero: string, equipos: EquipoCliente[]) =>
+      setEquiposActualizados((prev) => ({ ...prev, [numero]: equipos })),
+    [],
+  );
   const [showClientLocation, setShowClientLocation] = useState(false);
   const [clientLocation, setClientLocation] = useState<{
     lat: number;
@@ -4344,7 +4356,7 @@ export function ClientsTable({
                             // Con ficha de equipos se pinta lo que el cliente tiene hoy; sin
                             // ella (aún no migrado, o sin instalar) lo que dice su oferta,
                             // rotulado como tal para no presentarlo como algo ya instalado.
-                            const ficha = client.equipos ?? null;
+                            const ficha = equiposActualizados[client.numero] ?? client.equipos ?? null;
                             const tieneFicha = !!ficha && ficha.length > 0;
                             let lineas: LineaEquipo[] = [];
 
@@ -4400,9 +4412,17 @@ export function ClientsTable({
                               <EquiposClienteCell
                                 lineas={lineas}
                                 segunOferta={!tieneFicha}
+                                pendienteInstalar={tieneFicha && !esClienteInstalado(client.estado)}
                                 ultimoCambio={cambios?.fecha}
                                 totalMovimientos={cambios?.movimientos}
-                                onVerDetalle={tieneFicha ? () => setClienteEquipos(client) : undefined}
+                                onVerDetalle={
+                                  // Sin ficha solo se abre si ya está instalado, para cargarle el
+                                  // equipo a mano. A un pendiente se la crea la instalación; un alta
+                                  // manual antes se sumaría a la que trae la oferta.
+                                  tieneFicha || esClienteInstalado(client.estado)
+                                    ? () => setClienteEquipos(client)
+                                    : undefined
+                                }
                                 encabezado={
                                   <ResumenCapacidadEquipos
                                     capacidad={client.capacidad_equipos}
@@ -4905,6 +4925,8 @@ export function ClientsTable({
         }}
         clienteNumero={clienteEquipos?.numero ?? null}
         clienteNombre={clienteEquipos?.nombre ?? null}
+        clienteEstado={clienteEquipos?.estado ?? null}
+        onCambio={onCambioEquipos}
       />
 
       {/* Anular/Reactivar Confirmation Dialog */}
