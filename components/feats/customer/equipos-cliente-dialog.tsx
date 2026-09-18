@@ -27,6 +27,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/shared/molecule/dropdown-menu"
+import { Portal as TooltipPortal } from "@radix-ui/react-tooltip"
 import {
   Tooltip,
   TooltipContent,
@@ -138,7 +139,16 @@ function LineaEntrega({ equipo }: { equipo: EquipoCliente }) {
         <TooltipProvider delayDuration={200}>
           <Tooltip>
             <TooltipTrigger asChild>{entregado}</TooltipTrigger>
-            <TooltipContent side="top" className="max-w-sm text-xs">
+            {/* Al body, no dentro del diálogo: el TooltipContent compartido no usa
+                portal, y dentro del diálogo lo recortaba su overflow-y-auto y lo
+                descolocaba el transform que lo centra. */}
+            <TooltipPortal>
+            <TooltipContent
+              side="top"
+              align="start"
+              collisionPadding={12}
+              className="z-[100] max-w-sm break-words text-xs"
+            >
               <ul className="space-y-1">
                 {vales.map((v, i) => (
                   <li key={`${v.codigo}-${i}`}>
@@ -151,6 +161,7 @@ function LineaEntrega({ equipo }: { equipo: EquipoCliente }) {
                 ))}
               </ul>
             </TooltipContent>
+            </TooltipPortal>
           </Tooltip>
         </TooltipProvider>
       ) : (
