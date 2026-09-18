@@ -54,9 +54,6 @@ type MonedaFiltro = "todas" | string;
 type Vista = "ingresos" | "gastos" | "saldo";
 
 const ORDEN_MONEDAS = ["USD", "EUR", "CUP", "MLC"];
-/** Pseudo-moneda de los gráficos: el "general de todo" en USD. No convierte
- * nada con tasas de hoy — usa el USD que el sistema guardó en cada cobro. */
-const MONEDA_TOTAL = "TOTAL";
 const MESES_TENDENCIA = 6;
 
 // Marca Suncar 2026 (tailwind.config.ts → colors.brand)
@@ -131,8 +128,6 @@ function filtrarIngresos(ingresos: ContabilidadIngresos, filtro: MonedaFiltro): 
   // conserva (puede seguir teniendo movimientos excluidos que sumen 0).
   return {
     por_moneda: filtrarMontos(ingresos.por_moneda, filtro),
-    total_usd: ingresos.total_usd,
-    sin_convertir: ingresos.sin_convertir,
     por_tipo: ingresos.por_tipo
       .map((t) => ({ ...t, por_moneda: filtrarMontos(t.por_moneda, filtro) }))
       .filter((t) => filtro === "todas" || Object.keys(t.por_moneda).length > 0),
@@ -197,10 +192,7 @@ async function obtenerTendenciaMensual(moneda: string, meses = MESES_TENDENCIA):
   // Un mes que venga con forma inesperada cuenta 0 en vez de tumbar el gráfico.
   return periodos.map((p, i) => ({
     mes: p.mes,
-    ingresos:
-      moneda === MONEDA_TOTAL
-        ? resumenes[i]?.general?.ingresos?.total_usd ?? 0
-        : resumenes[i]?.general?.ingresos?.por_moneda?.[moneda] ?? 0,
+    ingresos: resumenes[i]?.general?.ingresos?.por_moneda?.[moneda] ?? 0,
     gastos: resumenes[i]?.general?.gastos?.por_moneda?.[moneda] ?? 0,
   }));
 }
@@ -280,20 +272,14 @@ const TARJETAS: {
 function TarjetasResumen({
   monedas,
   valores,
-  totalIngresosUsd,
-  sinConvertir,
   vista,
   onSeleccionar,
 }: {
   monedas: string[];
   valores: Record<Vista, MontosPorMoneda>;
-  /** "General de todo" de los ingresos; null cuando hay filtro de moneda. */
-  totalIngresosUsd: number | null;
-  sinConvertir: MontosPorMoneda;
   vista: Vista;
   onSeleccionar: (v: Vista) => void;
 }) {
-  const monedasSinConvertir = ordenarMonedas(Object.keys(sinConvertir));
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
       {TARJETAS.map((t) => {
@@ -304,7 +290,7 @@ function TarjetasResumen({
             key={t.key}
             type="button"
             onClick={() => onSeleccionar(t.key)}
-            className={`flex flex-col rounded-2xl ${t.superficie} p-5 text-left shadow-[0_12px_28px_-20px_rgba(1,41,40,0.5)] transition-all ${
+            className={`rounded-2xl ${t.superficie} p-5 text-left shadow-[0_12px_28px_-20px_rgba(1,41,40,0.5)] transition-all ${
               activo ? `ring-2 ${t.anillo}` : "ring-1 ring-black/5 hover:ring-black/15"
             }`}
           >
@@ -324,22 +310,6 @@ function TarjetasResumen({
                 </div>
               ))}
             </div>
-            {t.key === "ingresos" && totalIngresosUsd !== null && (
-              <div className="mt-3 border-t border-[#012928]/15 pt-2.5">
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className={`text-xs font-semibold uppercase tracking-[0.14em] ${t.etiqueta}`}>Total USD</span>
-                  <span className={`text-2xl font-semibold tabular-nums tracking-tight ${t.valor}`}>
-                    {formatNumero(totalIngresosUsd)}
-                  </span>
-                </div>
-                <p className={`mt-1 text-[11px] ${t.etiqueta}`}>
-                  Todas las monedas juntas, con la tasa de cada cobro
-                  {monedasSinConvertir.length > 0
-                    ? ` · sin incluir ${monedasSinConvertir.map((m) => formatMonto(m, sinConvertir[m])).join(" y ")} sin tasa guardada`
-                    : ""}
-                </p>
-              </div>
-            )}
           </button>
         );
       })}
@@ -1284,17 +1254,12 @@ export function ContabilidadSection({ accionExtra }: { accionExtra?: React.React
     ]);
   }, [resumen]);
 
-  // La moneda de los gráficos se ajusta sola si la elegida ya no aparece, y
-  // el "total" solo vale en ingresos (los gastos no se convierten).
+  // La moneda de los gráficos se ajusta sola si la elegida ya no aparece.
   useEffect(() => {
-    if (monedaGraficos === MONEDA_TOTAL) {
-      if (vista !== "ingresos") setMonedaGraficos(monedasDisponibles[0] ?? "USD");
-      return;
-    }
     if (monedasDisponibles.length > 0 && !monedasDisponibles.includes(monedaGraficos)) {
       setMonedaGraficos(monedasDisponibles[0]);
     }
-  }, [monedasDisponibles, monedaGraficos, vista]);
+  }, [monedasDisponibles, monedaGraficos]);
 
   // Tendencia de los últimos meses — solo cuando hace falta (ingresos o gastos).
   useEffect(() => {
@@ -1345,52 +1310,40 @@ export function ContabilidadSection({ accionExtra }: { accionExtra?: React.React
     [categoriasDisponibles],
   );
 
-  const valorGrafico = useCallback(
-    (ingresos: ContabilidadIngresos) =>
-      monedaGraficos === MONEDA_TOTAL ? ingresos.total_usd ?? 0 : ingresos.por_moneda[monedaGraficos] ?? 0,
-    [monedaGraficos],
-  );
-
   const datosPie = useMemo(() => {
     if (!resumen) return [];
     return resumen.por_categoria
-      .map((c) => ({ codigo: c.categoria, label: c.label, valor: valorGrafico(c.ingresos) }))
+      .map((c) => ({ codigo: c.categoria, label: c.label, valor: c.ingresos.por_moneda[monedaGraficos] ?? 0 }))
       .filter((d) => d.valor > 0)
       .sort((a, b) => b.valor - a.valor);
-  }, [resumen, valorGrafico]);
+  }, [resumen, monedaGraficos]);
 
   // Elige una categoría por defecto (la más grande) solo la primera vez;
   // después la elección del usuario se conserva.
   useEffect(() => {
     if (!resumen || categoriaSeleccionada !== null) return;
-    const mejor = [...resumen.por_categoria].sort((a, b) => valorGrafico(b.ingresos) - valorGrafico(a.ingresos))[0];
+    const mejor = [...resumen.por_categoria].sort(
+      (a, b) => (b.ingresos.por_moneda[monedaGraficos] ?? 0) - (a.ingresos.por_moneda[monedaGraficos] ?? 0),
+    )[0];
     setCategoriaSeleccionada(mejor?.categoria ?? null);
-  }, [resumen, valorGrafico, categoriaSeleccionada]);
+  }, [resumen, monedaGraficos, categoriaSeleccionada]);
 
   const categoriaSeleccionadaResumen =
     resumenMostrado?.por_categoria.find((c) => c.categoria === categoriaSeleccionada) ?? null;
 
-  /** Cómo se nombra la moneda elegida en títulos y ejes. */
-  const etiquetaMonedaGraficos = monedaGraficos === MONEDA_TOTAL ? "USD (todas las monedas)" : monedaGraficos;
-
-  // El "total" solo existe para ingresos: los gastos no se convierten.
-  const opcionesMonedaGraficos =
-    vista === "ingresos" ? [MONEDA_TOTAL, ...monedasDisponibles] : monedasDisponibles;
-
   const selectorMonedaGraficos =
-    opcionesMonedaGraficos.length > 1 ? (
+    monedasDisponibles.length > 1 ? (
       <div className="flex shrink-0 overflow-hidden rounded-lg border text-sm">
-        {opcionesMonedaGraficos.map((m) => (
+        {monedasDisponibles.map((m) => (
           <button
             key={m}
             type="button"
             onClick={() => setMonedaGraficos(m)}
-            title={m === MONEDA_TOTAL ? "Todas las monedas juntas, en USD" : undefined}
             className={`px-2.5 py-1 font-medium transition-colors ${
               monedaGraficos === m ? "bg-[#012928] text-white" : "bg-white text-gray-600 hover:bg-gray-50"
             }`}
           >
-            {m === MONEDA_TOTAL ? "Total" : m}
+            {m}
           </button>
         ))}
       </div>
@@ -1509,8 +1462,6 @@ export function ContabilidadSection({ accionExtra }: { accionExtra?: React.React
                 gastos: resumenMostrado.general.gastos.por_moneda,
                 saldo: resumenMostrado.general.saldo.por_moneda,
               }}
-              totalIngresosUsd={monedaFiltro === "todas" ? resumen?.general.ingresos.total_usd ?? null : null}
-              sinConvertir={resumen?.general.ingresos.sin_convertir ?? {}}
               vista={vista}
               onSeleccionar={seleccionarVista}
             />
@@ -1524,15 +1475,15 @@ export function ContabilidadSection({ accionExtra }: { accionExtra?: React.React
                         datos={datosPie}
                         seleccionada={categoriaSeleccionada}
                         onSeleccionar={setCategoriaSeleccionada}
-                        moneda={etiquetaMonedaGraficos}
+                        moneda={monedaGraficos}
                         colorDe={colorDeCategoria}
                       />
                     </PanelGrafico>
                   </div>
 
                   <div className="xl:col-span-5">
-                    <PanelGrafico titulo={`Ingresos por mes · ${etiquetaMonedaGraficos}`} icono={Activity}>
-                      <TendenciaChart datos={tendencia} serie="ingresos" moneda={etiquetaMonedaGraficos} cargando={loadingTendencia} />
+                    <PanelGrafico titulo={`Ingresos por mes · ${monedaGraficos}`} icono={Activity}>
+                      <TendenciaChart datos={tendencia} serie="ingresos" moneda={monedaGraficos} cargando={loadingTendencia} />
                     </PanelGrafico>
                   </div>
                 </div>
@@ -1553,8 +1504,8 @@ export function ContabilidadSection({ accionExtra }: { accionExtra?: React.React
 
             {vista === "gastos" && (
               <>
-                <PanelGrafico titulo={`Gastos por mes · ${etiquetaMonedaGraficos}`} icono={Activity} acciones={selectorMonedaGraficos}>
-                  <TendenciaChart datos={tendencia} serie="gastos" moneda={etiquetaMonedaGraficos} cargando={loadingTendencia} />
+                <PanelGrafico titulo={`Gastos por mes · ${monedaGraficos}`} icono={Activity} acciones={selectorMonedaGraficos}>
+                  <TendenciaChart datos={tendencia} serie="gastos" moneda={monedaGraficos} cargando={loadingTendencia} />
                 </PanelGrafico>
                 <GastosSection gastos={resumenMostrado.general.gastos} />
               </>
