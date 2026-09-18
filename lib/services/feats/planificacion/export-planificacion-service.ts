@@ -77,8 +77,11 @@ export const ExportPlanificacionService = {
     const pdfUrl = URL.createObjectURL(pdfBlob);
     const printWindow = window.open(pdfUrl, "_blank");
     if (printWindow) {
+      // El "load" de la pestaña es del documento que envuelve el visor de PDF,
+      // no de que el visor ya haya pintado el contenido: imprimir en ese
+      // instante saca páginas en blanco. Un pequeño margen le da tiempo.
       printWindow.onload = () => {
-        printWindow.print();
+        setTimeout(() => printWindow.print(), 700);
       };
     }
   },
