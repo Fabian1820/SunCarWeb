@@ -352,6 +352,10 @@ function PlanificacionContenido() {
           lead_id: c.lead_id,
           nombre: c.nombre,
           direccion: c.direccion,
+          telefono: c.telefono || null,
+          oferta_id: c.oferta_confirmada?.id ?? null,
+          oferta_numero: c.oferta_confirmada?.numero ?? null,
+          oferta_nombre: c.oferta_confirmada?.nombre ?? null,
           asignado: destino,
           nota: notaSugerida(tipo, c),
           estado: "planificado",
@@ -377,6 +381,10 @@ function PlanificacionContenido() {
         lead_id: i.candidato.lead_id,
         nombre: i.candidato.nombre,
         direccion: i.candidato.direccion,
+        telefono: i.candidato.telefono || null,
+        oferta_id: i.candidato.oferta_confirmada?.id ?? null,
+        oferta_numero: i.candidato.oferta_confirmada?.numero ?? null,
+        oferta_nombre: i.candidato.oferta_confirmada?.nombre ?? null,
         asignado: quien,
         nota: notaSugerida(i.tipo, i.candidato),
         estado: "planificado" as const,
@@ -390,7 +398,13 @@ function PlanificacionContenido() {
   }
 
   /** Un trabajo puesto a mano desde "Añadir un trabajo". */
-  function agregarUno(c: CandidatoPlanificacion, tipo: TipoTrabajo, quien: Asignado, nota: string) {
+  function agregarUno(
+    c: CandidatoPlanificacion,
+    tipo: TipoTrabajo,
+    quien: Asignado,
+    nota: string,
+    oferta: { id: string; numero: string; nombre: string } | null,
+  ) {
     if (trabajosRef.current.some((t) => t.tipo === tipo && claveTrabajo(t) === claveCandidato(c))) return;
     const id = nuevoId();
     editar((lista) => [
@@ -402,6 +416,10 @@ function PlanificacionContenido() {
         lead_id: c.lead_id,
         nombre: c.nombre,
         direccion: c.direccion,
+        telefono: c.telefono || null,
+        oferta_id: oferta?.id ?? null,
+        oferta_numero: oferta?.numero ?? null,
+        oferta_nombre: oferta?.nombre ?? null,
         asignado: quien,
         nota: nota.trim() || null,
         estado: "planificado",

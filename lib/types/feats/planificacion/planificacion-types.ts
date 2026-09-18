@@ -33,6 +33,11 @@ export interface TrabajoPlanificado {
   lead_id?: string | null;
   nombre: string;
   direccion: string;
+  telefono?: string | null;
+  /** Cuál de las ofertas confirmadas del cliente se va a montar, si se eligió una. */
+  oferta_id?: string | null;
+  oferta_numero?: string | null;
+  oferta_nombre?: string | null;
   asignado: Asignado;
   nota?: string | null;
   estado: "planificado" | "cumplido" | "no_realizado";
@@ -74,8 +79,10 @@ export interface CandidatoPlanificacion {
   visita_fecha?: string | null;
   /** Lo que anotó quien fue a la visita. */
   visita_observaciones?: string | null;
-  /** La oferta que el cliente confirmó: es lo que se va a montar. */
+  /** La oferta confirmada más reciente: es lo que se va a montar. */
   oferta_confirmada?: { id: string; numero: string; nombre: string } | null;
+  /** Todas sus ofertas confirmadas, de la más reciente a la más vieja; puede haber más de una. */
+  ofertas_confirmadas?: { id: string; numero: string; nombre: string }[];
   /** "YYYY-MM-DD": desde cuándo espera este trabajo. */
   esperando_desde?: string | null;
 }

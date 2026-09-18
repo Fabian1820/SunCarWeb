@@ -222,7 +222,20 @@ export async function apiRequest<T>(
       console.log("🎯🎯🎯 FIN DE DATOS ENVIADOS 🎯🎯🎯");
     }
 
-    const response = await fetch(url, config);
+    // Timeout explícito: sin esto, una conexión muy lenta deja la petición
+    // colgada indefinidamente en vez de fallar de forma reconocible como "lenta".
+    const timeoutController = new AbortController();
+    const timeoutId = setTimeout(() => timeoutController.abort(), API_TIMEOUT);
+    if (!config.signal) {
+      config.signal = timeoutController.signal;
+    }
+
+    let response: Response;
+    try {
+      response = await fetch(url, config);
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     // Notificar que el backend responde (aunque sea con error HTTP)
     if (typeof window !== "undefined") {
@@ -403,14 +416,27 @@ export async function apiRequest<T>(
 
     return data as T;
   } catch (error) {
-    if (
-      error instanceof TypeError &&
-      /failed to fetch|load failed/i.test(error.message)
-    ) {
-      // Notificar que el backend no responde
+    const isNetworkFailure =
+      error instanceof TypeError && /failed to fetch|load failed/i.test(error.message);
+    const isTimeout = error instanceof Error && error.name === "AbortError";
+
+    if (isNetworkFailure || isTimeout) {
       if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("backend-status", { detail: { online: false } }));
+        // Sin internet: el navegador ya avisa vía navigator.onLine / eventos
+        // online/offline (ver OfflineIndicator). No lo tratamos como caída del
+        // backend para no mostrar el cartel de "mantenimiento" equivocado.
+        const reason = !navigator.onLine ? "offline" : isTimeout ? "timeout" : "down";
+        window.dispatchEvent(
+          new CustomEvent("backend-status", { detail: { online: false, reason } }),
+        );
       }
+
+      if (isTimeout) {
+        throw new Error(
+          `La conexión está muy lenta y la solicitud tardó demasiado (${url}).`,
+        );
+      }
+
       throw new Error(
         `No se pudo conectar con el backend (${url}). Revisa CORS, SSL y disponibilidad del endpoint.`,
       );
