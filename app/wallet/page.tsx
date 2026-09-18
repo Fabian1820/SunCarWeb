@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/atom/input";
@@ -45,6 +46,7 @@ import {
   ChevronRight,
   Coins,
   Download,
+  ExternalLink,
   Eye,
   FileSpreadsheet,
   FileText,
@@ -68,6 +70,9 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
+import { apiRequest } from "@/lib/api-config";
+import { PagoService } from "@/lib/services/feats/pagos/pago-service";
+import { PagoVentaService } from "@/lib/services/feats/pagos-clientes-ventas/pago-cliente-venta-service";
 import { useWallet } from "@/hooks/use-wallet";
 import { useMyWalletPermiso } from "@/hooks/use-wallet-permisos";
 import { useBancos } from "@/hooks/use-bancos";
@@ -116,6 +121,33 @@ const formatDateTime = (value: string): string => {
     timeZone: "America/Havana",
   });
 };
+
+// Los depósitos automáticos por cobro de una oferta guardan de dónde
+// vinieron solo como texto libre en `referencia_externa` (ver
+// pago_service.py / pago_venta_service.py en el backend): "pago:<id>" para
+// una oferta de confección, "pago_venta:<id>" para una solicitud de venta.
+// No hay ningún campo estructurado — hay que parsear el prefijo.
+type OrigenTransaccion =
+  | { tipo: "oferta_confeccion"; pagoId: string }
+  | { tipo: "solicitud_venta"; pagoId: string };
+
+const parseOrigenTransaccion = (
+  transaction: WalletTransaction,
+): OrigenTransaccion | null => {
+  const ref = transaction.referencia_externa || "";
+  if (ref.startsWith("pago_venta:")) {
+    return { tipo: "solicitud_venta", pagoId: ref.slice("pago_venta:".length) };
+  }
+  if (ref.startsWith("pago:")) {
+    return { tipo: "oferta_confeccion", pagoId: ref.slice("pago:".length) };
+  }
+  return null;
+};
+
+const hrefParaOrigen = (origen: OrigenTransaccion): string =>
+  origen.tipo === "oferta_confeccion"
+    ? `/ofertas-gestion/ver-ofertas-confeccionadas?pago=${encodeURIComponent(origen.pagoId)}`
+    : `/solicitudes-ventas?pagoVenta=${encodeURIComponent(origen.pagoId)}`;
 
 const isTransferTransaction = (transaction: WalletTransaction): boolean => {
   return (
@@ -346,6 +378,7 @@ function TransactionsResponsiveList({
             transaction.tipo === "transferencia_entrada" ||
             transaction.transferencia_direccion === "entrada";
           const parties = getTransferParties(transaction);
+          const origen = parseOrigenTransaccion(transaction);
           // En vista global (showWalletOwner) la transferencia es neutral — no es ni ingreso ni gasto del viewer
           const isGlobalTransfer = isTransfer && showWalletOwner;
           const amountColor = isGlobalTransfer
@@ -432,6 +465,16 @@ function TransactionsResponsiveList({
               <p className="text-xs text-slate-600 mt-1.5 line-clamp-2">
                 {transaction.motivo}
               </p>
+              {origen && (
+                <Link
+                  href={hrefParaOrigen(origen)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:underline"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  Ver oferta del cliente
+                </Link>
+              )}
             </div>
           );
         })}
@@ -464,6 +507,7 @@ function TransactionsResponsiveList({
                 transaction.tipo === "transferencia_entrada" ||
                 transaction.transferencia_direccion === "entrada";
               const parties = getTransferParties(transaction);
+              const origen = parseOrigenTransaccion(transaction);
               const isGlobalTransfer = isTransfer && showWalletOwner;
               const amountColor = isGlobalTransfer
                 ? "text-violet-600"
@@ -530,6 +574,16 @@ function TransactionsResponsiveList({
                     <p className="truncate text-sm text-slate-600">
                       {transaction.motivo}
                     </p>
+                    {origen && (
+                      <Link
+                        href={hrefParaOrigen(origen)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:underline"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        Ver oferta del cliente
+                      </Link>
+                    )}
                   </TableCell>
                   <TableCell className="w-20 text-right">
                     <div className="flex items-center justify-end gap-0.5">
@@ -679,6 +733,131 @@ function ComprobanteAdjuntoSection({ transactionId }: { transactionId: string })
   );
 }
 
+// Enriquece el "Ref: pago:<id>" / "pago_venta:<id>" en crudo con el nombre
+// del cliente y un detalle de la oferta que originó el depósito automático.
+// Solo se resuelve al abrir el detalle de UNA transacción (no en el
+// listado, para no disparar N llamadas por fila).
+function OrigenOfertaInfo({ transaction }: { transaction: WalletTransaction }) {
+  const origen = useMemo(() => parseOrigenTransaccion(transaction), [transaction]);
+  const [estado, setEstado] = useState<"cargando" | "listo" | "error">("cargando");
+  const [info, setInfo] = useState<{
+    clienteNombre?: string;
+    titulo: string;
+    detalle: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!origen) return;
+    let cancelado = false;
+    setEstado("cargando");
+    setInfo(null);
+
+    (async () => {
+      try {
+        if (origen.tipo === "oferta_confeccion") {
+          const pago = await PagoService.getById(origen.pagoId);
+          if (!pago?.oferta_id) throw new Error("Pago sin oferta asociada");
+          const raw = await apiRequest<any>(`/ofertas/confeccion/${pago.oferta_id}`, {
+            method: "GET",
+          });
+          const oferta = raw?.data ?? raw;
+          if (!oferta) throw new Error("Oferta no encontrada");
+
+          let clienteNombre: string | undefined = oferta?.cliente?.nombre;
+          if (!clienteNombre && oferta?.cliente_numero) {
+            try {
+              const cliente = await apiRequest<any>(`/clientes/${oferta.cliente_numero}`, {
+                method: "GET",
+              });
+              clienteNombre = cliente?.nombre;
+            } catch {
+              // Sin nombre resuelto no rompe la vista, solo se omite esa línea.
+            }
+          }
+
+          if (cancelado) return;
+          const partes = [`Oferta #${oferta.numero_oferta || oferta.id}`];
+          if (typeof oferta.precio_final === "number") {
+            partes.push(formatMoney(oferta.precio_final, "USD"));
+          }
+          if (oferta.monto_pendiente > 0) {
+            partes.push(`Pendiente ${formatMoney(oferta.monto_pendiente, "USD")}`);
+          }
+          setInfo({
+            clienteNombre: clienteNombre || oferta?.lead?.nombre,
+            titulo: oferta.nombre_oferta || oferta.nombre_automatico || partes[0],
+            detalle: partes.join(" · "),
+          });
+          setEstado("listo");
+        } else {
+          const solicitud = await PagoVentaService.getSolicitudByPagoId(origen.pagoId);
+          if (!solicitud) throw new Error("Solicitud no encontrada");
+          if (cancelado) return;
+          const partes: string[] = [];
+          if (typeof solicitud.precio_total === "number") {
+            partes.push(formatMoney(solicitud.precio_total, "USD"));
+          }
+          if (solicitud.saldo_pendiente > 0) {
+            partes.push(`Pendiente ${formatMoney(solicitud.saldo_pendiente, "USD")}`);
+          }
+          if (solicitud.estado) partes.push(solicitud.estado);
+          setInfo({
+            clienteNombre: solicitud?.cliente_venta?.nombre,
+            titulo: `Solicitud ${solicitud.codigo || solicitud.id}`,
+            detalle: partes.join(" · "),
+          });
+          setEstado("listo");
+        }
+      } catch {
+        if (!cancelado) setEstado("error");
+      }
+    })();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [origen]);
+
+  if (!origen) return null;
+
+  return (
+    <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
+      <p className="text-[10px] uppercase tracking-wider font-bold text-emerald-700 mb-1">
+        Oferta cobrada
+      </p>
+      {estado === "cargando" && (
+        <p className="text-sm text-emerald-700/70 flex items-center gap-1.5">
+          <RefreshCcw className="h-3.5 w-3.5 animate-spin" />
+          Buscando la oferta…
+        </p>
+      )}
+      {estado === "error" && (
+        <p className="text-sm text-slate-500">
+          No se pudo cargar la oferta vinculada a este movimiento.
+        </p>
+      )}
+      {estado === "listo" && info && (
+        <>
+          {info.clienteNombre && (
+            <p className="text-sm font-semibold text-slate-800">{info.clienteNombre}</p>
+          )}
+          <p className="text-sm text-slate-700">{info.titulo}</p>
+          {info.detalle && (
+            <p className="text-xs text-slate-500 mt-0.5">{info.detalle}</p>
+          )}
+          <Link
+            href={hrefParaOrigen(origen)}
+            className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:underline"
+          >
+            <ExternalLink className="h-3 w-3" />
+            Ver oferta del cliente
+          </Link>
+        </>
+      )}
+    </div>
+  );
+}
+
 function TransactionDetailsDialog({
   transaction,
   open,
@@ -803,6 +982,10 @@ function TransactionDetailsDialog({
             </p>
           </div>
 
+          {/* Si el ingreso vino de un cobro automático de oferta, muestra a
+              quién y qué oferta, en vez de solo el id en Ref (más abajo). */}
+          <OrigenOfertaInfo transaction={transaction} />
+
           {/* Comprobante (foto/documento) — se puede ver o adjuntar aquí mismo */}
           <ComprobanteAdjuntoSection transactionId={transaction.id} />
 
@@ -834,7 +1017,7 @@ function TransactionDetailsDialog({
                 {transaction.created_by_nombre} ({transaction.created_by_ci})
               </span>
             </p>
-            {transaction.referencia_externa && (
+            {transaction.referencia_externa && !parseOrigenTransaccion(transaction) && (
               <p>
                 Ref:{" "}
                 <span className="text-slate-600 font-mono">

@@ -322,6 +322,24 @@ export class PagoService {
   }
 
   /**
+   * Obtener un pago puntual por su id (ej. para resolver a qué oferta
+   * apunta un `referencia_externa` de tipo "pago:<id>" en una transacción
+   * de wallet).
+   */
+  static async getById(pagoId: string): Promise<Pago | null> {
+    try {
+      const response = await apiRequest<{ success: boolean; pago?: Pago | null }>(
+        `/pagos/${pagoId}`,
+        { method: "GET" },
+      );
+      return response.pago || null;
+    } catch (error: any) {
+      console.error("[PagoService] Error al obtener pago:", error);
+      return null;
+    }
+  }
+
+  /**
    * Obtener pagos de una oferta
    */
   static async getPagosByOferta(ofertaId: string): Promise<Pago[]> {

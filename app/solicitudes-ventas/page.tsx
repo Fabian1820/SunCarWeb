@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, Search, ShoppingCart, CreditCard, List, FileText, FilterX, FileSpreadsheet, Loader2 } from "lucide-react";
 import { Badge } from "@/components/shared/atom/badge";
 import { Button } from "@/components/shared/atom/button";
@@ -71,6 +72,8 @@ const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
 
 export default function SolicitudesVentasPage() {
   const { toast } = useToast();
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   // ── Tab state ──────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<TabId>("solicitudes");
@@ -504,6 +507,23 @@ const [exportingPagos, setExportingPagos]           = useState(false);
       toast({ title: "Error", description: "No se pudo cargar los detalles de la solicitud", variant: "destructive" });
     }
   };
+
+  // Deep-link desde Wallet: un ingreso automático por cobro de una solicitud
+  // de venta trae ?pagoVenta=<id> (solo se guardó el id del pago). Se
+  // resuelve una sola vez al montar y se limpia la URL.
+  useEffect(() => {
+    const pagoVentaId = searchParams.get("pagoVenta");
+    if (!pagoVentaId) return;
+    router.replace("/solicitudes-ventas");
+    (async () => {
+      const solicitud = await PagoVentaService.getSolicitudByPagoId(pagoVentaId);
+      if (solicitud) {
+        setSelectedSolicitud(solicitud);
+        setIsDetailDialogOpen(true);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // ── Handlers pagos ─────────────────────────────────────────────────────────
   const handlePagar = async (solicitud: SolicitudVentaSummary) => {

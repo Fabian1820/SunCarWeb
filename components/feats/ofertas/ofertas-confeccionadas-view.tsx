@@ -69,11 +69,13 @@ import {
   Copy,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { PagoService } from "@/lib/services/feats/pagos/pago-service";
 
 
 export function OfertasConfeccionadasView() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Listado paginado con filtros en backend
   const {
@@ -523,14 +525,33 @@ export function OfertasConfeccionadasView() {
     setMostrarDialogoEliminar(true);
   };
 
-  const abrirDetalle = async (oferta: OfertaListadoItem) => {
+  const abrirDetallePorId = async (ofertaId: string) => {
     setDetalleAbierto(true);
     setOfertaSeleccionada(null);
-    const completa = await fetchOfertaCompleta(oferta.id);
+    const completa = await fetchOfertaCompleta(ofertaId);
     if (completa) {
       setOfertaSeleccionada(completa);
     }
   };
+
+  const abrirDetalle = (oferta: OfertaListadoItem) => abrirDetallePorId(oferta.id);
+
+  // Deep-link desde Wallet: un ingreso automático por cobro de oferta trae
+  // ?pago=<id> en vez del id de la oferta (solo se guardó el id del pago).
+  // Se resuelve una sola vez al montar y se limpia la URL para no reabrir
+  // el diálogo si el usuario navega hacia atrás.
+  useEffect(() => {
+    const pagoId = searchParams.get("pago");
+    if (!pagoId) return;
+    router.replace("/ofertas-gestion/ver-ofertas-confeccionadas");
+    (async () => {
+      const pago = await PagoService.getById(pagoId);
+      if (pago?.oferta_id) {
+        await abrirDetallePorId(pago.oferta_id);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const confirmarEliminar = async () => {
     if (!ofertaParaEliminar) return;

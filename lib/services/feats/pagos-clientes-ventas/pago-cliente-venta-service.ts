@@ -163,6 +163,23 @@ export class PagoVentaService {
     return normalizePago(res?.data ?? res);
   }
 
+  /**
+   * Solicitud de venta a la que pertenece un pago (para resolver a qué
+   * cliente/solicitud apunta un `referencia_externa` de tipo
+   * "pago_venta:<id>" en una transacción de wallet).
+   */
+  static async getSolicitudByPagoId(id: string): Promise<any | null> {
+    try {
+      const res: any = await apiRequest(
+        `${BASE}/${encodeURIComponent(id)}/solicitud-venta`,
+      );
+      if (res?.error?.message || res?.detail) return null;
+      return res?.data ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   static async registrarPago(data: PagoVentaCreateData): Promise<PagoVenta> {
     const res: any = await apiRequest(`${BASE}/`, {
       method: "POST",
