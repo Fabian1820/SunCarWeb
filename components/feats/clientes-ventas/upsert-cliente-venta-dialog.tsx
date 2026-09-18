@@ -102,14 +102,14 @@ export function UpsertClienteVentaDialog({
       .finally(() => setLoadingProvincias(false));
   }, [open]);
 
-  // Cargar trabajadores con cargo Comercial Ventas
+  // Cargar trabajadores con cargo Comercial Ventas o Técnico Comercial
   useEffect(() => {
     if (!open) return;
     setLoadingComerciales(true);
     apiRequest<{ data: { CI: string; nombre: string; cargo?: string }[] }>("/trabajadores/")
       .then((res) => {
         const lista = (res.data || []).filter(
-          (t) => t.cargo === "Comercial Ventas",
+          (t) => t.cargo === "Comercial Ventas" || t.cargo === "Técnico Comercial",
         );
         setComerciales(lista);
       })
