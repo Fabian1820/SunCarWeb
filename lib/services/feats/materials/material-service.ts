@@ -252,14 +252,92 @@ export class MaterialService {
     return productoId;
   }
 
+  /**
+   * `POST /productos/` y `PUT /productos/{id}` leen `categoria` y `materiales`
+   * como campos de formulario (Form), no como JSON: enviados como JSON el
+   * backend no ve ningún campo y responde 422/400.
+   */
+  private static productoFormData(
+    categoria?: string,
+    materiales?: any[],
+  ): FormData {
+    const fd = new FormData();
+    if (categoria !== undefined && categoria !== null) {
+      fd.append("categoria", categoria);
+    }
+    if (materiales !== undefined && materiales !== null) {
+      fd.append("materiales", JSON.stringify(materiales));
+    }
+    return fd;
+  }
+
+  /** `apiRequest` devuelve `success:false` (sin lanzar) ante un 4xx/5xx con `detail`. */
+  private static exigirExito(result: any, fallback: string) {
+    if (result?.success === false) {
+      throw new Error(
+        (typeof result?.detail === "string" ? result.detail : "") ||
+          result?.error?.message ||
+          result?.message ||
+          fallback,
+      );
+    }
+  }
+
+  /**
+   * Cambia un material de categoría moviendo el documento íntegro en el
+   * backend: conserva material_id, precios, costo y campos contables.
+   */
+  static async moverMaterialDeCategoria(
+    materialId: string,
+    productoDestinoId: string,
+  ): Promise<void> {
+    const result = await apiRequest<any>(
+      `/productos/materiales/${encodeURIComponent(materialId)}/mover`,
+      {
+        method: "POST",
+        body: JSON.stringify({ producto_destino_id: productoDestinoId }),
+      },
+    );
+    MaterialService.exigirExito(
+      result,
+      "No se pudo mover el material de categoría",
+    );
+  }
+
+  /**
+   * Mueve el material a otro producto y después aplica los cambios del
+   * formulario sobre el documento ya movido. Si el formulario no cambió nada
+   * más que la categoría, el backend responde "sin cambios" y no es un error.
+   */
+  static async moverYEditarMaterial(
+    materialId: string,
+    productoDestinoId: string,
+    cambios: Parameters<typeof MaterialService.editMaterialInProduct>[2],
+  ): Promise<void> {
+    await MaterialService.moverMaterialDeCategoria(materialId, productoDestinoId);
+    try {
+      await MaterialService.editMaterialInProduct(
+        productoDestinoId,
+        materialId,
+        cambios,
+      );
+    } catch (err: any) {
+      if (/sin cambios/i.test(String(err?.message ?? ""))) return;
+      throw new Error(
+        `El material se movió de categoría, pero no se guardaron los demás cambios: ${err?.message ?? err}`,
+      );
+    }
+  }
+
   static async createProduct(
     categoria: string,
     materiales: any[] = [],
   ): Promise<string> {
     const result = await apiRequest<any>("/productos/", {
       method: "POST",
-      body: JSON.stringify({ categoria, materiales }),
+      body: MaterialService.productoFormData(categoria, materiales),
     });
+    MaterialService.exigirExito(result, "No se pudo crear la categoría");
     let productoId =
       result?.producto_id ||
       result?.id ||
@@ -540,11 +618,12 @@ export class MaterialService {
   ): Promise<string> {
     const result = await apiRequest<any>("/productos/", {
       method: "POST",
-      body: JSON.stringify({
-        categoria: data.categoria,
-        materiales: data.materiales || [],
-      }),
+      body: MaterialService.productoFormData(
+        data.categoria,
+        data.materiales || [],
+      ),
     });
+    MaterialService.exigirExito(result, "No se pudo crear la categoría");
     let productoId =
       result?.producto_id ||
       result?.id ||
@@ -569,14 +648,18 @@ export class MaterialService {
       success?: boolean;
       message?: string;
       error?: string;
+      detail?: unknown;
     }>(`/productos/${productoId}`, {
       method: "PUT",
-      body: JSON.stringify(data),
+      body: MaterialService.productoFormData(data.categoria),
     });
 
     if (result?.success === false || result?.error) {
       throw new Error(
-        result.error || result.message || "Error al actualizar categoría",
+        (typeof result.detail === "string" ? result.detail : "") ||
+          (typeof result.error === "string" ? result.error : "") ||
+          result.message ||
+          "Error al actualizar categoría",
       );
     }
 

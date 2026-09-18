@@ -28,6 +28,22 @@ import type {
   MaterialStockPorAlmacenItem,
   AlmacenDisponibleItem,
 } from "../../../inventario-types";
+
+/**
+ * `apiRequest` no lanza ante un 4xx/5xx de FastAPI con `detail`: devuelve el
+ * cuerpo con `success: false`. Sin esta comprobación la pantalla muestra el
+ * aviso de éxito aunque el backend haya rechazado la operación.
+ */
+const exigirExito = (response: any, fallback: string) => {
+  if (response?.success === false) {
+    throw new Error(
+      response?.error?.message ||
+        response?.message ||
+        (typeof response?.detail === "string" ? response.detail : "") ||
+        fallback,
+    );
+  }
+};
 import type {
   PoolStockKey,
   StockPools,
@@ -522,6 +538,7 @@ export class InventarioService {
       method: "POST",
       body: JSON.stringify(data),
     });
+    exigirExito(response, "No se pudo crear el almacén");
     return this.normalizeAlmacen(extractItem<any>(response));
   }
 
@@ -796,6 +813,7 @@ export class InventarioService {
       method: "POST",
       body: JSON.stringify(payload),
     });
+    exigirExito(response, "No se pudo registrar el lote");
 
     return this.normalizeMovimientoLoteResumen(response);
   }
@@ -813,15 +831,20 @@ export class InventarioService {
     material_id: string;
     ubicacion_en_almacen: string | null;
   }): Promise<void> {
-    await apiRequest<any>("/inventario/stock/ubicacion", {
+    const response = await apiRequest<any>("/inventario/stock/ubicacion", {
       method: "PATCH",
       body: JSON.stringify(data),
     });
+    exigirExito(response, "No se pudo actualizar la ubicación");
   }
 
-  static async getMaterialesBajoMinimo(): Promise<MaterialesBajoMinimoResponse> {
+  static async getMaterialesBajoMinimo(params?: {
+    /** El backend excluye las alertas silenciadas por defecto. */
+    incluir_ignoradas?: boolean;
+  }): Promise<MaterialesBajoMinimoResponse> {
+    const suffix = params?.incluir_ignoradas ? "?incluir_ignoradas=true" : "";
     const response = await apiRequest<MaterialesBajoMinimoResponse>(
-      "/inventario/materiales-bajo-minimo"
+      `/inventario/materiales-bajo-minimo${suffix}`
     );
     return response;
   }

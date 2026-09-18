@@ -90,7 +90,9 @@ export function useAlertasStock() {
     setError(null);
     try {
       const [respBajos, listaIgnoradas, mapaActivas] = await Promise.all([
-        InventarioService.getMaterialesBajoMinimo(),
+        // Con las ignoradas incluidas: sin ellas «Ver ignoradas» sale vacía y
+        // no hay fila desde la que reactivar. El filtro de abajo las separa.
+        InventarioService.getMaterialesBajoMinimo({ incluir_ignoradas: true }),
         SolicitudEnvioService.listAlertasIgnoradas(),
         SolicitudEnvioService.materialesEnSolicitudActiva(),
       ]);

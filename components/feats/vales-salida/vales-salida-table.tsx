@@ -148,6 +148,9 @@ export function ValesSalidaTable({
           {vales.map((vale) => {
             const solicitudTipo = getSolicitudTipo(vale);
             const isAnulado = vale.estado === "anulado";
+            // Anular repone la cantidad íntegra; con todo ya devuelto la
+            // repondría dos veces (el backend también lo rechaza).
+            const isDevuelto = vale.estado === "devuelto";
             const tipoStyles = getTipoStyles(solicitudTipo);
             return (
               <tr
@@ -328,9 +331,13 @@ export function ValesSalidaTable({
                         onClick={() => onAnular(vale)}
                         className="border-red-300 text-red-700 hover:bg-red-50"
                         title={
-                          isAnulado ? "El vale ya esta anulado" : "Anular vale"
+                          isAnulado
+                            ? "El vale ya esta anulado"
+                            : isDevuelto
+                              ? "El vale ya fue devuelto; no se puede anular"
+                              : "Anular vale"
                         }
-                        disabled={isAnulado}
+                        disabled={isAnulado || isDevuelto}
                       >
                         <Ban className="h-4 w-4" />
                       </Button>

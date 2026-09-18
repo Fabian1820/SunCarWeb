@@ -720,8 +720,10 @@ export function CreateValeSalidaDialog({
                     </div>
                     {selectedHasStockAlerts ? (
                       <p className="mt-2 text-xs font-medium text-red-700">
-                        Esta solicitud tiene materiales con stock insuficiente.
-                        Es una alerta visual, el vale se puede crear igual.
+                        Esta solicitud tiene materiales con stock insuficiente
+                        (stock del sector más el común, descontadas las
+                        reservas). El sistema rechazará el vale hasta que
+                        ajustes esas cantidades o entre stock.
                       </p>
                     ) : null}
                   </div>

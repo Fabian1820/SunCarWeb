@@ -122,6 +122,35 @@ export class SolicitudEntradaAlmacenService {
     }
   }
 
+  /**
+   * Todas las solicitudes que cumplen el filtro, recorriendo las páginas.
+   * Sin paginar, el backend devuelve solo las 50 más recientes de todo el
+   * sistema y el filtro por almacén/estado en cliente se quedaba corto.
+   * A diferencia de getSolicitudes, lanza si falla en vez de devolver [].
+   */
+  static async getTodasSolicitudes(
+    params?: Omit<ListSolicitudesParams, "skip" | "limit">,
+  ): Promise<SolicitudEntradaAlmacen[]> {
+    const PAGE = 200; // máximo que admite el backend
+    const todas: SolicitudEntradaAlmacen[] = [];
+    for (let skip = 0; skip < 20_000; skip += PAGE) {
+      const raw = await apiRequest<any>(
+        `${COLLECTION_ENDPOINT}${buildQuery({ ...params, skip, limit: PAGE })}`,
+      );
+      const error = extractApiError(raw);
+      if (error) throw new Error(error);
+      const payload = unwrapPayload(raw);
+      const list = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.solicitudes)
+          ? payload.solicitudes
+          : [];
+      todas.push(...list.map(mapSolicitud));
+      if (list.length < PAGE) break;
+    }
+    return todas;
+  }
+
   static async getSolicitudById(solicitudId: string): Promise<SolicitudEntradaAlmacen | null> {
     if (!solicitudId.trim()) return null;
     try {

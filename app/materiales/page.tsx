@@ -211,7 +211,39 @@ export default function MaterialesPage() {
     const categoriaChanged = categoriaOriginal !== categoria;
 
     try {
-      if (categoriaChanged) {
+      if (categoriaChanged && editingMaterial?.material_id) {
+        // Mover el documento íntegro conserva material_id, precios y costo;
+        // "eliminar + agregar" lo reconstruía desde el formulario y los perdía.
+        const productoNuevoId =
+          catalogs.find((c) => c.categoria === categoria)?.id ||
+          (await createCategory(categoria));
+        const { MaterialService } =
+          await import("@/lib/services/feats/materials/material-service");
+        await MaterialService.moverYEditarMaterial(
+          editingMaterial.material_id,
+          productoNuevoId,
+          {
+            codigo,
+            descripcion,
+            um,
+            nombre,
+            foto,
+            marca_id,
+            potenciaKW,
+            ubicacion_en_almacen: ubicacion_en_almacen?.trim() || null,
+            comentario: comentario?.trim() || null,
+            habilitar_venta_web,
+            especificaciones,
+            ficha_tecnica_url: ficha_tecnica_url || null,
+            numero_serie: numero_serie?.trim() || null,
+          },
+        );
+        await refetch();
+        toast({
+          title: "Éxito",
+          description: "Material movido a nueva categoría exitosamente",
+        });
+      } else if (categoriaChanged) {
         // Si cambió la categoría, eliminar de la antigua y agregar a la nueva
         console.log(
           "[updateMaterial] Categoría cambió de",

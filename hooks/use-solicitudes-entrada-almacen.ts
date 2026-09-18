@@ -54,7 +54,7 @@ export function useSolicitudesEntradaAlmacen(): UseSolicitudesEntradaAlmacenRetu
     setLoading(true);
     setError(null);
     try {
-      const data = await SolicitudEntradaAlmacenService.getSolicitudes();
+      const data = await SolicitudEntradaAlmacenService.getTodasSolicitudes();
       setSolicitudes(
         [...data].sort((a, b) => {
           const dateA = new Date(a.fecha_creacion || 0).getTime();

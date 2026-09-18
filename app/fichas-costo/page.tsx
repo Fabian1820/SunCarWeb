@@ -274,7 +274,21 @@ function FichasCostoPageContent() {
     }
 
     try {
-      if (categoriaChanged) {
+      if (categoriaChanged && editingMaterial?.material_id) {
+        // Mover el documento íntegro conserva material_id, precios y costo
+        // (el costo tampoco se edita desde aquí: va por kardex).
+        const productoNuevoId =
+          catalogs.find((c) => c.categoria === categoria)?.id ||
+          (await createCategory(categoria))
+        const { MaterialService } = await import("@/lib/services/feats/materials/material-service")
+        const payloadSinCosto = { ...payload }
+        delete (payloadSinCosto as any).costo
+        await MaterialService.moverYEditarMaterial(
+          editingMaterial.material_id,
+          productoNuevoId as string,
+          payloadSinCosto as any,
+        )
+      } else if (categoriaChanged) {
         await deleteMaterialByCodigo(materialCodigo, categoriaOriginal)
         let productoNuevo = catalogs.find((c) => c.categoria === categoria)
         let productoNuevoId = productoNuevo?.id
