@@ -217,6 +217,8 @@ export interface Cliente {
    */
   equipos?: EquipoCliente[] | null;
   equipos_actualizado_en?: string | null;
+  /** Ofertas cuyos equipos ya están en la ficha (instaladas). */
+  equipos_ofertas_registradas?: string[] | null;
   es_trabajador_suncar?: boolean;
   activo?: boolean;
 }

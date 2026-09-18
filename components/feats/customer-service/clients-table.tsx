@@ -109,8 +109,8 @@ import { extraerComponentesDeOfertaConfeccion } from "@/lib/utils/oferta-confecc
 import { ESTADOS_CLIENTE } from "@/lib/constants/estados-cliente";
 import {
   EquiposClienteCell,
-  esClienteInstalado,
   lineasActivas,
+  ofertasPendientesDeInstalar,
   resumenCambios,
   type LineaEquipo,
 } from "@/components/feats/customer/equipos-cliente-cell";
@@ -792,11 +792,11 @@ export function ClientsTable({
   // Ficha actualizada tras un cambio en el diálogo, por número de cliente: la
   // lista llega por props y no se recarga, así que la fila se pinta con esto.
   const [equiposActualizados, setEquiposActualizados] = useState<
-    Record<string, EquipoCliente[]>
+    Record<string, { equipos: EquipoCliente[]; pendientes: number }>
   >({});
   const onCambioEquipos = useCallback(
-    (numero: string, equipos: EquipoCliente[]) =>
-      setEquiposActualizados((prev) => ({ ...prev, [numero]: equipos })),
+    (numero: string, equipos: EquipoCliente[], pendientes: number) =>
+      setEquiposActualizados((prev) => ({ ...prev, [numero]: { equipos, pendientes } })),
     [],
   );
   const [showClientLocation, setShowClientLocation] = useState(false);
@@ -4365,7 +4365,16 @@ export function ClientsTable({
                             // Con ficha de equipos se pinta lo que el cliente tiene hoy; sin
                             // ella (aún no migrado, o sin instalar) lo que dice su oferta,
                             // rotulado como tal para no presentarlo como algo ya instalado.
-                            const ficha = equiposActualizados[client.numero] ?? client.equipos ?? null;
+                            const actualizado = equiposActualizados[client.numero];
+                            const ficha = actualizado?.equipos ?? client.equipos ?? null;
+                            // Ofertas confirmadas que aún no están en la ficha: una
+                            // ampliación por poner, o todo si nunca se instaló.
+                            const pendientes =
+                              actualizado?.pendientes ??
+                              ofertasPendientesDeInstalar(
+                                client.oferta_confeccion,
+                                client.equipos_ofertas_registradas,
+                              );
                             const tieneFicha = !!ficha && ficha.length > 0;
                             let lineas: LineaEquipo[] = [];
 
@@ -4420,23 +4429,25 @@ export function ClientsTable({
                             return (
                               <EquiposClienteCell
                                 lineas={lineas}
-                                // Sin instalar, lo que se ve es lo contratado, tenga o no
-                                // ficha. "Según oferta" queda para el raro caso de un
-                                // instalado al que aún no se le creó la ficha.
-                                segunOferta={!tieneFicha && esClienteInstalado(client.estado)}
-                                pendienteInstalar={!esClienteInstalado(client.estado)}
+                                // Se decide por oferta, no por el estado del cliente: un
+                                // instalado vuelve a "Pendiente" al ampliar y su equipo
+                                // sigue puesto.
+                                aviso={
+                                  tieneFicha
+                                    ? pendientes > 0
+                                      ? `${pendientes} oferta${pendientes > 1 ? "s" : ""} pendiente${pendientes > 1 ? "s" : ""} de instalar`
+                                      : null
+                                    : pendientes > 0
+                                      ? "Contratado · pendiente de instalar"
+                                      : lineas.length > 0
+                                        ? "Según oferta · sin ficha de equipos"
+                                        : null
+                                }
                                 ultimoCambio={cambios?.fecha}
                                 totalMovimientos={cambios?.movimientos}
-                                onVerDetalle={
-                                  // Se abre si hay algo que enseñar: su ficha, lo contratado
-                                  // en sus ofertas confirmadas, o una ficha vacía si ya está
-                                  // instalado, para cargarle el equipo a mano.
-                                  tieneFicha ||
-                                  esClienteInstalado(client.estado) ||
-                                  (client.oferta_confeccion?.total_confirmadas ?? 0) > 0
-                                    ? () => setClienteEquipos(client)
-                                    : undefined
-                                }
+                                // Siempre editable: aunque los datos no digan que está
+                                // instalado, quien lo sabe puede cargarlo o marcarlo.
+                                onVerDetalle={() => setClienteEquipos(client)}
                                 encabezado={
                                   <ResumenCapacidadEquipos
                                     capacidad={client.capacidad_equipos}

@@ -16,9 +16,14 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/shared/molecule/dialog"
+import { Input } from "@/components/shared/molecule/input"
+import { Label } from "@/components/shared/atom/label"
+import { Textarea } from "@/components/shared/molecule/textarea"
+import { useToast } from "@/hooks/use-toast"
 import { Badge } from "@/components/shared/atom/badge"
 import { Button } from "@/components/shared/atom/button"
 import {
@@ -37,7 +42,7 @@ import {
 import type { EquipoCliente, MovimientoEquipoCliente } from "@/lib/api-types"
 import {
   EquiposClienteService,
-  type ModoVistaEquipos,
+  type OfertaPendienteInstalar,
 } from "@/lib/services/feats/customer/equipos-cliente-service"
 import { CATEGORIA_EQUIPO_UI, formatFechaCorta } from "./equipos-cliente-cell"
 import { EquipoAccionDialog, FotoMaterial, type ModoAccionEquipo } from "./equipo-cliente-accion-dialog"
@@ -66,24 +71,6 @@ const MOTIVO_LABEL: Record<MovimientoEquipoCliente["motivo"], string> = {
 
 const num = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2))
 const signo = (n: number) => (n > 0 ? `+${num(n)}` : num(n))
-
-const normalizar = (s?: string | null) =>
-  (s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim()
-
-/**
- * Qué se puede afirmar del equipo según el estado del cliente. Un cliente
- * pendiente de instalación tiene el equipo contratado, no puesto: decir "tiene"
- * es falso para él.
- */
-function tituloSegunEstado(estado?: string | null): { titulo: string; instalado: boolean } {
-  const e = normalizar(estado)
-  if (e === "equipo instalado con exito") return { titulo: "Tiene instalado", instalado: true }
-  if (e === "instalacion en proceso") return { titulo: "Contratado · instalación en proceso", instalado: false }
-  if (e === "pendiente de instalacion" || e === "esperando equipo")
-    return { titulo: "Contratado · pendiente de instalar", instalado: false }
-  if (e === "no interesado") return { titulo: "Contratado · cliente no interesado", instalado: false }
-  return { titulo: "Equipos", instalado: false }
-}
 
 const ordenar = (equipos: EquipoCliente[]) =>
   [...equipos].sort(
@@ -373,9 +360,11 @@ interface EquiposClienteDialogProps {
   clienteNumero: string | null
   clienteNombre?: string | null
   clienteEstado?: string | null
-  /** Tras un cambio, la ficha nueva: la tabla la usa para refrescar la fila. */
-  onCambio?: (numero: string, equipos: EquipoCliente[]) => void
+  /** Tras un cambio: la ficha nueva y cuántas ofertas siguen pendientes, para la fila de la tabla. */
+  onCambio?: (numero: string, equipos: EquipoCliente[], pendientes: number) => void
 }
+
+const hoyISO = () => new Date().toISOString().slice(0, 10)
 
 export function EquiposClienteDialog({
   open,
@@ -385,12 +374,17 @@ export function EquiposClienteDialog({
   clienteEstado,
   onCambio,
 }: EquiposClienteDialogProps) {
+  const { toast } = useToast()
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [equipos, setEquipos] = useState<EquipoCliente[]>([])
+  const [pendientes, setPendientes] = useState<OfertaPendienteInstalar[]>([])
   const [historial, setHistorial] = useState<MovimientoEquipoCliente[]>([])
-  const [modo, setModo] = useState<ModoVistaEquipos>("ficha")
   const [accion, setAccion] = useState<{ modo: ModoAccionEquipo; equipo: EquipoCliente | null } | null>(null)
+  const [aInstalar, setAInstalar] = useState<OfertaPendienteInstalar | null>(null)
+  const [fechaInstalada, setFechaInstalada] = useState(hoyISO())
+  const [notaInstalada, setNotaInstalada] = useState("")
+  const [instalando, setInstalando] = useState(false)
 
   const cargar = useCallback(
     async (avisarCambio: boolean) => {
@@ -398,16 +392,17 @@ export function EquiposClienteDialog({
       setCargando(true)
       setError(null)
       try {
-        const [resEquipos, movimientos] = await Promise.all([
+        const [vista, movimientos] = await Promise.all([
           EquiposClienteService.getEquipos(clienteNumero),
           EquiposClienteService.getHistorial(clienteNumero),
         ])
-        setEquipos(resEquipos.equipos)
-        setModo(resEquipos.modo)
+        setEquipos(vista.equipos)
+        setPendientes(vista.pendientes)
         setHistorial(movimientos)
-        if (avisarCambio) onCambio?.(clienteNumero, resEquipos.equipos)
+        if (avisarCambio) onCambio?.(clienteNumero, vista.equipos, vista.pendientes.length)
       } catch (err: unknown) {
         setEquipos([])
+        setPendientes([])
         setHistorial([])
         setError(err instanceof Error ? err.message : "No se pudieron cargar los equipos")
       } finally {
@@ -421,9 +416,31 @@ export function EquiposClienteDialog({
     if (open) void cargar(false)
   }, [open, cargar])
 
-  const { titulo } = tituloSegunEstado(clienteEstado)
+  const confirmarInstalada = async () => {
+    if (!clienteNumero || !aInstalar) return
+    setInstalando(true)
+    try {
+      await EquiposClienteService.instalarOferta(clienteNumero, aInstalar.ofertaId, {
+        fecha_efectiva: fechaInstalada ? `${fechaInstalada}T12:00:00Z` : null,
+        nota: notaInstalada.trim() || null,
+      })
+      toast({ title: `${aInstalar.numeroOferta ?? "La oferta"} pasó a la ficha` })
+      setAInstalar(null)
+      await cargar(true)
+    } catch (err) {
+      toast({
+        title: "No se marcó como instalada",
+        description: err instanceof Error ? err.message : String(err),
+        variant: "destructive",
+      })
+    } finally {
+      setInstalando(false)
+    }
+  }
+
   const activos = ordenar(equipos.filter((e) => e.estado === "activo" && e.cantidad_actual > 0))
   const fuera = ordenar(equipos.filter((e) => !(e.estado === "activo" && e.cantidad_actual > 0)))
+  const hayAlgo = activos.length > 0 || fuera.length > 0 || pendientes.length > 0
 
   return (
     <>
@@ -439,7 +456,7 @@ export function EquiposClienteDialog({
                   {clienteEstado ? ` · ${clienteEstado}` : ""}
                 </DialogDescription>
               </div>
-              {!cargando && !error && modo === "ficha" && (
+              {!cargando && !error && (
                 <Button size="sm" onClick={() => setAccion({ modo: "agregar", equipo: null })}>
                   <Plus className="mr-1 h-4 w-4" />
                   Agregar equipo
@@ -464,26 +481,54 @@ export function EquiposClienteDialog({
 
           {!cargando && !error && (
             <div className="space-y-5">
-              <section>
-                <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">{titulo}</h4>
-                {activos.length > 0 ? (
+              {/* Lo instalado: las ofertas que ya entraron en la ficha, más lo cargado a mano. */}
+              {(activos.length > 0 || pendientes.length === 0) && (
+                <section>
+                  <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                    Tiene instalado
+                  </h4>
+                  {activos.length > 0 ? (
+                    <ul className="space-y-1.5">
+                      {activos.map((e) => (
+                        <FilaEquipo key={e.equipo_key} equipo={e} onAccion={(m) => setAccion({ modo: m, equipo: e })} />
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-gray-400">
+                      Sin equipos registrados. Usa «Agregar equipo» para cargar lo que tiene.
+                    </p>
+                  )}
+                </section>
+              )}
+
+              {/* Cada oferta confirmada que aún no entró: una ampliación por poner, o todo si
+                  nunca se instaló. Se decide por oferta, no por el estado del cliente. */}
+              {pendientes.map((p) => (
+                <section key={p.ofertaId}>
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <h4 className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                      Pendiente de instalar{p.numeroOferta ? ` · ${p.numeroOferta}` : ""}
+                    </h4>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs"
+                      onClick={() => {
+                        setFechaInstalada(hoyISO())
+                        setNotaInstalada("")
+                        setAInstalar(p)
+                      }}
+                    >
+                      Marcar como instalada
+                    </Button>
+                  </div>
                   <ul className="space-y-1.5">
-                    {activos.map((e) => (
-                      <FilaEquipo
-                        key={e.equipo_key}
-                        equipo={e}
-                        onAccion={modo === "ficha" ? (m) => setAccion({ modo: m, equipo: e }) : undefined}
-                      />
+                    {ordenar(p.equipos).map((e) => (
+                      <FilaEquipo key={`${p.ofertaId}-${e.equipo_key}`} equipo={e} />
                     ))}
                   </ul>
-                ) : (
-                  <p className="text-sm text-gray-400">
-                    {modo === "contratado"
-                      ? "Sus ofertas confirmadas no incluyen equipos."
-                      : "Sin equipos registrados. Usa «Agregar equipo» para cargar lo que tiene."}
-                  </p>
-                )}
-              </section>
+                </section>
+              ))}
 
               {fuera.length > 0 && (
                 <section>
@@ -492,11 +537,7 @@ export function EquiposClienteDialog({
                   </h4>
                   <ul className="space-y-1.5">
                     {fuera.map((e) => (
-                      <FilaEquipo
-                        key={e.equipo_key}
-                        equipo={e}
-                        onAccion={modo === "ficha" ? (m) => setAccion({ modo: m, equipo: e }) : undefined}
-                      />
+                      <FilaEquipo key={e.equipo_key} equipo={e} onAccion={(m) => setAccion({ modo: m, equipo: e })} />
                     ))}
                   </ul>
                 </section>
@@ -504,15 +545,20 @@ export function EquiposClienteDialog({
 
               <section>
                 <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Historial</h4>
-                {modo === "contratado" ? (
+                {historial.length === 0 && pendientes.length > 0 ? (
                   <p className="text-xs text-gray-400">
-                    El historial empieza cuando se instale. Hasta entonces esto es lo que dicen sus
-                    ofertas confirmadas: si cambian, cambia aquí.
+                    El historial empieza cuando se instale una oferta.
                   </p>
                 ) : (
                   <Historial movimientos={historial} />
                 )}
               </section>
+
+              {!hayAlgo && (
+                <p className="text-xs text-gray-400">
+                  Este cliente no tiene ofertas confirmadas ni equipos registrados.
+                </p>
+              )}
             </div>
           )}
         </DialogContent>
@@ -527,9 +573,51 @@ export function EquiposClienteDialog({
           modo={accion.modo}
           equipo={accion.equipo}
           clienteNumero={clienteNumero}
+          hayOfertasPendientes={pendientes.length > 0}
           onHecho={() => void cargar(true)}
         />
       )}
+
+      <Dialog open={!!aInstalar} onOpenChange={(o) => !o && setAInstalar(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Marcar como instalada</DialogTitle>
+            <DialogDescription>
+              Los equipos de {aInstalar?.numeroOferta ?? "esta oferta"} pasan a la ficha del cliente
+              y empiezan a contar en su historial.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Fecha en que se instaló</Label>
+              <Input
+                type="date"
+                value={fechaInstalada}
+                max={hoyISO()}
+                onChange={(e) => setFechaInstalada(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Nota</Label>
+              <Textarea
+                rows={2}
+                value={notaInstalada}
+                onChange={(e) => setNotaInstalada(e.target.value)}
+                placeholder="Opcional: cómo se supo, qué se comprobó"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setAInstalar(null)} disabled={instalando}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmarInstalada} disabled={instalando}>
+              {instalando && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Marcar como instalada
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
