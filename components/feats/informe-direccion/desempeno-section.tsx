@@ -34,6 +34,7 @@ import { Button } from "@/components/shared/atom/button";
 import { MonthPicker } from "@/components/shared/molecule/month-picker";
 import { InformeDireccionService } from "@/lib/services/feats/informe-direccion/informe-direccion-service";
 import type { MesDesempeno } from "@/lib/types/feats/informe-direccion/informe-direccion-types";
+import { ManualDesempeno } from "@/components/feats/informe-direccion/manual-uso-dialog";
 
 /* ── Métricas ─────────────────────────────────────────────────────────── */
 
@@ -1058,12 +1059,15 @@ export function DesempenoSection({
             <RefreshCw className="h-4 w-4" />
           )}
         </Button>
-        {enCurso && (
-          <span className="ml-auto rounded-full bg-[#FDF5DC] px-2.5 py-1 text-xs font-semibold text-[#5C4300]">
-            {nombreMes(actual!.mes, true)} va en curso: se compara con meses
-            completos
-          </span>
-        )}
+        <div className="ml-auto flex items-center gap-2">
+          {enCurso && (
+            <span className="rounded-full bg-[#FDF5DC] px-2.5 py-1 text-xs font-semibold text-[#5C4300]">
+              {nombreMes(actual!.mes, true)} va en curso: se compara con meses
+              completos
+            </span>
+          )}
+          <ManualDesempeno />
+        </div>
       </div>
 
       {error && !datos && (
