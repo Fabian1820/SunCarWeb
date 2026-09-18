@@ -4411,15 +4411,20 @@ export function ClientsTable({
                             return (
                               <EquiposClienteCell
                                 lineas={lineas}
-                                segunOferta={!tieneFicha}
-                                pendienteInstalar={tieneFicha && !esClienteInstalado(client.estado)}
+                                // Sin instalar, lo que se ve es lo contratado, tenga o no
+                                // ficha. "Según oferta" queda para el raro caso de un
+                                // instalado al que aún no se le creó la ficha.
+                                segunOferta={!tieneFicha && esClienteInstalado(client.estado)}
+                                pendienteInstalar={!esClienteInstalado(client.estado)}
                                 ultimoCambio={cambios?.fecha}
                                 totalMovimientos={cambios?.movimientos}
                                 onVerDetalle={
-                                  // Sin ficha solo se abre si ya está instalado, para cargarle el
-                                  // equipo a mano. A un pendiente se la crea la instalación; un alta
-                                  // manual antes se sumaría a la que trae la oferta.
-                                  tieneFicha || esClienteInstalado(client.estado)
+                                  // Se abre si hay algo que enseñar: su ficha, lo contratado
+                                  // en sus ofertas confirmadas, o una ficha vacía si ya está
+                                  // instalado, para cargarle el equipo a mano.
+                                  tieneFicha ||
+                                  esClienteInstalado(client.estado) ||
+                                  (client.oferta_confeccion?.total_confirmadas ?? 0) > 0
                                     ? () => setClienteEquipos(client)
                                     : undefined
                                 }

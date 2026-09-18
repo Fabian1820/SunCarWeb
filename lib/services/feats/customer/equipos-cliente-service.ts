@@ -13,7 +13,15 @@ type Respuesta<T> = {
   detail?: unknown;
   data?: T;
   capacidad_equipos?: Omit<CapacidadEquipos, "fuente">;
+  modo?: ModoVistaEquipos;
 };
+
+/**
+ * `ficha`: lo que el cliente tiene puesto, con historial y acciones.
+ * `contratado`: cliente sin instalar; lo de sus ofertas confirmadas, en vivo y
+ * de solo lectura. La ficha nace al instalar.
+ */
+export type ModoVistaEquipos = "ficha" | "contratado";
 
 /**
  * `apiRequest` no lanza ante un 404 o 400 de FastAPI: devuelve el cuerpo con
@@ -69,14 +77,22 @@ export class EquiposClienteService {
   static async getEquipos(
     numero: string,
     incluirRetirados = true,
-  ): Promise<{ equipos: EquipoCliente[]; capacidad: Omit<CapacidadEquipos, "fuente"> | null }> {
+  ): Promise<{
+    equipos: EquipoCliente[];
+    capacidad: Omit<CapacidadEquipos, "fuente"> | null;
+    modo: ModoVistaEquipos;
+  }> {
     const res = exigirExito(
       await apiRequest<Respuesta<EquipoCliente[]>>(
         `${base(numero)}?incluir_retirados=${incluirRetirados}`,
       ),
       "obtener los equipos del cliente",
     );
-    return { equipos: res.data ?? [], capacidad: res.capacidad_equipos ?? null };
+    return {
+      equipos: res.data ?? [],
+      capacidad: res.capacidad_equipos ?? null,
+      modo: res.modo ?? "ficha",
+    };
   }
 
   /** Movimientos del más reciente al más antiguo. */

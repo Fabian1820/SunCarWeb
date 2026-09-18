@@ -35,7 +35,10 @@ import {
   TooltipTrigger,
 } from "@/components/shared/molecule/tooltip"
 import type { EquipoCliente, MovimientoEquipoCliente } from "@/lib/api-types"
-import { EquiposClienteService } from "@/lib/services/feats/customer/equipos-cliente-service"
+import {
+  EquiposClienteService,
+  type ModoVistaEquipos,
+} from "@/lib/services/feats/customer/equipos-cliente-service"
 import { CATEGORIA_EQUIPO_UI, formatFechaCorta } from "./equipos-cliente-cell"
 import { EquipoAccionDialog, FotoMaterial, type ModoAccionEquipo } from "./equipo-cliente-accion-dialog"
 
@@ -184,7 +187,8 @@ function FilaEquipo({
   onAccion,
 }: {
   equipo: EquipoCliente
-  onAccion: (modo: ModoAccionEquipo) => void
+  /** Sin él la fila es de solo lectura: lo contratado no se edita aquí, sino en la oferta. */
+  onAccion?: (modo: ModoAccionEquipo) => void
 }) {
   const ui = CATEGORIA_EQUIPO_UI[equipo.categoria] ?? CATEGORIA_EQUIPO_UI.OTRO
   const activo = equipo.estado === "activo" && equipo.cantidad_actual > 0
@@ -201,6 +205,7 @@ function FilaEquipo({
             <span className="text-sm font-semibold text-gray-900">{num(equipo.cantidad_actual)}x</span>
             <span className="break-words text-sm text-gray-800">{equipo.nombre || equipo.descripcion}</span>
           </div>
+          {onAccion && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="h-7 w-7 flex-shrink-0 p-0" title="Acciones">
@@ -214,6 +219,7 @@ function FilaEquipo({
               <DropdownMenuItem onClick={() => onAccion("corregir")}>Corregir datos</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          )}
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[12px] text-gray-500">
           <span>{ui.label}</span>
@@ -383,6 +389,7 @@ export function EquiposClienteDialog({
   const [error, setError] = useState<string | null>(null)
   const [equipos, setEquipos] = useState<EquipoCliente[]>([])
   const [historial, setHistorial] = useState<MovimientoEquipoCliente[]>([])
+  const [modo, setModo] = useState<ModoVistaEquipos>("ficha")
   const [accion, setAccion] = useState<{ modo: ModoAccionEquipo; equipo: EquipoCliente | null } | null>(null)
 
   const cargar = useCallback(
@@ -396,6 +403,7 @@ export function EquiposClienteDialog({
           EquiposClienteService.getHistorial(clienteNumero),
         ])
         setEquipos(resEquipos.equipos)
+        setModo(resEquipos.modo)
         setHistorial(movimientos)
         if (avisarCambio) onCambio?.(clienteNumero, resEquipos.equipos)
       } catch (err: unknown) {
@@ -431,7 +439,7 @@ export function EquiposClienteDialog({
                   {clienteEstado ? ` · ${clienteEstado}` : ""}
                 </DialogDescription>
               </div>
-              {!cargando && !error && (
+              {!cargando && !error && modo === "ficha" && (
                 <Button size="sm" onClick={() => setAccion({ modo: "agregar", equipo: null })}>
                   <Plus className="mr-1 h-4 w-4" />
                   Agregar equipo
@@ -464,13 +472,15 @@ export function EquiposClienteDialog({
                       <FilaEquipo
                         key={e.equipo_key}
                         equipo={e}
-                        onAccion={(modo) => setAccion({ modo, equipo: e })}
+                        onAccion={modo === "ficha" ? (m) => setAccion({ modo: m, equipo: e }) : undefined}
                       />
                     ))}
                   </ul>
                 ) : (
                   <p className="text-sm text-gray-400">
-                    Sin equipos registrados. Usa «Agregar equipo» para cargar lo que tiene.
+                    {modo === "contratado"
+                      ? "Sus ofertas confirmadas no incluyen equipos."
+                      : "Sin equipos registrados. Usa «Agregar equipo» para cargar lo que tiene."}
                   </p>
                 )}
               </section>
@@ -485,7 +495,7 @@ export function EquiposClienteDialog({
                       <FilaEquipo
                         key={e.equipo_key}
                         equipo={e}
-                        onAccion={(modo) => setAccion({ modo, equipo: e })}
+                        onAccion={modo === "ficha" ? (m) => setAccion({ modo: m, equipo: e }) : undefined}
                       />
                     ))}
                   </ul>
@@ -494,7 +504,14 @@ export function EquiposClienteDialog({
 
               <section>
                 <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Historial</h4>
-                <Historial movimientos={historial} />
+                {modo === "contratado" ? (
+                  <p className="text-xs text-gray-400">
+                    El historial empieza cuando se instale. Hasta entonces esto es lo que dicen sus
+                    ofertas confirmadas: si cambian, cambia aquí.
+                  </p>
+                ) : (
+                  <Historial movimientos={historial} />
+                )}
               </section>
             </div>
           )}
