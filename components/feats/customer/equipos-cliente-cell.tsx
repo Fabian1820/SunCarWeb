@@ -51,7 +51,12 @@ export function lineasActivas(equipos: EquipoCliente[]): LineaEquipo[] {
           (CATEGORIA_EQUIPO_UI[b.categoria]?.orden ?? 9) ||
         a.descripcion.localeCompare(b.descripcion),
     )
-    .map((e) => ({ categoria: e.categoria, cantidad: e.cantidad_actual, descripcion: e.descripcion }))
+    // Nombre de catálogo primero: la descripción es la línea de la oferta.
+    .map((e) => ({
+      categoria: e.categoria,
+      cantidad: e.cantidad_actual,
+      descripcion: e.nombre || e.descripcion,
+    }))
 }
 
 /**

@@ -176,7 +176,7 @@ export function EquipoAccionDialog({
     setOrigen("catalogo")
     setMaterialId("")
     setLibre({
-      descripcion: modo === "corregir" ? equipo?.descripcion ?? "" : "",
+      descripcion: modo === "corregir" ? equipo?.nombre || equipo?.descripcion || "" : "",
       categoria: (equipo?.categoria as CategoriaEquipo) ?? "INVERSORES",
       marca: modo === "corregir" ? equipo?.marca ?? "" : "",
       potencia_kw: modo === "corregir" ? equipo?.potencia_kw ?? null : null,
@@ -407,7 +407,7 @@ export function EquipoAccionDialog({
           <DialogTitle>{TITULO[modo]}</DialogTitle>
           {equipo && modo !== "agregar" && (
             <DialogDescription>
-              {equipo.cantidad_actual}x {equipo.descripcion}
+              {equipo.cantidad_actual}x {equipo.nombre || equipo.descripcion}
             </DialogDescription>
           )}
         </DialogHeader>
