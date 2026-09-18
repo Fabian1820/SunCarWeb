@@ -245,9 +245,11 @@ const ResumenCapacidadEquipos = ({
     <div
       className="inline-flex items-center gap-1 rounded bg-sky-50 border border-sky-200 px-1.5 py-0.5 text-[12px] text-sky-800"
       title={
-        capacidad.fuente === "snapshot_cliente"
-          ? "Total acumulado, tomado del registro antiguo del cliente (no hay oferta confirmada)"
-          : "Total acumulado de las ofertas confirmadas del cliente"
+        capacidad.fuente === "ficha"
+          ? "Lo instalado según la ficha de equipos del cliente"
+          : capacidad.fuente === "snapshot_cliente"
+            ? "Total acumulado, tomado del registro antiguo del cliente (no hay oferta confirmada)"
+            : "Total acumulado de las ofertas confirmadas del cliente"
       }
     >
       <span className="font-medium">Equipo:</span>
@@ -789,11 +791,22 @@ export function ClientsTable({
   // Ficha actualizada tras un cambio en el diálogo, por número de cliente: la
   // lista llega por props y no se recarga, así que la fila se pinta con esto.
   const [equiposActualizados, setEquiposActualizados] = useState<
-    Record<string, { equipos: EquipoCliente[]; pendientes: number }>
+    Record<
+      string,
+      { equipos: EquipoCliente[]; pendientes: number; capacidad: CapacidadEquipos | null }
+    >
   >({});
   const onCambioEquipos = useCallback(
-    (numero: string, equipos: EquipoCliente[], pendientes: number) =>
-      setEquiposActualizados((prev) => ({ ...prev, [numero]: { equipos, pendientes } })),
+    (
+      numero: string,
+      equipos: EquipoCliente[],
+      pendientes: number,
+      capacidad: CapacidadEquipos | null,
+    ) =>
+      setEquiposActualizados((prev) => ({
+        ...prev,
+        [numero]: { equipos, pendientes, capacidad },
+      })),
     [],
   );
   const [showClientLocation, setShowClientLocation] = useState(false);
@@ -4447,7 +4460,7 @@ export function ClientsTable({
                                 onVerDetalle={() => setClienteEquipos(client)}
                                 encabezado={
                                   <ResumenCapacidadEquipos
-                                    capacidad={client.capacidad_equipos}
+                                    capacidad={actualizado?.capacidad ?? client.capacidad_equipos}
                                   />
                                 }
                                 pie={faltaInfo}
