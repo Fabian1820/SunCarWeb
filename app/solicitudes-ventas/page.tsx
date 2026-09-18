@@ -367,6 +367,25 @@ const [exportingPagos, setExportingPagos]           = useState(false);
     setActiveTab(tab);
   };
 
+  // Deep-link desde Wallet: un ingreso automático por cobro de una solicitud
+  // de venta trae ?pagoVenta=<id> (solo se guardó el id del pago). Se
+  // resuelve una sola vez al montar y se limpia la URL. Debe ir antes del
+  // return del loader: un hook por debajo cambia el número de hooks entre
+  // renders y React lanza el error #300.
+  useEffect(() => {
+    const pagoVentaId = searchParams.get("pagoVenta");
+    if (!pagoVentaId) return;
+    router.replace("/solicitudes-ventas");
+    (async () => {
+      const solicitud = await PagoVentaService.getSolicitudByPagoId(pagoVentaId);
+      if (solicitud) {
+        setSelectedSolicitud(solicitud);
+        setIsDetailDialogOpen(true);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   // ── Loader solo en la primera pestaña ──────────────────────────────────────
   if (activeTab === "solicitudes" && loading && filteredSolicitudes.length === 0) {
     return (
@@ -507,23 +526,6 @@ const [exportingPagos, setExportingPagos]           = useState(false);
       toast({ title: "Error", description: "No se pudo cargar los detalles de la solicitud", variant: "destructive" });
     }
   };
-
-  // Deep-link desde Wallet: un ingreso automático por cobro de una solicitud
-  // de venta trae ?pagoVenta=<id> (solo se guardó el id del pago). Se
-  // resuelve una sola vez al montar y se limpia la URL.
-  useEffect(() => {
-    const pagoVentaId = searchParams.get("pagoVenta");
-    if (!pagoVentaId) return;
-    router.replace("/solicitudes-ventas");
-    (async () => {
-      const solicitud = await PagoVentaService.getSolicitudByPagoId(pagoVentaId);
-      if (solicitud) {
-        setSelectedSolicitud(solicitud);
-        setIsDetailDialogOpen(true);
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
 
   // ── Handlers pagos ─────────────────────────────────────────────────────────
   const handlePagar = async (solicitud: SolicitudVentaSummary) => {
