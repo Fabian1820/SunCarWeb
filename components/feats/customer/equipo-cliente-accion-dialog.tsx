@@ -142,6 +142,8 @@ interface EquipoAccionDialogProps {
   clienteNumero: string
   /** El equipo sobre el que se actúa; no aplica al agregar. */
   equipo?: EquipoCliente | null
+  /** Si el cliente tiene ofertas por instalar, agregar a mano puede duplicarlas. */
+  hayOfertasPendientes?: boolean
   onHecho: () => void
 }
 
@@ -151,6 +153,7 @@ export function EquipoAccionDialog({
   modo,
   clienteNumero,
   equipo,
+  hayOfertasPendientes = false,
   onHecho,
 }: EquipoAccionDialogProps) {
   const { toast } = useToast()
@@ -413,6 +416,12 @@ export function EquipoAccionDialog({
         </DialogHeader>
 
         <div className="space-y-4">
+          {modo === "agregar" && hayOfertasPendientes && (
+            <p className="rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+              Si el equipo es de una oferta pendiente de instalar, usa «Marcar como instalada» en esa
+              oferta: agregarlo aquí lo contaría dos veces cuando la oferta entre en la ficha.
+            </p>
+          )}
           {conEquipoNuevo && (
             <div className="space-y-2">
               <Label className="text-xs">{modo === "sustituir" ? "Equipo que entra" : "Equipo"}</Label>

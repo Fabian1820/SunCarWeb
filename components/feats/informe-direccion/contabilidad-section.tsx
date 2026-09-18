@@ -48,6 +48,7 @@ import type {
   MontosPorMoneda,
 } from "@/lib/api-types";
 import { exportListToPDF } from "@/lib/export-list-pdf";
+import { ManualContabilidad } from "@/components/feats/informe-direccion/manual-uso-dialog";
 
 type ModoFiltro = "mes" | "rango";
 type MonedaFiltro = "todas" | string;
@@ -1481,7 +1482,10 @@ export function ContabilidadSection({ accionExtra }: { accionExtra?: React.React
             PDF
           </Button>
 
-          {accionExtra && <div className="ml-auto">{accionExtra}</div>}
+          <div className="ml-auto flex items-center gap-1">
+            {accionExtra}
+            <ManualContabilidad />
+          </div>
         </div>
 
         {resumenMostrado ? (

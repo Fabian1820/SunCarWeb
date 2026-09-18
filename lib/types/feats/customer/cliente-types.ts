@@ -36,7 +36,8 @@ export interface CapacidadEquipos {
   inversor_kw: number | null;
   bateria_kwh: number | null;
   paneles: number | null;
-  fuente: "ofertas_confirmadas" | "snapshot_cliente" | "mixta" | null;
+  /** "ficha": el cliente tiene ficha de equipos y esto es lo instalado según ella. */
+  fuente: "ofertas_confirmadas" | "snapshot_cliente" | "mixta" | "ficha" | null;
 }
 
 /**
@@ -217,6 +218,8 @@ export interface Cliente {
    */
   equipos?: EquipoCliente[] | null;
   equipos_actualizado_en?: string | null;
+  /** Ofertas cuyos equipos ya están en la ficha (instaladas). */
+  equipos_ofertas_registradas?: string[] | null;
   es_trabajador_suncar?: boolean;
   activo?: boolean;
 }

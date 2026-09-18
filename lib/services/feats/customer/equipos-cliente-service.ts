@@ -14,6 +14,20 @@ type Respuesta<T> = {
   data?: T;
   capacidad_equipos?: Omit<CapacidadEquipos, "fuente">;
   modo?: ModoVistaEquipos;
+  pendientes?: Array<{
+    oferta_id: string;
+    numero_oferta: string | null;
+    fecha_confirmada: string | null;
+    data: EquipoCliente[];
+  }>;
+};
+
+/** Una oferta confirmada cuyos equipos aún no están en la ficha. */
+export type OfertaPendienteInstalar = {
+  ofertaId: string;
+  numeroOferta: string | null;
+  fechaConfirmada: string | null;
+  equipos: EquipoCliente[];
 };
 
 /**
@@ -81,6 +95,7 @@ export class EquiposClienteService {
     equipos: EquipoCliente[];
     capacidad: Omit<CapacidadEquipos, "fuente"> | null;
     modo: ModoVistaEquipos;
+    pendientes: OfertaPendienteInstalar[];
   }> {
     const res = exigirExito(
       await apiRequest<Respuesta<EquipoCliente[]>>(
@@ -92,6 +107,12 @@ export class EquiposClienteService {
       equipos: res.data ?? [],
       capacidad: res.capacidad_equipos ?? null,
       modo: res.modo ?? "ficha",
+      pendientes: (res.pendientes ?? []).map((p) => ({
+        ofertaId: p.oferta_id,
+        numeroOferta: p.numero_oferta,
+        fechaConfirmada: p.fecha_confirmada,
+        equipos: p.data ?? [],
+      })),
     };
   }
 
@@ -155,6 +176,24 @@ export class EquiposClienteService {
     datos: Trazabilidad & { cantidad?: number | null },
   ) {
     await enviar(`${deEquipo(numero, equipoKey)}/retirar`, "POST", datos, "retirar el equipo");
+  }
+
+  /**
+   * Pasa a la ficha una oferta que figura como pendiente: "ya está instalada".
+   * Para lo que los datos no saben, como un cliente antiguo "En proceso" por
+   * un ajuste con su oferta original puesta desde hace meses.
+   */
+  static async instalarOferta(
+    numero: string,
+    ofertaId: string,
+    datos: { fecha_efectiva?: string | null; nota?: string | null },
+  ) {
+    await enviar(
+      `${base(numero)}/ofertas/${encodeURIComponent(ofertaId)}/instalar`,
+      "POST",
+      datos,
+      "marcar la oferta como instalada",
+    );
   }
 
   /** Corrige identidad o datos sin tocar cantidades. */

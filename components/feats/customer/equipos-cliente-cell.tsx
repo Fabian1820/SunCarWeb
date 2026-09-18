@@ -39,6 +39,27 @@ export function esClienteInstalado(estado?: string | null): boolean {
   return e === "equipo instalado con exito"
 }
 
+/**
+ * Ofertas confirmadas del cliente que aún no han entrado en su ficha. Se
+ * deduce del listado sin pedir nada: las confirmadas vienen en
+ * `oferta_confeccion` (en `confirmadas_detalle` si son varias; si es una, es
+ * la propia `oferta_confeccion`) y la ficha guarda cuáles tiene ya.
+ */
+export function ofertasPendientesDeInstalar(
+  ofertaConfeccion:
+    | { id?: string | null; hay_confirmada?: boolean; total_confirmadas?: number; confirmadas_detalle?: { id: string }[] | null }
+    | null
+    | undefined,
+  registradas: string[] | null | undefined,
+): number {
+  if (!ofertaConfeccion || !ofertaConfeccion.hay_confirmada) return 0
+  const confirmadas =
+    ofertaConfeccion.confirmadas_detalle?.map((o) => o.id) ??
+    (ofertaConfeccion.id ? [ofertaConfeccion.id] : [])
+  const ya = new Set(registradas ?? [])
+  return confirmadas.filter((id) => id && !ya.has(id)).length
+}
+
 const formatCantidad = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2))
 
 /** Lo que el cliente tiene hoy: activos con cantidad, en el orden de la ficha. */
@@ -79,18 +100,13 @@ interface EquiposClienteCellProps {
   /** Líneas a pintar: de la ficha si existe, si no las derivadas de la oferta. */
   lineas: LineaEquipo[]
   /**
-   * `true` cuando no hay ficha y las líneas salen de la oferta. Se rotula para
-   * no presentar lo ofertado a un cliente sin instalar como algo que ya tiene.
+   * Qué es lo que se ve, cuando no es obvio: "Contratado · pendiente de
+   * instalar" si las líneas salen de la oferta, o "1 oferta pendiente de
+   * instalar" si hay una ampliación por poner. Sin él, las líneas son la ficha.
    */
-  segunOferta: boolean
-  /**
-   * Hay ficha pero el cliente aún no está instalado: lo que se ve es lo
-   * contratado, no lo que tiene puesto, y hay que decirlo.
-   */
-  pendienteInstalar?: boolean
+  aviso?: string | null
   ultimoCambio?: string | null
   totalMovimientos?: number
-  /** Solo se pasa cuando hay ficha: sin ella no hay historial que abrir. */
   onVerDetalle?: () => void
   /** Resumen de capacidad, "Falta: …" y demás, tal como los pinta la tabla. */
   encabezado?: ReactNode
@@ -99,8 +115,7 @@ interface EquiposClienteCellProps {
 
 export function EquiposClienteCell({
   lineas,
-  segunOferta,
-  pendienteInstalar = false,
+  aviso,
   ultimoCambio,
   totalMovimientos = 0,
   onVerDetalle,
@@ -133,13 +148,8 @@ export function EquiposClienteCell({
       ) : (
         <div className="text-[14px] text-gray-400">Sin equipos registrados</div>
       )}
-      {segunOferta && lineas.length > 0 && (
-        <div className="text-[12px] text-gray-400">Según oferta · sin ficha de equipos</div>
-      )}
-      {pendienteInstalar && lineas.length > 0 && (
-        <div className="text-[12px] text-gray-400">Contratado · pendiente de instalar</div>
-      )}
-      {!segunOferta && fecha && (
+      {aviso && <div className="text-[12px] text-gray-400">{aviso}</div>}
+      {fecha && (
         <div className="flex items-center gap-1 text-[12px] text-gray-500">
           <span>
             Último cambio: {fecha}

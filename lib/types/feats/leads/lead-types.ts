@@ -42,6 +42,8 @@ export interface LeadFoto {
 export interface ItemOfertaConfeccionResumen {
   material_codigo: string | null;
   descripcion: string;
+  /** Nombre de catálogo; mostrar este antes que la descripción de la línea. */
+  nombre?: string | null;
   cantidad: number;
   seccion?: string;
   categoria?: string;
