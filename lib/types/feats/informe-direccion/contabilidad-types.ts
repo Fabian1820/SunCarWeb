@@ -19,11 +19,14 @@ export interface IngresosPorTipo {
   tipo: string;
   label: string;
   por_moneda: MontosPorMoneda;
+  /** Total en USD (ver ContabilidadIngresos.total_usd). */
+  total_usd: number;
 }
 
 export interface IngresosPorPersona {
   persona: string;
   por_moneda: MontosPorMoneda;
+  total_usd: number;
 }
 
 export interface ContabilidadMovimiento {
@@ -33,6 +36,8 @@ export interface ContabilidadMovimiento {
   detalle: string;
   moneda: string;
   monto: number;
+  /** USD del cobro con la tasa real del día; null si el sistema no lo guardó. */
+  monto_usd: number | null;
   excluido: boolean;
   categoria_automatica: CategoriaContabilidad;
 }
@@ -47,6 +52,11 @@ export interface MovimientoCategoriaUpdateRequest {
 
 export interface ContabilidadIngresos {
   por_moneda: MontosPorMoneda;
+  /** Total general en USD: suma del monto_usd que el sistema guardó en cada
+   * cobro (tasa real de ese día). No se convierte nada con tasas de hoy. */
+  total_usd: number;
+  /** Lo que no se pudo llevar a USD porque el cobro no lo guardó. */
+  sin_convertir: MontosPorMoneda;
   por_tipo: IngresosPorTipo[];
   por_persona: IngresosPorPersona[];
   movimientos: ContabilidadMovimiento[];
