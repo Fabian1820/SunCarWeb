@@ -248,9 +248,6 @@ export function LeadsTable({
   const canConvertirLead = hasExactPermission("leads/convertir");
   const canConvertirSinPago = hasExactPermission("leads/convertir-sin-pago");
   const canSubirFotosLead = hasExactPermission("leads/fotos");
-  const canTransferenciaBancariaLead = hasExactPermission(
-    "leads/transferencia-bancaria",
-  );
   const {
     ofertas,
     loading: ofertasLoading,
@@ -1978,10 +1975,10 @@ export function LeadsTable({
                           <Edit className="h-3 w-3" />
                         </Button>
                       )}
-                      {(canSubirFotosLead ||
-                        canAnularLead ||
-                        canTransferenciaBancariaLead) && (
-                        <Popover>
+                      {/* El "..." siempre se muestra: registrar transferencia
+                          bancaria no requiere permiso granular propio, basta
+                          con tener acceso al módulo Leads. */}
+                      <Popover>
                           <PopoverTrigger asChild>
                             <Button
                               variant="ghost"
@@ -2033,26 +2030,23 @@ export function LeadsTable({
                                   </span>
                                 </Button>
                               )}
-                              {canTransferenciaBancariaLead && (
-                                <Button
-                                  variant="ghost"
-                                  onClick={() =>
-                                    openTransferenciaBancariaDialog(lead)
-                                  }
-                                  className="h-auto flex-col items-center justify-center gap-1 py-3"
-                                  title="Registrar transferencia bancaria"
-                                  disabled={disableActions}
-                                >
-                                  <Landmark className="h-5 w-5 text-blue-600" />
-                                  <span className="text-xs text-gray-700 leading-tight text-center">
-                                    Transferencia bancaria
-                                  </span>
-                                </Button>
-                              )}
+                              <Button
+                                variant="ghost"
+                                onClick={() =>
+                                  openTransferenciaBancariaDialog(lead)
+                                }
+                                className="h-auto flex-col items-center justify-center gap-1 py-3"
+                                title="Registrar transferencia bancaria"
+                                disabled={disableActions}
+                              >
+                                <Landmark className="h-5 w-5 text-blue-600" />
+                                <span className="text-xs text-gray-700 leading-tight text-center">
+                                  Transferencia bancaria
+                                </span>
+                              </Button>
                             </div>
                           </PopoverContent>
                         </Popover>
-                      )}
                     </div>
                   </td>
                 </tr>
