@@ -2,6 +2,154 @@
 
 ---
 
+## 📅 18 de Septiembre, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**31 commits reales** — yany1509 (todos). Día extremadamente activo concentrado en tres ejes: **overhaul masivo de la ficha de equipos de clientes** (7 commits encadenados en 5h), **nuevo flujo de transferencias bancarias** (3 commits), y **rediseño de planificación** (3 commits). Además: mejoras en wallet, historial por provincia, nueva pestaña Comprometidos en reportes comerciales, nueva pestaña Desempeño en informe de dirección, fixes en almacén, contabilidad, conectividad y dashboard.
+
+---
+
+### Área 1: feat/fix(clientes) × 7 — Overhaul de ficha de equipos del cliente (10:34–15:59)
+
+- **`feat(clientes): columna Equipos con ficha e historial; ofertas junto al estado`** (10:34) — Nueva columna Equipos en la tabla de clientes. Al tocarla abre una ficha lateral con los equipos asignados y su historial de movimientos. Las ofertas del cliente se muestran junto al estado en la misma fila.
+
+- **`feat(clientes): acciones sobre los equipos del cliente, foto y textos para el operador`** (11:45) — La ficha de equipos gana menú de acciones por ítem (reportar avería, marcar en servicio, etc.), foto del equipo y textos orientativos para el operador.
+
+- **`feat(clientes): los clientes sin instalar abren lo contratado; la ficha nace al instalar`** (13:45) — Clientes sin instalación muestran lo que tienen contratado (sin ficha de equipos aún). La ficha de equipos se crea en el momento en que se registra la instalación.
+
+- **`fix(clientes): el tooltip de los vales se salía de la ficha de equipos`** (13:26) — Fix de overflow del tooltip al pasar el cursor sobre los vales dentro de la ficha.
+
+- **`feat(clientes): por qué falta lo entregado, vales al pasar el ratón, nombre de catálogo e historial agrupado`** (12:16) — Explicación visual de por qué un ítem está pendiente de entrega. Los vales aparecen en tooltip al pasar el ratón. El nombre viene del catálogo de materiales. El historial se agrupa por tipo de evento.
+
+- **`feat(clientes): lo instalado y lo pendiente por oferta, "Marcar como instalada" y ficha siempre editable`** (15:05) — La ficha desglosa instalado vs. pendiente por oferta. Botón "Marcar como instalada" para cambiar estado. La ficha permanece editable en cualquier estado del cliente.
+
+- **`fix(clientes): ficha de equipos más clara tras la prueba de punta a punta`** (15:59) — Pulido visual y correcciones de UX encontradas en prueba de punta a punta del flujo completo.
+
+---
+
+### Área 2: feat/fix(transferencias-bancarias) × 3 — Nuevo módulo de transferencias (14:38–16:12)
+
+- **`feat(transferencias-bancarias): acción de transferencia bancaria en Leads/Clientes y alerta en Wallet`** (14:38) — Acción directa de transferencia bancaria desde la ficha de leads/clientes. Alerta visible en Wallet cuando hay una transferencia pendiente de confirmar.
+
+- **`fix(transferencias-bancarias): sin permiso granular propio, hereda del módulo Leads/Clientes`** (14:58) — Corrección: el módulo de transferencias no tiene permiso propio en el catálogo; usa el permiso del módulo padre (Leads/Clientes) para no bloquear a usuarios que ya tenían acceso.
+
+- **`feat(transferencias-bancarias): mover de Leads/Clientes a Facturación → Pagos Clientes`** (16:12) — El acceso a transferencias bancarias se reubica bajo Facturación > Pagos Clientes en la navegación, separándolo del flujo de leads.
+
+---
+
+### Área 3: feat/fix(planificacion) × 3 — Rediseño de tabla y PDF (10:47–12:15)
+
+- **`feat(planificacion): tabla rediseñada, confirmar, descargar/imprimir y hecho por`** (10:47) — La tabla de planificación es rediseñada: nueva columna "Hecho por", botón de confirmación por fila, botones de descarga e impresión del plan.
+
+- **`fix(planificacion): imprimir salía en blanco`** (11:06) — Fix del bug en que la función de impresión generaba una página en blanco.
+
+- **`feat(planificacion): elegir oferta confirmada del cliente, teléfono y oferta en el PDF`** (12:15) — Al planificar se puede seleccionar la oferta confirmada del cliente. El PDF generado incluye el teléfono del cliente y la oferta seleccionada.
+
+---
+
+### Área 4: feat/fix(wallet) × 3 — Bancos como destino e ingresos enlazados (10:26–16:10)
+
+- **`fix(wallet): evita duplicar gastos multi-moneda al reintentar tras un fallo`** (10:26) — Fix de race condition: si el POST de un gasto multi-moneda fallaba y el usuario reintentaba, se podían duplicar las entradas. Ahora se detecta y previene la duplicación.
+
+- **`feat(wallet): enlaza los ingresos automáticos de oferta a su cliente`** (10:53) — Los ingresos generados automáticamente al confirmar una oferta muestran un enlace al cliente correspondiente, trazabilidad directa desde Wallet.
+
+- **`feat(wallet): los bancos aparecen como destino de transferencia`** (16:10) — Al registrar una transferencia, el selector de destino incluye los bancos configurados (antes solo mostraba billeteras).
+
+---
+
+### Área 5: feat(historial) × 2 — Agrupación por provincia y categorías de equipo (09:27–09:41)
+
+- **`feat(historial): agrupar por provincia y las 3 categorias de equipo`** (09:27) — La vista por equipos del historial agrupa los resultados por provincia y por las tres categorías principales (inversores, baterías, paneles).
+
+- **`feat(historial): tabla de provincias, orden por fecha y quita "N cosas registradas"`** (09:41) — Nueva tabla de resumen por provincias. Orden por fecha en el listado. Se elimina el contador "N cosas registradas" que ocupaba espacio sin aportar valor.
+
+---
+
+### Área 6: feat(reportes-comercial) × 2 — Nueva pestaña Comprometidos (16:07–17:04)
+
+- **`feat(reportes-comercial): pestaña Comprometidos en Materiales en Ofertas`** (16:07) — Nueva pestaña "Comprometidos" en el módulo de reportes comerciales de materiales: muestra qué materiales están comprometidos en ofertas activas sin haber salido del almacén.
+
+- **`feat(reportes-comercial): Comprometidos se explica solo`** (17:04) — Mejora de UX: la pestaña Comprometidos incluye texto explicativo contextual para que el operador entienda qué está viendo sin consultar documentación.
+
+---
+
+### Área 7: feat(informe-direccion) × 2 — Pestaña Desempeño y manual de uso (11:20–15:21)
+
+- **`feat(informe-direccion): pestaña Desempeño de la empresa`** (11:20) — Nueva pestaña "Desempeño" en el informe de dirección: métricas de rendimiento de la empresa (KPIs operativos, comparativas temporales).
+
+- **`feat(informe-direccion): botón de manual de uso en Contabilidad y Desempeño`** (15:21) — Botón de acceso al manual de uso dentro de las pestañas Contabilidad y Desempeño, para guiar a directivos en la interpretación de los datos.
+
+---
+
+### Área 8: fix/style/revert(contabilidad) × 4 — Ajustes visuales y limpieza (09:22–10:40)
+
+- **`feat(contabilidad): total general de ingresos en USD`** (09:22) — Se añade un total general consolidado en USD.
+
+- **`revert(contabilidad): quitar el total general en USD`** (09:43) — Se revierte el commit anterior: el total general en USD se elimina (probablemente confuso o incorrecto).
+
+- **`fix(contabilidad): gráficos del mismo alto y líneas del pastel ordenadas`** (10:25) — Los gráficos de contabilidad ahora tienen la misma altura entre sí. Las líneas guía del pastel se ordenan para evitar solapamientos.
+
+- **`style(contabilidad): gastos en rojo pastel y etiquetas del pastel con más aire`** (10:40) — Los gastos se colorean en rojo pastel para diferenciarse de los ingresos. Las etiquetas del gráfico de pastel tienen más separación vertical.
+
+---
+
+### Área 9: fix(almacen) × 1 — Corrección de avisos y solicitudes de entrada (12:27)
+
+- **`fix(almacen): avisos de éxito falsos, categorías, alertas ignoradas y solicitudes de entrada`** — Cuatro fixes en uno: (1) los avisos de "operación exitosa" se mostraban aunque la API fallara, (2) las categorías del almacén no cargaban correctamente, (3) las alertas de stock bajo eran ignoradas, (4) las solicitudes de entrada no se procesaban.
+
+---
+
+### Área 10: fix(conectividad) × 1 — Separar carteles de estado (12:16)
+
+- **`fix(conectividad): separa el cartel de mantenimiento del de conexión lenta/sin internet`** — El cartel de mantenimiento programado y el de problemas de conectividad eran el mismo componente y se superponían. Ahora son independientes y con lógica de visualización separada.
+
+---
+
+### Área 11: feat(dashboard) × 1 — Limpieza de widgets (10:05)
+
+- **`feat(dashboard): quita contador de instalaciones y widget de clima de inicio`** — Se eliminan dos widgets del dashboard de inicio: el contador de instalaciones pendientes y el widget del clima. Simplifica la pantalla de inicio.
+
+---
+
+### Área 12: fix(solicitudes-ventas) × 1 — Deep-link de Wallet (17:09)
+
+- **`fix(solicitudes-ventas): el deep-link de Wallet rompía la página con error #300`** — El deep-link hacia Wallet desde solicitudes de ventas causaba un error de navegación (#300) que dejaba la página en blanco. Corregido.
+
+---
+
+### Área 13: fix(clientes-ventas) × 1 — Técnico Comercial en selector (11:50)
+
+- **`fix(clientes-ventas): incluir Técnico Comercial en selector de comercial`** — El selector de comercial al crear/editar clientes de ventas no incluía el cargo "Técnico Comercial". Añadido para que aparezca junto a los cargos Comercial estándar.
+
+---
+
+### Puede dar bateo
+
+1. **feat(clientes) ficha de equipos — confirmar que el endpoint de equipos por cliente existe en backend de producción**: La ficha carga los equipos por cliente vía un endpoint específico. Si no está deployado o el esquema cambió, la ficha abre vacía o con error 404/500.
+
+2. **feat(clientes) "Marcar como instalada" — confirmar endpoint PATCH en backend**: Si el endpoint de cambio de estado de instalación no existe o no acepta el nuevo campo, el botón fallará silenciosamente o con error 405.
+
+3. **feat(transferencias-bancarias) reubicación a Facturación — confirmar permiso de acceso**: El módulo ahora vive bajo Facturación > Pagos Clientes. Usuarios que tenían el acceso por herencia de Leads/Clientes pueden perderlo si Facturación tiene un permiso separado no asignado.
+
+4. **feat(transferencias-bancarias) alerta en Wallet — confirmar endpoint de transferencias pendientes**: La alerta en Wallet llama a un endpoint para saber si hay transferencias pendientes. Sin ese endpoint, la alerta puede fallar o mostrar estado incorrecto permanentemente.
+
+5. **fix(wallet) duplicados multi-moneda — confirmar que el mecanismo de deduplicación es idempotente**: Si el backend no tiene un identificador de idempotencia, una re-entrada del usuario puede crear duplicados a nivel de base de datos aunque el frontend los prevenga.
+
+6. **feat(wallet) bancos como destino — confirmar que el selector de bancos usa el mismo endpoint que el módulo Bancos**: Si el selector llama a un endpoint diferente o no filtra bancos soft-deleted, puede mostrar bancos inactivos como destino válido.
+
+7. **feat(reportes-comercial) pestaña Comprometidos — confirmar endpoint de materiales comprometidos en backend**: Nueva pestaña que requiere un endpoint propio. Si no está deployado, la pestaña carga vacía o con error.
+
+8. **feat(informe-direccion) pestaña Desempeño — confirmar endpoints de KPIs operativos en backend**: Nueva pestaña con métricas propias. Sin los endpoints correspondientes, la pestaña falla al cargar.
+
+9. **fix(almacen) avisos de éxito falsos — revisar si el fix cubre todos los flujos de mutación del almacén**: El fix corregía avisos de éxito en operaciones que fallaban. Confirmar que no se omitió alguna mutación (devoluciones, ajustes de cantidad) que todavía muestre éxito falso.
+
+10. **revert(contabilidad) total USD — confirmar que el revert no dejó estado inconsistente en el componente**: Si el feat y el revert tocaron ramas de estado local, puede haber variables inicializadas para el total USD que ya no se limpian correctamente.
+
+11. **fix(solicitudes-ventas) deep-link #300 — confirmar que otros deep-links al módulo Wallet no tienen el mismo problema**: El fix fue específico para ese deep-link. Si hay otros puntos de entrada a Wallet desde módulos distintos, pueden tener el mismo bug latente.
+
+---
+
 ## 📅 17 de Septiembre, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -352,28 +500,4 @@ Quince commits encadenados en menos de 6 horas reescribieron el módulo de plani
 
 ---
 
-## 📅 10 de Septiembre, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**1 commit real** — Ruben0304 (co-authored Claude Sonnet 5). Fix de infraestructura: evita que Safari/iPadOS sirva respuestas cacheadas de GET cuando los datos ya cambiaron por un POST previo.
-
----
-
-### Área 1: fix(api-config) — no-store en todos los GET para evitar caché de Safari/iPadOS (12:37)
-
-- **`fix(api-config): evita cache de fetch GET en Safari/iPadOS`** — Los GET vía `apiRequest()` no llevaban `cache: 'no-store'`, por lo que Safari/iPadOS podía servir respuestas cacheadas tras un POST que mutaba los mismos datos. Se agrega `cache: 'no-store'` y la cabecera `Cache-Control: no-cache` en el helper central.
-
----
-
-### Puede dar bateo
-
-1. **`cache: 'no-store'` global — impacto en rendimiento con endpoints de catálogo**: El fix es correcto para datos mutables pero también desactiva la caché para endpoints de catálogo que raramente cambian. Monitorear saturación en endpoints lentos.
-
-2. **`Cache-Control: no-cache` como cabecera de petición — comportamiento en proxies/CDN**: Resuelve el caché del navegador, pero proxies corporativos pueden ignorarlo.
-
-3. **Cobertura solo en `apiRequest()` — peticiones fuera del helper no cubiertas**: Revisar los 4 archivos listados en CLAUDE.md como "Fixed Files" para confirmar migración completa.
-
----
-
-> ⚠️ **Nota de mantenimiento**: La entrada del **9 de Septiembre** fue eliminada el 17 de Septiembre al superar los 7 días de antigüedad (política de retención semanal). La entrada del **7 de Septiembre** fue eliminada el 15 de Septiembre al superar los 7 días. La entrada del **2 de Septiembre** fue eliminada el 10 de Septiembre al superar los 7 días. Anteriores eliminadas: 15 de Agosto y previas.
+> ⚠️ **Nota de mantenimiento**: La entrada del **10 de Septiembre** fue eliminada el 18 de Septiembre al superar los 7 días de antigüedad (política de retención semanal). La entrada del **9 de Septiembre** fue eliminada el 17 de Septiembre. La entrada del **7 de Septiembre** fue eliminada el 15 de Septiembre. La entrada del **2 de Septiembre** fue eliminada el 10 de Septiembre. Anteriores eliminadas: 15 de Agosto y previas.
