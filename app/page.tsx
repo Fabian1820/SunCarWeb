@@ -50,13 +50,11 @@ import {
 import {
   TasaCambioService,
   TrabajadorService,
-  ClienteService,
 } from "@/lib/api-services";
 import type { TrabajadorBirthdayInfo } from "@/lib/types/feats/trabajador/birthday-types";
 import { WorkerAvatar } from "@/components/feats/worker/worker-avatar";
 import ContactosDashboard from "@/components/feats/contactos/contactos-dashboard";
 import { TicketManualDialog } from "@/components/feats/dashboard/ticket-manual-dialog";
-import { WeatherWidget } from "@/components/feats/dashboard/weather-widget";
 import { SystemUpdatesPanel } from "@/components/feats/dashboard/system-updates-panel";
 import { EstadoOficinaSidebar } from "@/components/feats/equipos-felicity/estado-oficina-sidebar";
 import { ConfigurarEquipoOficinaButton } from "@/components/feats/equipos-felicity/configurar-equipo-oficina-button";
@@ -200,9 +198,6 @@ export default function Dashboard() {
 
   // Datos de la pantalla de bienvenida (livianos, una llamada cada uno).
   const [cumpleSemana, setCumpleSemana] = useState<TrabajadorBirthdayInfo[]>([]);
-  const [totalInstalaciones, setTotalInstalaciones] = useState<number | null>(
-    null,
-  );
 
   const showDevTools =
     typeof window !== "undefined"
@@ -223,13 +218,9 @@ export default function Dashboard() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [cumple, total] = await Promise.all([
-        TrabajadorService.getCumpleanosSemana(),
-        ClienteService.getTotalInstalaciones(),
-      ]);
+      const cumple = await TrabajadorService.getCumpleanosSemana();
       if (cancelled) return;
       setCumpleSemana(cumple.success ? cumple.data : []);
-      setTotalInstalaciones(total);
     })();
     return () => {
       cancelled = true;
@@ -834,22 +825,8 @@ export default function Dashboard() {
                   </p>
                 </section>
 
-                {/* Contador grande: instalaciones del equipo */}
-                {totalInstalaciones !== null && (
-                  <p className="text-sm text-gray-500">
-                    ☀️ Juntos hemos hecho{" "}
-                    <span className="font-semibold text-gray-700">
-                      {totalInstalaciones.toLocaleString("es-ES")}
-                    </span>{" "}
-                    instalaciones solares.
-                  </p>
-                )}
-
                 {/* Actualizaciones del sistema (hoy y ayer) */}
                 <SystemUpdatesPanel />
-
-                {/* Clima La Habana */}
-                <WeatherWidget />
 
                 {/* Favoritos (acceso rápido, compacto) */}
                 {favoriteModules.length > 0 && (
