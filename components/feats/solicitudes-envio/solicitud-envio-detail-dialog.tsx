@@ -23,6 +23,12 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   solicitud: SolicitudEnvio | null;
+  /** Resuelve el id del almacén a su nombre; sin esto se mostraría el ObjectId. */
+  nombreAlmacen?: (id?: string | null) => string | null;
+  /**
+   * Botonera de la solicitud. Quien la arma decide según los sub-permisos del
+   * usuario, no según desde qué pestaña se abrió el detalle.
+   */
   actions?: React.ReactNode;
 }
 
@@ -39,6 +45,7 @@ export function SolicitudEnvioDetailDialog({
   open,
   onOpenChange,
   solicitud,
+  nombreAlmacen,
   actions,
 }: Props) {
   if (!solicitud) return null;
@@ -73,7 +80,11 @@ export function SolicitudEnvioDetailDialog({
             <div className="text-slate-500 text-xs uppercase tracking-wide">
               Almacén
             </div>
-            <div>{solicitud.almacen_id || "Genérico (stock general)"}</div>
+            <div>
+              {solicitud.almacen_id
+                ? (nombreAlmacen?.(solicitud.almacen_id) ?? solicitud.almacen_id)
+                : "Genérico (stock general)"}
+            </div>
           </div>
           <div>
             <div className="text-slate-500 text-xs uppercase tracking-wide">

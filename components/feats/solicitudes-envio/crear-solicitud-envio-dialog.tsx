@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Package, Trash2 } from "lucide-react";
+import { Package, Plus, Trash2, X } from "lucide-react";
 
 import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/atom/input";
@@ -23,6 +23,8 @@ import {
 } from "@/components/shared/molecule/dialog";
 import { MaterialImage } from "@/components/shared/molecule/material-image";
 import { Textarea } from "@/components/shared/molecule/textarea";
+import { MaterialPicker } from "@/components/feats/solicitudes-envio/material-picker";
+import { useAlmacenesLookup } from "@/hooks/use-almacenes-lookup";
 import type {
   MaterialSolicitudEnvio,
   SolicitudEnvio,
@@ -53,6 +55,8 @@ export function CrearSolicitudEnvioDialog({
   onUpdate,
 }: Props) {
   const editando = Boolean(solicitudExistente);
+  const { almacenes } = useAlmacenesLookup();
+  const [pickerAbierto, setPickerAbierto] = useState(false);
   const [almacenId, setAlmacenId] = useState<string>("");
   const [urgencia, setUrgencia] = useState<UrgenciaSolicitudEnvio>("normal");
   const [notas, setNotas] = useState("");
@@ -74,10 +78,24 @@ export function CrearSolicitudEnvioDialog({
       setFilas(materialesIniciales.map((m) => ({ ...m })));
     }
     setError(null);
+    // Si se abre sin nada (Nueva solicitud), el buscador arranca desplegado.
+    setPickerAbierto(!solicitudExistente && materialesIniciales.length === 0);
   }, [open, materialesIniciales, solicitudExistente]);
 
   const removeFila = (materialId: string) =>
     setFilas((prev) => prev.filter((f) => f.material_id !== materialId));
+
+  const agregarFila = (material: Fila) =>
+    setFilas((prev) =>
+      prev.some((f) => f.material_id === material.material_id)
+        ? prev
+        : [...prev, material],
+    );
+
+  const idsEnFilas = useMemo(
+    () => new Set(filas.map((f) => f.material_id)),
+    [filas],
+  );
 
   const updateFila = (materialId: string, patch: Partial<Fila>) =>
     setFilas((prev) =>
@@ -166,12 +184,24 @@ export function CrearSolicitudEnvioDialog({
           </div>
           <div className="space-y-1.5 md:col-span-2">
             <Label htmlFor="almacen">Almacén destino (opcional)</Label>
-            <Input
-              id="almacen"
-              value={almacenId}
-              onChange={(e) => setAlmacenId(e.target.value)}
-              placeholder="Vacío = solicitud genérica"
-            />
+            <Select
+              value={almacenId || "generico"}
+              onValueChange={(v) => setAlmacenId(v === "generico" ? "" : v)}
+            >
+              <SelectTrigger id="almacen">
+                <SelectValue placeholder="Genérico (stock general)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="generico">Genérico (stock general)</SelectItem>
+                {almacenes
+                  .filter((a) => Boolean(a.id))
+                  .map((a) => (
+                    <SelectItem key={a.id} value={a.id as string}>
+                      {a.nombre}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-1.5 md:col-span-3">
             <Label htmlFor="notas">Notas</Label>
@@ -186,11 +216,35 @@ export function CrearSolicitudEnvioDialog({
         </div>
 
         <div className="space-y-2">
-          <div className="text-sm font-medium text-slate-700">Materiales</div>
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-sm font-medium text-slate-700">Materiales</div>
+            <Button
+              type="button"
+              size="sm"
+              variant={pickerAbierto ? "secondary" : "outline"}
+              onClick={() => setPickerAbierto((v) => !v)}
+            >
+              {pickerAbierto ? (
+                <>
+                  <X className="h-3.5 w-3.5 mr-1" /> Cerrar buscador
+                </>
+              ) : (
+                <>
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Agregar material
+                </>
+              )}
+            </Button>
+          </div>
+
+          {pickerAbierto && (
+            <MaterialPicker yaAgregados={idsEnFilas} onAgregar={agregarFila} />
+          )}
+
           <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-[45vh] overflow-y-auto">
             {filas.length === 0 ? (
               <div className="text-sm text-slate-500 p-4 text-center">
-                No hay materiales en la solicitud.
+                No hay materiales en la solicitud. Usa “Agregar material” para
+                buscarlos en el catálogo.
               </div>
             ) : (
               filas.map((f) => (

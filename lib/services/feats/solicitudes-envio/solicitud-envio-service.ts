@@ -109,6 +109,7 @@ const buildQuery = (params?: ListSolicitudesEnvioParams): string => {
   if (params.desde) entries.push(`desde=${encodeURIComponent(params.desde)}`);
   if (params.hasta) entries.push(`hasta=${encodeURIComponent(params.hasta)}`);
   if (params.q) entries.push(`q=${encodeURIComponent(params.q)}`);
+  if (params.orden) entries.push(`orden=${encodeURIComponent(params.orden)}`);
   if (params.page != null) entries.push(`page=${params.page}`);
   if (params.page_size != null) entries.push(`page_size=${params.page_size}`);
   return entries.length > 0 ? `?${entries.join("&")}` : "";

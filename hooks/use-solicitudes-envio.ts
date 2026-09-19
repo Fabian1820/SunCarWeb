@@ -7,9 +7,9 @@ import type {
   CompletarSolicitudData,
   EstadoSolicitudEnvio,
   ListSolicitudesEnvioParams,
-  SolicitudEnvio,
   SolicitudEnvioCreateData,
   SolicitudEnvioUpdateData,
+  SolicitudEnvio,
   UrgenciaSolicitudEnvio,
 } from "@/lib/types/feats/solicitudes-envio/solicitud-envio-types";
 
@@ -24,34 +24,7 @@ interface Filtros {
 }
 
 const DEFAULT_PAGE_SIZE = 20;
-
-/**
- * Comparator para la vista de la compradora internacional: pendientes/en_proceso
- * primero, urgencia alta antes que normal, más antiguas primero (cola FIFO).
- * Completadas y canceladas se van al fondo por fecha desc.
- */
-function comparatorInternacional(a: SolicitudEnvio, b: SolicitudEnvio): number {
-  const scoreEstado = (s: SolicitudEnvio) => {
-    if (s.estado === "pendiente") return 0;
-    if (s.estado === "en_proceso") return 1;
-    if (s.estado === "completada") return 2;
-    return 3;
-  };
-  const scoreUrg = (s: SolicitudEnvio) => (s.urgencia === "alta" ? 0 : 1);
-  const de = scoreEstado(a) - scoreEstado(b);
-  if (de !== 0) return de;
-  const activo = a.estado === "pendiente" || a.estado === "en_proceso";
-  if (activo) {
-    const du = scoreUrg(a) - scoreUrg(b);
-    if (du !== 0) return du;
-    return (
-      new Date(a.creada_en ?? 0).getTime() - new Date(b.creada_en ?? 0).getTime()
-    );
-  }
-  return (
-    new Date(b.creada_en ?? 0).getTime() - new Date(a.creada_en ?? 0).getTime()
-  );
-}
+const DEBOUNCE_MS = 350;
 
 export function useSolicitudesEnvio(
   opts: { modo?: "local" | "internacional" } = {},
@@ -69,6 +42,13 @@ export function useSolicitudesEnvio(
     urgencia: "todas",
     q: "",
   });
+  /** Solo la búsqueda libre se retrasa; los selects aplican al instante. */
+  const [qDebounced, setQDebounced] = useState("");
+
+  useEffect(() => {
+    const t = setTimeout(() => setQDebounced(filtros.q), DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [filtros.q]);
 
   const fetchIdRef = useRef(0);
 
@@ -80,20 +60,19 @@ export function useSolicitudesEnvio(
       const params: ListSolicitudesEnvioParams = {
         page,
         page_size: pageSize,
+        // La cola se ordena en Mongo: ordenar en el cliente solo reordenaría
+        // la página actual y con >1 página la prioridad saldría mal.
+        orden: modo === "internacional" ? "cola" : undefined,
       };
       if (filtros.estado !== "todos") params.estado = filtros.estado;
       if (filtros.urgencia !== "todas") params.urgencia = filtros.urgencia;
-      if (filtros.q.trim()) params.q = filtros.q.trim();
+      if (qDebounced.trim()) params.q = qDebounced.trim();
       if (filtros.almacenId) params.almacen_id = filtros.almacenId;
       if (filtros.creadaPorCi) params.creada_por_ci = filtros.creadaPorCi;
 
       const res = await SolicitudEnvioService.list(params);
       if (id !== fetchIdRef.current) return; // stale
-      const ordenados =
-        modo === "internacional"
-          ? [...res.data].sort(comparatorInternacional)
-          : res.data;
-      setItems(ordenados);
+      setItems(res.data);
       setTotal(res.total);
     } catch (e) {
       if (id === fetchIdRef.current)
@@ -101,7 +80,16 @@ export function useSolicitudesEnvio(
     } finally {
       if (id === fetchIdRef.current) setLoading(false);
     }
-  }, [page, pageSize, filtros, modo]);
+  }, [
+    page,
+    pageSize,
+    modo,
+    qDebounced,
+    filtros.estado,
+    filtros.urgencia,
+    filtros.almacenId,
+    filtros.creadaPorCi,
+  ]);
 
   useEffect(() => {
     void fetchList();

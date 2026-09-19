@@ -958,6 +958,23 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-sky-700",
     href: "/solicitudes-envio",
     grupo: "gestion-almacenes",
+    // Una pestaña por sub-permiso. No son aditivos: quien tenga el módulo
+    // completo ve las tres, y quien solo deba ver su bandeja recibe el
+    // sub-permiso suelto (comprador local vs. compradora internacional).
+    subPermisos: [
+      {
+        key: "solicitudes-envio/materiales",
+        label: "Materiales & Alertas — armar pedidos y silenciar alertas",
+      },
+      {
+        key: "solicitudes-envio/solicitudes-local",
+        label: "Solicitudes — bandeja del comprador local",
+      },
+      {
+        key: "solicitudes-envio/solicitudes-internacional",
+        label: "Solicitudes — cola de la compradora internacional",
+      },
+    ],
   },
   {
     key: "inventario",

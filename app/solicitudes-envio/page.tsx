@@ -71,18 +71,24 @@ function PageContent() {
           >
             <TabsList className={`grid w-full ${gridCols}`}>
               {canMateriales && (
-                <TabsTrigger value="materiales">
-                  Materiales &amp; Alertas
+                <TabsTrigger value="materiales" className="min-w-0">
+                  <span className="truncate">Materiales &amp; Alertas</span>
                 </TabsTrigger>
               )}
               {canLocal && (
-                <TabsTrigger value="solicitudes-local">
-                  Solicitudes — Comprador local
+                <TabsTrigger value="solicitudes-local" className="min-w-0">
+                  <span className="truncate">
+                    <span className="hidden lg:inline">Solicitudes — </span>
+                    Comprador local
+                  </span>
                 </TabsTrigger>
               )}
               {canInternacional && (
-                <TabsTrigger value="solicitudes-internacional">
-                  Solicitudes — Compradora internacional
+                <TabsTrigger value="solicitudes-internacional" className="min-w-0">
+                  <span className="truncate">
+                    <span className="hidden lg:inline">Solicitudes — </span>
+                    Compradora internacional
+                  </span>
                 </TabsTrigger>
               )}
             </TabsList>
