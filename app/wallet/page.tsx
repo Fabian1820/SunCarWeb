@@ -87,6 +87,7 @@ import type {
   AdjuntoWalletTransaction,
   TotalPorMoneda,
   WalletCurrency,
+  WalletPendingTransfer,
   Wallet as WalletType,
   WalletTransaction,
   WalletTransactionType,
@@ -2034,9 +2035,12 @@ function WalletPageContent() {
   const handleAcceptPending = async (pendingId: string) => {
     try {
       await acceptPendingTransfer(pendingId);
+      if (viewedBanco) await loadBancoDetail(viewedBanco.id, bancoCurrentFilters);
       toast({
         title: "Transferencia aceptada",
-        description: "Los fondos se acreditaron en tu billetera.",
+        description: viewedBanco
+          ? `Los fondos se acreditaron en ${viewedBanco.nombre}.`
+          : "Los fondos se acreditaron en tu billetera.",
       });
     } catch (err: unknown) {
       toast({
@@ -2077,6 +2081,176 @@ function WalletPageContent() {
       });
     }
   };
+
+  // Tarjeta de transferencias pendientes. `ownerCi` es el CI desde cuya
+  // perspectiva se muestra: el de la billetera propia, o el del banco abierto
+  // (`BANCO_<id>`), para que un admin pueda aceptar/rechazar/cancelar por el banco.
+  const renderPendingTransfers = (
+    ownerCi: string | undefined,
+    sourcePending: WalletPendingTransfer[],
+  ) => {
+    // Dedupe por id por si llegan repetidos y ordenar por fecha desc.
+    const seen = new Set<string>();
+    const allPending = sourcePending
+      .filter((p) => {
+        if (seen.has(p.id)) return false;
+        seen.add(p.id);
+        return true;
+      })
+      .sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() -
+          new Date(a.created_at).getTime(),
+      );
+    const myCi = ownerCi;
+    const incomingCount = allPending.filter(
+      (p) => p.wallet_destino_user_ci === myCi,
+    ).length;
+
+    if (allPending.length === 0 && !loadingPending) return null;
+
+    return (
+      <Card className="border-amber-300 shadow-md rounded-2xl overflow-hidden ring-1 ring-amber-100">
+        <CardHeader className="px-4 pt-4 pb-3 bg-gradient-to-r from-amber-50 to-amber-100/50">
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <div className="rounded-full p-1.5 bg-amber-100">
+                <SendHorizontal className="h-4 w-4 text-amber-700" />
+              </div>
+              {incomingCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500" />
+                </span>
+              )}
+            </div>
+            <div>
+              <CardTitle className="text-sm font-semibold text-amber-900 flex items-center gap-2">
+                Transferencias Pendientes
+                {incomingCount > 0 && (
+                  <Badge className="bg-rose-500 text-white border-rose-500 text-[10px] h-4 px-1.5">
+                    {incomingCount} para ti
+                  </Badge>
+                )}
+              </CardTitle>
+              <p className="text-xs text-amber-700/70 mt-0.5">
+                {allPending.length} pendiente{allPending.length !== 1 ? "s" : ""}
+              </p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-4 space-y-2">
+          {allPending.map((p) => {
+            const isResolving = resolvingPendingId === p.id;
+            const isReceiver = p.wallet_destino_user_ci === myCi;
+            const isSender = p.wallet_origen_user_ci === myCi;
+            // Color del monto desde la perspectiva del usuario
+            const amountColor = isReceiver
+              ? "text-emerald-600"
+              : isSender
+              ? "text-rose-600"
+              : "text-slate-700";
+            const sign = isReceiver ? "+" : isSender ? "-" : "";
+            const borderColor = isReceiver
+              ? "border-l-emerald-400"
+              : isSender
+              ? "border-l-rose-400"
+              : "border-l-slate-300";
+
+            return (
+              <div
+                key={p.id}
+                className={`rounded-xl border border-slate-100 border-l-4 ${borderColor} bg-white p-3`}
+              >
+                {/* Header: De → Para + monto */}
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 text-sm">
+                      <span className="text-slate-800 font-medium truncate min-w-0">
+                        {isSender ? "Tú" : p.wallet_origen_user_nombre}
+                      </span>
+                      <ArrowRight className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                      <span className="text-slate-800 font-medium truncate min-w-0">
+                        {isReceiver ? "Tú" : p.wallet_destino_user_nombre}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      {formatDateTime(p.created_at)}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <p className={`text-base font-bold ${amountColor} tabular-nums`}>
+                      {sign}{formatMoney(Number(p.monto), p.currency_code)}
+                    </p>
+                    <span className="text-[10px] font-semibold px-1 py-0.5 rounded bg-slate-100 text-slate-500">
+                      {p.currency_code}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Motivo */}
+                <p className="text-xs text-slate-600 mb-3 whitespace-pre-wrap break-words">
+                  {p.motivo}
+                </p>
+
+                {/* Acciones según rol */}
+                {isReceiver ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-xs border-rose-200 text-rose-700 hover:bg-rose-50"
+                      onClick={() => void handleRejectPending(p.id)}
+                      disabled={isResolving}
+                    >
+                      <X className="h-3.5 w-3.5 mr-1" />
+                      Rechazar
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700"
+                      onClick={() => void handleAcceptPending(p.id)}
+                      disabled={isResolving}
+                    >
+                      {isResolving ? (
+                        <RefreshCcw className="h-3.5 w-3.5 mr-1 animate-spin" />
+                      ) : (
+                        <ArrowDownCircle className="h-3.5 w-3.5 mr-1" />
+                      )}
+                      Aceptar
+                    </Button>
+                  </div>
+                ) : isSender ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full h-8 text-xs border-slate-300"
+                    onClick={() => void handleCancelPending(p.id)}
+                    disabled={isResolving}
+                  >
+                    {isResolving ? (
+                      <RefreshCcw className="h-3.5 w-3.5 mr-1 animate-spin" />
+                    ) : (
+                      <X className="h-3.5 w-3.5 mr-1" />
+                    )}
+                    Cancelar transferencia
+                  </Button>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+                      Pendiente de aceptación
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
+    );
+  };
+
 
   const handleRefresh = async () => {
     const refreshTasks: Promise<unknown>[] = [
@@ -2536,6 +2710,16 @@ function WalletPageContent() {
             )}
 
             <TransferenciaBancariaPendienteAlert bancoId={viewedBanco.id} />
+
+            {/* Transferencias wallet→banco pendientes: cualquier admin puede resolverlas. */}
+            {renderPendingTransfers(
+              bancoWallet?.user_ci,
+              pendingAll.filter(
+                (p) =>
+                  p.wallet_destino_user_ci === bancoWallet?.user_ci ||
+                  p.wallet_origen_user_ci === bancoWallet?.user_ci,
+              ),
+            )}
 
             {/* Historial de movimientos del banco */}
             <Card className="border-slate-200 shadow-sm rounded-2xl overflow-hidden">
@@ -3316,174 +3500,12 @@ function WalletPageContent() {
           </Card>
         )}
 
-        {/* Pending Transfers */}
-        {(() => {
-          // Para usuarios ver_todos: usar pendingAll (todas las del sistema).
-          // Para el resto: combinar incoming + outgoing del propio usuario.
-          const sourcePending = canSeeAll
-            ? pendingAll
-            : [...pendingIncoming, ...pendingOutgoing];
-          // Dedupe por id por si llegan repetidos y ordenar por fecha desc.
-          const seen = new Set<string>();
-          const allPending = sourcePending
-            .filter((p) => {
-              if (seen.has(p.id)) return false;
-              seen.add(p.id);
-              return true;
-            })
-            .sort(
-              (a, b) =>
-                new Date(b.created_at).getTime() -
-                new Date(a.created_at).getTime(),
-            );
-          const myCi = wallet?.user_ci;
-          const incomingCount = allPending.filter(
-            (p) => p.wallet_destino_user_ci === myCi,
-          ).length;
-
-          if (allPending.length === 0 && !loadingPending) return null;
-
-          return (
-            <Card className="border-amber-300 shadow-md rounded-2xl overflow-hidden ring-1 ring-amber-100">
-              <CardHeader className="px-4 pt-4 pb-3 bg-gradient-to-r from-amber-50 to-amber-100/50">
-                <div className="flex items-center gap-2">
-                  <div className="relative">
-                    <div className="rounded-full p-1.5 bg-amber-100">
-                      <SendHorizontal className="h-4 w-4 text-amber-700" />
-                    </div>
-                    {incomingCount > 0 && (
-                      <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500" />
-                      </span>
-                    )}
-                  </div>
-                  <div>
-                    <CardTitle className="text-sm font-semibold text-amber-900 flex items-center gap-2">
-                      Transferencias Pendientes
-                      {incomingCount > 0 && (
-                        <Badge className="bg-rose-500 text-white border-rose-500 text-[10px] h-4 px-1.5">
-                          {incomingCount} para ti
-                        </Badge>
-                      )}
-                    </CardTitle>
-                    <p className="text-xs text-amber-700/70 mt-0.5">
-                      {allPending.length} pendiente{allPending.length !== 1 ? "s" : ""}
-                    </p>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="p-4 space-y-2">
-                {allPending.map((p) => {
-                  const isResolving = resolvingPendingId === p.id;
-                  const isReceiver = p.wallet_destino_user_ci === myCi;
-                  const isSender = p.wallet_origen_user_ci === myCi;
-                  // Color del monto desde la perspectiva del usuario
-                  const amountColor = isReceiver
-                    ? "text-emerald-600"
-                    : isSender
-                    ? "text-rose-600"
-                    : "text-slate-700";
-                  const sign = isReceiver ? "+" : isSender ? "-" : "";
-                  const borderColor = isReceiver
-                    ? "border-l-emerald-400"
-                    : isSender
-                    ? "border-l-rose-400"
-                    : "border-l-slate-300";
-
-                  return (
-                    <div
-                      key={p.id}
-                      className={`rounded-xl border border-slate-100 border-l-4 ${borderColor} bg-white p-3`}
-                    >
-                      {/* Header: De → Para + monto */}
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5 text-sm">
-                            <span className="text-slate-800 font-medium truncate min-w-0">
-                              {isSender ? "Tú" : p.wallet_origen_user_nombre}
-                            </span>
-                            <ArrowRight className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                            <span className="text-slate-800 font-medium truncate min-w-0">
-                              {isReceiver ? "Tú" : p.wallet_destino_user_nombre}
-                            </span>
-                          </div>
-                          <p className="text-[10px] text-slate-400 mt-0.5">
-                            {formatDateTime(p.created_at)}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <p className={`text-base font-bold ${amountColor} tabular-nums`}>
-                            {sign}{formatMoney(Number(p.monto), p.currency_code)}
-                          </p>
-                          <span className="text-[10px] font-semibold px-1 py-0.5 rounded bg-slate-100 text-slate-500">
-                            {p.currency_code}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Motivo */}
-                      <p className="text-xs text-slate-600 mb-3 whitespace-pre-wrap break-words">
-                        {p.motivo}
-                      </p>
-
-                      {/* Acciones según rol */}
-                      {isReceiver ? (
-                        <div className="grid grid-cols-2 gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-8 text-xs border-rose-200 text-rose-700 hover:bg-rose-50"
-                            onClick={() => void handleRejectPending(p.id)}
-                            disabled={isResolving}
-                          >
-                            <X className="h-3.5 w-3.5 mr-1" />
-                            Rechazar
-                          </Button>
-                          <Button
-                            size="sm"
-                            className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700"
-                            onClick={() => void handleAcceptPending(p.id)}
-                            disabled={isResolving}
-                          >
-                            {isResolving ? (
-                              <RefreshCcw className="h-3.5 w-3.5 mr-1 animate-spin" />
-                            ) : (
-                              <ArrowDownCircle className="h-3.5 w-3.5 mr-1" />
-                            )}
-                            Aceptar
-                          </Button>
-                        </div>
-                      ) : isSender ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="w-full h-8 text-xs border-slate-300"
-                          onClick={() => void handleCancelPending(p.id)}
-                          disabled={isResolving}
-                        >
-                          {isResolving ? (
-                            <RefreshCcw className="h-3.5 w-3.5 mr-1 animate-spin" />
-                          ) : (
-                            <X className="h-3.5 w-3.5 mr-1" />
-                          )}
-                          Cancelar transferencia
-                        </Button>
-                      ) : (
-                        <div className="flex items-center gap-1.5">
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                            <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
-                            Pendiente de aceptación
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </CardContent>
-            </Card>
-          );
-        })()}
+        {renderPendingTransfers(
+          wallet?.user_ci,
+          // Para usuarios ver_todos: pendingAll (todas las del sistema).
+          // Para el resto: incoming + outgoing del propio usuario.
+          canSeeAll ? pendingAll : [...pendingIncoming, ...pendingOutgoing],
+        )}
 
         {/* Transactions */}
         <Card className="border-slate-200 shadow-sm rounded-2xl overflow-hidden">
