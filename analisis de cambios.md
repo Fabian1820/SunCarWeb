@@ -2,6 +2,46 @@
 
 ---
 
+## 📅 19 de Septiembre, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**2 commits reales** — Fabian1820 (co-authored Claude Opus 5) y Ruben (co-authored Claude Sonnet 5). Refactor importante del módulo de solicitudes de envío y fix de wallet.
+
+---
+
+### Área 1: feat(solicitudes-envio) — Bandeja única para comprador local e internacional (13:05)
+
+- **`feat(solicitudes-envio): bandeja única para comprador local y compradora internacional`** — Las pestañas local e internacional pasan a ser la misma `BandejaSolicitudes` en dos modos. El modo decide el orden por defecto, los textos y los estados que se ofrecen; los botones los decide el sub-permiso, así que quien tenga local + internacional gestiona de punta a punta desde cualquiera de las dos. La cola internacional pide `orden=cola` al backend (urgencia y antigüedad).
+
+  **Nuevo componente `MaterialPicker`** para armar la solicitud. **Nuevo hook `useAlmacenesLookup`** para resolver nombres de almacén. Materiales & Alertas y `useAlertasStock` reorganizados alrededor de la bandeja. `modulos-catalogo` declara los tres sub-permisos (`materiales`, `solicitudes-local`, `solicitudes-internacional`) que la página ya comprobaba, para poder asignarlos desde Permisos.
+
+  **15 archivos modificados**: 986 inserciones, 613 eliminaciones. Refactor significativo que consolida dos flujos separados (`tab-solicitudes-local.tsx` y `tab-solicitudes-internacional.tsx`) en un único componente reutilizable.
+
+---
+
+### Área 2: fix(wallet) — Admin puede aceptar/rechazar transferencias desde la vista de un banco (12:03)
+
+- **`fix(wallet): un admin puede aceptar/rechazar transferencias pendientes desde la vista de un banco`** — La tarjeta de pendientes solo existía en "Mi billetera" y comparaba contra el CI del propio usuario, así que las transferencias hacia un banco no se veían dentro del banco ni tenían botón de aceptar (el backend ya permitía a cualquier admin). Se extrae la tarjeta a `renderPendingTransfers(ownerCi, pendientes)` y se reutiliza en la vista de banco con el CI del banco como perspectiva.
+
+  **1 archivo modificado** (`app/wallet/page.tsx`): 191 inserciones, 169 eliminaciones.
+
+---
+
+### Puede dar bateo
+
+1. **feat(solicitudes-envio) sub-permisos nuevos en `modulos-catalogo` — confirmar registro en backend**: Los tres sub-permisos `materiales`, `solicitudes-local` y `solicitudes-internacional` ahora están declarados en el catálogo del frontend, pero si el backend no los tiene registrados, no serán asignables desde Gestión de Permisos y nadie (salvo superAdmin) podrá acceder.
+
+2. **feat(solicitudes-envio) `useAlmacenesLookup` — confirmar endpoint de almacenes en backend**: El hook resuelve nombres de almacén. Si el endpoint no existe o devuelve un formato diferente, los nombres de almacén se mostrarán como undefined o como IDs crudos.
+
+3. **feat(solicitudes-envio) `BandejaSolicitudes` modo local vs internacional — confirmar que `orden=cola` es un parámetro aceptado por el backend**: Si el backend no soporta este parámetro de ordenación, la cola internacional puede llegar sin el orden esperado (urgencia + antigüedad) o con error 422.
+
+4. **feat(solicitudes-envio) tab-solicitudes-local y tab-solicitudes-internacional — confirmar que no quedan imports residuales**: Ambos componentes fueron vaciados (reducidos a wrappers). Si algún otro módulo importaba directamente de ellos, puede ver componentes vacíos en lugar de un error de build.
+
+5. **fix(wallet) `renderPendingTransfers(ownerCi, pendientes)` — confirmar que `pendientes` incluye transferencias donde el banco es destinatario**: La refactorización pasa el CI del banco como `ownerCi`, pero si la consulta de `pendientes` al backend solo devuelve transferencias donde el usuario logueado es una de las partes (y no el banco), el resultado seguirá vacío en la vista del banco.
+
+---
+
 ## 📅 17 de Septiembre, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -316,64 +356,4 @@ Quince commits encadenados en menos de 6 horas reescribieron el módulo de plani
 
 ---
 
-## 📅 11 de Septiembre, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**17 commits reales** — Ruben0304 (4) y yany1509 (13). Día extremadamente activo. Áreas: módulo de auditoría completo (bitácora + filtros + pestaña de rendimiento), módulo de planificación diaria completo (pantalla nueva + múltiples fix encadenados + optimización de caché), wallet (comprobante imprimible + campo persona + PDF carta), nuevo módulo de alertas de wallet, permisos de planificación en app móvil, fix de margen en vales de salida, fix de guardado de ofertas con múltiples materiales del mismo tipo, y filtros/exportación en peticiones.
-
----
-
-### Área 1: feat(auditoria) × 3 — bitácora completa del sistema para superAdmin (20:55–21:33)
-
-- Nueva pantalla `/auditoria`: log global del backend con filtros de 13 parámetros, pestaña de rendimiento por módulo/endpoint, columna de duración con colores, filtro de entidad que sustituye otros filtros al activarse.
-
----
-
-### Área 2: feat/fix/perf(planificacion) × 7 — módulo de planificación diaria (19:01–20:24)
-
-- Módulo nuevo en Operaciones con 5 tipos de trabajo. Dos paneles a lo ancho. Borrador en localStorage. Caché en memoria de candidatos por tipo. Fix de cabecera que tapaba contenido.
-
----
-
-### Área 3–8: feat(wallet) ×2, feat(wallet-alertas), feat(permisos), fix(vales-salida), fix(ofertas), feat(peticiones)
-
-- Comprobante imprimible + campo persona en gastos. Módulo de alertas por movimientos grandes (Twilio). Sub-permiso de planificación en app móvil. Fix de margen PDF. Fix de bloqueo de guardado con 2+ materiales sin marcar. Filtros y export en peticiones a desarrollo.
-
----
-
-### Puede dar bateo
-
-1. **feat(auditoria) — confirmar endpoints `/api/auditoria/` y `/api/auditoria/rendimiento` en backend**.
-2. **feat(planificacion) módulo nuevo — confirmar todos los endpoints CRUD en backend**.
-3. **fix(planificacion) draft en localStorage — colisión entre usuarios distintos en dispositivo compartido**.
-4. **feat(wallet-alertas) — confirmar `/wallet-alertas` en `MODULOS_CATALOGO`**.
-5. **fix(ofertas) umbral accesorio ≤ 0,3 kW — `potenciaKW: null` no se asume accesorio; bloquea guardado si no está definido**.
-
----
-
-## 📅 10 de Septiembre, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**1 commit real** — Ruben0304 (co-authored Claude Sonnet 5). Fix de infraestructura: evita que Safari/iPadOS sirva respuestas cacheadas de GET cuando los datos ya cambiaron por un POST previo.
-
----
-
-### Área 1: fix(api-config) — no-store en todos los GET para evitar caché de Safari/iPadOS (12:37)
-
-- **`fix(api-config): evita cache de fetch GET en Safari/iPadOS`** — Los GET vía `apiRequest()` no llevaban `cache: 'no-store'`, por lo que Safari/iPadOS podía servir respuestas cacheadas tras un POST que mutaba los mismos datos. Se agrega `cache: 'no-store'` y la cabecera `Cache-Control: no-cache` en el helper central.
-
----
-
-### Puede dar bateo
-
-1. **`cache: 'no-store'` global — impacto en rendimiento con endpoints de catálogo**: El fix es correcto para datos mutables pero también desactiva la caché para endpoints de catálogo que raramente cambian. Monitorear saturación en endpoints lentos.
-
-2. **`Cache-Control: no-cache` como cabecera de petición — comportamiento en proxies/CDN**: Resuelve el caché del navegador, pero proxies corporativos pueden ignorarlo.
-
-3. **Cobertura solo en `apiRequest()` — peticiones fuera del helper no cubiertas**: Revisar los 4 archivos listados en CLAUDE.md como "Fixed Files" para confirmar migración completa.
-
----
-
-> ⚠️ **Nota de mantenimiento**: La entrada del **9 de Septiembre** fue eliminada el 17 de Septiembre al superar los 7 días de antigüedad (política de retención semanal). La entrada del **7 de Septiembre** fue eliminada el 15 de Septiembre al superar los 7 días. La entrada del **2 de Septiembre** fue eliminada el 10 de Septiembre al superar los 7 días. Anteriores eliminadas: 15 de Agosto y previas.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **11 de Septiembre** y **10 de Septiembre** fueron eliminadas el 19 de Septiembre al superar los 7 días de antigüedad (política de retención semanal). La entrada del **9 de Septiembre** fue eliminada el 17 de Septiembre. La entrada del **7 de Septiembre** fue eliminada el 15 de Septiembre. La entrada del **2 de Septiembre** fue eliminada el 10 de Septiembre. Anteriores eliminadas: 15 de Agosto y previas.
