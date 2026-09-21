@@ -32,6 +32,7 @@ import {
   Image,
   Clock,
   CalendarDays,
+  Camera,
   CalendarCheck,
   AlertTriangle,
   CreditCard,
@@ -637,6 +638,15 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
         aditivo: true,
       },
     ],
+  },
+  {
+    key: "categorias-evidencia",
+    label: "Evidencias de trabajos",
+    descripcion: "Qué fotos o vídeos hay que subir en cada tipo de trabajo diario.",
+    icon: Camera,
+    iconClass: "text-indigo-600",
+    href: "/categorias-evidencia",
+    grupo: "operaciones",
   },
   {
     key: "entregas-devoluciones",
