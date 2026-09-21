@@ -1,8 +1,7 @@
 "use client"
 
 import { useMemo, useState, type FormEvent } from "react"
-import Link from "next/link"
-import { AlertCircle, AlertTriangle, Clock, Loader2, Plus, RefreshCw, Search } from "lucide-react"
+import { AlertCircle, AlertTriangle, Loader2, Plus, RefreshCw, Search } from "lucide-react"
 import { Button } from "@/components/shared/atom/button"
 import { Label } from "@/components/shared/atom/label"
 import { Input } from "@/components/shared/molecule/input"
@@ -48,8 +47,8 @@ export function PanelEnVivo({ solinera }: TabSolineraProps) {
   const puestosLibres = useMemo(() => (panel?.puestos ?? []).filter((p) => p.estado === "libre"), [panel])
 
   const operativa = solinera.estado === "operativa"
-  const hayTurno = Boolean(panel?.turno)
-  const puedeIniciar = operativa && hayTurno
+  // El turno es opcional: solo la solinera tiene que estar operativa.
+  const puedeIniciar = operativa
 
   if (loading) {
     return (
@@ -124,16 +123,6 @@ export function PanelEnVivo({ solinera }: TabSolineraProps) {
         </p>
       )}
 
-      {operativa && !hayTurno && (
-        <p role="status" className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-          <Clock className="h-4 w-4 shrink-0" />
-          <span className="flex-1">No hay turno abierto: sin él no se pueden iniciar cargas ni cobrar.</span>
-          <Link href="?tab=turnos" className="font-semibold underline underline-offset-2">
-            Abrir turno
-          </Link>
-        </p>
-      )}
-
       {/* Barra de trabajo: contadores, buscador de ticket y nueva carga */}
       <section aria-label="Resumen" className="flex flex-col gap-4 rounded-xl border bg-white p-4 lg:flex-row lg:items-center lg:justify-between">
         <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-5">
@@ -165,7 +154,7 @@ export function PanelEnVivo({ solinera }: TabSolineraProps) {
             className="h-10"
             onClick={() => setIniciar({ puestoId: null, reserva: null })}
             disabled={!puedeIniciar}
-            title={puedeIniciar ? undefined : hayTurno ? "La solinera no está operativa" : "Abre un turno para iniciar cargas"}
+            title={puedeIniciar ? undefined : "La solinera no está operativa"}
           >
             <Plus className="mr-2 h-4 w-4" />
             Nueva carga
@@ -240,7 +229,7 @@ export function PanelEnVivo({ solinera }: TabSolineraProps) {
             <ul className="divide-y">
               {panel.reservas.map((r) => {
                 const puedePresentarse =
-                  operativa && hayTurno && ahora >= new Date(r.inicio).getTime() - ventanaLlegada * 60_000
+                  operativa && ahora >= new Date(r.inicio).getTime() - ventanaLlegada * 60_000
                 return (
                   <li key={r.id} className="grid gap-1 px-4 py-3 text-sm">
                     <div className="flex items-baseline justify-between gap-2">

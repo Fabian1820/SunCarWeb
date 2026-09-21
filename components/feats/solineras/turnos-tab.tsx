@@ -107,7 +107,7 @@ export function TurnosTab({ solinera }: TabSolineraProps) {
             <div>
               <p className="text-lg font-medium">No hay turno abierto</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Mientras no haya un turno abierto no se pueden iniciar cargas ni registrar cobros.
+                El turno es opcional: las cargas y los cobros funcionan sin él. Ábrelo si quieres cuadrar el efectivo de la caja al terminar.
               </p>
             </div>
           ) : turno ? (

@@ -15,7 +15,7 @@ import type { PuestoPanel } from "@/lib/types/feats/solineras/solinera-types"
 
 interface Props {
   puesto: PuestoPanel
-  /** Sin turno abierto no se puede iniciar ninguna carga. */
+  /** false si la solinera no está operativa. */
   puedeIniciar: boolean
   tiempoMaximoMin: number
   onIniciar: (puesto: PuestoPanel) => void
@@ -99,7 +99,7 @@ export function PuestoCard({
             <Button
               onClick={() => onIniciar(puesto)}
               disabled={!puedeIniciar}
-              title={puedeIniciar ? undefined : "Abre un turno para iniciar cargas"}
+              title={puedeIniciar ? undefined : "La solinera no está operativa"}
               className="h-10 flex-1"
             >
               <Plug className="mr-2 h-4 w-4" />

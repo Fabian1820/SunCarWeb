@@ -79,7 +79,7 @@ function SolinerasContenido() {
             <h2 className="mt-3 text-lg font-semibold text-foreground">Aún no hay solineras</h2>
             <p className="mt-1 text-sm text-muted-foreground">
               {puedeAdministrarRed
-                ? "Crea la primera con sus puestos de carga. Después podrás fijar las tarifas, abrir un turno y empezar a cargar."
+                ? "Crea la primera con sus puestos de carga. Después podrás fijar las tarifas y empezar a cargar."
                 : "Cuando alguien con permiso de red cree una, aparecerá aquí."}
             </p>
             {botonNueva && <div className="mt-5 flex justify-center">{botonNueva}</div>}
@@ -170,7 +170,7 @@ function TarjetaSolinera({ solinera }: { solinera: Solinera }) {
         <div>
           <dt className="text-xs text-muted-foreground">Turno</dt>
           <dd className={cn("font-semibold", solinera.turno_abierto ? "text-emerald-700" : "text-muted-foreground")}>
-            {solinera.turno_abierto ? "Abierto" : "Cerrado"}
+            {solinera.turno_abierto ? "Abierto" : "Sin turno"}
           </dd>
         </div>
       </dl>

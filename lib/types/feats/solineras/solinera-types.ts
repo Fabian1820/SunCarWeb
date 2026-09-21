@@ -246,7 +246,8 @@ export interface Carga {
     kwh_estimados?: number | null
   }
   reserva_id?: string | null
-  turno_id: string
+  /** null si la carga se hizo sin turno abierto. */
+  turno_id: string | null
   estado: EstadoCarga
   inicio: string
   /** Tiempo que el cliente pidió cargar (sale en el ticket). */
@@ -429,7 +430,8 @@ export interface PagoSolinera {
   solinera_id: string
   carga_id: string
   carga_codigo: string
-  turno_id: string
+  /** null si el pago se registró sin turno abierto. */
+  turno_id: string | null
   cliente_nombre?: string
   metodo: MetodoPago
   monto: number
