@@ -38,6 +38,8 @@ import { GenerarFacturaClienteDialog } from "@/components/feats/obras-terminadas
 import { useObrasTerminadas } from "@/hooks/use-obras-terminadas"
 import { ObrasTerminadasTable } from "@/components/feats/obras-terminadas/obras-terminadas-table"
 import { FacturasObrasTerminadasTable } from "@/components/feats/obras-terminadas/facturas-obras-terminadas-table"
+import { ServiciosFacturadosTable } from "@/components/feats/obras-terminadas/servicios-facturados-table"
+import { ServiciosClienteService, type ServicioCliente } from "@/lib/services/feats/customer/servicios-cliente-service"
 import type { ObrasTerminadasFiltros } from "@/lib/services/feats/obras-terminadas/obras-terminadas-service"
 import { ObrasTerminadasService } from "@/lib/services/feats/obras-terminadas/obras-terminadas-service"
 import { ExportFacturaClienteService } from "@/lib/services/feats/obras-terminadas/export-factura-cliente-service"
@@ -153,8 +155,10 @@ export default function ObrasTerminadasPage() {
     }
   }, [serverFiltros, toast])
 
-  /* ── Vista: Facturas de obras terminadas — 2 sub-pestañas (clientes/trabajadores) ── */
-  const [subVista, setSubVista] = useState<"clientes" | "trabajadores">("clientes")
+  /* ── Vista: Facturas de obras terminadas — 3 sub-pestañas (clientes/trabajadores/servicios) ── */
+  const [subVista, setSubVista] = useState<"clientes" | "trabajadores" | "servicios">("clientes")
+  const [serviciosFacturados, setServiciosFacturados] = useState<ServicioCliente[]>([])
+  const [loadingServiciosFacturados, setLoadingServiciosFacturados] = useState(false)
   const [generarFacturaOpen, setGenerarFacturaOpen] = useState(false)
   const searchParams = useSearchParams()
   const clienteQueryParam = searchParams.get("cliente")
@@ -210,7 +214,7 @@ export default function ObrasTerminadasPage() {
   // alternar entre pestañas ya visitadas con los mismos filtros).
   const ultimaFirmaCargada = useRef<{ clientes?: string; trabajadores?: string }>({})
   useEffect(() => {
-    if (vista !== "facturas") return
+    if (vista !== "facturas" || subVista === "servicios") return
     const filtros = subVista === "clientes" ? filtrosClientesFacturas : filtrosTrabajadoresFacturas
     const firma = JSON.stringify(filtros)
     if (ultimaFirmaCargada.current[subVista] === firma) return
@@ -222,6 +226,28 @@ export default function ObrasTerminadasPage() {
     return () => clearTimeout(timeout)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vista, subVista, filtrosClientesFacturas, filtrosTrabajadoresFacturas])
+
+  const cargarServiciosFacturados = useCallback(async () => {
+    setLoadingServiciosFacturados(true)
+    try {
+      const data = await ServiciosClienteService.listarTodos({ facturado: true })
+      setServiciosFacturados(data)
+    } catch (error) {
+      toast({
+        title: "No se pudieron cargar los servicios facturados",
+        description: error instanceof Error ? error.message : undefined,
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingServiciosFacturados(false)
+    }
+  }, [toast])
+
+  useEffect(() => {
+    if (vista === "facturas" && subVista === "servicios") {
+      cargarServiciosFacturados()
+    }
+  }, [vista, subVista, cargarServiciosFacturados])
 
   const comercialesFacturas = useMemo(() => {
     const set = new Set<string>()
@@ -426,14 +452,32 @@ export default function ObrasTerminadasPage() {
                     onClick={() => {
                       if (subVista === "clientes") {
                         facturasClientesHook.fetchData(filtrosClientesFacturas, facturasClientesHook.page)
-                      } else {
+                      } else if (subVista === "trabajadores") {
                         facturasTrabajadoresHook.fetchData(filtrosTrabajadoresFacturas, facturasTrabajadoresHook.page)
+                      } else {
+                        cargarServiciosFacturados()
                       }
                     }}
-                    disabled={subVista === "clientes" ? facturasClientesHook.loading : facturasTrabajadoresHook.loading}
+                    disabled={
+                      subVista === "clientes"
+                        ? facturasClientesHook.loading
+                        : subVista === "trabajadores"
+                          ? facturasTrabajadoresHook.loading
+                          : loadingServiciosFacturados
+                    }
                     className="gap-1.5"
                   >
-                    <RefreshCw className={`h-4 w-4 ${(subVista === "clientes" ? facturasClientesHook.loading : facturasTrabajadoresHook.loading) ? "animate-spin" : ""}`} />
+                    <RefreshCw
+                      className={`h-4 w-4 ${
+                        (subVista === "clientes"
+                          ? facturasClientesHook.loading
+                          : subVista === "trabajadores"
+                            ? facturasTrabajadoresHook.loading
+                            : loadingServiciosFacturados)
+                          ? "animate-spin"
+                          : ""
+                      }`}
+                    />
                     <span className="hidden sm:inline">Actualizar</span>
                   </Button>
                 </>
@@ -541,7 +585,7 @@ export default function ObrasTerminadasPage() {
           </>
         ) : (
           <>
-            {(subVista === "clientes" ? facturasClientesHook.error : facturasTrabajadoresHook.error) && (
+            {subVista !== "servicios" && (subVista === "clientes" ? facturasClientesHook.error : facturasTrabajadoresHook.error) && (
               <div className="mb-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 <span>
@@ -607,7 +651,7 @@ export default function ObrasTerminadasPage() {
                 )}
               </div>
 
-              <Tabs value={subVista} onValueChange={(v) => setSubVista(v as "clientes" | "trabajadores")}>
+              <Tabs value={subVista} onValueChange={(v) => setSubVista(v as "clientes" | "trabajadores" | "servicios")}>
                 <div className="px-4 sm:px-6 pt-3">
                   <TabsList>
                     <TabsTrigger value="clientes" className="gap-1.5">
@@ -617,6 +661,10 @@ export default function ObrasTerminadasPage() {
                     <TabsTrigger value="trabajadores" className="gap-1.5">
                       <Users className="h-4 w-4" />
                       Facturas trabajadores
+                    </TabsTrigger>
+                    <TabsTrigger value="servicios" className="gap-1.5">
+                      <FileText className="h-4 w-4" />
+                      Facturas de servicios
                     </TabsTrigger>
                   </TabsList>
                 </div>
@@ -716,6 +764,13 @@ export default function ObrasTerminadasPage() {
                         </div>
                       </div>
                     ) : null}
+                  />
+                </TabsContent>
+
+                <TabsContent value="servicios" forceMount className={subVista === "servicios" ? "" : "hidden"}>
+                  <ServiciosFacturadosTable
+                    servicios={serviciosFacturados}
+                    loading={loadingServiciosFacturados}
                   />
                 </TabsContent>
               </Tabs>

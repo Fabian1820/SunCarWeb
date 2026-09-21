@@ -692,6 +692,12 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
       { key: "instalaciones/averias", label: "Averías" },
       { key: "instalaciones/planificacion-diaria-trabajos", label: "Planificación Diaria de Trabajos" },
       { key: "instalaciones/ordenes-trabajo", label: "Órdenes de Trabajo" },
+      {
+        key: "instalaciones/servicios-cliente",
+        label: "Servicios de Cliente",
+        descripcion:
+          "Crear trabajos/servicios post-venta de un cliente (líneas de costo, precio, estado). No incluye facturarlos: eso vive en Facturación > Obras Terminadas.",
+      },
     ],
   },
   // Tarjetas de Instalaciones, ahora con acceso directo desde Operaciones en
@@ -831,7 +837,19 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
         key: "facturas/facturas-solar-carros",
         label: "Facturas Solar Carros",
       },
-      { key: "facturas/obras-terminadas", label: "Obras Terminadas" },
+      {
+        key: "facturas/obras-terminadas",
+        label: "Obras Terminadas",
+        subPermisos: [
+          {
+            key: "facturas/obras-terminadas/servicios",
+            label: "Facturar servicios de cliente",
+            descripcion:
+              "Habilita el botón 'Facturar' sobre un Servicio de Cliente terminado, en la pestaña de Facturas de Obras Terminadas. ADITIVO: tener 'facturas' o 'facturas/obras-terminadas' NO lo concede; hay que asignarlo explícitamente. Es independiente del permiso para crear el servicio (Operaciones > Servicios de Cliente).",
+            aditivo: true,
+          },
+        ],
+      },
     ],
   },
   {

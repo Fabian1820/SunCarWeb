@@ -45,6 +45,7 @@ import {
   Volume2,
   VolumeX,
   Coins,
+  Wrench,
 } from "lucide-react";
 import { usePagos, PAGOS_LIMIT } from "@/hooks/use-pagos";
 import { AnticiposPendientesTable } from "@/components/feats/pagos/anticipos-pendientes-table";
@@ -68,13 +69,15 @@ import { useToast } from "@/hooks/use-toast";
 import { TasaCambioService } from "@/lib/api-services";
 import type { TasaCambio } from "@/lib/types/feats/tasa-cambio/tasa-cambio-types";
 import { normalizeSearchText } from "@/lib/utils/string-utils";
+import { ServiciosPagosPanel } from "@/components/feats/pagos/servicios-pagos-panel";
 
 type ViewMode =
   | "anticipos-pendientes"
   | "finales-pendientes"
   | "pagos-por-ofertas"
   | "todos-pagos"
-  | "facturas-emitidas";
+  | "facturas-emitidas"
+  | "servicios";
 
 type DevolucionesFilter = "todos" | "con_devoluciones" | "sin_devoluciones";
 
@@ -1281,11 +1284,27 @@ export default function PagosClientesPage() {
                     <FileText className="h-4 w-4 mr-2" />
                     Facturas Emitidas
                   </Button>
+                  <Button
+                    variant={viewMode === "servicios" ? "default" : "outline"}
+                    onClick={() => setViewMode("servicios")}
+                    className={
+                      viewMode === "servicios"
+                        ? "bg-teal-600 hover:bg-teal-700"
+                        : ""
+                    }
+                  >
+                    <Wrench className="h-4 w-4 mr-2" />
+                    Servicios
+                  </Button>
                 </div>
               </div>
             </CardContent>
           </Card>
 
+          {viewMode === "servicios" && <ServiciosPagosPanel />}
+
+          {viewMode !== "servicios" && (
+          <>
           <Card className="border-0 shadow-md mb-6 border-l-4 border-l-green-600">
             <CardContent className="pt-6">
               <div className="grid grid-cols-1 lg:grid-cols-6 gap-4">
@@ -1688,6 +1707,8 @@ export default function PagosClientesPage() {
               )}
             </CardContent>
           </Card>
+          </>
+          )}
         </div>
       </main>
 

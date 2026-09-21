@@ -34,6 +34,7 @@ interface ClienteDetallesDialogProps {
   onOpenChange: (open: boolean) => void
   cliente: Cliente | null
   onEdit?: (cliente: Cliente) => void
+  onVerServicios?: (cliente: Cliente) => void
   onDownloadComprobante?: (cliente: Cliente) => Promise<void>
   fotosCliente?: ClienteFoto[]
   loadingFotosCliente?: boolean
@@ -94,6 +95,7 @@ export function ClienteDetallesDialog({
   onOpenChange,
   cliente,
   onEdit,
+  onVerServicios,
   onDownloadComprobante,
   fotosCliente,
   loadingFotosCliente = false,
@@ -496,6 +498,19 @@ export function ClienteDetallesDialog({
         </div>
 
         <div className="flex shrink-0 justify-end gap-2 border-t border-gray-100 px-5 py-3.5">
+          {onVerServicios && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                onVerServicios(cliente)
+                onOpenChange(false)
+              }}
+              className="border-teal-300 text-teal-700 hover:bg-teal-50"
+            >
+              Servicios
+            </Button>
+          )}
           {onEdit && (
             <Button
               variant="outline"

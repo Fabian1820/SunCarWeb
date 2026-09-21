@@ -113,6 +113,7 @@ import {
   type LineaEquipo,
 } from "@/components/feats/customer/equipos-cliente-cell";
 import { EquiposClienteDialog } from "@/components/feats/customer/equipos-cliente-dialog";
+import { ServiciosClienteDialog } from "@/components/feats/customer/servicios-cliente-dialog";
 import {
   construirMarcasMap,
   generarOpcionesExportacionOferta,
@@ -786,6 +787,7 @@ export function ClientsTable({
   const [clienteParaEstadosMultiples, setClienteParaEstadosMultiples] =
     useState<Cliente | null>(null);
   const [clienteEquipos, setClienteEquipos] = useState<Cliente | null>(null);
+  const [clienteServicios, setClienteServicios] = useState<Cliente | null>(null);
   // Ficha actualizada tras un cambio en el diálogo, por número de cliente: la
   // lista llega por props y no se recarga, así que la fila se pinta con esto.
   const [equiposActualizados, setEquiposActualizados] = useState<
@@ -4921,8 +4923,18 @@ export function ClientsTable({
           }
         }}
         cliente={clientForDetails}
+        onVerServicios={(c) => setClienteServicios(c)}
         fotosCliente={fotosClientDetails}
         loadingFotosCliente={loadingFotosClientDetails}
+      />
+
+      {/* Servicios/trabajos post-venta del cliente, con precio, estado y facturación */}
+      <ServiciosClienteDialog
+        open={clienteServicios !== null}
+        onOpenChange={(open) => {
+          if (!open) setClienteServicios(null);
+        }}
+        cliente={clienteServicios}
       />
 
       {/* Vales de salida del cliente, con sus materiales y quién los recibió */}

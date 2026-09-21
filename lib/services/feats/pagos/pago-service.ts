@@ -1,7 +1,10 @@
 import { apiRequest } from "@/lib/api-config";
 
 export interface PagoCreateData {
-  oferta_id: string;
+  /** Excluyente con servicio_id. */
+  oferta_id?: string;
+  /** Excluyente con oferta_id: pago sobre un ServicioCliente (trabajo post-venta). */
+  servicio_id?: string;
   monto: number;
   fecha: string;
   tipo_pago: "anticipo" | "pendiente" | "completo";
@@ -35,7 +38,8 @@ export interface HistorialCambioPago {
 
 export interface Pago {
   id: string;
-  oferta_id: string;
+  oferta_id?: string | null;
+  servicio_id?: string | null;
   monto: number;
   moneda: "USD" | "EUR" | "CUP";
   tasa_cambio: number;
