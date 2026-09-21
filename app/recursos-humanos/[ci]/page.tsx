@@ -13,7 +13,7 @@ import { Toaster } from "@/components/shared/molecule/toaster"
 import { useToast } from "@/hooks/use-toast"
 import { useRecursosHumanos } from "@/hooks/use-recursos-humanos"
 import { CargoInput } from "@/components/feats/recursos-humanos/cargo-input"
-import { DepartamentoService, SedeService, IngresoMensualService, PermisosService } from "@/lib/api-services"
+import { DepartamentoService, SedeService, IngresoMensualService, PermisosService, TrabajadorService } from "@/lib/api-services"
 import type { Sede }        from "@/lib/types/feats/sedes/sede-types"
 import type { Departamento } from "@/lib/types/feats/departamentos/departamento-types"
 import type { TrabajadorRRHH } from "@/lib/recursos-humanos-types"
@@ -36,7 +36,6 @@ interface DatosExtra {
   direccion?: string
   sexo?: string
   grado_escolar?: string
-  foto_carnet?: string          // base64
   documentos?: Documento[]
   contacto_emergencia_nombre?: string
   contacto_emergencia_telefono?: string
@@ -68,7 +67,7 @@ function iniciales(nombre: string) {
   return nombre.split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase()
 }
 function Avatar({ emp, size = "lg" }: { emp: TrabajadorRRHH; size?: "sm" | "lg" }) {
-  const cls = size === "lg" ? "h-16 w-16 text-xl" : "h-9 w-9 text-sm"
+  const cls = size === "lg" ? "h-20 w-16 text-xl" : "h-10 w-8 text-sm"
   if (emp.foto_perfil) return (
     <img src={emp.foto_perfil} alt={emp.nombre}
       className={`${cls} rounded-2xl object-cover shrink-0 border-2 border-white shadow`} />
@@ -221,12 +220,15 @@ const GRADOS_ESCOLARES = [
 ]
 
 // ─── Tab Personal ─────────────────────────────────────────────────────────────
-function TabPersonal({ emp, onUpdate }: {
+function TabPersonal({ emp, onUpdate, onFotoCambiada }: {
   emp: TrabajadorRRHH
   onUpdate: (campo: string, val: any) => Promise<void>
+  onFotoCambiada: () => void
 }) {
   const [extra, setExtra]     = useState<DatosExtra>(() => getExtra(emp.CI))
   const carnetRef             = useRef<HTMLInputElement>(null)
+  const { toast }             = useToast()
+  const [subiendoFoto, setSubiendoFoto] = useState(false)
 
   const saveField = (field: keyof DatosExtra, val: string) => {
     const updated = { ...extra, [field]: val }
@@ -243,12 +245,42 @@ function TabPersonal({ emp, onUpdate }: {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [emp.CI])
 
-  const handleCarnet = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // La foto carnet es la foto de perfil del trabajador: vive en el servidor y sale en el listado de RR.HH.
+  const handleCarnet = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
+    e.target.value = ""
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = ev => saveField("foto_carnet", ev.target?.result as string)
-    reader.readAsDataURL(file)
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Archivo inválido", description: "Selecciona una imagen.", variant: "destructive" })
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "Imagen muy grande", description: "El máximo permitido es 5 MB.", variant: "destructive" })
+      return
+    }
+    setSubiendoFoto(true)
+    try {
+      await TrabajadorService.subirFotoTrabajador(emp.CI, file)
+      toast({ title: "Foto guardada" })
+      onFotoCambiada()
+    } catch (err) {
+      toast({ title: "Error", description: err instanceof Error ? err.message : "No se pudo subir la foto.", variant: "destructive" })
+    } finally {
+      setSubiendoFoto(false)
+    }
+  }
+
+  const quitarFoto = async () => {
+    setSubiendoFoto(true)
+    try {
+      await TrabajadorService.eliminarFotoTrabajador(emp.CI)
+      toast({ title: "Foto eliminada" })
+      onFotoCambiada()
+    } catch (err) {
+      toast({ title: "Error", description: err instanceof Error ? err.message : "No se pudo eliminar la foto.", variant: "destructive" })
+    } finally {
+      setSubiendoFoto(false)
+    }
   }
 
   return (
@@ -316,34 +348,37 @@ function TabPersonal({ emp, onUpdate }: {
         </div>
       </div>
 
-      {/* Foto del carnet */}
+      {/* Foto carnet */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-        <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-4">
-          <Camera className="h-4 w-4 text-[#012928]" /> Foto del carnet de identidad
+        <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-1">
+          <Camera className="h-4 w-4 text-[#012928]" /> Foto carnet
         </h3>
+        <p className="text-xs text-gray-400 mb-4">Es la foto que aparece junto al nombre en Recursos Humanos. Mejor vertical, de frente y con fondo claro.</p>
         <input ref={carnetRef} type="file" accept="image/*" className="hidden" onChange={handleCarnet} />
-        {extra.foto_carnet ? (
-          <div className="flex items-start gap-4">
-            <img src={extra.foto_carnet} alt="Carnet"
-              className="h-32 w-auto rounded-xl border border-gray-200 object-cover shadow-sm" />
-            <div className="flex flex-col gap-2">
-              <button onClick={() => carnetRef.current?.click()}
-                className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg hover:bg-gray-50 flex items-center gap-1.5 text-gray-600">
-                <Camera className="h-3.5 w-3.5" /> Cambiar foto
-              </button>
-              <button onClick={() => saveField("foto_carnet", "")}
-                className="px-3 py-1.5 text-xs border border-red-100 rounded-lg hover:bg-red-50 flex items-center gap-1.5 text-red-500">
+        <div className="flex items-start gap-4">
+          {emp.foto_perfil ? (
+            <img src={emp.foto_perfil} alt={`Foto carnet de ${emp.nombre}`}
+              className="h-40 w-32 rounded-xl border border-gray-200 object-cover shadow-sm" />
+          ) : (
+            <button onClick={() => carnetRef.current?.click()} disabled={subiendoFoto}
+              className="h-40 w-32 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center gap-2 text-gray-400 hover:border-[#AFEB17] hover:text-[#012928] transition-colors disabled:opacity-50">
+              <Camera className="h-7 w-7" />
+              <span className="text-xs px-2 text-center">Subir foto carnet</span>
+            </button>
+          )}
+          <div className="flex flex-col gap-2">
+            <button onClick={() => carnetRef.current?.click()} disabled={subiendoFoto}
+              className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg hover:bg-gray-50 flex items-center gap-1.5 text-gray-600 disabled:opacity-50">
+              <Camera className="h-3.5 w-3.5" /> {subiendoFoto ? "Subiendo…" : emp.foto_perfil ? "Cambiar foto" : "Subir foto"}
+            </button>
+            {emp.foto_perfil && (
+              <button onClick={quitarFoto} disabled={subiendoFoto}
+                className="px-3 py-1.5 text-xs border border-red-100 rounded-lg hover:bg-red-50 flex items-center gap-1.5 text-red-500 disabled:opacity-50">
                 <Trash2 className="h-3.5 w-3.5" /> Eliminar
               </button>
-            </div>
+            )}
           </div>
-        ) : (
-          <button onClick={() => carnetRef.current?.click()}
-            className="w-full h-24 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center gap-2 text-gray-400 hover:border-[#AFEB17] hover:text-[#012928] transition-colors">
-            <Camera className="h-7 w-7" />
-            <span className="text-xs">Click para subir foto del carnet</span>
-          </button>
-        )}
+        </div>
       </div>
 
       {/* Contacto de emergencia */}
@@ -1096,7 +1131,7 @@ export default function EmpleadoDetallePage() {
         </div>
 
         {/* Contenido */}
-        {activeTab === "personal"     && <TabPersonal emp={emp} onUpdate={handleUpdate} />}
+        {activeTab === "personal"     && <TabPersonal emp={emp} onUpdate={handleUpdate} onFotoCambiada={refresh} />}
         {activeTab === "laboral"      && <TabLaboral  emp={emp} sedes={sedes} departamentos={departamentos} onUpdate={handleUpdate} />}
         {activeTab === "evaluaciones" && <TabEvaluaciones emp={emp} />}
         {activeTab === "nomina"       && <TabNomina emp={emp} onUpdate={handleUpdate} />}

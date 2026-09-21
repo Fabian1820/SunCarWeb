@@ -22,6 +22,9 @@ import { useRecursosHumanos } from "@/hooks/use-recursos-humanos"
 import { CrearTrabajadorForm } from "@/components/feats/recursos-humanos/crear-trabajador-form"
 import type { TrabajadorRRHH } from "@/lib/recursos-humanos-types"
 import { normalizeSearchText } from '@/lib/utils/string-utils'
+import { ExportButtons } from "@/components/shared/molecule/export-buttons"
+import type { ExportOptions } from "@/lib/export-service"
+import { exportListToPDF } from "@/lib/export-list-pdf"
 
 // ─── tipos ────────────────────────────────────────────────────────────────────
 
@@ -76,7 +79,7 @@ function FiltroSelect({
 
 // ─── avatar (foto o iniciales) ───────────────────────────────────────────────
 function Avatar({ emp, size = "md" }: { emp: TrabajadorRRHH; size?: "sm" | "md" | "lg" }) {
-  const cls = size === "sm" ? "h-8 w-8 text-xs" : size === "lg" ? "h-14 w-14 text-lg" : "h-11 w-11 text-sm"
+  const cls = size === "sm" ? "h-11 w-9 text-xs" : size === "lg" ? "h-[74px] w-14 text-lg" : "h-14 w-11 text-sm"
   if (emp.foto_perfil) {
     return (
       <img
@@ -405,6 +408,41 @@ export default function EmpleadosPage() {
 
   const total = trabajadores.length
 
+  // Exporta lo que se ve: respeta la búsqueda y los filtros. Sin salarios: la lista tampoco los muestra.
+  const getExportOptions = (): Omit<ExportOptions, "filename"> => {
+    const partes = [`Fecha: ${new Date().toLocaleDateString("es-ES")}`, `Empleados: ${empleadosFiltrados.length}`]
+    if (filtroEstado !== "todos") partes.push(`Estado: ${filtroEstado}`)
+    if (filtroTipo !== "todos") partes.push(`Tipo: ${filtroTipo}`)
+    if (filtroDpto !== "todos") partes.push(`Departamento: ${filtroDpto}`)
+    if (filtroSede !== "todos") partes.push(`Sede: ${filtroSede}`)
+    if (search.trim()) partes.push(`Búsqueda: "${search.trim()}"`)
+    return {
+      title: "Suncar SRL - Empleados",
+      subtitle: partes.join(" · "),
+      logoUrl: "/logo.png",
+      columns: [
+        { header: "Nombre", key: "nombre", width: 28 },
+        { header: "CI", key: "ci", width: 14 },
+        { header: "Cargo", key: "cargo", width: 24 },
+        { header: "Departamento", key: "departamento", width: 20 },
+        { header: "Sede", key: "sede", width: 16 },
+        { header: "Teléfono", key: "telefono", width: 14 },
+        { header: "Estado", key: "estado", width: 10 },
+        { header: "Tipo", key: "tipo", width: 12 },
+      ],
+      data: empleadosFiltrados.map(t => ({
+        nombre: t.nombre,
+        ci: t.CI,
+        cargo: t.cargo || "",
+        departamento: t.departamento_nombre || "",
+        sede: t.sede_nombre || "",
+        telefono: t.telefono || "",
+        estado: t.activo !== false ? "Activo" : "Inactivo",
+        tipo: t.is_brigadista ? "Brigadista" : "Oficina",
+      })),
+    }
+  }
+
   // Cuando el usuario cambia agrupación: si cambia a algo distinto de "empleados",
   const handleAgrupacion = (a: Agrupacion) => {
     setAgrupacion(a)
@@ -423,11 +461,21 @@ export default function EmpleadosPage() {
         title="Empleados"
         subtitle="Gestión del personal de Suncar"
         actions={
+          <div className="flex items-center gap-2">
+            {empleadosFiltrados.length > 0 && (
+              <ExportButtons
+                getExportOptions={getExportOptions}
+                baseFilename="empleados"
+                variant="compact"
+                pdfExporter={exportListToPDF}
+              />
+            )}
           <Button onClick={() => setShowCrear(true)} className="bg-suncar-primary hover:bg-suncar-primary/90 text-white gap-2">
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">Agregar Empleado</span>
             <span className="sm:hidden">Nuevo</span>
           </Button>
+          </div>
         }
       />
 
