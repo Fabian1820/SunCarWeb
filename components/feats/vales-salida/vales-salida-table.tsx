@@ -23,6 +23,11 @@ import {
 } from "lucide-react";
 import type { ValeSalidaSummary } from "@/lib/api-types";
 import { parseFechaUtc } from "@/lib/utils/fecha-utc";
+import {
+  DEVOLUCION_PARCIAL_CLASS,
+  esDevolucionParcial,
+  getValeEstadoInfo,
+} from "@/lib/utils/vale-salida-estado";
 
 interface ValesSalidaTableProps {
   vales: ValeSalidaSummary[];
@@ -41,14 +46,6 @@ const getSolicitudTipo = (vale: ValeSalidaSummary): "material" | "venta" => {
   if (vale.solicitud_tipo === "venta") return "venta";
   return "material";
 };
-
-const getEstadoLabel = (estado?: string) =>
-  estado === "anulado" ? "Anulado" : "Usado";
-
-const getEstadoStyles = (estado?: string) =>
-  estado === "anulado"
-    ? "bg-red-50 text-red-700 border-red-200"
-    : "bg-emerald-50 text-emerald-700 border-emerald-200";
 
 const getTipoStyles = (tipo: "material" | "venta") =>
   tipo === "venta"
@@ -168,12 +165,24 @@ export function ValesSalidaTable({
                   </p>
                 </td>
                 <td className="py-4 px-4">
-                  <Badge
-                    variant="outline"
-                    className={getEstadoStyles(vale.estado)}
-                  >
-                    {getEstadoLabel(vale.estado)}
-                  </Badge>
+                  <div className="space-y-1">
+                    <Badge
+                      variant="outline"
+                      className={getValeEstadoInfo(vale.estado).className}
+                    >
+                      {getValeEstadoInfo(vale.estado).label}
+                    </Badge>
+                    {esDevolucionParcial(vale.estado, vale.tiene_devolucion) ? (
+                      <div>
+                        <Badge
+                          variant="outline"
+                          className={DEVOLUCION_PARCIAL_CLASS}
+                        >
+                          Devolución parcial
+                        </Badge>
+                      </div>
+                    ) : null}
+                  </div>
                 </td>
                 <td className="py-4 px-4">
                   <div className="space-y-1">

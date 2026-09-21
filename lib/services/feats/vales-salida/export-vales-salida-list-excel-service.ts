@@ -45,6 +45,7 @@ const cargarMaterialesPorCodigo = async (): Promise<Map<string, MaterialInfo>> =
 const ESTADO_LABEL: Record<string, string> = {
   usado: "Usado",
   anulado: "Anulado",
+  devuelto: "Devuelto",
 };
 
 const TIPO_LABEL: Record<string, string> = {
@@ -88,7 +89,7 @@ const formatMaterialNombre = (
 interface ExportValesOptions {
   almacenId?: string;
   searchTerm?: string;
-  estadoFilter?: "todos" | "usado" | "anulado";
+  estadoFilter?: "todos" | "usado" | "anulado" | "devuelto";
   tipoFilter?: "todos" | "material" | "venta";
   /** Filtro por nombre del creador de la solicitud asociada (server-side). */
   creadorSolicitudFilter?: string;

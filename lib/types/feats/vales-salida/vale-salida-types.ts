@@ -133,7 +133,7 @@ export interface ContextoSubidaMovilVale {
 export interface ValeSalida {
   id: string;
   codigo?: string;
-  estado?: "usado" | "anulado" | string;
+  estado?: "usado" | "anulado" | "devuelto" | string;
   facturado?: boolean;
   recogio_por?: string | null;
   recogido_por?: string | null;
@@ -274,7 +274,9 @@ export interface ValeSalidaSummary {
   codigo?: string;
   solicitud_tipo?: "material" | "venta";
   solicitud_codigo?: string;
-  estado?: "usado" | "anulado" | string;
+  estado?: "usado" | "anulado" | "devuelto" | string;
+  /** Alguna devolución de material, parcial o total (`devuelto` es solo la total). */
+  tiene_devolucion?: boolean;
   materiales_resumen?: string; // e.g., "5 materiales"
   /** Array detallado de materiales — añadido por el backend para el summary. */
   materiales?: ValeSalidaSummaryMaterial[];
