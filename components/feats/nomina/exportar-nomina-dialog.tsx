@@ -131,7 +131,7 @@ export function ExportarNominaDialog({ open, onOpenChange, hoja, filtros, vistaI
       const partes = [mesLabel, nombreContenido, `Trabajadores: ${filas.length}`]
       if (conCompl) partes.push(`Total a distribuir: USD ${hoja.totales.total_complementario_usd.toLocaleString("es", { minimumFractionDigits: 2 })}`)
       if (alcance === "vista") {
-        const sede = filtros.sedeId === SIN_SEDE ? "Sin sede" : hoja.sedes.find((s) => s.id === filtros.sedeId)?.nombre
+        const sede = filtros.sedeId === SIN_SEDE ? "Sin sede" : (hoja.sedes ?? []).find((s) => s.id === filtros.sedeId)?.nombre
         if (sede) partes.push(`Sede: ${sede}`)
         const dep = hoja.departamentos.find((d) => d.departamento_id === filtros.departamentoId)?.nombre
         if (dep) partes.push(`Departamento: ${dep}`)

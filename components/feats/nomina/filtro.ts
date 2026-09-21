@@ -30,9 +30,10 @@ export function filtrosActivos(f: FiltrosNomina): number {
 
 function cumple(t: LineaNomina, f: FiltrosNomina, q: string): boolean {
   if (f.soloSeleccionados && !t.participa) return false
+  const sedes = t.sedes_ids ?? []
   if (f.sedeId === SIN_SEDE) {
-    if (t.sedes_ids.length > 0) return false
-  } else if (f.sedeId && !t.sedes_ids.includes(f.sedeId)) {
+    if (sedes.length > 0) return false
+  } else if (f.sedeId && !sedes.includes(f.sedeId)) {
     return false
   }
   if (q && !normalizeSearchText(`${t.nombre} ${t.trabajador_ci}`).includes(q)) return false

@@ -19,7 +19,7 @@ const claseSelect =
 /** Buscador por nombre y filtros de sede, departamento y cargo. Valen para las dos vistas. */
 export function NominaFiltros({ hoja, filtros, onChange, mostrando, total }: Props) {
   const todos = hoja.departamentos.flatMap((d) => d.cargos.flatMap((c) => c.trabajadores))
-  const haySinSede = todos.some((t) => t.sedes_ids.length === 0)
+  const haySinSede = todos.some((t) => (t.sedes_ids ?? []).length === 0)
 
   // Los cargos que se ofrecen son los del departamento elegido (o todos).
   const cargos = Array.from(
@@ -54,7 +54,7 @@ export function NominaFiltros({ hoja, filtros, onChange, mostrando, total }: Pro
         className={claseSelect}
       >
         <option value="">Todas las sedes</option>
-        {hoja.sedes.map((s) => (
+        {(hoja.sedes ?? []).map((s) => (
           <option key={s.id} value={s.id}>
             {s.nombre}
           </option>
