@@ -2,6 +2,101 @@
 
 ---
 
+## 📅 21 de Septiembre, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**22 commits** — yany1509 (mayoría). Día extremadamente activo: **barra lateral global de navegación** (1 commit, +1225 líneas, el más transversal), **nuevo módulo Nómina** completamente construido iterativamente (6 commits), **nueva área Solineras** desde cero (2 commits), **mejoras a RRHH export** (2 commits), **nuevo módulo Evidencias de trabajos** (1), **refactor de Servicios-cliente** (2 commits), mejoras a Planificación (2), y fixes en cobros, vales-salida y pagos-clientes (3).
+
+---
+
+### Área 1: feat(navegacion) — Barra lateral global con hover-menus (15:31)
+
+- **Nuevo componente `barra-lateral.tsx`** (+669 líneas) añadido a `components/shared/organism/`. Se instala en todos los módulos: dentro de un módulo va recogida (solo iconos), se abre al pasar el ratón sobre ella, por encima del contenido, y se recoge al entrar a un módulo.
+- Al pasar por un área se despliega la lista de módulos; al pasar por un módulo con secciones (Facturación, Compras, Envíos, Costos) se despliegan sus secciones. En móvil: botón flotante que abre acordeón.
+- **Lógica de módulos y permisos extraída de `app/page.tsx` a `hooks/use-modulos-navegacion.ts`** (+495 líneas) para que inicio y barra lateral muestren exactamente lo mismo. `app/page.tsx` pierde ~486 líneas y queda limpio.
+
+---
+
+### Área 2: feat/fix(nomina) × 6 — Módulo de Nómina mensual en RRHH
+
+- **Pantalla de nómina mensual** con dos vistas: **Salario Oficial** (tableta base, sin horas ni total a cobrar) y **Salario Complementario** (varios repartos por etiqueta, monto y % por trabajador).
+- **Al entrar**, se abre automáticamente el mes abierto más antiguo y se avisa si hay meses anteriores sin cerrar.
+- **Filtros** por sede, departamento y cargo; buscador por nombre; **exportar a Excel/PDF**.
+- Fix: el panel tolera que el backend no mande el campo `sedes` todavía. Fix: se quitan las tarjetas de horas y total a cobrar de la vista oficial.
+
+---
+
+### Área 3: feat/fix(solineras) × 2 — Nueva área Solineras completa (11:51–12:xx)
+
+- **Área completa**: panel en vivo (rejilla de puestos con cliente, vehículo, minutos e importe; alertas de tiempo, falla; nueva carga con ticket PDF; terminar, cobrar, retirar), reservas, clientes y vehículos, tarifas, turnos con arqueo, pagos con bandeja de comprobantes y configuración.
+- Permisos: `solineras` + aditivos `solineras/red`, `solineras/comprobantes`, `solineras/anular`.
+- Fix: el turno de caja es opcional en el panel (campo no obligatorio).
+- **Requiere backend con `/api/solineras`** (commit propio en el backend).
+
+---
+
+### Área 4: feat(rrhh) × 2 — Export unificado y foto carnet (14:xx–15:xx)
+
+- **Un solo botón "Exportar"** con modal que elige formato (Excel/PDF), alcance y qué datos incluir. Reemplaza múltiples botones de export separados.
+- **Foto carnet** del empleado guardada en el servidor (no en base64 inline). Los exports incluyen la foto.
+
+---
+
+### Área 5: feat(servicios-cliente) × 2 — Servicios en menú de acciones + diálogo integrado
+
+- La acción **Servicios** sale del detalle del cliente y pasa al menú de tres puntos de la fila (menú Acciones).
+- **Diálogo de servicios** integrado en la ficha del cliente: muestra cobros y facturas de servicios.
+
+---
+
+### Área 6: feat — Módulo Evidencias de trabajos
+
+- Nuevo módulo para **definir las fotos requeridas por tipo de trabajo**: qué imágenes hay que adjuntar según la categoría del servicio. Gestión de catálogo de evidencias.
+
+---
+
+### Área 7: feat(planificacion) × 2 — Oferta en tarjetas + mover a otra brigada
+
+- La **oferta aparece en las tarjetas** de trabajo de planificación.
+- **Mover un trabajo a otra brigada** desde la planificación. Los guardados automáticos ya no se cuentan como edición manual (no disparan el aviso de "sin guardar").
+
+---
+
+### Área 8: fixes menores (cobros, vales-salida, pagos-clientes)
+
+- **fix(cobros)**: listar bancos destino sin exigir que el usuario sea admin de billetera (amplía quién puede ver el selector de banco).
+- **feat(vales-salida)**: las devoluciones del vale aparecen en la lista y en el detalle.
+- **fix(pagos-clientes)**: elimina la bandeja de alertas (con su alarma sonora) y el botón "Facturas Emitidas".
+
+---
+
+### Puede dar bateo
+
+1. **feat(navegacion) barra lateral global — módulos que usen layout personalizado**: El componente `barra-lateral.tsx` se añadió a todos los módulos, pero si algún módulo tenía su propio menú lateral o header de navegación hardcodeado, ahora puede haber doble barra o conflicto de z-index. Verificar módulos con layouts propios (solineras, planificación, auditoria).
+
+2. **feat(navegacion) `hooks/use-modulos-navegacion.ts` — permisos duplicados en dos lugares**: La lógica de qué módulos son visibles ahora vive en el hook, pero si `app/page.tsx` todavía tiene algún filtro residual de permisos, el dashboard y la barra lateral pueden mostrar cosas distintas. Confirmar que el refactor eliminó toda la lógica duplicada.
+
+3. **feat(solineras) — requiere backend `/api/solineras` en producción**: Sin ese endpoint deployado, toda el área falla al cargar. Los usuarios con permiso `solineras` verán errores en cada pestaña.
+
+4. **feat(solineras) permisos nuevos (`solineras/red`, `solineras/comprobantes`, `solineras/anular`) — confirmar en `MODULOS_CATALOGO`**: Sin entrada en el catálogo, los subpermisos no son asignables desde Gestión de Permisos.
+
+5. **feat(nomina) — confirmar endpoints de nómina en backend de producción**: La pantalla necesita al menos los endpoints de meses de nómina y salarios. El fix "tolera backend sin sedes" indica que parte del backend no estaba lista hoy; confirmar que todo esté deployado antes de habilitar el módulo para usuarios.
+
+6. **feat(nomina) filtros por sede — confirmar que `sedes` es enviado ahora por el backend**: El fix dice que el panel "tolera" la ausencia, pero los filtros de sede quedarán vacíos si el backend no lo envía todavía.
+
+7. **feat(rrhh) foto carnet en servidor — confirmar endpoint de upload**: Si el endpoint de subida de foto no existe en producción, guardar un empleado con foto nueva falla silenciosamente o con error 404/405.
+
+8. **feat(servicios-cliente) servicios movidos al menú Acciones — confirmar que no queda ningún enlace directo al diálogo antiguo**: Si algún otro componente (detalle de cliente, historial) abría el diálogo de servicios con la ruta o prop anterior, quedará roto.
+
+9. **feat — Evidencias de trabajos — confirmar endpoint y permiso en `MODULOS_CATALOGO`**: Módulo nuevo: si el endpoint de evidencias no existe o el permiso no está en el catálogo, el módulo no carga y no es asignable.
+
+10. **fix(cobros) bancos sin requerir admin — confirmar que es intencional**: Antes solo los admins de billetera podían ver el selector de banco destino. Si el cambio abre ese selector a cualquier usuario con acceso a cobros, podría exponer información de bancos internos a roles no deseados. Confirmar que el equipo lo aprobó.
+
+11. **fix(pagos-clientes) alarma eliminada — confirmar que no hay lógica de negocio acoplada**: La bandeja de alertas con alarma sonora se eliminó. Si había lógica de polling o WebSocket acoplada a esa bandeja, el cleanup puede haber dejado listeners sin cancelar (memory leak).
+
+---
+
 ## 📅 17 de Septiembre, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -316,64 +411,4 @@ Quince commits encadenados en menos de 6 horas reescribieron el módulo de plani
 
 ---
 
-## 📅 11 de Septiembre, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**17 commits reales** — Ruben0304 (4) y yany1509 (13). Día extremadamente activo. Áreas: módulo de auditoría completo (bitácora + filtros + pestaña de rendimiento), módulo de planificación diaria completo (pantalla nueva + múltiples fix encadenados + optimización de caché), wallet (comprobante imprimible + campo persona + PDF carta), nuevo módulo de alertas de wallet, permisos de planificación en app móvil, fix de margen en vales de salida, fix de guardado de ofertas con múltiples materiales del mismo tipo, y filtros/exportación en peticiones.
-
----
-
-### Área 1: feat(auditoria) × 3 — bitácora completa del sistema para superAdmin (20:55–21:33)
-
-- Nueva pantalla `/auditoria`: log global del backend con filtros de 13 parámetros, pestaña de rendimiento por módulo/endpoint, columna de duración con colores, filtro de entidad que sustituye otros filtros al activarse.
-
----
-
-### Área 2: feat/fix/perf(planificacion) × 7 — módulo de planificación diaria (19:01–20:24)
-
-- Módulo nuevo en Operaciones con 5 tipos de trabajo. Dos paneles a lo ancho. Borrador en localStorage. Caché en memoria de candidatos por tipo. Fix de cabecera que tapaba contenido.
-
----
-
-### Área 3–8: feat(wallet) ×2, feat(wallet-alertas), feat(permisos), fix(vales-salida), fix(ofertas), feat(peticiones)
-
-- Comprobante imprimible + campo persona en gastos. Módulo de alertas por movimientos grandes (Twilio). Sub-permiso de planificación en app móvil. Fix de margen PDF. Fix de bloqueo de guardado con 2+ materiales sin marcar. Filtros y export en peticiones a desarrollo.
-
----
-
-### Puede dar bateo
-
-1. **feat(auditoria) — confirmar endpoints `/api/auditoria/` y `/api/auditoria/rendimiento` en backend**.
-2. **feat(planificacion) módulo nuevo — confirmar todos los endpoints CRUD en backend**.
-3. **fix(planificacion) draft en localStorage — colisión entre usuarios distintos en dispositivo compartido**.
-4. **feat(wallet-alertas) — confirmar `/wallet-alertas` en `MODULOS_CATALOGO`**.
-5. **fix(ofertas) umbral accesorio ≤ 0,3 kW — `potenciaKW: null` no se asume accesorio; bloquea guardado si no está definido**.
-
----
-
-## 📅 10 de Septiembre, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**1 commit real** — Ruben0304 (co-authored Claude Sonnet 5). Fix de infraestructura: evita que Safari/iPadOS sirva respuestas cacheadas de GET cuando los datos ya cambiaron por un POST previo.
-
----
-
-### Área 1: fix(api-config) — no-store en todos los GET para evitar caché de Safari/iPadOS (12:37)
-
-- **`fix(api-config): evita cache de fetch GET en Safari/iPadOS`** — Los GET vía `apiRequest()` no llevaban `cache: 'no-store'`, por lo que Safari/iPadOS podía servir respuestas cacheadas tras un POST que mutaba los mismos datos. Se agrega `cache: 'no-store'` y la cabecera `Cache-Control: no-cache` en el helper central.
-
----
-
-### Puede dar bateo
-
-1. **`cache: 'no-store'` global — impacto en rendimiento con endpoints de catálogo**: El fix es correcto para datos mutables pero también desactiva la caché para endpoints de catálogo que raramente cambian. Monitorear saturación en endpoints lentos.
-
-2. **`Cache-Control: no-cache` como cabecera de petición — comportamiento en proxies/CDN**: Resuelve el caché del navegador, pero proxies corporativos pueden ignorarlo.
-
-3. **Cobertura solo en `apiRequest()` — peticiones fuera del helper no cubiertas**: Revisar los 4 archivos listados en CLAUDE.md como "Fixed Files" para confirmar migración completa.
-
----
-
-> ⚠️ **Nota de mantenimiento**: La entrada del **9 de Septiembre** fue eliminada el 17 de Septiembre al superar los 7 días de antigüedad (política de retención semanal). La entrada del **7 de Septiembre** fue eliminada el 15 de Septiembre al superar los 7 días. La entrada del **2 de Septiembre** fue eliminada el 10 de Septiembre al superar los 7 días. Anteriores eliminadas: 15 de Agosto y previas.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **11 y 10 de Septiembre** fueron eliminadas el 21 de Septiembre al superar los 7 días de antigüedad (política de retención semanal). Anteriores eliminadas progresivamente.
