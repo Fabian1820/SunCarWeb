@@ -12,11 +12,14 @@ interface Props {
   trabajos: TrabajoPlanificado[];
   onAgregar: () => void;
   onQuitar: (trabajo: TrabajoPlanificado) => void;
+  /** A quién se le puede pasar un trabajo: las brigadas y las personas sueltas del día. */
+  destinos: Asignado[];
+  onCambiarAsignado: (trabajo: TrabajoPlanificado, nuevo: Asignado) => void;
   onCambiarNota: (trabajo: TrabajoPlanificado, nota: string) => void;
 }
 
 /** Una brigada (o una persona suelta) con lo que tiene ese día. */
-export function CarrilBrigada({ quien, subtitulo, trabajos, onAgregar, onQuitar, onCambiarNota }: Props) {
+export function CarrilBrigada({ quien, subtitulo, trabajos, onAgregar, onQuitar, destinos, onCambiarAsignado, onCambiarNota }: Props) {
   const vacia = trabajos.length === 0;
   return (
     <section
@@ -78,6 +81,29 @@ export function CarrilBrigada({ quien, subtitulo, trabajos, onAgregar, onQuitar,
                     t.nota && <p className="mt-1 text-xs text-gray-600">Nota: {t.nota}</p>
                   )}
                 </div>
+                {abierto && (
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      const nuevo = destinos.find((d) => `${d.tipo}:${d.id}` === e.target.value);
+                      if (nuevo) onCambiarAsignado(t, nuevo);
+                    }}
+                    aria-label={`Pasar ${t.nombre} a otra brigada`}
+                    title="Cambiar de brigada"
+                    className="h-8 w-24 shrink-0 self-start rounded-md border border-gray-200 bg-white px-1 text-xs text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+                  >
+                    <option value="">Mover a…</option>
+                    {destinos
+                      .filter((d) => !(d.tipo === quien.tipo && d.id === quien.id))
+                      // Instalar es de una brigada entera, no de una persona suelta.
+                      .filter((d) => d.tipo === "brigada" || ["visita", "averia", "actualizacion"].includes(t.tipo))
+                      .map((d) => (
+                        <option key={`${d.tipo}:${d.id}`} value={`${d.tipo}:${d.id}`}>
+                          {d.tipo === "brigada" ? `Brigada de ${d.nombre}` : d.nombre}
+                        </option>
+                      ))}
+                  </select>
+                )}
                 {abierto && (
                   <button
                     type="button"
