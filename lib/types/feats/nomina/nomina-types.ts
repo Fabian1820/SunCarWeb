@@ -1,4 +1,3 @@
-export type FormaCobro = "tarjeta" | "efectivo"
 export type EstadoNomina = "abierta" | "cerrada"
 
 export interface PeriodoNominaResumen {
@@ -8,79 +7,60 @@ export interface PeriodoNominaResumen {
 }
 
 export interface LineaNomina {
-  anio: number
-  mes: number
   trabajador_ci: string
   nombre: string
   departamento_id: string
   departamento_nombre: string
+  cargo: string
   // Oficial (CUP)
-  horas: number
+  salario_basico: number
+  /** salario básico ÷ horas base del mes (190,6) */
   tarifa_hora: number
-  retenciones: number
-  bruto_cup: number
-  neto_cup: number
-  // Complementario (USD): % del fondo de su departamento
-  porcentaje_depto: number
+  horas: number
+  a_cobrar_cup: number
+  // Complementario (USD)
+  participa: boolean
+  /** % fijo, igual todos los meses. Funciona como peso: no tiene que sumar 100. */
+  porcentaje: number
+  /** Su parte real del total: % ÷ suma de los % de los seleccionados. */
+  porcentaje_efectivo: number
   complementario_usd: number
-  forma_cobro: FormaCobro
-  tarjeta: string | null
-  pagado_oficial: boolean
-  pagado_complementario: boolean
-  pagado_oficial_en?: string | null
-  pagado_complementario_en?: string | null
-  notas: string | null
 }
 
-export interface TotalesDepartamento {
+export interface TotalesGrupo {
+  trabajadores: number
   horas: number
-  bruto_cup: number
-  retenciones_cup: number
-  neto_cup: number
+  a_cobrar_cup: number
+  participan: number
+  suma_porcentajes: number
   complementario_usd: number
+}
+
+export interface CargoNomina {
+  cargo: string
+  totales: TotalesGrupo
+  trabajadores: LineaNomina[]
 }
 
 export interface DepartamentoNomina {
   departamento_id: string
   nombre: string
-  fondo_usd: number
-  fondo_anterior_usd: number
-  porcentaje_asignado: number
-  repartido_usd: number
-  sin_repartir_usd: number
-  excedido: boolean
-  totales: TotalesDepartamento
-  trabajadores: LineaNomina[]
-}
-
-export interface TotalesNomina extends TotalesDepartamento {
-  /** Solo viene si el mes tiene tasa de cambio. */
-  total_real_cup: number | null
+  totales: TotalesGrupo
+  cargos: CargoNomina[]
 }
 
 export interface HojaNomina {
   anio: number
   mes: number
   estado: EstadoNomina
-  tasa_cambio: number | null
+  horas_base_mes: number
   cerrada_por: string | null
   cerrada_en: string | null
-  totales: TotalesNomina
+  totales: TotalesGrupo & { total_complementario_usd: number }
   departamentos: DepartamentoNomina[]
 }
 
 /** Campos que se pueden editar celda a celda en una fila. */
 export type CambiosLinea = Partial<
-  Pick<
-    LineaNomina,
-    | "horas"
-    | "tarifa_hora"
-    | "retenciones"
-    | "porcentaje_depto"
-    | "forma_cobro"
-    | "tarjeta"
-    | "pagado_oficial"
-    | "pagado_complementario"
-    | "notas"
-  >
+  Pick<LineaNomina, "salario_basico" | "horas" | "participa" | "porcentaje">
 >

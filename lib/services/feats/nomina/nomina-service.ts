@@ -33,26 +33,11 @@ export class NominaService {
     )
   }
 
-  static async fijarFondo(
-    anio: number,
-    mes: number,
-    departamentoId: string,
-    fondoUsd: number,
-  ): Promise<HojaNomina> {
-    return apiRequest<HojaNomina>(
-      `/nomina/${anio}/${mes}/departamentos/${encodeURIComponent(departamentoId)}/fondo`,
-      { method: "PUT", body: JSON.stringify({ fondo_usd: fondoUsd }) },
-    )
-  }
-
-  static async cambiarTasa(
-    anio: number,
-    mes: number,
-    tasaCambio: number | null,
-  ): Promise<HojaNomina> {
-    return apiRequest<HojaNomina>(`/nomina/${anio}/${mes}`, {
-      method: "PATCH",
-      body: JSON.stringify({ tasa_cambio: tasaCambio }),
+  /** USD complementarios que se reparten este mes entre los seleccionados. */
+  static async fijarTotal(anio: number, mes: number, totalUsd: number): Promise<HojaNomina> {
+    return apiRequest<HojaNomina>(`/nomina/${anio}/${mes}/total`, {
+      method: "PUT",
+      body: JSON.stringify({ total_usd: totalUsd }),
     })
   }
 

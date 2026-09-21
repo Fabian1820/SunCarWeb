@@ -2,16 +2,19 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { ChevronLeft, ChevronRight, Lock, LockOpen, RefreshCw, UserPlus } from "lucide-react"
+import { ChevronLeft, ChevronRight, Coins, Landmark, Lock, LockOpen, RefreshCw, Search, UserPlus } from "lucide-react"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { Button } from "@/components/shared/atom/button"
 import { Badge } from "@/components/shared/atom/badge"
 import { Card, CardContent } from "@/components/shared/molecule/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/shared/molecule/tabs"
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import { useAuth } from "@/contexts/auth-context"
 import { useNomina } from "@/hooks/use-nomina"
-import { NominaDepartamento } from "@/components/feats/nomina/nomina-departamento"
-import { CeldaNumero, formatoMonto } from "@/components/feats/nomina/celdas"
+import { formatoMonto } from "@/components/feats/nomina/celdas"
+import { NominaOficial } from "@/components/feats/nomina/nomina-oficial"
+import { NominaComplementario } from "@/components/feats/nomina/nomina-complementario"
+import { filtrarDepartamentos } from "@/components/feats/nomina/filtro"
 
 const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -58,6 +61,9 @@ function NominaContenido() {
   const hoy = new Date()
   const [anio, setAnio] = useState(hoy.getFullYear())
   const [mes, setMes] = useState(hoy.getMonth() + 1)
+  const [vista, setVista] = useState("oficial")
+  const [busqueda, setBusqueda] = useState("")
+  const [soloSeleccionados, setSoloSeleccionados] = useState(false)
   const n = useNomina(anio, mes)
   const { hoja } = n
   const cerrada = hoja?.estado === "cerrada"
@@ -74,11 +80,16 @@ function NominaContenido() {
     }
   }
 
+  const departamentosOficial = hoja ? filtrarDepartamentos(hoja.departamentos, busqueda) : []
+  const departamentosComplementario = hoja
+    ? filtrarDepartamentos(hoja.departamentos, busqueda, soloSeleccionados)
+    : []
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
         title="Nómina Mensual"
-        subtitle="Lo oficial y lo complementario de cada trabajador, mes a mes"
+        subtitle="Salario oficial y salario complementario, mes a mes"
         badge={{ text: "Solo superAdmin", className: "bg-red-100 text-red-700" }}
         actions={
           <Button variant="outline" onClick={n.recargar} disabled={n.loading}>
@@ -88,8 +99,8 @@ function NominaContenido() {
         }
       />
 
-      <main className="content-with-fixed-header mx-auto max-w-[110rem] space-y-6 px-4 pb-10 sm:px-6 lg:px-8">
-        {/* Mes, tasa y cierre */}
+      <main className="content-with-fixed-header mx-auto max-w-[90rem] space-y-6 px-4 pb-10 sm:px-6 lg:px-8">
+        {/* Mes y cierre */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-1 rounded-xl border border-gray-200 bg-white p-1">
             <Button variant="ghost" size="icon" onClick={() => moverMes(-1)} aria-label="Mes anterior">
@@ -109,26 +120,17 @@ function NominaContenido() {
                 {cerrada ? "Cerrada" : "Abierta"}
               </Badge>
 
-              <label className="flex items-center gap-2 text-sm text-gray-700">
-                Tasa
-                <span className="flex items-center rounded-lg border border-gray-300 bg-white pl-2">
-                  <span className="text-xs text-gray-500">CUP por USD</span>
-                  <CeldaNumero
-                    ariaLabel="Tasa de cambio CUP por USD"
-                    value={hoja.tasa_cambio ?? 0}
-                    disabled={cerrada}
-                    onCommit={(v) => n.cambiarTasa(v > 0 ? v : null)}
-                    className="w-24 border-0"
-                  />
-                </span>
-              </label>
-
               <div className="ml-auto flex items-center gap-2">
                 {n.guardando && <span className="text-xs text-gray-500">Guardando…</span>}
                 {!cerrada && (
-                  <Button variant="outline" onClick={n.abrir} disabled={n.guardando}>
+                  <Button
+                    variant="outline"
+                    onClick={n.abrir}
+                    disabled={n.guardando}
+                    title="Añade a quien haya entrado y pone al día salario, cargo y departamento desde la ficha"
+                  >
                     <UserPlus className="mr-2 h-4 w-4" />
-                    Añadir trabajadores nuevos
+                    Sincronizar trabajadores
                   </Button>
                 )}
                 {cerrada ? (
@@ -163,9 +165,9 @@ function NominaContenido() {
                 La nómina de {MESES[mes - 1]} {anio} todavía no está abierta.
               </p>
               <p className="max-w-md text-sm text-gray-500">
-                Al abrirla se añaden todos los trabajadores activos y se copian del mes anterior la
-                tarifa, el porcentaje, la forma de cobro y la tarjeta. Las horas y las retenciones
-                empiezan en cero.
+                Al abrirla se añaden todos los trabajadores activos con su salario básico. Del mes
+                anterior se copia quién participa en el salario complementario y su porcentaje. Las
+                horas empiezan en cero.
               </p>
               <Button onClick={n.abrir} disabled={n.guardando}>
                 Abrir {MESES[mes - 1]} {anio}
@@ -175,46 +177,78 @@ function NominaContenido() {
         )}
 
         {hoja && (
-          <>
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-              <Resumen titulo="Horas del mes" valor={hoja.totales.horas.toLocaleString("es", { maximumFractionDigits: 2 })} />
-              <Resumen titulo="Bruto oficial" valor={`${formatoMonto(hoja.totales.bruto_cup)} CUP`} />
-              <Resumen titulo="Neto oficial" valor={`${formatoMonto(hoja.totales.neto_cup)} CUP`} />
-              <Resumen titulo="Complementario" valor={`${formatoMonto(hoja.totales.complementario_usd)} USD`} />
-              <Resumen
-                titulo="Total real"
-                valor={hoja.totales.total_real_cup === null ? "—" : `${formatoMonto(hoja.totales.total_real_cup)} CUP`}
-                nota={hoja.totales.total_real_cup === null ? "Pon la tasa para verlo" : "Neto + complementario a la tasa"}
-              />
+          <Tabs value={vista} onValueChange={setVista} className="space-y-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <TabsList>
+                <TabsTrigger value="oficial">
+                  <Landmark className="mr-2 h-4 w-4" />
+                  Salario Oficial
+                </TabsTrigger>
+                <TabsTrigger value="complementario">
+                  <Coins className="mr-2 h-4 w-4" />
+                  Salario Complementario
+                </TabsTrigger>
+              </TabsList>
+
+              <label className="relative ml-auto w-full sm:w-72">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="search"
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  placeholder="Buscar trabajador, cargo o departamento"
+                  aria-label="Buscar"
+                  className="h-10 w-full rounded-xl border border-gray-200 bg-white pl-9 pr-3 text-sm focus:border-[#012928] focus:outline-none focus:ring-1 focus:ring-[#012928]"
+                />
+              </label>
             </div>
 
-            <div className="space-y-6">
-              {hoja.departamentos.map((d) => (
-                <NominaDepartamento
-                  key={d.departamento_id}
-                  departamento={d}
-                  bloqueado={cerrada}
-                  onEditarLinea={n.editarLinea}
-                  onFijarFondo={n.fijarFondo}
+            <TabsContent value="oficial" className="space-y-4">
+              <div className="grid grid-cols-2 gap-3 sm:max-w-xl">
+                <Resumen
+                  titulo="Horas del mes"
+                  valor={hoja.totales.horas.toLocaleString("es", { maximumFractionDigits: 2 })}
                 />
-              ))}
-              {hoja.departamentos.length === 0 && (
-                <p className="text-sm text-gray-500">No hay trabajadores activos.</p>
-              )}
-            </div>
-          </>
+                <Resumen titulo="Total a cobrar" valor={`${formatoMonto(hoja.totales.a_cobrar_cup)} CUP`} />
+              </div>
+              <NominaOficial
+                departamentos={departamentosOficial}
+                horasBase={hoja.horas_base_mes}
+                bloqueado={cerrada}
+                onEditarLinea={n.editarLinea}
+              />
+            </TabsContent>
+
+            <TabsContent value="complementario" className="space-y-4">
+              <label className="flex w-fit items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={soloSeleccionados}
+                  onChange={(e) => setSoloSeleccionados(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300"
+                />
+                Ver solo los seleccionados
+              </label>
+              <NominaComplementario
+                hoja={hoja}
+                departamentos={departamentosComplementario}
+                bloqueado={cerrada}
+                onEditarLinea={n.editarLinea}
+                onFijarTotal={n.fijarTotal}
+              />
+            </TabsContent>
+          </Tabs>
         )}
       </main>
     </div>
   )
 }
 
-function Resumen({ titulo, valor, nota }: { titulo: string; valor: string; nota?: string }) {
+function Resumen({ titulo, valor }: { titulo: string; valor: string }) {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
       <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{titulo}</p>
       <p className="mt-1 text-lg font-semibold tabular-nums text-[#012928]">{valor}</p>
-      {nota && <p className="text-xs text-gray-400">{nota}</p>}
     </div>
   )
 }

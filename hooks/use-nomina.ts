@@ -87,14 +87,8 @@ export function useNomina(anio: number, mes: number) {
     [anio, mes, ejecutar],
   )
 
-  const fijarFondo = useCallback(
-    (departamentoId: string, fondoUsd: number) =>
-      ejecutar(() => NominaService.fijarFondo(anio, mes, departamentoId, fondoUsd)),
-    [anio, mes, ejecutar],
-  )
-
-  const cambiarTasa = useCallback(
-    (tasa: number | null) => ejecutar(() => NominaService.cambiarTasa(anio, mes, tasa)),
+  const fijarTotal = useCallback(
+    (totalUsd: number) => ejecutar(() => NominaService.fijarTotal(anio, mes, totalUsd)),
     [anio, mes, ejecutar],
   )
 
@@ -117,8 +111,7 @@ export function useNomina(anio: number, mes: number) {
     recargar: cargar,
     abrir,
     editarLinea,
-    fijarFondo,
-    cambiarTasa,
+    fijarTotal,
     cerrar,
     reabrir,
   }
