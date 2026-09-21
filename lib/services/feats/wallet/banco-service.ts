@@ -56,6 +56,18 @@ export class BancoService {
     return Array.isArray(response.data) ? response.data : [];
   }
 
+  /** Bancos para elegir como destino de una transferencia; no exige ser admin de billetera. */
+  static async listarOpciones(): Promise<Banco[]> {
+    const response = await apiRequest<
+      { success: boolean; data: Banco[] } | ApiErrorResponse
+    >("/wallet/bancos/opciones");
+
+    if (isApiErrorResponse(response)) {
+      throw new Error(getApiErrorMessage(response, "No se pudieron cargar los bancos"));
+    }
+    return Array.isArray(response.data) ? response.data : [];
+  }
+
   static async crear(data: BancoCreateData): Promise<Banco> {
     const response = await apiRequest<
       { success: boolean; data: Banco } | ApiErrorResponse

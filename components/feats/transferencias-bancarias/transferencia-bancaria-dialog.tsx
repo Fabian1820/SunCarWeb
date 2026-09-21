@@ -224,7 +224,7 @@ export function TransferenciaBancariaDialog({
     const cargarBancos = async () => {
       setLoadingBancos(true)
       try {
-        const data = await BancoService.listar()
+        const data = await BancoService.listarOpciones()
         if (!cancelled) setBancos(data)
       } catch (err) {
         if (!cancelled) {

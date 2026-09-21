@@ -232,7 +232,7 @@ export function RegistrarPagoDialog({
         setLoadingBancos(true)
         setErrorBancos(null)
 
-        BancoService.listar()
+        BancoService.listarOpciones()
             .then((data) => {
                 if (!cancelled) setBancos(data)
             })
