@@ -66,6 +66,11 @@ export function CarrilBrigada({ quien, subtitulo, trabajos, onAgregar, onQuitar,
                   </div>
                   <p className="mt-1 truncate text-sm font-medium text-gray-900">{t.nombre || "Sin nombre"}</p>
                   {t.direccion && <p className="truncate text-xs text-gray-500">{t.direccion}</p>}
+                  {(t.oferta_nombre || t.oferta_numero) && (
+                    <p className="truncate text-xs font-medium text-emerald-800">
+                      Se instala: {t.oferta_nombre || t.oferta_numero}
+                    </p>
+                  )}
                   {abierto ? (
                     <input
                       value={t.nota ?? ""}

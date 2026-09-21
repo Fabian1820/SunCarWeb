@@ -466,6 +466,12 @@ function PlanificacionContenido() {
       <ModuleHeader
         title="Planificación"
         subtitle="Qué hace cada brigada cada día"
+        // Dentro de un día, "Volver" sube un paso de la planificación en vez de salir a Operaciones.
+        onBack={
+          paso.en === "inicio"
+            ? undefined
+            : () => (paso.en === "dia" ? irA({}) : irA({ dia: fecha }))
+        }
         actions={
           paso.en === "inicio" ? (
             <Button onClick={() => setEligiendoDia(true)}>
