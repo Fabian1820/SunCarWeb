@@ -48,6 +48,7 @@ import {
   ChevronDown,
   Loader2,
   MoreHorizontal,
+  Wrench,
   Zap,
   Ban,
   RotateCcw,
@@ -4567,6 +4568,18 @@ export function ClientsTable({
                                         <FileOutput className="h-4 w-4 text-gray-500" />
                                         Ver vales de salida
                                       </button>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          setClienteServicios(client);
+                                        }}
+                                        className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100"
+                                      >
+                                        <Wrench className="h-4 w-4 text-teal-600" />
+                                        Servicios
+                                      </button>
                                       <BotonHistorialCliente
                                         numero={client.numero}
                                         nombre={client.nombre}
@@ -4923,7 +4936,6 @@ export function ClientsTable({
           }
         }}
         cliente={clientForDetails}
-        onVerServicios={(c) => setClienteServicios(c)}
         fotosCliente={fotosClientDetails}
         loadingFotosCliente={loadingFotosClientDetails}
       />
