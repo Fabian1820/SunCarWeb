@@ -758,8 +758,8 @@ export function ClientsTable({
   const { hasExactPermission, user } = useAuth();
   // Subpermiso ADITIVO: solo quien lo tenga (o superAdmin) ve costos y totales.
   const verCostos = hasExactPermission("costos-materiales-cliente");
-  // Cargo "Comercial": se le precarga (y bloquea) el filtro a su propio nombre,
-  // y es a quien más le sirve el botón de "Saldo pendiente" de abajo.
+  // Cargo "Comercial": es a quien más le sirve el botón de "Saldo pendiente"
+  // de abajo. El filtro de comercial NO se precarga: entra viendo todos.
   const esComercial =
     !user?.is_superAdmin &&
     normalizeSearchText(user?.rol || "").includes("comercial");
@@ -1019,15 +1019,6 @@ export function ClientsTable({
     panelesMax: "",
     ...MODELO_FILTROS_VACIOS,
   });
-
-  // Un comercial siempre ve primero lo suyo: se le precarga el filtro con su
-  // propio nombre (lo puede cambiar si de verdad quiere ver a otro).
-  useEffect(() => {
-    if (!esComercial || !user?.nombre) return;
-    setFilters((prev) =>
-      prev.comercial ? prev : { ...prev, comercial: user.nombre },
-    );
-  }, [esComercial, user?.nombre]);
 
   // Los saldos pendientes son una consulta aparte y pesada (recorre TODAS las
   // ofertas con deuda, sin importar el estado del cliente): solo se piden
