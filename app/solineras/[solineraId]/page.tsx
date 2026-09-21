@@ -80,7 +80,7 @@ function SolineraContenido() {
           <p className="mt-1 text-sm text-muted-foreground">{error ?? "No existe o no tienes acceso."}</p>
           <div className="mt-5 flex justify-center gap-2">
             <Button variant="outline" asChild>
-              <Link href="/solineras">Volver a Solineras</Link>
+              <Link href="/?area=solineras">Volver a Solineras</Link>
             </Button>
             <Button onClick={() => void recargar()}>Reintentar</Button>
           </div>

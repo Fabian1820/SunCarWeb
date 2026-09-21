@@ -106,9 +106,13 @@ export function useCarga<T>(
   return { data, loading, refrescando, error, recargar, setData }
 }
 
-/** Listado de solineras con su resumen (puestos, vehículos en puesto, turno abierto). */
-export function useSolineras() {
-  return useCarga<Solinera[]>(() => SolineraService.listar(), [], { intervaloMs: 30_000 })
+/**
+ * Listado de solineras con su resumen (puestos, vehículos en puesto, turno abierto).
+ * `activo` en false no pide nada: el dashboard lo usa para no llamar a la API a quien
+ * no tiene el permiso (sería un 403).
+ */
+export function useSolineras(activo = true) {
+  return useCarga<Solinera[]>(() => SolineraService.listar(), [], { intervaloMs: 60_000, activo })
 }
 
 /** Detalle de una solinera: datos, configuración y puestos. */

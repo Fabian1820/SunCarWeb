@@ -117,7 +117,7 @@ export const MODULO_GRUPOS: ModuloGrupo[] = [
   {
     key: "solineras",
     title: "Solineras",
-    subtitle: "Estaciones de carga solar: cargas con ticket, reservas, turnos y cobros.",
+    subtitle: "Estaciones de carga solar: elige una para operarla.",
   },
   {
     key: "economia",
@@ -818,8 +818,11 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
 
   // ───────── Solineras ─────────
   {
-    // Una sola tarjeta: cada solinera se abre en su propia pantalla, con el
-    // panel en vivo, reservas, clientes, tarifas, turnos, pagos y configuración.
+    // Existe solo para conceder el permiso (y los aditivos de abajo): no tiene
+    // tarjeta propia. Las tarjetas del área son las solineras mismas, que el
+    // dashboard (app/page.tsx) pide al backend y pinta directamente, más
+    // «Nueva solinera» para quien tenga `solineras/red`. `href` es la ruta que
+    // usa el botón «Volver» para subir al área.
     // El backend comprueba estos mismos permisos (solineras_comun.py).
     key: "solineras",
     label: "Solineras",
@@ -829,7 +832,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-lime-700",
     href: "/solineras",
     grupo: "solineras",
-    tieneSubmodulos: true,
+    hideFromDashboard: true,
     subPermisos: [
       {
         key: "solineras/red",

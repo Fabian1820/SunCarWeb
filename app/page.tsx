@@ -27,6 +27,7 @@ import {
   Cake,
   ScrollText,
   PlugZap,
+  Plus,
 } from "lucide-react";
 import {
   MODULOS_CATALOGO,
@@ -66,6 +67,10 @@ import { UserMenu } from "@/components/auth/user-menu";
 import { BirthdayChecker } from "@/components/shared/molecule/birthday-checker";
 import type { TasaCambio } from "@/lib/types/feats/tasa-cambio/tasa-cambio-types";
 import { useMyWalletPermiso } from "@/hooks/use-wallet-permisos";
+import { useSolineras } from "@/hooks/use-solineras";
+import { CrearSolineraDialog } from "@/components/feats/solineras/crear-solinera-dialog";
+import { etiquetaEstadoSolinera } from "@/lib/utils/solineras";
+import type { Solinera } from "@/lib/types/feats/solineras/solinera-types";
 
 type DashboardModule = {
   id: string;
@@ -79,6 +84,8 @@ type DashboardModule = {
   superAdminOnly?: boolean;
   childKeys?: string[];
   tieneSubmodulos?: boolean;
+  /** Si existe, la tarjeta ejecuta esto en vez de navegar a `href`. */
+  onSelect?: () => void;
 };
 
 type GroupMeta = {
@@ -165,8 +172,27 @@ const FAVORITES_STORAGE_KEY = "suncar_dashboard_favorites";
 
 export default function Dashboard() {
   const router = useRouter();
-  const { hasPermission, user, loadModulosPermitidos, updateUserFoto, getAuthHeader } = useAuth();
+  const {
+    hasPermission,
+    hasExactPermission,
+    user,
+    loadModulosPermitidos,
+    updateUserFoto,
+    getAuthHeader,
+  } = useAuth();
   const { permiso: myWalletPermiso } = useMyWalletPermiso();
+
+  // Solineras: cada una es una tarjeta del área (no hay tarjeta «Solineras» que
+  // lleve a una lista). Solo se piden si la persona tiene el permiso: sin él la
+  // API respondería 403.
+  const solinerasHabilitado = hasPermission("solineras");
+  const {
+    data: solineras,
+    loading: cargandoSolineras,
+    error: errorSolineras,
+    recargar: recargarSolineras,
+  } = useSolineras(solinerasHabilitado);
+  const [creandoSolinera, setCreandoSolinera] = useState(false);
   const { toast } = useToast();
 
   const [isContactosDialogOpen, setIsContactosDialogOpen] = useState(false);
@@ -310,6 +336,45 @@ export default function Dashboard() {
     ).values(),
   );
 
+  const solineraToDashboard = (s: Solinera): DashboardModule => {
+    const lugar = [s.municipio, s.provincia_nombre].filter(Boolean).join(", ");
+    const ocupados = `${s.vehiculos_en_puesto ?? 0} de ${s.puestos_total ?? 0} puestos ocupados`;
+    return {
+      id: `solinera:${s.id}`,
+      href: `/solineras/${s.id}`,
+      icon: PlugZap,
+      title: s.nombre,
+      description: [
+        s.estado !== "operativa" ? etiquetaEstadoSolinera(s.estado) : null,
+        lugar || s.codigo,
+        ocupados,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      iconClass: "text-lime-700",
+    };
+  };
+
+  const puedeCrearSolinera = hasExactPermission("solineras/red");
+  const solinerasModules: DashboardModule[] = solinerasHabilitado
+    ? [
+        ...(solineras ?? []).map(solineraToDashboard),
+        ...(puedeCrearSolinera
+          ? [
+              {
+                id: "solineras-nueva",
+                href: "/solineras",
+                icon: Plus,
+                title: "Nueva solinera",
+                description: "Crea una solinera con sus puestos de carga.",
+                iconClass: "text-lime-700",
+                onSelect: () => setCreandoSolinera(true),
+              },
+            ]
+          : []),
+      ]
+    : [];
+
   type ModuleGroup = {
     id: string;
     title: string;
@@ -324,7 +389,9 @@ export default function Dashboard() {
     const ids =
       grupo.key === "area-direccion"
         ? [...delCatalogo, "wallet-manager", "permisos", "auditoria"]
-        : delCatalogo;
+        : grupo.key === "solineras"
+          ? solinerasModules.map((m) => m.id)
+          : delCatalogo;
     return {
       id: grupo.key,
       title: grupo.title,
@@ -391,6 +458,7 @@ export default function Dashboard() {
     }),
     ...superAdminModules,
     ...walletAdminModules,
+    ...solinerasModules,
   ];
 
   const availableModuleMap = new globalThis.Map(
@@ -404,7 +472,13 @@ export default function Dashboard() {
         .map((moduleId) => availableModuleMap.get(moduleId))
         .filter((module): module is DashboardModule => Boolean(module)),
     }))
-    .filter((group) => group.modules.length > 0);
+    // El área Solineras se ve siempre que se tenga el permiso, aunque todavía no
+    // haya ninguna solinera (o estén cargando): si no, no habría cómo crear la primera.
+    .filter(
+      (group) =>
+        group.modules.length > 0 ||
+        (group.id === "solineras" && solinerasHabilitado),
+    );
 
   const favoriteModules = favorites
     .map((id) => availableModuleMap.get(id))
@@ -560,7 +634,9 @@ export default function Dashboard() {
     };
 
     const handleActivate = () => {
-      if (module.href.startsWith("/api/")) {
+      if (module.onSelect) {
+        module.onSelect();
+      } else if (module.href.startsWith("/api/")) {
         openExternalModule();
       } else {
         router.push(module.href);
@@ -938,15 +1014,52 @@ export default function Dashboard() {
               </div>
             ) : activeGroup ? (
               /* ───────── Vista de grupo ───────── */
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {activeGroup.modules.map((module) => (
-                  <ModuleCard key={module.id} module={module} />
-                ))}
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {activeGroup.modules.map((module) => (
+                    <ModuleCard key={module.id} module={module} />
+                  ))}
+                </div>
+                {activeGroup.id === "solineras" && errorSolineras && (
+                  <div
+                    role="alert"
+                    className="flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+                  >
+                    <span>No se pudieron cargar las solineras: {errorSolineras}</span>
+                    <Button variant="outline" size="sm" onClick={() => void recargarSolineras()}>
+                      Reintentar
+                    </Button>
+                  </div>
+                )}
+                {activeGroup.id === "solineras" && !errorSolineras && cargandoSolineras && (
+                  <p role="status" className="text-sm text-gray-500">
+                    Cargando solineras…
+                  </p>
+                )}
+                {activeGroup.id === "solineras" &&
+                  !errorSolineras &&
+                  !cargandoSolineras &&
+                  (solineras ?? []).length === 0 && (
+                    <p className="text-sm text-gray-600">
+                      {puedeCrearSolinera
+                        ? "Aún no hay solineras. Crea la primera con «Nueva solinera»."
+                        : "Aún no hay solineras. Cuando alguien con permiso de red cree una, aparecerá aquí."}
+                    </p>
+                  )}
               </div>
             ) : null}
           </div>
         </main>
       </div>
+
+      <CrearSolineraDialog
+        open={creandoSolinera}
+        onOpenChange={setCreandoSolinera}
+        onCreada={(nueva) => {
+          void recargarSolineras();
+          router.push(`/solineras/${nueva.id}`);
+        }}
+      />
 
       {/* Contactos Dialog */}
       <Dialog
