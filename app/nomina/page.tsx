@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { ChevronLeft, ChevronRight, Coins, Landmark, Lock, LockOpen, RefreshCw, Search, UserPlus } from "lucide-react"
+import { ChevronLeft, ChevronRight, Coins, Download, Landmark, Lock, LockOpen, RefreshCw, UserPlus } from "lucide-react"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { Button } from "@/components/shared/atom/button"
 import { Badge } from "@/components/shared/atom/badge"
@@ -13,7 +13,13 @@ import { useAuth } from "@/contexts/auth-context"
 import { useNomina } from "@/hooks/use-nomina"
 import { NominaOficial } from "@/components/feats/nomina/nomina-oficial"
 import { NominaComplementario } from "@/components/feats/nomina/nomina-complementario"
-import { filtrarDepartamentos } from "@/components/feats/nomina/filtro"
+import {
+  FILTROS_VACIOS,
+  contarTrabajadores,
+  filtrarDepartamentos,
+} from "@/components/feats/nomina/filtro"
+import { NominaFiltros } from "@/components/feats/nomina/nomina-filtros"
+import { ExportarNominaDialog } from "@/components/feats/nomina/exportar-nomina-dialog"
 
 const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -61,8 +67,8 @@ function NominaContenido() {
   const [anio, setAnio] = useState(hoy.getFullYear())
   const [mes, setMes] = useState(hoy.getMonth() + 1)
   const [vista, setVista] = useState("oficial")
-  const [busqueda, setBusqueda] = useState("")
-  const [soloSeleccionados, setSoloSeleccionados] = useState(false)
+  const [filtros, setFiltros] = useState(FILTROS_VACIOS)
+  const [exportando, setExportando] = useState(false)
   const n = useNomina(anio, mes)
   const { hoja } = n
   const cerrada = hoja?.estado === "cerrada"
@@ -79,10 +85,12 @@ function NominaContenido() {
     }
   }
 
-  const departamentosOficial = hoja ? filtrarDepartamentos(hoja.departamentos, busqueda) : []
-  const departamentosComplementario = hoja
-    ? filtrarDepartamentos(hoja.departamentos, busqueda, soloSeleccionados)
+  // "Solo seleccionados" es de la vista complementaria: la oficial no lo aplica.
+  const departamentosOficial = hoja
+    ? filtrarDepartamentos(hoja.departamentos, { ...filtros, soloSeleccionados: false })
     : []
+  const departamentosComplementario = hoja ? filtrarDepartamentos(hoja.departamentos, filtros) : []
+  const totalTrabajadores = hoja ? contarTrabajadores(hoja.departamentos) : 0
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
@@ -121,6 +129,10 @@ function NominaContenido() {
 
               <div className="ml-auto flex items-center gap-2">
                 {n.guardando && <span className="text-xs text-gray-500">Guardando…</span>}
+                <Button variant="outline" onClick={() => setExportando(true)}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Exportar
+                </Button>
                 {!cerrada && (
                   <Button
                     variant="outline"
@@ -176,31 +188,36 @@ function NominaContenido() {
         )}
 
         {hoja && (
-          <Tabs value={vista} onValueChange={setVista} className="space-y-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <TabsList>
-                <TabsTrigger value="oficial">
-                  <Landmark className="mr-2 h-4 w-4" />
-                  Salario Oficial
-                </TabsTrigger>
-                <TabsTrigger value="complementario">
-                  <Coins className="mr-2 h-4 w-4" />
-                  Salario Complementario
-                </TabsTrigger>
-              </TabsList>
+          <ExportarNominaDialog
+            open={exportando}
+            onOpenChange={setExportando}
+            hoja={hoja}
+            filtros={filtros}
+            vistaInicial={vista === "complementario" ? "complementario" : "oficial"}
+            mesLabel={`${MESES[mes - 1]} ${anio}`}
+          />
+        )}
 
-              <label className="relative ml-auto w-full sm:w-72">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="search"
-                  value={busqueda}
-                  onChange={(e) => setBusqueda(e.target.value)}
-                  placeholder="Buscar trabajador, cargo o departamento"
-                  aria-label="Buscar"
-                  className="h-10 w-full rounded-xl border border-gray-200 bg-white pl-9 pr-3 text-sm focus:border-[#012928] focus:outline-none focus:ring-1 focus:ring-[#012928]"
-                />
-              </label>
-            </div>
+        {hoja && (
+          <Tabs value={vista} onValueChange={setVista} className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="oficial">
+                <Landmark className="mr-2 h-4 w-4" />
+                Salario Oficial
+              </TabsTrigger>
+              <TabsTrigger value="complementario">
+                <Coins className="mr-2 h-4 w-4" />
+                Salario Complementario
+              </TabsTrigger>
+            </TabsList>
+
+            <NominaFiltros
+              hoja={hoja}
+              filtros={filtros}
+              onChange={setFiltros}
+              mostrando={contarTrabajadores(vista === "oficial" ? departamentosOficial : departamentosComplementario)}
+              total={totalTrabajadores}
+            />
 
             <TabsContent value="oficial" className="space-y-4">
               <NominaOficial
@@ -215,8 +232,8 @@ function NominaContenido() {
               <label className="flex w-fit items-center gap-2 text-sm text-gray-700">
                 <input
                   type="checkbox"
-                  checked={soloSeleccionados}
-                  onChange={(e) => setSoloSeleccionados(e.target.checked)}
+                  checked={filtros.soloSeleccionados}
+                  onChange={(e) => setFiltros({ ...filtros, soloSeleccionados: e.target.checked })}
                   className="h-4 w-4 rounded border-gray-300"
                 />
                 Ver solo los seleccionados

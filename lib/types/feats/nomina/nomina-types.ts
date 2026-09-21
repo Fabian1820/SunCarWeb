@@ -12,6 +12,7 @@ export interface LineaNomina {
   departamento_id: string
   departamento_nombre: string
   cargo: string
+  sedes_ids: string[]
   // Oficial (CUP)
   salario_basico: number
   /** salario básico ÷ horas base del mes (190,6) */
@@ -49,6 +50,11 @@ export interface DepartamentoNomina {
   cargos: CargoNomina[]
 }
 
+export interface SedeNomina {
+  id: string
+  nombre: string
+}
+
 export interface HojaNomina {
   anio: number
   mes: number
@@ -57,6 +63,8 @@ export interface HojaNomina {
   cerrada_por: string | null
   cerrada_en: string | null
   totales: TotalesGrupo & { total_complementario_usd: number }
+  /** Sedes en las que hay algún trabajador este mes, para el filtro. */
+  sedes: SedeNomina[]
   departamentos: DepartamentoNomina[]
 }
 
