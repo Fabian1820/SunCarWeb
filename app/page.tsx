@@ -26,6 +26,7 @@ import {
   Megaphone,
   Cake,
   ScrollText,
+  PlugZap,
 } from "lucide-react";
 import {
   MODULOS_CATALOGO,
@@ -113,6 +114,12 @@ const GROUP_META: Record<string, GroupMeta> = {
     icon: Wrench,
     chip: "bg-teal-50 text-teal-700",
     bar: "from-teal-400 to-teal-600",
+  },
+  solineras: {
+    label: "Solineras",
+    icon: PlugZap,
+    chip: "bg-lime-50 text-lime-800",
+    bar: "from-lime-400 to-lime-600",
   },
   economia: {
     label: "Economía",

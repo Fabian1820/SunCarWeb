@@ -49,6 +49,7 @@ import {
   Headphones,
   MapPin,
   Banknote,
+  PlugZap,
 } from "lucide-react"
 
 /**
@@ -78,6 +79,7 @@ export type ModuloGrupoKey =
   | "comercial-instaladora"
   | "comercial-ventas"
   | "operaciones"
+  | "solineras"
   | "economia"
   | "gestion-almacenes"
   | "recursos-humanos"
@@ -111,6 +113,11 @@ export const MODULO_GRUPOS: ModuloGrupo[] = [
     key: "operaciones",
     title: "Operaciones",
     subtitle: "Brigadas, instaladores, instalaciones y solicitudes.",
+  },
+  {
+    key: "solineras",
+    title: "Solineras",
+    subtitle: "Estaciones de carga solar: cargas con ticket, reservas, turnos y cobros.",
   },
   {
     key: "economia",
@@ -807,6 +814,39 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-teal-600",
     href: "/equipos-felicity",
     grupo: "operaciones",
+  },
+
+  // ───────── Solineras ─────────
+  {
+    // Una sola tarjeta: cada solinera se abre en su propia pantalla, con el
+    // panel en vivo, reservas, clientes, tarifas, turnos, pagos y configuración.
+    // El backend comprueba estos mismos permisos (solineras_comun.py).
+    key: "solineras",
+    label: "Solineras",
+    descripcion:
+      "Estaciones de carga solar: puestos, cargas con ticket, reservas, turnos y cobros.",
+    icon: PlugZap,
+    iconClass: "text-lime-700",
+    href: "/solineras",
+    grupo: "solineras",
+    tieneSubmodulos: true,
+    subPermisos: [
+      {
+        key: "solineras/red",
+        label: "Solineras (red) — crear y editar solineras, puestos, tarifas y configuración",
+        aditivo: true,
+      },
+      {
+        key: "solineras/comprobantes",
+        label: "Solineras — validar o rechazar comprobantes de pago",
+        aditivo: true,
+      },
+      {
+        key: "solineras/anular",
+        label: "Solineras — anular cargas y cancelar pagos",
+        aditivo: true,
+      },
+    ],
   },
 
   // ───────── Economía ─────────
