@@ -128,15 +128,25 @@ export function useNomina(anio: number, mes: number) {
     [anio, mes, ejecutar],
   )
 
-  const cerrar = useCallback(
-    () => ejecutar(() => NominaService.cerrar(anio, mes), "Mes cerrado"),
-    [anio, mes, ejecutar],
-  )
+  const refrescarPeriodos = useCallback(async () => {
+    try {
+      setPeriodos(await NominaService.listarPeriodos())
+    } catch {
+      /* el aviso de meses abiertos se queda como estaba */
+    }
+  }, [])
 
-  const reabrir = useCallback(
-    () => ejecutar(() => NominaService.reabrir(anio, mes), "Mes reabierto"),
-    [anio, mes, ejecutar],
-  )
+  const cerrar = useCallback(async () => {
+    const ok = await ejecutar(() => NominaService.cerrar(anio, mes), "Mes cerrado")
+    if (ok) await refrescarPeriodos()
+    return ok
+  }, [anio, mes, ejecutar, refrescarPeriodos])
+
+  const reabrir = useCallback(async () => {
+    const ok = await ejecutar(() => NominaService.reabrir(anio, mes), "Mes reabierto")
+    if (ok) await refrescarPeriodos()
+    return ok
+  }, [anio, mes, ejecutar, refrescarPeriodos])
 
   return {
     hoja,

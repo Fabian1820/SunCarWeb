@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { ChevronLeft, ChevronRight, Coins, Download, Landmark, Lock, LockOpen, RefreshCw, UserPlus } from "lucide-react"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/shared/mo
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import { useAuth } from "@/contexts/auth-context"
 import { useNomina } from "@/hooks/use-nomina"
+import { NominaService } from "@/lib/services/feats/nomina/nomina-service"
 import { NominaOficial } from "@/components/feats/nomina/nomina-oficial"
 import { NominaComplementario } from "@/components/feats/nomina/nomina-complementario"
 import {
@@ -31,9 +32,38 @@ const MESES = [
 export default function NominaPage() {
   return (
     <SoloSuperAdmin>
-      <NominaContenido />
+      <NominaInicial />
     </SoloSuperAdmin>
   )
+}
+
+/**
+ * Los meses se cierran a mano, no solos: septiembre puede seguir abierto bien entrado
+ * octubre. Por eso se entra en el mes abierto más antiguo, no en el mes del calendario.
+ * Si no hay ninguno abierto, en el mes actual.
+ */
+function NominaInicial() {
+  const [inicio, setInicio] = useState<{ anio: number; mes: number } | null>(null)
+
+  useEffect(() => {
+    let vivo = true
+    const hoy = new Date()
+    const actual = { anio: hoy.getFullYear(), mes: hoy.getMonth() + 1 }
+    NominaService.listarPeriodos()
+      .then((lista) => {
+        const abiertos = lista
+          .filter((p) => p.estado === "abierta")
+          .sort((a, b) => a.anio * 12 + a.mes - (b.anio * 12 + b.mes))
+        if (vivo) setInicio(abiertos.length > 0 ? { anio: abiertos[0].anio, mes: abiertos[0].mes } : actual)
+      })
+      .catch(() => vivo && setInicio(actual))
+    return () => {
+      vivo = false
+    }
+  }, [])
+
+  if (!inicio) return <PageLoader />
+  return <NominaContenido anioInicial={inicio.anio} mesInicial={inicio.mes} />
 }
 
 /**
@@ -64,10 +94,9 @@ function SoloSuperAdmin({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-function NominaContenido() {
-  const hoy = new Date()
-  const [anio, setAnio] = useState(hoy.getFullYear())
-  const [mes, setMes] = useState(hoy.getMonth() + 1)
+function NominaContenido({ anioInicial, mesInicial }: { anioInicial: number; mesInicial: number }) {
+  const [anio, setAnio] = useState(anioInicial)
+  const [mes, setMes] = useState(mesInicial)
   const [vista, setVista] = useState("oficial")
   const [filtros, setFiltros] = useState(FILTROS_VACIOS)
   const [exportando, setExportando] = useState(false)
@@ -86,6 +115,11 @@ function NominaContenido() {
       await n.cerrar()
     }
   }
+
+  // ¿Hay un mes anterior sin cerrar? Se avisa para que no se quede olvidado.
+  const abiertoAnterior = n.periodos
+    .filter((p) => p.estado === "abierta" && p.anio * 12 + p.mes < anio * 12 + mes)
+    .sort((a, b) => a.anio * 12 + a.mes - (b.anio * 12 + b.mes))[0]
 
   const departamentosOficial = hoja ? filtrarDepartamentos(hoja.departamentos, filtros) : []
   const repartosVisibles = hoja ? filtrarRepartos(hoja.repartos ?? [], filtros) : []
@@ -158,6 +192,24 @@ function NominaContenido() {
             </>
           )}
         </div>
+
+        {abiertoAnterior && (
+          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
+            <span>
+              {MESES[abiertoAnterior.mes - 1]} {abiertoAnterior.anio} todavía no está cerrada y se puede seguir editando.
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setAnio(abiertoAnterior.anio)
+                setMes(abiertoAnterior.mes)
+              }}
+              className="rounded-full border border-amber-400 px-3 py-0.5 font-medium hover:bg-white"
+            >
+              Ir a {MESES[abiertoAnterior.mes - 1]} {abiertoAnterior.anio}
+            </button>
+          </div>
+        )}
 
         {n.error && (
           <Card className="border-rose-200 bg-rose-50">
