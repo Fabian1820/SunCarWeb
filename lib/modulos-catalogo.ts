@@ -48,6 +48,7 @@ import {
   Network,
   Headphones,
   MapPin,
+  Banknote,
 } from "lucide-react"
 
 /**
@@ -1098,6 +1099,17 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-violet-600",
     href: "/asignaciones",
     grupo: "recursos-humanos",
+  },
+  {
+    key: "nomina-mensual",
+    label: "Nómina Mensual",
+    descripcion:
+      "Pago mensual por horas: parte oficial y complementaria por departamento, con lo cobrado por tarjeta o efectivo.",
+    icon: Banknote,
+    iconClass: "text-violet-600",
+    href: "/nomina",
+    grupo: "recursos-humanos",
+    superAdminOnly: true,
   },
 
   // ───────── Área de Dirección ─────────
