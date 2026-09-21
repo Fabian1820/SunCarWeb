@@ -11,7 +11,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/shared/mo
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import { useAuth } from "@/contexts/auth-context"
 import { useNomina } from "@/hooks/use-nomina"
-import { formatoMonto } from "@/components/feats/nomina/celdas"
 import { NominaOficial } from "@/components/feats/nomina/nomina-oficial"
 import { NominaComplementario } from "@/components/feats/nomina/nomina-complementario"
 import { filtrarDepartamentos } from "@/components/feats/nomina/filtro"
@@ -204,13 +203,6 @@ function NominaContenido() {
             </div>
 
             <TabsContent value="oficial" className="space-y-4">
-              <div className="grid grid-cols-2 gap-3 sm:max-w-xl">
-                <Resumen
-                  titulo="Horas del mes"
-                  valor={hoja.totales.horas.toLocaleString("es", { maximumFractionDigits: 2 })}
-                />
-                <Resumen titulo="Total a cobrar" valor={`${formatoMonto(hoja.totales.a_cobrar_cup)} CUP`} />
-              </div>
               <NominaOficial
                 departamentos={departamentosOficial}
                 horasBase={hoja.horas_base_mes}
@@ -240,15 +232,6 @@ function NominaContenido() {
           </Tabs>
         )}
       </main>
-    </div>
-  )
-}
-
-function Resumen({ titulo, valor }: { titulo: string; valor: string }) {
-  return (
-    <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
-      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{titulo}</p>
-      <p className="mt-1 text-lg font-semibold tabular-nums text-[#012928]">{valor}</p>
     </div>
   )
 }
