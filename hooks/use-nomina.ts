@@ -5,6 +5,7 @@ import type {
   CambiosLinea,
   HojaNomina,
   PeriodoNominaResumen,
+  TipoPlantilla,
 } from "@/lib/types/feats/nomina/nomina-types"
 
 /**
@@ -87,8 +88,43 @@ export function useNomina(anio: number, mes: number) {
     [anio, mes, ejecutar],
   )
 
-  const fijarTotal = useCallback(
-    (totalUsd: number) => ejecutar(() => NominaService.fijarTotal(anio, mes, totalUsd)),
+  const crearReparto = useCallback(
+    (etiqueta: string, montoUsd = 0) =>
+      ejecutar(() => NominaService.crearReparto(anio, mes, etiqueta, montoUsd)),
+    [anio, mes, ejecutar],
+  )
+
+  const crearPlantilla = useCallback(
+    (tipo: TipoPlantilla) => ejecutar(() => NominaService.crearPlantilla(anio, mes, tipo)),
+    [anio, mes, ejecutar],
+  )
+
+  const editarReparto = useCallback(
+    (repartoId: string, cambios: { etiqueta?: string; monto_usd?: number }) =>
+      ejecutar(() => NominaService.editarReparto(anio, mes, repartoId, cambios)),
+    [anio, mes, ejecutar],
+  )
+
+  const borrarReparto = useCallback(
+    (repartoId: string) => ejecutar(() => NominaService.borrarReparto(anio, mes, repartoId)),
+    [anio, mes, ejecutar],
+  )
+
+  const agregarMiembros = useCallback(
+    (repartoId: string, cis: string[]) =>
+      ejecutar(() => NominaService.agregarMiembros(anio, mes, repartoId, cis)),
+    [anio, mes, ejecutar],
+  )
+
+  const editarMiembro = useCallback(
+    (repartoId: string, ci: string, porcentaje: number) =>
+      ejecutar(() => NominaService.editarMiembro(anio, mes, repartoId, ci, porcentaje)),
+    [anio, mes, ejecutar],
+  )
+
+  const quitarMiembro = useCallback(
+    (repartoId: string, ci: string) =>
+      ejecutar(() => NominaService.quitarMiembro(anio, mes, repartoId, ci)),
     [anio, mes, ejecutar],
   )
 
@@ -111,7 +147,13 @@ export function useNomina(anio: number, mes: number) {
     recargar: cargar,
     abrir,
     editarLinea,
-    fijarTotal,
+    crearReparto,
+    crearPlantilla,
+    editarReparto,
+    borrarReparto,
+    agregarMiembros,
+    editarMiembro,
+    quitarMiembro,
     cerrar,
     reabrir,
   }

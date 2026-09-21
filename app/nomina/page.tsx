@@ -17,6 +17,8 @@ import {
   FILTROS_VACIOS,
   contarTrabajadores,
   filtrarDepartamentos,
+  filtrarRepartos,
+  filtrosActivos,
 } from "@/components/feats/nomina/filtro"
 import { NominaFiltros } from "@/components/feats/nomina/nomina-filtros"
 import { ExportarNominaDialog } from "@/components/feats/nomina/exportar-nomina-dialog"
@@ -85,11 +87,8 @@ function NominaContenido() {
     }
   }
 
-  // "Solo seleccionados" es de la vista complementaria: la oficial no lo aplica.
-  const departamentosOficial = hoja
-    ? filtrarDepartamentos(hoja.departamentos, { ...filtros, soloSeleccionados: false })
-    : []
-  const departamentosComplementario = hoja ? filtrarDepartamentos(hoja.departamentos, filtros) : []
+  const departamentosOficial = hoja ? filtrarDepartamentos(hoja.departamentos, filtros) : []
+  const repartosVisibles = hoja ? filtrarRepartos(hoja.repartos ?? [], filtros) : []
   const totalTrabajadores = hoja ? contarTrabajadores(hoja.departamentos) : 0
 
   return (
@@ -215,8 +214,8 @@ function NominaContenido() {
               hoja={hoja}
               filtros={filtros}
               onChange={setFiltros}
-              mostrando={contarTrabajadores(vista === "oficial" ? departamentosOficial : departamentosComplementario)}
-              total={totalTrabajadores}
+              mostrando={vista === "oficial" ? contarTrabajadores(departamentosOficial) : undefined}
+              total={vista === "oficial" ? totalTrabajadores : undefined}
             />
 
             <TabsContent value="oficial" className="space-y-4">
@@ -229,21 +228,18 @@ function NominaContenido() {
             </TabsContent>
 
             <TabsContent value="complementario" className="space-y-4">
-              <label className="flex w-fit items-center gap-2 text-sm text-gray-700">
-                <input
-                  type="checkbox"
-                  checked={filtros.soloSeleccionados}
-                  onChange={(e) => setFiltros({ ...filtros, soloSeleccionados: e.target.checked })}
-                  className="h-4 w-4 rounded border-gray-300"
-                />
-                Ver solo los seleccionados
-              </label>
               <NominaComplementario
                 hoja={hoja}
-                departamentos={departamentosComplementario}
+                repartos={repartosVisibles}
+                hayFiltros={filtrosActivos(filtros) > 0}
                 bloqueado={cerrada}
-                onEditarLinea={n.editarLinea}
-                onFijarTotal={n.fijarTotal}
+                onCrear={n.crearReparto}
+                onPlantilla={n.crearPlantilla}
+                onEditarReparto={n.editarReparto}
+                onBorrarReparto={n.borrarReparto}
+                onAgregarMiembros={n.agregarMiembros}
+                onEditarMiembro={n.editarMiembro}
+                onQuitarMiembro={n.quitarMiembro}
               />
             </TabsContent>
           </Tabs>

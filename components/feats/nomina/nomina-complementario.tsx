@@ -1,227 +1,202 @@
 "use client"
 
-import { Info } from "lucide-react"
-import { Checkbox } from "@/components/shared/molecule/checkbox"
+import { useState } from "react"
+import { Building2, MapPin, Plus } from "lucide-react"
+import { Button } from "@/components/shared/atom/button"
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/shared/molecule/table"
-import { cn } from "@/lib/utils"
-import type { CambiosLinea, DepartamentoNomina, HojaNomina } from "@/lib/types/feats/nomina/nomina-types"
-import { CeldaNumero, formatoMonto } from "./celdas"
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/shared/molecule/dialog"
+import type { HojaNomina, Reparto, TipoPlantilla } from "@/lib/types/feats/nomina/nomina-types"
+import { formatoMonto } from "./celdas"
+import { RepartoCard } from "./reparto-card"
+import { AgregarTrabajadoresDialog } from "./agregar-trabajadores-dialog"
 
 interface Props {
   hoja: HojaNomina
-  departamentos: DepartamentoNomina[]
+  /** Repartos con los filtros de la pantalla ya aplicados. */
+  repartos: Reparto[]
+  hayFiltros: boolean
   bloqueado: boolean
-  onEditarLinea: (ci: string, cambios: CambiosLinea) => void
-  onFijarTotal: (totalUsd: number) => void
+  onCrear: (etiqueta: string, montoUsd: number) => Promise<boolean>
+  onPlantilla: (tipo: TipoPlantilla) => void
+  onEditarReparto: (repartoId: string, cambios: { etiqueta?: string; monto_usd?: number }) => void
+  onBorrarReparto: (repartoId: string) => void
+  onAgregarMiembros: (repartoId: string, cis: string[]) => void
+  onEditarMiembro: (repartoId: string, ci: string, porcentaje: number) => void
+  onQuitarMiembro: (repartoId: string, ci: string) => void
 }
 
-const th = "whitespace-nowrap px-2 text-xs font-semibold uppercase tracking-wide text-gray-600"
-const pct = (n: number) => n.toLocaleString("es", { maximumFractionDigits: 2 })
-
 /**
- * Salario complementario: se marcan los trabajadores que participan este mes, se
- * escribe el total y se reparte según el % fijo de cada uno. Los % son pesos:
- * si no suman 100, igualmente se reparte el total entero.
+ * Salario complementario: varios repartos por mes. Cada uno tiene una etiqueta, un
+ * monto en USD y sus trabajadores con su %. Se pueden hacer por departamento, por
+ * sede o sueltos. Los % son pesos: si no suman 100, igual se reparte el monto entero.
  */
 export function NominaComplementario({
   hoja,
-  departamentos,
+  repartos,
+  hayFiltros,
   bloqueado,
-  onEditarLinea,
-  onFijarTotal,
+  onCrear,
+  onPlantilla,
+  onEditarReparto,
+  onBorrarReparto,
+  onAgregarMiembros,
+  onEditarMiembro,
+  onQuitarMiembro,
 }: Props) {
+  const [nuevo, setNuevo] = useState(false)
+  const [etiqueta, setEtiqueta] = useState("")
+  const [monto, setMonto] = useState("")
+  const [anadirA, setAnadirA] = useState<string | null>(null)
+
   const t = hoja.totales
-  const total = t.total_complementario_usd
-  const sinNadie = total > 0 && t.suma_porcentajes === 0
-  const sumaDistinta = t.suma_porcentajes > 0 && Math.abs(t.suma_porcentajes - 100) > 0.005
+  const repartoAnadir = (hoja.repartos ?? []).find((r) => r.id === anadirA) ?? null
+
+  const plantilla = (tipo: TipoPlantilla) => {
+    const que = tipo === "departamento" ? "departamento" : "sede"
+    if (
+      window.confirm(
+        `Se creará un reparto por cada ${que} con todos sus trabajadores (los que ya existan con ese nombre no se tocan). El monto de cada uno lo pones tú. ¿Seguir?`,
+      )
+    ) {
+      onPlantilla(tipo)
+    }
+  }
+
+  const crear = async () => {
+    const valor = Number(monto.replace(",", "."))
+    const ok = await onCrear(etiqueta.trim(), Number.isFinite(valor) && valor > 0 ? valor : 0)
+    if (ok) {
+      setNuevo(false)
+      setEtiqueta("")
+      setMonto("")
+    }
+  }
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-wrap items-end gap-x-8 gap-y-4">
-          <label className="block">
-            <span className="text-sm font-medium text-gray-700">Total a distribuir este mes</span>
-            <span className="mt-1 flex items-center rounded-lg border border-gray-300 bg-white pl-3">
-              <span className="text-sm text-gray-500">USD</span>
-              <CeldaNumero
-                ariaLabel="Total complementario a distribuir en USD"
-                value={total}
-                disabled={bloqueado}
-                onCommit={onFijarTotal}
-                className="h-11 w-40 border-0 text-lg font-semibold"
-              />
-            </span>
-          </label>
-          <Dato titulo="Seleccionados" valor={String(t.participan)} />
-          <Dato titulo="Suma de los %" valor={`${pct(t.suma_porcentajes)}%`} />
-          <Dato titulo="Repartido" valor={`USD ${formatoMonto(t.complementario_usd)}`} fuerte />
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="grid grid-cols-3 gap-3">
+          <Dato titulo="A distribuir" valor={`USD ${formatoMonto(t.a_distribuir_usd)}`} />
+          <Dato titulo="Repartido" valor={`USD ${formatoMonto(t.complementario_usd)}`} />
+          <Dato
+            titulo="Sin repartir"
+            valor={`USD ${formatoMonto(t.sin_repartir_usd)}`}
+            aviso={t.sin_repartir_usd > 0}
+          />
         </div>
 
-        {sinNadie && (
-          <Aviso tono="ambar">
-            Hay un total pero ningún trabajador seleccionado con %: no se está repartiendo nada.
-          </Aviso>
-        )}
-        {sumaDistinta && (
-          <Aviso tono="azul">
-            Los % suman {pct(t.suma_porcentajes)}, no 100. No pasa nada: se reparte el total entero en
-            proporción a cada %. La columna «% real» muestra la parte que le toca a cada uno.
-          </Aviso>
+        {!bloqueado && (
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <Button variant="outline" onClick={() => plantilla("departamento")}>
+              <Building2 className="mr-2 h-4 w-4" />
+              Uno por departamento
+            </Button>
+            <Button variant="outline" onClick={() => plantilla("sede")}>
+              <MapPin className="mr-2 h-4 w-4" />
+              Uno por sede
+            </Button>
+            <Button onClick={() => setNuevo(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Nuevo reparto
+            </Button>
+          </div>
         )}
       </div>
 
-      {departamentos.length === 0 && (
-        <p className="text-sm text-gray-500">No hay trabajadores que mostrar.</p>
+      {(hoja.repartos ?? []).length === 0 && (
+        <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center">
+          <p className="text-gray-700">Este mes todavía no hay repartos.</p>
+          <p className="mx-auto mt-1 max-w-lg text-sm text-gray-500">
+            Un reparto es un dinero en USD con una etiqueta, que se divide entre los trabajadores que elijas
+            según su %. Crea uno suelto, o uno por cada departamento o sede.
+          </p>
+        </div>
       )}
 
-      {departamentos.map((d) => {
-        const todos = d.cargos.flatMap((c) => c.trabajadores)
-        const marcados = todos.filter((x) => x.participa).length
-        const cambiarTodos = (valor: boolean) =>
-          todos
-            .filter((x) => x.participa !== valor)
-            .forEach((x) => onEditarLinea(x.trabajador_ci, { participa: valor }))
+      {(hoja.repartos ?? []).length > 0 && repartos.length === 0 && hayFiltros && (
+        <p className="text-sm text-gray-500">Ningún reparto tiene trabajadores con esos filtros.</p>
+      )}
 
-        return (
-          <section
-            key={d.departamento_id}
-            className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm"
-          >
-            <header className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-[#E6F4EF]/60 px-4 py-3">
-              <div>
-                <h2 className="text-base font-semibold text-[#012928]">{d.nombre}</h2>
-                <p className="text-xs text-gray-500">
-                  {d.totales.participan} de {d.totales.trabajadores} seleccionados · USD{" "}
-                  {formatoMonto(d.totales.complementario_usd)}
-                </p>
-              </div>
-              {!bloqueado && (
-                <div className="flex gap-2 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => cambiarTodos(true)}
-                    disabled={marcados === todos.length}
-                    className="rounded-full border border-[#012928]/30 px-3 py-1 text-[#012928] hover:bg-white disabled:opacity-40"
-                  >
-                    Seleccionar todos
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => cambiarTodos(false)}
-                    disabled={marcados === 0}
-                    className="rounded-full border border-gray-300 px-3 py-1 text-gray-600 hover:bg-white disabled:opacity-40"
-                  >
-                    Quitar todos
-                  </button>
-                </div>
-              )}
-            </header>
+      {repartos.map((r) => (
+        <RepartoCard
+          key={r.id}
+          reparto={r}
+          bloqueado={bloqueado}
+          onEditar={(c) => onEditarReparto(r.id, c)}
+          onBorrar={() => onBorrarReparto(r.id)}
+          onAnadir={() => setAnadirA(r.id)}
+          onEditarPorcentaje={(ci, p) => onEditarMiembro(r.id, ci, p)}
+          onQuitar={(ci) => onQuitarMiembro(r.id, ci)}
+        />
+      ))}
 
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className={cn(th, "w-14 text-center")}>Entra</TableHead>
-                  <TableHead className={cn(th, "min-w-[14rem]")}>Trabajador</TableHead>
-                  <TableHead className={cn(th, "text-right")}>% fijo</TableHead>
-                  <TableHead className={cn(th, "text-right")}>% real</TableHead>
-                  <TableHead className={cn(th, "text-right")}>Le toca USD</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {d.cargos.map((c) => (
-                  <CargoFilas key={c.cargo}>
-                    <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
-                      <TableCell colSpan={5} className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                        {c.cargo}
-                        <span className="ml-2 font-normal normal-case text-gray-400">
-                          {c.totales.participan} de {c.totales.trabajadores}
-                        </span>
-                      </TableCell>
-                    </TableRow>
-                    {c.trabajadores.map((x) => (
-                      <TableRow key={x.trabajador_ci} className={cn(!x.participa && "text-gray-400")}>
-                        <TableCell className="text-center">
-                          <Checkbox
-                            aria-label={`${x.nombre} entra en el reparto`}
-                            checked={x.participa}
-                            disabled={bloqueado}
-                            onCheckedChange={(v) =>
-                              onEditarLinea(x.trabajador_ci, { participa: v === true })
-                            }
-                          />
-                        </TableCell>
-                        <TableCell className={cn("px-2 py-1 font-medium", x.participa ? "text-gray-900" : "text-gray-500")}>
-                          {x.nombre}
-                          <span className="block text-xs font-normal text-gray-400">{x.trabajador_ci}</span>
-                        </TableCell>
-                        <TableCell className="w-28 px-1 py-1">
-                          <CeldaNumero
-                            ariaLabel={`Porcentaje fijo de ${x.nombre}`}
-                            value={x.porcentaje}
-                            max={100}
-                            disabled={bloqueado}
-                            onCommit={(v) => onEditarLinea(x.trabajador_ci, { porcentaje: v })}
-                          />
-                        </TableCell>
-                        <TableCell className="px-3 py-1 text-right tabular-nums">
-                          {x.participa && x.porcentaje > 0 ? `${pct(x.porcentaje_efectivo)}%` : "—"}
-                        </TableCell>
-                        <TableCell
-                          className={cn(
-                            "px-3 py-1 text-right text-base tabular-nums",
-                            x.participa && x.complementario_usd > 0
-                              ? "font-semibold text-[#012928]"
-                              : "text-gray-400",
-                          )}
-                        >
-                          {formatoMonto(x.complementario_usd)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </CargoFilas>
-                ))}
-              </TableBody>
-            </Table>
-          </section>
-        )
-      })}
+      <AgregarTrabajadoresDialog
+        open={anadirA !== null}
+        onOpenChange={(abierto) => !abierto && setAnadirA(null)}
+        hoja={hoja}
+        reparto={repartoAnadir}
+        onAgregar={(cis) => repartoAnadir && onAgregarMiembros(repartoAnadir.id, cis)}
+      />
+
+      <Dialog open={nuevo} onOpenChange={setNuevo}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nuevo reparto</DialogTitle>
+            <DialogDescription>
+              Ponle una etiqueta y, si ya lo sabes, el monto. Los trabajadores los eliges después.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <label className="block text-sm font-medium text-gray-700">
+              Etiqueta
+              <input
+                autoFocus
+                value={etiqueta}
+                onChange={(e) => setEtiqueta(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && etiqueta.trim() && crear()}
+                placeholder="Ej.: Bono de ventas, Sede Camagüey…"
+                maxLength={60}
+                className="mt-1 h-10 w-full rounded-xl border border-gray-300 px-3 text-sm focus:border-[#012928] focus:outline-none focus:ring-1 focus:ring-[#012928]"
+              />
+            </label>
+            <label className="block text-sm font-medium text-gray-700">
+              Monto a repartir (USD)
+              <input
+                value={monto}
+                onChange={(e) => setMonto(e.target.value)}
+                inputMode="decimal"
+                placeholder="0"
+                className="mt-1 h-10 w-full rounded-xl border border-gray-300 px-3 text-right text-sm tabular-nums focus:border-[#012928] focus:outline-none focus:ring-1 focus:ring-[#012928]"
+              />
+            </label>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNuevo(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={crear} disabled={!etiqueta.trim()}>
+              Crear reparto
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
 
-/** Agrupa las filas de un cargo sin añadir nada al DOM. */
-function CargoFilas({ children }: { children: React.ReactNode }) {
-  return <>{children}</>
-}
-
-function Dato({ titulo, valor, fuerte }: { titulo: string; valor: string; fuerte?: boolean }) {
+function Dato({ titulo, valor, aviso }: { titulo: string; valor: string; aviso?: boolean }) {
   return (
-    <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{titulo}</p>
-      <p className={cn("mt-1 tabular-nums text-[#012928]", fuerte ? "text-xl font-semibold" : "text-lg")}>
-        {valor}
-      </p>
-    </div>
-  )
-}
-
-function Aviso({ tono, children }: { tono: "ambar" | "azul"; children: React.ReactNode }) {
-  return (
-    <p
-      className={cn(
-        "mt-4 flex items-start gap-2 rounded-lg px-3 py-2 text-sm",
-        tono === "ambar" ? "bg-amber-50 text-amber-900" : "bg-sky-50 text-sky-900",
-      )}
+    <div
+      className={`rounded-2xl border px-4 py-3 shadow-sm ${aviso ? "border-amber-200 bg-amber-50" : "border-gray-200 bg-white"}`}
     >
-      <Info className="mt-0.5 h-4 w-4 shrink-0" />
-      <span>{children}</span>
-    </p>
+      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{titulo}</p>
+      <p className="mt-1 text-lg font-semibold tabular-nums text-[#012928]">{valor}</p>
+    </div>
   )
 }

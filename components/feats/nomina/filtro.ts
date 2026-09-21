@@ -1,5 +1,5 @@
 import { normalizeSearchText } from "@/lib/utils/string-utils"
-import type { DepartamentoNomina, LineaNomina } from "@/lib/types/feats/nomina/nomina-types"
+import type { DepartamentoNomina, Reparto } from "@/lib/types/feats/nomina/nomina-types"
 
 export const SIN_SEDE = "sin_sede"
 
@@ -12,7 +12,6 @@ export interface FiltrosNomina {
   departamentoId: string
   /** "" = todos, o el nombre del cargo */
   cargo: string
-  soloSeleccionados: boolean
 }
 
 export const FILTROS_VACIOS: FiltrosNomina = {
@@ -20,46 +19,62 @@ export const FILTROS_VACIOS: FiltrosNomina = {
   sedeId: "",
   departamentoId: "",
   cargo: "",
-  soloSeleccionados: false,
 }
 
-/** Cuántos filtros hay puestos (el de "solo seleccionados" cuenta aparte, es de una vista). */
 export function filtrosActivos(f: FiltrosNomina): number {
   return [f.texto.trim(), f.sedeId, f.departamentoId, f.cargo].filter(Boolean).length
 }
 
-function cumple(t: LineaNomina, f: FiltrosNomina, q: string): boolean {
-  if (f.soloSeleccionados && !t.participa) return false
+/** Lo mínimo que hace falta de un trabajador para filtrarlo (vale para filas y miembros). */
+interface Filtrable {
+  nombre: string
+  trabajador_ci: string
+  cargo: string
+  departamento_id: string
+  sedes_ids: string[]
+}
+
+export function cumpleFiltros(t: Filtrable, f: FiltrosNomina): boolean {
+  if (f.departamentoId && t.departamento_id !== f.departamentoId) return false
+  if (f.cargo && t.cargo !== f.cargo) return false
   const sedes = t.sedes_ids ?? []
   if (f.sedeId === SIN_SEDE) {
     if (sedes.length > 0) return false
   } else if (f.sedeId && !sedes.includes(f.sedeId)) {
     return false
   }
+  const q = normalizeSearchText(f.texto)
   if (q && !normalizeSearchText(`${t.nombre} ${t.trabajador_ci}`).includes(q)) return false
   return true
 }
 
 /**
- * Aplica los filtros y quita los cargos y departamentos que se quedan sin nadie.
- * Los totales de cada grupo siguen siendo los del grupo entero.
+ * Aplica los filtros a la parte oficial y quita los cargos y departamentos que se
+ * quedan sin nadie. Los totales de cada grupo siguen siendo los del grupo entero.
  */
 export function filtrarDepartamentos(
   departamentos: DepartamentoNomina[],
   filtros: FiltrosNomina,
 ): DepartamentoNomina[] {
-  const q = normalizeSearchText(filtros.texto)
-
   return departamentos
-    .filter((d) => !filtros.departamentoId || d.departamento_id === filtros.departamentoId)
     .map((d) => ({
       ...d,
       cargos: d.cargos
-        .filter((c) => !filtros.cargo || c.cargo === filtros.cargo)
-        .map((c) => ({ ...c, trabajadores: c.trabajadores.filter((t) => cumple(t, filtros, q)) }))
+        .map((c) => ({ ...c, trabajadores: c.trabajadores.filter((t) => cumpleFiltros(t, filtros)) }))
         .filter((c) => c.trabajadores.length > 0),
     }))
     .filter((d) => d.cargos.length > 0)
+}
+
+/**
+ * Filtra los miembros de cada reparto. Con algún filtro puesto, los repartos
+ * que se quedan sin nadie se ocultan; sin filtros se ven todos (aunque estén vacíos).
+ */
+export function filtrarRepartos(repartos: Reparto[], filtros: FiltrosNomina): Reparto[] {
+  if (filtrosActivos(filtros) === 0) return repartos
+  return repartos
+    .map((r) => ({ ...r, miembros: r.miembros.filter((m) => cumpleFiltros(m, filtros)) }))
+    .filter((r) => r.miembros.length > 0)
 }
 
 export function contarTrabajadores(departamentos: DepartamentoNomina[]): number {

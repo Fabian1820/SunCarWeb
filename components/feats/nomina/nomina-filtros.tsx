@@ -8,8 +8,9 @@ interface Props {
   hoja: HojaNomina
   filtros: FiltrosNomina
   onChange: (filtros: FiltrosNomina) => void
-  mostrando: number
-  total: number
+  /** Si se pasan, se muestra el contador «X de Y trabajadores». */
+  mostrando?: number
+  total?: number
 }
 
 const claseSelect =
@@ -94,7 +95,7 @@ export function NominaFiltros({ hoja, filtros, onChange, mostrando, total }: Pro
       {activos > 0 && (
         <button
           type="button"
-          onClick={() => onChange({ ...FILTROS_VACIOS, soloSeleccionados: filtros.soloSeleccionados })}
+          onClick={() => onChange(FILTROS_VACIOS)}
           className="flex h-10 items-center gap-1 rounded-xl px-3 text-sm text-gray-600 hover:bg-white"
         >
           <X className="h-4 w-4" />
@@ -102,9 +103,11 @@ export function NominaFiltros({ hoja, filtros, onChange, mostrando, total }: Pro
         </button>
       )}
 
-      <span className="ml-auto text-sm text-gray-500">
-        {mostrando === total ? `${total} trabajadores` : `${mostrando} de ${total} trabajadores`}
-      </span>
+      {mostrando !== undefined && total !== undefined && (
+        <span className="ml-auto text-sm text-gray-500">
+          {mostrando === total ? `${total} trabajadores` : `${mostrando} de ${total} trabajadores`}
+        </span>
+      )}
     </div>
   )
 }

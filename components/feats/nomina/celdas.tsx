@@ -81,9 +81,10 @@ interface CeldaTextoProps {
   disabled?: boolean
   placeholder?: string
   ariaLabel: string
+  className?: string
 }
 
-export function CeldaTexto({ value, onCommit, disabled, placeholder, ariaLabel }: CeldaTextoProps) {
+export function CeldaTexto({ value, onCommit, disabled, placeholder, ariaLabel, className }: CeldaTextoProps) {
   const [borrador, setBorrador] = useState<string | null>(null)
 
   const confirmar = () => {
@@ -110,7 +111,7 @@ export function CeldaTexto({ value, onCommit, disabled, placeholder, ariaLabel }
           e.currentTarget.blur()
         }
       }}
-      className={cn(claseInput, "text-left")}
+      className={cn(claseInput, "text-left", className)}
     />
   )
 }

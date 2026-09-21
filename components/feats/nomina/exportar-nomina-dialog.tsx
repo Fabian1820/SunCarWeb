@@ -14,8 +14,15 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { exportToExcel, generateFilename, type ExportOptions } from "@/lib/export-service"
 import { exportListToPDF } from "@/lib/export-list-pdf"
-import type { DepartamentoNomina, HojaNomina, LineaNomina } from "@/lib/types/feats/nomina/nomina-types"
-import { FILTROS_VACIOS, SIN_SEDE, contarTrabajadores, filtrarDepartamentos, type FiltrosNomina } from "./filtro"
+import type { DepartamentoNomina, HojaNomina, LineaNomina, MiembroReparto } from "@/lib/types/feats/nomina/nomina-types"
+import {
+  SIN_SEDE,
+  contarTrabajadores,
+  filtrarDepartamentos,
+  filtrarRepartos,
+  filtrosActivos,
+  type FiltrosNomina,
+} from "./filtro"
 
 type Formato = "excel" | "pdf"
 type Contenido = "oficial" | "complementario" | "ambas"
@@ -37,8 +44,8 @@ const suma = (filas: LineaNomina[], f: (t: LineaNomina) => number) => dos(filas.
 
 const OPCIONES_CONTENIDO: Array<[Contenido, string, string]> = [
   ["oficial", "Salario Oficial", "Salario básico, tarifa, horas y lo que toca cobrar"],
-  ["complementario", "Salario Complementario", "% de cada uno y lo que le toca del total"],
-  ["ambas", "Las dos", "Una sola tabla con lo oficial y lo complementario"],
+  ["complementario", "Salario Complementario", "Cada reparto con sus trabajadores, su % y lo que le toca"],
+  ["ambas", "Las dos", "Una fila por trabajador con lo oficial y el total complementario"],
 ]
 
 /** Exporta la nómina del mes a Excel o PDF, con lo que se está viendo o con todos. */
@@ -47,7 +54,6 @@ export function ExportarNominaDialog({ open, onOpenChange, hoja, filtros, vistaI
   const [formato, setFormato] = useState<Formato>("excel")
   const [contenido, setContenido] = useState<Contenido>(vistaInicial)
   const [alcance, setAlcance] = useState<Alcance>("vista")
-  const [soloParticipan, setSoloParticipan] = useState(true)
   const [exportando, setExportando] = useState(false)
 
   // Al abrir, propone la vista que se está mirando.
@@ -56,28 +62,32 @@ export function ExportarNominaDialog({ open, onOpenChange, hoja, filtros, vistaI
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
-  const filtrosActivos = useMemo(
-    () => ({ ...filtros, soloSeleccionados: false }),
-    [filtros],
-  )
-  const hayFiltros = JSON.stringify(filtrosActivos) !== JSON.stringify(FILTROS_VACIOS)
+  const hayFiltros = filtrosActivos(filtros) > 0
 
   const departamentos: DepartamentoNomina[] = useMemo(
-    () => (alcance === "vista" ? filtrarDepartamentos(hoja.departamentos, filtrosActivos) : hoja.departamentos),
-    [alcance, hoja.departamentos, filtrosActivos],
+    () => (alcance === "vista" ? filtrarDepartamentos(hoja.departamentos, filtros) : hoja.departamentos),
+    [alcance, hoja.departamentos, filtros],
   )
 
-  const filas = useMemo(() => {
-    const todas = departamentos.flatMap((d) => d.cargos.flatMap((c) => c.trabajadores))
-    return contenido === "complementario" && soloParticipan
-      ? todas.filter((t) => t.participa && t.porcentaje > 0)
-      : todas
-  }, [departamentos, contenido, soloParticipan])
+  // Parte oficial: una fila por trabajador.
+  const filas = useMemo(
+    () => departamentos.flatMap((d) => d.cargos.flatMap((c) => c.trabajadores)),
+    [departamentos],
+  )
+
+  // Complementario: una fila por trabajador y reparto.
+  const filasReparto = useMemo(() => {
+    const todos = hoja.repartos ?? []
+    const repartos = alcance === "vista" ? filtrarRepartos(todos, filtros) : todos
+    return repartos.flatMap((r) => r.miembros.map((m) => ({ reparto: r.etiqueta, miembro: m })))
+  }, [alcance, hoja.repartos, filtros])
+
+  const cuenta = contenido === "complementario" ? filasReparto.length : filas.length
 
   const exportar = async () => {
     setExportando(true)
     try {
-      const base = (t: LineaNomina) => ({
+      const datosDe = (t: { departamento_nombre: string; cargo: string; nombre: string; trabajador_ci: string }) => ({
         departamento: t.departamento_nombre,
         cargo: t.cargo,
         nombre: t.nombre,
@@ -89,47 +99,71 @@ export function ExportarNominaDialog({ open, onOpenChange, hoja, filtros, vistaI
         { header: "Nombre", key: "nombre", width: 28 },
         { header: "CI", key: "ci", width: 14 },
       ]
-      const oficial = (t: LineaNomina) => ({
-        salario_basico: t.salario_basico,
-        tarifa_hora: dos(t.tarifa_hora),
-        horas: t.horas,
-        a_cobrar: t.a_cobrar_cup,
-      })
-      const compl = (t: LineaNomina) => ({
-        porcentaje: t.participa ? t.porcentaje : 0,
-        porcentaje_real: t.participa ? t.porcentaje_efectivo : 0,
-        complementario: t.complementario_usd,
-      })
       const colsOficial = [
         { header: "Salario básico CUP", key: "salario_basico", width: 18 },
         { header: "Tarifa/h CUP", key: "tarifa_hora", width: 14 },
         { header: "Horas", key: "horas", width: 10 },
         { header: "A cobrar CUP", key: "a_cobrar", width: 16 },
       ]
-      const colsCompl = [
-        { header: "% fijo", key: "porcentaje", width: 10 },
-        { header: "% real", key: "porcentaje_real", width: 10 },
-        { header: "Le toca USD", key: "complementario", width: 14 },
-      ]
-
-      const conOficial = contenido !== "complementario"
-      const conCompl = contenido !== "oficial"
-      const columns = [...columnasBase, ...(conOficial ? colsOficial : []), ...(conCompl ? colsCompl : [])]
-      const data: ExportOptions["data"] = filas.map((t) => ({
-        ...base(t),
-        ...(conOficial ? oficial(t) : {}),
-        ...(conCompl ? compl(t) : {}),
-      }))
-      data.push({
-        nombre: "TOTAL",
-        ...(conOficial ? { horas: suma(filas, (t) => t.horas), a_cobrar: suma(filas, (t) => t.a_cobrar_cup) } : {}),
-        ...(conCompl ? { complementario: suma(filas, (t) => t.complementario_usd) } : {}),
+      const oficial = (t: LineaNomina) => ({
+        salario_basico: t.salario_basico,
+        tarifa_hora: dos(t.tarifa_hora),
+        horas: t.horas,
+        a_cobrar: t.a_cobrar_cup,
       })
+
+      let columns: ExportOptions["columns"]
+      let data: ExportOptions["data"]
+      let cantidad: number
+
+      if (contenido === "complementario") {
+        columns = [
+          { header: "Reparto", key: "reparto", width: 24 },
+          ...columnasBase,
+          { header: "% fijo", key: "porcentaje", width: 10 },
+          { header: "% real", key: "porcentaje_real", width: 10 },
+          { header: "Le toca USD", key: "complementario", width: 14 },
+        ]
+        data = filasReparto.map(({ reparto, miembro: m }: { reparto: string; miembro: MiembroReparto }) => ({
+          reparto,
+          ...datosDe(m),
+          porcentaje: m.porcentaje,
+          porcentaje_real: m.porcentaje > 0 ? m.porcentaje_efectivo : 0,
+          complementario: m.complementario_usd,
+        }))
+        data.push({
+          nombre: "TOTAL",
+          complementario: dos(filasReparto.reduce((n, f) => n + f.miembro.complementario_usd, 0)),
+        })
+        cantidad = new Set(filasReparto.map((f) => f.miembro.trabajador_ci)).size
+      } else {
+        const conCompl = contenido === "ambas"
+        columns = [
+          ...columnasBase,
+          ...colsOficial,
+          ...(conCompl ? [{ header: "Complementario USD", key: "complementario", width: 18 }] : []),
+        ]
+        data = filas.map((t) => ({
+          ...datosDe(t),
+          ...oficial(t),
+          ...(conCompl ? { complementario: t.complementario_usd } : {}),
+        }))
+        data.push({
+          nombre: "TOTAL",
+          horas: suma(filas, (t) => t.horas),
+          a_cobrar: suma(filas, (t) => t.a_cobrar_cup),
+          ...(conCompl ? { complementario: suma(filas, (t) => t.complementario_usd) } : {}),
+        })
+        cantidad = filas.length
+      }
 
       const nombreContenido =
         contenido === "oficial" ? "Salario oficial" : contenido === "complementario" ? "Salario complementario" : "Salario oficial y complementario"
-      const partes = [mesLabel, nombreContenido, `Trabajadores: ${filas.length}`]
-      if (conCompl) partes.push(`Total a distribuir: USD ${hoja.totales.total_complementario_usd.toLocaleString("es", { minimumFractionDigits: 2 })}`)
+      const partes = [mesLabel, nombreContenido, `Trabajadores: ${cantidad}`]
+      if (contenido !== "oficial") {
+        partes.push(`Repartos: ${(hoja.repartos ?? []).length}`)
+        partes.push(`A distribuir: USD ${hoja.totales.a_distribuir_usd.toLocaleString("es", { minimumFractionDigits: 2 })}`)
+      }
       if (alcance === "vista") {
         const sede = filtros.sedeId === SIN_SEDE ? "Sin sede" : (hoja.sedes ?? []).find((s) => s.id === filtros.sedeId)?.nombre
         if (sede) partes.push(`Sede: ${sede}`)
@@ -158,7 +192,7 @@ export function ExportarNominaDialog({ open, onOpenChange, hoja, filtros, vistaI
   }
 
   const totalTodos = contarTrabajadores(hoja.departamentos)
-  const puede = filas.length > 0 && !exportando
+  const puede = cuenta > 0 && !exportando
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -204,17 +238,6 @@ export function ExportarNominaDialog({ open, onOpenChange, hoja, filtros, vistaI
                 </button>
               ))}
             </div>
-            {contenido === "complementario" && (
-              <label className="flex items-center gap-2 pt-1 text-sm text-gray-700">
-                <input
-                  type="checkbox"
-                  checked={soloParticipan}
-                  onChange={(e) => setSoloParticipan(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300"
-                />
-                Solo los que entran en el reparto
-              </label>
-            )}
           </section>
 
           <section className="space-y-2">
@@ -238,7 +261,11 @@ export function ExportarNominaDialog({ open, onOpenChange, hoja, filtros, vistaI
               ))}
             </div>
             <p className="text-xs text-gray-500">
-              <strong className="text-gray-800">{filas.length}</strong> trabajador{filas.length !== 1 ? "es" : ""} se exportarán.
+              <strong className="text-gray-800">{cuenta}</strong>{" "}
+              {contenido === "complementario"
+                ? `línea${cuenta !== 1 ? "s" : ""} (un trabajador sale una vez por cada reparto en el que está)`
+                : `trabajador${cuenta !== 1 ? "es" : ""}`}{" "}
+              se exportarán.
             </p>
           </section>
         </div>
