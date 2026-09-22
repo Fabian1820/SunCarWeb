@@ -1,10 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Download, Eye, Loader2, Pencil, Plus, Printer } from "lucide-react";
+import {
+  CalendarX2,
+  CheckCircle2,
+  Download,
+  Eye,
+  Loader2,
+  Pencil,
+  Plus,
+  Printer,
+} from "lucide-react";
 import { es } from "date-fns/locale";
 import { Calendar } from "@/components/shared/molecule/calendar";
 import { Button, buttonVariants } from "@/components/shared/atom/button";
+import { Avatar, AvatarFallback } from "@/components/shared/atom/avatar";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card";
 import {
   Dialog,
   DialogContent,
@@ -19,7 +30,13 @@ import { PlanificacionService } from "@/lib/services/feats/planificacion/planifi
 import { ExportPlanificacionService } from "@/lib/services/feats/planificacion/export-planificacion-service";
 import { aFecha, desplazar, isoLocal, nombreDia } from "@/components/feats/planificacion/fechas";
 import { TarjetaTrabajo } from "@/components/feats/planificacion/menu-dia";
-import type { Asignado, Planificacion, TrabajoPlanificado } from "@/lib/types/feats/planificacion/planificacion-types";
+import { EtiquetaTipo } from "@/components/feats/planificacion/tipo-trabajo";
+import type {
+  Asignado,
+  Planificacion,
+  TipoTrabajo,
+  TrabajoPlanificado,
+} from "@/lib/types/feats/planificacion/planificacion-types";
 
 const MODULO_CONFIRMAR = "planificacion/confirmar";
 
@@ -64,6 +81,32 @@ function porEquipo(trabajos: TrabajoPlanificado[]): [string, TrabajoPlanificado[
     grupos.set(quien, [...(grupos.get(quien) ?? []), t]);
   }
   return [...grupos.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+}
+
+/** Cuántos trabajos hay de cada tipo, el más frecuente primero. */
+function porTipo(trabajos: TrabajoPlanificado[]): [TipoTrabajo, number][] {
+  const conteo = new Map<TipoTrabajo, number>();
+  for (const t of trabajos) conteo.set(t.tipo, (conteo.get(t.tipo) ?? 0) + 1);
+  return [...conteo.entries()].sort((a, b) => b[1] - a[1]);
+}
+
+/** Qué tanto de lo planificado ya se hizo, para los días que ya pasaron. */
+function desglosarCierre(trabajos: TrabajoPlanificado[]): { cumplidos: number; noRealizados: number } {
+  let cumplidos = 0;
+  let noRealizados = 0;
+  for (const t of trabajos) {
+    if (t.estado === "cumplido") cumplidos++;
+    else if (t.estado === "no_realizado") noRealizados++;
+  }
+  return { cumplidos, noRealizados };
+}
+
+/** Iniciales para el avatar de "Hecho por": una letra si el nombre es de una palabra, dos si son más. */
+function iniciales(nombre: string): string {
+  const partes = nombre.trim().split(/\s+/).filter(Boolean);
+  if (partes.length === 0) return "?";
+  if (partes.length === 1) return partes[0].charAt(0).toUpperCase();
+  return (partes[0].charAt(0) + partes[partes.length - 1].charAt(0)).toUpperCase();
 }
 
 /**
@@ -134,34 +177,43 @@ export function InicioPlanificacion({ hoy, onElegir, eligiendoDia, onEligiendoDi
     onElegir(fecha);
   }
 
+  const confirmadasProximas = proximas.filter((p) => p.confirmada_en).length;
+  const confirmadasAnteriores = anteriores.filter((p) => p.confirmada_en).length;
+
   return (
-    <div className="mx-auto max-w-5xl pt-2">
-      <h2 className="text-2xl font-semibold text-gray-900">Planificaciones</h2>
-      <p className="mt-1 text-sm text-gray-600">
-        Mira o cambia un día ya planificado. Para uno nuevo, usa <span className="font-medium">Nueva</span>.
-      </p>
+    <div className="mx-auto max-w-7xl pt-2 pb-4">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="text-2xl font-semibold text-gray-900">Planificaciones</h2>
+          <p className="mt-1 text-sm text-gray-600">
+            Mira o cambia un día ya planificado. Para uno nuevo, usa <span className="font-medium">Nueva</span>.
+          </p>
+        </div>
+      </div>
 
       {planes === null ? (
-        <p className="mt-6 flex items-center gap-2 text-sm text-gray-500">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-          Cargando…
-        </p>
+        <div className="mt-6 flex flex-col items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white py-16 text-center shadow-sm">
+          <Loader2 className="h-8 w-8 animate-spin text-gray-400" aria-hidden />
+          <p className="text-sm text-gray-600">Cargando planificaciones…</p>
+        </div>
       ) : conTrabajos.length === 0 ? (
-        <div className="mt-6 rounded-lg border border-dashed border-gray-300 bg-white px-6 py-10 text-center">
+        <div className="mt-6 flex flex-col items-center gap-3 rounded-xl border border-dashed border-gray-300 bg-white px-6 py-16 text-center shadow-sm">
+          <CalendarX2 className="h-10 w-10 text-gray-400" aria-hidden />
           <p className="font-medium text-gray-900">
             {fallo ? "No se pudieron cargar las planificaciones." : "Todavía no hay ningún día planificado."}
           </p>
           {!fallo && (
-            <Button className="mt-4" onClick={() => onEligiendoDia(true)}>
+            <Button className="mt-1" onClick={() => onEligiendoDia(true)}>
               <Plus className="mr-2 h-4 w-4" aria-hidden />
               Planificar un día
             </Button>
           )}
         </div>
       ) : (
-        <>
+        <div className="mt-6 space-y-6">
           <ListaPlanes
             titulo="Próximas"
+            resumenTitulo={`${proximas.length} día${proximas.length === 1 ? "" : "s"} por delante · ${confirmadasProximas} confirmado${confirmadasProximas === 1 ? "" : "s"}`}
             vacio="No hay nada planificado de hoy en adelante."
             planes={proximas}
             hoy={hoy}
@@ -174,6 +226,7 @@ export function InicioPlanificacion({ hoy, onElegir, eligiendoDia, onEligiendoDi
           {anteriores.length > 0 && (
             <ListaPlanes
               titulo="Anteriores"
+              resumenTitulo={`${anteriores.length} día${anteriores.length === 1 ? "" : "s"} reciente${anteriores.length === 1 ? "" : "s"} · ${confirmadasAnteriores} confirmado${confirmadasAnteriores === 1 ? "" : "s"}`}
               planes={anteriores}
               hoy={hoy}
               onVer={setViendo}
@@ -183,7 +236,7 @@ export function InicioPlanificacion({ hoy, onElegir, eligiendoDia, onEligiendoDi
               onConfirmar={confirmar}
             />
           )}
-        </>
+        </div>
       )}
 
       <Dialog open={!!viendo} onOpenChange={(abierto) => !abierto && setViendo(null)}>
@@ -295,6 +348,7 @@ export function InicioPlanificacion({ hoy, onElegir, eligiendoDia, onEligiendoDi
 
 function ListaPlanes({
   titulo,
+  resumenTitulo,
   vacio,
   planes,
   hoy,
@@ -305,6 +359,7 @@ function ListaPlanes({
   onConfirmar,
 }: {
   titulo: string;
+  resumenTitulo: string;
   vacio?: string;
   planes: Planificacion[];
   hoy: string;
@@ -315,16 +370,19 @@ function ListaPlanes({
   onConfirmar: (fecha: string) => void;
 }) {
   return (
-    <section className="mt-6">
-      <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">{titulo}</h3>
-      {planes.length === 0 ? (
-        <p className="mt-3 text-sm text-gray-500">{vacio}</p>
-      ) : (
-        <div className="mt-3 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+    <Card className="border-l-4 border-l-emerald-600">
+      <CardHeader>
+        <CardTitle>{titulo}</CardTitle>
+        <CardDescription>{resumenTitulo}</CardDescription>
+      </CardHeader>
+      <CardContent className={planes.length === 0 ? undefined : "p-0"}>
+        {planes.length === 0 ? (
+          <p className="text-sm text-gray-500">{vacio}</p>
+        ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-sm">
+            <table className="w-full min-w-[760px] text-sm">
               <thead>
-                <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <tr className="border-y border-gray-200 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                   <th className="px-4 py-3">Día</th>
                   <th className="px-4 py-3">Trabajos</th>
                   <th className="px-4 py-3">Hecho por</th>
@@ -338,12 +396,58 @@ function ListaPlanes({
                   const dia = nombreDia(fecha, hoy);
                   const confirmada = !!p.confirmada_en;
                   const hechoPor = p.hecho_por ?? [];
+                  const tipos = porTipo(p.trabajos);
+                  const { cumplidos, noRealizados } = desglosarCierre(p.trabajos);
+                  const equipos = new Set(p.trabajos.map((t) => `${t.asignado.tipo}:${t.asignado.id}`)).size;
                   return (
-                    <tr key={fecha}>
+                    <tr key={fecha} className="transition-colors hover:bg-gray-50">
                       <td className="px-4 py-3 align-top font-medium text-gray-900 first-letter:uppercase">{dia}</td>
-                      <td className="px-4 py-3 align-top text-gray-600">{resumen(p)}</td>
-                      <td className="px-4 py-3 align-top text-gray-600">
-                        {hechoPor.length > 0 ? hechoPor.join(", ") : "—"}
+                      <td className="px-4 py-3 align-top">
+                        <p className="text-gray-900">
+                          {p.trabajos.length} trabajo{p.trabajos.length === 1 ? "" : "s"} · {equipos} equipo
+                          {equipos === 1 ? "" : "s"}
+                        </p>
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          {tipos.map(([tipo, n]) => (
+                            <EtiquetaTipo key={tipo} tipo={tipo} count={n} />
+                          ))}
+                        </div>
+                        {(cumplidos > 0 || noRealizados > 0) && (
+                          <p className="mt-1.5 text-xs text-gray-500">
+                            {cumplidos > 0 && (
+                              <span className="font-medium text-emerald-700">
+                                {cumplidos} cumplido{cumplidos === 1 ? "" : "s"}
+                              </span>
+                            )}
+                            {cumplidos > 0 && noRealizados > 0 && " · "}
+                            {noRealizados > 0 && (
+                              <span className="font-medium text-red-600">
+                                {noRealizados} no realizado{noRealizados === 1 ? "" : "s"}
+                              </span>
+                            )}
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 align-top">
+                        {hechoPor.length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {hechoPor.map((nombre) => (
+                              <span
+                                key={nombre}
+                                className="inline-flex items-center gap-1.5 rounded-full bg-gray-50 py-0.5 pl-0.5 pr-2.5 text-xs font-medium text-gray-700"
+                              >
+                                <Avatar className="h-5 w-5">
+                                  <AvatarFallback className="bg-emerald-100 text-[10px] font-semibold text-emerald-700">
+                                    {iniciales(nombre)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                {nombre}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-3 align-top">
                         {confirmada ? (
@@ -355,7 +459,7 @@ function ListaPlanes({
                             Confirmada
                           </span>
                         ) : (
-                          <span className="inline-flex items-center rounded-full border border-gray-300 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+                          <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
                             Sin confirmar
                           </span>
                         )}
@@ -422,8 +526,8 @@ function ListaPlanes({
               </tbody>
             </table>
           </div>
-        </div>
-      )}
-    </section>
+        )}
+      </CardContent>
+    </Card>
   );
 }

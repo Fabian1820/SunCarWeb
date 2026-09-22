@@ -17,7 +17,16 @@ const ESTILO: Record<TipoTrabajo, string> = {
   actualizacion: "bg-amber-50 text-amber-800",
 };
 
-export function EtiquetaTipo({ tipo, className }: { tipo: TipoTrabajo; className?: string }) {
+export function EtiquetaTipo({
+  tipo,
+  count,
+  className,
+}: {
+  tipo: TipoTrabajo;
+  /** Cuántos trabajos de este tipo, cuando la etiqueta resume un grupo en vez de uno solo. */
+  count?: number;
+  className?: string;
+}) {
   return (
     <span
       className={cn(
@@ -27,6 +36,7 @@ export function EtiquetaTipo({ tipo, className }: { tipo: TipoTrabajo; className
       )}
     >
       {ETIQUETA_TIPO[tipo]}
+      {count !== undefined && <span className="ml-1 opacity-70">· {count}</span>}
     </span>
   );
 }
