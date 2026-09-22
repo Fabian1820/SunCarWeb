@@ -124,7 +124,10 @@ export function BancosMenu({
           <DropdownMenuSeparator />
 
           <DropdownMenuItem
-            onClick={() => setCrearAbierto(true)}
+            onSelect={(e) => {
+              e.preventDefault();
+              setTimeout(() => setCrearAbierto(true), 0);
+            }}
             className="cursor-pointer gap-2 text-blue-700"
           >
             <Plus className="h-4 w-4" />
