@@ -329,7 +329,7 @@ export function FacturasVentasTable({
           <div className={`text-sm ${em ? "px-6 pb-2" : "pb-1"}`}>
             <div className="flex flex-wrap gap-3 items-start">
               <span className="text-gray-500">
-                Total facturado: <strong className="text-gray-800">{formatCurrency(usd.sinDescuento)}</strong>
+                Total facturado: <strong className="text-gray-800">{formatCurrency(usd.facturado)}</strong>
               </span>
               <span className="text-gray-300">|</span>
               <span className="text-gray-500 inline-flex flex-col">
