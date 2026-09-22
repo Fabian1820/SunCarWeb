@@ -186,6 +186,14 @@ input[type="time"]::-webkit-datetime-edit {
   padding-top: var(--content-with-fixed-header-padding, 144px);
 }
 
+/* Barra lateral recogida de los módulos (components/shared/organism/barra-lateral.tsx):
+   las cabeceras fijas empiezan donde acaba la barra, igual que el contenido. */
+@media (min-width: 1024px) {
+  .con-barra-lateral .fixed-header {
+    left: 4rem;
+  }
+}
+
 @media (min-width: 640px) {
   :root {
     --module-header-offset: 20px;

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -21,12 +22,18 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import { Button } from "@/components/shared/atom/button";
-import type { ValeSalida } from "@/lib/api-types";
+import type { DevolucionValeResumen, ValeSalida } from "@/lib/api-types";
+import { DevolucionValeService } from "@/lib/api-services";
 import {
   formatFechaRecogida,
   getFechaRecogidaBadge,
 } from "@/lib/utils/fecha-recogida";
 import { parseFechaUtc } from "@/lib/utils/fecha-utc";
+import {
+  DEVOLUCION_PARCIAL_CLASS,
+  esDevolucionParcial,
+  getValeEstadoInfo,
+} from "@/lib/utils/vale-salida-estado";
 
 interface ValeSalidaDetailDialogProps {
   open: boolean;
@@ -46,10 +53,8 @@ const getTipoStyles = (tipo: "material" | "venta") =>
     ? "bg-indigo-50 text-indigo-700 border-indigo-200"
     : "bg-amber-50 text-amber-700 border-amber-200";
 
-const getEstadoStyles = (estado?: string) =>
-  estado === "anulado"
-    ? "bg-red-50 text-red-700 border-red-200"
-    : "bg-emerald-50 text-emerald-700 border-emerald-200";
+const fmtCantidad = (valor: number) =>
+  Number.isInteger(valor) ? String(valor) : valor.toFixed(2);
 
 export function ValeSalidaDetailDialog({
   open,
@@ -57,7 +62,42 @@ export function ValeSalidaDetailDialog({
   vale,
   onRegistrarDevolucion,
 }: ValeSalidaDetailDialogProps) {
+  // Lo devuelto de cada material no viene en el vale: se pide aparte al abrir el
+  // detalle. Si falla, el detalle se ve igual, solo que sin el desglose.
+  const [resumenDevolucion, setResumenDevolucion] =
+    useState<DevolucionValeResumen | null>(null);
+  const valeId = vale?.id;
+  useEffect(() => {
+    setResumenDevolucion(null);
+    if (!open || !valeId) return;
+    let cancelado = false;
+    DevolucionValeService.getResumenPorVale(valeId)
+      .then((resumen) => {
+        if (!cancelado) setResumenDevolucion(resumen);
+      })
+      .catch(() => {});
+    return () => {
+      cancelado = true;
+    };
+  }, [open, valeId]);
+
   if (!vale) return null;
+
+  const devueltoPorMaterial = new Map<string, number>();
+  for (const m of resumenDevolucion?.materiales ?? []) {
+    devueltoPorMaterial.set(String(m.material_id), Number(m.cantidad_devuelta) || 0);
+  }
+  const totalDevuelto = Array.from(devueltoPorMaterial.values()).reduce(
+    (acc, n) => acc + n,
+    0,
+  );
+  const totalSalida = (resumenDevolucion?.materiales ?? []).reduce(
+    (acc, m) => acc + (Number(m.cantidad_salida) || 0),
+    0,
+  );
+  const hayDevoluciones = totalDevuelto > 0;
+  const estadoInfo = getValeEstadoInfo(vale.estado);
+  const devolucionParcial = esDevolucionParcial(vale.estado, hayDevoluciones);
 
   const solicitud =
     vale.solicitud_material || vale.solicitud_venta || vale.solicitud;
@@ -103,7 +143,7 @@ export function ValeSalidaDetailDialog({
   const recogidaResponsable =
     vale.recogido_por || solicitud?.responsable_recogida || null;
   const valeBloqueadoDevolucion =
-    vale.estado === "anulado";
+    vale.estado === "anulado" || vale.estado === "devuelto";
   // Las solicitudes de venta no traen fecha_recogida y el resumen del vale
   // tampoco incluye fecha_creacion, asi que en ese caso queda sin fecha.
   const recogidaFecha = solicitud?.fecha_recogida || null;
@@ -133,9 +173,14 @@ export function ValeSalidaDetailDialog({
             <Badge variant="outline" className={tipoStyles}>
               {solicitudTipo === "venta" ? "Venta" : "Material"}
             </Badge>
-            <Badge variant="outline" className={getEstadoStyles(vale.estado)}>
-              {vale.estado === "anulado" ? "Anulado" : "Usado"}
+            <Badge variant="outline" className={estadoInfo.className}>
+              {estadoInfo.label}
             </Badge>
+            {devolucionParcial ? (
+              <Badge variant="outline" className={DEVOLUCION_PARCIAL_CLASS}>
+                Devolución parcial
+              </Badge>
+            ) : null}
           </DialogTitle>
         </DialogHeader>
 
@@ -153,6 +198,19 @@ export function ValeSalidaDetailDialog({
             ) : null}
           </div>
 
+          {hayDevoluciones ? (
+            <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+              <Undo2 className="h-4 w-4 shrink-0" />
+              <span>
+                {vale.estado === "devuelto"
+                  ? "Este vale fue devuelto completamente."
+                  : "Este vale tiene devoluciones parciales."}{" "}
+                Devuelto: <strong>{fmtCantidad(totalDevuelto)}</strong> de{" "}
+                <strong>{fmtCantidad(totalSalida)}</strong> unidades.
+              </span>
+            </div>
+          ) : null}
+
           {onRegistrarDevolucion ? (
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3">
               <p className="text-sm text-blue-800">
@@ -164,9 +222,11 @@ export function ValeSalidaDetailDialog({
                 disabled={valeBloqueadoDevolucion}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
                 title={
-                  valeBloqueadoDevolucion
+                  vale.estado === "anulado"
                     ? "No se puede devolver en un vale anulado"
-                    : "Registrar devolucion"
+                    : vale.estado === "devuelto"
+                      ? "El vale ya fue devuelto completamente"
+                      : "Registrar devolucion"
                 }
               >
                 <Undo2 className="h-4 w-4 mr-2" />
@@ -321,6 +381,11 @@ export function ValeSalidaDetailDialog({
                     <th className="text-right py-2 px-3 font-medium text-gray-700 w-24">
                       Cantidad
                     </th>
+                    {hayDevoluciones ? (
+                      <th className="text-right py-2 px-3 font-medium text-gray-700 w-24">
+                        Devuelto
+                      </th>
+                    ) : null}
                     <th className="text-left py-2 px-3 font-medium text-gray-700 w-32">
                       N° Series
                     </th>
@@ -331,6 +396,8 @@ export function ValeSalidaDetailDialog({
                     const foto = getMaterialFoto(mat);
                     const nombre = getMaterialName(mat);
                     const codigo = getMaterialCodigo(mat);
+                    const devuelto =
+                      devueltoPorMaterial.get(String(mat.material_id)) ?? 0;
                     return (
                       <tr
                         key={idx}
@@ -372,6 +439,17 @@ export function ValeSalidaDetailDialog({
                         <td className="py-2.5 px-3 text-right font-semibold text-gray-900">
                           {mat.cantidad}
                         </td>
+                        {hayDevoluciones ? (
+                          <td className="py-2.5 px-3 text-right font-semibold text-amber-700">
+                            {devuelto > 0 ? (
+                              fmtCantidad(devuelto)
+                            ) : (
+                              <span className="text-xs font-normal text-gray-400">
+                                -
+                              </span>
+                            )}
+                          </td>
+                        ) : null}
                         <td className="py-2.5 px-3">
                           {mat.numero_serie ? (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 text-xs font-mono">

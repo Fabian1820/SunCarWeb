@@ -3,13 +3,13 @@ import type { Trabajador } from "@/lib/api-types"
 import { Button } from "@/components/shared/atom/button"
 import { Badge } from "@/components/shared/atom/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
+import { ConfirmDeleteDialog, Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
 import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { useToast } from "@/hooks/use-toast"
 import { TrabajadorService, RecursosHumanosService } from "@/lib/api-services"
 import { WorkerAvatar, WorkerAvatarUploader } from "@/components/feats/worker/worker-avatar"
-import { Calculator, Clock, Crown, Search, Trash2, UserMinus, Users, X } from "lucide-react"
+import { Calculator, Clock, Crown, Search, Trash2, UserMinus, Users } from "lucide-react"
 
 interface TrabajadoresTableProps {
   trabajadores: Trabajador[]
@@ -197,35 +197,30 @@ export function TrabajadoresTable({
         </Button>
       </div>
 
-      <div className="md:hidden space-y-3">
+      <div className="space-y-3">
         {trabajadores.map((worker) => (
           <Card key={worker.id || worker.CI} className="border-gray-200">
-            <CardContent className="p-4">
+            <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
               <button
                 type="button"
                 onClick={() => openDetailDialog(worker)}
-                className="w-full text-left touch-manipulation active:scale-[0.99] transition-transform"
+                className="flex items-center gap-3 sm:w-64 shrink-0 text-left touch-manipulation active:scale-[0.99] transition-transform"
                 title="Ver detalles"
               >
-                <div className="flex items-start gap-3">
-                  <WorkerAvatar
-                    src={worker.foto_perfil}
-                    nombre={worker.nombre}
-                    className="h-10 w-10 shrink-0"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="font-semibold text-gray-900 truncate">{worker.nombre}</p>
-                      <Badge variant={esJefeDeBrigada(worker) ? "outline" : "secondary"} className="shrink-0">
-                        {esJefeDeBrigada(worker) ? "Jefe" : "Trabajador"}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-gray-600 mt-1">CI: {worker.CI}</p>
-                  </div>
+                <WorkerAvatar src={worker.foto_perfil} nombre={worker.nombre} className="h-10 w-10 shrink-0" />
+                <div className="min-w-0">
+                  <p className="font-semibold text-gray-900 truncate">{worker.nombre}</p>
+                  <p className="text-xs text-gray-500">CI: {worker.CI}</p>
                 </div>
               </button>
 
-              <div className="mt-3 flex items-center justify-end gap-2">
+              <div className="flex-1 flex items-center min-h-[1.75rem] sm:border-l sm:border-gray-100 sm:pl-4">
+                <Badge variant={esJefeDeBrigada(worker) ? "outline" : "secondary"}>
+                  {esJefeDeBrigada(worker) ? "Jefe de brigada" : "Trabajador"}
+                </Badge>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0 flex-wrap">
                 <Button
                   variant="outline"
                   size="icon"
@@ -280,10 +275,10 @@ export function TrabajadoresTable({
                 </Button>
 
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="icon"
                   onClick={() => setConfirmDelete(worker)}
-                  className="border-red-300 text-red-700 hover:bg-red-50 touch-manipulation"
+                  className="h-9 w-9 shrink-0 text-gray-400 hover:text-red-600 touch-manipulation"
                   title="Quitar rol de instalador"
                   aria-label="Quitar rol de instalador"
                 >
@@ -293,110 +288,6 @@ export function TrabajadoresTable({
             </CardContent>
           </Card>
         ))}
-      </div>
-
-      <div className="hidden md:block overflow-x-auto touch-pan-x [-webkit-overflow-scrolling:touch]">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-gray-200">
-              <th className="text-left py-3 px-4 font-semibold text-gray-900">Nombre</th>
-              <th className="text-left py-3 px-4 font-semibold text-gray-900">CI</th>
-              <th className="text-left py-3 px-4 font-semibold text-gray-900">Rol</th>
-              <th className="text-left py-3 px-4 font-semibold text-gray-900">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {trabajadores.map((worker) => (
-              <tr key={worker.id || worker.CI} className="border-b border-gray-100 hover:bg-gray-50">
-                <td className="py-4 px-4">
-                  <button
-                    type="button"
-                    onClick={() => openDetailDialog(worker)}
-                    className="w-full text-left touch-manipulation"
-                    title="Ver detalles"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <WorkerAvatar src={worker.foto_perfil} nombre={worker.nombre} className="h-10 w-10" />
-                      <div>
-                        <p className="font-semibold text-gray-900">{worker.nombre}</p>
-                      </div>
-                    </div>
-                  </button>
-                </td>
-                <td className="py-4 px-4">{worker.CI}</td>
-                <td className="py-4 px-4">
-                  <Badge variant={esJefeDeBrigada(worker) ? "outline" : "secondary"}>
-                    {esJefeDeBrigada(worker) ? "Jefe de brigada" : "Trabajador"}
-                  </Badge>
-                </td>
-                <td className="py-4 px-4">
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => onAssignBrigada(worker)}
-                      className="border-blue-300 text-blue-700 hover:bg-blue-50"
-                      title="Asignar a brigada"
-                      aria-label="Asignar a brigada"
-                    >
-                      <Users className="h-4 w-4" />
-                    </Button>
-                    {esJefeDeBrigada(worker) ? (
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => setConfirmRemoveJefe(worker)}
-                        className="border-yellow-300 text-yellow-700 hover:bg-yellow-50"
-                        title="Quitar como jefe de brigada"
-                        aria-label="Quitar como jefe de brigada"
-                        disabled={isRemovingJefeLoading === worker.CI}
-                      >
-                        {isRemovingJefeLoading === worker.CI ? (
-                          <span className="animate-spin">
-                            <UserMinus className="h-4 w-4" />
-                          </span>
-                        ) : (
-                          <UserMinus className="h-4 w-4" />
-                        )}
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => onConvertJefe(worker)}
-                        className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-                        title="Convertir en jefe de brigada"
-                        aria-label="Convertir en jefe de brigada"
-                      >
-                        <Crown className="h-4 w-4" />
-                      </Button>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => openHorasDialog(worker)}
-                      className="border-green-300 text-green-700 hover:bg-green-50"
-                      title="Calcular horas trabajadas"
-                      aria-label="Calcular horas trabajadas"
-                    >
-                      <Clock className="h-5 w-5" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setConfirmDelete(worker)}
-                      className="border-red-300 text-red-700 hover:bg-red-50"
-                      title="Quitar rol de instalador"
-                      aria-label="Quitar rol de instalador"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
       </div>
 
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
@@ -592,111 +483,25 @@ export function TrabajadoresTable({
         </DialogContent>
       </Dialog>
 
-      {confirmRemoveJefe && (
-        <Dialog open={!!confirmRemoveJefe} onOpenChange={() => setConfirmRemoveJefe(null)}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Quitar como jefe de brigada</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <p>
-                ¿Estás seguro de que quieres quitarle el rol de jefe de brigada a{" "}
-                <span className="font-semibold">{confirmRemoveJefe.nombre}</span> (CI:{" "}
-                {confirmRemoveJefe.CI})?
-              </p>
-              <p className="text-sm text-gray-600">
-                Sigue siendo instalador. Si lideraba una brigada, se elimina; sus integrantes
-                quedan sin brigada hasta que se les asigne otro jefe.
-              </p>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setConfirmRemoveJefe(null)}
-                disabled={isRemovingJefeLoading === confirmRemoveJefe.CI}
-                size="icon"
-                className="w-10 sm:w-auto sm:px-4 touch-manipulation"
-                title="Cancelar"
-                aria-label="Cancelar"
-              >
-                <X className="h-4 w-4" />
-                <span className="hidden sm:inline">Cancelar</span>
-                <span className="sr-only">Cancelar</span>
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => handleQuitarJefe(confirmRemoveJefe)}
-                disabled={isRemovingJefeLoading === confirmRemoveJefe.CI}
-                size="icon"
-                className="w-10 sm:w-auto sm:px-4 touch-manipulation"
-                title="Quitar como jefe"
-                aria-label="Quitar como jefe"
-              >
-                <UserMinus className="h-4 w-4" />
-                <span className="hidden sm:inline">
-                  {isRemovingJefeLoading === confirmRemoveJefe.CI ? "Procesando..." : "Quitar como jefe"}
-                </span>
-                <span className="sr-only">
-                  {isRemovingJefeLoading === confirmRemoveJefe.CI ? "Procesando..." : "Quitar como jefe"}
-                </span>
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+      <ConfirmDeleteDialog
+        open={!!confirmRemoveJefe}
+        onOpenChange={(open) => { if (!open) setConfirmRemoveJefe(null) }}
+        title="Quitar como Jefe de Brigada"
+        message={`¿Estás seguro de que quieres quitarle el rol de jefe de brigada a ${confirmRemoveJefe?.nombre} (CI: ${confirmRemoveJefe?.CI})? Sigue siendo instalador. Si lideraba una brigada, se elimina; sus integrantes quedan sin brigada hasta que se les asigne otro jefe.`}
+        onConfirm={() => confirmRemoveJefe && handleQuitarJefe(confirmRemoveJefe)}
+        confirmText="Quitar como jefe"
+        isLoading={isRemovingJefeLoading === confirmRemoveJefe?.CI}
+      />
 
-      {confirmDelete && (
-        <Dialog open={!!confirmDelete} onOpenChange={() => setConfirmDelete(null)}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Quitar rol de instalador</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <p>
-                ¿Estás seguro de que quieres quitarle el rol de instalador/jefe de brigada a{" "}
-                <span className="font-semibold">{confirmDelete.nombre}</span> (CI: {confirmDelete.CI})?
-              </p>
-              <p className="text-sm text-gray-600">
-                No se desactiva al trabajador (sigue activo en el sistema, por ejemplo si cambió
-                de área). Solo deja de aparecer como instalador. Si era jefe de brigada, su
-                brigada se elimina; si era integrante, se le saca de la lista de integrantes.
-              </p>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setConfirmDelete(null)}
-                disabled={isDeleting}
-                size="icon"
-                className="w-10 sm:w-auto sm:px-4 touch-manipulation"
-                title="Cancelar"
-                aria-label="Cancelar"
-              >
-                <X className="h-4 w-4" />
-                <span className="hidden sm:inline">Cancelar</span>
-                <span className="sr-only">Cancelar</span>
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => handleDelete(confirmDelete)}
-                disabled={isDeleting}
-                size="icon"
-                className="w-10 sm:w-auto sm:px-4 touch-manipulation"
-                title="Quitar rol de instalador"
-                aria-label="Quitar rol de instalador"
-              >
-                <Trash2 className="h-4 w-4" />
-                <span className="hidden sm:inline">
-                  {isDeleting ? "Procesando..." : "Quitar rol"}
-                </span>
-                <span className="sr-only">
-                  {isDeleting ? "Procesando..." : "Quitar rol"}
-                </span>
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+      <ConfirmDeleteDialog
+        open={!!confirmDelete}
+        onOpenChange={(open) => { if (!open) setConfirmDelete(null) }}
+        title="Quitar Rol de Instalador"
+        message={`¿Estás seguro de que quieres quitarle el rol de instalador/jefe de brigada a ${confirmDelete?.nombre} (CI: ${confirmDelete?.CI})? No se desactiva al trabajador (sigue activo en el sistema, por ejemplo si cambió de área). Solo deja de aparecer como instalador. Si era jefe de brigada, su brigada se elimina; si era integrante, se le saca de la lista de integrantes.`}
+        onConfirm={() => confirmDelete && handleDelete(confirmDelete)}
+        confirmText="Quitar rol"
+        isLoading={isDeleting}
+      />
     </>
   )
 }

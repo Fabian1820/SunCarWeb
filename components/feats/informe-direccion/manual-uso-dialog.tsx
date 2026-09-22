@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { HelpCircle } from "lucide-react";
 import { Button } from "@/components/shared/atom/button";
 import {
@@ -10,11 +11,22 @@ import {
   DialogTrigger,
 } from "@/components/shared/molecule/dialog";
 
-/** Botón "?" + modal con instrucciones de uso de una pestaña. Los textos
- * citan las mismas etiquetas que ve el usuario en pantalla (nombres de
- * botones, filtros, columnas), para que el manual y la pantalla no se
- * desalineen si uno cambia. */
-export function ManualUsoDialog({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+const BASE = "/manual/informe-direccion";
+
+type Paso = { titulo: string; texto: React.ReactNode; imagen: string; alto: number; nota?: string };
+
+/** Botón "?" + modal con el manual de uso de una pestaña: capturas reales del
+ * propio panel, no texto suelto. Pocos pasos y solo lo más importante — se
+ * lee en un minuto, no reemplaza a la pantalla, la ilustra. */
+export function ManualUsoDialog({
+  titulo,
+  colorNumero,
+  pasos,
+}: {
+  titulo: string;
+  colorNumero: string;
+  pasos: Paso[];
+}) {
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -27,118 +39,157 @@ export function ManualUsoDialog({ titulo, children }: { titulo: string; children
           <HelpCircle className="h-5 w-5" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-[#012928]">
             <HelpCircle className="h-5 w-5" />
             {titulo}
           </DialogTitle>
         </DialogHeader>
-        <div className="manual-uso space-y-4 text-sm leading-relaxed text-gray-700">{children}</div>
+        <div className="space-y-5">
+          {pasos.map((paso, i) => (
+            <div key={paso.titulo} className="rounded-xl border bg-white p-4 shadow-sm">
+              <div className="mb-2 flex items-center gap-2">
+                <span
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+                  style={{ backgroundColor: colorNumero, color: "#012928" }}
+                >
+                  {i + 1}
+                </span>
+                <p className="text-sm font-semibold text-[#012928]">{paso.titulo}</p>
+              </div>
+              <p className="text-sm leading-relaxed text-gray-600">{paso.texto}</p>
+              {paso.nota && <p className="mt-1 text-xs italic text-gray-400">{paso.nota}</p>}
+              <div className="mt-3 overflow-hidden rounded-lg border">
+                <Image
+                  src={`${BASE}/${paso.imagen}`}
+                  alt={paso.titulo}
+                  width={1200}
+                  height={paso.alto}
+                  className="h-auto w-full"
+                  unoptimized
+                />
+              </div>
+            </div>
+          ))}
+        </div>
       </DialogContent>
     </Dialog>
   );
 }
 
-/** Un bloque del manual: título corto + su explicación. */
-function Paso({ titulo, children }: { titulo: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <p className="font-semibold text-[#012928]">{titulo}</p>
-      <div className="mt-0.5 text-gray-600">{children}</div>
-    </div>
-  );
-}
-
 export function ManualContabilidad() {
   return (
-    <ManualUsoDialog titulo="Cómo usar Contabilidad">
-      <Paso titulo="Elegir el periodo">
-        Con <b>Mes</b> ves un mes completo (por defecto, el actual); con <b>Rango</b> defines Desde
-        y Hasta a tu gusto. El botón circular con la flecha vuelve a calcular con los filtros actuales.
-      </Paso>
-      <Paso titulo="Las tres tarjetas de arriba">
-        <b>Ingresos</b>, <b>Gastos</b> y <b>Saldo disponible</b>, cada una por moneda (USD, EUR, CUP…).
-        Al tocar una tarjeta, debajo se muestra su detalle. Tocar <b>Saldo disponible</b> muestra en
-        qué billeteras está hoy ese dinero.
-      </Paso>
-      <Paso titulo="Distribución de ingresos">
-        El pastel divide los ingresos del periodo por sede o categoría de negocio (Suncar Ventas
-        Habana, Instaladora Habana, UEB Santa Clara…). Toca una porción, o su nombre en la lista, para
-        ver el detalle de esa categoría más abajo — agrupado <b>por tipo</b> de ingreso o{" "}
-        <b>por persona</b>, según la categoría. Junto al pastel, el gráfico de líneas muestra la
-        misma cifra en los meses anteriores.
-      </Paso>
-      <Paso titulo="Incluir o excluir un ingreso">
-        En el detalle de cada movimiento hay un interruptor <b>Incluido en los totales</b>. Si lo
-        apagas, ese ingreso deja de sumar en esa categoría y en el total general, pero el pago
-        original no se toca — el resto del sistema lo sigue viendo igual. Se puede deshacer al
-        momento con el botón <b>Deshacer</b> que aparece, o volviendo a encender el interruptor
-        cuando quieras.
-      </Paso>
-      <Paso titulo="Mover un ingreso de categoría">
-        El selector de <b>Categoría</b> de cada movimiento permite reasignarlo a otra sede si el
-        sistema lo clasificó mal (por ejemplo, una transferencia sin datos suficientes). El cambio
-        queda marcado como <b>Movido</b> y solo afecta a este módulo.
-      </Paso>
-      <Paso titulo="Filtrar por moneda">
-        El selector <b>Todas</b> de la barra superior limita toda la vista a una sola moneda.
-      </Paso>
-      <Paso titulo="Gastos y Saldo disponible">
-        Al tocar la tarjeta de <b>Gastos</b> ves los movimientos de gasto por fecha y persona (los
-        gastos no se dividen por categoría, siempre son generales de la empresa).
-      </Paso>
-      <Paso titulo="Categorías y Personas (si tienes acceso)">
-        <b>Categorías</b> permite crear nuevas categorías de ingreso o renombrar las existentes
-        (nunca se borran). <b>Personas</b> permite decir a qué sede pertenece cada persona, para que
-        sus ingresos se clasifiquen solos la próxima vez.
-      </Paso>
-      <Paso titulo="Exportar">
-        El botón <b>PDF</b> descarga un resumen del periodo y la división por categoría que estás
-        viendo.
-      </Paso>
-    </ManualUsoDialog>
+    <ManualUsoDialog
+      titulo="Cómo usar Contabilidad"
+      colorNumero="#AFEB17"
+      pasos={[
+        {
+          titulo: "Elige el periodo",
+          texto: (
+            <>
+              <b>Mes</b> trae un mes completo (el actual, por defecto); <b>Rango</b> deja fijar Desde y
+              Hasta. El botón circular vuelve a calcular; <b>PDF</b> descarga un resumen.
+            </>
+          ),
+          nota: "Categorías y Personas solo aparecen con permiso de configuración.",
+          imagen: "01_contab_toolbar.png",
+          alto: 129,
+        },
+        {
+          titulo: "Ingresos, Gastos y Saldo",
+          texto: (
+            <>
+              Las tres cifras del periodo, por moneda. Toca una tarjeta y su detalle aparece debajo;{" "}
+              <b>Saldo disponible</b> muestra en qué billeteras está hoy ese dinero.
+            </>
+          ),
+          imagen: "02_contab_tarjetas.png",
+          alto: 176,
+        },
+        {
+          titulo: "Distribución de ingresos",
+          texto: (
+            <>
+              Cada porción es una sede o categoría (Suncar Ventas Habana, Instaladora Habana, UEB
+              Santa Clara…). Tócala para ver su detalle — agrupado <b>por tipo</b> o <b>por
+              persona</b> — más abajo.
+            </>
+          ),
+          imagen: "04_contab_pastel.png",
+          alto: 636,
+        },
+        {
+          titulo: "Incluir, excluir o mover un ingreso",
+          texto: (
+            <>
+              El interruptor decide si ese ingreso cuenta en los totales — se puede deshacer al
+              momento. El selector de <b>Categoría</b> lo reasigna a otra sede. El pago original
+              nunca se toca.
+            </>
+          ),
+          nota: "Los nombres de esta fila son ficticios; el resto es un movimiento real.",
+          imagen: "03_contab_detalle_switch.png",
+          alto: 220,
+        },
+      ]}
+    />
   );
 }
 
 export function ManualDesempeno() {
   return (
-    <ManualUsoDialog titulo="Cómo usar Desempeño de la empresa">
-      <Paso titulo="Elegir el mes y cuánto comparar">
-        El calendario fija el mes que se analiza (por defecto, el actual). <b>Comparar</b> decide
-        cuántos meses hacia atrás se traen para las gráficas y la tabla: 3, 6 o 12 meses.
-      </Paso>
-      <Paso titulo="Comercial Instaladora y Ventas">
-        Las dos tarjetas de arriba resumen lo vendido en el mes elegido y su cambio frente al mes
-        anterior. Toca una para que el resto de la pantalla muestre esa línea de negocio.
-      </Paso>
-      <Paso titulo="Indicadores del mes">
-        Cada tarjeta es una métrica del mes (leads, clientes, ofertas, montos…) con su cambio frente
-        al mes anterior: verde si es una buena noticia, rojo si es mala — por ejemplo, que suban las
-        averías pendientes se marca en rojo aunque el número crezca. Las filas "de los cuales" van
-        dentro de su métrica principal. Toca una tarjeta para ver su evolución en el gráfico de
-        abajo.
-      </Paso>
-      <Paso titulo="Evolución">
-        Dibuja, mes a mes, la métrica que hayas elegido arriba o en la tabla de comparativo.
-      </Paso>
-      <Paso titulo="Comparativo mes a mes">
-        Todas las métricas en una tabla, un mes por columna, con el mes elegido resaltado y su
-        cambio frente al anterior en la última columna. Toca una fila para verla en el gráfico de
-        evolución.
-      </Paso>
-      <Paso titulo="Por comercial">
-        Todas las métricas del mes, una fila por comercial, con el total al final. Lo que no se pudo
-        atribuir a nadie aparece en <b>Sin comercial asignado</b>. Una etiqueta <b>otro cargo</b>{" "}
-        marca a quien vendió sin tener el puesto exacto de comercial. Toca un comercial para ver su
-        evolución en los últimos meses.
-      </Paso>
-      <Paso titulo="Monto cobrado: dos cifras distintas">
-        <b>Cobrado — total del periodo</b> es el dinero que entró ese mes, de cualquier oferta.{" "}
-        <b>Cobrado — de lo confirmado en el periodo</b> es, de las ofertas que se confirmaron ese
-        mismo mes, lo que se pagó también dentro de ese mes (no incluye anticipos de antes ni
-        plazos pagados después).
-      </Paso>
-    </ManualUsoDialog>
+    <ManualUsoDialog
+      titulo="Cómo usar Desempeño de la empresa"
+      colorNumero="#F2C300"
+      pasos={[
+        {
+          titulo: "Elige el mes y cuánto comparar",
+          texto: (
+            <>
+              El calendario fija el mes a analizar. <b>Comparar</b> decide cuántos meses hacia atrás
+              se traen para las gráficas y la tabla.
+            </>
+          ),
+          imagen: "05_desemp_toolbar.png",
+          alto: 92,
+        },
+        {
+          titulo: "Comercial Instaladora y Ventas",
+          texto: (
+            <>
+              Resumen de lo vendido en el mes y su cambio frente al anterior. Toca una tarjeta para
+              que el resto de la pantalla muestre esa línea de negocio.
+            </>
+          ),
+          imagen: "06_desemp_tarjetas.png",
+          alto: 181,
+        },
+        {
+          titulo: "Lee la variación",
+          texto: (
+            <>
+              <b style={{ color: "#0b6b3a" }}>Verde</b> es buena noticia,{" "}
+              <b style={{ color: "#9b1c1c" }}>rojo</b> es mala — no depende de si el número sube o
+              baja. Los &ldquo;de los cuales&rdquo; van dentro de su métrica.
+            </>
+          ),
+          imagen: "07_desemp_indicadores.png",
+          alto: 243,
+        },
+        {
+          titulo: "Por comercial",
+          texto: (
+            <>
+              Una fila por comercial, con el total al final. La etiqueta <b>otro cargo</b> marca a
+              quien vendió sin tener el puesto exacto de comercial. Toca un nombre para ver su
+              evolución.
+            </>
+          ),
+          imagen: "08_desemp_comercial.png",
+          alto: 540,
+        },
+      ]}
+    />
   );
 }

@@ -16,13 +16,29 @@ import type { Banco } from "@/lib/types/feats/wallet/banco-types"
 import type { TransferenciaBancariaCreateData } from "@/lib/types/feats/transferencias-bancarias/transferencia-bancaria-types"
 import { useAuth } from "@/contexts/auth-context"
 
+/** Lo mínimo que necesita este diálogo de un ServicioCliente para registrarle un pago. */
+export interface ServicioParaPagoDialog {
+    id: string
+    descripcion: string
+    precio_total: number
+    monto_pendiente: number
+    cliente_nombre?: string | null
+}
+
 interface RegistrarPagoDialogProps {
     open: boolean
     onOpenChange: (open: boolean) => void
-    oferta: OfertaConfirmadaSinPago | null
+    /** "oferta" (default) registra oferta_id; "servicio" registra servicio_id sobre un ServicioCliente. */
+    tipo?: "oferta" | "servicio"
+    oferta: OfertaConfirmadaSinPago | ServicioParaPagoDialog | null
     onSuccess: (payload?: RegistrarPagoSuccessPayload) => void
     initialData?: RegistrarPagoInitialData | null
 }
+
+const esServicio = (
+    item: OfertaConfirmadaSinPago | ServicioParaPagoDialog,
+    tipo: "oferta" | "servicio",
+): item is ServicioParaPagoDialog => tipo === "servicio"
 
 export interface RegistrarPagoSuccessPayload {
     pagoId?: string
@@ -131,11 +147,15 @@ const roundTo4Decimals = (value: number): number =>
 export function RegistrarPagoDialog({
     open,
     onOpenChange,
+    tipo = "oferta",
     oferta,
     onSuccess,
     initialData = null,
 }: RegistrarPagoDialogProps) {
     const { user } = useAuth()
+    const esDeServicio = tipo === "servicio"
+    // La forma de oferta (contacto, lead_id, cliente_numero) solo existe en ofertas.
+    const ofertaReal = oferta && !esDeServicio ? (oferta as OfertaConfirmadaSinPago) : null
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [tasaDiaria, setTasaDiaria] = useState<TasaCambio | null>(null)
@@ -143,6 +163,9 @@ export function RegistrarPagoDialog({
     const [errorTasaDiaria, setErrorTasaDiaria] = useState<string | null>(null)
 
     const [formData, setFormData] = useState(getDefaultFormData)
+    // La transferencia con aprobación del banco solo existe para ofertas; en un
+    // servicio se registra directa como Pago, con su comprobante.
+    const flujoBancario = formData.metodo_pago === 'transferencia_bancaria' && !esDeServicio
 
     const [desgloseBilletes, setDesgloseBilletes] = useState<Record<string, number>>({})
 
@@ -191,9 +214,9 @@ export function RegistrarPagoDialog({
             setComprobanteTransferencia(null)
             setDatosFacturacion({
                 ...getDefaultDatosFacturacion(),
-                nombre_completo_cliente: oferta?.contacto?.nombre ?? '',
-                telefono: oferta?.contacto?.telefono ?? '',
-                direccion_instalacion_cuba: oferta?.contacto?.direccion ?? '',
+                nombre_completo_cliente: ofertaReal?.contacto?.nombre ?? '',
+                telefono: ofertaReal?.contacto?.telefono ?? '',
+                direccion_instalacion_cuba: ofertaReal?.contacto?.direccion ?? '',
             })
         }
     }, [open, initialData, user, oferta])
@@ -209,7 +232,7 @@ export function RegistrarPagoDialog({
         setLoadingBancos(true)
         setErrorBancos(null)
 
-        BancoService.listar()
+        BancoService.listarOpciones()
             .then((data) => {
                 if (!cancelled) setBancos(data)
             })
@@ -375,7 +398,11 @@ export function RegistrarPagoDialog({
 
         console.log('🚀 [RegistrarPago] Iniciando validación del formulario')
         console.log('📋 FormData completo:', formData)
-        console.log('📋 Oferta:', { id: oferta.id, numero: oferta.numero_oferta, pendiente: oferta.monto_pendiente })
+        console.log('📋 Oferta/Servicio:', {
+            id: oferta.id,
+            numero: esServicio(oferta, tipo) ? oferta.descripcion : oferta.numero_oferta,
+            pendiente: oferta.monto_pendiente,
+        })
 
         setError(null)
 
@@ -422,8 +449,8 @@ export function RegistrarPagoDialog({
             return
         }
 
-        if (formData.metodo_pago === 'transferencia_bancaria') {
-            if (!oferta.lead_id && !oferta.cliente_numero) {
+        if (flujoBancario) {
+            if (!ofertaReal?.lead_id && !ofertaReal?.cliente_numero) {
                 setError('No se pudo determinar el cliente o lead de esta oferta para registrar la transferencia bancaria')
                 return
             }
@@ -476,11 +503,11 @@ export function RegistrarPagoDialog({
         setLoading(true)
 
         try {
-            if (formData.metodo_pago === 'transferencia_bancaria') {
-                const origenTransferencia = oferta.lead_id
-                    ? { lead_id: oferta.lead_id }
-                    : oferta.cliente_numero
-                        ? { cliente_numero: oferta.cliente_numero }
+            if (flujoBancario) {
+                const origenTransferencia = ofertaReal?.lead_id
+                    ? { lead_id: ofertaReal.lead_id }
+                    : ofertaReal?.cliente_numero
+                        ? { cliente_numero: ofertaReal.cliente_numero }
                         : null
 
                 if (!origenTransferencia) {
@@ -537,7 +564,7 @@ export function RegistrarPagoDialog({
             }
 
             const pagoData: PagoCreateData = {
-                oferta_id: oferta.id,
+                ...(esServicio(oferta, tipo) ? { servicio_id: oferta.id } : { oferta_id: oferta.id }),
                 monto: monto,
                 fecha: formData.fecha,
                 tipo_pago: formData.tipo_pago,
@@ -570,6 +597,10 @@ export function RegistrarPagoDialog({
                 pagoData.comprobante_transferencia = formData.comprobante_transferencia
             }
 
+            if (esDeServicio && formData.metodo_pago === 'transferencia_bancaria' && comprobanteTransferencia) {
+                pagoData.comprobante_transferencia = comprobanteTransferencia.url
+            }
+
             // Agregar diferencia si el monto excede el pendiente
             if (excedePendiente && formData.justificacion_diferencia.trim()) {
                 pagoData.diferencia = {
@@ -592,7 +623,7 @@ export function RegistrarPagoDialog({
         } catch (err: unknown) {
             setError(getErrorMessage(
                 err,
-                formData.metodo_pago === 'transferencia_bancaria'
+                flujoBancario
                     ? 'Error al registrar la transferencia bancaria'
                     : 'Error al registrar el pago',
             ))
@@ -612,21 +643,31 @@ export function RegistrarPagoDialog({
                 </DialogHeader>
 
                 <div className="space-y-4">
-                    {/* Información de la oferta */}
+                    {/* Información de la oferta o el servicio */}
                     <div className="bg-gray-50 p-4 rounded-lg space-y-2">
                         <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">Oferta:</span>
-                            <span className="text-sm font-medium">{oferta.numero_oferta}</span>
+                            <span className="text-sm text-gray-600">
+                                {esServicio(oferta, tipo) ? "Servicio:" : "Oferta:"}
+                            </span>
+                            <span className="text-sm font-medium">
+                                {esServicio(oferta, tipo) ? oferta.descripcion : oferta.numero_oferta}
+                            </span>
                         </div>
                         <div className="flex justify-between">
                             <span className="text-sm text-gray-600">Cliente:</span>
                             <span className="text-sm font-medium">
-                                {oferta.cliente?.nombre || oferta.lead?.nombre || 'Sin nombre'}
+                                {esServicio(oferta, tipo)
+                                    ? oferta.cliente_nombre || 'Sin nombre'
+                                    : oferta.cliente?.nombre || oferta.lead?.nombre || 'Sin nombre'}
                             </span>
                         </div>
                         <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">Precio Final:</span>
-                            <span className="text-sm font-medium">{formatCurrency(oferta.precio_final)}</span>
+                            <span className="text-sm text-gray-600">
+                                {esServicio(oferta, tipo) ? "Precio del servicio:" : "Precio Final:"}
+                            </span>
+                            <span className="text-sm font-medium">
+                                {formatCurrency(esServicio(oferta, tipo) ? oferta.precio_total : oferta.precio_final)}
+                            </span>
                         </div>
                         <div className="flex justify-between">
                             <span className="text-sm text-gray-600">Monto Pendiente:</span>
@@ -980,7 +1021,7 @@ export function RegistrarPagoDialog({
                         )}
 
                         {/* Transferencia bancaria: mismo flujo de doble aprobación que en Leads/Clientes */}
-                        {formData.metodo_pago === 'transferencia_bancaria' && (
+                        {flujoBancario && (
                             <div className="space-y-4 rounded-lg border border-blue-200 bg-blue-50/60 p-4">
                                 <div className="flex items-center gap-2 text-blue-900">
                                     <Landmark className="h-4 w-4" />
@@ -1152,6 +1193,28 @@ export function RegistrarPagoDialog({
                             </div>
                         )}
 
+                        {/* Servicio: transferencia directa, solo con comprobante */}
+                        {esDeServicio && formData.metodo_pago === 'transferencia_bancaria' && (
+                            <div className="space-y-2">
+                                <Label htmlFor="comprobante_servicio_file">Comprobante de pago</Label>
+                                <div className="flex items-center gap-2">
+                                    <Input
+                                        id="comprobante_servicio_file"
+                                        type="file"
+                                        accept={ARCHIVOS_COMPROBANTE_VALIDOS.join(',')}
+                                        onChange={handleComprobanteTransferenciaChange}
+                                        disabled={subiendoComprobanteTransferencia}
+                                        className="flex-1"
+                                    />
+                                    {subiendoComprobanteTransferencia && <Loader2 className="h-4 w-4 animate-spin" />}
+                                </div>
+                                {comprobanteTransferencia && (
+                                    <p className="text-xs text-green-600">✓ Comprobante subido: {comprobanteTransferencia.nombre}</p>
+                                )}
+                                <p className="text-xs text-gray-500">JPG, PNG, WEBP o PDF (máx. 5MB)</p>
+                            </div>
+                        )}
+
                         {/* Comprobante URL (para stripe) */}
                         {formData.metodo_pago === 'stripe' && (
                             <div className="space-y-2">
@@ -1203,7 +1266,7 @@ export function RegistrarPagoDialog({
                                         Registrando...
                                     </>
                                 ) : (
-                                    formData.metodo_pago === 'transferencia_bancaria' ? 'Registrar transferencia' : 'Registrar Pago'
+                                    flujoBancario ? 'Registrar transferencia' : 'Registrar Pago'
                                 )}
                             </Button>
                         </div>
@@ -1214,14 +1277,14 @@ export function RegistrarPagoDialog({
         <ConfirmEditDialog
             open={showConfirm}
             onOpenChange={setShowConfirm}
-            title={formData.metodo_pago === 'transferencia_bancaria' ? 'Confirmar transferencia bancaria' : 'Confirmar registro de pago'}
+            title={flujoBancario ? 'Confirmar transferencia bancaria' : 'Confirmar registro de pago'}
             message={
-                formData.metodo_pago === 'transferencia_bancaria'
+                flujoBancario
                     ? `Se registrará una transferencia de ${(parseFloat(formData.monto) || 0).toFixed(2)} ${formData.moneda}, pendiente de aprobación por el administrador del banco. ¿Continuar?`
                     : `¿Está seguro de registrar un pago de ${(parseFloat(formData.monto) || 0).toFixed(2)} ${formData.moneda}?`
             }
             onConfirm={handleConfirmedSubmit}
-            confirmText={formData.metodo_pago === 'transferencia_bancaria' ? 'Sí, registrar transferencia' : 'Sí, registrar pago'}
+            confirmText={flujoBancario ? 'Sí, registrar transferencia' : 'Sí, registrar pago'}
             isLoading={loading}
         />
         </>

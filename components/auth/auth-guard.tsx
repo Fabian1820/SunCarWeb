@@ -8,6 +8,10 @@ import { FixedHeaderWatcher } from "@/components/shared/atom/fixed-header-watche
 import { PersonalMessageOverlay } from "@/components/shared/molecule/personal-message-overlay"
 import { NotificationBell } from "@/components/shared/organism/notification-bell"
 import { SolicitudDesarrolloButton } from "@/components/shared/organism/solicitud-desarrollo-button"
+import {
+  BarraLateralModulos,
+  mostrarBarraLateral,
+} from "@/components/shared/organism/barra-lateral"
 
 interface AuthGuardProps {
   children: React.ReactNode
@@ -48,10 +52,21 @@ export function AuthGuard({ children }: AuthGuardProps) {
     return <LoginForm onLogin={() => {}} />
   }
 
+  const conBarra = mostrarBarraLateral(pathname)
+
   return (
     <>
       <FixedHeaderWatcher />
-      {children}
+      {conBarra ? (
+        <>
+          <BarraLateralModulos />
+          {/* Deja sitio a la barra recogida; el CSS de .con-barra-lateral
+              corre también las cabeceras fijas (ver globals.css). */}
+          <div className="con-barra-lateral lg:pl-16">{children}</div>
+        </>
+      ) : (
+        children
+      )}
       <PersonalMessageOverlay />
       <NotificationBell />
       <SolicitudDesarrolloButton />

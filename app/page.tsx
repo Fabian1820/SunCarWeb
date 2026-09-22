@@ -3,35 +3,15 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  type LucideIcon,
   Info,
-  Shield,
   Calculator,
-  Wallet,
-  BellRing,
   Coins,
   GitMerge,
   Loader2,
   Star,
   Menu,
-  Home,
-  ChevronRight,
-  LayoutDashboard,
-  Briefcase,
-  ShoppingBag,
-  Wrench,
-  Receipt,
-  Package,
-  Users,
-  Megaphone,
   Cake,
-  ScrollText,
 } from "lucide-react";
-import {
-  MODULOS_CATALOGO,
-  MODULO_GRUPOS,
-  type ModuloCatalogo,
-} from "@/lib/modulos-catalogo";
 import { useRef, useState, useEffect } from "react";
 import { Button } from "@/components/shared/atom/button";
 import { ModuleCard as SharedModuleCard } from "@/components/shared/molecule/module-card";
@@ -56,111 +36,39 @@ import { WorkerAvatar } from "@/components/feats/worker/worker-avatar";
 import ContactosDashboard from "@/components/feats/contactos/contactos-dashboard";
 import { TicketManualDialog } from "@/components/feats/dashboard/ticket-manual-dialog";
 import { SystemUpdatesPanel } from "@/components/feats/dashboard/system-updates-panel";
-import { EstadoOficinaSidebar } from "@/components/feats/equipos-felicity/estado-oficina-sidebar";
 import { ConfigurarEquipoOficinaButton } from "@/components/feats/equipos-felicity/configurar-equipo-oficina-button";
 import { Toaster } from "@/components/shared/molecule/toaster";
-import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
-import { UserMenu } from "@/components/auth/user-menu";
 import { BirthdayChecker } from "@/components/shared/molecule/birthday-checker";
 import type { TasaCambio } from "@/lib/types/feats/tasa-cambio/tasa-cambio-types";
-import { useMyWalletPermiso } from "@/hooks/use-wallet-permisos";
+import { CrearSolineraDialog } from "@/components/feats/solineras/crear-solinera-dialog";
+import { BarraLateralContenido } from "@/components/shared/organism/barra-lateral";
+import {
+  type ModuloNav,
+  metaArea,
+  useModulosNavegacion,
+} from "@/hooks/use-modulos-navegacion";
 
-type DashboardModule = {
-  id: string;
-  permission?: string;
-  href: string;
-  icon: LucideIcon;
-  title: string;
-  description: string;
-  iconClass: string;
-  alwaysVisible?: boolean;
-  superAdminOnly?: boolean;
-  childKeys?: string[];
-  tieneSubmodulos?: boolean;
-};
-
-type GroupMeta = {
-  label: string;
-  icon: LucideIcon;
-  chip: string;
-  bar: string;
-};
-
-// Metadatos visuales por grupo (icono + acentos de color). El label sirve de
-// fallback cuando el grupo no define título en MODULO_GRUPOS.
-const GROUP_META: Record<string, GroupMeta> = {
-  "resultados-empresa": {
-    label: "Centro de Control",
-    icon: LayoutDashboard,
-    chip: "bg-emerald-50 text-emerald-700",
-    bar: "from-emerald-400 to-emerald-600",
-  },
-  "comercial-instaladora": {
-    label: "Comercial Instaladora",
-    icon: Briefcase,
-    chip: "bg-emerald-50 text-emerald-700",
-    bar: "from-emerald-400 to-emerald-600",
-  },
-  "comercial-ventas": {
-    label: "Comercial Ventas",
-    icon: ShoppingBag,
-    chip: "bg-indigo-50 text-indigo-700",
-    bar: "from-indigo-400 to-indigo-600",
-  },
-  operaciones: {
-    label: "Operaciones",
-    icon: Wrench,
-    chip: "bg-teal-50 text-teal-700",
-    bar: "from-teal-400 to-teal-600",
-  },
-  economia: {
-    label: "Economía",
-    icon: Receipt,
-    chip: "bg-amber-50 text-amber-700",
-    bar: "from-amber-400 to-amber-600",
-  },
-  "gestion-almacenes": {
-    label: "Gestión de Almacenes",
-    icon: Package,
-    chip: "bg-sky-50 text-sky-700",
-    bar: "from-sky-400 to-sky-600",
-  },
-  "recursos-humanos": {
-    label: "Recursos Humanos",
-    icon: Users,
-    chip: "bg-violet-50 text-violet-700",
-    bar: "from-violet-400 to-violet-600",
-  },
-  "area-direccion": {
-    label: "Área de Dirección",
-    icon: Shield,
-    chip: "bg-emerald-50 text-emerald-800",
-    bar: "from-emerald-500 to-teal-700",
-  },
-  web: {
-    label: "Marketing",
-    icon: Megaphone,
-    chip: "bg-rose-50 text-rose-600",
-    bar: "from-rose-400 to-rose-600",
-  },
-};
-
-const groupMetaFor = (id: string): GroupMeta =>
-  GROUP_META[id] ?? {
-    label: id,
-    icon: LayoutDashboard,
-    chip: "bg-gray-100 text-gray-700",
-    bar: "from-gray-400 to-gray-600",
-  };
+type DashboardModule = ModuloNav;
 
 const FAVORITES_STORAGE_KEY = "suncar_dashboard_favorites";
 
 export default function Dashboard() {
   const router = useRouter();
-  const { hasPermission, user, loadModulosPermitidos, updateUserFoto, getAuthHeader } = useAuth();
-  const { permiso: myWalletPermiso } = useMyWalletPermiso();
-  const { toast } = useToast();
+  const { user, loadModulosPermitidos, updateUserFoto } = useAuth();
+  const [creandoSolinera, setCreandoSolinera] = useState(false);
+  // Áreas y módulos visibles para este usuario. Es la misma lógica que usa la
+  // barra lateral de los módulos (hooks/use-modulos-navegacion.ts).
+  const {
+    areas: groupedAvailableModules,
+    modulosPorId: availableModuleMap,
+    abrirModulo,
+    solineras,
+    cargandoSolineras,
+    errorSolineras,
+    recargarSolineras,
+    puedeCrearSolinera,
+  } = useModulosNavegacion({ onNuevaSolinera: () => setCreandoSolinera(true) });
 
   const [isContactosDialogOpen, setIsContactosDialogOpen] = useState(false);
   const [isTasaCambioDialogOpen, setIsTasaCambioDialogOpen] = useState(false);
@@ -276,129 +184,6 @@ export default function Dashboard() {
     );
   };
 
-  // ───────── Construcción de módulos disponibles (lógica de permisos) ─────────
-  const catalogoToDashboard = (m: ModuloCatalogo): DashboardModule => ({
-    id: m.dashboardId ?? m.key,
-    permission: m.permission ?? m.key,
-    href: m.href,
-    icon: m.icon,
-    title: m.label,
-    description: m.descripcion,
-    iconClass: m.iconClass,
-    alwaysVisible: m.alwaysVisible,
-    superAdminOnly: m.superAdminOnly,
-    childKeys: m.childKeys,
-    tieneSubmodulos: m.tieneSubmodulos,
-  });
-
-  // Dedupe por id: si el catálogo trae dos entradas con la misma key (ha
-  // pasado al fusionar ramas), el módulo salía dos veces en su área y, peor,
-  // React reconciliaba mal la rejilla —dos hijos con la misma `key`— y la
-  // tarjeta repetida se quedaba pegada al cambiar de área.
-  const allModules: DashboardModule[] = Array.from(
-    new globalThis.Map(
-      MODULOS_CATALOGO.filter((m) => !m.hideFromDashboard)
-        .map(catalogoToDashboard)
-        .map((m) => [m.id, m] as const),
-    ).values(),
-  );
-
-  type ModuleGroup = {
-    id: string;
-    title: string;
-    subtitle: string;
-    moduleIds: string[];
-  };
-
-  const moduleGroups: ModuleGroup[] = MODULO_GRUPOS.map((grupo) => {
-    const delCatalogo = MODULOS_CATALOGO.filter(
-      (m) => m.grupo === grupo.key && !m.hideFromDashboard,
-    ).map((m) => m.dashboardId ?? m.key);
-    const ids =
-      grupo.key === "area-direccion"
-        ? [...delCatalogo, "wallet-manager", "permisos", "auditoria"]
-        : delCatalogo;
-    return {
-      id: grupo.key,
-      title: grupo.title,
-      subtitle: grupo.subtitle,
-      moduleIds: Array.from(new Set(ids)),
-    };
-  });
-
-  const superAdminModules: DashboardModule[] = user?.is_superAdmin
-    ? [
-        {
-          id: "permisos",
-          href: "/permisos",
-          icon: Shield,
-          title: "Gestión de Permisos",
-          description: "Administrar módulos y permisos de trabajadores.",
-          iconClass: "text-red-600",
-        },
-        {
-          // Fuera del catálogo a propósito: la bitácora registra lo que hace
-          // todo el mundo, así que no debe existir como permiso asignable.
-          // Solo superAdmin, igual que en el backend.
-          id: "auditoria",
-          href: "/auditoria",
-          icon: ScrollText,
-          title: "Auditoría del Sistema",
-          description: "Quién hizo qué, cuándo y con qué datos.",
-          iconClass: "text-red-600",
-        },
-      ]
-    : [];
-
-  const isWalletAdmin = !!user?.is_superAdmin || !!myWalletPermiso?.esAdmin;
-  const walletAdminModules: DashboardModule[] = isWalletAdmin
-    ? [
-        {
-          id: "wallet-manager",
-          href: "/wallet-manager",
-          icon: Wallet,
-          title: "Gestión de Wallet",
-          description: "Administrar permisos de billetera de trabajadores.",
-          iconClass: "text-blue-600",
-        },
-        {
-          id: "wallet-alertas",
-          href: "/wallet-alertas",
-          icon: BellRing,
-          title: "Alertas de Billetera",
-          description: "Avisar por WhatsApp o SMS los movimientos grandes.",
-          iconClass: "text-amber-600",
-        },
-      ]
-    : [];
-
-  const availableModules = [
-    ...allModules.filter((module) => {
-      // Los módulos marcados como superAdminOnly no se muestran a nadie más,
-      // aunque tengan permiso asignado.
-      if (module.superAdminOnly) return !!user?.is_superAdmin;
-      if (module.alwaysVisible) return true;
-      if (hasPermission(module.permission ?? module.id)) return true;
-      if (module.childKeys?.some((k) => hasPermission(k))) return true;
-      return false;
-    }),
-    ...superAdminModules,
-    ...walletAdminModules,
-  ];
-
-  const availableModuleMap = new globalThis.Map(
-    availableModules.map((module) => [module.id, module]),
-  );
-
-  const groupedAvailableModules = moduleGroups
-    .map((group) => ({
-      ...group,
-      modules: group.moduleIds
-        .map((moduleId) => availableModuleMap.get(moduleId))
-        .filter((module): module is DashboardModule => Boolean(module)),
-    }))
-    .filter((group) => group.modules.length > 0);
-
   const favoriteModules = favorites
     .map((id) => availableModuleMap.get(id))
     .filter((m): m is DashboardModule => Boolean(m));
@@ -506,59 +291,11 @@ export default function Dashboard() {
       ? "Inicio"
       : activeKey === "favorites"
         ? "Favoritos"
-        : groupMetaFor(activeKey).label;
+        : metaArea(activeKey).label;
 
   // ───────── Tarjeta de módulo (con estrella de favorito) ─────────
   const ModuleCard = ({ module }: { module: DashboardModule }) => {
     const isFav = favorites.includes(module.id);
-
-    // Módulos cuyo href es una API route (no una página interna) abren un
-    // destino externo (ej. Suncar Whatsapp/Chatwoot) en pestaña nueva, vía
-    // un link de SSO pedido al momento. La pestaña se abre YA, dentro del
-    // gesto de click, para que el navegador no la bloquee como popup cuando
-    // la URL real llegue después de forma asíncrona.
-    const openExternalModule = async () => {
-      const win = window.open("about:blank", "_blank");
-      try {
-        const res = await fetch(module.href, {
-          method: "POST",
-          headers: { ...getAuthHeader(), "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ci: user?.ci,
-            nombre: user?.nombre,
-            foto_perfil: user?.foto_perfil,
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok || !data.url) {
-          throw new Error(data.message || "No se pudo abrir el módulo");
-        }
-        // Si el navegador bloqueó la pestaña, window.open devuelve null. Antes
-        // se perdía el enlace ahí mismo y no pasaba nada visible; ahora se
-        // navega en la propia pestaña, que es mejor que no entrar.
-        if (win) {
-          win.location.href = data.url;
-        } else {
-          window.location.href = data.url;
-        }
-      } catch (error) {
-        win?.close();
-        toast({
-          title: "No se pudo abrir el módulo",
-          description:
-            error instanceof Error ? error.message : "Error desconocido",
-          variant: "destructive",
-        });
-      }
-    };
-
-    const handleActivate = () => {
-      if (module.href.startsWith("/api/")) {
-        openExternalModule();
-      } else {
-        router.push(module.href);
-      }
-    };
 
     return (
       <SharedModuleCard
@@ -566,7 +303,7 @@ export default function Dashboard() {
         description={module.description}
         icon={module.icon}
         iconClass={module.iconClass}
-        onClick={handleActivate}
+        onClick={() => abrirModulo(module)}
         tieneSubmodulos={module.tieneSubmodulos}
         cornerAction={
           <button
@@ -587,133 +324,31 @@ export default function Dashboard() {
     );
   };
 
-  // ───────── Barra lateral (reutilizada en desktop y móvil) ─────────
-  const SidebarNav = () => {
-    const navItem = (
-      key: string,
-      label: string,
-      Icon: LucideIcon,
-      opts?: { count?: number; chip?: string },
-    ) => {
-      const active = activeKey === key;
-      return (
-        <button
-          key={key}
-          type="button"
-          onClick={() => goTo(key)}
-          className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-all ${
-            active
-              ? "bg-emerald-50 text-emerald-900 shadow-sm ring-1 ring-emerald-100"
-              : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-          }`}
-        >
-          <span
-            className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${
-              opts?.chip ?? (active ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500 group-hover:text-gray-700")
-            }`}
-          >
-            <Icon className="h-4 w-4" />
-          </span>
-          <span className="flex-1 truncate">{label}</span>
-          {typeof opts?.count === "number" && (
-            <span
-              className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                active
-                  ? "bg-emerald-100 text-emerald-700"
-                  : "bg-gray-100 text-gray-500"
-              }`}
-            >
-              {opts.count}
-            </span>
-          )}
-        </button>
-      );
-    };
-
-    return (
-      <div className="flex h-full flex-col">
-        {/* Marca */}
-        <div className="flex items-center gap-2 px-5 py-5">
-          <img
-            src="/brand/suncar-v2-iso.png"
-            alt="Logo Suncar"
-            className="h-10 w-10 flex-shrink-0 object-contain"
-          />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-bold tracking-tight text-gray-900">
-              SUNCAR
-            </p>
-            <p className="truncate text-xs text-gray-500">Gestión empresarial</p>
-          </div>
-        </div>
-
-        <div className="mx-5 h-px bg-gray-100" />
-
-        {/* Navegación */}
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-          <EstadoOficinaSidebar />
-          {navItem("home", "Inicio", Home)}
-          {navItem("favorites", "Favoritos", Star, {
-            count: favoriteModules.length,
-            chip:
-              activeKey === "favorites"
-                ? "bg-amber-100 text-amber-600"
-                : "bg-amber-50 text-amber-500",
-          })}
-
-          <p className="px-3 pb-1 pt-5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-            Áreas
-          </p>
-          {groupedAvailableModules.map((group) => {
-            const meta = groupMetaFor(group.id);
-            return navItem(group.id, group.title || meta.label, meta.icon);
-          })}
-        </nav>
-
-        {/* Usuario — fila única clicable que abre el menú de perfil */}
-        <div className="mt-auto border-t border-gray-100 px-3 py-3">
-          {user && (
-            <UserMenu
-              align="start"
-              trigger={
-                <button
-                  type="button"
-                  aria-label="Abrir perfil"
-                  className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-gray-50"
-                >
-                  <WorkerAvatar
-                    src={user.foto_perfil}
-                    nombre={user.nombre}
-                    className="h-9 w-9 flex-shrink-0"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-gray-900">
-                      {user.nombre}
-                    </p>
-                    <p className="truncate text-xs text-gray-500">{user.rol}</p>
-                  </div>
-                  <ChevronRight className="h-4 w-4 flex-shrink-0 text-gray-400" />
-                </button>
-              }
-            />
-          )}
-        </div>
-      </div>
-    );
-  };
+  // ───────── Barra lateral (la misma que acompaña a los módulos) ─────────
+  const barraLateral = (interaccion: "flotante" | "simple") => (
+    <BarraLateralContenido
+      areas={groupedAvailableModules}
+      abrirModulo={abrirModulo}
+      interaccion={interaccion}
+      itemActivo={activeKey}
+      onIr={goTo}
+      favoritosCount={favoriteModules.length}
+      mostrarEstadoOficina
+    />
+  );
 
   return (
     <div className="flex h-[100dvh] overflow-hidden bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       {/* Sidebar desktop */}
-      <aside className="hidden w-72 flex-shrink-0 border-r border-gray-200/70 bg-white/80 backdrop-blur-xl lg:block">
-        <SidebarNav />
+      <aside className="relative z-30 hidden w-72 flex-shrink-0 border-r border-gray-200/70 bg-white/80 backdrop-blur-xl lg:block">
+        {barraLateral("flotante")}
       </aside>
 
       {/* Sidebar móvil */}
       <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
         <SheetContent side="left" className="w-72 p-0">
           <SheetTitle className="sr-only">Navegación</SheetTitle>
-          <SidebarNav />
+          {barraLateral("simple")}
         </SheetContent>
       </Sheet>
 
@@ -931,15 +566,52 @@ export default function Dashboard() {
               </div>
             ) : activeGroup ? (
               /* ───────── Vista de grupo ───────── */
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {activeGroup.modules.map((module) => (
-                  <ModuleCard key={module.id} module={module} />
-                ))}
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {activeGroup.modules.map((module) => (
+                    <ModuleCard key={module.id} module={module} />
+                  ))}
+                </div>
+                {activeGroup.id === "solineras" && errorSolineras && (
+                  <div
+                    role="alert"
+                    className="flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+                  >
+                    <span>No se pudieron cargar las solineras: {errorSolineras}</span>
+                    <Button variant="outline" size="sm" onClick={() => void recargarSolineras()}>
+                      Reintentar
+                    </Button>
+                  </div>
+                )}
+                {activeGroup.id === "solineras" && !errorSolineras && cargandoSolineras && (
+                  <p role="status" className="text-sm text-gray-500">
+                    Cargando solineras…
+                  </p>
+                )}
+                {activeGroup.id === "solineras" &&
+                  !errorSolineras &&
+                  !cargandoSolineras &&
+                  (solineras ?? []).length === 0 && (
+                    <p className="text-sm text-gray-600">
+                      {puedeCrearSolinera
+                        ? "Aún no hay solineras. Crea la primera con «Nueva solinera»."
+                        : "Aún no hay solineras. Cuando alguien con permiso de red cree una, aparecerá aquí."}
+                    </p>
+                  )}
               </div>
             ) : null}
           </div>
         </main>
       </div>
+
+      <CrearSolineraDialog
+        open={creandoSolinera}
+        onOpenChange={setCreandoSolinera}
+        onCreada={(nueva) => {
+          void recargarSolineras();
+          router.push(`/solineras/${nueva.id}`);
+        }}
+      />
 
       {/* Contactos Dialog */}
       <Dialog

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import {
   Users, HardHat, Plus, Search,
   Building2, Building, Briefcase,
-  Phone, X, ChevronDown, ChevronRight,
+  Phone, X, ChevronDown, ChevronRight, Download,
 } from "lucide-react"
 import { Button }    from "@/components/shared/atom/button"
 import { Input }     from "@/components/shared/atom/input"
@@ -22,6 +22,7 @@ import { useRecursosHumanos } from "@/hooks/use-recursos-humanos"
 import { CrearTrabajadorForm } from "@/components/feats/recursos-humanos/crear-trabajador-form"
 import type { TrabajadorRRHH } from "@/lib/recursos-humanos-types"
 import { normalizeSearchText } from '@/lib/utils/string-utils'
+import { ExportarEmpleadosDialog } from "@/components/feats/recursos-humanos/exportar-empleados-dialog"
 
 // ─── tipos ────────────────────────────────────────────────────────────────────
 
@@ -76,7 +77,7 @@ function FiltroSelect({
 
 // ─── avatar (foto o iniciales) ───────────────────────────────────────────────
 function Avatar({ emp, size = "md" }: { emp: TrabajadorRRHH; size?: "sm" | "md" | "lg" }) {
-  const cls = size === "sm" ? "h-8 w-8 text-xs" : size === "lg" ? "h-14 w-14 text-lg" : "h-11 w-11 text-sm"
+  const cls = size === "sm" ? "h-11 w-9 text-xs" : size === "lg" ? "h-[74px] w-14 text-lg" : "h-14 w-11 text-sm"
   if (emp.foto_perfil) {
     return (
       <img
@@ -371,6 +372,7 @@ export default function EmpleadosPage() {
   const [filtroDpto,   setFiltroDpto]   = useState("todos")
   const [filtroSede,   setFiltroSede]   = useState("todos")
   const [showCrear,    setShowCrear]    = useState(false)
+  const [showExportar, setShowExportar] = useState(false)
 
   const dptos = useMemo(() =>
     [...new Set(trabajadores.map(t => t.departamento_nombre).filter(Boolean))].sort() as string[], [trabajadores])
@@ -419,15 +421,32 @@ export default function EmpleadosPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
+      <ExportarEmpleadosDialog
+        open={showExportar}
+        onOpenChange={setShowExportar}
+        trabajadores={trabajadores}
+        filtrosIniciales={{
+          estado: filtroEstado,
+          tipo: filtroTipo,
+          departamento: filtroDpto,
+          sede: filtroSede,
+        }}
+      />
       <ModuleHeader
         title="Empleados"
         subtitle="Gestión del personal de Suncar"
         actions={
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setShowExportar(true)} disabled={trabajadores.length === 0} className="gap-2">
+              <Download className="h-4 w-4" />
+              Exportar
+            </Button>
           <Button onClick={() => setShowCrear(true)} className="bg-suncar-primary hover:bg-suncar-primary/90 text-white gap-2">
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">Agregar Empleado</span>
             <span className="sm:hidden">Nuevo</span>
           </Button>
+          </div>
         }
       />
 

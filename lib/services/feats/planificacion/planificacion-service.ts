@@ -20,9 +20,10 @@ export const PlanificacionService = {
     fecha: string,
     trabajos: TrabajoPlanificado[],
     creadaPor?: string,
+    automatico = false,
   ): Promise<Planificacion> {
     const response = await apiRequest<{ success: boolean; data: Planificacion }>(
-      `${BASE}/${fecha}`,
+      `${BASE}/${fecha}${automatico ? "?automatico=true" : ""}`,
       {
         method: "PUT",
         body: JSON.stringify({ trabajos, creada_por: creadaPor ?? null }),

@@ -41,6 +41,7 @@ type ValeHeaderInfo = {
 const ESTADO_LABEL: Record<string, string> = {
   usado: "Usado",
   anulado: "Anulado",
+  devuelto: "Devuelto",
 };
 const EMPRESA_NOMBRE = "Empresa Solar Carros";
 const AUTORIZADO_POR = "Alexander Calero";

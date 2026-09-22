@@ -48,6 +48,7 @@ import {
   ChevronDown,
   Loader2,
   MoreHorizontal,
+  Wrench,
   Zap,
   Ban,
   RotateCcw,
@@ -113,6 +114,7 @@ import {
   type LineaEquipo,
 } from "@/components/feats/customer/equipos-cliente-cell";
 import { EquiposClienteDialog } from "@/components/feats/customer/equipos-cliente-dialog";
+import { ServiciosClienteDialog } from "@/components/feats/customer/servicios-cliente-dialog";
 import {
   construirMarcasMap,
   generarOpcionesExportacionOferta,
@@ -756,8 +758,8 @@ export function ClientsTable({
   const { hasExactPermission, user } = useAuth();
   // Subpermiso ADITIVO: solo quien lo tenga (o superAdmin) ve costos y totales.
   const verCostos = hasExactPermission("costos-materiales-cliente");
-  // Cargo "Comercial": se le precarga (y bloquea) el filtro a su propio nombre,
-  // y es a quien más le sirve el botón de "Saldo pendiente" de abajo.
+  // Cargo "Comercial": es a quien más le sirve el botón de "Saldo pendiente"
+  // de abajo. El filtro de comercial NO se precarga: entra viendo todos.
   const esComercial =
     !user?.is_superAdmin &&
     normalizeSearchText(user?.rol || "").includes("comercial");
@@ -786,6 +788,7 @@ export function ClientsTable({
   const [clienteParaEstadosMultiples, setClienteParaEstadosMultiples] =
     useState<Cliente | null>(null);
   const [clienteEquipos, setClienteEquipos] = useState<Cliente | null>(null);
+  const [clienteServicios, setClienteServicios] = useState<Cliente | null>(null);
   // Ficha actualizada tras un cambio en el diálogo, por número de cliente: la
   // lista llega por props y no se recarga, así que la fila se pinta con esto.
   const [equiposActualizados, setEquiposActualizados] = useState<
@@ -1016,15 +1019,6 @@ export function ClientsTable({
     panelesMax: "",
     ...MODELO_FILTROS_VACIOS,
   });
-
-  // Un comercial siempre ve primero lo suyo: se le precarga el filtro con su
-  // propio nombre (lo puede cambiar si de verdad quiere ver a otro).
-  useEffect(() => {
-    if (!esComercial || !user?.nombre) return;
-    setFilters((prev) =>
-      prev.comercial ? prev : { ...prev, comercial: user.nombre },
-    );
-  }, [esComercial, user?.nombre]);
 
   // Los saldos pendientes son una consulta aparte y pesada (recorre TODAS las
   // ofertas con deuda, sin importar el estado del cliente): solo se piden
@@ -4565,6 +4559,18 @@ export function ClientsTable({
                                         <FileOutput className="h-4 w-4 text-gray-500" />
                                         Ver vales de salida
                                       </button>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          setClienteServicios(client);
+                                        }}
+                                        className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100"
+                                      >
+                                        <Wrench className="h-4 w-4 text-teal-600" />
+                                        Servicios
+                                      </button>
                                       <BotonHistorialCliente
                                         numero={client.numero}
                                         nombre={client.nombre}
@@ -4923,6 +4929,15 @@ export function ClientsTable({
         cliente={clientForDetails}
         fotosCliente={fotosClientDetails}
         loadingFotosCliente={loadingFotosClientDetails}
+      />
+
+      {/* Servicios/trabajos post-venta del cliente, con precio, estado y facturación */}
+      <ServiciosClienteDialog
+        open={clienteServicios !== null}
+        onOpenChange={(open) => {
+          if (!open) setClienteServicios(null);
+        }}
+        cliente={clienteServicios}
       />
 
       {/* Vales de salida del cliente, con sus materiales y quién los recibió */}

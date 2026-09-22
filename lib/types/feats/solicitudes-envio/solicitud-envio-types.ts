@@ -84,6 +84,8 @@ export interface ListSolicitudesEnvioParams {
   desde?: string;
   hasta?: string;
   q?: string;
+  /** "cola" = orden de la bandeja internacional (urgencia + antigüedad). */
+  orden?: "cola";
   page?: number;
   page_size?: number;
 }

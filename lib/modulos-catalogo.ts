@@ -32,6 +32,7 @@ import {
   Image,
   Clock,
   CalendarDays,
+  Camera,
   CalendarCheck,
   AlertTriangle,
   CreditCard,
@@ -47,6 +48,8 @@ import {
   Network,
   Headphones,
   MapPin,
+  Banknote,
+  PlugZap,
 } from "lucide-react"
 
 /**
@@ -76,6 +79,7 @@ export type ModuloGrupoKey =
   | "comercial-instaladora"
   | "comercial-ventas"
   | "operaciones"
+  | "solineras"
   | "economia"
   | "gestion-almacenes"
   | "recursos-humanos"
@@ -109,6 +113,11 @@ export const MODULO_GRUPOS: ModuloGrupo[] = [
     key: "operaciones",
     title: "Operaciones",
     subtitle: "Brigadas, instaladores, instalaciones y solicitudes.",
+  },
+  {
+    key: "solineras",
+    title: "Solineras",
+    subtitle: "Estaciones de carga solar: elige una para operarla.",
   },
   {
     key: "economia",
@@ -639,6 +648,15 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     ],
   },
   {
+    key: "categorias-evidencia",
+    label: "Evidencias de trabajos",
+    descripcion: "Qué fotos o vídeos hay que subir en cada tipo de trabajo diario.",
+    icon: Camera,
+    iconClass: "text-indigo-600",
+    href: "/categorias-evidencia",
+    grupo: "operaciones",
+  },
+  {
     key: "entregas-devoluciones",
     label: "Entregas y devoluciones",
     descripcion: "Lo que sale del almacén cada día, a quién y qué se devolvió.",
@@ -692,6 +710,12 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
       { key: "instalaciones/averias", label: "Averías" },
       { key: "instalaciones/planificacion-diaria-trabajos", label: "Planificación Diaria de Trabajos" },
       { key: "instalaciones/ordenes-trabajo", label: "Órdenes de Trabajo" },
+      {
+        key: "instalaciones/servicios-cliente",
+        label: "Servicios de Cliente",
+        descripcion:
+          "Crear trabajos/servicios post-venta de un cliente (líneas de costo, precio, estado). No incluye facturarlos: eso vive en Facturación > Obras Terminadas.",
+      },
     ],
   },
   // Tarjetas de Instalaciones, ahora con acceso directo desde Operaciones en
@@ -792,6 +816,42 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     grupo: "operaciones",
   },
 
+  // ───────── Solineras ─────────
+  {
+    // Existe solo para conceder el permiso (y los aditivos de abajo): no tiene
+    // tarjeta propia. Las tarjetas del área son las solineras mismas, que el
+    // dashboard (app/page.tsx) pide al backend y pinta directamente, más
+    // «Nueva solinera» para quien tenga `solineras/red`. `href` es la ruta que
+    // usa el botón «Volver» para subir al área.
+    // El backend comprueba estos mismos permisos (solineras_comun.py).
+    key: "solineras",
+    label: "Solineras",
+    descripcion:
+      "Estaciones de carga solar: puestos, cargas con ticket, reservas, turnos y cobros.",
+    icon: PlugZap,
+    iconClass: "text-lime-700",
+    href: "/solineras",
+    grupo: "solineras",
+    hideFromDashboard: true,
+    subPermisos: [
+      {
+        key: "solineras/red",
+        label: "Solineras (red) — crear y editar solineras, puestos, tarifas y configuración",
+        aditivo: true,
+      },
+      {
+        key: "solineras/comprobantes",
+        label: "Solineras — validar o rechazar comprobantes de pago",
+        aditivo: true,
+      },
+      {
+        key: "solineras/anular",
+        label: "Solineras — anular cargas y cancelar pagos",
+        aditivo: true,
+      },
+    ],
+  },
+
   // ───────── Economía ─────────
   {
     key: "facturas",
@@ -831,7 +891,19 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
         key: "facturas/facturas-solar-carros",
         label: "Facturas Solar Carros",
       },
-      { key: "facturas/obras-terminadas", label: "Obras Terminadas" },
+      {
+        key: "facturas/obras-terminadas",
+        label: "Obras Terminadas",
+        subPermisos: [
+          {
+            key: "facturas/obras-terminadas/servicios",
+            label: "Facturar servicios de cliente",
+            descripcion:
+              "Habilita el botón 'Facturar' sobre un Servicio de Cliente terminado, en la pestaña de Facturas de Obras Terminadas. ADITIVO: tener 'facturas' o 'facturas/obras-terminadas' NO lo concede; hay que asignarlo explícitamente. Es independiente del permiso para crear el servicio (Operaciones > Servicios de Cliente).",
+            aditivo: true,
+          },
+        ],
+      },
     ],
   },
   {
@@ -958,6 +1030,23 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-sky-700",
     href: "/solicitudes-envio",
     grupo: "gestion-almacenes",
+    // Una pestaña por sub-permiso. No son aditivos: quien tenga el módulo
+    // completo ve las tres, y quien solo deba ver su bandeja recibe el
+    // sub-permiso suelto (comprador local vs. compradora internacional).
+    subPermisos: [
+      {
+        key: "solicitudes-envio/materiales",
+        label: "Materiales & Alertas — armar pedidos y silenciar alertas",
+      },
+      {
+        key: "solicitudes-envio/solicitudes-local",
+        label: "Solicitudes — bandeja del comprador local",
+      },
+      {
+        key: "solicitudes-envio/solicitudes-internacional",
+        label: "Solicitudes — cola de la compradora internacional",
+      },
+    ],
   },
   {
     key: "inventario",
@@ -1053,6 +1142,17 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-violet-600",
     href: "/asignaciones",
     grupo: "recursos-humanos",
+  },
+  {
+    key: "nomina-mensual",
+    label: "Nómina Mensual",
+    descripcion:
+      "Pago mensual por horas: parte oficial y complementaria por departamento, con lo cobrado por tarjeta o efectivo.",
+    icon: Banknote,
+    iconClass: "text-violet-600",
+    href: "/nomina",
+    grupo: "recursos-humanos",
+    superAdminOnly: true,
   },
 
   // ───────── Área de Dirección ─────────

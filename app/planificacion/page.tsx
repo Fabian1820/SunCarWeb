@@ -172,6 +172,9 @@ function PlanificacionContenido() {
   const trabajosRef = useRef<TrabajoPlanificado[]>([]);
   const fechaRef = useRef(fecha);
   const sucio = useRef(false);
+  // Si lo pendiente incluye algo que hizo una persona. Las correcciones que
+  // hace la pantalla sola no cuentan como edición ("Hecho por").
+  const ediccionReal = useRef(false);
   const enCurso = useRef<Promise<boolean> | null>(null);
   const temporizador = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const ciRef = useRef<string | undefined>(user?.ci);
@@ -183,8 +186,10 @@ function PlanificacionContenido() {
     while (enCurso.current) await enCurso.current;
     if (!sucio.current) return true;
     sucio.current = false;
+    const eraReal = ediccionReal.current;
+    ediccionReal.current = false;
     setEstado("guardando");
-    const peticion = PlanificacionService.guardar(fechaRef.current, trabajosRef.current, ciRef.current)
+    const peticion = PlanificacionService.guardar(fechaRef.current, trabajosRef.current, ciRef.current, !eraReal)
       .then(() => true)
       .catch(() => false);
     enCurso.current = peticion;
@@ -192,6 +197,7 @@ function PlanificacionContenido() {
     enCurso.current = null;
     if (!ok) {
       sucio.current = true;
+      ediccionReal.current ||= eraReal;
       setEstado("error");
       return false;
     }
@@ -200,7 +206,8 @@ function PlanificacionContenido() {
   }, []);
 
   const editar = useCallback(
-    (cambio: (lista: TrabajoPlanificado[]) => TrabajoPlanificado[]) => {
+    (cambio: (lista: TrabajoPlanificado[]) => TrabajoPlanificado[], automatico = false) => {
+      if (!automatico) ediccionReal.current = true;
       trabajosRef.current = cambio(trabajosRef.current);
       setTrabajos(trabajosRef.current);
       sucio.current = true;
@@ -314,6 +321,7 @@ function PlanificacionContenido() {
         const nuevo = t.asignado.tipo === "brigada" ? porIdViejo.get(t.asignado.id) : undefined;
         return nuevo ? { ...t, asignado: nuevo } : t;
       }),
+      true,
     );
   }, [brigadas, cargando, editar]);
 
@@ -458,6 +466,12 @@ function PlanificacionContenido() {
       <ModuleHeader
         title="Planificación"
         subtitle="Qué hace cada brigada cada día"
+        // Dentro de un día, "Volver" sube un paso de la planificación en vez de salir a Operaciones.
+        onBack={
+          paso.en === "inicio"
+            ? undefined
+            : () => (paso.en === "dia" ? irA({}) : irA({ dia: fecha }))
+        }
         actions={
           paso.en === "inicio" ? (
             <Button onClick={() => setEligiendoDia(true)}>
@@ -567,6 +581,10 @@ function PlanificacionContenido() {
                   trabajos={trabajos.filter((t) => mismoAsignado(t.asignado, quien))}
                   onAgregar={() => setDestino(quien)}
                   onQuitar={(t) => editar((lista) => lista.filter((x) => !mismoTrabajo(x, t)))}
+                  destinos={carriles.map((c) => c.quien)}
+                  onCambiarAsignado={(t, nuevo) =>
+                    editar((lista) => lista.map((x) => (mismoTrabajo(x, t) ? { ...x, asignado: nuevo } : x)))
+                  }
                   onCambiarNota={(t, nota) =>
                     editar((lista) => lista.map((x) => (mismoTrabajo(x, t) ? { ...x, nota: nota || null } : x)))
                   }

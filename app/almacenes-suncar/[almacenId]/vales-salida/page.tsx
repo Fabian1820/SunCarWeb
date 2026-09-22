@@ -666,7 +666,9 @@ export default function ValesSalidaPage() {
                 <Select
                   value={estadoFilter}
                   onValueChange={(value) =>
-                    setEstadoFilter(value as "todos" | "usado" | "anulado")
+                    setEstadoFilter(
+                      value as "todos" | "usado" | "anulado" | "devuelto",
+                    )
                   }
                 >
                   <SelectTrigger>
@@ -676,6 +678,7 @@ export default function ValesSalidaPage() {
                     <SelectItem value="todos">Todos</SelectItem>
                     <SelectItem value="usado">Usados</SelectItem>
                     <SelectItem value="anulado">Anulados</SelectItem>
+                    <SelectItem value="devuelto">Devueltos</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

@@ -346,6 +346,12 @@ export function TarjetaTrabajo({
             {nombreDe(t.asignado)}
           </p>
         )}
+        {(t.oferta_nombre || t.oferta_numero) && (
+          <p className="mt-1 text-xs font-medium text-emerald-800">
+            Se instala: {t.oferta_nombre || t.oferta_numero}
+            {t.oferta_nombre && t.oferta_numero ? ` (${t.oferta_numero})` : ""}
+          </p>
+        )}
         {t.nota && <p className="mt-1 text-xs text-gray-700">Nota: {t.nota}</p>}
       </div>
       {abierto && onQuitar && (

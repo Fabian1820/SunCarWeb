@@ -16,8 +16,10 @@ interface UseValesSalidaReturn {
   error: string | null;
   searchTerm: string;
   setSearchTerm: (term: string) => void;
-  estadoFilter: "todos" | "usado" | "anulado";
-  setEstadoFilter: (estado: "todos" | "usado" | "anulado") => void;
+  estadoFilter: "todos" | "usado" | "anulado" | "devuelto";
+  setEstadoFilter: (
+    estado: "todos" | "usado" | "anulado" | "devuelto",
+  ) => void;
   tipoFilter: "todos" | "material" | "venta";
   setTipoFilter: (tipo: "todos" | "material" | "venta") => void;
   /** Filtro server-side por nombre del trabajador que creó la solicitud asociada. */
@@ -49,7 +51,7 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [estadoFilter, setEstadoFilter] = useState<
-    "todos" | "usado" | "anulado"
+    "todos" | "usado" | "anulado" | "devuelto"
   >("todos");
   const [tipoFilter, setTipoFilter] = useState<
     "todos" | "material" | "venta"

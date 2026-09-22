@@ -25,6 +25,8 @@ interface ModuleHeaderProps {
   backHref?: string
   backLabel?: string
   backButton?: ModuleHeaderBackButton
+  /** Si la página tiene pasos propios, "Volver" los recorre en vez de salir de la página. */
+  onBack?: () => void
   actions?: ReactNode
   className?: string
 }
@@ -36,6 +38,7 @@ export function ModuleHeader({
   backHref,
   backLabel,
   backButton,
+  onBack,
   actions,
   className,
 }: ModuleHeaderProps) {
@@ -100,7 +103,7 @@ export function ModuleHeader({
               className="touch-manipulation h-9 w-9 sm:h-10 sm:w-auto sm:px-4 sm:rounded-md gap-2 shrink-0"
               aria-label={finalBackLabel}
               title={finalBackLabel}
-              onClick={() => router.push(finalBackHref)}
+              onClick={() => (onBack ? onBack() : router.push(finalBackHref))}
             >
               <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
               {/* Las etiquetas de área son largas ("Volver a Gestión de

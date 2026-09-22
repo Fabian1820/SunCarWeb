@@ -124,6 +124,9 @@ export interface ClientesDeEquipo {
 export interface ProvinciaResumen {
   nombre: string;
   clientes: number;
+  con_inversor: number;
+  con_bateria: number;
+  con_paneles: number;
 }
 
 export interface EquiposProvincia {

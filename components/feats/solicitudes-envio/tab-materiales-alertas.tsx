@@ -6,42 +6,46 @@ import { AlertTriangle, BellOff, BellRing, Package, ShoppingCart, Trash2 } from 
 import { Button } from "@/components/shared/atom/button";
 import { Badge } from "@/components/shared/atom/badge";
 import { Input } from "@/components/shared/atom/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/shared/atom/select";
 import { Card, CardContent } from "@/components/shared/molecule/card";
 import { MaterialImage } from "@/components/shared/molecule/material-image";
+import { SmartPagination } from "@/components/shared/molecule/smart-pagination";
 import { useToast } from "@/hooks/use-toast";
 import type { MaterialSolicitudEnvio, SolicitudEnvioCreateData } from "@/lib/types/feats/solicitudes-envio/solicitud-envio-types";
-import { useAlertasStock, type MaterialBajoMinimoAgregado } from "@/hooks/use-alertas-stock";
+import {
+  useAlertasStock,
+  type MaterialBajoMinimoAgregado,
+  type SeveridadAlerta,
+} from "@/hooks/use-alertas-stock";
 import { useSolicitudesEnvio } from "@/hooks/use-solicitudes-envio";
 
 import { CrearSolicitudEnvioDialog } from "@/components/feats/solicitudes-envio/crear-solicitud-envio-dialog";
 import { IgnorarAlertaDialog } from "@/components/feats/solicitudes-envio/ignorar-alerta-dialog";
-import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 type CarritoItem = MaterialSolicitudEnvio;
 
-function severidad(m: MaterialBajoMinimoAgregado): "critico" | "bajo" | "ok" {
-  if (m.cantidad_total <= 0) return "critico";
-  if (m.cantidad_total < m.stockaje_minimo) return "critico";
-  if (m.cantidad_total <= m.stockaje_minimo * 1.2) return "bajo";
-  return "ok";
-}
-
-const SeveridadBadge = ({ nivel }: { nivel: "critico" | "bajo" | "ok" }) => {
+const SeveridadBadge = ({ nivel }: { nivel: SeveridadAlerta }) => {
   if (nivel === "critico") {
     return (
-      <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">
+      <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200 whitespace-nowrap">
         <AlertTriangle className="h-3 w-3 mr-1" /> Bajo mínimo
       </Badge>
     );
   }
   if (nivel === "bajo") {
     return (
-      <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-200">
+      <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-200 whitespace-nowrap">
         Cerca del mínimo
       </Badge>
     );
   }
-  return null;
+  return <span className="text-slate-400 text-xs">—</span>;
 };
 
 export function TabMaterialesAlertas() {
@@ -49,21 +53,9 @@ export function TabMaterialesAlertas() {
   const alerts = useAlertasStock();
   const { create } = useSolicitudesEnvio();
 
-  const [busqueda, setBusqueda] = useState("");
   const [carrito, setCarrito] = useState<CarritoItem[]>([]);
   const [ignoreTarget, setIgnoreTarget] = useState<MaterialBajoMinimoAgregado | null>(null);
   const [crearOpen, setCrearOpen] = useState(false);
-
-  const filtrados = useMemo(() => {
-    const q = normalizeSearchText(busqueda.trim());
-    if (!q) return alerts.materiales;
-    return alerts.materiales.filter(
-      (m) =>
-        normalizeSearchText(m.codigo).includes(q) ||
-        normalizeSearchText(m.nombre).includes(q) ||
-        normalizeSearchText((m.descripcion ?? "")).includes(q),
-    );
-  }, [alerts.materiales, busqueda]);
 
   const enCarrito = useMemo(
     () => new Set(carrito.map((c) => c.material_id)),
@@ -140,18 +132,55 @@ export function TabMaterialesAlertas() {
     }
   };
 
+  const porAlmacen = alerts.filtros.almacenId !== "todos";
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4 items-start">
-      <div className="space-y-3">
+    // `minmax(0,...)` y `min-w-0`: sin ellos la tabla (cuyas celdas usan
+    // `truncate`, o sea nowrap) impone su min-content a la columna `1fr` y
+    // desborda la página entera en horizontal.
+    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-4 items-start">
+      <div className="min-w-0 space-y-3">
         <Card>
-          <CardContent className="p-3 flex flex-wrap items-center gap-3">
+          <CardContent className="p-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
             <Input
               placeholder="Buscar por código, nombre o descripción"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              className="max-w-md"
+              value={alerts.filtros.q}
+              onChange={(e) => alerts.updateFiltros({ q: e.target.value })}
             />
-            <div className="ml-auto flex items-center gap-2">
+            <Select
+              value={alerts.filtros.almacenId}
+              onValueChange={(v) => alerts.updateFiltros({ almacenId: v })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Almacén" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos los almacenes (sumado)</SelectItem>
+                {alerts.almacenesDisponibles.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {a.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={alerts.filtros.enSolicitud}
+              onValueChange={(v) =>
+                alerts.updateFiltros({
+                  enSolicitud: v as typeof alerts.filtros.enSolicitud,
+                })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="En solicitud" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Pedidos y sin pedir</SelectItem>
+                <SelectItem value="sin-pedir">Solo sin pedir</SelectItem>
+                <SelectItem value="pedidos">Solo ya pedidos</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="flex items-center justify-end gap-2">
               <Button
                 variant={alerts.verIgnoradas ? "default" : "outline"}
                 size="sm"
@@ -174,7 +203,13 @@ export function TabMaterialesAlertas() {
           </CardContent>
         </Card>
 
-        <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
+        {alerts.error && (
+          <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
+            {alerts.error}
+          </div>
+        )}
+
+        <div className="min-w-0 border border-slate-200 rounded-lg overflow-hidden bg-white">
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-600">
@@ -195,24 +230,23 @@ export function TabMaterialesAlertas() {
                       Cargando…
                     </td>
                   </tr>
-                ) : filtrados.length === 0 ? (
+                ) : alerts.materiales.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="text-center text-slate-500 py-8">
                       {alerts.verIgnoradas
                         ? "Sin alertas silenciadas."
-                        : "No hay materiales bajo el mínimo. Todo bien."}
+                        : "No hay materiales bajo el mínimo con estos filtros."}
                     </td>
                   </tr>
                 ) : (
-                  filtrados.map((m) => {
-                    const nivel = severidad(m);
+                  alerts.materiales.map((m) => {
                     const enSol = m.solicitudes_activas.length > 0;
                     return (
                       <tr key={m.material_id} className="hover:bg-slate-50">
                         <td className="px-3 py-2">
-                          <SeveridadBadge nivel={nivel} />
+                          <SeveridadBadge nivel={m.severidad} />
                         </td>
-                        <td className="px-3 py-2">
+                        <td className="px-3 py-2 max-w-[22rem]">
                           <div className="flex items-center gap-3 min-w-0">
                             <div className="relative w-11 h-11 rounded-md overflow-hidden bg-slate-50 border border-slate-200 shrink-0">
                               <MaterialImage
@@ -234,7 +268,7 @@ export function TabMaterialesAlertas() {
                               <div className="text-sm text-slate-900 truncate">
                                 {m.nombre}
                               </div>
-                              <div className="text-xs text-slate-400">
+                              <div className="text-xs text-slate-400 truncate">
                                 {m.almacenes.length === 1
                                   ? m.almacenes[0].almacen_nombre
                                   : `${m.almacenes.length} almacenes`}
@@ -262,7 +296,7 @@ export function TabMaterialesAlertas() {
                           {enSol ? (
                             <Badge
                               variant="outline"
-                              className="bg-blue-50 text-blue-800 border-blue-200"
+                              className="bg-blue-50 text-blue-800 border-blue-200 whitespace-nowrap"
                             >
                               {m.solicitudes_activas.map((s) => s.codigo).join(", ")}
                             </Badge>
@@ -298,6 +332,7 @@ export function TabMaterialesAlertas() {
                                   size="sm"
                                   variant="ghost"
                                   onClick={() => setIgnoreTarget(m)}
+                                  title="Silenciar alerta"
                                 >
                                   <BellOff className="h-3 w-3" />
                                 </Button>
@@ -313,16 +348,36 @@ export function TabMaterialesAlertas() {
             </table>
           </div>
         </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-slate-500">
+          <div>
+            {alerts.total} material{alerts.total === 1 ? "" : "es"}
+            {porAlmacen ? " en el almacén seleccionado" : " (stock sumado)"}
+            {alerts.totalPages > 1
+              ? ` · página ${alerts.page} de ${alerts.totalPages}`
+              : ""}
+          </div>
+          {alerts.totalPages > 1 && (
+            <SmartPagination
+              currentPage={alerts.page}
+              totalPages={alerts.totalPages}
+              onPageChange={alerts.setPage}
+            />
+          )}
+        </div>
       </div>
 
-      <div className="lg:sticky lg:top-24 space-y-3">
+      {/* El header del módulo es fijo y mide su alto en runtime; anclar el
+          carrito a ese mismo valor evita que se meta por debajo al hacer scroll. */}
+      <div className="min-w-0 lg:sticky lg:top-[var(--content-with-fixed-header-padding,144px)] space-y-3">
         <Card>
           <CardContent className="p-3 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold flex items-center gap-1.5">
-                <ShoppingCart className="h-4 w-4" /> Pedido en preparación
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-sm font-semibold flex items-center gap-1.5 min-w-0">
+                <ShoppingCart className="h-4 w-4 shrink-0" />
+                <span className="truncate">Pedido en preparación</span>
               </div>
-              <Badge variant="outline" className="bg-slate-100 text-slate-700">
+              <Badge variant="outline" className="bg-slate-100 text-slate-700 whitespace-nowrap">
                 {carrito.length} material{carrito.length === 1 ? "" : "es"}
               </Badge>
             </div>
@@ -373,6 +428,7 @@ export function TabMaterialesAlertas() {
                         type="button"
                         onClick={() => removeFromCart(c.material_id)}
                         className="text-red-600 hover:text-red-700"
+                        title="Quitar del pedido"
                       >
                         <Trash2 className="h-3 w-3" />
                       </button>

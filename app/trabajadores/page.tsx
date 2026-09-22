@@ -4,8 +4,9 @@ import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
-import { Search, Loader2, UserPlus } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/shared/molecule/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
+import { Plus, Search, Loader2 } from "lucide-react"
 import { useBrigadasTrabajadores } from '@/hooks/use-brigadas-trabajadores'
 import { TrabajadoresTable } from '@/components/feats/worker/trabajadores-table'
 import { TrabajadorService, RecursosHumanosService } from '@/lib/api-services'
@@ -226,24 +227,51 @@ export default function TrabajadoresPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader
-        title="Gestion de Instaladores"
+        title="Gestión de Instaladores"
         subtitle="Administrar personal y asignaciones"
         badge={{ text: "Personal", className: "bg-blue-100 text-blue-800" }}
         actions={
-          filteredTrabajadores.length > 0 ? (
-            <ExportButtons
-              getExportOptions={getExportOptions}
-              baseFilename="instaladores"
-              variant="compact"
-              pdfExporter={exportListToPDF}
-            />
-          ) : undefined
+          <div className="flex items-center gap-2">
+            {filteredTrabajadores.length > 0 && (
+              <ExportButtons
+                getExportOptions={getExportOptions}
+                baseFilename="instaladores"
+                variant="compact"
+                pdfExporter={exportListToPDF}
+              />
+            )}
+            <Dialog open={isCreateWorkerDialogOpen} onOpenChange={setIsCreateWorkerDialogOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  size="icon"
+                  className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 touch-manipulation"
+                  aria-label="Agregar instalador"
+                  title="Agregar instalador"
+                >
+                  <Plus className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Agregar Instalador</span>
+                  <span className="sr-only">Agregar instalador</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Agregar Nuevo Instalador</DialogTitle>
+                </DialogHeader>
+                <WorkerForm
+                  onSubmit={handleCreateWorker}
+                  onCancel={() => setIsCreateWorkerDialogOpen(false)}
+                  brigades={brigades}
+                  workers={trabajadoresActivos}
+                />
+              </DialogContent>
+            </Dialog>
+          </div>
         }
       />
 
       <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
 
-        {/* Search and Actions */}
+        {/* Search and filters */}
         <Card className="mb-8 border-l-4 border-l-blue-600">
           <CardContent className="p-4 sm:p-6">
             <div className="flex flex-col md:flex-row gap-4">
@@ -262,29 +290,20 @@ export default function TrabajadoresPage() {
                   />
                 </div>
               </div>
-              <div className="flex flex-col justify-end">
+              <div className="md:w-56">
                 <Label htmlFor="worker-type" className="text-sm font-medium text-gray-700 mb-2 block">
                   Tipo
                 </Label>
-                <select
-                  id="worker-type"
-                  className="border px-2 py-2 rounded w-48"
-                  value={workerType}
-                  onChange={e => setWorkerType(e.target.value as any)}
-                >
-                  <option value="todos">Todos</option>
-                  <option value="jefes">Solo jefes de brigada</option>
-                  <option value="trabajadores">Solo trabajadores</option>
-                </select>
-              </div>
-              <div className="flex flex-col justify-end">
-                <Button
-                  onClick={() => setIsCreateWorkerDialogOpen(true)}
-                  className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
-                >
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  Agregar Instalador
-                </Button>
+                <Select value={workerType} onValueChange={(value) => setWorkerType(value as any)}>
+                  <SelectTrigger id="worker-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    <SelectItem value="jefes">Solo jefes de brigada</SelectItem>
+                    <SelectItem value="trabajadores">Solo trabajadores</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </CardContent>
@@ -348,21 +367,6 @@ export default function TrabajadoresPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Modal para crear nuevo trabajador */}
-        <Dialog open={isCreateWorkerDialogOpen} onOpenChange={setIsCreateWorkerDialogOpen}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Agregar Nuevo Instalador</DialogTitle>
-            </DialogHeader>
-            <WorkerForm
-              onSubmit={handleCreateWorker}
-              onCancel={() => setIsCreateWorkerDialogOpen(false)}
-              brigades={brigades}
-              workers={trabajadoresActivos}
-            />
-          </DialogContent>
-        </Dialog>
-        
       </main>
       <Toaster />
     </div>

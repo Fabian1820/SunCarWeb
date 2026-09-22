@@ -45,6 +45,7 @@ import {
   Volume2,
   VolumeX,
   Coins,
+  Wrench,
 } from "lucide-react";
 import { usePagos, PAGOS_LIMIT } from "@/hooks/use-pagos";
 import { AnticiposPendientesTable } from "@/components/feats/pagos/anticipos-pendientes-table";
@@ -68,13 +69,15 @@ import { useToast } from "@/hooks/use-toast";
 import { TasaCambioService } from "@/lib/api-services";
 import type { TasaCambio } from "@/lib/types/feats/tasa-cambio/tasa-cambio-types";
 import { normalizeSearchText } from "@/lib/utils/string-utils";
+import { ServiciosPagosPanel } from "@/components/feats/pagos/servicios-pagos-panel";
 
 type ViewMode =
   | "anticipos-pendientes"
   | "finales-pendientes"
   | "pagos-por-ofertas"
   | "todos-pagos"
-  | "facturas-emitidas";
+  | "facturas-emitidas"
+  | "servicios";
 
 type DevolucionesFilter = "todos" | "con_devoluciones" | "sin_devoluciones";
 
@@ -964,23 +967,6 @@ export default function PagosClientesPage() {
     }
   };
 
-  // Alarma continua: mientras haya clientes presentes, reproducir sonido en bucle.
-  useEffect(() => {
-    if (!hasPresentes || !soundEnabled) return;
-    if (typeof window === "undefined") return;
-
-    const playLoop = () => {
-      playIncomingAlertSound();
-    };
-
-    playLoop();
-    const intervalId = window.setInterval(playLoop, 2800);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, [hasPresentes, playIncomingAlertSound, soundEnabled]);
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <header className="fixed-header bg-white shadow-sm border-b border-emerald-100">
@@ -1075,92 +1061,6 @@ export default function PagosClientesPage() {
           </div>
         </div>
       </header>
-
-      <div className="fixed top-[92px] right-3 sm:right-6 z-40">
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => setShowPresentesDialog(true)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              setShowPresentesDialog(true);
-            }
-          }}
-          className={`group relative overflow-hidden rounded-2xl border px-4 py-3 text-left shadow-2xl transition-all duration-300 backdrop-blur-sm min-w-[300px] max-w-[92vw] animate-in slide-in-from-top-4 ${
-            hasPresentes
-              ? "bg-gradient-to-br from-blue-600 via-sky-600 to-indigo-700 border-blue-300 text-white notif-float"
-              : "bg-white/95 border-slate-200 text-slate-800"
-          } ${highlightNotification ? "notif-nudge" : ""}`}
-          title="Abrir clientes presentes para pagar"
-        >
-          {hasPresentes && (
-            <span className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.35),transparent_45%)]" />
-          )}
-
-          <span className="relative flex items-center gap-3">
-            <span className="relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-black/15 border border-white/20">
-              <MailOpen
-                className={`h-5 w-5 ${hasPresentes ? "notif-mail" : "text-slate-600"}`}
-              />
-              {hasPresentes && (
-                <PhoneCall className="notif-phone absolute -bottom-1 -right-1 h-3.5 w-3.5 text-amber-200" />
-              )}
-              {hasPresentes && (
-                <>
-                  <span className="notif-beacon absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-amber-300" />
-                  <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-amber-200 animate-ping" />
-                </>
-              )}
-            </span>
-
-            <span className="min-w-0 flex-1">
-              <span
-                className={`block text-[11px] uppercase tracking-wide font-semibold ${hasPresentes ? "text-white/85" : "text-slate-500"}`}
-              >
-                Bandeja De Alertas
-              </span>
-              <span className="block text-sm font-bold leading-tight">
-                {hasPresentes
-                  ? `${clientesPresentes.length} cliente(s) presentes para pagar`
-                  : "Sin clientes presentes ahora"}
-              </span>
-              <span
-                className={`mt-0.5 inline-flex items-center text-xs font-medium ${hasPresentes ? "text-white/90" : "text-slate-500"}`}
-              >
-                {hasPresentes
-                  ? "Mensaje entrante: abrir detalle ahora"
-                  : "Se actualiza automáticamente"}
-              </span>
-            </span>
-
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                setSoundEnabled((prev) => !prev);
-              }}
-              className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${
-                hasPresentes
-                  ? "border-white/30 bg-white/10 hover:bg-white/20"
-                  : "border-slate-200 bg-white hover:bg-slate-100"
-              }`}
-              title={soundEnabled ? "Silenciar alerta" : "Activar sonido"}
-              aria-label={soundEnabled ? "Silenciar alerta" : "Activar sonido"}
-            >
-              {soundEnabled ? (
-                <Volume2 className="h-4 w-4" />
-              ) : (
-                <VolumeX className="h-4 w-4" />
-              )}
-            </button>
-
-            <ChevronRight
-              className={`h-5 w-5 transition-transform duration-200 ${hasPresentes ? "group-hover:translate-x-1" : "text-slate-500 group-hover:translate-x-1"}`}
-            />
-          </span>
-        </div>
-      </div>
 
       <main className="content-with-fixed-header max-w-[96rem] mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
         {error && (
@@ -1263,29 +1163,26 @@ export default function PagosClientesPage() {
                     Todos los Cobros
                   </Button>
                   <Button
-                    variant={
-                      viewMode === "facturas-emitidas" ? "default" : "outline"
-                    }
-                    onClick={() => {
-                      handleViewModeChange("facturas-emitidas").catch(
-                        () => null,
-                      );
-                    }}
-                    disabled={loadingFacturasEmitidas}
+                    variant={viewMode === "servicios" ? "default" : "outline"}
+                    onClick={() => setViewMode("servicios")}
                     className={
-                      viewMode === "facturas-emitidas"
-                        ? "bg-green-600 hover:bg-green-700"
+                      viewMode === "servicios"
+                        ? "bg-teal-600 hover:bg-teal-700"
                         : ""
                     }
                   >
-                    <FileText className="h-4 w-4 mr-2" />
-                    Facturas Emitidas
+                    <Wrench className="h-4 w-4 mr-2" />
+                    Servicios
                   </Button>
                 </div>
               </div>
             </CardContent>
           </Card>
 
+          {viewMode === "servicios" && <ServiciosPagosPanel />}
+
+          {viewMode !== "servicios" && (
+          <>
           <Card className="border-0 shadow-md mb-6 border-l-4 border-l-green-600">
             <CardContent className="pt-6">
               <div className="grid grid-cols-1 lg:grid-cols-6 gap-4">
@@ -1688,6 +1585,8 @@ export default function PagosClientesPage() {
               )}
             </CardContent>
           </Card>
+          </>
+          )}
         </div>
       </main>
 
