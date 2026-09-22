@@ -445,11 +445,14 @@ function VistaEquipos() {
       <p className="text-sm text-gray-600">Elige una provincia para ver sus inversores, baterías y paneles.</p>
       <div className="mt-4 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[420px] text-sm">
+          <table className="w-full min-w-[620px] text-sm">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                 <th className="px-4 py-3">Provincia</th>
                 <th className="px-4 py-3 text-right">Clientes</th>
+                <th className="px-4 py-3 text-right">Con inversor</th>
+                <th className="px-4 py-3 text-right">Con batería</th>
+                <th className="px-4 py-3 text-right">Con paneles</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -474,6 +477,9 @@ function VistaEquipos() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right font-semibold text-emerald-800">{numero(p.clientes)}</td>
+                  <td className="px-4 py-3 text-right text-gray-700">{numero(p.con_inversor)}</td>
+                  <td className="px-4 py-3 text-right text-gray-700">{numero(p.con_bateria)}</td>
+                  <td className="px-4 py-3 text-right text-gray-700">{numero(p.con_paneles)}</td>
                 </tr>
               ))}
             </tbody>
