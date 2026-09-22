@@ -2,6 +2,82 @@
 
 ---
 
+## 📅 22 de Septiembre, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**10 commits reales** — yany1509 / Fabian1820 (todos co-authored Claude Sonnet 5). Día activo con fixes críticos de autenticación y UX, dos nuevas funcionalidades y varios fixes de UI. Áreas: **auth con intercepción universal de 401** (1), **leads con provincia/municipio obligatorios y aviso de error de conversión** (1), **ventas con cálculo correcto de totales** (1), **PDF de trabajos diarios** (1), **historial con conteo de equipos por provincia** (1), **rediseño de inicio de planificación** (1), **fix de body bloqueado en wallet** (1), **fix de etiqueta en planificación** (1), **fix visual de dashboard** (1), **unificación de diseño de instaladores** (1).
+
+---
+
+### Área 1: fix(auth) — Interceptor de 401 generalizado (15:21)
+
+- **`fix(auth): forzar login ante cualquier 401, no solo mensajes de token expirado/inválido`** — El interceptor en `lib/api-config.ts` solo reaccionaba cuando el cuerpo del 401 contenía "token" + "expirado"/"inválido". Las sesiones revocadas por CI (`POST /api/auth/cerrar-sesiones`) devuelven 401 con mensaje "Sesión cerrada...", que no matcheaba; el panel seguía funcionando aunque el backend rechazara todas las peticiones.
+
+  Ahora cualquier respuesta 401 fuerza la limpieza de localStorage y recarga al login. El login en sí nunca pasa por este interceptor, por lo que el flujo de autenticación no se ve afectado.
+
+---
+
+### Área 2: fix(leads) — Provincia y municipio obligatorios, aviso de error de conversión (15:01)
+
+- **`fix(leads): exigir provincia y municipio, y mostrar cuándo falló la conversión automática`** — Un lead sin municipio bloqueaba en silencio la conversión automática a cliente al pagar. El formulario dejaba guardar leads sin ese dato, y el vacío llegaba tarde al pipeline cuando ya había un pago pendiente.
+
+  `create-lead-dialog.tsx` y `edit-lead-dialog.tsx` ahora validan `provincia_montaje` y `municipio` como campos requeridos. La tabla y detalle de leads muestran un aviso ámbar cuando el backend registró que la conversión automática no prosperó (`ultimo_error_conversion_automatica`).
+
+---
+
+### Área 3: fix(ventas) — Total facturado sumaba mal los aumentos (15:21)
+
+- **`fix(ventas): "Total facturado" de Facturas emitidas no sumaba los aumentos`** — El cálculo del total en la vista de Facturas emitidas no incluía los aumentos en el acumulado. Corregido.
+
+---
+
+### Área 4: feat(trabajos-diarios) — Descargar PDF de un trabajo y de todo el día (13:14)
+
+- **`feat(trabajos-diarios): descargar el informe PDF de un trabajo y el de todo el dia`** — Nuevo servicio `trabajos-diarios-service.ts` que llama al backend para generar PDFs. Botón de descarga en `trabajos-diarios-todos-view.tsx` (PDF del día completo) y en `inicio-planificacion.tsx` (PDF de un trabajo individual).
+
+---
+
+### Área 5: feat(historial) — Tabla de provincias con conteo de equipos (12:07)
+
+- **`feat(historial): la tabla de provincias suma cuántos clientes tienen inversor, batería y paneles`** — La vista de historial por provincias ahora suma el total de clientes con cada tipo de equipo (inversor, batería, paneles) por provincia, visible en columnas adicionales de la tabla.
+
+---
+
+### Área 6: feat(planificacion) — Rediseño de vista de inicio (11:50)
+
+- **`feat(planificacion): rediseña la vista de inicio con el lenguaje de Brigadas`** — La pantalla de entrada del módulo de Planificación adopta el mismo lenguaje visual y de componentes que el módulo de Brigadas: tarjetas, acciones y navegación alineadas.
+
+---
+
+### Área 7: fix(wallet) — Body desbloqueado al crear banco (12:12)
+
+- **`fix(wallet): evita que el body quede bloqueado al crear un banco desde el dropdown`** — Abrir el modal de creación de banco desde el dropdown dejaba el scroll global del body bloqueado. Corregido.
+
+---
+
+### Área 8–10: Fixes de UI menores (11:50–13:14)
+
+- `fix(planificacion)`: etiqueta "instalación en proceso" pasa de contorno a relleno.
+- `fix(dashboard)`: unifica el tono de color por pestaña de módulos.
+- `fix(instaladores)`: diseño de "Gestionar Instaladores" unificado con el de Brigadas.
+
+---
+
+### Puede dar bateo
+
+1. **fix(auth) 401 universal — riesgo de logout ante 401 de permisos**: Ahora CUALQUIER 401 fuerza logout. Si algún endpoint devuelve 401 por falta de permiso de módulo (no por token inválido/revocado), el usuario recibirá un logout inesperado durante el uso normal. Confirmar que ningún endpoint del backend devuelve 401 por autorización de recurso y no de sesión (esos deberían ser 403).
+
+2. **fix(leads) provincia/municipio obligatorios — leads existentes sin esos campos**: Al editar un lead que fue creado sin municipio, el formulario ahora bloqueará el guardado hasta que se llene ese campo. Leads en pipeline activo sin esos datos necesitarán actualización manual antes de poder editarse.
+
+3. **feat(trabajos-diarios) PDF — confirmar endpoints en backend de producción**: El servicio `trabajos-diarios-service.ts` llama al backend para generar los PDFs. Si el endpoint de generación de PDF no está deployado, el botón devolverá error al pulsar.
+
+4. **feat(historial) tabla de provincias — confirmar campos de equipos en respuesta del backend**: Las columnas de conteo por equipo (inversor, batería, paneles) dependen de que el endpoint devuelva esos campos. Si el backend no los incluye, aparecerán vacíos o en 0 sin aviso.
+
+5. **feat(planificacion) rediseño de inicio — usuarios habituados a la interfaz anterior**: Cambio visual significativo de la pantalla de entrada. Si hay usuarios que usan la planificación a diario, puede generar confusión temporal.
+
+---
+
 ## 📅 17 de Septiembre, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -275,105 +351,4 @@
 
 ---
 
-## 📅 14 de Septiembre, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**23 commits reales** — yany1509 (15), Fabian1820 (3) y Ruben0304 (5). Día extremadamente activo. Áreas principales: módulo de planificación reescrito por completo con 15 commits encadenados en 6 horas (tablero de brigadas + mapa de Cuba por zonas + flujo por pasos + calendario + solo clientes), adjuntar vale firmado desde PC/QR/móvil con compresión de imagen, fix de validación en formulario de ofertas, fix de checklist de conversión de leads comprobando equipo, botón para ver saldos en billeteras, optimización crítica que evita descarga de 45 MB de confección de ofertas en pantallas que no la usan, alta libre de materiales contables sin depender del catálogo, y exportar brigadas e instaladores.
-
----
-
-### Área 1: feat/fix(planificacion) × 15 — rework completo del módulo de planificación (12:25–18:10, yany1509)
-
-Quince commits encadenados en menos de 6 horas reescribieron el módulo de planificación de cero a una versión final: tablero por brigadas, mapa de Cuba por zonas (GeoJSON generado), flujo de 3 pasos sin carga innecesaria, calendario con puntos verdes en días planificados, pantalla de entrada con lista de planificaciones, y solo clientes (leads eliminados del flujo al final).
-
----
-
-### Área 2: feat(vales-salida) — adjuntar el vale firmado desde PC o móvil (15:56, Fabian1820)
-
-- Adjuntar vale firmado desde PC con diálogo propio, o desde móvil por QR (enlace de 15 min a página pública `/subir-vale/[token]`). Reescalado a 2000px JPEG antes de enviar. Borrado definitivo con aviso en diálogo.
-
----
-
-### Área 3–7: fix(ofertas), fix(leads), feat(wallet), perf(ofertas), feat(contabilidad)
-
-- Fix de justificación mínima 10 chars y null explícito para compensación/descuento.
-- Fix de checklist de conversión de leads con deducción de equipo.
-- Botón para ver saldos por moneda en wallet (solo admins).
-- Optimización: evita descargar 45 MB de confección de ofertas sin usarlos.
-- Alta libre de materiales contables sin depender del catálogo.
-
----
-
-### Puede dar bateo
-
-1. **planificacion - 15 commits en 6h — planes guardados con leads referencian registros sin número de cliente**.
-2. **planificacion - calendario con puntos verdes — requiere endpoint para listar días planificados**.
-3. **vales-salida - QR expira en 15 min — no hay botón de regeneración visible**.
-4. **vales-salida - /subir-vale/[token] página pública — confirmar entropía del token y rate limiting**.
-5. **fix(ofertas) null explícito — confirmar que backend acepta `null` explícito con `Optional[...]`**.
-6. **perf(ofertas) hook sin reload implícito — confirmar que ningún componente dependía del reload post-mutación**.
-
----
-
-## 📅 11 de Septiembre, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**17 commits reales** — Ruben0304 (4) y yany1509 (13). Día extremadamente activo. Áreas: módulo de auditoría completo (bitácora + filtros + pestaña de rendimiento), módulo de planificación diaria completo (pantalla nueva + múltiples fix encadenados + optimización de caché), wallet (comprobante imprimible + campo persona + PDF carta), nuevo módulo de alertas de wallet, permisos de planificación en app móvil, fix de margen en vales de salida, fix de guardado de ofertas con múltiples materiales del mismo tipo, y filtros/exportación en peticiones.
-
----
-
-### Área 1: feat(auditoria) × 3 — bitácora completa del sistema para superAdmin (20:55–21:33)
-
-- Nueva pantalla `/auditoria`: log global del backend con filtros de 13 parámetros, pestaña de rendimiento por módulo/endpoint, columna de duración con colores, filtro de entidad que sustituye otros filtros al activarse.
-
----
-
-### Área 2: feat/fix/perf(planificacion) × 7 — módulo de planificación diaria (19:01–20:24)
-
-- Módulo nuevo en Operaciones con 5 tipos de trabajo. Dos paneles a lo ancho. Borrador en localStorage. Caché en memoria de candidatos por tipo. Fix de cabecera que tapaba contenido.
-
----
-
-### Área 3–8: feat(wallet) ×2, feat(wallet-alertas), feat(permisos), fix(vales-salida), fix(ofertas), feat(peticiones)
-
-- Comprobante imprimible + campo persona en gastos. Módulo de alertas por movimientos grandes (Twilio). Sub-permiso de planificación en app móvil. Fix de margen PDF. Fix de bloqueo de guardado con 2+ materiales sin marcar. Filtros y export en peticiones a desarrollo.
-
----
-
-### Puede dar bateo
-
-1. **feat(auditoria) — confirmar endpoints `/api/auditoria/` y `/api/auditoria/rendimiento` en backend**.
-2. **feat(planificacion) módulo nuevo — confirmar todos los endpoints CRUD en backend**.
-3. **fix(planificacion) draft en localStorage — colisión entre usuarios distintos en dispositivo compartido**.
-4. **feat(wallet-alertas) — confirmar `/wallet-alertas` en `MODULOS_CATALOGO`**.
-5. **fix(ofertas) umbral accesorio ≤ 0,3 kW — `potenciaKW: null` no se asume accesorio; bloquea guardado si no está definido**.
-
----
-
-## 📅 10 de Septiembre, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**1 commit real** — Ruben0304 (co-authored Claude Sonnet 5). Fix de infraestructura: evita que Safari/iPadOS sirva respuestas cacheadas de GET cuando los datos ya cambiaron por un POST previo.
-
----
-
-### Área 1: fix(api-config) — no-store en todos los GET para evitar caché de Safari/iPadOS (12:37)
-
-- **`fix(api-config): evita cache de fetch GET en Safari/iPadOS`** — Los GET vía `apiRequest()` no llevaban `cache: 'no-store'`, por lo que Safari/iPadOS podía servir respuestas cacheadas tras un POST que mutaba los mismos datos. Se agrega `cache: 'no-store'` y la cabecera `Cache-Control: no-cache` en el helper central.
-
----
-
-### Puede dar bateo
-
-1. **`cache: 'no-store'` global — impacto en rendimiento con endpoints de catálogo**: El fix es correcto para datos mutables pero también desactiva la caché para endpoints de catálogo que raramente cambian. Monitorear saturación en endpoints lentos.
-
-2. **`Cache-Control: no-cache` como cabecera de petición — comportamiento en proxies/CDN**: Resuelve el caché del navegador, pero proxies corporativos pueden ignorarlo.
-
-3. **Cobertura solo en `apiRequest()` — peticiones fuera del helper no cubiertas**: Revisar los 4 archivos listados en CLAUDE.md como "Fixed Files" para confirmar migración completa.
-
----
-
-> ⚠️ **Nota de mantenimiento**: La entrada del **9 de Septiembre** fue eliminada el 17 de Septiembre al superar los 7 días de antigüedad (política de retención semanal). La entrada del **7 de Septiembre** fue eliminada el 15 de Septiembre al superar los 7 días. La entrada del **2 de Septiembre** fue eliminada el 10 de Septiembre al superar los 7 días. Anteriores eliminadas: 15 de Agosto y previas.
+> ⚠️ **Nota de mantenimiento**: La entrada del **14 de Septiembre** fue eliminada el 22 de Septiembre al superar los 7 días de antigüedad (política de retención semanal). La entrada del **11 de Septiembre** fue eliminada el 22 de Septiembre. La entrada del **10 de Septiembre** fue eliminada el 22 de Septiembre. La entrada del **9 de Septiembre** fue eliminada el 17 de Septiembre. La entrada del **7 de Septiembre** fue eliminada el 15 de Septiembre. La entrada del **2 de Septiembre** fue eliminada el 10 de Septiembre. Anteriores eliminadas progresivamente desde Mayo.
