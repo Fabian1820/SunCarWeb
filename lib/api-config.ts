@@ -340,28 +340,21 @@ export async function apiRequest<T>(
       throw err;
     }
 
-    // Detectar token expirado o invÃ¡lido (401) ANTES de cualquier otro manejo
+    // Cualquier 401 de una petición autenticada significa que el token dejó de
+    // servir (expiró, es inválido o se revocó la sesión desde /cerrar-sesiones):
+    // el login normal nunca pasa por acá, así que es seguro mandar siempre al
+    // login en vez de filtrar por el texto exacto del mensaje del backend.
     if (!response.ok && response.status === 401) {
-      const errorMessage = dataDetail || dataMessage || "";
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("auth_token");
+        localStorage.removeItem("user_data");
 
-      if (
-        errorMessage.toLowerCase().includes("token") &&
-        (errorMessage.toLowerCase().includes("expirado") ||
-          errorMessage.toLowerCase().includes("invÃ¡lido") ||
-          errorMessage.toLowerCase().includes("invalido"))
-      ) {
-
-        if (typeof window !== "undefined") {
-          localStorage.removeItem("auth_token");
-          localStorage.removeItem("user_data");
-
-          setTimeout(() => {
-            window.location.reload();
-          }, 500);
-        }
-
-        throw new Error("SesiÃ³n expirada. Redirigiendo al login...");
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
       }
+
+      throw new Error("SesiÃ³n expirada. Redirigiendo al login...");
     }
 
     // Si la respuesta tiene estructura de error del backend
