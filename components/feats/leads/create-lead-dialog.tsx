@@ -507,6 +507,12 @@ export function CreateLeadDialog({
     if (!formData.estado.trim()) {
       newErrors.estado = "El estado es obligatorio";
     }
+    if (!formData.provincia_montaje?.trim()) {
+      newErrors.provincia_montaje = "La provincia es obligatoria";
+    }
+    if (!formData.municipio?.trim()) {
+      newErrors.municipio = "El municipio es obligatorio";
+    }
     if (
       formData.estado === "Pendiente de visita" &&
       !formData.motivo_visita?.trim()
@@ -666,7 +672,9 @@ export function CreateLeadDialog({
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="provincia_montaje">Provincia</Label>
+                  <Label htmlFor="provincia_montaje">
+                    Provincia <span className="text-red-500">*</span>
+                  </Label>
                   <Select
                     value={formData.provincia_montaje}
                     onValueChange={handleProvinciaChange}
@@ -674,7 +682,7 @@ export function CreateLeadDialog({
                   >
                     <SelectTrigger
                       id="provincia_montaje"
-                      className="text-gray-900"
+                      className={`text-gray-900 ${errors.provincia_montaje ? "border-red-500" : ""}`}
                     >
                       <SelectValue
                         placeholder={
@@ -695,9 +703,16 @@ export function CreateLeadDialog({
                       ))}
                     </SelectContent>
                   </Select>
+                  {errors.provincia_montaje && (
+                    <p className="text-sm text-red-500 mt-1">
+                      {errors.provincia_montaje}
+                    </p>
+                  )}
                 </div>
                 <div>
-                  <Label htmlFor="municipio">Municipio</Label>
+                  <Label htmlFor="municipio">
+                    Municipio <span className="text-red-500">*</span>
+                  </Label>
                   <Select
                     value={formData.municipio || ""}
                     onValueChange={(value) =>
@@ -705,7 +720,10 @@ export function CreateLeadDialog({
                     }
                     disabled={!selectedProvinciaCodigo || loadingMunicipios}
                   >
-                    <SelectTrigger id="municipio" className="text-gray-900">
+                    <SelectTrigger
+                      id="municipio"
+                      className={`text-gray-900 ${errors.municipio ? "border-red-500" : ""}`}
+                    >
                       <SelectValue
                         placeholder={
                           !selectedProvinciaCodigo
@@ -727,6 +745,11 @@ export function CreateLeadDialog({
                       ))}
                     </SelectContent>
                   </Select>
+                  {errors.municipio && (
+                    <p className="text-sm text-red-500 mt-1">
+                      {errors.municipio}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

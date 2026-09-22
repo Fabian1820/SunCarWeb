@@ -113,6 +113,9 @@ export interface Lead {
   motivo_visita?: string; // ⚠️ CAMPO TEMPORAL: NO se guarda en lead. Se usa para crear visita automática.
   oferta_confeccion?: OfertaConfeccionResumen | null;
   activo?: boolean; // false = lead anulado
+  /** Motivo por el que la última conversión automática a cliente (tras un
+   *  pago) no prosperó. Se limpia solo cuando el lead se convierte. */
+  ultimo_error_conversion_automatica?: string | null;
 }
 
 export interface LeadResponse {

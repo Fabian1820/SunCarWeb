@@ -1716,6 +1716,14 @@ export function LeadsTable({
                           Anulado
                         </Badge>
                       )}
+                      {lead.ultimo_error_conversion_automatica && (
+                        <Badge
+                          className="bg-amber-100 text-amber-700 text-xs px-2 py-0.5 mb-1 inline-block"
+                          title={`No se convirtió automáticamente a cliente: ${lead.ultimo_error_conversion_automatica}`}
+                        >
+                          ⚠️ No convertido automáticamente
+                        </Badge>
+                      )}
                       {(() => {
                         const estadoBadge = getEstadoBadge(lead.estado);
                         return (
@@ -2092,6 +2100,16 @@ export function LeadsTable({
             <>
               <div className="flex-1 overflow-y-auto px-5 py-4">
                 <div className="space-y-5">
+                  {selectedLead.ultimo_error_conversion_automatica && (
+                    <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5">
+                      <p className="text-sm font-medium text-amber-900">
+                        ⚠️ No se convirtió automáticamente a cliente
+                      </p>
+                      <p className="mt-0.5 text-sm text-amber-700">
+                        {selectedLead.ultimo_error_conversion_automatica}
+                      </p>
+                    </div>
+                  )}
                   {/* Contacto */}
                   <section>
                     <h4 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
