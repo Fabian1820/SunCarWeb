@@ -352,6 +352,32 @@ export function TrabajosDiariosTodosView() {
     setDetalleOpen(true);
   };
 
+  const [descargandoInforme, setDescargandoInforme] = useState(false);
+
+  const descargarInformeTrabajo = async (trabajo: TrabajoDiarioRegistro) => {
+    if (!trabajo.id || descargandoInforme) return;
+    setDescargandoInforme(true);
+    try {
+      const blob = await TrabajosDiariosService.descargarInforme(trabajo.id);
+      const url = URL.createObjectURL(blob);
+      const enlace = document.createElement("a");
+      enlace.href = url;
+      enlace.download = `informe-trabajo-${trabajo.id}.pdf`;
+      document.body.appendChild(enlace);
+      enlace.click();
+      enlace.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    } catch (error) {
+      toast({
+        title: "No se pudo descargar el informe",
+        description: error instanceof Error ? error.message : "Intenta de nuevo.",
+        variant: "destructive",
+      });
+    } finally {
+      setDescargandoInforme(false);
+    }
+  };
+
   const archivosTrabajo = useMemo<TrabajoArchivoItem[]>(() => {
     if (!trabajoDetalle) return [];
     const inicio = (trabajoDetalle.inicio?.archivos || []).map((archivo) => ({
@@ -1266,6 +1292,16 @@ export function TrabajosDiariosTodosView() {
                         </Badge>
                       )}
                     </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 border-slate-500 bg-slate-700/50 text-slate-100 hover:bg-slate-700"
+                      disabled={descargandoInforme}
+                      onClick={() => void descargarInformeTrabajo(trabajoDetalle)}
+                    >
+                      <Download className="mr-1.5 h-3.5 w-3.5" />
+                      {descargandoInforme ? "Descargando…" : "Descargar informe"}
+                    </Button>
                   </div>
                 </div>
               </div>

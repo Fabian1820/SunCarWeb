@@ -1022,4 +1022,35 @@ export class TrabajosDiariosService {
       fecha_trabajo: normalizeDateOnly(payload.fecha_trabajo || payload.fecha),
     } as TrabajoDiarioRegistro;
   }
+
+  /** El informe PDF de un trabajo diario, con sus evidencias por defecto. */
+  static async descargarInforme(
+    trabajoId: string,
+    incluirImagenes = true,
+  ): Promise<Blob> {
+    const raw = await apiRequest<unknown>(
+      `${BASE_ENDPOINT}/${encodeURIComponent(trabajoId)}/informe?incluir_imagenes=${incluirImagenes}`,
+      { responseType: "blob" },
+    );
+    const errorMessage = extractResponseError(raw);
+    if (errorMessage) throw new Error(errorMessage);
+    return raw as Blob;
+  }
+
+  /**
+   * El informe PDF de todos los trabajos de un día, uno detrás de otro. Solo
+   * lo genera el servidor si el plan de ese día ya está confirmado.
+   */
+  static async descargarInformeDia(
+    fecha: string,
+    incluirImagenes = true,
+  ): Promise<Blob> {
+    const raw = await apiRequest<unknown>(
+      `${BASE_ENDPOINT}/informe-dia?fecha=${encodeURIComponent(fecha)}&incluir_imagenes=${incluirImagenes}`,
+      { responseType: "blob" },
+    );
+    const errorMessage = extractResponseError(raw);
+    if (errorMessage) throw new Error(errorMessage);
+    return raw as Blob;
+  }
 }

@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Download,
   Eye,
+  FileText,
   Loader2,
   Pencil,
   Plus,
@@ -28,6 +29,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { PlanificacionService } from "@/lib/services/feats/planificacion/planificacion-service";
 import { ExportPlanificacionService } from "@/lib/services/feats/planificacion/export-planificacion-service";
+import { TrabajosDiariosService } from "@/lib/services/feats/instalaciones/trabajos-diarios-service";
 import { aFecha, desplazar, isoLocal, nombreDia } from "@/components/feats/planificacion/fechas";
 import { TarjetaTrabajo } from "@/components/feats/planificacion/menu-dia";
 import { EtiquetaTipo } from "@/components/feats/planificacion/tipo-trabajo";
@@ -124,6 +126,30 @@ export function InicioPlanificacion({ hoy, onElegir, eligiendoDia, onEligiendoDi
   const [fallo, setFallo] = useState(false);
   const [viendo, setViendo] = useState<Planificacion | null>(null);
   const [confirmando, setConfirmando] = useState<string | null>(null);
+  const [descargandoInforme, setDescargandoInforme] = useState<string | null>(null);
+
+  async function descargarInformeDia(fecha: string, dia: string) {
+    setDescargandoInforme(fecha);
+    try {
+      const blob = await TrabajosDiariosService.descargarInformeDia(fecha);
+      const url = URL.createObjectURL(blob);
+      const enlace = document.createElement("a");
+      enlace.href = url;
+      enlace.download = `informe-trabajos-${fecha}.pdf`;
+      document.body.appendChild(enlace);
+      enlace.click();
+      enlace.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    } catch (error) {
+      toast({
+        title: `No se pudo descargar el informe de ${dia}`,
+        description: error instanceof Error ? error.message : "Intenta de nuevo.",
+        variant: "destructive",
+      });
+    } finally {
+      setDescargandoInforme(null);
+    }
+  }
 
   function reemplazar(actualizado: Planificacion) {
     setPlanes((lista) => (lista ?? []).map((p) => (p.fecha === actualizado.fecha ? actualizado : p)));
@@ -222,6 +248,8 @@ export function InicioPlanificacion({ hoy, onElegir, eligiendoDia, onEligiendoDi
             puedeConfirmar={puedeConfirmar}
             confirmando={confirmando}
             onConfirmar={confirmar}
+            descargandoInforme={descargandoInforme}
+            onDescargarInformeDia={descargarInformeDia}
           />
           {anteriores.length > 0 && (
             <ListaPlanes
@@ -234,6 +262,8 @@ export function InicioPlanificacion({ hoy, onElegir, eligiendoDia, onEligiendoDi
               puedeConfirmar={puedeConfirmar}
               confirmando={confirmando}
               onConfirmar={confirmar}
+              descargandoInforme={descargandoInforme}
+              onDescargarInformeDia={descargarInformeDia}
             />
           )}
         </div>
@@ -357,6 +387,8 @@ function ListaPlanes({
   puedeConfirmar,
   confirmando,
   onConfirmar,
+  descargandoInforme,
+  onDescargarInformeDia,
 }: {
   titulo: string;
   resumenTitulo: string;
@@ -368,6 +400,8 @@ function ListaPlanes({
   puedeConfirmar: boolean;
   confirmando: string | null;
   onConfirmar: (fecha: string) => void;
+  descargandoInforme: string | null;
+  onDescargarInformeDia: (fecha: string, dia: string) => void;
 }) {
   return (
     <Card className="border-l-4 border-l-emerald-600">
@@ -501,6 +535,22 @@ function ListaPlanes({
                           >
                             <Printer className="h-4 w-4" aria-hidden />
                           </Button>
+                          {confirmada && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => onDescargarInformeDia(fecha, dia)}
+                              disabled={descargandoInforme === fecha}
+                              aria-label={`Descargar el informe de todos los trabajos de ${dia}`}
+                              title="Informe completo (con evidencias)"
+                            >
+                              {descargandoInforme === fecha ? (
+                                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                              ) : (
+                                <FileText className="h-4 w-4" aria-hidden />
+                              )}
+                            </Button>
+                          )}
                           {puedeConfirmar && !confirmada && (
                             <Button
                               variant="ghost"
