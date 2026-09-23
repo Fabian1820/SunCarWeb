@@ -21,6 +21,7 @@ import { RouteGuard } from "@/components/auth/route-guard";
 import { Button } from "@/components/shared/atom/button";
 import { cn } from "@/lib/utils";
 import { HistorialClientePanel, iniciales } from "@/components/feats/historial/historial-cliente-panel";
+import { FiltroFechasCliente, contarFiltrosFecha } from "@/components/feats/historial/filtro-fechas";
 import { HistorialService } from "@/lib/services/feats/historial/historial-service";
 import type {
   CategoriaEquipos,
@@ -29,6 +30,7 @@ import type {
   ClientesDeEquipo,
   EquipoHistorial,
   EquiposProvincia,
+  FiltroFechas,
   FiltrosClienteHistorial,
   OpcionesFiltroClientes,
   ProvinciaResumen,
@@ -173,7 +175,8 @@ function VistaClientes() {
   const [orden, setOrden] = useState<"reciente" | "antiguo">("reciente");
   const [verFiltros, setVerFiltros] = useState(false);
   const [opciones, setOpciones] = useState<OpcionesFiltroClientes | null>(null);
-  const activos = Object.values(filtros).filter(Boolean).length;
+  const { estado, provincia, municipio, ...fechasCliente } = filtros;
+  const activos = [estado, provincia, municipio].filter(Boolean).length + contarFiltrosFecha(fechasCliente);
   const municipios = opciones?.provincias.find((p) => p.nombre === filtros.provincia)?.municipios ?? [];
 
   useEffect(() => {
@@ -309,28 +312,10 @@ function VistaClientes() {
                   ))}
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <label className="text-xs font-medium text-gray-600">
-                  Creado desde
-                  <input
-                    type="date"
-                    value={filtros.desde ?? ""}
-                    max={filtros.hasta}
-                    onChange={(e) => setFiltros((f) => ({ ...f, desde: e.target.value || undefined }))}
-                    className={cn(CLASE_SELECT, "mt-1")}
-                  />
-                </label>
-                <label className="text-xs font-medium text-gray-600">
-                  Hasta
-                  <input
-                    type="date"
-                    value={filtros.hasta ?? ""}
-                    min={filtros.desde}
-                    onChange={(e) => setFiltros((f) => ({ ...f, hasta: e.target.value || undefined }))}
-                    className={cn(CLASE_SELECT, "mt-1")}
-                  />
-                </label>
-              </div>
+              <FiltroFechasCliente
+                valor={fechasCliente}
+                onChange={(f) => setFiltros((prev) => ({ estado: prev.estado, provincia: prev.provincia, municipio: prev.municipio, ...f }))}
+              />
               {activos > 0 && (
                 <button type="button" onClick={() => setFiltros({})} className="text-sm font-medium text-emerald-800 hover:underline">
                   Quitar filtros
@@ -407,40 +392,60 @@ function VistaEquipos() {
   const [error, setError] = useState(false);
   const [recarga, setRecarga] = useState(0);
   const [provinciaActiva, setProvinciaActiva] = useState<ProvinciaResumen | null>(null);
+  const [fechas, setFechas] = useState<FiltroFechas>({});
 
   useEffect(() => {
     let cancelado = false;
     setError(false);
-    HistorialService.provincias()
+    HistorialService.provincias(fechas)
       .then((p) => !cancelado && setProvincias(p))
       .catch(() => !cancelado && setError(true));
     return () => {
       cancelado = true;
     };
-  }, [recarga]);
+  }, [recarga, fechas]);
+
+  const filtro = (
+    <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
+      <FiltroFechasCliente valor={fechas} onChange={setFechas} className="sm:grid sm:grid-cols-2 sm:gap-6 sm:space-y-0" />
+    </div>
+  );
 
   if (error && !provincias) {
     return (
-      <div className="mt-10 flex flex-col items-center gap-3 text-center">
-        <p className="font-medium text-gray-900">No se pudieron cargar las provincias</p>
-        <Button onClick={() => setRecarga((n) => n + 1)}>Reintentar</Button>
-      </div>
+      <>
+        {filtro}
+        <div className="mt-10 flex flex-col items-center gap-3 text-center">
+          <p className="font-medium text-gray-900">No se pudieron cargar las provincias</p>
+          <Button onClick={() => setRecarga((n) => n + 1)}>Reintentar</Button>
+        </div>
+      </>
     );
   }
   if (!provincias) {
     return (
-      <p className="mt-10 flex items-center gap-2 text-sm text-gray-500">
-        <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-        Contando los clientes de cada provincia…
-      </p>
+      <>
+        {filtro}
+        <p className="mt-10 flex items-center gap-2 text-sm text-gray-500">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          Contando los clientes de cada provincia…
+        </p>
+      </>
     );
   }
 
   if (provinciaActiva) {
-    return <EquiposDeProvincia provincia={provinciaActiva} onVolver={() => setProvinciaActiva(null)} />;
+    return (
+      <>
+        {filtro}
+        <EquiposDeProvincia provincia={provinciaActiva} fechas={fechas} onVolver={() => setProvinciaActiva(null)} />
+      </>
+    );
   }
 
   return (
+    <>
+    {filtro}
     <div className="mt-6">
       <p className="text-sm text-gray-600">Elige una provincia para ver sus inversores, baterías y paneles.</p>
       <div className="mt-4 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
@@ -486,11 +491,25 @@ function VistaEquipos() {
           </table>
         </div>
       </div>
+      {provincias.length === 0 && (
+        <p className="mt-4 rounded-2xl border border-dashed border-gray-300 bg-white px-6 py-10 text-center text-sm text-gray-600">
+          Ningún cliente con esas fechas.
+        </p>
+      )}
     </div>
+    </>
   );
 }
 
-function EquiposDeProvincia({ provincia, onVolver }: { provincia: ProvinciaResumen; onVolver: () => void }) {
+function EquiposDeProvincia({
+  provincia,
+  fechas,
+  onVolver,
+}: {
+  provincia: ProvinciaResumen;
+  fechas: FiltroFechas;
+  onVolver: () => void;
+}) {
   const [datos, setDatos] = useState<EquiposProvincia | null>(null);
   const [error, setError] = useState(false);
   const [recarga, setRecarga] = useState(0);
@@ -502,13 +521,13 @@ function EquiposDeProvincia({ provincia, onVolver }: { provincia: ProvinciaResum
     let cancelado = false;
     setError(false);
     setDatos(null);
-    HistorialService.equiposProvincia(provincia.nombre)
+    HistorialService.equiposProvincia(provincia.nombre, fechas)
       .then((d) => !cancelado && setDatos(d))
       .catch(() => !cancelado && setError(true));
     return () => {
       cancelado = true;
     };
-  }, [provincia.nombre, recarga]);
+  }, [provincia.nombre, fechas, recarga]);
 
   if (equipo) {
     return (
@@ -517,11 +536,13 @@ function EquiposDeProvincia({ provincia, onVolver }: { provincia: ProvinciaResum
         categoria={categoria}
         categoriaNombre={provincia.nombre}
         provincia={provincia.nombre}
+        fechas={fechas}
         onVolver={() => setEquipo(null)}
       />
     );
   }
 
+  const clientesProvincia = datos?.provincia.clientes ?? provincia.clientes;
   const categorias: CategoriaEquipos[] = datos?.categorias ?? [];
   const actual = categorias.find((c) => c.clave === categoria);
   const texto = q.trim().toLowerCase();
@@ -539,7 +560,7 @@ function EquiposDeProvincia({ provincia, onVolver }: { provincia: ProvinciaResum
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <h2 className="text-lg font-semibold text-gray-900">{provincia.nombre}</h2>
         <span className="text-sm font-semibold text-emerald-800">
-          {numero(provincia.clientes)} {provincia.clientes === 1 ? "cliente" : "clientes"}
+          {numero(clientesProvincia)} {clientesProvincia === 1 ? "cliente" : "clientes"}
         </span>
       </div>
 
@@ -647,12 +668,14 @@ function ClientesDelEquipo({
   categoria,
   categoriaNombre,
   provincia,
+  fechas,
   onVolver,
 }: {
   equipo: EquipoHistorial;
   categoria: ClaveCategoriaEquipo;
   categoriaNombre: string;
   provincia?: string;
+  fechas?: FiltroFechas;
   onVolver: () => void;
 }) {
   const [datos, setDatos] = useState<ClientesDeEquipo | null>(null);
@@ -661,13 +684,14 @@ function ClientesDelEquipo({
 
   useEffect(() => {
     let cancelado = false;
-    HistorialService.clientesDeEquipo(equipo.material_codigo, provincia)
+    setDatos(null);
+    HistorialService.clientesDeEquipo(equipo.material_codigo, provincia, fechas)
       .then((d) => !cancelado && setDatos(d))
       .catch(() => !cancelado && setError(true));
     return () => {
       cancelado = true;
     };
-  }, [equipo.material_codigo, provincia]);
+  }, [equipo.material_codigo, provincia, fechas]);
 
   const p = potencia(equipo.potencia_kw, categoria);
 

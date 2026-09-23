@@ -4,11 +4,24 @@ import type {
   ClienteHistorial,
   ClientesDeEquipo,
   EquiposProvincia,
+  FiltroFechas,
   FiltrosClienteHistorial,
   OpcionesFiltroClientes,
   HistorialCliente,
   ProvinciaResumen,
 } from "@/lib/types/feats/historial/historial-types";
+
+function paramsDeFechas(fechas: FiltroFechas = {}, params = new URLSearchParams()): URLSearchParams {
+  for (const [clave, valor] of Object.entries(fechas)) {
+    if (valor) params.set(clave, valor);
+  }
+  return params;
+}
+
+function consulta(params: URLSearchParams): string {
+  const texto = params.toString();
+  return texto ? `?${texto}` : "";
+}
 
 export const HistorialService = {
   async clientes(
@@ -48,24 +61,27 @@ export const HistorialService = {
     return r.data?.categorias ?? [];
   },
 
-  async clientesDeEquipo(materialCodigo: string, provincia?: string): Promise<ClientesDeEquipo> {
-    const params = provincia ? `?provincia=${encodeURIComponent(provincia)}` : "";
+  async clientesDeEquipo(materialCodigo: string, provincia?: string, fechas: FiltroFechas = {}): Promise<ClientesDeEquipo> {
+    const params = paramsDeFechas(fechas);
+    if (provincia) params.set("provincia", provincia);
     const r = await apiRequest<{ success: boolean; data: ClientesDeEquipo }>(
-      `/historial/equipos/${encodeURIComponent(materialCodigo)}/clientes${params}`,
+      `/historial/equipos/${encodeURIComponent(materialCodigo)}/clientes${consulta(params)}`,
     );
     return r.data;
   },
 
   /** Las provincias con clientes, con cuántos tiene cada una. */
-  async provincias(): Promise<ProvinciaResumen[]> {
-    const r = await apiRequest<{ success: boolean; data: { provincias: ProvinciaResumen[] } }>(`/historial/provincias`);
+  async provincias(fechas: FiltroFechas = {}): Promise<ProvinciaResumen[]> {
+    const r = await apiRequest<{ success: boolean; data: { provincias: ProvinciaResumen[] } }>(
+      `/historial/provincias${consulta(paramsDeFechas(fechas))}`,
+    );
     return r.data?.provincias ?? [];
   },
 
   /** Inversores, baterías y paneles de los clientes de una provincia. */
-  async equiposProvincia(provincia: string): Promise<EquiposProvincia> {
+  async equiposProvincia(provincia: string, fechas: FiltroFechas = {}): Promise<EquiposProvincia> {
     const r = await apiRequest<{ success: boolean; data: EquiposProvincia }>(
-      `/historial/provincias/${encodeURIComponent(provincia)}/equipos`,
+      `/historial/provincias/${encodeURIComponent(provincia)}/equipos${consulta(paramsDeFechas(fechas))}`,
     );
     return r.data;
   },

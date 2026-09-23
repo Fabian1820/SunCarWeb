@@ -62,15 +62,23 @@ export interface ClienteHistorial {
   fecha_creacion?: string | null;
 }
 
+/** Rangos de día ("YYYY-MM-DD", extremos incluidos) por fecha de creación y de instalación. */
+export interface FiltroFechas {
+  /** Creados desde este día. */
+  desde?: string;
+  /** Creados hasta este día. */
+  hasta?: string;
+  /** Instalados desde este día. */
+  instalado_desde?: string;
+  /** Instalados hasta este día. */
+  instalado_hasta?: string;
+}
+
 /** Con qué filtrar la lista de clientes del historial. */
-export interface FiltrosClienteHistorial {
+export interface FiltrosClienteHistorial extends FiltroFechas {
   estado?: string;
   provincia?: string;
   municipio?: string;
-  /** "YYYY-MM-DD": creados desde este día. */
-  desde?: string;
-  /** "YYYY-MM-DD": creados hasta este día incluido. */
-  hasta?: string;
 }
 
 export interface OpcionesFiltroClientes {
