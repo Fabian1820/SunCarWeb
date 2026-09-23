@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -17,6 +17,12 @@ import { Textarea } from "@/components/shared/molecule/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { DevolucionValeService, TrabajadorService } from "@/lib/api-services";
 import { parseFechaUtc } from "@/lib/utils/fecha-utc";
+import {
+  claveSerie,
+  limpiarSeries,
+  seriesRepetidas,
+  unidadesConSerie,
+} from "@/lib/utils/numeros-serie";
 import type {
   DevolucionVale,
   DevolucionValeResumenMaterial,
@@ -25,6 +31,7 @@ import type {
 } from "@/lib/api-types";
 import {
   AlertTriangle,
+  Hash,
   Loader2,
   RefreshCw,
   Search,
@@ -50,6 +57,17 @@ interface DevolucionMaterialFormRow {
   cantidad_devuelta: number;
   cantidad_disponible_devolver: number;
   cantidad: number;
+  /** Series del vale que siguen fuera: entre ellas se elige qué vuelve. */
+  series_pendientes: string[];
+  /** Todas las unidades salieron con serie: la cantidad es lo marcado. */
+  requiere_series: boolean;
+  series_seleccionadas: string[];
+  /** Si el vale no traía series, las que se anoten al devolver (opcional). */
+  series_libres: string[];
+  mostrar_series_libres: boolean;
+  /** Lo escrito o escaneado en el buscador de series, y su aviso. */
+  serie_buscada: string;
+  aviso_serie: string | null;
 }
 
 const toSafeNumber = (value: unknown): number => {
@@ -100,6 +118,10 @@ const mapResumenToFormRows = (
   materiales
     .map((material) => {
       const disponible = toSafeNumber(material.cantidad_disponible_devolver);
+      const pendientes = material.numeros_serie_pendientes ?? [];
+      const requiere = Boolean(material.requiere_series) && pendientes.length > 0;
+      // Por defecto se devuelve todo lo disponible: con series, todas marcadas.
+      const seleccionadas = pendientes.slice(0, unidadesConSerie(disponible));
       return {
         material_id: material.material_id,
         material_codigo: material.material_codigo,
@@ -109,10 +131,49 @@ const mapResumenToFormRows = (
         cantidad_salida: toSafeNumber(material.cantidad_salida),
         cantidad_devuelta: toSafeNumber(material.cantidad_devuelta),
         cantidad_disponible_devolver: disponible,
-        cantidad: disponible,
+        cantidad: requiere ? seleccionadas.length : disponible,
+        series_pendientes: pendientes,
+        requiere_series: requiere,
+        series_seleccionadas: seleccionadas,
+        series_libres: [],
+        mostrar_series_libres: false,
+        serie_buscada: "",
+        aviso_serie: null,
       };
     })
     .filter((material) => material.cantidad_disponible_devolver > 0);
+
+/**
+ * Qué impide devolver esta fila por sus series, o null. Mismas reglas que el
+ * backend (`_validar_series_devolucion`), para avisar antes de enviar.
+ */
+const problemaSeries = (material: DevolucionMaterialFormRow): string | null => {
+  const unidades = unidadesConSerie(material.cantidad);
+  if (material.series_pendientes.length > 0) {
+    if (material.requiere_series && material.series_seleccionadas.length === 0) {
+      return "Marca qué unidades vuelven.";
+    }
+    if (material.series_seleccionadas.length > unidades) {
+      return `Hay ${material.series_seleccionadas.length} series marcadas para ${formatCantidad(
+        material.cantidad,
+      )} unidades.`;
+    }
+    return null;
+  }
+  if (!material.mostrar_series_libres) return null;
+  const libres = limpiarSeries(material.series_libres.slice(0, unidades));
+  const repetidas = seriesRepetidas(libres);
+  if (repetidas.length > 0) return `La serie ${repetidas[0]} está repetida.`;
+  return null;
+};
+
+const seriesAEnviar = (material: DevolucionMaterialFormRow): string[] => {
+  if (material.series_pendientes.length > 0) return material.series_seleccionadas;
+  if (!material.mostrar_series_libres) return [];
+  return limpiarSeries(
+    material.series_libres.slice(0, unidadesConSerie(material.cantidad)),
+  );
+};
 
 export function DevolucionValeDialog({
   open,
@@ -248,6 +309,89 @@ export function DevolucionValeDialog({
     );
   };
 
+  const actualizarFila = (
+    materialId: string,
+    cambio: (material: DevolucionMaterialFormRow) => DevolucionMaterialFormRow,
+  ) => {
+    setMaterialesForm((prev) =>
+      prev.map((material) =>
+        material.material_id === materialId ? cambio(material) : material,
+      ),
+    );
+  };
+
+  const conSeleccion = (
+    material: DevolucionMaterialFormRow,
+    seleccionadas: string[],
+  ): DevolucionMaterialFormRow => ({
+    ...material,
+    series_seleccionadas: seleccionadas,
+    // Si todas salieron con serie, devolver N unidades es marcar N series.
+    cantidad: material.requiere_series ? seleccionadas.length : material.cantidad,
+    aviso_serie: null,
+  });
+
+  const handleToggleSerie = (materialId: string, serie: string) => {
+    actualizarFila(materialId, (material) =>
+      conSeleccion(
+        material,
+        material.series_seleccionadas.includes(serie)
+          ? material.series_seleccionadas.filter((s) => s !== serie)
+          : // Se conserva el orden del vale.
+            material.series_pendientes.filter(
+              (s) => s === serie || material.series_seleccionadas.includes(s),
+            ),
+      ),
+    );
+  };
+
+  const handleMarcarTodas = (materialId: string, todas: boolean) => {
+    actualizarFila(materialId, (material) =>
+      conSeleccion(material, todas ? [...material.series_pendientes] : []),
+    );
+  };
+
+  // Escribir o escanear una serie la busca en el vale y la marca. Así no hay
+  // que buscarla a ojo entre las casillas, y una serie que no salió en este
+  // vale se ve al momento en vez de al guardar.
+  const handleBuscarSerie = (materialId: string) => {
+    const fila = materialesForm.find((m) => m.material_id === materialId);
+    const texto = fila?.serie_buscada.trim() ?? "";
+    if (!fila || !texto) return;
+    const clave = claveSerie(texto);
+    const encontrada = fila.series_pendientes.find((s) => claveSerie(s) === clave);
+    if (encontrada) {
+      actualizarFila(materialId, (material) => ({
+        ...conSeleccion(
+          material,
+          material.series_pendientes.filter(
+            (s) => s === encontrada || material.series_seleccionadas.includes(s),
+          ),
+        ),
+        serie_buscada: "",
+        aviso_serie: material.series_seleccionadas.includes(encontrada)
+          ? `${encontrada} ya estaba marcada.`
+          : null,
+      }));
+      return;
+    }
+    const resumen = resumenMateriales.find((m) => m.material_id === materialId);
+    const yaDevuelta = (resumen?.numeros_serie_devueltos ?? []).find(
+      (s) => claveSerie(s) === clave,
+    );
+    const deOtro = resumenMateriales.find(
+      (m) =>
+        m.material_id !== materialId &&
+        (m.numeros_serie ?? []).some((s) => claveSerie(s) === clave),
+    );
+    const aviso = yaDevuelta
+      ? `${yaDevuelta} ya se devolvió antes.`
+      : deOtro
+        ? `${texto} es de ${getMaterialNombre(deOtro)}, no de este material.`
+        : `${texto} no salió en este vale.`;
+    actualizarFila(materialId, (material) => ({ ...material, aviso_serie: aviso }));
+  };
+
   const handleSelectResponsable = (trabajador: Trabajador) => {
     setResponsableDevolucion(trabajador.nombre);
     setShowResponsableDropdown(false);
@@ -274,7 +418,8 @@ export function DevolucionValeDialog({
         (material) =>
           material.material_id &&
           material.cantidad > 0 &&
-          material.cantidad <= material.cantidad_disponible_devolver,
+          material.cantidad <= material.cantidad_disponible_devolver &&
+          !problemaSeries(material),
       ),
     [materialesForm],
   );
@@ -284,7 +429,8 @@ export function DevolucionValeDialog({
       materialesForm.some(
         (material) =>
           material.cantidad <= 0 ||
-          material.cantidad > material.cantidad_disponible_devolver,
+          material.cantidad > material.cantidad_disponible_devolver ||
+          Boolean(problemaSeries(material)),
       ),
     [materialesForm],
   );
@@ -312,9 +458,9 @@ export function DevolucionValeDialog({
 
     if (materialesValidos.length !== materialesForm.length) {
       toast({
-        title: "Cantidades invalidas",
+        title: "Revisa la devolución",
         description:
-          "Cada cantidad devuelta debe ser mayor que 0 y no puede exceder lo disponible.",
+          "Cada cantidad devuelta debe ser mayor que 0, no puede exceder lo disponible y sus números de serie deben cuadrar.",
         variant: "destructive",
       });
       return;
@@ -335,10 +481,14 @@ export function DevolucionValeDialog({
         vale_id: valeId,
         responsable_devolucion: responsableDevolucion.trim(),
         comentario: comentario.trim(),
-        materiales: materialesValidos.map((material) => ({
-          material_id: material.material_id,
-          cantidad: material.cantidad,
-        })),
+        materiales: materialesValidos.map((material) => {
+          const series = seriesAEnviar(material);
+          return {
+            material_id: material.material_id,
+            cantidad: material.cantidad,
+            ...(series.length > 0 && { numeros_serie: series }),
+          };
+        }),
       });
 
       toast({
@@ -631,11 +781,15 @@ export function DevolucionValeDialog({
                             material.cantidad <= 0 ||
                             material.cantidad >
                               material.cantidad_disponible_devolver;
+                          const problema = problemaSeries(material);
+                          const conSeriesDelVale = material.series_pendientes.length > 0;
+                          const unidades = unidadesConSerie(material.cantidad);
+                          const muestraSeries = conSeriesDelVale || unidades > 0;
                           return (
+                            <Fragment key={material.material_id}>
                             <tr
-                              key={material.material_id}
-                              className={`border-b last:border-b-0 ${
-                                cantidadInvalida ? "bg-red-50/60" : ""
+                              className={`${muestraSeries ? "" : "border-b"} ${
+                                cantidadInvalida || problema ? "bg-red-50/60" : ""
                               }`}
                             >
                               <td className="py-2 px-3">
@@ -663,7 +817,14 @@ export function DevolucionValeDialog({
                                       event.target.value,
                                     )
                                   }
-                                  disabled={submitting || valeBloqueado}
+                                  disabled={
+                                    submitting || valeBloqueado || material.requiere_series
+                                  }
+                                  title={
+                                    material.requiere_series
+                                      ? "Todas las unidades salieron con serie: la cantidad es la de series marcadas"
+                                      : undefined
+                                  }
                                   className={`h-9 text-right ${
                                     cantidadInvalida ? "border-red-400" : ""
                                   }`}
@@ -685,6 +846,148 @@ export function DevolucionValeDialog({
                                 </Button>
                               </td>
                             </tr>
+                            {muestraSeries ? (
+                              <tr
+                                className={`border-b last:border-b-0 ${
+                                  cantidadInvalida || problema ? "bg-red-50/60" : ""
+                                }`}
+                              >
+                                <td colSpan={4} className="px-3 pb-3 pt-0">
+                                  {conSeriesDelVale ? (
+                                    <div className="space-y-2">
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <span className="text-xs font-medium text-gray-600">
+                                          N° de serie que vuelven
+                                          {material.requiere_series ? (
+                                            <span className="text-red-600"> *</span>
+                                          ) : (
+                                            " (opcional)"
+                                          )}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          className="text-xs text-blue-600 hover:text-blue-800"
+                                          onClick={() =>
+                                            handleMarcarTodas(material.material_id, true)
+                                          }
+                                          disabled={submitting || valeBloqueado}
+                                        >
+                                          Todas
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="text-xs text-blue-600 hover:text-blue-800"
+                                          onClick={() =>
+                                            handleMarcarTodas(material.material_id, false)
+                                          }
+                                          disabled={submitting || valeBloqueado}
+                                        >
+                                          Ninguna
+                                        </button>
+                                      </div>
+                                      <div className="flex flex-wrap gap-1.5">
+                                        {material.series_pendientes.map((serie) => {
+                                          const marcada =
+                                            material.series_seleccionadas.includes(serie);
+                                          return (
+                                            <button
+                                              key={serie}
+                                              type="button"
+                                              onClick={() =>
+                                                handleToggleSerie(material.material_id, serie)
+                                              }
+                                              disabled={submitting || valeBloqueado}
+                                              aria-pressed={marcada}
+                                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-md border text-xs font-mono ${
+                                                marcada
+                                                  ? "bg-blue-600 text-white border-blue-600"
+                                                  : "bg-white text-gray-600 border-gray-300 hover:border-blue-400"
+                                              }`}
+                                            >
+                                              <Hash className="h-3 w-3" />
+                                              {serie}
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                      <Input
+                                        placeholder="Escribe o escanea una serie y pulsa Enter"
+                                        value={material.serie_buscada}
+                                        onChange={(event) => {
+                                          const valor = event.target.value;
+                                          actualizarFila(material.material_id, (m) => ({
+                                            ...m,
+                                            serie_buscada: valor,
+                                            aviso_serie: null,
+                                          }));
+                                        }}
+                                        onKeyDown={(event) => {
+                                          if (event.key === "Enter") {
+                                            event.preventDefault();
+                                            handleBuscarSerie(material.material_id);
+                                          }
+                                        }}
+                                        disabled={submitting || valeBloqueado}
+                                        className="h-8 max-w-sm text-xs"
+                                      />
+                                    </div>
+                                  ) : material.mostrar_series_libres ? (
+                                    <div className="space-y-2">
+                                      <span className="text-xs font-medium text-gray-600">
+                                        N° de serie de lo devuelto (opcional; el vale no los
+                                        traía)
+                                      </span>
+                                      <div className="grid gap-2 sm:grid-cols-3">
+                                        {Array.from({ length: unidades }, (_, i) => (
+                                          <Input
+                                            key={i}
+                                            placeholder={`Unidad ${i + 1}`}
+                                            value={material.series_libres[i] ?? ""}
+                                            onChange={(event) => {
+                                              const valor = event.target.value;
+                                              actualizarFila(material.material_id, (m) => {
+                                                const libres = Array.from(
+                                                  { length: Math.max(unidades, m.series_libres.length) },
+                                                  (_, j) => m.series_libres[j] ?? "",
+                                                );
+                                                libres[i] = valor;
+                                                return { ...m, series_libres: libres };
+                                              });
+                                            }}
+                                            disabled={submitting || valeBloqueado}
+                                            className="h-8 text-xs"
+                                          />
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      className="text-xs text-blue-600 hover:text-blue-800 inline-flex items-center gap-1"
+                                      onClick={() =>
+                                        actualizarFila(material.material_id, (m) => ({
+                                          ...m,
+                                          mostrar_series_libres: true,
+                                        }))
+                                      }
+                                      disabled={submitting || valeBloqueado}
+                                    >
+                                      <Hash className="h-3 w-3" />
+                                      Anotar N° de serie de lo devuelto
+                                    </button>
+                                  )}
+                                  {material.aviso_serie ? (
+                                    <p className="mt-1 text-xs text-amber-700">
+                                      {material.aviso_serie}
+                                    </p>
+                                  ) : null}
+                                  {problema ? (
+                                    <p className="mt-1 text-xs text-red-600">{problema}</p>
+                                  ) : null}
+                                </td>
+                              </tr>
+                            ) : null}
+                            </Fragment>
                           );
                         })}
                       </tbody>
@@ -719,6 +1022,9 @@ export function DevolucionValeDialog({
                             Materiales
                           </th>
                           <th className="text-left py-2 px-3 font-medium text-gray-700">
+                            N° de serie
+                          </th>
+                          <th className="text-left py-2 px-3 font-medium text-gray-700">
                             Creado por
                           </th>
                         </tr>
@@ -737,6 +1043,11 @@ export function DevolucionValeDialog({
                             </td>
                             <td className="py-2 px-3 text-right">
                               {(devolucion.materiales || []).length}
+                            </td>
+                            <td className="py-2 px-3 font-mono text-xs text-gray-600">
+                              {(devolucion.materiales || [])
+                                .flatMap((m) => m.numeros_serie ?? [])
+                                .join(" · ") || "-"}
                             </td>
                             <td className="py-2 px-3">
                               {devolucion.creado_por_ci || "-"}
