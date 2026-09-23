@@ -2,6 +2,102 @@
 
 ---
 
+## 📅 23 de Septiembre, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**~22 commits reales** — Fabian1820 (10), yany1509 (9), Ruben0304 (3). Día extremadamente activo. Siete áreas principales: **nuevo módulo Facturación / Por facturar** con permisos aditivos, **traspaso e intercambio de equipos entre clientes**, **números de serie en vales**, **desconfirmar día en planificación**, fixes críticos de facturas/auth/leads/ventas, descarga de PDF en trabajos diarios y mejoras visuales.
+
+---
+
+### Área 1: feat/fix(facturas-solar-carros) × 5 — Ciclo de vida completo de facturas (Fabian1820, 14:51–22:08)
+
+- **`feat(facturacion): módulo Por facturar`** (19:04) — La factura ya no se genera sola al instalar; se acepta en Facturación → Por facturar. Pestañas Nuevos e Histórico. Cada cliente muestra todas sus ofertas confirmadas con estado (facturada/pendiente/no se factura) y acciones Facturar / No facturar / Deshacer. Pestaña **Oferta vs almacén** con comparativa material por material. Tres permisos aditivos con `hasExactPermission`: `facturas/por-facturar`, `facturas/facturar`, `facturas/comparativa`. Obras Terminadas: "Generar factura a cliente" exige el permiso de facturar. La campana lleva notificaciones a Por facturar.
+
+- **`feat: la factura guarda su ticket y el diálogo avisa que se borra`** (15:59) — `ContabilidadService.crearTicket` leía `response.ticket` (que el backend no manda; responde `ticket_id` y `numero_ticket`), por lo que siempre devolvía `undefined` y ninguna factura guardaba su ticket. Corregido. Al eliminar, el diálogo dice qué ticket se borra con ella.
+
+- **`feat: botón Eliminar factura con opción de devolver existencias`** (14:51) — Tres salidas al eliminar: Cancelar, Solo eliminar (no toca inventario) y Eliminar y devolver cantidades (suma de vuelta a Existencias Contabilidad).
+
+- **`fix: una factura rechazada ya no deja la rebaja hecha`** (22:08) — El 23-sep la página proponía el número 0000126 ya existente; el backend rebajó el ticket y rechazó con 400. Como `apiRequest` no lanza ante 400, la página decía "Factura creada" y las 15 líneas salían dos veces. Fixes: la lista de facturas se carga al abrir (no solo al entrar en Facturas); se verifica que el número no exista antes de rebajar; se comprueba la respuesta del POST y si falla se anula el ticket; ante corte de red se busca la factura antes de devolver.
+
+- **`fix: botón Agregar otro material no se sale con descripciones largas`** (18:38) — `whitespace-nowrap` heredado por el span de `SearchableSelect` con `truncateSelected={false}` empujaba el botón fuera de pantalla.
+
+---
+
+### Área 2: feat/fix(clientes) × 2 — Traspaso e intercambio de equipos (Fabian1820, 14:44–15:57)
+
+- **`feat(clientes): traspaso e intercambio de equipos entre clientes`** (14:44) — Botón «Traspaso / intercambio» en el diálogo de equipos: selector del otro cliente, columnas de cuántas unidades pasan a cada lado (un sentido = traspaso, los dos = intercambio), series opcionales, vista previa de capacidad de ambos y aviso si alguno se queda sin inversor/baterías/paneles. Historial con código TR, otro cliente, quién lo hizo y quién lo autorizó; permite revertir. Tras guardar se refrescan las filas de los dos clientes.
+
+- **`fix(clientes): el traspaso va con el acceso completo a Clientes`** (15:57) — Se quita el sub-permiso aditivo `clientes/traspaso-equipos`; el botón lo ve quien tiene el módulo Clientes entero (verificado con `hasExactPermission`).
+
+---
+
+### Área 3: feat(vales) — Números de serie por unidad (Fabian1820, 16:27)
+
+- **`feat(vales): números de serie por unidad al crear, ver y devolver un vale`** — Crear vale: series como lista (texto libre, pueden llevar comas); no rompe con cantidades decimales; quita series sobrantes al bajar la cantidad; avisa series incompletas; no deja repetir series en el vale. Detalle: etiqueta por serie, las devueltas tachadas. Devolución: si el vale trae series se marcan las que vuelven o se escanea; avisa si es de otro material o ya devuelta. **Requiere backend 6881e06.**
+
+---
+
+### Área 4: feat(planificacion) — Botón desconfirmar día (Fabian1820, 22:20)
+
+- **`feat(planificacion): botón para desconfirmar un día ya confirmado`** — Nuevo sub-permiso aditivo `planificacion/desconfirmar` (ni el módulo ni `planificacion/confirmar` lo conceden). Los días confirmados muestran el botón a quien lo tenga y a superadmins, con diálogo de confirmación (las brigadas dejan de ver el día en la app).
+
+---
+
+### Área 5: fix(auth) + fix(leads) + fix(ventas) — Tres fixes de datos críticos (yany1509, 19:01–19:21)
+
+- **`fix(auth): forzar login ante cualquier 401`** (19:21) — El interceptor solo reaccionaba a 401 cuyo mensaje contuviera "token" + "expirado"/"inválido". El 401 de sesión revocada por CI traía otro texto y no matcheaba, así que el panel no mandaba al login. Se amplía a cualquier 401.
+
+- **`fix(leads): exigir provincia y municipio, y mostrar cuándo falló la conversión automática`** (19:01) — Un lead sin municipio bloqueaba en silencio la conversión automática a cliente al pagar (el backend la exige para el código). El formulario ahora exige `provincia_montaje` y `municipio`. La tabla y el detalle muestran aviso ámbar cuando el backend registró `ultimo_error_conversion_automatica`.
+
+- **`fix(ventas): "Total facturado" no sumaba los aumentos`** (19:20) — Mostraba `usd.sinDescuento` en vez de `usd.facturado` (ya calculado con descuentos y aumentos). En producción el encabezado baja de ~3.03M a ~2.95M.
+
+---
+
+### Área 6: feat(historial) + feat(trabajos-diarios) + feat(historial-provincias) — Mejoras de datos (yany1509, 15:29–17:13)
+
+- **`feat(historial): filtros de fecha de creación e instalación (este mes, un mes o rango)`** (15:29) — Añadidos en Por clientes y en cada nivel de Por equipos (provincias, equipos de una provincia y clientes de un equipo).
+
+- **`feat(trabajos-diarios): descargar el informe PDF de un trabajo y el de todo el día`** (17:13).
+
+- **`feat(historial): la tabla de provincias suma cuántos clientes tienen inversor, batería y paneles`** (16:07).
+
+---
+
+### Área 7: fixes de UI/UX (yany1509 + Ruben0304, 14:44–22:20)
+
+- **`fix(dashboard): unificar el tono de color por pestaña`** — Cada pestaña usa un solo hue con variaciones de intensidad por módulo.
+- **`fix(planificacion): etiqueta "instalación en proceso" rellena`** — Pasó de contorno esmeralda a relleno violeta para diferenciarse de "instalación nueva".
+- **`fix(wallet): evita que el body quede bloqueado al crear un banco desde el dropdown`** — Race condition Radix conocido (DropdownMenuItem + Dialog en mismo tick) dejaba `pointer-events: none` permanente. Solucionado con `onSelect + preventDefault + setTimeout`.
+- **`fix(instaladores): unifica el diseño de Gestionar Instaladores con Brigadas`** — Layout de tarjetas unificado, filtro Tipo con Select del sistema, confirmaciones con `ConfirmDeleteDialog`.
+- **`feat(planificacion): rediseña la vista de inicio con el lenguaje de Brigadas`** — Ancho completo, tarjetas con encabezado, desglose de trabajos por tipo, cumplimiento de días pasados y avatares.
+
+---
+
+### Puede dar bateo
+
+1. **feat(facturacion) módulo Por facturar — confirmar endpoints en backend de producción**: Los endpoints de Por facturar, facturar oferta y comparativa son nuevos. Si no están deployados, las pestañas fallan al cargar.
+
+2. **feat(facturacion) `hasExactPermission` — confirmar implementación en auth-context**: Tres permisos usan esta función para la comprobación. Si no está declarada en el contexto de autenticación, el módulo fallará con "is not a function" en runtime.
+
+3. **feat(facturacion) permisos aditivos — confirmar `facturas/por-facturar`, `facturas/facturar`, `facturas/comparativa` en MODULOS_CATALOGO**: Sin entrada en el catálogo no son asignables desde Gestión de Permisos.
+
+4. **feat(clientes) traspaso de equipos — confirmar endpoint en SunCarBackend**: El backend debe tener el endpoint de traspaso (probablemente `POST /clientes/{id}/traspaso-equipos`) y el de revertir. Si no están deployados, el botón creará errores 404.
+
+5. **feat(vales) números de serie — requiere backend 6881e06**: Si ese commit no está deployado en producción, crear un vale con series devolverá 422 o ignorará las series silenciosamente.
+
+6. **feat(planificacion) `planificacion/desconfirmar` — confirmar en MODULOS_CATALOGO**: Sin entrada, nadie podrá recibir el sub-permiso y el botón solo lo verán superadmins.
+
+7. **fix(auth) cualquier 401 fuerza login — loop si el endpoint de login devuelve 401**: Si `/api/auth/login-admin` devolviera 401 en algún edge case (credenciales malformadas), el interceptor lo detectaría como sesión expirada y entraría en loop de redirección. Confirmar que el interceptor no aplica en la ruta de login.
+
+8. **fix(leads) municipio obligatorio — leads existentes sin municipio**: Al editar un lead antiguo sin municipio, el formulario bloqueará el guardado exigiendo el campo. Si hay muchos leads en este estado, puede ser disruptivo operacionalmente.
+
+9. **fix(ventas) caída de ~3.03M a ~2.95M en Total facturado**: El cambio es correcto, pero puede alarmar a usuarios sin contexto. Comunicar que es un fix de cálculo, no una pérdida real.
+
+10. **fix(facturas) ticket_id de facturas históricas — diálogo de eliminar mostrará "sin ticket"**: Todas las facturas creadas antes de este fix no tienen `ticket_id` guardado (siempre era `undefined`). El diálogo de eliminar dirá que no tiene ticket enlazado, aunque sí rebajó Existencias en su momento. Confirmar que el comportamiento de "Solo eliminar" es el correcto para estos casos.
+
+---
+
 ## 📅 17 de Septiembre, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -212,168 +308,4 @@
 
 ---
 
-## 📅 15 de Septiembre, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**25 commits reales** — yany1509 (todos). Día extremadamente activo. Dos módulos completamente nuevos: **Historial** (por clientes y por equipos, con 5 commits iterativos) y **Entregas y Devoluciones** (con 5 commits + fix de build). Además: módulo de **Organigramas** en RRHH, refactor completo de roles de trabajadores/instaladores (`es_jefe_brigada` reemplaza `tiene_contraseña`), fix de fechas UTC en vales de salida, reportes comerciales de materiales, sugerencia de cargos en RRHH, y múltiples fixes de UI en brigadas.
-
----
-
-### Área 1: feat(historial) × 5 — módulo Historial por clientes y por equipos (15:49–20:17)
-
-- **`feat(historial): módulo Historial por clientes y por equipos`** (15:49) — Módulo nuevo en Operaciones con permiso `historial`. Por clientes: búsqueda y, al elegir uno, todo lo ocurrido en orden cronológico (registro, ofertas creadas y confirmadas, pagos, visitas, materiales salidos y devoluciones, trabajos diarios y averías), con filtros por tipo y orden antiguo/reciente. Por equipos: inversores, baterías y paneles de ofertas confirmadas con potencia, clientes, unidades y ofertas; al tocar uno, quién lo tiene y cuántos, y de cada cliente el mismo historial. Ruta `app/historial`.
-
-- **`feat(historial): rediseño con colores por tipo y cosas conectadas`** (16:28) — Línea de tiempo por días con colores por tipo (ofertas verde, visitas índigo, materiales violeta, devoluciones ámbar, trabajos azul, averías rojo). Los eventos conectados (vale ↔ trabajo que lo usó, avería ↔ trabajo que la solucionó) se pueden tocar para saltar entre ellos.
-
-- **`feat(historial): Ver historial en Clientes con todo lo comercial`** (20:00) — Botón "Ver historial" en la tabla de clientes que abre el historial en vista comercial: lead de origen, ofertas creadas/editadas/cambios de estado/confirmadas/canceladas, pagos con sus ediciones, cancelaciones y devoluciones, citas, cambios del cliente y todo lo de operaciones, enlazado.
-
-- **`feat(historial): filtros de clientes y flechas entre lo conectado`** (20:08) — Lista de clientes con filtros por estado, provincia, municipio y fecha de creación. Las conexiones entre eventos se dibujan como flechas en un carril a la derecha, del color del destino.
-
-- **`feat(historial): marcar los tipos que se quieren ver`** (20:17) — En vez de tachar lo que no se quiere ver, se marca lo que se quiere ver; sin nada marcado (Todo) se ve todo.
-
----
-
-### Área 2: feat(entregas) × 5 + fix(build) — módulo Entregas y Devoluciones nuevo (15:14–20:32)
-
-- **`feat(entregas): módulo Entregas y devoluciones`** (15:14) — Por día: los vales que salieron del almacén con cliente, almacén, quién recogió y quién entregó. Pestaña Devoluciones separada. Permiso `entregas-devoluciones`.
-
-- **4 commits iterativos**: diseño de pestañas Entregas/Devoluciones con colores distintos, tabla con filas alternas, traslado de Gestión de almacenes a Operaciones, y tarjeta en Reportes de Comercial.
-
-- **`fix(build): subir export-list-pdf y pdfExporter`** (20:30) — Archivos omitidos en un commit previo causaban "module not found" en el build.
-
----
-
-### Área 3: feat/fix(trabajadores) × 4 + feat(brigadas) — gestión de roles de instaladores (13:43–18:18)
-
-- Refactor de `tiene_contraseña` a `es_jefe_brigada` como fuente de verdad del rol de jefe. Selector de trabajador existente al agregar instalador. Fix de "Dar de baja" que desactivaba al trabajador entero en vez de solo quitar el rol. Fix de focus-trap en `SearchableSelect` dentro de modal.
-
----
-
-### Área 4–11: feat(organigramas), fix(brigadas), feat(clientes), fix(vales-salida), feat(reportes-comercial), feat(visitas), feat(recursos-humanos), feat(planificacion)
-
-- Módulo **Organigramas** en RRHH con editor en árbol, PDF y autoguardado.
-- Fix de exclusión de candidatos ya en otra brigada.
-- Vales de salida por cliente y equipos en servicio en menú de tres puntos.
-- Fix de fechas UTC en vales de salida (parseFechaUtc).
-- Materiales en ofertas por precio con filtros y Excel en Reportes de Comercial.
-- Estudio energético con varias baterías, días y horario.
-- Sugerencia de cargos existentes al escribir en RRHH.
-- Acceso directo a Actualizaciones en Planificación.
-
----
-
-### Puede dar bateo
-
-1. **feat(historial) módulo nuevo — confirmar endpoints de historial en backend de producción**.
-2. **feat(entregas) módulo nuevo — confirmar `GET /operaciones/vales-salida/summary` en backend**.
-3. **feat(brigadas) `es_jefe_brigada` — confirmar campo deployado en SunCarBackend de producción**.
-4. **feat(organigramas) módulo nuevo — confirmar permiso `organigramas` en MODULOS_CATALOGO**.
-5. **fix(build) export-list-pdf/pdfExporter — confirmar deploy post-fix sin module not found**.
-6. **fix(vales-salida) `parseFechaUtc` — confirmar que `fecha_recogida` no pasa por la función**.
-7. **feat(visitas) estudio energético extendido — confirmar que los campos nuevos son opcionales en backend**.
-
----
-
-## 📅 14 de Septiembre, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**23 commits reales** — yany1509 (15), Fabian1820 (3) y Ruben0304 (5). Día extremadamente activo. Áreas principales: módulo de planificación reescrito por completo con 15 commits encadenados en 6 horas (tablero de brigadas + mapa de Cuba por zonas + flujo por pasos + calendario + solo clientes), adjuntar vale firmado desde PC/QR/móvil con compresión de imagen, fix de validación en formulario de ofertas, fix de checklist de conversión de leads comprobando equipo, botón para ver saldos en billeteras, optimización crítica que evita descarga de 45 MB de confección de ofertas en pantallas que no la usan, alta libre de materiales contables sin depender del catálogo, y exportar brigadas e instaladores.
-
----
-
-### Área 1: feat/fix(planificacion) × 15 — rework completo del módulo de planificación (12:25–18:10, yany1509)
-
-Quince commits encadenados en menos de 6 horas reescribieron el módulo de planificación de cero a una versión final: tablero por brigadas, mapa de Cuba por zonas (GeoJSON generado), flujo de 3 pasos sin carga innecesaria, calendario con puntos verdes en días planificados, pantalla de entrada con lista de planificaciones, y solo clientes (leads eliminados del flujo al final).
-
----
-
-### Área 2: feat(vales-salida) — adjuntar el vale firmado desde PC o móvil (15:56, Fabian1820)
-
-- Adjuntar vale firmado desde PC con diálogo propio, o desde móvil por QR (enlace de 15 min a página pública `/subir-vale/[token]`). Reescalado a 2000px JPEG antes de enviar. Borrado definitivo con aviso en diálogo.
-
----
-
-### Área 3–7: fix(ofertas), fix(leads), feat(wallet), perf(ofertas), feat(contabilidad)
-
-- Fix de justificación mínima 10 chars y null explícito para compensación/descuento.
-- Fix de checklist de conversión de leads con deducción de equipo.
-- Botón para ver saldos por moneda en wallet (solo admins).
-- Optimización: evita descargar 45 MB de confección de ofertas sin usarlos.
-- Alta libre de materiales contables sin depender del catálogo.
-
----
-
-### Puede dar bateo
-
-1. **planificacion - 15 commits en 6h — planes guardados con leads referencian registros sin número de cliente**.
-2. **planificacion - calendario con puntos verdes — requiere endpoint para listar días planificados**.
-3. **vales-salida - QR expira en 15 min — no hay botón de regeneración visible**.
-4. **vales-salida - /subir-vale/[token] página pública — confirmar entropía del token y rate limiting**.
-5. **fix(ofertas) null explícito — confirmar que backend acepta `null` explícito con `Optional[...]`**.
-6. **perf(ofertas) hook sin reload implícito — confirmar que ningún componente dependía del reload post-mutación**.
-
----
-
-## 📅 11 de Septiembre, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**17 commits reales** — Ruben0304 (4) y yany1509 (13). Día extremadamente activo. Áreas: módulo de auditoría completo (bitácora + filtros + pestaña de rendimiento), módulo de planificación diaria completo (pantalla nueva + múltiples fix encadenados + optimización de caché), wallet (comprobante imprimible + campo persona + PDF carta), nuevo módulo de alertas de wallet, permisos de planificación en app móvil, fix de margen en vales de salida, fix de guardado de ofertas con múltiples materiales del mismo tipo, y filtros/exportación en peticiones.
-
----
-
-### Área 1: feat(auditoria) × 3 — bitácora completa del sistema para superAdmin (20:55–21:33)
-
-- Nueva pantalla `/auditoria`: log global del backend con filtros de 13 parámetros, pestaña de rendimiento por módulo/endpoint, columna de duración con colores, filtro de entidad que sustituye otros filtros al activarse.
-
----
-
-### Área 2: feat/fix/perf(planificacion) × 7 — módulo de planificación diaria (19:01–20:24)
-
-- Módulo nuevo en Operaciones con 5 tipos de trabajo. Dos paneles a lo ancho. Borrador en localStorage. Caché en memoria de candidatos por tipo. Fix de cabecera que tapaba contenido.
-
----
-
-### Área 3–8: feat(wallet) ×2, feat(wallet-alertas), feat(permisos), fix(vales-salida), fix(ofertas), feat(peticiones)
-
-- Comprobante imprimible + campo persona en gastos. Módulo de alertas por movimientos grandes (Twilio). Sub-permiso de planificación en app móvil. Fix de margen PDF. Fix de bloqueo de guardado con 2+ materiales sin marcar. Filtros y export en peticiones a desarrollo.
-
----
-
-### Puede dar bateo
-
-1. **feat(auditoria) — confirmar endpoints `/api/auditoria/` y `/api/auditoria/rendimiento` en backend**.
-2. **feat(planificacion) módulo nuevo — confirmar todos los endpoints CRUD en backend**.
-3. **fix(planificacion) draft en localStorage — colisión entre usuarios distintos en dispositivo compartido**.
-4. **feat(wallet-alertas) — confirmar `/wallet-alertas` en `MODULOS_CATALOGO`**.
-5. **fix(ofertas) umbral accesorio ≤ 0,3 kW — `potenciaKW: null` no se asume accesorio; bloquea guardado si no está definido**.
-
----
-
-## 📅 10 de Septiembre, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**1 commit real** — Ruben0304 (co-authored Claude Sonnet 5). Fix de infraestructura: evita que Safari/iPadOS sirva respuestas cacheadas de GET cuando los datos ya cambiaron por un POST previo.
-
----
-
-### Área 1: fix(api-config) — no-store en todos los GET para evitar caché de Safari/iPadOS (12:37)
-
-- **`fix(api-config): evita cache de fetch GET en Safari/iPadOS`** — Los GET vía `apiRequest()` no llevaban `cache: 'no-store'`, por lo que Safari/iPadOS podía servir respuestas cacheadas tras un POST que mutaba los mismos datos. Se agrega `cache: 'no-store'` y la cabecera `Cache-Control: no-cache` en el helper central.
-
----
-
-### Puede dar bateo
-
-1. **`cache: 'no-store'` global — impacto en rendimiento con endpoints de catálogo**: El fix es correcto para datos mutables pero también desactiva la caché para endpoints de catálogo que raramente cambian. Monitorear saturación en endpoints lentos.
-
-2. **`Cache-Control: no-cache` como cabecera de petición — comportamiento en proxies/CDN**: Resuelve el caché del navegador, pero proxies corporativos pueden ignorarlo.
-
-3. **Cobertura solo en `apiRequest()` — peticiones fuera del helper no cubiertas**: Revisar los 4 archivos listados en CLAUDE.md como "Fixed Files" para confirmar migración completa.
-
----
-
-> ⚠️ **Nota de mantenimiento**: La entrada del **9 de Septiembre** fue eliminada el 17 de Septiembre al superar los 7 días de antigüedad (política de retención semanal). La entrada del **7 de Septiembre** fue eliminada el 15 de Septiembre al superar los 7 días. La entrada del **2 de Septiembre** fue eliminada el 10 de Septiembre al superar los 7 días. Anteriores eliminadas: 15 de Agosto y previas.
+> ⚠️ **Nota de mantenimiento**: Las entradas del **10, 11, 14 y 15 de Septiembre** fueron eliminadas el 23 de Septiembre al superar los 7 días de antigüedad (política de retención semanal). La entrada del **9 de Septiembre** fue eliminada el 17 de Septiembre. La entrada del **7 de Septiembre** fue eliminada el 15 de Septiembre al superar los 7 días. La entrada del **2 de Septiembre** fue eliminada el 10 de Septiembre al superar los 7 días. Anteriores eliminadas: 15 de Agosto y previas.
