@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import jsPDF from "jspdf";
-import { Download, Eye, FileText, Loader2, Pencil, Receipt } from "lucide-react";
+import { Download, Eye, FileText, Loader2, Pencil, Receipt, Trash2 } from "lucide-react";
 import { Button } from "@/components/shared/atom/button";
 import {
   Card,
@@ -18,6 +18,7 @@ import { SearchableSelect } from "@/components/shared/molecule/searchable-select
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/shared/molecule/dialog";
@@ -730,6 +731,9 @@ function FacturasSolarCarrosPageContent() {
   const [facturasSolar, setFacturasSolar] = useState<FacturaSolarCarroView[]>([]);
   const [facturaVista, setFacturaVista] = useState<FacturaSolarCarroView | null>(null);
   const [facturaEditando, setFacturaEditando] = useState<FacturaSolarCarroView | null>(null);
+  const [facturaAEliminar, setFacturaAEliminar] = useState<FacturaSolarCarroView | null>(null);
+  // Cuál de los dos botones se pulsó, para mostrar el spinner solo en ese.
+  const [eliminandoModo, setEliminandoModo] = useState<"devolver" | "solo" | null>(null);
   const [editDraft, setEditDraft] = useState<FacturaSolarCarroView | null>(null);
   const [editSaving, setEditSaving] = useState(false);
   const [searchInstaladora, setSearchInstaladora] = useState("");
@@ -2182,6 +2186,57 @@ function FacturasSolarCarrosPageContent() {
     }
   };
 
+  /**
+   * Elimina la factura. `devolver` suma a Existencias Contabilidad lo que la
+   * factura descontó al emitirse; sin él solo se borra la factura, que es lo
+   * correcto cuando el inventario ya se cuadró a mano (devolver lo descuadraría).
+   * El número queda libre para rehacerla.
+   */
+  const handleEliminarFactura = async (devolver: boolean) => {
+    if (!facturaAEliminar) return;
+    setEliminandoModo(devolver ? "devolver" : "solo");
+    try {
+      // apiRequest no lanza ante un 400/404 de FastAPI: devuelve {success:false}.
+      const res = await apiRequest<{
+        success?: boolean;
+        message?: string;
+        detail?: unknown;
+        error?: { message?: string };
+        devueltos?: { nombre: string; cantidad: number }[];
+      }>(
+        `/facturas-solar-carros/${encodeURIComponent(facturaAEliminar.id)}?devolver_existencias=${devolver}`,
+        { method: "DELETE" },
+      );
+      if (!res || res.success !== true) {
+        throw new Error(
+          (typeof res?.detail === "string" && res.detail) ||
+            res?.error?.message ||
+            res?.message ||
+            "No se pudo eliminar la factura.",
+        );
+      }
+
+      const devueltos = res.devueltos || [];
+      toast({
+        title: `Factura ${facturaAEliminar.noFactura} eliminada`,
+        description: devolver
+          ? `Se devolvieron a Existencias Contabilidad ${devueltos.length} material(es).`
+          : "Las existencias no se modificaron.",
+      });
+      setFacturaAEliminar(null);
+      await ensureFacturasLoaded(true);
+    } catch (error) {
+      toast({
+        title: "No se pudo eliminar la factura",
+        description:
+          error instanceof Error ? error.message : "Intente de nuevo.",
+        variant: "destructive",
+      });
+    } finally {
+      setEliminandoModo(null);
+    }
+  };
+
   const handleDownloadFacturaCreadaPDF = async (
     factura: FacturaSolarCarroView,
   ) => {
@@ -2848,6 +2903,15 @@ function FacturasSolarCarrosPageContent() {
                                     <Download className="h-4 w-4 mr-1" />
                                     Orden de Trabajo
                                   </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                                    onClick={() => setFacturaAEliminar(factura)}
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-1" />
+                                    Eliminar
+                                  </Button>
                                 </div>
                               </td>
                             </tr>
@@ -3422,6 +3486,75 @@ function FacturasSolarCarrosPageContent() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!facturaAEliminar}
+        onOpenChange={(open) => {
+          if (!open && !eliminandoModo) setFacturaAEliminar(null);
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              ¿Desea eliminar la factura {facturaAEliminar?.noFactura}?
+            </DialogTitle>
+            <DialogDescription>
+              {facturaAEliminar?.cliente.nombre} · {formatDate(facturaAEliminar?.fecha || "")}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 text-sm text-gray-700">
+            <p>
+              La factura desaparece del listado y su número queda libre para volver a
+              hacerla. Elija qué pasa con los materiales que descontó de Existencias
+              Contabilidad:
+            </p>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>
+                <span className="font-semibold">Eliminar y devolver cantidades:</span> se
+                suman de vuelta a las existencias
+                {facturaAEliminar
+                  ? ` (${facturaAEliminar.materiales.length} material${
+                      facturaAEliminar.materiales.length === 1 ? "" : "es"
+                    })`
+                  : ""}
+                .
+              </li>
+              <li>
+                <span className="font-semibold">Solo eliminar:</span> las existencias no se
+                tocan. Úselo si ya ajustó el inventario a mano; devolver lo descuadraría.
+              </li>
+            </ul>
+          </div>
+
+          <div className="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              variant="outline"
+              disabled={!!eliminandoModo}
+              onClick={() => setFacturaAEliminar(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="outline"
+              className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+              disabled={!!eliminandoModo}
+              onClick={() => void handleEliminarFactura(false)}
+            >
+              {eliminandoModo === "solo" && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              Solo eliminar
+            </Button>
+            <Button
+              className="bg-red-600 hover:bg-red-700 text-white"
+              disabled={!!eliminandoModo}
+              onClick={() => void handleEliminarFactura(true)}
+            >
+              {eliminandoModo === "devolver" && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              Eliminar y devolver cantidades
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
