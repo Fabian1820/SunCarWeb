@@ -124,9 +124,11 @@ export class ContabilidadService {
    */
   static async crearTicket(
     materiales: { material_id: string; cantidad: number }[]
-  ): Promise<TicketContabilidadBackend> {
+  ): Promise<{ ticket_id: string; numero_ticket: string }> {
     const body: CrearTicketRequest = { materiales }
-    const response = await apiRequest<{ ticket: TicketContabilidadBackend }>(
+    // El backend responde {ticket_id, numero_ticket, materiales_procesados},
+    // no el ticket completo.
+    const response = await apiRequest<{ ticket_id: string; numero_ticket: string }>(
       '/tickets-contabilidad/',
       {
         method: 'POST',
@@ -134,7 +136,7 @@ export class ContabilidadService {
       }
     )
     lanzarSiFallo(response, 'rebajar el inventario contable')
-    return response.ticket
+    return { ticket_id: response.ticket_id, numero_ticket: response.numero_ticket }
   }
 
   /**

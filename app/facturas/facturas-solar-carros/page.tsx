@@ -127,6 +127,7 @@ interface FacturaSolarCarroApi {
   monto_total?: number;
   moneda?: string;
   materiales?: FacturaSolarCarroMaterialApi[];
+  ticket_contabilidad?: { ticket_id?: string; numero_ticket?: string | null } | null;
 }
 
 interface FacturaSolarCarroView {
@@ -145,6 +146,8 @@ interface FacturaSolarCarroView {
   totalRegistrado: number;
   monedaTotal: "CUP" | "USD";
   materiales: Array<{ codigo: string; descripcion: string; cantidad: number; codigo_contabilidad?: string; precio_contabilidad?: number }>;
+  /** Ticket de salida que rebajó Existencias Contabilidad; se borra con la factura. */
+  numeroTicket: string | null;
 }
 
 interface InstaladoExitoComponentePrincipal {
@@ -834,6 +837,9 @@ function FacturasSolarCarrosPageContent() {
           totalRegistrado,
           monedaTotal,
           materiales,
+          numeroTicket: factura.ticket_contabilidad?.ticket_id
+            ? String(factura.ticket_contabilidad.numero_ticket || "ticket sin número")
+            : null,
         } satisfies FacturaSolarCarroView;
       });
       if (rows.length === 0) break;
@@ -1675,8 +1681,9 @@ function FacturasSolarCarrosPageContent() {
         return;
       }
 
-      // 1) Descontar de inventario contabilidad (cantidad_contabilidad)
-      await ContabilidadService.crearTicket(
+      // 1) Descontar de inventario contabilidad (cantidad_contabilidad).
+      // El ticket se guarda en la factura para poder borrarlo con ella.
+      const ticket = await ContabilidadService.crearTicket(
         materialesSalida.map((m) => ({
           material_id: m.material_id,
           cantidad: m.cantidad,
@@ -1778,6 +1785,9 @@ function FacturasSolarCarrosPageContent() {
           tasa_cambio_cup: parseNumero(previewDraft.tasa_cambio_cup),
         },
         materiales: materialesPayload,
+        ticket_contabilidad: ticket?.ticket_id
+          ? { ticket_id: ticket.ticket_id, numero_ticket: ticket.numero_ticket }
+          : null,
         concepto: {
           texto_final: conceptoFinal,
           lineas_generadas: conceptoFinal.split("\n"),
@@ -2203,6 +2213,7 @@ function FacturasSolarCarrosPageContent() {
         detail?: unknown;
         error?: { message?: string };
         devueltos?: { nombre: string; cantidad: number }[];
+        ticket_eliminado?: string | null;
       }>(
         `/facturas-solar-carros/${encodeURIComponent(facturaAEliminar.id)}?devolver_existencias=${devolver}`,
         { method: "DELETE" },
@@ -2217,11 +2228,15 @@ function FacturasSolarCarrosPageContent() {
       }
 
       const devueltos = res.devueltos || [];
+      const ticket = res.ticket_eliminado
+        ? ` También se borró el ticket ${res.ticket_eliminado}.`
+        : "";
       toast({
         title: `Factura ${facturaAEliminar.noFactura} eliminada`,
-        description: devolver
-          ? `Se devolvieron a Existencias Contabilidad ${devueltos.length} material(es).`
-          : "Las existencias no se modificaron.",
+        description:
+          (devolver
+            ? `Se devolvieron a Existencias Contabilidad ${devueltos.length} material(es).`
+            : "Las existencias no se modificaron.") + ticket,
       });
       setFacturaAEliminar(null);
       await ensureFacturasLoaded(true);
@@ -3508,7 +3523,11 @@ function FacturasSolarCarrosPageContent() {
           <div className="space-y-3 text-sm text-gray-700">
             <p>
               La factura desaparece del listado y su número queda libre para volver a
-              hacerla. Elija qué pasa con los materiales que descontó de Existencias
+              hacerla.{" "}
+              {facturaAEliminar?.numeroTicket
+                ? `También se borra su ticket de salida ${facturaAEliminar.numeroTicket}. `
+                : "No tiene ticket de salida enlazado. "}
+              Elija qué pasa con los materiales que descontó de Existencias
               Contabilidad:
             </p>
             <ul className="list-disc pl-5 space-y-1">
