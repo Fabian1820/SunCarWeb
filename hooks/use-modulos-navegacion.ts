@@ -7,6 +7,7 @@ import {
   BellRing,
   Briefcase,
   CreditCard,
+  FileCheck2,
   HardHat,
   LayoutDashboard,
   Megaphone,
@@ -30,6 +31,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { useMyWalletPermiso } from "@/hooks/use-wallet-permisos";
 import { useSolineras } from "@/hooks/use-solineras";
+import { PERMISOS_POR_FACTURAR } from "@/lib/constants/por-facturar-permisos";
 import { etiquetaEstadoSolinera } from "@/lib/utils/solineras";
 import type { Solinera } from "@/lib/types/feats/solineras/solinera-types";
 
@@ -157,7 +159,13 @@ export const tituloArea = (area: AreaNav): string =>
  */
 const SECCIONES_INTERNAS: Record<
   string,
-  Array<Omit<ModuloNav, "id"> & { id: string }>
+  Array<
+    Omit<ModuloNav, "id"> & {
+      id: string;
+      /** Sección aditiva: se ve con cualquiera de estos permisos exactos, no con el padre. */
+      permisosExactos?: string[];
+    }
+  >
 > = {
   // Ver app/facturas/page.tsx
   facturas: [
@@ -184,6 +192,15 @@ const SECCIONES_INTERNAS: Record<
       title: "Obras Terminadas",
       description: "Resultados por oferta para el pago por resultados.",
       iconClass: "text-emerald-600",
+    },
+    {
+      id: "por-facturar",
+      href: "/facturas/por-facturar",
+      icon: FileCheck2,
+      title: "Por facturar",
+      description: "Clientes instalados con ofertas sin facturar.",
+      iconClass: "text-emerald-700",
+      permisosExactos: PERMISOS_POR_FACTURAR,
     },
   ],
 };
@@ -275,8 +292,12 @@ export function useModulosNavegacion({ onNuevaSolinera }: Opciones = {}) {
       .filter((c) => hasPermission(c.permission ?? c.key))
       .map(catalogoANav);
     const internas = (SECCIONES_INTERNAS[m.key] ?? [])
-      .filter((s) => hasSubPermission(m.key, s.id))
-      .map((s) => ({ ...s, id: `${m.key}/${s.id}` }));
+      .filter((s) =>
+        s.permisosExactos
+          ? s.permisosExactos.some((p) => hasExactPermission(p))
+          : hasSubPermission(m.key, s.id),
+      )
+      .map(({ permisosExactos: _exactos, ...s }) => ({ ...s, id: `${m.key}/${s.id}` }));
     return [...delCatalogo, ...internas];
   };
 

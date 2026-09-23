@@ -16,6 +16,9 @@ import {
   type ObraTerminada,
 } from "@/lib/services/feats/obras-terminadas/obras-terminadas-service"
 import type { Cliente } from "@/lib/types/feats/customer/cliente-types"
+import { FacturacionPendienteService } from "@/lib/services/feats/facturacion-pendiente/facturacion-pendiente-service"
+import { PERMISO_POR_FACTURAR_FACTURAR } from "@/lib/constants/por-facturar-permisos"
+import { useAuth } from "@/contexts/auth-context"
 import { Loader2, FileText, AlertTriangle } from "lucide-react"
 
 interface GenerarFacturaClienteDialogProps {
@@ -47,6 +50,11 @@ export function GenerarFacturaClienteDialog({
   const [ofertas, setOfertas] = useState<ObraTerminada[]>([])
   const [loadingOfertas, setLoadingOfertas] = useState(false)
   const [facturandoOfertaId, setFacturandoOfertaId] = useState<string | null>(null)
+  const [resultado, setResultado] = useState<string | null>(null)
+  const { hasExactPermission } = useAuth()
+  // Facturar es lo mismo que en Por facturar (oferta + factura de vales) y
+  // pide el mismo permiso.
+  const puedeFacturar = hasExactPermission(PERMISO_POR_FACTURAR_FACTURAR)
 
   const clienteSeleccionado = clientes.find(
     (c) => c.id === clienteId || c.numero === clienteId,
@@ -56,6 +64,7 @@ export function GenerarFacturaClienteDialog({
     if (!open) {
       setClienteId("")
       setOfertas([])
+      setResultado(null)
       return
     }
     if (clientes.length > 0) return
@@ -105,14 +114,23 @@ export function GenerarFacturaClienteDialog({
     }
 
     setFacturandoOfertaId(oferta.oferta_id)
+    setResultado(null)
     try {
-      const result = await ObrasTerminadasService.marcarFacturada(oferta.oferta_id)
+      // Lanza si el backend rechaza (ya facturada, sin permiso...): antes un
+      // 400 se pintaba como facturada sin número.
+      const result = await FacturacionPendienteService.facturar(oferta.oferta_id)
       setOfertas((prev) =>
         prev.map((o) =>
           o.oferta_id === oferta.oferta_id
             ? { ...o, facturada: true, numero_factura: result.numero_factura }
             : o,
         ),
+      )
+      setResultado(
+        result.aviso ??
+          (result.factura_vales
+            ? `${oferta.numero_oferta} facturada: ${result.numero_factura}. Factura de vales ${result.factura_vales.numero_factura} con ${result.factura_vales.vales_incluidos} vales.`
+            : `${oferta.numero_oferta} facturada: ${result.numero_factura}. El cliente no tenía vales pendientes.`),
       )
       onFacturada?.()
     } catch (error) {
@@ -200,7 +218,8 @@ export function GenerarFacturaClienteDialog({
                       <Button
                         size="sm"
                         onClick={() => handleFacturar(oferta)}
-                        disabled={facturandoOfertaId === oferta.oferta_id}
+                        disabled={!puedeFacturar || facturandoOfertaId !== null}
+                        title={puedeFacturar ? undefined : "Necesitas el permiso 'Facturar ofertas' de Por facturar"}
                         className="bg-emerald-600 hover:bg-emerald-700 text-white"
                       >
                         {facturandoOfertaId === oferta.oferta_id ? (
@@ -219,6 +238,12 @@ export function GenerarFacturaClienteDialog({
             </div>
           )}
         </div>
+
+        {resultado && (
+          <div className="flex-shrink-0 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+            {resultado}
+          </div>
+        )}
 
         <div className="flex justify-end pt-3 border-t flex-shrink-0">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

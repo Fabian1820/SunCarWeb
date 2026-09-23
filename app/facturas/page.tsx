@@ -1,13 +1,14 @@
 "use client"
 
-import { CreditCard, Receipt, HardHat } from "lucide-react"
+import { CreditCard, Receipt, HardHat, FileCheck2 } from "lucide-react"
 import { ModuleCard } from "@/components/shared/molecule/module-card"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { useAuth } from "@/contexts/auth-context"
 import { SOLO_PAGOS_CLIENTES_CIS } from "@/lib/facturacion-access"
+import { PERMISOS_POR_FACTURAR } from "@/lib/constants/por-facturar-permisos"
 
 export default function FacturacionPage() {
-    const { user, hasSubPermission } = useAuth()
+    const { user, hasSubPermission, hasExactPermission } = useAuth()
     const soloPagosClientes =
         !!user?.ci && SOLO_PAGOS_CLIENTES_CIS.includes(user.ci)
 
@@ -45,10 +46,20 @@ export default function FacturacionPage() {
             description: 'Resultados por oferta: pagos, trabajos diarios y comercial para pago por resultados',
             iconClass: 'text-emerald-600',
         },
+        {
+            id: 'por-facturar',
+            href: '/facturas/por-facturar',
+            icon: FileCheck2,
+            title: 'Por facturar',
+            description: 'Clientes instalados con ofertas confirmadas sin facturar: elige qué oferta facturar',
+            iconClass: 'text-emerald-700',
+        },
     ]
 
     const submodules = submodulesAll.filter((m) => {
         if (soloPagosClientes) return m.id === 'pagos-clientes'
+        // Aditivo: tener "facturas" no lo abre (ver lib/constants/por-facturar-permisos.ts).
+        if (m.id === 'por-facturar') return PERMISOS_POR_FACTURAR.some((p) => hasExactPermission(p))
         return hasSubPermission("facturas", m.id)
     })
 

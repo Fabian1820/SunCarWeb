@@ -904,6 +904,29 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
           },
         ],
       },
+      {
+        key: "facturas/por-facturar",
+        label: "Por facturar",
+        descripcion:
+          "Lista de clientes instalados con ofertas confirmadas sin facturar: la factura ya no se genera sola al instalar y se acepta aquí. ADITIVO: tener 'facturas' NO lo concede; hay que asignarlo explícitamente.",
+        aditivo: true,
+        subPermisos: [
+          {
+            key: "facturas/por-facturar/facturar",
+            label: "Facturar ofertas",
+            descripcion:
+              "Habilita 'Facturar' y 'No facturar' sobre las ofertas de Por facturar, y el botón 'Facturar' de 'Generar factura a cliente' en Obras Terminadas. Crea la factura de la oferta y la de vales. ADITIVO: hay que asignarlo explícitamente.",
+            aditivo: true,
+          },
+          {
+            key: "facturas/por-facturar/comparativa",
+            label: "Oferta vs almacén",
+            descripcion:
+              "Habilita la pestaña 'Oferta vs almacén' de Por facturar: lo ofertado a cada cliente contra lo que salió del almacén en vales. ADITIVO: hay que asignarlo explícitamente.",
+            aditivo: true,
+          },
+        ],
+      },
     ],
   },
   {

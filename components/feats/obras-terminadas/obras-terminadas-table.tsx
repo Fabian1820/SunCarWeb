@@ -117,28 +117,6 @@ const ordenarPagos = (pagos: PagoObra[]) =>
     return (a.id ?? "").localeCompare(b.id ?? "")
   })
 
-const isThisMonth = (fecha: string | null | undefined): boolean => {
-  if (!fecha) return false
-  const [y, m] = fecha.slice(0, 7).split("-").map(Number)
-  const now = new Date()
-  return y === now.getFullYear() && m === now.getMonth() + 1
-}
-
-const buildFacturaCliente = (obra: OfertaObra, detalle: OfertaDetalleObras): FacturaClienteObra => ({
-  id: obra.oferta_id ?? undefined,
-  nombre: obra.cliente_nombre ?? obra.nombre_completo ?? undefined,
-  nombre_completo: obra.nombre_completo ?? undefined,
-  numero_oferta: obra.numero_oferta ?? undefined,
-  fecha_facturacion: obra.fecha_equipo_instalado ?? undefined,
-  facturada: true,
-  precio_final: obra.precio_final,
-  total_materiales: obra.total_materiales,
-  total_pagado: obra.total_pagado,
-  monto_pendiente: obra.monto_pendiente,
-  materiales: detalle.materiales,
-  pagos: detalle.pagos,
-})
-
 /* ─────────────────────────────────────────────
    Date utils
 ───────────────────────────────────────────── */
@@ -763,7 +741,7 @@ export function FacturasClientePanel({ facturas, oferta }: { facturas: FacturaCl
     return (
       <div className="text-center py-6 text-sm text-gray-500 space-y-1">
         <p>No hay facturas de cliente registradas para esta obra.</p>
-        <p className="text-xs text-gray-400">Se generan cuando el cliente tiene estado &quot;Equipo instalado con éxito&quot; y una oferta confección confirmada.</p>
+        <p className="text-xs text-gray-400">Se generan al aceptar la oferta en Facturación → Por facturar.</p>
       </div>
     )
 
@@ -1479,13 +1457,10 @@ export function ObrasTerminadasTable({
                                     </div>
                                   )
 
-                                  // Si ya tiene datos del backend, usarlos
-                                  const facturas = fcData?.length
-                                    ? fcData
-                                    // Fallback temporal: construir desde detalle si es este mes y backend devuelve vacío
-                                    : fcData !== undefined && detalle && isThisMonth(oferta.fecha_equipo_instalado)
-                                      ? [buildFacturaCliente(oferta, detalle)]
-                                      : (fcData ?? [])
+                                  // Solo lo que devuelve el backend: la factura ya no es
+                                  // automática, así que no se puede suponer por la fecha
+                                  // de instalación que exista.
+                                  const facturas = fcData ?? []
 
                                   return <FacturasClientePanel facturas={facturas} oferta={oferta} />
                                 })()}

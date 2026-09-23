@@ -86,8 +86,10 @@ function tipoToTab(tipo: string): TabKey {
 
 /** Destino del botón "Ver cliente" según el tipo de notificación. */
 function linkParaNotificacion(notif: Notificacion): string {
+  // "Cliente pendiente de facturar" (conserva el tipo de cuando solo avisaba
+  // con 2+ ofertas): se acepta en Facturación → Por facturar.
   if (notif.tipo === "factura_multiple_ofertas") {
-    return `/facturas/obras-terminadas?cliente=${encodeURIComponent(notif.cliente_numero)}`
+    return `/facturas/por-facturar?cliente=${encodeURIComponent(notif.cliente_numero)}`
   }
   return `/clientes?buscar=${encodeURIComponent(notif.cliente_numero)}`
 }

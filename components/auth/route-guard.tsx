@@ -13,15 +13,21 @@ interface RouteGuardProps {
    * o con cualquier `trabajos:*`).
    */
   requiredModule: string | string[]
+  /**
+   * Exigir el permiso exacto, sin herencia padre→hijo. Para módulos aditivos:
+   * tener el padre (p. ej. "facturas") no debe abrirlos.
+   */
+  exact?: boolean
 }
 
-export function RouteGuard({ children, requiredModule }: RouteGuardProps) {
-  const { isAuthenticated, isLoading, hasPermission, user } = useAuth()
+export function RouteGuard({ children, requiredModule, exact = false }: RouteGuardProps) {
+  const { isAuthenticated, isLoading, hasPermission, hasExactPermission, user } = useAuth()
   const router = useRouter()
 
+  const comprobar = exact ? hasExactPermission : hasPermission
   const tieneAcceso = Array.isArray(requiredModule)
-    ? requiredModule.some((m) => hasPermission(m))
-    : hasPermission(requiredModule)
+    ? requiredModule.some((m) => comprobar(m))
+    : comprobar(requiredModule)
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
