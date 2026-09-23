@@ -418,13 +418,6 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
           "Muestra el costo de los materiales y los totales entregado/pendiente en el diálogo de entregas de Clientes, Instalaciones en Proceso e Instalaciones Nuevas. ADITIVO: tener el módulo padre NO lo concede; hay que asignarlo explícitamente a quien pueda ver costos.",
         aditivo: true,
       },
-      {
-        key: "clientes/traspaso-equipos",
-        label: "Traspasar equipos entre clientes",
-        descripcion:
-          "Botón «Traspaso / intercambio» en los equipos del cliente: pasar equipos de un cliente a otro, en uno o en los dos sentidos, y revertir traspasos. ADITIVO: tener el módulo padre NO lo concede.",
-        aditivo: true,
-      },
     ],
   },
   {

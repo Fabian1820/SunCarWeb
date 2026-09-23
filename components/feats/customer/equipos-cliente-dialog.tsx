@@ -52,8 +52,12 @@ import { CATEGORIA_EQUIPO_UI, formatFechaCorta } from "./equipos-cliente-cell"
 import { EquipoAccionDialog, FotoMaterial, type ModoAccionEquipo } from "./equipo-cliente-accion-dialog"
 import { TraspasoEquiposDialog } from "./traspaso-equipos-dialog"
 
-/** Sub-permiso aditivo: tener el módulo Clientes no lo concede. */
-const PERMISO_TRASPASO = "clientes/traspaso-equipos"
+/**
+ * El traspaso va con el acceso completo al módulo Clientes. Exacto a
+ * propósito: `hasPermission("clientes")` también da true a quien solo tiene
+ * un sub-permiso `clientes/...`.
+ */
+const PERMISO_TRASPASO = "clientes"
 
 const TIPO_MOVIMIENTO_UI: Record<
   MovimientoEquipoCliente["tipo"],
