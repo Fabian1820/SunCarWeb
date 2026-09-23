@@ -11,12 +11,23 @@ import {
   Pencil,
   Plus,
   Printer,
+  Undo2,
 } from "lucide-react";
 import { es } from "date-fns/locale";
 import { Calendar } from "@/components/shared/molecule/calendar";
 import { Button, buttonVariants } from "@/components/shared/atom/button";
 import { Avatar, AvatarFallback } from "@/components/shared/atom/avatar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/shared/atom/alert-dialog";
 import {
   Dialog,
   DialogContent,
@@ -41,6 +52,7 @@ import type {
 } from "@/lib/types/feats/planificacion/planificacion-types";
 
 const MODULO_CONFIRMAR = "planificacion/confirmar";
+const MODULO_DESCONFIRMAR = "planificacion/desconfirmar";
 
 function fechaHoraCorta(iso: string): string {
   const d = new Date(iso);
@@ -122,10 +134,14 @@ export function InicioPlanificacion({ hoy, onElegir, eligiendoDia, onEligiendoDi
   const { hasExactPermission } = useAuth();
   const { toast } = useToast();
   const puedeConfirmar = hasExactPermission(MODULO_CONFIRMAR);
+  const puedeDesconfirmar = hasExactPermission(MODULO_DESCONFIRMAR);
   const [planes, setPlanes] = useState<Planificacion[] | null>(null);
   const [fallo, setFallo] = useState(false);
   const [viendo, setViendo] = useState<Planificacion | null>(null);
   const [confirmando, setConfirmando] = useState<string | null>(null);
+  /** El día cuyo aviso de desconfirmar está abierto. */
+  const [porDesconfirmar, setPorDesconfirmar] = useState<{ fecha: string; dia: string } | null>(null);
+  const [desconfirmando, setDesconfirmando] = useState<string | null>(null);
   const [descargandoInforme, setDescargandoInforme] = useState<string | null>(null);
 
   async function descargarInformeDia(fecha: string, dia: string) {
@@ -166,6 +182,24 @@ export function InicioPlanificacion({ hoy, onElegir, eligiendoDia, onEligiendoDi
       toast({ title: "No se pudo confirmar", description: "Intenta de nuevo.", variant: "destructive" });
     } finally {
       setConfirmando(null);
+    }
+  }
+
+  async function desconfirmar(fecha: string) {
+    setDesconfirmando(fecha);
+    try {
+      const actualizado = await PlanificacionService.desconfirmar(fecha);
+      reemplazar(actualizado);
+      toast({ title: "Planificación desconfirmada", description: "Las brigadas ya no la ven en la app." });
+    } catch (error) {
+      toast({
+        title: "No se pudo desconfirmar",
+        description: error instanceof Error ? error.message : "Intenta de nuevo.",
+        variant: "destructive",
+      });
+    } finally {
+      setDesconfirmando(null);
+      setPorDesconfirmar(null);
     }
   }
 
@@ -248,6 +282,9 @@ export function InicioPlanificacion({ hoy, onElegir, eligiendoDia, onEligiendoDi
             puedeConfirmar={puedeConfirmar}
             confirmando={confirmando}
             onConfirmar={confirmar}
+            puedeDesconfirmar={puedeDesconfirmar}
+            desconfirmando={desconfirmando}
+            onDesconfirmar={(fecha, dia) => setPorDesconfirmar({ fecha, dia })}
             descargandoInforme={descargandoInforme}
             onDescargarInformeDia={descargarInformeDia}
           />
@@ -262,6 +299,9 @@ export function InicioPlanificacion({ hoy, onElegir, eligiendoDia, onEligiendoDi
               puedeConfirmar={puedeConfirmar}
               confirmando={confirmando}
               onConfirmar={confirmar}
+              puedeDesconfirmar={puedeDesconfirmar}
+              desconfirmando={desconfirmando}
+              onDesconfirmar={(fecha, dia) => setPorDesconfirmar({ fecha, dia })}
               descargandoInforme={descargandoInforme}
               onDescargarInformeDia={descargarInformeDia}
             />
@@ -318,6 +358,36 @@ export function InicioPlanificacion({ hoy, onElegir, eligiendoDia, onEligiendoDi
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={!!porDesconfirmar}
+        onOpenChange={(abierto) => !abierto && !desconfirmando && setPorDesconfirmar(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Desconfirmar el plan de {porDesconfirmar?.dia}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Vuelve a quedar sin confirmar y las brigadas dejan de ver estos trabajos en la app hasta que alguien lo
+              confirme de nuevo. Los trabajos no se tocan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!desconfirmando}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!!desconfirmando}
+              onClick={(e) => {
+                // Se cierra al terminar, no al pulsar: así se ve que está trabajando.
+                e.preventDefault();
+                if (porDesconfirmar) desconfirmar(porDesconfirmar.fecha);
+              }}
+              className="bg-amber-700 hover:bg-amber-800"
+            >
+              {desconfirmando ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> : null}
+              Desconfirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={eligiendoDia} onOpenChange={onEligiendoDia}>
         <DialogContent className="w-auto max-w-fit">
@@ -387,6 +457,9 @@ function ListaPlanes({
   puedeConfirmar,
   confirmando,
   onConfirmar,
+  puedeDesconfirmar,
+  desconfirmando,
+  onDesconfirmar,
   descargandoInforme,
   onDescargarInformeDia,
 }: {
@@ -400,6 +473,9 @@ function ListaPlanes({
   puedeConfirmar: boolean;
   confirmando: string | null;
   onConfirmar: (fecha: string) => void;
+  puedeDesconfirmar: boolean;
+  desconfirmando: string | null;
+  onDesconfirmar: (fecha: string, dia: string) => void;
   descargandoInforme: string | null;
   onDescargarInformeDia: (fecha: string, dia: string) => void;
 }) {
@@ -565,6 +641,23 @@ function ListaPlanes({
                                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                               ) : (
                                 <CheckCircle2 className="h-4 w-4" aria-hidden />
+                              )}
+                            </Button>
+                          )}
+                          {puedeDesconfirmar && confirmada && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => onDesconfirmar(fecha, dia)}
+                              disabled={desconfirmando === fecha}
+                              aria-label={`Desconfirmar el plan de ${dia}`}
+                              title="Desconfirmar planificación"
+                              className="text-amber-700 hover:text-amber-800"
+                            >
+                              {desconfirmando === fecha ? (
+                                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                              ) : (
+                                <Undo2 className="h-4 w-4" aria-hidden />
                               )}
                             </Button>
                           )}

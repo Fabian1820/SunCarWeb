@@ -49,6 +49,19 @@ export const PlanificacionService = {
     return response.data;
   },
 
+  /** Le quita la confirmación a un día. Requiere permiso `planificacion/desconfirmar`. */
+  async desconfirmar(fecha: string): Promise<Planificacion> {
+    const response = await apiRequest<{ success: boolean; data?: Planificacion; detail?: string; message?: string }>(
+      `${BASE}/${fecha}/desconfirmar`,
+      { method: "POST" },
+    );
+    // apiRequest no lanza ante un 404 de FastAPI: devuelve el cuerpo del error.
+    if (!response?.success || !response.data) {
+      throw new Error(response?.detail || response?.message || "No se pudo desconfirmar");
+    }
+    return response.data;
+  },
+
   /** Los clientes y leads que pueden entrar, según el estado que tengan. */
   async candidatos(tipo: string): Promise<CandidatoPlanificacion[]> {
     const response = await apiRequest<{

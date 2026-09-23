@@ -645,6 +645,13 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
           "Da el botón para confirmar el plan de un día como definitivo, quedando registrado quién y cuándo. ADITIVO: tener 'planificacion' NO lo concede; hay que asignarlo explícitamente.",
         aditivo: true,
       },
+      {
+        key: "planificacion/desconfirmar",
+        label: "Desconfirmar planificaciones",
+        descripcion:
+          "Da el botón para quitarle la confirmación a un día ya confirmado; las brigadas dejan de verlo en la app hasta que se confirme de nuevo. ADITIVO: ni 'planificacion' ni 'planificacion/confirmar' lo conceden; hay que asignarlo explícitamente.",
+        aditivo: true,
+      },
     ],
   },
   {
