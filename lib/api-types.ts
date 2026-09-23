@@ -30,6 +30,7 @@ export type {
   CategoriaEquipo,
   EquipoCliente,
   MovimientoEquipoCliente,
+  TraspasoEquipos,
   ClienteFoto,
   ClienteResponse,
   ClienteCreateData,

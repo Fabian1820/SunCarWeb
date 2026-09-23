@@ -44,6 +44,7 @@ const MOTIVO_LABEL: Record<MotivoCambioEquipo, string> = {
   venta_adicional: "Venta adicional",
   retiro: "Retiro",
   migracion: "Registro inicial",
+  traspaso: "Traspaso entre clientes",
 }
 
 /** Motivos que el operador puede elegir en cada acción, el primero por defecto. */

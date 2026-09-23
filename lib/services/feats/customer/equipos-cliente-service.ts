@@ -4,6 +4,7 @@ import type {
   CategoriaEquipo,
   EquipoCliente,
   MovimientoEquipoCliente,
+  TraspasoEquipos,
 } from "../../../api-types";
 import type { MotivoCambioEquipo } from "../../../types/feats/customer/cliente-types";
 
@@ -85,6 +86,14 @@ const enviar = async (
     await apiRequest<Respuesta<unknown>>(endpoint, { method, body: JSON.stringify(body) }),
     que,
   );
+
+/** Una línea de un traspaso: quién da, qué equipo y cuántas unidades. */
+export type LineaTraspasoPedido = {
+  desde: string;
+  equipo_key: string;
+  cantidad: number;
+  numeros_serie?: string[];
+};
 
 export class EquiposClienteService {
   /** Estado actual, con lo entregado según almacén y la foto del catálogo. */
@@ -194,6 +203,50 @@ export class EquiposClienteService {
       datos,
       "marcar la oferta como instalada",
     );
+  }
+
+  /**
+   * Traspasa o intercambia equipos entre `numero` y `datos.cliente_destino`.
+   * `traspaso_id` lo genera quien abre el formulario: si la petición se
+   * repite (doble clic, reintento), el backend devuelve el mismo traspaso.
+   */
+  static async traspasar(
+    numero: string,
+    datos: {
+      traspaso_id: string;
+      cliente_destino: string;
+      lineas: LineaTraspasoPedido[];
+      nota: string;
+      autorizado_por?: string | null;
+      fecha_efectiva?: string | null;
+    },
+  ): Promise<TraspasoEquipos> {
+    const res = await enviar(`${base(numero)}/traspasos`, "POST", datos, "registrar el traspaso");
+    return res.data as TraspasoEquipos;
+  }
+
+  /** Traspasos en los que el cliente da o recibe, del más reciente al más antiguo. */
+  static async getTraspasos(numero: string): Promise<TraspasoEquipos[]> {
+    const res = exigirExito(
+      await apiRequest<Respuesta<TraspasoEquipos[]>>(`${base(numero)}/traspasos`),
+      "obtener los traspasos del cliente",
+    );
+    return res.data ?? [];
+  }
+
+  /** Deshace un traspaso con otro al revés; el original queda en el historial. */
+  static async revertirTraspaso(
+    numero: string,
+    traspasoId: string,
+    nota: string,
+  ): Promise<TraspasoEquipos> {
+    const res = await enviar(
+      `${base(numero)}/traspasos/${encodeURIComponent(traspasoId)}/revertir`,
+      "POST",
+      { nota },
+      "revertir el traspaso",
+    );
+    return res.data as TraspasoEquipos;
   }
 
   /** Corrige identidad o datos sin tocar cantidades. */

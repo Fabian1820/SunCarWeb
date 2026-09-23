@@ -122,6 +122,15 @@ export interface ValeEntregaEquipo {
   cantidad: number;
   devuelto: number;
   recogido_por: string | null;
+  /**
+   * Si la línea no es un vale sino un traspaso: lo entregado viaja con la
+   * unidad. `cantidad` es negativa en quien la dio. `codigo` es el TR-….
+   */
+  traspaso?: {
+    id: string;
+    tipo: "entrada" | "salida";
+    cliente_numero: string;
+  } | null;
 }
 
 export type TipoMovimientoEquipo =
@@ -129,7 +138,9 @@ export type TipoMovimientoEquipo =
   | "ajuste_cantidad"
   | "sustitucion"
   | "retiro"
-  | "correccion";
+  | "correccion"
+  | "traspaso_salida"
+  | "traspaso_entrada";
 
 export type MotivoCambioEquipo =
   | "instalacion_inicial"
@@ -139,7 +150,8 @@ export type MotivoCambioEquipo =
   | "correccion_dato"
   | "venta_adicional"
   | "retiro"
-  | "migracion";
+  | "migracion"
+  | "traspaso";
 
 /** Un cambio en los equipos de un cliente. Inmutable. */
 export interface MovimientoEquipoCliente {
@@ -162,6 +174,13 @@ export interface MovimientoEquipoCliente {
   oferta_id: string | null;
   numero_oferta: string | null;
   sustituye_a: string | null;
+  /** Traspaso entre clientes: cada punta apunta al documento y al otro cliente. */
+  traspaso_id?: string | null;
+  traspaso_codigo?: string | null;
+  contraparte_cliente_numero?: string | null;
+  contraparte_cliente_nombre?: string | null;
+  numeros_serie?: string[];
+  fecha_alta_original?: string | null;
   motivo: MotivoCambioEquipo;
   nota: string | null;
   autorizado_por: string | null;
@@ -171,6 +190,42 @@ export interface MovimientoEquipoCliente {
   fecha_efectiva: string;
   /** Cuándo se tecleó. */
   fecha_registro: string;
+}
+
+/** Una línea de un traspaso: un equipo que pasa de `desde` a `hacia`. */
+export interface LineaTraspasoEquipos {
+  desde: string;
+  hacia: string;
+  equipo_key: string;
+  cantidad: number;
+  cantidad_entregada: number;
+  material_id: string | null;
+  descripcion: string;
+  categoria: CategoriaEquipo;
+  numeros_serie: string[];
+}
+
+/**
+ * Traspaso o intercambio de equipos entre dos clientes (`TR-…`). Nunca se
+ * borra: deshacerlo es otro traspaso con `revierte_a`.
+ */
+export interface TraspasoEquipos {
+  id: string | null;
+  traspaso_id: string;
+  codigo: string;
+  cliente_a: { numero: string; nombre: string | null };
+  cliente_b: { numero: string; nombre: string | null };
+  lineas: LineaTraspasoEquipos[];
+  motivo: MotivoCambioEquipo;
+  nota: string;
+  autorizado_por: string | null;
+  actor_ci: string | null;
+  actor_nombre: string | null;
+  fecha_efectiva: string;
+  fecha_registro: string;
+  estado: "aplicando" | "aplicado";
+  revierte_a: string | null;
+  revertido_por: string | null;
 }
 
 export interface Cliente {

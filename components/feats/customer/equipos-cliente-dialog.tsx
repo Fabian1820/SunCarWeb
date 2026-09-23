@@ -3,13 +3,16 @@
 import { useCallback, useEffect, useState } from "react"
 import {
   AlertTriangle,
+  ArrowDownLeft,
   ArrowRightLeft,
+  ArrowUpRight,
   FileText,
   Loader2,
   Minus,
   MoreHorizontal,
   Pencil,
   Plus,
+  Undo2,
   type LucideIcon,
 } from "lucide-react"
 import {
@@ -39,13 +42,18 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/shared/molecule/tooltip"
-import type { CapacidadEquipos, EquipoCliente, MovimientoEquipoCliente } from "@/lib/api-types"
+import { useAuth } from "@/contexts/auth-context"
+import type { CapacidadEquipos, EquipoCliente, MovimientoEquipoCliente, TraspasoEquipos } from "@/lib/api-types"
 import {
   EquiposClienteService,
   type OfertaPendienteInstalar,
 } from "@/lib/services/feats/customer/equipos-cliente-service"
 import { CATEGORIA_EQUIPO_UI, formatFechaCorta } from "./equipos-cliente-cell"
 import { EquipoAccionDialog, FotoMaterial, type ModoAccionEquipo } from "./equipo-cliente-accion-dialog"
+import { TraspasoEquiposDialog } from "./traspaso-equipos-dialog"
+
+/** Sub-permiso aditivo: tener el módulo Clientes no lo concede. */
+const PERMISO_TRASPASO = "clientes/traspaso-equipos"
 
 const TIPO_MOVIMIENTO_UI: Record<
   MovimientoEquipoCliente["tipo"],
@@ -56,6 +64,8 @@ const TIPO_MOVIMIENTO_UI: Record<
   sustitucion: { label: "Sustitución", color: "bg-purple-100 text-purple-700", icon: ArrowRightLeft },
   retiro: { label: "Retiro", color: "bg-red-100 text-red-700", icon: Minus },
   correccion: { label: "Corrección", color: "bg-gray-100 text-gray-700", icon: FileText },
+  traspaso_salida: { label: "Sale", color: "bg-orange-100 text-orange-700", icon: ArrowUpRight },
+  traspaso_entrada: { label: "Entra", color: "bg-teal-100 text-teal-700", icon: ArrowDownLeft },
 }
 
 const MOTIVO_LABEL: Record<MovimientoEquipoCliente["motivo"], string> = {
@@ -67,6 +77,7 @@ const MOTIVO_LABEL: Record<MovimientoEquipoCliente["motivo"], string> = {
   venta_adicional: "Venta adicional",
   retiro: "Retiro",
   migracion: "Registro inicial",
+  traspaso: "Traspaso entre clientes",
 }
 
 const num = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2))
@@ -117,9 +128,12 @@ function LineaEntrega({ equipo }: { equipo: EquipoCliente }) {
   const diferencia = equipo.cantidad_actual - equipo.cantidad_entregada
   const explicacion = equipo.explicacion_faltante ? EXPLICACION_UI[equipo.explicacion_faltante] : null
 
+  // Si parte de lo entregado llegó (o se fue) con un traspaso, no todo es de
+  // un vale de este cliente: se dice "Entregado" a secas y el detalle lo aclara.
+  const conTraspaso = vales.some((v) => v.traspaso)
   const entregado = (
     <span className={vales.length > 0 ? "cursor-help underline decoration-dotted underline-offset-2" : ""}>
-      Entregado con vale: {num(equipo.cantidad_entregada)}
+      {conTraspaso ? "Entregado" : "Entregado con vale"}: {num(equipo.cantidad_entregada)}
     </span>
   )
 
@@ -140,15 +154,24 @@ function LineaEntrega({ equipo }: { equipo: EquipoCliente }) {
               className="z-[100] max-w-sm break-words text-xs"
             >
               <ul className="space-y-1">
-                {vales.map((v, i) => (
-                  <li key={`${v.codigo}-${i}`}>
-                    <span className="font-semibold">{v.codigo ?? "Vale"}</span>
-                    {v.fecha && ` · ${formatFechaCorta(v.fecha)}`}
-                    {` · ${num(v.cantidad)} u`}
-                    {v.devuelto > 0 && ` (devueltas ${num(v.devuelto)})`}
-                    {v.recogido_por && ` · recogió ${v.recogido_por}`}
-                  </li>
-                ))}
+                {vales.map((v, i) =>
+                  v.traspaso ? (
+                    <li key={`${v.codigo}-${i}`}>
+                      <span className="font-semibold">{v.codigo ?? "Traspaso"}</span>
+                      {v.fecha && ` · ${formatFechaCorta(v.fecha)}`}
+                      {` · ${signo(v.cantidad)} u `}
+                      {v.traspaso.tipo === "entrada" ? `de ${v.traspaso.cliente_numero}` : `a ${v.traspaso.cliente_numero}`}
+                    </li>
+                  ) : (
+                    <li key={`${v.codigo}-${i}`}>
+                      <span className="font-semibold">{v.codigo ?? "Vale"}</span>
+                      {v.fecha && ` · ${formatFechaCorta(v.fecha)}`}
+                      {` · ${num(v.cantidad)} u`}
+                      {v.devuelto > 0 && ` (devueltas ${num(v.devuelto)})`}
+                      {v.recogido_por && ` · recogió ${v.recogido_por}`}
+                    </li>
+                  ),
+                )}
               </ul>
             </TooltipContent>
             </TooltipPortal>
@@ -274,7 +297,14 @@ function agruparHistorial(movimientos: MovimientoEquipoCliente[]): GrupoHistoria
   const grupos: GrupoHistorial[] = []
   for (const m of ordenados) {
     const dia = (m.fecha_efectiva ?? "").slice(0, 10)
-    const clave = [dia, m.motivo, m.numero_oferta ?? "", m.actor_ci ?? "", m.autorizado_por ?? ""].join("|")
+    const clave = [
+      dia,
+      m.motivo,
+      m.numero_oferta ?? "",
+      m.traspaso_id ?? "",
+      m.actor_ci ?? "",
+      m.autorizado_por ?? "",
+    ].join("|")
     const ultimo = grupos[grupos.length - 1]
     if (ultimo && ultimo.clave.startsWith(clave + "#")) {
       ultimo.movimientos.push(m)
@@ -291,7 +321,17 @@ function tipoDelGrupo(movimientos: MovimientoEquipoCliente[]): MovimientoEquipoC
   return movimientos[0].tipo
 }
 
-function Historial({ movimientos }: { movimientos: MovimientoEquipoCliente[] }) {
+function Historial({
+  movimientos,
+  traspasos,
+  onRevertir,
+}: {
+  movimientos: MovimientoEquipoCliente[]
+  /** Documentos de los traspasos que aparecen, por `traspaso_id`. */
+  traspasos: Record<string, TraspasoEquipos>
+  /** Sin él no se ofrece revertir (falta el permiso). */
+  onRevertir?: (traspaso: TraspasoEquipos) => void
+}) {
   if (movimientos.length === 0) {
     return (
       <div className="flex flex-col items-center gap-1 py-6 text-xs text-gray-400">
@@ -307,11 +347,26 @@ function Historial({ movimientos }: { movimientos: MovimientoEquipoCliente[] }) 
         const primero = grupo.movimientos[0]
         const tipo = tipoDelGrupo(grupo.movimientos)
         const cfg = TIPO_MOVIMIENTO_UI[tipo] ?? { label: tipo, color: "bg-gray-100 text-gray-700", icon: FileText }
-        const Icon = cfg.icon
+        // Un traspaso se titula por su documento y dice con quién fue: el
+        // motivo ("traspaso entre clientes") no añade nada al título.
+        const traspaso = primero.traspaso_id ? traspasos[primero.traspaso_id] : undefined
+        const esIntercambio =
+          !!primero.traspaso_id && new Set(grupo.movimientos.map((m) => m.tipo)).size > 1
+        const Icon = esIntercambio ? ArrowRightLeft : cfg.icon
+        const titulo = primero.traspaso_id
+          ? `${esIntercambio ? "Intercambio" : tipo === "traspaso_salida" ? "Traspaso a otro cliente" : "Traspaso de otro cliente"}${
+              primero.traspaso_codigo ? ` · ${primero.traspaso_codigo}` : ""
+            }`
+          : `${cfg.label} · ${MOTIVO_LABEL[primero.motivo] ?? primero.motivo}`
+        const color = esIntercambio ? "bg-indigo-100 text-indigo-700" : cfg.color
+        const contraparte = primero.contraparte_cliente_numero
+          ? `con ${primero.contraparte_cliente_nombre ? `${primero.contraparte_cliente_nombre} (${primero.contraparte_cliente_numero})` : primero.contraparte_cliente_numero}`
+          : null
         // Solo lo que le sirve al operador: la oferta de la que salió, si el
         // equipo es del cliente, quién lo hizo y quién lo autorizó. El origen
         // técnico del dato (migración, alta automática) no le dice nada.
         const detalles = [
+          contraparte,
           primero.numero_oferta && `Oferta ${primero.numero_oferta}`,
           grupo.movimientos.every((m) => m.origen === "equipo_propio_cliente") && "Equipo propio del cliente",
           primero.actor_nombre && `por ${primero.actor_nombre}`,
@@ -329,14 +384,12 @@ function Historial({ movimientos }: { movimientos: MovimientoEquipoCliente[] }) 
         const variosTipos = new Set(grupo.movimientos.map((m) => m.tipo)).size > 1
         return (
           <li key={grupo.clave} className="flex gap-2 text-xs">
-            <span className={`mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${cfg.color}`}>
+            <span className={`mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${color}`}>
               <Icon className="h-3.5 w-3.5" />
             </span>
             <div className="min-w-0 flex-1 rounded border border-gray-100 bg-white p-2">
               <div className="mb-1 flex items-baseline justify-between gap-2">
-                <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${cfg.color}`}>
-                  {cfg.label} · {MOTIVO_LABEL[primero.motivo] ?? primero.motivo}
-                </span>
+                <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${color}`}>{titulo}</span>
                 <span className="shrink-0 text-[11px] text-gray-400">{formatFechaCorta(grupo.fecha)}</span>
               </div>
               <ul className="space-y-0.5">
@@ -344,6 +397,9 @@ function Historial({ movimientos }: { movimientos: MovimientoEquipoCliente[] }) 
                   <li key={m.id ?? i} className="break-words text-gray-800">
                     {m.cantidad_delta !== 0 && <span className="font-semibold">{signo(m.cantidad_delta)} </span>}
                     {m.nombre || m.descripcion}
+                    {(m.numeros_serie?.length ?? 0) > 0 && (
+                      <span className="text-gray-400"> · serie {m.numeros_serie?.join(", ")}</span>
+                    )}
                     {m.origen === "equipo_propio_cliente" &&
                       !grupo.movimientos.every((x) => x.origen === "equipo_propio_cliente") && (
                         <span className="text-gray-400"> · propio del cliente</span>
@@ -360,6 +416,22 @@ function Historial({ movimientos }: { movimientos: MovimientoEquipoCliente[] }) 
                   {n}
                 </p>
               ))}
+              {traspaso?.revertido_por && (
+                <p className="mt-1 text-[11px] text-gray-500">
+                  Revertido con {traspasos[traspaso.revertido_por]?.codigo ?? "otro traspaso"}
+                </p>
+              )}
+              {traspaso && !traspaso.revertido_por && !traspaso.revierte_a && onRevertir && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-1 h-6 px-2 text-[11px] text-gray-600"
+                  onClick={() => onRevertir(traspaso)}
+                >
+                  <Undo2 className="mr-1 h-3 w-3" />
+                  Revertir
+                </Button>
+              )}
             </div>
           </li>
         )
@@ -394,6 +466,13 @@ export function EquiposClienteDialog({
   onCambio,
 }: EquiposClienteDialogProps) {
   const { toast } = useToast()
+  const { hasExactPermission } = useAuth()
+  const puedeTraspasar = hasExactPermission(PERMISO_TRASPASO)
+  const [traspasoAbierto, setTraspasoAbierto] = useState(false)
+  const [traspasos, setTraspasos] = useState<Record<string, TraspasoEquipos>>({})
+  const [aRevertir, setARevertir] = useState<TraspasoEquipos | null>(null)
+  const [notaRevertir, setNotaRevertir] = useState("")
+  const [revirtiendo, setRevirtiendo] = useState(false)
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [equipos, setEquipos] = useState<EquipoCliente[]>([])
@@ -418,6 +497,14 @@ export function EquiposClienteDialog({
         setEquipos(vista.equipos)
         setPendientes(vista.pendientes)
         setHistorial(movimientos)
+        // Los documentos de traspaso solo hacen falta si el historial tiene
+        // alguno; si fallan, el historial se ve igual, sin el botón de revertir.
+        setTraspasos({})
+        if (movimientos.some((m) => m.traspaso_id)) {
+          EquiposClienteService.getTraspasos(clienteNumero)
+            .then((lista) => setTraspasos(Object.fromEntries(lista.map((t) => [t.traspaso_id, t]))))
+            .catch(() => setTraspasos({}))
+        }
         if (avisarCambio)
           onCambio?.(
             clienteNumero,
@@ -463,6 +550,47 @@ export function EquiposClienteDialog({
     }
   }
 
+  /** Refresca la fila del otro cliente en la tabla: su ficha también cambió. */
+  const avisarOtro = async (numero: string) => {
+    try {
+      const vista = await EquiposClienteService.getEquipos(numero)
+      onCambio?.(
+        numero,
+        vista.equipos,
+        vista.pendientes.length,
+        vista.capacidad ? { ...vista.capacidad, fuente: "ficha" } : null,
+      )
+    } catch {
+      // La tabla lo verá al recargar; el traspaso ya está hecho.
+    }
+  }
+
+  const confirmarRevertir = async () => {
+    if (!clienteNumero || !aRevertir) return
+    setRevirtiendo(true)
+    try {
+      const reversion = await EquiposClienteService.revertirTraspaso(
+        clienteNumero,
+        aRevertir.traspaso_id,
+        notaRevertir.trim(),
+      )
+      toast({ title: `${aRevertir.codigo} revertido con ${reversion.codigo}` })
+      const otro =
+        aRevertir.cliente_a.numero === clienteNumero ? aRevertir.cliente_b.numero : aRevertir.cliente_a.numero
+      setARevertir(null)
+      await cargar(true)
+      void avisarOtro(otro)
+    } catch (err) {
+      toast({
+        title: "No se revirtió el traspaso",
+        description: err instanceof Error ? err.message : String(err),
+        variant: "destructive",
+      })
+    } finally {
+      setRevirtiendo(false)
+    }
+  }
+
   const activos = ordenar(equipos.filter((e) => e.estado === "activo" && e.cantidad_actual > 0))
   const fuera = ordenar(equipos.filter((e) => !(e.estado === "activo" && e.cantidad_actual > 0)))
   const hayAlgo = activos.length > 0 || fuera.length > 0 || pendientes.length > 0
@@ -482,10 +610,18 @@ export function EquiposClienteDialog({
                 </DialogDescription>
               </div>
               {!cargando && !error && (
-                <Button size="sm" onClick={() => setAccion({ modo: "agregar", equipo: null })}>
-                  <Plus className="mr-1 h-4 w-4" />
-                  Agregar equipo
-                </Button>
+                <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                  {puedeTraspasar && (
+                    <Button size="sm" variant="outline" onClick={() => setTraspasoAbierto(true)}>
+                      <ArrowRightLeft className="mr-1 h-4 w-4" />
+                      Traspaso / intercambio
+                    </Button>
+                  )}
+                  <Button size="sm" onClick={() => setAccion({ modo: "agregar", equipo: null })}>
+                    <Plus className="mr-1 h-4 w-4" />
+                    Agregar equipo
+                  </Button>
+                </div>
               )}
             </div>
           </DialogHeader>
@@ -575,7 +711,18 @@ export function EquiposClienteDialog({
                     El historial empieza cuando se instale una oferta.
                   </p>
                 ) : (
-                  <Historial movimientos={historial} />
+                  <Historial
+                    movimientos={historial}
+                    traspasos={traspasos}
+                    onRevertir={
+                      puedeTraspasar
+                        ? (t) => {
+                            setNotaRevertir("")
+                            setARevertir(t)
+                          }
+                        : undefined
+                    }
+                  />
                 )}
               </section>
 
@@ -602,6 +749,50 @@ export function EquiposClienteDialog({
           onHecho={() => void cargar(true)}
         />
       )}
+
+      {clienteNumero && (
+        <TraspasoEquiposDialog
+          open={traspasoAbierto}
+          onOpenChange={setTraspasoAbierto}
+          cliente={{ numero: clienteNumero, nombre: clienteNombre ?? null }}
+          equipos={equipos}
+          onHecho={(otro) => {
+            void cargar(true)
+            void avisarOtro(otro)
+          }}
+        />
+      )}
+
+      <Dialog open={!!aRevertir} onOpenChange={(o) => !o && !revirtiendo && setARevertir(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Revertir {aRevertir?.codigo}</DialogTitle>
+            <DialogDescription>
+              Se registra un traspaso al revés entre {aRevertir?.cliente_a.nombre ?? aRevertir?.cliente_a.numero} y{" "}
+              {aRevertir?.cliente_b.nombre ?? aRevertir?.cliente_b.numero}. Los dos quedan en el historial. No se puede si
+              alguno ya no tiene lo que recibió.
+            </DialogDescription>
+          </DialogHeader>
+          <div>
+            <Label className="text-xs">Por qué se revierte *</Label>
+            <Textarea
+              rows={2}
+              value={notaRevertir}
+              onChange={(e) => setNotaRevertir(e.target.value)}
+              placeholder="Ej.: se registró con el cliente equivocado"
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setARevertir(null)} disabled={revirtiendo}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmarRevertir} disabled={revirtiendo || notaRevertir.trim().length < 3}>
+              {revirtiendo && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Revertir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!aInstalar} onOpenChange={(o) => !o && setAInstalar(null)}>
         <DialogContent className="max-w-md">
