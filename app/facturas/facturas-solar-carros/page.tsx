@@ -3298,8 +3298,8 @@ function FacturasSolarCarrosPageContent() {
                       </tbody>
                     </table>
                   </div>
-                  <div className="mt-3 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 items-end">
-                    <div>
+                  <div className="mt-3 grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-2 items-end">
+                    <div className="min-w-0">
                       <Label>Agregar otro material (contabilidad)</Label>
                       <SearchableSelect
                         options={materialesContabilidadOptions}

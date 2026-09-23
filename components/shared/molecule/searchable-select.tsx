@@ -91,7 +91,9 @@ export function SearchableSelect({
               "text-left",
               truncateSelected
                 ? "truncate"
-                : "block line-clamp-2 break-words leading-snug",
+                : // El Button trae whitespace-nowrap: sin whitespace-normal el
+                  // texto no parte y el trigger crece hasta el largo de la etiqueta.
+                  "block line-clamp-2 whitespace-normal break-words leading-snug",
             )}
           >
             {selectedOption ? selectedOption.label : placeholder}
