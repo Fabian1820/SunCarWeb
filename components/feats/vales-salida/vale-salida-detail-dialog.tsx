@@ -34,6 +34,7 @@ import {
   esDevolucionParcial,
   getValeEstadoInfo,
 } from "@/lib/utils/vale-salida-estado";
+import { claveSerie } from "@/lib/utils/numeros-serie";
 
 interface ValeSalidaDetailDialogProps {
   open: boolean;
@@ -84,8 +85,13 @@ export function ValeSalidaDetailDialog({
   if (!vale) return null;
 
   const devueltoPorMaterial = new Map<string, number>();
+  // Series que ya volvieron al almacén, para tacharlas en la tabla.
+  const seriesDevueltas = new Set<string>();
   for (const m of resumenDevolucion?.materiales ?? []) {
     devueltoPorMaterial.set(String(m.material_id), Number(m.cantidad_devuelta) || 0);
+    for (const s of m.numeros_serie_devueltos ?? []) {
+      seriesDevueltas.add(`${m.material_id}|${claveSerie(s)}`);
+    }
   }
   const totalDevuelto = Array.from(devueltoPorMaterial.values()).reduce(
     (acc, n) => acc + n,
@@ -451,7 +457,29 @@ export function ValeSalidaDetailDialog({
                           </td>
                         ) : null}
                         <td className="py-2.5 px-3">
-                          {mat.numero_serie ? (
+                          {(mat.numeros_serie?.length ?? 0) > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {mat.numeros_serie!.map((serie) => {
+                                const devuelta = seriesDevueltas.has(
+                                  `${mat.material_id}|${claveSerie(serie)}`,
+                                );
+                                return (
+                                  <span
+                                    key={serie}
+                                    title={devuelta ? "Devuelta al almacén" : undefined}
+                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-xs font-mono ${
+                                      devuelta
+                                        ? "bg-gray-50 text-gray-400 border-gray-200 line-through"
+                                        : "bg-blue-50 text-blue-700 border-blue-200"
+                                    }`}
+                                  >
+                                    <Hash className="h-3 w-3" />
+                                    {serie}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          ) : mat.numero_serie ? (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 text-xs font-mono">
                               <Hash className="h-3 w-3" />
                               {mat.numero_serie}

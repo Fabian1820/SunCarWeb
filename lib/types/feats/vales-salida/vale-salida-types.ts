@@ -1,7 +1,8 @@
 export interface ValeSalidaMaterialItem {
   material_id: string;
   cantidad: number;
-  numero_serie?: string;
+  /** Una serie por unidad; texto libre (puede llevar comas). */
+  numeros_serie?: string[];
 }
 
 export type ValeSolicitudTipo = "material" | "venta";
@@ -9,6 +10,8 @@ export type ValeSolicitudTipo = "material" | "venta";
 export interface ValeSalidaMaterialItemDetalle {
   material_id: string;
   cantidad: number;
+  numeros_serie?: string[];
+  /** Las mismas series unidas por comas, para exportar. */
   numero_serie?: string;
   alerta_stock?: boolean;
   stock_suficiente?: boolean;
@@ -211,6 +214,7 @@ export interface ValeSalidaListResponse {
 export interface DevolucionValeMaterialPayload {
   material_id: string;
   cantidad: number;
+  numeros_serie?: string[];
 }
 
 export interface DevolucionValeCreateData {
@@ -223,6 +227,7 @@ export interface DevolucionValeCreateData {
 export interface DevolucionValeMaterial {
   material_id: string;
   cantidad: number;
+  numeros_serie?: string[];
   material_codigo?: string;
   material_descripcion?: string;
   material_nombre?: string;
@@ -249,6 +254,12 @@ export interface DevolucionValeResumenMaterial {
   material_descripcion?: string;
   material_nombre?: string;
   um?: string;
+  /** Series con que salió en el vale, las que volvieron y las que siguen fuera. */
+  numeros_serie?: string[];
+  numeros_serie_devueltos?: string[];
+  numeros_serie_pendientes?: string[];
+  /** Todas las unidades salieron con serie: al devolver hay que decir cuáles. */
+  requiere_series?: boolean;
 }
 
 export interface DevolucionValeResumen {

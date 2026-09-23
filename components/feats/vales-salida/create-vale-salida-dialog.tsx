@@ -39,6 +39,12 @@ import {
   getFechaRecogidaBadge,
 } from "@/lib/utils/fecha-recogida";
 import { normalizeSearchText } from "@/lib/utils/string-utils";
+import {
+  claveSerie,
+  limpiarSeries,
+  seriesRepetidas,
+  unidadesConSerie,
+} from "@/lib/utils/numeros-serie";
 
 interface MaterialRow {
   material_id: string;
@@ -53,7 +59,8 @@ interface MaterialRow {
   stock_suficiente: boolean;
   stock_despues: number | null;
   faltante: number;
-  numero_serie?: string;
+  /** Una serie por unidad, como mucho tantas como unidades enteras. */
+  numeros_serie?: string[];
   foto?: string;
   /** Se agregó desde el catálogo completo y no está habilitado para venta web. */
   no_vendible?: boolean;
@@ -182,6 +189,7 @@ export function CreateValeSalidaDialog({
   const [serialNumberDialogOpen, setSerialNumberDialogOpen] = useState(false);
   const [serialNumberMaterialIndex, setSerialNumberMaterialIndex] = useState<number | null>(null);
   const [tempSerialNumbers, setTempSerialNumbers] = useState<string[]>([]);
+  const [serialNumberError, setSerialNumberError] = useState<string | null>(null);
 
   const [materialCatalogVenta, setMaterialCatalogVenta] = useState<
     MaterialCatalogItem[]
@@ -504,46 +512,93 @@ export function CreateValeSalidaDialog({
     );
   };
 
+  // Si baja la cantidad, las series que sobran se quitan: un vale no puede
+  // decir que salieron 3 unidades identificadas si salen 2. Se hace al salir
+  // del campo y no en cada tecla: borrar el número para escribir otro pasa
+  // por 0 y se llevaría todas las series.
+  const handleCantidadBlur = (index: number) => {
+    const material = materiales[index];
+    const series = material?.numeros_serie ?? [];
+    const maximo = unidadesConSerie(material?.cantidad ?? 0);
+    const sobrantes = series.slice(maximo);
+    if (!material || sobrantes.length === 0) return;
+    toast({
+      title: "Series quitadas",
+      description: `${material.nombre || material.descripcion || material.codigo}: con ${
+        material.cantidad
+      } unidad(es) sobraban ${sobrantes.join(" · ")}`,
+    });
+    setMateriales((prev) =>
+      prev.map((m, i) =>
+        i === index
+          ? { ...m, numeros_serie: maximo > 0 ? series.slice(0, maximo) : undefined }
+          : m,
+      ),
+    );
+  };
+
   const handleOpenSerialNumberDialog = (index: number) => {
     const material = materiales[index];
     if (!material) return;
-    
-    const currentSerials = material.numero_serie 
-      ? material.numero_serie.split(',').map(s => s.trim()).filter(Boolean)
-      : [];
-    
-    const cantidad = Math.max(1, material.cantidad);
-    const serialsArray = Array(cantidad).fill('').map((_, i) => currentSerials[i] || '');
-    
+
+    // Una casilla por unidad entera: 2,5 m de cable no admiten media serie.
+    const unidades = unidadesConSerie(material.cantidad);
+    if (unidades === 0) return;
+    const actuales = material.numeros_serie ?? [];
+    const casillas = Array.from({ length: unidades }, (_, i) => actuales[i] ?? "");
+
     setSerialNumberMaterialIndex(index);
-    setTempSerialNumbers(serialsArray);
+    setTempSerialNumbers(casillas);
+    setSerialNumberError(null);
     setSerialNumberDialogOpen(true);
   };
 
   const handleSaveSerialNumbers = () => {
     if (serialNumberMaterialIndex === null) return;
-    
-    const validSerials = tempSerialNumbers.filter(s => s.trim());
-    const serialString = validSerials.length > 0 ? validSerials.join(', ') : undefined;
-    
+
+    const series = limpiarSeries(tempSerialNumbers);
+    const repetidas = seriesRepetidas(series);
+    if (repetidas.length > 0) {
+      setSerialNumberError(`La serie ${repetidas[0]} está repetida.`);
+      return;
+    }
+    // Una serie identifica una unidad: tampoco puede estar en otro material.
+    const claves = new Set(series.map(claveSerie));
+    const enOtro = materiales.find(
+      (m, i) =>
+        i !== serialNumberMaterialIndex &&
+        (m.numeros_serie ?? []).some((s) => claves.has(claveSerie(s))),
+    );
+    if (enOtro) {
+      const serie = (enOtro.numeros_serie ?? []).find((s) => claves.has(claveSerie(s)));
+      setSerialNumberError(
+        `La serie ${serie} ya está en ${enOtro.nombre || enOtro.descripcion || enOtro.codigo}.`,
+      );
+      return;
+    }
+
     setMateriales((prev) =>
       prev.map((material, i) =>
-        i === serialNumberMaterialIndex 
-          ? { ...material, numero_serie: serialString } 
+        i === serialNumberMaterialIndex
+          ? { ...material, numeros_serie: series.length > 0 ? series : undefined }
           : material,
       ),
     );
-    
-    setSerialNumberDialogOpen(false);
-    setSerialNumberMaterialIndex(null);
-    setTempSerialNumbers([]);
+    handleCancelSerialNumbers();
   };
 
   const handleCancelSerialNumbers = () => {
     setSerialNumberDialogOpen(false);
     setSerialNumberMaterialIndex(null);
     setTempSerialNumbers([]);
+    setSerialNumberError(null);
   };
+
+  // Materiales con series a medias: se puede crear el vale igual, pero se avisa.
+  const seriesIncompletas = materiales.filter((m) => {
+    const n = m.numeros_serie?.length ?? 0;
+    return n > 0 && n < unidadesConSerie(m.cantidad);
+  });
 
   const esSolicitudVenta = selectedSolicitud?.tipo_solicitud === "venta";
   // Solo cuentan los agregados en este vale: lo que ya venía en la solicitud
@@ -589,7 +644,9 @@ export function CreateValeSalidaDialog({
       materiales: validMaterials.map((material) => ({
         material_id: material.material_id,
         cantidad: material.cantidad,
-        numero_serie: material.numero_serie,
+        numeros_serie: material.numeros_serie?.length
+          ? material.numeros_serie.slice(0, unidadesConSerie(material.cantidad))
+          : undefined,
       })),
       solicitud_material_id:
         selectedSolicitud.tipo_solicitud === "material"
@@ -935,18 +992,32 @@ export function CreateValeSalidaDialog({
                               onChange={(e) =>
                                 handleCantidadChange(idx, e.target.value)
                               }
+                              onBlur={() => handleCantidadBlur(idx)}
                               className="h-8 w-24"
                             />
                           </td>
                           <td className="py-2 px-3">
                             <div className="flex items-center gap-2">
-                              {material.numero_serie ? (
+                              {unidadesConSerie(material.cantidad) === 0 ? (
+                                <span
+                                  className="text-xs text-gray-400"
+                                  title="Solo las unidades enteras llevan número de serie"
+                                >
+                                  -
+                                </span>
+                              ) : material.numeros_serie?.length ? (
                                 <div className="flex-1 flex items-center gap-2">
                                   <span
-                                    className="text-xs text-gray-600 truncate max-w-[100px]"
-                                    title={material.numero_serie}
+                                    className={`text-xs truncate max-w-[100px] ${
+                                      material.numeros_serie.length <
+                                      unidadesConSerie(material.cantidad)
+                                        ? "text-amber-700 font-medium"
+                                        : "text-gray-600"
+                                    }`}
+                                    title={material.numeros_serie.join("\n")}
                                   >
-                                    {material.numero_serie.split(",").length} serie(s)
+                                    {material.numeros_serie.length} de{" "}
+                                    {unidadesConSerie(material.cantidad)}
                                   </span>
                                   <Button
                                     type="button"
@@ -1104,6 +1175,27 @@ export function CreateValeSalidaDialog({
             ) : null}
           </div>
 
+          {seriesIncompletas.length > 0 ? (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-medium">Faltan números de serie</p>
+                <p className="text-xs">
+                  {seriesIncompletas
+                    .map(
+                      (m) =>
+                        `${m.nombre || m.descripcion || m.codigo}: ${
+                          m.numeros_serie?.length ?? 0
+                        } de ${unidadesConSerie(m.cantidad)}`,
+                    )
+                    .join(" · ")}
+                  . Puedes crear el vale igual; las unidades sin serie no se podrán
+                  identificar en una devolución.
+                </p>
+              </div>
+            </div>
+          ) : null}
+
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button
               variant="outline"
@@ -1134,7 +1226,12 @@ export function CreateValeSalidaDialog({
       </DialogContent>
     </Dialog>
 
-    <Dialog open={serialNumberDialogOpen} onOpenChange={setSerialNumberDialogOpen}>
+    <Dialog
+      open={serialNumberDialogOpen}
+      onOpenChange={(abierto) => {
+        if (!abierto) handleCancelSerialNumbers();
+      }}
+    >
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -1145,7 +1242,8 @@ export function CreateValeSalidaDialog({
         
         <div className="space-y-4 py-4">
           <p className="text-sm text-gray-600">
-            Ingrese los números de serie para cada unidad del material:
+            Una serie por unidad, tal como viene en la etiqueta (letras, números
+            o símbolos). Deja en blanco las unidades que no la tengan.
           </p>
           
           <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
@@ -1162,12 +1260,17 @@ export function CreateValeSalidaDialog({
                     const newSerials = [...tempSerialNumbers];
                     newSerials[idx] = e.target.value;
                     setTempSerialNumbers(newSerials);
+                    setSerialNumberError(null);
                   }}
                   className="h-9"
                 />
               </div>
             ))}
           </div>
+
+          {serialNumberError ? (
+            <p className="text-sm text-red-600">{serialNumberError}</p>
+          ) : null}
           
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button
