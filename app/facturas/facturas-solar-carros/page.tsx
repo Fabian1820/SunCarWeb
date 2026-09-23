@@ -700,6 +700,38 @@ const buildNumeroFacturaSolar = (
   return `${String(nextSeq).padStart(5, "0")}${year2}`;
 };
 
+/**
+ * Busca una factura por su número. Devuelve null si no existe y lanza si no se
+ * pudo comprobar: quien llama decide qué hacer con la duda.
+ */
+const buscarFacturaPorNumero = async (numero: string) => {
+  const res = await apiRequest<{
+    success?: boolean;
+    data?: { cliente?: { nombre?: string } };
+    _httpStatus?: number;
+  }>(`/facturas-solar-carros/numero/${encodeURIComponent(numero)}`);
+  if (res?._httpStatus === 404) return null;
+  if (res?.success === false || !res?.data) {
+    throw new Error(`No se pudo comprobar si ya existe la factura ${numero}.`);
+  }
+  return { cliente: String(res.data.cliente?.nombre || "otro cliente") };
+};
+
+/** El servidor recibió la factura y la rechazó: no es un corte de red. */
+class FacturaRechazadaError extends Error {}
+
+/** apiRequest devuelve los 4xx/5xx como valor; esto saca el mensaje. */
+const mensajeDeRechazo = (res: Record<string, unknown>) => {
+  const detail = res.detail;
+  const error = res.error as { message?: string } | undefined;
+  return (
+    (typeof detail === "string" && detail) ||
+    error?.message ||
+    (typeof res.message === "string" && res.message) ||
+    "El servidor no guardó la factura"
+  );
+};
+
 const formatNumeroFacturaExport = (value?: string) => {
   const raw = String(value || "").trim();
   if (!raw) return "-";
@@ -862,6 +894,7 @@ function FacturasSolarCarrosPageContent() {
         return tb - ta;
       });
     setFacturasSolar(filtered);
+    return filtered;
   }, []);
 
   const loadInstaladoraRows = useCallback(async () => {
@@ -967,6 +1000,16 @@ function FacturasSolarCarrosPageContent() {
     [handleLoadError, loadFacturasSolar, loadedFacturas, loadingFacturas],
   );
 
+  // El número sale de las facturas ya emitidas, que solo se cargan al abrir la
+  // pestaña Facturas. Facturando directo desde Instaladora o Ventas la lista
+  // estaba vacía y se proponía 0000126, que ya existe.
+  const siguienteNumeroFactura = async () => {
+    if (loadedFacturas) return buildNumeroFacturaSolar(facturasSolar);
+    const lista = await loadFacturasSolar();
+    setLoadedFacturas(true);
+    return buildNumeroFacturaSolar(lista);
+  };
+
   const ventas = usePaginatedVentasFactura();
 
   useEffect(() => {
@@ -1029,7 +1072,7 @@ function FacturasSolarCarrosPageContent() {
       openPreview(
         { kind: "instaladora", row, items, baseJuridicaUsd: juridicaUsd },
         {
-          numero_factura: buildNumeroFacturaSolar(facturasSolar),
+          numero_factura: await siguienteNumeroFactura(),
           fecha: toDateInput(new Date()),
           cliente_nombre: row.cliente.nombre || "",
           cliente_telefono: row.cliente.telefono || "",
@@ -1125,7 +1168,7 @@ function FacturasSolarCarrosPageContent() {
       openPreview(
         { kind: "ventas", row, items, baseJuridicaUsd: baseUsd },
         {
-          numero_factura: buildNumeroFacturaSolar(facturasSolar),
+          numero_factura: await siguienteNumeroFactura(),
           fecha: toDateInput(new Date()),
           cliente_nombre: row.nombre || "",
           cliente_telefono: row.telefono || "",
@@ -1681,6 +1724,27 @@ function FacturasSolarCarrosPageContent() {
         return;
       }
 
+      // El número se comprueba ANTES de rebajar: un número repetido hacía que
+      // el backend rechazara la factura con la rebaja ya hecha.
+      const numeroFactura = previewDraft.numero_factura.trim();
+      if (!numeroFactura) {
+        toast({
+          title: "Falta el número de factura",
+          description: "Escriba el número antes de guardar. No se descontó nada.",
+          variant: "destructive",
+        });
+        return;
+      }
+      const repetida = await buscarFacturaPorNumero(numeroFactura);
+      if (repetida) {
+        toast({
+          title: "Número de factura repetido",
+          description: `Ya existe la factura ${numeroFactura} (${repetida.cliente}). Cambie el número. No se descontó nada.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
       // 1) Descontar de inventario contabilidad (cantidad_contabilidad).
       // El ticket se guarda en la factura para poder borrarlo con ella.
       const ticket = await ContabilidadService.crearTicket(
@@ -1750,7 +1814,7 @@ function FacturasSolarCarrosPageContent() {
       const materialesPayload = Array.from(agrupados.values());
 
       const payload = {
-        no_factura: previewDraft.numero_factura,
+        no_factura: numeroFactura,
         fecha: previewDraft.fecha,
         estado: "emitida",
         origen: previewSource.kind === "instaladora" ? "instaladora" : "ventas",
@@ -1813,24 +1877,58 @@ function FacturasSolarCarrosPageContent() {
       };
 
       try {
-        // 2) Crear factura solar carros
-        await apiRequest("/facturas-solar-carros/", {
+        // 2) Crear factura solar carros. apiRequest no lanza ante un rechazo:
+        // sin mirar la respuesta, un 400 se daba por bueno y la rebaja del
+        // paso 1 quedaba hecha sin factura.
+        const creada = await apiRequest<Record<string, unknown>>("/facturas-solar-carros/", {
           method: "POST",
           body: JSON.stringify(payload),
         });
+        if (creada?.success === false) {
+          throw new FacturaRechazadaError(mensajeDeRechazo(creada));
+        }
       } catch (errorCrearFactura) {
-        // 3) Rollback de inventario si falla creación de factura
-        await Promise.allSettled(
-          materialesSalida.map((m) =>
-            ContabilidadService.registrarEntrada(m.material_id, m.cantidad),
-          ),
-        );
-        throw errorCrearFactura;
+        // Un corte de red no dice si el servidor llegó a guardarla. Si la
+        // guardó, devolver las existencias la dejaría sin rebaja.
+        let guardada = false;
+        if (!(errorCrearFactura instanceof FacturaRechazadaError)) {
+          const encontrada = await buscarFacturaPorNumero(numeroFactura).catch(() => undefined);
+          if (encontrada === undefined) {
+            throw new Error(
+              `No se pudo confirmar si la factura ${numeroFactura} se guardó. No la repita: ` +
+                `recargue la pestaña Facturas y, si no aparece, avise para devolver lo rebajado en el ${ticket.numero_ticket}.`,
+            );
+          }
+          guardada = encontrada !== null;
+        }
+
+        if (!guardada) {
+          // 3) Rollback: se anula el ticket entero. Devolver con entradas
+          // sueltas dejaba el ticket en la lista, rebajando a ojos de quien
+          // cuenta a mano.
+          const motivo =
+            errorCrearFactura instanceof Error ? errorCrearFactura.message : "error desconocido";
+          try {
+            await ContabilidadService.anularTicket(
+              ticket.ticket_id,
+              `La factura ${numeroFactura} no se guardó: ${motivo}`,
+            );
+          } catch (errorAnular) {
+            throw new Error(
+              `La factura no se guardó: ${motivo}. No se pudo devolver lo rebajado en el ` +
+                `${ticket.numero_ticket} (${errorAnular instanceof Error ? errorAnular.message : "error desconocido"}). ` +
+                "Avise antes de repetirla.",
+            );
+          }
+          throw new Error(
+            `La factura no se guardó: ${motivo}. Se anuló el ${ticket.numero_ticket} y se devolvió lo que rebajó.`,
+          );
+        }
       }
 
       toast({
         title: "Factura creada",
-        description: `Factura ${previewDraft.numero_factura} guardada correctamente.`,
+        description: `Factura ${numeroFactura} guardada correctamente.`,
       });
 
       setPreviewOpen(false);

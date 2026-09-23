@@ -140,6 +140,22 @@ export class ContabilidadService {
   }
 
   /**
+   * Deshace un ticket: sale de la lista y devuelve todo lo que rebajó.
+   * El backend no deja anular el ticket de una factura guardada.
+   */
+  static async anularTicket(
+    ticketId: string,
+    motivo: string
+  ): Promise<{ numero_ticket: string }> {
+    const response = await apiRequest<{ numero_ticket: string }>(
+      `/tickets-contabilidad/${ticketId}/anular`,
+      { method: 'POST', body: JSON.stringify({ motivo }) }
+    )
+    lanzarSiFallo(response, 'anular el ticket')
+    return response
+  }
+
+  /**
    * Da de alta un material en Existencias Contabilidad.
    * No hace falta que exista en el catálogo del sistema.
    */
