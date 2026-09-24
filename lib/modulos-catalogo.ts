@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react"
 import {
+  Shield,
   Phone,
   Smartphone,
   User,
@@ -280,6 +281,21 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     href: "/peticiones",
     grupo: "area-direccion",
     superAdminOnly: true,
+  },
+  {
+    key: "gestion-permisos",
+    label: "Gestión de Permisos",
+    descripcion:
+      "Asignar módulos a los demás trabajadores. Nunca a uno mismo ni a un superAdmin; " +
+      "dar o quitar el superAdmin sigue siendo solo del superAdmin.",
+    icon: Shield,
+    iconClass: "text-red-600",
+    // Abre /permisos, que ya tiene su tarjeta propia en Área de Dirección
+    // (use-modulos-navegacion): este módulo solo concede el acceso.
+    href: "/permisos",
+    grupo: "area-direccion",
+    hideFromDashboard: true,
+    soloPermiso: true,
   },
   {
     key: "actualizaciones-sistema",
