@@ -111,8 +111,12 @@ export default function LeadsPage() {
       const { leads } = await LeadService.getLeads({
         conversion_fallida: true,
         activo: true,
+        limit: 100,
       });
-      setLeadsConversionFallida(leads);
+      // Se vuelve a filtrar aquí: un backend sin el filtro devolvería todos.
+      setLeadsConversionFallida(
+        leads.filter((l) => l.ultimo_error_conversion_automatica),
+      );
     } catch (e) {
       console.error("Error cargando leads con conversión fallida:", e);
     }
