@@ -1599,10 +1599,51 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
         ],
       },
       { key: "app/visitas", label: "Visitas" },
-      { key: "app/planificacion", label: "Planificación" },
+      {
+        key: "app/planificacion",
+        label: "Planificación",
+        subPermisos: [
+          {
+            key: "app/planificacion/confirmar",
+            label: "Confirmar el día",
+            descripcion:
+              "Botón para confirmar el plan de un día desde la app; hasta entonces las brigadas no lo ven. ADITIVO: 'app' ni 'app/planificacion' lo conceden.",
+            aditivo: true,
+          },
+          {
+            key: "app/planificacion/desconfirmar",
+            label: "Desconfirmar el día",
+            descripcion:
+              "Botón para quitarle la confirmación a un día desde la app; las brigadas dejan de verlo hasta que se confirme otra vez. ADITIVO.",
+            aditivo: true,
+          },
+        ],
+      },
       { key: "app/solicitudes-materiales", label: "Solicitudes de materiales al almacén" },
       { key: "app/entregas", label: "Entregas y devoluciones de materiales" },
-      { key: "app/historial", label: "Historial de clientes y equipos" },
+      {
+        key: "app/historial",
+        label: "Historial de clientes y equipos",
+        subPermisos: [
+          {
+            key: "app/historial/equipos",
+            label: "Editar equipos del cliente",
+            descripcion: "Agregar, sustituir, retirar y corregir los equipos de un cliente desde Clientes. Verlos no lo necesita.",
+            aditivo: true,
+          },
+          {
+            key: "app/historial/servicios",
+            label: "Agregar servicios al cliente",
+            descripcion: "Crear servicios de cliente (trabajos cobrables) desde Clientes en la app.",
+            aditivo: true,
+          },
+        ],
+      },
+      {
+        key: "app/almacen-reservas-averias",
+        label: "Almacén Reservas Averías",
+        descripcion: "Stock, movimientos, transferencias por aceptar y sacar materiales para averías.",
+      },
     ],
   },
 ]
