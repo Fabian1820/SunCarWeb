@@ -5,6 +5,14 @@ export type EstadoServicioCliente = "pendiente" | "en_proceso" | "terminado";
 export interface LineaServicioCliente {
   concepto: string;
   monto: number;
+  // Solo en las líneas que genera una salida del almacén Reservas Averías.
+  material_id?: string | null;
+  material_codigo?: string | null;
+  material_descripcion?: string | null;
+  cantidad?: number | null;
+  precio_unitario?: number | null;
+  vale_id?: string | null;
+  vale_codigo?: string | null;
 }
 
 export interface ServicioCliente {
@@ -17,6 +25,12 @@ export interface ServicioCliente {
   estado: EstadoServicioCliente;
   monto_pendiente: number;
   pagos: string[];
+  /** "reserva_averia": servicio creado por las salidas del almacén Reservas Averías. */
+  origen?: string | null;
+  averia_id?: string | null;
+  averia_codigo?: string | null;
+  averia_descripcion?: string | null;
+  vale_ids?: string[];
   creado_por_ci?: string | null;
   creado_por_nombre?: string | null;
   facturado: boolean;

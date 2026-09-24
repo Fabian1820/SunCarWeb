@@ -50,6 +50,7 @@ import {
   MapPin,
   Banknote,
   PlugZap,
+  Warehouse,
 } from "lucide-react"
 
 /**
@@ -811,6 +812,18 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     icon: PackageSearch,
     iconClass: "text-teal-800",
     href: "/instalaciones/solicitudes-materiales",
+    grupo: "operaciones",
+  },
+  {
+    // Almacén fijo (rol "reservas_averias" en backend): stock, movimientos y
+    // "Sacar materiales", que crea solicitud + vale y suma el material al
+    // servicio de la avería del cliente. Un solo permiso para todo.
+    key: "almacen-reservas-averias",
+    label: "Almacén Reservas Averías",
+    descripcion: "Stock de reserva para averías y salidas de material a clientes con avería pendiente.",
+    icon: Warehouse,
+    iconClass: "text-orange-600",
+    href: "/operaciones/almacen-reservas-averias",
     grupo: "operaciones",
   },
   {

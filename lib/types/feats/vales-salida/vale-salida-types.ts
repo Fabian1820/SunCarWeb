@@ -158,6 +158,18 @@ export interface ValeSalida {
   total_materiales?: number;
   /** Documentos del vale (el firmado, sobre todo). Vacio en vales antiguos. */
   adjuntos?: AdjuntoValeSalida[];
+  /** Salida del almacén Reservas Averías: a qué cliente y avería fue. */
+  reserva_averia?: {
+    almacen_id?: string;
+    almacen_nombre?: string;
+    cliente_id?: string;
+    cliente_numero?: string;
+    cliente_nombre?: string | null;
+    averia_id?: string;
+    averia_codigo?: string | null;
+    averia_descripcion?: string | null;
+    servicio_id?: string;
+  } | null;
   creado_por_ci?: string;
   fecha_creacion?: string;
   fecha_actualizacion?: string;

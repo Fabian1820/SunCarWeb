@@ -52,6 +52,9 @@ export function ServiciosPagosPanel() {
   const filtrados = useMemo(() => {
     const t = q.trim().toLowerCase()
     return servicios.filter((s) => {
+      // Los servicios de avería (almacén Reservas Averías) se cobran cuando la
+      // avería está solucionada, que es cuando pasan a "terminado".
+      if (s.origen === "reserva_averia" && s.estado !== "terminado") return false
       if (soloPendientes && s.monto_pendiente <= 0.01) return false
       if (!t) return true
       return [s.cliente_nombre, s.cliente_numero, s.descripcion, s.numero_factura]
