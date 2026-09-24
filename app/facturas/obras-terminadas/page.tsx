@@ -45,10 +45,11 @@ import { ObrasTerminadasService } from "@/lib/services/feats/obras-terminadas/ob
 import { ExportFacturaClienteService } from "@/lib/services/feats/obras-terminadas/export-factura-cliente-service"
 import { ExportObrasTerminadasExcelService } from "@/lib/services/feats/obras-terminadas/export-obras-terminadas-excel-service"
 import { useToast } from "@/hooks/use-toast"
+import { RouteGuard } from "@/components/auth/route-guard"
 
 type Vista = "obras" | "facturas"
 
-export default function ObrasTerminadasPage() {
+function ObrasTerminadasPageContent() {
   // El destino de "Volver" sale del catálogo, que cambia entre ramas: en
   // producción estos submódulos cuelgan de la tarjeta Facturación y en dev
   // cuelgan directo de Economía.
@@ -792,5 +793,13 @@ export default function ObrasTerminadasPage() {
         }}
       />
     </div>
+  )
+}
+
+export default function ObrasTerminadasPage() {
+  return (
+    <RouteGuard requiredModule="facturas/obras-terminadas">
+      <ObrasTerminadasPageContent />
+    </RouteGuard>
   )
 }

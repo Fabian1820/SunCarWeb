@@ -112,8 +112,9 @@ export function AgregarOfertaDialog({
   const precioCero = Boolean(cliente.precio_cero);
   const { toast } = useToast();
   const isMobile = useIsMobile();
-  const { user } = useAuth();
-  const canUseDescuentoFree = user?.nombre === "Loydis Batista Carrazana";
+  const { hasExactPermission } = useAuth();
+  // Antes iba por el nombre de una persona; ahora es un sub-permiso aditivo.
+  const canUseDescuentoFree = hasExactPermission("clientes-ventas/descuento-libre");
   const [mobileTab, setMobileTab] = useState<"catalogo" | "carrito">("catalogo");
 
   const [catalogo, setCatalogo] = useState<MaterialVentaWeb[]>([]);

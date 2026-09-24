@@ -64,7 +64,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/shared/molecule/collapsible";
 import { apiRequest } from "@/lib/api-config";
-import { compareStrings, normalizeSearchText } from "@/lib/utils/string-utils";
+import { compareStrings } from "@/lib/utils/string-utils";
 import MapPicker from "@/components/shared/organism/MapPickerNoSSR";
 import { ClienteDetallesDialog } from "@/components/feats/customer/cliente-detalles-dialog";
 import { ClienteValesSalidaDialog } from "@/components/feats/customer-service/cliente-vales-salida-dialog";
@@ -755,14 +755,14 @@ export function ClientsTable({
   onRequestPendientesPago,
 }: ClientsTableProps) {
   const { toast } = useToast();
-  const { hasExactPermission, user } = useAuth();
+  const { hasExactPermission } = useAuth();
   // Subpermiso ADITIVO: solo quien lo tenga (o superAdmin) ve costos y totales.
   const verCostos = hasExactPermission("costos-materiales-cliente");
-  // Cargo "Comercial": es a quien más le sirve el botón de "Saldo pendiente"
-  // de abajo. El filtro de comercial NO se precarga: entra viendo todos.
-  const esComercial =
-    !user?.is_superAdmin &&
-    normalizeSearchText(user?.rol || "").includes("comercial");
+  // Aviso de "Saldo pendiente" de abajo: antes salía a quien tuviera
+  // "comercial" en el cargo; ahora es el sub-permiso aditivo
+  // `clientes/saldo-pendiente`. El filtro de comercial NO se precarga: entra
+  // viendo todos.
+  const esComercial = hasExactPermission("clientes/saldo-pendiente");
   const {
     ofertas,
     loading: ofertasLoading,

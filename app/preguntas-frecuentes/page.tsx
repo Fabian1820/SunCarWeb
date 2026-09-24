@@ -1,5 +1,6 @@
 "use client";
 
+import { RouteGuard } from "@/components/auth/route-guard";
 import { useState } from "react";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { Button } from "@/components/shared/atom/button";
@@ -23,6 +24,14 @@ import type { PreguntaFrecuente } from "@/lib/types/feats/preguntas-frecuentes/p
 import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 export default function PreguntasFrecuentesPage() {
+  return (
+    <RouteGuard requiredModule="preguntas-frecuentes">
+      <PreguntasFrecuentesPageContent />
+    </RouteGuard>
+  );
+}
+
+function PreguntasFrecuentesPageContent() {
   const {
     preguntas,
     loading,

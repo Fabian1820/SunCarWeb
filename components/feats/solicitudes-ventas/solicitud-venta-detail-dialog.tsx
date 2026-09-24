@@ -22,12 +22,15 @@ interface SolicitudVentaDetailDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   solicitud: SolicitudVenta | null;
+  /** Sin acciones (p. ej. abierto desde la Billetera, sin el módulo de ventas). */
+  soloLectura?: boolean;
 }
 
 export function SolicitudVentaDetailDialog({
   open,
   onOpenChange,
   solicitud,
+  soloLectura = false,
 }: SolicitudVentaDetailDialogProps) {
   if (!solicitud) return null;
 
@@ -65,12 +68,14 @@ export function SolicitudVentaDetailDialog({
                 {solicitud.codigo || solicitud.id.slice(-6).toUpperCase()}
               </Badge>
             </DialogTitle>
-            <GenerarLinkPagoSolicitudButton
-              solicitud={solicitud}
-              variant="default"
-              size="sm"
-              showIcon={true}
-            />
+            {!soloLectura && (
+              <GenerarLinkPagoSolicitudButton
+                solicitud={solicitud}
+                variant="default"
+                size="sm"
+                showIcon={true}
+              />
+            )}
           </div>
         </DialogHeader>
 

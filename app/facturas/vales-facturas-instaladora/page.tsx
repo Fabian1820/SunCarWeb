@@ -1,12 +1,12 @@
 "use client"
 
 import { FacturasSection } from "@/components/feats/facturas/facturas-section"
-import { FacturasSubmoduleGuard } from "@/components/auth/facturas-submodule-guard"
+import { RouteGuard } from "@/components/auth/route-guard"
 
 export default function ValesFacturasInstaladoraPage() {
     return (
-        <FacturasSubmoduleGuard>
+        <RouteGuard requiredModule="facturas/vales-facturas-instaladora">
             <FacturasSection />
-        </FacturasSubmoduleGuard>
+        </RouteGuard>
     )
 }

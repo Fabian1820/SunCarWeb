@@ -33,7 +33,9 @@ import { WalletService } from "@/lib/services/feats/wallet/wallet-service";
 
 export default function WalletAlertasPage() {
   return (
-    <RouteGuard requiredModule="wallet-alertas">
+    // Quien administra la billetera también entra, igual que en el backend
+    // (`_require_acceso_alertas`). Los dos son aditivos: permiso exacto.
+    <RouteGuard requiredModule={["wallet-alertas", "wallet/admin"]} exact>
       <WalletAlertasContent />
     </RouteGuard>
   );

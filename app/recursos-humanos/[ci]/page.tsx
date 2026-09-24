@@ -1,5 +1,6 @@
 "use client"
 
+import { RouteGuard } from "@/components/auth/route-guard"
 import { useState, useEffect, useMemo, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
 import {
@@ -1005,6 +1006,14 @@ function TabNomina({ emp, onUpdate }: {
 type Tab = "personal" | "laboral" | "evaluaciones" | "nomina"
 
 export default function EmpleadoDetallePage() {
+  return (
+    <RouteGuard requiredModule="recursos-humanos">
+      <EmpleadoDetallePageContent />
+    </RouteGuard>
+  )
+}
+
+function EmpleadoDetallePageContent() {
   const params  = useParams()
   const router  = useRouter()
   const { toast } = useToast()

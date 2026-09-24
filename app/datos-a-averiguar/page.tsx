@@ -1,5 +1,6 @@
 "use client";
 
+import { RouteGuard } from "@/components/auth/route-guard";
 import { useState } from "react";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { Button } from "@/components/shared/atom/button";
@@ -28,6 +29,14 @@ const MOMENTO_LABEL: Record<MomentoDato, string> = {
 };
 
 export default function DatosAAveriguarPage() {
+  return (
+    <RouteGuard requiredModule="datos-a-averiguar">
+      <DatosAAveriguarPageContent />
+    </RouteGuard>
+  );
+}
+
+function DatosAAveriguarPageContent() {
   const { datos, loading, crearDato, actualizarDato, eliminarDato } =
     useDatosAAveriguar();
   const { toast } = useToast();

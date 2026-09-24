@@ -1,5 +1,6 @@
 "use client"
 
+import { RouteGuard } from "@/components/auth/route-guard"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
 import { ArrowLeft } from "lucide-react"
@@ -12,6 +13,14 @@ import type { OfertaConfeccion } from "@/hooks/use-ofertas-confeccion"
 import { apiRequest } from "@/lib/api-config"
 
 export default function DuplicarOfertaPage() {
+  return (
+    <RouteGuard requiredModule="ofertas-gestion">
+      <DuplicarOfertaPageContent />
+    </RouteGuard>
+  )
+}
+
+function DuplicarOfertaPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const ofertaId = searchParams.get('id')

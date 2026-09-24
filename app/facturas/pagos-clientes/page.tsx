@@ -70,6 +70,7 @@ import { TasaCambioService } from "@/lib/api-services";
 import type { TasaCambio } from "@/lib/types/feats/tasa-cambio/tasa-cambio-types";
 import { normalizeSearchText } from "@/lib/utils/string-utils";
 import { ServiciosPagosPanel } from "@/components/feats/pagos/servicios-pagos-panel";
+import { RouteGuard } from "@/components/auth/route-guard"
 
 type ViewMode =
   | "anticipos-pendientes"
@@ -150,7 +151,7 @@ const ESTADO_CLIENTE_ORDER = [
   "sin estado",
 ];
 
-export default function PagosClientesPage() {
+function PagosClientesPageContent() {
   // El destino de "Volver" sale del catálogo, que cambia entre ramas: en
   // producción estos submódulos cuelgan de la tarjeta Facturación y en dev
   // cuelgan directo de Economía.
@@ -1800,4 +1801,12 @@ export default function PagosClientesPage() {
       `}</style>
     </div>
   );
+}
+
+export default function PagosClientesPage() {
+  return (
+    <RouteGuard requiredModule="facturas/pagos-clientes">
+      <PagosClientesPageContent />
+    </RouteGuard>
+  )
 }

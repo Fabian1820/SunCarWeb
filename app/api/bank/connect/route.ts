@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { exigirSesion } from '../_sesion'
 import { startAuthorization } from '@/lib/server/enable-banking'
 
 export async function POST(request: NextRequest) {
+  const denegado = await exigirSesion(request)
+  if (denegado) return denegado
+
   try {
     const { bankName, country, redirectUrl } = (await request.json()) as {
       bankName: string

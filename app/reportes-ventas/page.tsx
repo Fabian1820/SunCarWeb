@@ -1,5 +1,6 @@
 "use client"
 
+import { RouteGuard } from "@/components/auth/route-guard"
 import { useState, useEffect, useCallback } from "react"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { VentasPorComercialTable } from "@/components/feats/reportes-ventas/resultados-comercial-table"
@@ -20,6 +21,14 @@ const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
 ]
 
 export default function ReportesVentasPage() {
+  return (
+    <RouteGuard requiredModule="reportes-ventas">
+      <ReportesVentasPageContent />
+    </RouteGuard>
+  )
+}
+
+function ReportesVentasPageContent() {
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState<TabId>("ventas")
 

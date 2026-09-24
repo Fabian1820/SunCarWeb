@@ -1,5 +1,6 @@
 "use client";
 
+import { RouteGuard } from "@/components/auth/route-guard";
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/shared/atom/button";
@@ -97,6 +98,14 @@ const getRangoFechaPreset = (
 };
 
 export default function LeadsPage() {
+  return (
+    <RouteGuard requiredModule="leads">
+      <LeadsPageContent />
+    </RouteGuard>
+  );
+}
+
+function LeadsPageContent() {
   const { hasExactPermission } = useAuth();
   const canCrearLead = hasExactPermission("leads/crear");
   const canExportarLeads = hasExactPermission("leads/exportar");

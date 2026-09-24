@@ -251,7 +251,7 @@ export function ConfeccionOfertasView({
   } = useInventario({ lite: true });
   const { marcas, loading: loadingMarcas } = useMarcas();
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, hasExactPermission } = useAuth();
 
   // Clave única para localStorage basada en el modo.
   // La oferta nueva se separa por contacto: con una única clave global, el
@@ -1728,15 +1728,9 @@ export function ConfeccionOfertasView({
     return map;
   }, [materialesReservaBase, reservasOfertaPorMaterialId, reservasOfertaPorCodigo]);
 
-  // CI con permiso para reducir/cancelar materiales de reservas
-  const AUTORIZADOS_REDUCIR_RESERVA = useMemo(
-    () => new Set(["87120119233"]),
-    [],
-  );
-
-  const puedeReducirReservas = Boolean(
-    user?.is_superAdmin || (user?.ci && AUTORIZADOS_REDUCIR_RESERVA.has(user.ci)),
-  );
+  // Reducir/cancelar materiales ya reservados: antes un CI escrito aquí; ahora
+  // el sub-permiso aditivo `ofertas-gestion/reducir-reservas`.
+  const puedeReducirReservas = hasExactPermission("ofertas-gestion/reducir-reservas");
 
   // Stock libre por código de material = total en almacén − reservado por OTRAS
   // ofertas/reservas activas. Las reservas de ESTA oferta no se restan acá porque

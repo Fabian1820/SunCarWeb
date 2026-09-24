@@ -298,18 +298,19 @@ The application implements a complete JWT-based authentication system with **dyn
    - `docs/ENDPOINTS_PERMISOS.md` - Permissions and modules API endpoints
    - Complete integration guide for protecting new routes and modules
 
-### Auditoría del Sistema (solo superAdmin)
+### Auditoría del Sistema
 
 Pantalla de solo lectura en `/auditoria` sobre la bitácora global del backend
 (`GET /api/auditoria/`): quién hizo qué, cuándo, desde dónde y con qué datos.
 
-- **No pasa por `RouteGuard`**: ese componente concede acceso con cualquier
-  permiso asignado, y `hasPermission` devuelve `true` para todo si el usuario es
-  superAdmin. La página comprueba `user.is_superAdmin` directamente, igual que el
-  backend, que responde 403 a cualquier otro.
-- **No está en `MODULOS_CATALOGO`** a propósito: no debe existir como permiso
-  asignable desde `/permisos`. La tarjeta se añade a mano en `superAdminModules`
-  de `app/page.tsx`, como "Gestión de Permisos".
+- Hasta sep-2026 era solo superAdmin y estaba fuera del catálogo a propósito.
+  Desde entonces es el módulo `auditoria` de `MODULOS_CATALOGO` (Área de
+  Dirección), con `RouteGuard`; el backend pide el mismo permiso. Todo lo que
+  era solo superAdmin es ahora asignable.
+- El superAdmin es el campo `is_superAdmin` de la ficha; solo otro superAdmin lo
+  da o lo quita (botón en /permisos). Repartir permisos lo puede hacer también
+  quien tenga `gestion-permisos`, nunca a sí mismo ni a un superAdmin; el
+  backend lo hace cumplir.
 - Filtrado y paginación son del servidor (`hooks/use-auditoria.ts`): la colección
   crece sin techo y no se puede traer entera.
 - Las fechas de los filtros se mandan en ISO con zona; el backend guarda en UTC y

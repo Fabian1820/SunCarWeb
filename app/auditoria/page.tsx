@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { Button } from "@/components/shared/atom/button";
 import {
@@ -11,7 +10,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/shared/molecule/card";
-import { PageLoader } from "@/components/shared/atom/page-loader";
 import { SmartPagination } from "@/components/shared/molecule/smart-pagination";
 import {
   Tabs,
@@ -20,7 +18,7 @@ import {
   TabsTrigger,
 } from "@/components/shared/molecule/tabs";
 import { AlertTriangle, Gauge, RefreshCw, ScrollText } from "lucide-react";
-import { useAuth } from "@/contexts/auth-context";
+import { RouteGuard } from "@/components/auth/route-guard";
 import { useAuditoria } from "@/hooks/use-auditoria";
 import { AuditoriaFiltrosBar } from "@/components/feats/auditoria/auditoria-filtros";
 import { AuditoriaTabla } from "@/components/feats/auditoria/auditoria-tabla";
@@ -28,42 +26,14 @@ import { AuditoriaDetalleDialog } from "@/components/feats/auditoria/auditoria-d
 import { AuditoriaRendimiento } from "@/components/feats/auditoria/auditoria-rendimiento";
 import type { AuditoriaEvento } from "@/lib/types/feats/auditoria/auditoria-types";
 
+// Antes solo superAdmin y fuera del catálogo. Desde sep-2026 es un módulo
+// asignable (`auditoria`); el backend pide lo mismo.
 export default function AuditoriaPage() {
   return (
-    <SoloSuperAdmin>
+    <RouteGuard requiredModule="auditoria">
       <AuditoriaContenido />
-    </SoloSuperAdmin>
+    </RouteGuard>
   );
-}
-
-/**
- * La bitácora registra lo que hace todo el mundo, así que no se reparte por
- * módulos: es solo para superAdmin, igual que en el backend. No se usa
- * RouteGuard porque ese componente da acceso a cualquier permiso asignado.
- */
-function SoloSuperAdmin({ children }: { children: React.ReactNode }) {
-  const { user, isLoading, isAuthenticated } = useAuth();
-
-  if (isLoading) return <PageLoader />;
-  if (!isAuthenticated) return null;
-
-  if (!user?.is_superAdmin) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
-        <div className="text-center">
-          <h1 className="mb-4 text-4xl font-bold text-gray-900">Acceso Denegado</h1>
-          <p className="mb-6 text-gray-600">
-            La auditoría del sistema es solo para super administradores.
-          </p>
-          <Link href="/">
-            <Button>Volver al Inicio</Button>
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  return <>{children}</>;
 }
 
 function AuditoriaContenido() {

@@ -64,9 +64,11 @@ function claveDia(fechaStr: string): string {
 }
 
 function ActualizacionesSistemaPageContent() {
-  const { user } = useAuth();
+  const { hasExactPermission } = useAuth();
   const { toast } = useToast();
-  const esSuperAdmin = Boolean(user?.is_superAdmin);
+  // Antes solo superAdmin; ahora sub-permisos aditivos de actualizaciones-sistema.
+  const puedePublicar = hasExactPermission("actualizaciones-sistema/publicar");
+  const puedeNotificar = hasExactPermission("actualizaciones-sistema/notificar");
 
   const [actualizaciones, setActualizaciones] = useState<ActualizacionSistema[]>(
     [],
@@ -179,7 +181,7 @@ function ActualizacionesSistemaPageContent() {
               Últimos {DIAS_HISTORIAL} días
             </h2>
           </div>
-          {esSuperAdmin && (
+          {puedePublicar && (
             <Button size="sm" onClick={() => setPublicarAbierto(true)}>
               <Plus className="mr-1.5 h-4 w-4" />
               Publicar
@@ -230,8 +232,9 @@ function ActualizacionesSistemaPageContent() {
                             {a.autor_nombre ? ` · ${a.autor_nombre}` : ""}
                           </p>
                         </div>
-                        {esSuperAdmin && (
+                        {(puedeNotificar || puedePublicar) && (
                           <div className="flex shrink-0 items-center gap-1">
+                            {puedeNotificar && (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -241,6 +244,8 @@ function ActualizacionesSistemaPageContent() {
                               <Bell className="mr-1 h-3.5 w-3.5" />
                               Notificar
                             </Button>
+                            )}
+                            {puedePublicar && (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -251,6 +256,7 @@ function ActualizacionesSistemaPageContent() {
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
+                            )}
                           </div>
                         )}
                       </div>
@@ -263,19 +269,19 @@ function ActualizacionesSistemaPageContent() {
         )}
       </div>
 
-      {esSuperAdmin && (
-        <>
-          <PublicarActualizacionDialog
-            open={publicarAbierto}
-            onOpenChange={setPublicarAbierto}
-            onPublicar={handlePublicar}
-          />
-          <NotificarTrabajadoresDialog
-            open={notificarAbierto}
-            onOpenChange={setNotificarAbierto}
-            actualizacion={actualizacionParaNotificar}
-          />
-        </>
+      {puedePublicar && (
+        <PublicarActualizacionDialog
+          open={publicarAbierto}
+          onOpenChange={setPublicarAbierto}
+          onPublicar={handlePublicar}
+        />
+      )}
+      {puedeNotificar && (
+        <NotificarTrabajadoresDialog
+          open={notificarAbierto}
+          onOpenChange={setNotificarAbierto}
+          actualizacion={actualizacionParaNotificar}
+        />
       )}
 
       <Toaster />

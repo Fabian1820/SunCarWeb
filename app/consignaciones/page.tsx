@@ -1,5 +1,6 @@
 "use client";
 
+import { RouteGuard } from "@/components/auth/route-guard";
 import { useEffect, useState } from "react";
 import { BookmarkCheck } from "lucide-react";
 import {
@@ -28,6 +29,14 @@ import { ConsignacionService } from "@/lib/services/feats/consignaciones/consign
 import { PagoVentaService } from "@/lib/services/feats/pagos-clientes-ventas/pago-cliente-venta-service";
 
 export default function ConsignacionesPage() {
+  return (
+    <RouteGuard requiredModule="consignaciones">
+      <ConsignacionesPageContent />
+    </RouteGuard>
+  );
+}
+
+function ConsignacionesPageContent() {
   const { toast } = useToast();
   const {
     consignaciones,

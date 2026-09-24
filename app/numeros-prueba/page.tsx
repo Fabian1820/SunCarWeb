@@ -1,5 +1,6 @@
 "use client";
 
+import { RouteGuard } from "@/components/auth/route-guard";
 import { useState } from "react";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { Button } from "@/components/shared/atom/button";
@@ -20,6 +21,14 @@ import { useToast } from "@/hooks/use-toast";
 import type { NumeroPrueba } from "@/lib/types/feats/numeros-prueba/numeros-prueba-types";
 
 export default function NumerosPruebaPage() {
+  return (
+    <RouteGuard requiredModule="numeros-prueba">
+      <NumerosPruebaPageContent />
+    </RouteGuard>
+  );
+}
+
+function NumerosPruebaPageContent() {
   const {
     numeros,
     loading,

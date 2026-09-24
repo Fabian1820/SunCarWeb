@@ -1,5 +1,6 @@
 "use client"
 
+import { RouteGuard } from "@/components/auth/route-guard"
 import { Package, Settings } from "lucide-react"
 import { useEffect, useState } from "react"
 import { InventarioService } from "@/lib/api-services"
@@ -10,6 +11,20 @@ import { PageLoader } from "@/components/shared/atom/page-loader"
 import { useAuth } from "@/contexts/auth-context"
 
 export default function AlmacenesSuncarPage() {
+  const { modulosPermitidos } = useAuth()
+  // Este hub es la única entrada a cada almacén y ya filtra las tarjetas
+  // por `almacen:{id}`, que se asigna suelto en /permisos: quien tiene
+  // algún almacén concreto también puede entrar, aunque le falte el
+  // módulo `almacenes-suncar`. (superAdmin pasa por el propio guard.)
+  const permisosAlmacen = modulosPermitidos.filter((p) => p.startsWith("almacen:"))
+  return (
+    <RouteGuard requiredModule={["almacenes-suncar", ...permisosAlmacen]}>
+      <AlmacenesSuncarPageContent />
+    </RouteGuard>
+  )
+}
+
+function AlmacenesSuncarPageContent() {
   const { hasPermission } = useAuth()
   const [almacenes, setAlmacenes] = useState<Almacen[]>([])
   const [loading, setLoading] = useState(true)

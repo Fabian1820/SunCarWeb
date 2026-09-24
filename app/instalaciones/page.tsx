@@ -1,5 +1,6 @@
 "use client";
 
+import { RouteGuard } from "@/components/auth/route-guard";
 import { ModuleCard } from "@/components/shared/molecule/module-card";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import {
@@ -22,6 +23,16 @@ const TRABAJOS_MODULOS = [
 ];
 
 export default function InstalacionesPage() {
+  // Los `trabajos:*` usan `:` y no heredan a `instalaciones`: sin
+  // listarlos, quien solo tiene Trabajos Diarios no podría entrar al hub.
+  return (
+    <RouteGuard requiredModule={["instalaciones", ...TRABAJOS_MODULOS]}>
+      <InstalacionesPageContent />
+    </RouteGuard>
+  );
+}
+
+function InstalacionesPageContent() {
   const { hasPermission } = useAuth();
 
   const opciones = [

@@ -55,7 +55,12 @@ const FAVORITES_STORAGE_KEY = "suncar_dashboard_favorites";
 
 export default function Dashboard() {
   const router = useRouter();
-  const { user, loadModulosPermitidos, updateUserFoto } = useAuth();
+  const { user, loadModulosPermitidos, updateUserFoto, hasPermission } = useAuth();
+  // Botones de la barra de Inicio: antes los veía todo el mundo; ahora son
+  // sub-permisos del módulo `inicio` (quien registra la tasa también la ve).
+  const puedeVerTasaCambio =
+    hasPermission("inicio/tasa-cambio") || hasPermission("tasa-cambio-diaria");
+  const puedeVerInformacion = hasPermission("inicio/informacion");
   const [creandoSolinera, setCreandoSolinera] = useState(false);
   // Áreas y módulos visibles para este usuario. Es la misma lógica que usa la
   // barra lateral de los módulos (hooks/use-modulos-navegacion.ts).
@@ -384,6 +389,7 @@ export default function Dashboard() {
                 <span className="hidden sm:inline">Calculadora</span>
               </Button>
             </Link>
+            {puedeVerTasaCambio && (
             <Button
               variant="outline"
               size="sm"
@@ -396,6 +402,8 @@ export default function Dashboard() {
               <Coins className="h-4 w-4 text-emerald-600 sm:mr-2" />
               <span className="hidden sm:inline">Tasa de cambio</span>
             </Button>
+            )}
+            {puedeVerInformacion && (
             <Button
               variant="outline"
               size="sm"
@@ -406,6 +414,7 @@ export default function Dashboard() {
               <Info className="h-4 w-4 text-blue-600 sm:mr-2" />
               <span className="hidden sm:inline">Información</span>
             </Button>
+            )}
           </div>
         </header>
 

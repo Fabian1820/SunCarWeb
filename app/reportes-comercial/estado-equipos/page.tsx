@@ -6,6 +6,7 @@ import { EstadoEquiposStats } from "@/components/feats/reportes-comercial/estado
 import { apiRequest } from "@/lib/api-config";
 import { useToast } from "@/hooks/use-toast";
 import type { EstadoEquiposData } from "@/lib/types/feats/reportes-comercial/reportes-comercial-types";
+import { RouteGuard } from "@/components/auth/route-guard"
 
 interface EstadoEquiposResponse {
   success: boolean;
@@ -13,7 +14,7 @@ interface EstadoEquiposResponse {
   data: EstadoEquiposData;
 }
 
-export default function EstadoEquiposPage() {
+function EstadoEquiposPageContent() {
   const { toast } = useToast();
   const [data, setData] = useState<EstadoEquiposData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -103,4 +104,12 @@ export default function EstadoEquiposPage() {
       </main>
     </div>
   );
+}
+
+export default function EstadoEquiposPage() {
+  return (
+    <RouteGuard requiredModule="reportes-comercial/estado-equipos">
+      <EstadoEquiposPageContent />
+    </RouteGuard>
+  )
 }

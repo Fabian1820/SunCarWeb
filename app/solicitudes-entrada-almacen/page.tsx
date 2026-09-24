@@ -32,6 +32,7 @@ import {
 } from "@/components/shared/atom/select";
 import { Toaster } from "@/components/shared/molecule/toaster";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/auth-context";
 import { useSolicitudesEntradaAlmacen } from "@/hooks/use-solicitudes-entrada-almacen";
 import { CompraService, InventarioService } from "@/lib/api-services";
 import type { Compra } from "@/lib/types/feats/compras/compra-types";
@@ -111,6 +112,14 @@ function SolicitudesEntradaAlmacenContent() {
   const [compraParaCrear, setCompraParaCrear] = useState<Compra | null>(null);
   const [viewTarget, setViewTarget] = useState<SolicitudEntradaAlmacen | null>(null);
   const [editTarget, setEditTarget] = useState<SolicitudEntradaAlmacen | null>(null);
+
+  // Editar una solicitud ajena exige `solicitudes-entrada-almacen/editar-ajenas`
+  // (antes solo superAdmin); el backend lo rechaza igual, esto solo evita
+  // ofrecer un botón que iba a fallar.
+  const { user, hasExactPermission } = useAuth();
+  const puedeEditarAjenas = hasExactPermission("solicitudes-entrada-almacen/editar-ajenas");
+  const puedeEditar = (s: SolicitudEntradaAlmacen) =>
+    puedeEditarAjenas || !s.creado_por_ci || s.creado_por_ci === user?.ci;
 
   const compraNameById = useMemo(() => {
     const map: Record<string, string> = {};
@@ -405,7 +414,7 @@ function SolicitudesEntradaAlmacenContent() {
         almacenName={viewTarget ? almacenNameById[viewTarget.almacen_id] : undefined}
         onAprobar={handleAprobar}
         onDenegar={handleDenegar}
-        onEdit={(s) => setEditTarget(s)}
+        onEdit={viewTarget && puedeEditar(viewTarget) ? (s) => setEditTarget(s) : undefined}
         isResolving={resolving}
       />
 

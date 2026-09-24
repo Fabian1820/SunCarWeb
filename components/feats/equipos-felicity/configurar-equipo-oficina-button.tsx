@@ -45,7 +45,7 @@ function fechaLarga(iso?: string | null): string {
 
 /** Botón visible solo para superAdmin: define qué equipo Felicity representa la oficina. */
 export function ConfigurarEquipoOficinaButton() {
-  const { user } = useAuth();
+  const { hasExactPermission } = useAuth();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [snSeleccionado, setSnSeleccionado] = useState<string>("");
@@ -67,7 +67,9 @@ export function ConfigurarEquipoOficinaButton() {
     if (config?.dispositivo_sn) setSnSeleccionado(config.dispositivo_sn);
   }, [config]);
 
-  if (!user?.is_superAdmin) return null;
+  // Antes solo superAdmin; ahora el sub-permiso aditivo
+  // `equipos-felicity/equipo-oficina` (el backend pide lo mismo).
+  if (!hasExactPermission("equipos-felicity/equipo-oficina")) return null;
 
   const handleGuardar = async () => {
     if (!snSeleccionado) return;

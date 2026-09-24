@@ -1,5 +1,6 @@
 "use client";
 
+import { RouteGuard } from "@/components/auth/route-guard";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FileText, Plus, RefreshCw } from "lucide-react";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
@@ -12,6 +13,14 @@ import { TerminosCondicionesDialog } from "@/components/feats/ofertas/terminos-c
 import { useAuth } from "@/contexts/auth-context";
 
 export default function OfertasGestionPage() {
+  return (
+    <RouteGuard requiredModule="ofertas-gestion">
+      <OfertasGestionPageContent />
+    </RouteGuard>
+  );
+}
+
+function OfertasGestionPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [refreshKey, setRefreshKey] = useState(0);

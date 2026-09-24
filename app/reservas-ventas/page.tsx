@@ -1,5 +1,6 @@
 "use client";
 
+import { RouteGuard } from "@/components/auth/route-guard";
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { BookmarkCheck, Plus, Search } from "lucide-react";
@@ -25,6 +26,7 @@ import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { PageLoader } from "@/components/shared/atom/page-loader";
 import { Badge } from "@/components/shared/atom/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/auth-context";
 import { useReservasVentas } from "@/hooks/use-reservas-ventas";
 import { ReservasVentasTable } from "@/components/feats/reservas-ventas/reservas-ventas-table";
 import { CreateReservaVentaDialog } from "@/components/feats/reservas-ventas/create-reserva-venta-dialog";
@@ -52,12 +54,26 @@ const ORIGEN_TABS: { value: OrigenTab; label: string; color: string }[] = [
 ];
 
 export default function ReservasPage() {
+  // La tarjeta "Reservas" de Comercial Instaladora (`reservas-instaladora`)
+  // abre esta misma página con ?vista=instaladora, en solo lectura.
+  return (
+    <RouteGuard requiredModule={["reservas-ventas", "reservas-instaladora"]}>
+      <ReservasPageContent />
+    </RouteGuard>
+  );
+}
+
+function ReservasPageContent() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
   // El módulo se registra dos veces en el catálogo: Ventas (crea reservas) e
   // Instaladora (solo visual — instaladora reserva desde la oferta de confección).
   // La entrada de instaladora apunta a /reservas-ventas?vista=instaladora.
-  const soloLectura = searchParams.get("vista") === "instaladora";
+  // Quien solo tiene `reservas-instaladora` queda en solo lectura aunque quite
+  // el ?vista de la URL: crear y editar reservas es cosa de Ventas.
+  const { hasPermission } = useAuth();
+  const soloLectura =
+    searchParams.get("vista") === "instaladora" || !hasPermission("reservas-ventas");
   const {
     filteredReservas,
     loading,

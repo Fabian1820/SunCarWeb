@@ -12,6 +12,7 @@ import { apiRequest } from '@/lib/api-config';
 import { Contacto } from '@/lib/contacto-types';
 import { Phone, Mail, MapPin, Edit, Save, X, User, Plus, Globe } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/auth-context';
 
 /** Valor del selector para el contacto sin provincia. */
 const NACIONAL = '__nacional__';
@@ -31,6 +32,10 @@ const FORM_VACIO: FormContacto = { telefono: '', correo: '', direccion: '' };
 
 export default function ContactosDashboard() {
   const { contactos, loading, error, updateContacto, createContacto } = useContactos();
+  // Es el contacto de la web pública: editarlo es un permiso aparte (antes
+  // podía cualquiera que abriera "Información").
+  const { hasExactPermission } = useAuth();
+  const puedeEditar = hasExactPermission('inicio/informacion-editar');
   const { toast } = useToast();
 
   const [seleccion, setSeleccion] = useState<string>(NACIONAL);
@@ -202,7 +207,7 @@ export default function ContactosDashboard() {
               <User className="h-5 w-5 text-blue-600" />
               <span>{nombreSeleccion}</span>
             </div>
-            {!editando && (
+            {!editando && puedeEditar && (
               <Button variant="outline" size="sm" onClick={empezarEdicion} className="flex items-center space-x-2">
                 {contactoActual ? <Edit className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
                 <span>{contactoActual ? 'Editar' : 'Agregar contacto'}</span>
@@ -310,10 +315,12 @@ export default function ContactosDashboard() {
               <p className="text-gray-600">
                 {nombreSeleccion} no tiene contacto propio.
               </p>
-              <Button variant="outline" size="sm" onClick={empezarEdicion} className="mt-3 flex items-center space-x-2">
-                <Plus className="h-4 w-4" />
-                <span>Agregar contacto</span>
-              </Button>
+              {puedeEditar && (
+                <Button variant="outline" size="sm" onClick={empezarEdicion} className="mt-3 flex items-center space-x-2">
+                  <Plus className="h-4 w-4" />
+                  <span>Agregar contacto</span>
+                </Button>
+              )}
             </div>
           )}
         </CardContent>

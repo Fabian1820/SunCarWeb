@@ -15,6 +15,7 @@ import {
   BarChart3,
 } from "lucide-react"
 import Link from "next/link"
+import { useAuth } from "@/contexts/auth-context"
 import { CentroControlService } from "@/lib/services/feats/centro-control/centro-control-service"
 import type { MunicipioDetallado } from "@/lib/types/feats/centro-control/centro-control-types"
 import type { Cliente } from "@/lib/api-types"
@@ -1824,6 +1825,9 @@ function AnalisisRegionalPanel({
 // ─── BrigadasPanel ────────────────────────────────────────────────────────────
 
 function BrigadasPanel({ brigadas, onClose }: { brigadas: Brigada[]; onClose: () => void }) {
+  // El Centro de Control no depende de tener Brigadas: el atajo solo sale a
+  // quien también tiene ese módulo (si no, acabaría en "Acceso denegado").
+  const { hasPermission } = useAuth()
   return (
     <div className="absolute inset-y-0 right-0 z-[1000] w-72 pointer-events-auto flex flex-col">
       <div className="bg-slate-900/98 border-l border-slate-700 h-full flex flex-col shadow-2xl backdrop-blur-sm">
@@ -1856,11 +1860,13 @@ function BrigadasPanel({ brigadas, onClose }: { brigadas: Brigada[]; onClose: ()
               </div>
             ))}
         </div>
+        {hasPermission("brigadas") && (
         <div className="px-4 py-3 border-t border-slate-800">
           <Link href="/brigadas" className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-amber-400 transition-colors">
             <ExternalLink className="h-3 w-3" />Ver todas las brigadas
           </Link>
         </div>
+        )}
       </div>
     </div>
   )
@@ -1874,6 +1880,8 @@ const MESES_NOMBRES = [
 ]
 
 function ClientesStatsPanel({ clientesPorMes, onClose }: { clientesPorMes: ClientesPorMesItem[]; onClose: () => void }) {
+  // Igual que en BrigadasPanel: el atajo a Clientes solo con ese módulo.
+  const { hasPermission } = useAuth()
   const statsPorAnio = useMemo(() => {
     const porAnio = new Map<number, number[]>()
     for (const { year, month, count } of clientesPorMes) {
@@ -1942,11 +1950,13 @@ function ClientesStatsPanel({ clientesPorMes, onClose }: { clientesPorMes: Clien
               </div>
             ))}
         </div>
+        {hasPermission("clientes") && (
         <div className="px-4 py-3 border-t border-slate-800">
           <Link href="/clientes" className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-cyan-400 transition-colors">
             <ExternalLink className="h-3 w-3" />Ver todos los clientes
           </Link>
         </div>
+        )}
       </div>
     </div>
   )

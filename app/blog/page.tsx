@@ -1,5 +1,6 @@
 "use client"
 
+import { RouteGuard } from "@/components/auth/route-guard"
 import { useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/shared/atom/button"
@@ -31,6 +32,14 @@ import { convertFormToRequest } from "@/lib/blog-types"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
 
 export default function BlogPage() {
+  return (
+    <RouteGuard requiredModule="blog">
+      <BlogPageContent />
+    </RouteGuard>
+  )
+}
+
+function BlogPageContent() {
   const {
     filteredBlogs,
     loading,

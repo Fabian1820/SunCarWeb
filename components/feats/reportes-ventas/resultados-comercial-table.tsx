@@ -54,14 +54,6 @@ interface VentasPorComercialTableProps {
   onRefresh: () => void;
 }
 
-const RESTRICTED_USERS = [
-  "Irina Cancela Nieto",
-  "Yoanna Lopéz Delgado",
-  "Danaisys Cabrera Santos",
-  "Karina Rabeiro Crespo",
-  "Maikel Jermanys Fernández Leal",
-];
-
 const POR_PAGINA = 20;
 
 export function VentasPorComercialTable({
@@ -69,7 +61,7 @@ export function VentasPorComercialTable({
   loading,
   onRefresh,
 }: VentasPorComercialTableProps) {
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [comercialFilter, setComercialFilter] = useState<string>("todos");
@@ -81,7 +73,9 @@ export function VentasPorComercialTable({
   const [exportingExcel, setExportingExcel] = useState(false);
   const [page, setPage] = useState(1);
 
-  const isRestrictedUser = RESTRICTED_USERS.includes(user?.nombre || "");
+  // Sin `reportes-ventas/montos-todos` (lo concede el módulo completo) solo se
+  // ve el monto propio. Antes era una lista de nombres escrita aquí.
+  const isRestrictedUser = !hasPermission("reportes-ventas/montos-todos");
 
   const canViewAmount = (comercial: string) => {
     if (!isRestrictedUser) return true;

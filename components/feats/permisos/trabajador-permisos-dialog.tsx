@@ -17,9 +17,9 @@ import {
   InventarioService,
   TrabajadorService,
 } from "@/lib/api-services"
-import { Loader2, Save, Copy, ChevronDown, ChevronRight } from "lucide-react"
+import { Loader2, Save, Copy, ArrowRightLeft, ChevronDown, ChevronRight } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import type { Almacen, Tienda } from "@/lib/inventario-types"
+import type { Almacen } from "@/lib/inventario-types"
 import { Input } from "@/components/shared/molecule/input"
 import { useModulosSync } from "@/hooks/use-modulos-sync"
 import {
@@ -73,9 +73,7 @@ export function TrabajadorPermisosDialog({
   const { toast } = useToast()
   const { bdModulos, cargar: cargarBd, sincronizarFaltantes } = useModulosSync()
 
-  const [tiendas, setTiendas] = useState<Tienda[]>([])
   const [almacenes, setAlmacenes] = useState<Almacen[]>([])
-  const [tiendaSearch, setTiendaSearch] = useState("")
   const [almacenSearch, setAlmacenSearch] = useState("")
 
   // Estado interno: Set de NOMBRES (no IDs) de permisos asignados al trabajador.
@@ -104,6 +102,11 @@ export function TrabajadorPermisosDialog({
   const [copyFromCi, setCopyFromCi] = useState<string>("")
   const [isCopying, setIsCopying] = useState(false)
 
+  // Mover permisos: a diferencia de copiar, no reemplaza la selección — le
+  // añade a este trabajador lo que el otro tiene y él no. Al otro no se le
+  // quita nada.
+  const [isMoving, setIsMoving] = useState(false)
+
   const loadData = useCallback(async () => {
     if (!trabajadorCi) return
     setIsLoading(true)
@@ -118,9 +121,8 @@ export function TrabajadorPermisosDialog({
       // igual, un fallo de red/rate-limit arranca el checklist vacío sin
       // avisar y un guardado posterior borra los permisos reales del
       // trabajador.
-      const [tiendasData, almacenesData, nombresAsignadosOrNull, cisConPermisos, todosTrabajadores] =
+      const [almacenesData, nombresAsignadosOrNull, cisConPermisos, todosTrabajadores] =
         await Promise.all([
-          InventarioService.getTiendas(),
           InventarioService.getAlmacenes(),
           PermisosService.getTrabajadorModulosNombres(trabajadorCi).catch(
             () => null,
@@ -141,7 +143,6 @@ export function TrabajadorPermisosDialog({
         })
       }
 
-      setTiendas(Array.isArray(tiendasData) ? tiendasData : [])
       setAlmacenes(Array.isArray(almacenesData) ? almacenesData : [])
       setPermisosSeleccionados(new Set(nombresAsignados))
 
@@ -224,14 +225,6 @@ export function TrabajadorPermisosDialog({
     return map
   }, [])
 
-  const filteredTiendas = useMemo(() => {
-    const s = tiendaSearch.trim().toLowerCase()
-    const base = s
-      ? tiendas.filter((t) => t.nombre?.toLowerCase().includes(s))
-      : tiendas
-    return [...base].sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""))
-  }, [tiendas, tiendaSearch])
-
   const filteredAlmacenes = useMemo(() => {
     const s = almacenSearch.trim().toLowerCase()
     const base = s
@@ -259,6 +252,31 @@ export function TrabajadorPermisosDialog({
       })
     } finally {
       setIsCopying(false)
+    }
+  }
+
+  const handleMoveFrom = async () => {
+    if (!copyFromCi) return
+    setIsMoving(true)
+    try {
+      const nombres = await PermisosService.getTrabajadorModulosNombres(copyFromCi)
+      const nuevos = nombres.filter((n) => !permisosSeleccionados.has(n))
+      setPermisosSeleccionados((prev) => new Set([...prev, ...nombres]))
+      const origen = trabajadoresConPermisos.find((t) => t.ci === copyFromCi)
+      const nombreOrigen = origen?.nombre ?? copyFromCi
+      toast({
+        title: "Permisos añadidos",
+        description: `Se añadieron ${nuevos.length} permiso(s) que tiene ${nombreOrigen} y este trabajador no. Revísalos y guarda.`,
+      })
+    } catch (error) {
+      console.error(error)
+      toast({
+        title: "Error",
+        description: "No se pudieron leer los permisos del otro trabajador.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsMoving(false)
     }
   }
 
@@ -483,14 +501,6 @@ export function TrabajadorPermisosDialog({
     )
   }
 
-  const tiendaIdsSeleccionadas = useMemo(() => {
-    const out = new Set<string>()
-    for (const n of permisosSeleccionados) {
-      if (n.startsWith("tienda:")) out.add(n.slice("tienda:".length))
-    }
-    return out
-  }, [permisosSeleccionados])
-
   const almacenIdsSeleccionados = useMemo(() => {
     const out = new Set<string>()
     for (const n of permisosSeleccionados) {
@@ -524,50 +534,73 @@ export function TrabajadorPermisosDialog({
               </div>
             ) : null}
 
-            {/* Copiar permisos de otro */}
+            {/* Copiar o mover permisos de otro */}
             {trabajadoresConPermisos.length > 0 ? (
-              <div className="flex items-end gap-2 border rounded-lg p-3 bg-blue-50/30 border-blue-200">
-                <div className="flex-1">
-                  <Label className="text-xs text-gray-600">
-                    Copiar permisos de otro trabajador
-                  </Label>
-                  <Select value={copyFromCi} onValueChange={setCopyFromCi}>
-                    <SelectTrigger className="mt-1 bg-white">
-                      <SelectValue placeholder="Seleccionar trabajador…" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {trabajadoresConPermisos.map((t) => (
-                        <SelectItem key={t.ci} value={t.ci}>
-                          {t.nombre}{" "}
-                          <span className="text-gray-400 text-xs">({t.ci})</span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              <div className="border rounded-lg p-3 bg-blue-50/30 border-blue-200 space-y-2">
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <Label className="text-xs text-gray-600">
+                      Copiar o mover permisos de otro trabajador
+                    </Label>
+                    <Select value={copyFromCi} onValueChange={setCopyFromCi}>
+                      <SelectTrigger className="mt-1 bg-white">
+                        <SelectValue placeholder="Seleccionar trabajador…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {trabajadoresConPermisos.map((t) => (
+                          <SelectItem key={t.ci} value={t.ci}>
+                            {t.nombre}{" "}
+                            <span className="text-gray-400 text-xs">({t.ci})</span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCopyFrom}
+                    disabled={!copyFromCi || isCopying || isMoving}
+                    className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                    title="Reemplaza los permisos marcados por los del otro trabajador"
+                  >
+                    {isCopying ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                    <span className="ml-1.5">Copiar</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleMoveFrom}
+                    disabled={!copyFromCi || isCopying || isMoving}
+                    className="border-amber-300 text-amber-700 hover:bg-amber-50"
+                    title="Añade lo que el otro tiene y este no, sin quitarle nada a ninguno de los dos"
+                  >
+                    {isMoving ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ArrowRightLeft className="h-4 w-4" />
+                    )}
+                    <span className="ml-1.5">Mover</span>
+                  </Button>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCopyFrom}
-                  disabled={!copyFromCi || isCopying}
-                  className="border-blue-300 text-blue-700 hover:bg-blue-100"
-                >
-                  {isCopying ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
-                  <span className="ml-1.5">Copiar</span>
-                </Button>
+                <p className="text-xs text-gray-500">
+                  <strong>Copiar</strong> reemplaza lo marcado por los permisos del otro.{" "}
+                  <strong>Mover</strong> no reemplaza ni quita nada: añade lo que el otro tiene
+                  y este no. El otro trabajador conserva los suyos.
+                </p>
               </div>
             ) : null}
 
+            {/* La pestaña "Tiendas" (permisos tienda:{id}) se quitó en sep-2026 al
+                comentar el módulo de Tiendas: ya no son asignables y sus
+                asignaciones se quitaron de la BD. */}
             <Tabs defaultValue="modulos" className="w-full">
-              <TabsList className="grid grid-cols-3 w-full">
+              <TabsList className="grid grid-cols-2 w-full">
                 <TabsTrigger value="modulos">Módulos</TabsTrigger>
-                <TabsTrigger value="tiendas">
-                  Tiendas ({tiendaIdsSeleccionadas.size})
-                </TabsTrigger>
                 <TabsTrigger value="almacenes">
                   Almacenes ({almacenIdsSeleccionados.size})
                 </TabsTrigger>
@@ -575,48 +608,6 @@ export function TrabajadorPermisosDialog({
 
               <TabsContent value="modulos" className="space-y-2 mt-3">
                 {MODULO_GRUPOS.map((g) => renderSeccion(g.key))}
-              </TabsContent>
-
-              <TabsContent value="tiendas" className="mt-3 space-y-2">
-                <Input
-                  value={tiendaSearch}
-                  onChange={(e) => setTiendaSearch(e.target.value)}
-                  placeholder="Buscar tienda…"
-                />
-                <div className="max-h-[50vh] overflow-y-auto rounded-lg border p-2 space-y-1">
-                  {filteredTiendas.length === 0 ? (
-                    <p className="text-sm text-gray-500 px-2 py-3 text-center">
-                      No hay tiendas disponibles
-                    </p>
-                  ) : (
-                    filteredTiendas.map((tienda) => {
-                      const id = tienda.id || ""
-                      if (!id) return null
-                      const nombre = `tienda:${id}`
-                      const marcado = permisosSeleccionados.has(nombre)
-                      return (
-                        <div
-                          key={id}
-                          className="flex items-center gap-2 rounded px-2 py-2 hover:bg-gray-50"
-                        >
-                          <Checkbox
-                            id={`tienda-${id}`}
-                            checked={marcado}
-                            onCheckedChange={(c) =>
-                              togglePermiso(nombre, Boolean(c))
-                            }
-                          />
-                          <Label
-                            htmlFor={`tienda-${id}`}
-                            className="flex-1 cursor-pointer text-sm"
-                          >
-                            {tienda.nombre}
-                          </Label>
-                        </div>
-                      )
-                    })
-                  )}
-                </div>
               </TabsContent>
 
               <TabsContent value="almacenes" className="mt-3 space-y-2">

@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/atom/input";
@@ -73,8 +72,13 @@ import { useAuth } from "@/contexts/auth-context";
 import { apiRequest } from "@/lib/api-config";
 import { PagoService } from "@/lib/services/feats/pagos/pago-service";
 import { PagoVentaService } from "@/lib/services/feats/pagos-clientes-ventas/pago-cliente-venta-service";
+import { VerOfertaClienteDialog } from "@/components/feats/ofertas/ver-oferta-cliente-dialog";
+import { SolicitudVentaDetailDialog } from "@/components/feats/solicitudes-ventas/solicitud-venta-detail-dialog";
+import { normalizeOfertaConfeccion, type OfertaConfeccion } from "@/hooks/use-ofertas-confeccion";
+import type { SolicitudVenta } from "@/lib/types/feats/solicitudes-ventas/solicitud-venta-types";
 import { useWallet } from "@/hooks/use-wallet";
 import { useMyWalletPermiso } from "@/hooks/use-wallet-permisos";
+import { RouteGuard } from "@/components/auth/route-guard";
 import { useBancos } from "@/hooks/use-bancos";
 import { WalletsConSaldoButton } from "@/components/feats/wallet/wallets-con-saldo-dialog";
 import { BancosMenu } from "@/components/feats/wallet/bancos-menu";
@@ -146,10 +150,87 @@ const parseOrigenTransaccion = (
   return null;
 };
 
-const hrefParaOrigen = (origen: OrigenTransaccion): string =>
-  origen.tipo === "oferta_confeccion"
-    ? `/ofertas-gestion/ver-ofertas-confeccionadas?pago=${encodeURIComponent(origen.pagoId)}`
-    : `/solicitudes-ventas?pagoVenta=${encodeURIComponent(origen.pagoId)}`;
+/**
+ * "Ver oferta del cliente" de un movimiento: abre la oferta (o la solicitud de
+ * venta) en un diálogo de solo lectura aquí mismo. Antes enlazaba al módulo de
+ * Ofertas o de Ventas, y quien solo tiene la Billetera se topaba con "Acceso
+ * denegado": ver lo que originó su propio movimiento es parte de la Billetera.
+ */
+function VerOfertaOrigenButton({
+  origen,
+  className,
+}: {
+  origen: OrigenTransaccion;
+  className?: string;
+}) {
+  const { toast } = useToast();
+  const [cargando, setCargando] = useState(false);
+  const [oferta, setOferta] = useState<OfertaConfeccion | null>(null);
+  const [solicitud, setSolicitud] = useState<SolicitudVenta | null>(null);
+
+  const abrir = async (e: React.MouseEvent) => {
+    // La fila del movimiento también reacciona al clic.
+    e.preventDefault();
+    e.stopPropagation();
+    setCargando(true);
+    try {
+      if (origen.tipo === "oferta_confeccion") {
+        const pago = await PagoService.getById(origen.pagoId);
+        if (!pago?.oferta_id) throw new Error("Pago sin oferta asociada");
+        const raw = await apiRequest<any>(`/ofertas/confeccion/${pago.oferta_id}`, {
+          method: "GET",
+        });
+        const data = raw?.data ?? raw;
+        if (!data) throw new Error("Oferta no encontrada");
+        setOferta(normalizeOfertaConfeccion(data));
+      } else {
+        const encontrada = await PagoVentaService.getSolicitudByPagoId(origen.pagoId);
+        if (!encontrada) throw new Error("Solicitud no encontrada");
+        setSolicitud(encontrada);
+      }
+    } catch {
+      toast({
+        title: "No se pudo abrir la oferta",
+        description: "No se encontró la oferta vinculada a este movimiento.",
+        variant: "destructive",
+      });
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  return (
+    <>
+      <button type="button" onClick={abrir} disabled={cargando} className={className}>
+        {cargando ? (
+          <RefreshCcw className="h-3 w-3 animate-spin" />
+        ) : (
+          <ExternalLink className="h-3 w-3" />
+        )}
+        Ver oferta del cliente
+      </button>
+      {/* Los clics dentro de los diálogos burbujean por el árbol de React hasta
+          la fila del movimiento: se cortan aquí. */}
+      <span className="contents" onClick={(e) => e.stopPropagation()}>
+        <VerOfertaClienteDialog
+          open={Boolean(oferta)}
+          onOpenChange={(open) => {
+            if (!open) setOferta(null);
+          }}
+          oferta={oferta}
+        />
+        <SolicitudVentaDetailDialog
+          open={Boolean(solicitud)}
+          onOpenChange={(open) => {
+            if (!open) setSolicitud(null);
+          }}
+          solicitud={solicitud}
+          soloLectura
+        />
+      </span>
+    </>
+  );
+}
 
 const isTransferTransaction = (transaction: WalletTransaction): boolean => {
   return (
@@ -468,14 +549,10 @@ function TransactionsResponsiveList({
                 {transaction.motivo}
               </p>
               {origen && (
-                <Link
-                  href={hrefParaOrigen(origen)}
-                  onClick={(e) => e.stopPropagation()}
+                <VerOfertaOrigenButton
+                  origen={origen}
                   className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:underline"
-                >
-                  <ExternalLink className="h-3 w-3" />
-                  Ver oferta del cliente
-                </Link>
+                />
               )}
             </div>
           );
@@ -577,14 +654,10 @@ function TransactionsResponsiveList({
                       {transaction.motivo}
                     </p>
                     {origen && (
-                      <Link
-                        href={hrefParaOrigen(origen)}
-                        onClick={(e) => e.stopPropagation()}
+                      <VerOfertaOrigenButton
+                        origen={origen}
                         className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:underline"
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                        Ver oferta del cliente
-                      </Link>
+                      />
                     )}
                   </TableCell>
                   <TableCell className="w-20 text-right">
@@ -847,13 +920,10 @@ function OrigenOfertaInfo({ transaction }: { transaction: WalletTransaction }) {
           {info.detalle && (
             <p className="text-xs text-slate-500 mt-0.5">{info.detalle}</p>
           )}
-          <Link
-            href={hrefParaOrigen(origen)}
+          <VerOfertaOrigenButton
+            origen={origen}
             className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:underline"
-          >
-            <ExternalLink className="h-3 w-3" />
-            Ver oferta del cliente
-          </Link>
+          />
         </>
       )}
     </div>
@@ -1035,15 +1105,27 @@ function TransactionDetailsDialog({
 }
 
 export default function WalletPage() {
-  return <WalletPageContent />;
+  // Cualquier sub-permiso `wallet/*` también abre la página (herencia hijo→padre).
+  return (
+    <RouteGuard requiredModule="wallet">
+      <WalletPageContent />
+    </RouteGuard>
+  );
 }
 
 type ActiveAction = "ingreso" | "gasto" | "transferencia" | null;
 
 function WalletPageContent() {
   const { toast } = useToast();
-  const { user } = useAuth();
-  const isSuperAdmin = !!user?.is_superAdmin;
+  const { hasPermission, hasExactPermission } = useAuth();
+  // Antes solo superAdmin; ahora sub-permiso aditivo.
+  const puedeVerTotal = hasExactPermission("wallet/ver-total");
+  // `wallet` completo concede las tres acciones (herencia padre→hijo); cada
+  // sub-permiso suelto concede solo la suya.
+  const puedeIngresos = hasPermission("wallet/ingresos");
+  const puedeGastos = hasPermission("wallet/gastos");
+  const puedeTransferir = hasPermission("wallet/transferencias");
+  const accionesPermitidas = [puedeIngresos, puedeGastos, puedeTransferir].filter(Boolean).length;
   const { permiso: walletPermiso } = useMyWalletPermiso();
   const canSeeAll = !!walletPermiso?.verTodos;
   const isWalletAdmin = !!walletPermiso?.esAdmin;
@@ -2962,9 +3044,14 @@ function WalletPageContent() {
           </div>
         </div>
 
-        {/* Quick Action Buttons */}
-        {wallet && (
-          <div className="grid grid-cols-3 gap-2">
+        {/* Quick Action Buttons: uno por sub-permiso que se tenga */}
+        {wallet && accionesPermitidas > 0 && (
+          <div
+            className={`grid gap-2 ${
+              accionesPermitidas === 3 ? "grid-cols-3" : accionesPermitidas === 2 ? "grid-cols-2" : "grid-cols-1"
+            }`}
+          >
+            {puedeIngresos && (
             <button
               onClick={() => handleActionToggle("ingreso")}
               className={`flex flex-col items-center gap-1.5 rounded-xl p-3 border transition-all ${
@@ -2978,7 +3065,9 @@ function WalletPageContent() {
               </div>
               <span className="text-xs font-medium">Ingreso</span>
             </button>
+            )}
 
+            {puedeGastos && (
             <button
               onClick={() => handleActionToggle("gasto")}
               className={`flex flex-col items-center gap-1.5 rounded-xl p-3 border transition-all ${
@@ -2992,7 +3081,9 @@ function WalletPageContent() {
               </div>
               <span className="text-xs font-medium">Gasto</span>
             </button>
+            )}
 
+            {puedeTransferir && (
             <button
               onClick={() => handleActionToggle("transferencia")}
               className={`flex flex-col items-center gap-1.5 rounded-xl p-3 border transition-all ${
@@ -3006,6 +3097,7 @@ function WalletPageContent() {
               </div>
               <span className="text-xs font-medium">Enviar</span>
             </button>
+            )}
           </div>
         )}
 
@@ -3642,7 +3734,7 @@ function WalletPageContent() {
                 </div>
 
                 {/* Total filtrado (solo superAdmin, oculto por defecto) */}
-                {isSuperAdmin && (
+                {puedeVerTotal && (
                   <div className="pt-1">
                     <button
                       onClick={() => setShowMemberTotal((v) => !v)}
@@ -3805,7 +3897,7 @@ function WalletPageContent() {
                 )}
 
                 {/* Total filtrado (solo superAdmin, oculto por defecto) */}
-                {isSuperAdmin && (
+                {puedeVerTotal && (
                   <div className="pt-1">
                     <button
                       onClick={() => setShowGlobalTotal((v) => !v)}
@@ -4064,7 +4156,9 @@ function WalletPageContent() {
               </div>
             )}
 
-            {/* Add new currency */}
+            {/* Add new currency: la lista de monedas es de toda la empresa, así
+                que crear una es cosa de quien administra la billetera. */}
+            {isWalletAdmin && (
             <div className="space-y-3 pt-2 border-t border-slate-100">
               <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Agregar nueva moneda</Label>
               <div className="grid grid-cols-2 gap-2">
@@ -4115,6 +4209,7 @@ function WalletPageContent() {
                 {creatingCurrency ? "Guardando..." : "Agregar moneda"}
               </Button>
             </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

@@ -1,5 +1,6 @@
 "use client"
 
+import { RouteGuard } from "@/components/auth/route-guard"
 import { ShoppingBag, Settings } from "lucide-react"
 import { useEffect, useState } from "react"
 import { InventarioService } from "@/lib/api-services"
@@ -10,6 +11,14 @@ import { PageLoader } from "@/components/shared/atom/page-loader"
 import { useAuth } from "@/contexts/auth-context"
 
 export default function TiendasSuncarVentasPage() {
+  return (
+    <RouteGuard requiredModule="tiendas-suncarventas">
+      <TiendasSuncarVentasPageContent />
+    </RouteGuard>
+  )
+}
+
+function TiendasSuncarVentasPageContent() {
   const { hasPermission } = useAuth()
   const [tiendas, setTiendas] = useState<Tienda[]>([])
   const [loading, setLoading] = useState(true)

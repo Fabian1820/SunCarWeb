@@ -114,7 +114,7 @@ function EstadoBadge({ solicitud }: { solicitud: SolicitudDesarrollo }) {
 }
 
 export function SolicitudDesarrolloButton() {
-  const { user } = useAuth();
+  const { user, hasExactPermission } = useAuth();
   const pathname = usePathname();
   const habilitado = Boolean(user);
   const { toast } = useToast();
@@ -147,7 +147,9 @@ export function SolicitudDesarrolloButton() {
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  const esSuperAdmin = Boolean(user?.is_superAdmin);
+  // Ver las de todos, responder y marcar hechas: antes solo superAdmin, ahora
+  // el sub-permiso aditivo `peticiones/responder` (el backend pide lo mismo).
+  const puedeResponder = hasExactPermission("peticiones/responder");
 
   useEffect(() => {
     const fn = (e: MouseEvent) => {
@@ -163,7 +165,7 @@ export function SolicitudDesarrolloButton() {
   useEffect(() => {
     if (!open || !habilitado) return;
     cargarSolicitudes();
-    if (!esSuperAdmin) marcarVistas();
+    if (!puedeResponder) marcarVistas();
     setTab("nueva");
     setRespondiendoId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -180,7 +182,7 @@ export function SolicitudDesarrolloButton() {
     }
   };
 
-  const historialLabel = esSuperAdmin ? "Todas" : "Mis peticiones";
+  const historialLabel = puedeResponder ? "Todas" : "Mis peticiones";
 
   const abrirRespuesta = (s: SolicitudDesarrollo) => {
     setRespondiendoId(s.id);
@@ -356,7 +358,7 @@ export function SolicitudDesarrolloButton() {
                 </div>
               ) : (
                 <>
-                  {esSuperAdmin && (
+                  {puedeResponder && (
                     <div className="px-4 pt-3">
                       <Link
                         href="/peticiones"
@@ -377,7 +379,7 @@ export function SolicitudDesarrolloButton() {
                           </span>
                           <EstadoBadge solicitud={s} />
                         </div>
-                        {esSuperAdmin && (
+                        {puedeResponder && (
                           <p className="text-[11px] text-gray-500 mb-1">
                             {s.usuario_nombre}
                           </p>
@@ -411,7 +413,7 @@ export function SolicitudDesarrolloButton() {
                           </div>
                         )}
 
-                        {esSuperAdmin && s.estado === "posible" && (
+                        {puedeResponder && s.estado === "posible" && (
                           <label className="flex items-center gap-1.5 mb-1.5 text-xs text-gray-600">
                             <Checkbox
                               checked={s.terminada}
@@ -424,7 +426,7 @@ export function SolicitudDesarrolloButton() {
                           </label>
                         )}
 
-                        {esSuperAdmin && (
+                        {puedeResponder && (
                           <>
                             {respondiendoId === s.id ? (
                               <div className="space-y-2 rounded-md border border-indigo-200 bg-indigo-50/50 p-2.5 mt-1">

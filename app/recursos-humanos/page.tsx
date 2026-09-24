@@ -1,5 +1,6 @@
 "use client"
 
+import { RouteGuard } from "@/components/auth/route-guard"
 import { useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import {
@@ -363,6 +364,14 @@ function Vacio() {
 
 // ─── página principal ─────────────────────────────────────────────────────────
 export default function EmpleadosPage() {
+  return (
+    <RouteGuard requiredModule="recursos-humanos">
+      <EmpleadosPageContent />
+    </RouteGuard>
+  )
+}
+
+function EmpleadosPageContent() {
   const { trabajadores, loading, error, crearTrabajador, refresh } = useRecursosHumanos()
 
   const [agrupacion,   setAgrupacion]   = useState<Agrupacion>("empleados")

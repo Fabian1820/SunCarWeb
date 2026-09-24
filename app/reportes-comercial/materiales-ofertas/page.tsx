@@ -5,8 +5,9 @@ import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/shared/molecule/tabs"
 import { MaterialesOfertasReport } from "@/components/feats/reportes-comercial/materiales-ofertas-report"
 import { MaterialesComprometidosReport } from "@/components/feats/reportes-comercial/materiales-comprometidos-report"
+import { RouteGuard } from "@/components/auth/route-guard"
 
-export default function MaterialesOfertasPage() {
+function MaterialesOfertasPageContent() {
   const [pestana, setPestana] = useState("buscar")
   // Comprometidos tarda unos segundos: se calcula al abrir la pestaña y no antes
   const [comprometidosAbierto, setComprometidosAbierto] = useState(false)
@@ -43,5 +44,13 @@ export default function MaterialesOfertasPage() {
         </Tabs>
       </main>
     </div>
+  )
+}
+
+export default function MaterialesOfertasPage() {
+  return (
+    <RouteGuard requiredModule="reportes-comercial/materiales-ofertas">
+      <MaterialesOfertasPageContent />
+    </RouteGuard>
   )
 }

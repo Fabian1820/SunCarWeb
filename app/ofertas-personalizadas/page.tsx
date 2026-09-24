@@ -1,5 +1,6 @@
 "use client";
 
+import { RouteGuard } from "@/components/auth/route-guard";
 import { useState } from "react";
 import { Plus, Search } from "lucide-react";
 import { Button } from "@/components/shared/atom/button";
@@ -26,6 +27,14 @@ import type {
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 
 export default function OfertasPersonalizadasPage() {
+  return (
+    <RouteGuard requiredModule="ofertas-gestion">
+      <OfertasPersonalizadasPageContent />
+    </RouteGuard>
+  );
+}
+
+function OfertasPersonalizadasPageContent() {
   const { toast } = useToast();
   const {
     filteredOfertas,

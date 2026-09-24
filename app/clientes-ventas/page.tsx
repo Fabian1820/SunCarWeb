@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import { RouteGuard } from "@/components/auth/route-guard";
 import { useEffect, useMemo, useState } from "react";
 import { Search, UserRoundPlus, Users } from "lucide-react";
 import { Button } from "@/components/shared/atom/button";
@@ -49,6 +50,14 @@ interface Municipio {
 }
 
 export default function ClientesVentasPage() {
+  return (
+    <RouteGuard requiredModule="clientes-ventas">
+      <ClientesVentasPageContent />
+    </RouteGuard>
+  );
+}
+
+function ClientesVentasPageContent() {
   const { toast } = useToast();
   const {
     clientes,

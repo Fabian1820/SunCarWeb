@@ -1,5 +1,6 @@
 "use client"
 
+import { RouteGuard } from "@/components/auth/route-guard"
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import { ModuleCard } from "@/components/shared/molecule/module-card"
@@ -10,6 +11,18 @@ import type { Almacen } from "@/lib/inventario-types"
 import { BarChart3, FileOutput, PackagePlus } from "lucide-react"
 
 export default function AlmacenHubPage() {
+  const params = useParams()
+  const almacenId = params.almacenId as string
+  // Mismo permiso dinámico que el stock del almacén
+  // (app/almacenes/[almacenId]/page.tsx): cada almacén se concede suelto.
+  return (
+    <RouteGuard requiredModule={`almacen:${almacenId}`}>
+      <AlmacenHubPageContent />
+    </RouteGuard>
+  )
+}
+
+function AlmacenHubPageContent() {
   const params = useParams()
   const almacenId = params.almacenId as string
 

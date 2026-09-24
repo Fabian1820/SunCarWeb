@@ -4,9 +4,10 @@ import { ModuleCard } from "@/components/shared/molecule/module-card"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { BarChart3, Clock, PackageCheck, PackageSearch, TrendingUp } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
+import { RouteGuard } from "@/components/auth/route-guard"
 
-export default function ReportesComercialPage() {
-  const { user } = useAuth()
+function ReportesComercialPageContent() {
+  const { hasPermission } = useAuth()
 
   const opciones = [
     {
@@ -16,7 +17,7 @@ export default function ReportesComercialPage() {
       icon: Clock,
       iconClass: 'text-emerald-600',
       href: '/reportes-comercial/pendientes-instalacion',
-      hidden: false
+      hidden: !hasPermission('reportes-comercial/pendientes-instalacion')
     },
     {
       id: 'resultados-comercial',
@@ -25,8 +26,7 @@ export default function ReportesComercialPage() {
       icon: TrendingUp,
       iconClass: 'text-emerald-600',
       href: '/reportes-comercial/resultados-comercial',
-      // Ocultar para Lorena Pérez
-      hidden: user?.nombre === 'Lorena Pérez'
+      hidden: !hasPermission('reportes-comercial/resultados-comercial')
     },
     {
       id: 'estado-equipos',
@@ -35,7 +35,7 @@ export default function ReportesComercialPage() {
       icon: BarChart3,
       iconClass: 'text-emerald-600',
       href: '/reportes-comercial/estado-equipos',
-      hidden: false
+      hidden: !hasPermission('reportes-comercial/estado-equipos')
     },
     {
       id: 'materiales-ofertas',
@@ -44,7 +44,7 @@ export default function ReportesComercialPage() {
       icon: PackageSearch,
       iconClass: 'text-emerald-600',
       href: '/reportes-comercial/materiales-ofertas',
-      hidden: false
+      hidden: !hasPermission('reportes-comercial/materiales-ofertas')
     },
     {
       // El mismo módulo de Operaciones: lo que salió del almacén cada día y lo que volvió.
@@ -54,11 +54,12 @@ export default function ReportesComercialPage() {
       icon: PackageCheck,
       iconClass: 'text-emerald-600',
       href: '/entregas-devoluciones',
-      hidden: false
+      hidden: !hasPermission('reportes-comercial/entregas-devoluciones')
     }
   ]
 
-  // Filtrar opciones ocultas
+  // Una tarjeta = un sub-permiso `reportes-comercial/<id>`; el módulo completo
+  // las concede todas.
   const opcionesVisibles = opciones.filter(opcion => !opcion.hidden)
 
   return (
@@ -84,5 +85,13 @@ export default function ReportesComercialPage() {
         </div>
       </main>
     </div>
+  )
+}
+
+export default function ReportesComercialPage() {
+  return (
+    <RouteGuard requiredModule="reportes-comercial">
+      <ReportesComercialPageContent />
+    </RouteGuard>
   )
 }

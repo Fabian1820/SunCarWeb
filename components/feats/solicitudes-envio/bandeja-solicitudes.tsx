@@ -54,7 +54,7 @@ interface Props {
 
 export function BandejaSolicitudes({ modo }: Props) {
   const { toast } = useToast();
-  const { user, hasSubPermission } = useAuth();
+  const { user, hasSubPermission, hasExactPermission } = useAuth();
   const hook = useSolicitudesEnvio({ modo });
   const { nombreDe } = useAlmacenesLookup();
 
@@ -76,10 +76,12 @@ export function BandejaSolicitudes({ modo }: Props) {
   const esPropia = (s: SolicitudEnvio) =>
     !s.creada_por_ci || !user?.ci || s.creada_por_ci === user.ci;
 
-  // El backend ya rechaza editar lo que no es tuyo o no está pendiente; esto
-  // solo evita ofrecer un botón que iba a fallar.
+  // Las de otros, solo con `solicitudes-envio/editar-ajenas` (antes solo
+  // superAdmin). El backend ya rechaza editar lo que no es tuyo o no está
+  // pendiente; esto solo evita ofrecer un botón que iba a fallar.
+  const puedeEditarAjenas = hasExactPermission("solicitudes-envio/editar-ajenas");
   const puedeEditar = (s: SolicitudEnvio) =>
-    puedeLocal && s.estado === "pendiente" && esPropia(s);
+    puedeLocal && s.estado === "pendiente" && (esPropia(s) || puedeEditarAjenas);
   const puedeMarcarEnProceso = (s: SolicitudEnvio) =>
     puedeInternacional && s.estado === "pendiente";
   const puedeCompletar = (s: SolicitudEnvio) =>

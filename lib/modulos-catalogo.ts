@@ -51,6 +51,9 @@ import {
   Banknote,
   PlugZap,
   Warehouse,
+  ScrollText,
+  BellRing,
+  Info,
 } from "lucide-react"
 
 /**
@@ -269,7 +272,89 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-emerald-800",
     href: "/wallet",
     grupo: "resultados-empresa",
-    alwaysVisible: true,
+    // Hasta sep-2026 era `alwaysVisible`: cualquiera entraba. Ahora es un
+    // permiso más. `wallet` completo concede las tres acciones; cada
+    // sub-permiso suelto concede solo la suya (tener ingresos y gastos = poder
+    // hacer ambas). Los aditivos de abajo son lo que antes vivía aparte, en
+    // "Gestión de Wallet" (colección `wallet_permisos`), o era solo superAdmin.
+    subPermisos: [
+      {
+        key: "wallet/ingresos",
+        label: "Solo ingresos",
+        descripcion: "Registrar ingresos en su billetera.",
+      },
+      {
+        key: "wallet/gastos",
+        label: "Solo gastos",
+        descripcion: "Registrar gastos en su billetera.",
+      },
+      {
+        key: "wallet/transferencias",
+        label: "Solo transferencias",
+        descripcion: "Enviar dinero de su billetera a otro trabajador o a un banco.",
+      },
+      {
+        key: "wallet/ver-todos",
+        label: "Ver todas las billeteras",
+        descripcion:
+          "Ver el historial y el saldo de las billeteras de todos los trabajadores, y todas las transferencias pendientes. Sin esto, cada uno ve solo la suya. ADITIVO: tener 'wallet' NO lo concede.",
+        aditivo: true,
+      },
+      {
+        key: "wallet/ver-total",
+        label: "Ver total filtrado",
+        descripcion:
+          "Botón que suma los movimientos filtrados en el historial (el propio y el de otra billetera). ADITIVO. Antes solo superAdmin.",
+        aditivo: true,
+      },
+      {
+        key: "wallet/admin",
+        label: "Administrar billetera",
+        descripcion:
+          "Bancos (crear, eliminar, ingresos, gastos, comisiones y transferencias del banco), aprobar o rechazar transferencias bancarias, ver las billeteras con saldo, aceptar o cancelar transferencias de otros y crear monedas. ADITIVO.",
+        aditivo: true,
+      },
+      {
+        // Clave histórica sin `wallet/`: el backend ya la comprueba con este
+        // nombre en `_require_acceso_alertas`. No se hereda de nadie.
+        key: "wallet-alertas",
+        label: "Alertas de billetera",
+        descripcion:
+          "Configurar los avisos por WhatsApp o SMS de movimientos grandes. También entra quien tenga 'Administrar billetera'.",
+        aditivo: true,
+      },
+    ],
+  },
+  {
+    // Botones de la barra superior de Inicio que antes veía todo el mundo. No
+    // tiene tarjeta: solo concede permisos. La Calculadora sigue libre.
+    key: "inicio",
+    label: "Barra de Inicio",
+    descripcion: "Botones de la barra superior de Inicio: tasa de cambio del día e información de contacto.",
+    icon: Info,
+    iconClass: "text-blue-600",
+    href: "/permisos",
+    grupo: "resultados-empresa",
+    hideFromDashboard: true,
+    soloPermiso: true,
+    subPermisos: [
+      {
+        key: "inicio/tasa-cambio",
+        label: "Ver la tasa de cambio del día",
+        descripcion: "Botón 'Tasa de cambio'. Quien tiene 'Tasa de Cambio diaria' también lo ve.",
+      },
+      {
+        key: "inicio/informacion",
+        label: "Ver la información de contacto de la empresa",
+        descripcion: "Botón 'Información': teléfono, correo y dirección de la empresa.",
+      },
+      {
+        key: "inicio/informacion-editar",
+        label: "Editar la información de contacto",
+        descripcion: "Cambiar el teléfono, correo y dirección de la empresa. ADITIVO: antes podía cualquiera.",
+        aditivo: true,
+      },
+    ],
   },
   {
     key: "peticiones",
@@ -279,7 +364,15 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-emerald-700",
     href: "/peticiones",
     grupo: "area-direccion",
-    superAdminOnly: true,
+    subPermisos: [
+      {
+        key: "peticiones/responder",
+        label: "Responder peticiones",
+        descripcion:
+          "Ver las peticiones de todos (con quién las pidió), responderlas y marcarlas como hechas. Sin esto, cada uno ve solo las suyas. ADITIVO. Antes solo superAdmin.",
+        aditivo: true,
+      },
+    ],
   },
   {
     key: "actualizaciones-sistema",
@@ -289,12 +382,78 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-emerald-600",
     href: "/actualizaciones-sistema",
     grupo: "area-direccion",
-    // Sin superAdminOnly a propósito: el resumen de hoy/ayer en Inicio ya es
-    // visible para cualquiera, pero este historial completo es
-    // administrativo. De momento solo lo tiene el superAdmin (nadie más
-    // tiene el permiso asignado todavía); cuando se le dé el permiso a
-    // alguien desde /permisos, su card debe aparecer también para esa
-    // persona — por eso no se oculta con superAdminOnly como "Peticiones".
+    // El resumen de hoy/ayer en Inicio es visible para cualquiera; este
+    // historial completo es administrativo y se asigna desde /permisos.
+    subPermisos: [
+      {
+        key: "actualizaciones-sistema/publicar",
+        label: "Publicar y borrar actualizaciones",
+        descripcion: "Escribir las novedades del sistema que ve todo el mundo en Inicio, y borrarlas. ADITIVO. Antes solo superAdmin.",
+        aditivo: true,
+      },
+      {
+        key: "actualizaciones-sistema/notificar",
+        label: "Enviar notificaciones a trabajadores",
+        descripcion: "Mandar una notificación manual a uno o varios trabajadores. ADITIVO. Antes solo superAdmin.",
+        aditivo: true,
+      },
+    ],
+  },
+  {
+    // Antes solo superAdmin y fuera del catálogo. Desde sep-2026 todo lo que
+    // era solo superAdmin se asigna como cualquier otro módulo, salvo dar el
+    // superAdmin y lo que Gestión de Permisos reserva al superAdmin.
+    key: "auditoria",
+    label: "Auditoría del Sistema",
+    descripcion: "Quién hizo qué, cuándo y con qué datos.",
+    icon: ScrollText,
+    iconClass: "text-red-600",
+    href: "/auditoria",
+    grupo: "area-direccion",
+  },
+  {
+    // Avisos automáticos que antes iban a una lista fija de CIs escrita en el
+    // backend (notificacion_service.py). Ahora los recibe quien tenga el
+    // sub-permiso; los superadmins los siguen recibiendo todos.
+    key: "notificaciones",
+    label: "Avisos automáticos",
+    descripcion: "Quién recibe cada notificación automática del sistema.",
+    icon: BellRing,
+    iconClass: "text-red-600",
+    href: "/permisos",
+    grupo: "area-direccion",
+    hideFromDashboard: true,
+    soloPermiso: true,
+    subPermisos: [
+      {
+        key: "notificaciones/instalacion-exitosa",
+        label: "Instalación terminada",
+        descripcion: "Aviso cuando se cierra con éxito la instalación de un cliente.",
+        aditivo: true,
+      },
+      {
+        key: "notificaciones/lead-convertido",
+        label: "Lead convertido en cliente",
+        aditivo: true,
+      },
+      {
+        key: "notificaciones/demora-instalacion",
+        label: "Instalación demorada",
+        aditivo: true,
+      },
+      {
+        key: "notificaciones/reserva-primer-pago",
+        label: "Primer pago: reservar equipos",
+        descripcion: "Aviso cuando entra el primer pago de un cliente, para reservarle los equipos.",
+        aditivo: true,
+      },
+      {
+        key: "notificaciones/factura-pendiente",
+        label: "Obra por facturar",
+        descripcion: "Aviso cuando un cliente instalado queda pendiente de facturar.",
+        aditivo: true,
+      },
+    ],
   },
 
   // ───────── Comercial Instaladora ─────────
@@ -419,6 +578,14 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
           "Muestra el costo de los materiales y los totales entregado/pendiente en el diálogo de entregas de Clientes, Instalaciones en Proceso e Instalaciones Nuevas. ADITIVO: tener el módulo padre NO lo concede; hay que asignarlo explícitamente a quien pueda ver costos.",
         aditivo: true,
       },
+      {
+        // Antes salía solo a quien tuviera "comercial" en el cargo.
+        key: "clientes/saldo-pendiente",
+        label: "Aviso de saldo pendiente",
+        descripcion:
+          "Muestra, bajo la tabla de clientes, cuánto le falta por cobrar entre sus clientes y el botón para filtrarlos. ADITIVO.",
+        aditivo: true,
+      },
     ],
   },
   {
@@ -440,6 +607,14 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
           "Permite ver y editar los términos y condiciones generales que se imprimen al final de cada oferta exportada.",
         aditivo: true,
       },
+      {
+        // Antes: superAdmin + un CI escrito en el código (Yanet Clara).
+        key: "ofertas-gestion/reducir-reservas",
+        label: "Reducir materiales ya reservados",
+        descripcion:
+          "Al editar una oferta, bajar la cantidad de un material por debajo de lo que ya tiene reservado (o quitarlo). Sin esto, lo reservado es el mínimo. ADITIVO.",
+        aditivo: true,
+      },
     ],
   },
   {
@@ -459,12 +634,8 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-emerald-700",
     href: "/citas",
     grupo: "comercial-instaladora",
-    // De momento solo superAdmin, mientras se rueda el módulo. Para abrirlo a
-    // las comerciales: quitar esta línea y asignar los sub-permisos de abajo.
-    superAdminOnly: true,
     // El módulo base da acceso de VER: la agenda del día y el listado, con
     // filtros. Todo lo que escribe es ADITIVO y hay que asignarlo aparte.
-    // Hoy no hacen falta: superAdmin los tiene todos por bypass.
     subPermisos: [
       {
         key: "citas/agendar",
@@ -497,6 +668,23 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-emerald-500",
     href: "/reportes-comercial",
     grupo: "comercial-instaladora",
+    // Una tarjeta = un sub-permiso; el módulo completo concede todas. Sustituyen
+    // a dos reglas que iban por NOMBRE de persona en el código: ocultarle
+    // "Resultados por Comercial" a una comercial y que otras tres vieran solo
+    // su propio monto.
+    subPermisos: [
+      { key: "reportes-comercial/pendientes-instalacion", label: "Pendientes de Instalación" },
+      { key: "reportes-comercial/resultados-comercial", label: "Resultados por Comercial" },
+      {
+        key: "reportes-comercial/montos-todos",
+        label: "Resultados por Comercial: ver los montos de todas",
+        descripcion:
+          "Sin esto, en Resultados por Comercial solo se ve el monto propio. Lo concede el módulo completo, no la tarjeta suelta.",
+      },
+      { key: "reportes-comercial/estado-equipos", label: "Estado de Equipos" },
+      { key: "reportes-comercial/materiales-ofertas", label: "Materiales en Ofertas" },
+      { key: "reportes-comercial/entregas-devoluciones", label: "Entregas y devoluciones" },
+    ],
   },
   {
     key: "distribucion-comerciales",
@@ -507,52 +695,60 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     href: "/distribucion-comerciales",
     grupo: "comercial-instaladora",
   },
-  {
-    key: "suncar-whatsapp",
-    label: "Suncar Whatsapp",
-    descripcion: "Conversaciones de WhatsApp con clientes.",
-    icon: MessageCircle,
-    iconClass: "text-emerald-600",
-    href: "/api/chatwoot/sso",
-    grupo: "comercial-instaladora",
-    subPermisos: [
-      {
-        key: "suncar-whatsapp/admin",
-        label: "Suncar Whatsapp (administrador)",
-        descripcion:
-          "Entra a Chatwoot con rol administrador en vez de agente. Sin este sub-permiso, el trabajador entra como agente.",
-        aditivo: true,
-      },
-    ],
-  },
-  {
-    key: "preguntas-frecuentes",
-    label: "Preguntas Frecuentes",
-    descripcion: "Respuestas oficiales que usa el asistente de WhatsApp.",
-    icon: HelpCircle,
-    iconClass: "text-emerald-700",
-    href: "/preguntas-frecuentes",
-    grupo: "comercial-instaladora",
-  },
-  {
-    key: "datos-a-averiguar",
-    label: "Datos a Averiguar",
-    descripcion: "Datos que el asistente de WhatsApp debe averiguarle al cliente.",
-    icon: ClipboardList,
-    iconClass: "text-emerald-500",
-    href: "/datos-a-averiguar",
-    grupo: "comercial-instaladora",
-  },
-  {
-    key: "numeros-prueba",
-    label: "Números de Prueba",
-    descripcion: "Teléfonos con los que probar el asistente sin importar el historial.",
-    icon: FlaskConical,
-    iconClass: "text-emerald-800",
-    href: "/numeros-prueba",
-    grupo: "comercial-instaladora",
-    superAdminOnly: true,
-  },
+  // Comentado en sep-2026: fuera del dashboard y no asignable
+  // desde /permisos. Sus asignaciones se quitaron de la BD (24-sep-2026).
+  // {
+  //   key: "suncar-whatsapp",
+  //   label: "Suncar Whatsapp",
+  //   descripcion: "Conversaciones de WhatsApp con clientes.",
+  //   icon: MessageCircle,
+  //   iconClass: "text-emerald-600",
+  //   href: "/api/chatwoot/sso",
+  //   grupo: "comercial-instaladora",
+  //   subPermisos: [
+  //     {
+  //       key: "suncar-whatsapp/admin",
+  //       label: "Suncar Whatsapp (administrador)",
+  //       descripcion:
+  //         "Entra a Chatwoot con rol administrador en vez de agente. Sin este sub-permiso, el trabajador entra como agente.",
+  //       aditivo: true,
+  //     },
+  //   ],
+  // },
+  // Comentado en sep-2026: fuera del dashboard y no asignable
+  // desde /permisos. Sus asignaciones se quitaron de la BD (24-sep-2026).
+  // {
+  //   key: "preguntas-frecuentes",
+  //   label: "Preguntas Frecuentes",
+  //   descripcion: "Respuestas oficiales que usa el asistente de WhatsApp.",
+  //   icon: HelpCircle,
+  //   iconClass: "text-emerald-700",
+  //   href: "/preguntas-frecuentes",
+  //   grupo: "comercial-instaladora",
+  // },
+  // Comentado en sep-2026: fuera del dashboard y no asignable
+  // desde /permisos. Sus asignaciones se quitaron de la BD (24-sep-2026).
+  // {
+  //   key: "datos-a-averiguar",
+  //   label: "Datos a Averiguar",
+  //   descripcion: "Datos que el asistente de WhatsApp debe averiguarle al cliente.",
+  //   icon: ClipboardList,
+  //   iconClass: "text-emerald-500",
+  //   href: "/datos-a-averiguar",
+  //   grupo: "comercial-instaladora",
+  // },
+  // Comentado en sep-2026: fuera del dashboard y no asignable
+  // desde /permisos. Sus asignaciones se quitaron de la BD (24-sep-2026).
+  // {
+  //   key: "numeros-prueba",
+  //   label: "Números de Prueba",
+  //   descripcion: "Teléfonos con los que probar el asistente sin importar el historial.",
+  //   icon: FlaskConical,
+  //   iconClass: "text-emerald-800",
+  //   href: "/numeros-prueba",
+  //   grupo: "comercial-instaladora",
+  //   superAdminOnly: true,
+  // },
   // ───────── Comercial Ventas ─────────
   {
     key: "clientes-ventas",
@@ -562,6 +758,16 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-indigo-600",
     href: "/clientes-ventas",
     grupo: "comercial-ventas",
+    subPermisos: [
+      {
+        // Antes iba por el nombre de una persona (Loydis) en el código.
+        key: "clientes-ventas/descuento-libre",
+        label: "Descuento libre en ofertas",
+        descripcion:
+          "Botón 'Descuento Free' al agregar una oferta: descuento sin los límites por material. ADITIVO.",
+        aditivo: true,
+      },
+    ],
   },
   {
     key: "solicitudes-ventas",
@@ -591,16 +797,18 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     href: "/consignaciones",
     grupo: "comercial-ventas",
   },
-  {
-    key: "tiendas-suncarventas",
-    label: "Tiendas Suncar",
-    descripcion: "Gestión de tiendas y puntos de venta.",
-    icon: ShoppingBag,
-    iconClass: "text-indigo-600",
-    href: "/tiendas-suncarventas",
-    grupo: "comercial-ventas",
-    tieneSubmodulos: true,
-  },
+  // Comentado en sep-2026: fuera del dashboard y no asignable
+  // desde /permisos. Sus asignaciones se quitaron de la BD (24-sep-2026).
+  // {
+  //   key: "tiendas-suncarventas",
+  //   label: "Tiendas Suncar",
+  //   descripcion: "Gestión de tiendas y puntos de venta.",
+  //   icon: ShoppingBag,
+  //   iconClass: "text-indigo-600",
+  //   href: "/tiendas-suncarventas",
+  //   grupo: "comercial-ventas",
+  //   tieneSubmodulos: true,
+  // },
   {
     key: "reportes-ventas",
     label: "Reportes Comercial Ventas",
@@ -609,6 +817,20 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-indigo-700",
     href: "/reportes-ventas",
     grupo: "comercial-ventas",
+    // Sustituyen una lista de nombres escrita en el código: esas vendedoras
+    // solo veían su propio monto.
+    subPermisos: [
+      {
+        key: "reportes-ventas/solo-propios",
+        label: "Ver el reporte con solo su propio monto",
+        descripcion: "Da acceso al reporte, pero los montos de los demás vendedores salen ocultos.",
+      },
+      {
+        key: "reportes-ventas/montos-todos",
+        label: "Ver los montos de todos los vendedores",
+        descripcion: "Lo concede el módulo completo 'reportes-ventas'.",
+      },
+    ],
   },
 
   // ───────── Operaciones ─────────
@@ -826,15 +1048,25 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     href: "/operaciones/almacen-reservas-averias",
     grupo: "operaciones",
   },
-  {
-    key: "equipos-felicity",
-    label: "Equipos Felicity",
-    descripcion: "Monitoreo y administración en vivo de inversores y baterías FSolar.",
-    icon: Gauge,
-    iconClass: "text-teal-600",
-    href: "/equipos-felicity",
-    grupo: "operaciones",
-  },
+  // Comentado en sep-2026: fuera del dashboard y no asignable
+  // desde /permisos. Sus asignaciones se quitaron de la BD (24-sep-2026).
+  // {
+  //   key: "equipos-felicity",
+  //   label: "Equipos Felicity",
+  //   descripcion: "Monitoreo y administración en vivo de inversores y baterías FSolar.",
+  //   icon: Gauge,
+  //   iconClass: "text-teal-600",
+  //   href: "/equipos-felicity",
+  //   grupo: "operaciones",
+  //   subPermisos: [
+  //     {
+  //       key: "equipos-felicity/equipo-oficina",
+  //       label: "Configurar el equipo de oficina",
+  //       descripcion: "Elegir qué equipo Felicity se muestra en la barra lateral de todo el sistema. ADITIVO. Antes solo superAdmin.",
+  //       aditivo: true,
+  //     },
+  //   ],
+  // },
 
   // ───────── Solineras ─────────
   {
@@ -1064,6 +1296,14 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-sky-700",
     href: "/materiales",
     grupo: "gestion-almacenes",
+    subPermisos: [
+      {
+        key: "materiales/verificar-fotos",
+        label: "Verificar fotos de materiales",
+        descripcion: "Revisiones de fotos del catálogo que hace el backend. ADITIVO. Antes solo superAdmin.",
+        aditivo: true,
+      },
+    ],
   },
   {
     key: "solicitudes-envio",
@@ -1088,6 +1328,12 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
       {
         key: "solicitudes-envio/solicitudes-internacional",
         label: "Solicitudes — cola de la compradora internacional",
+      },
+      {
+        key: "solicitudes-envio/editar-ajenas",
+        label: "Editar solicitudes de otros",
+        descripcion: "Sin esto, cada uno solo edita las solicitudes que creó. ADITIVO. Antes solo superAdmin.",
+        aditivo: true,
       },
     ],
   },
@@ -1129,18 +1375,28 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     href: "/solicitudes-entrada-almacen",
     grupo: "economia",
     hideFromDashboard: true,
+    subPermisos: [
+      {
+        key: "solicitudes-entrada-almacen/editar-ajenas",
+        label: "Editar solicitudes de entrada de otros",
+        descripcion: "Sin esto, cada uno solo edita las solicitudes que creó. ADITIVO. Antes solo superAdmin.",
+        aditivo: true,
+      },
+    ],
   },
 
   // ───────── Recursos Humanos ─────────
-  {
-    key: "asistencia",
-    label: "Control de Asistencia",
-    descripcion: "Seguimiento en tiempo real de la presencia del personal.",
-    icon: Clock,
-    iconClass: "text-violet-600",
-    href: "/asistencia",
-    grupo: "recursos-humanos",
-  },
+  // Comentado en sep-2026: fuera del dashboard y no asignable
+  // desde /permisos. Sus asignaciones se quitaron de la BD (24-sep-2026).
+  // {
+  //   key: "asistencia",
+  //   label: "Control de Asistencia",
+  //   descripcion: "Seguimiento en tiempo real de la presencia del personal.",
+  //   icon: Clock,
+  //   iconClass: "text-violet-600",
+  //   href: "/asistencia",
+  //   grupo: "recursos-humanos",
+  // },
   {
     key: "recursos-humanos",
     label: "Empleados",
@@ -1195,7 +1451,6 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     iconClass: "text-violet-500",
     href: "/nomina",
     grupo: "recursos-humanos",
-    superAdminOnly: true,
   },
 
   // ───────── Área de Dirección ─────────

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { exigirSesion } from '../_sesion'
 import {
   getSessionDetail,
   getAccountBalances,
@@ -6,6 +7,9 @@ import {
 } from '@/lib/server/enable-banking'
 
 export async function GET(request: NextRequest) {
+  const denegado = await exigirSesion(request)
+  if (denegado) return denegado
+
   try {
     const sessionId = request.nextUrl.searchParams.get('session_id')
 

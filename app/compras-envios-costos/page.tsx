@@ -1,5 +1,6 @@
 "use client"
 
+import { RouteGuard } from "@/components/auth/route-guard"
 import { useState } from "react"
 import { Calculator, FileSpreadsheet, PackagePlus, Ship } from "lucide-react"
 import { Button } from "@/components/shared/atom/button"
@@ -57,6 +58,16 @@ const SUB_MODULES: SubModule[] = [
 ]
 
 export default function ComprasEnviosCostosPage() {
+  // Igual que la tarjeta del dashboard (childKeys del catálogo): basta
+  // con cualquiera de los submódulos que esta página pinta.
+  return (
+    <RouteGuard requiredModule={["compras-envios-costos", ...SUB_MODULES.map((m) => m.id)]}>
+      <ComprasEnviosCostosPageContent />
+    </RouteGuard>
+  )
+}
+
+function ComprasEnviosCostosPageContent() {
   const { hasPermission, user } = useAuth()
   const [isCalcOpen, setIsCalcOpen] = useState(false)
   const [materiales, setMateriales] = useState<MaterialFichaResumen[]>([])

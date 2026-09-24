@@ -1,5 +1,6 @@
 "use client"
 
+import { RouteGuard } from "@/components/auth/route-guard"
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Input } from "@/components/shared/molecule/input"
@@ -26,6 +27,14 @@ import type { ExportOptions } from "@/lib/export-service"
 import { exportListToPDF } from "@/lib/export-list-pdf"
 
 export default function TrabajadoresPage() {
+  return (
+    <RouteGuard requiredModule="trabajadores">
+      <TrabajadoresPageContent />
+    </RouteGuard>
+  )
+}
+
+function TrabajadoresPageContent() {
   const { brigadas: brigadasTrabajadores, trabajadores, loading: loadingTrabajadores, error: errorTrabajadores, refetch } = useBrigadasTrabajadores()
   const { brigadas: backendBrigades, loading: loadingBrigadas, loadBrigadas } = useBrigadas()
 

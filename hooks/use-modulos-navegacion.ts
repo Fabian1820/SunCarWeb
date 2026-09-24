@@ -15,11 +15,9 @@ import {
   PlugZap,
   Plus,
   Receipt,
-  ScrollText,
   Shield,
   ShoppingBag,
   Users,
-  Wallet,
   Wrench,
 } from "lucide-react";
 import {
@@ -29,7 +27,6 @@ import {
 } from "@/lib/modulos-catalogo";
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
-import { useMyWalletPermiso } from "@/hooks/use-wallet-permisos";
 import { useSolineras } from "@/hooks/use-solineras";
 import { PERMISOS_POR_FACTURAR } from "@/lib/constants/por-facturar-permisos";
 import { etiquetaEstadoSolinera } from "@/lib/utils/solineras";
@@ -272,7 +269,6 @@ export function useModulosNavegacion({ onNuevaSolinera }: Opciones = {}) {
     user,
     getAuthHeader,
   } = useAuth();
-  const { permiso: myWalletPermiso } = useMyWalletPermiso();
 
   // Solineras: cada una es un módulo del área. Solo se piden si la persona
   // tiene el permiso: sin él la API respondería 403.
@@ -365,31 +361,17 @@ export function useModulosNavegacion({ onNuevaSolinera }: Opciones = {}) {
           description: "Administrar módulos y permisos de trabajadores.",
           iconClass: "text-red-600",
         },
-        {
-          // Fuera del catálogo a propósito: la bitácora registra lo que hace
-          // todo el mundo, así que no debe existir como permiso asignable.
-          // Solo superAdmin, igual que en el backend.
-          id: "auditoria",
-          href: "/auditoria",
-          icon: ScrollText,
-          title: "Auditoría del Sistema",
-          description: "Quién hizo qué, cuándo y con qué datos.",
-          iconClass: "text-red-600",
-        },
       ]
     : [];
 
-  const isWalletAdmin = !!user?.is_superAdmin || !!myWalletPermiso?.esAdmin;
-  const walletAdminModules: ModuloNav[] = isWalletAdmin
+  // "Gestión de Wallet" ya no tiene tarjeta: ver todas y administrar son
+  // sub-permisos de `wallet` y se asignan en /permisos. Las alertas no son un
+  // módulo del catálogo (su clave `wallet-alertas` es sub-permiso de wallet),
+  // así que su tarjeta se añade aquí.
+  const puedeAlertasWallet =
+    hasExactPermission("wallet-alertas") || hasExactPermission("wallet/admin");
+  const walletAdminModules: ModuloNav[] = puedeAlertasWallet
     ? [
-        {
-          id: "wallet-manager",
-          href: "/wallet-manager",
-          icon: Wallet,
-          title: "Gestión de Wallet",
-          description: "Administrar permisos de billetera de trabajadores.",
-          iconClass: "text-blue-600",
-        },
         {
           id: "wallet-alertas",
           href: "/wallet-alertas",
@@ -426,7 +408,7 @@ export function useModulosNavegacion({ onNuevaSolinera }: Opciones = {}) {
     ).map((m) => m.dashboardId ?? m.key);
     const ids =
       grupo.key === "area-direccion"
-        ? [...delCatalogo, "wallet-manager", "permisos", "auditoria"]
+        ? [...delCatalogo, "wallet-alertas", "permisos"]
         : grupo.key === "solineras"
           ? solinerasModules.map((m) => m.id)
           : delCatalogo;

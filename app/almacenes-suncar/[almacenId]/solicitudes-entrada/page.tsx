@@ -1,5 +1,6 @@
 "use client";
 
+import { RouteGuard } from "@/components/auth/route-guard";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import {
@@ -36,6 +37,18 @@ import { SolicitudesEntradaTable } from "@/components/feats/solicitudes-entrada-
 import { SolicitudEntradaDetailDialog } from "@/components/feats/solicitudes-entrada-almacen/solicitud-entrada-detail-dialog";
 
 export default function SolicitudesEntradaPorAlmacenPage() {
+  const params = useParams();
+  const almacenId = params.almacenId as string;
+  // Mismo permiso dinámico que el stock del almacén
+  // (app/almacenes/[almacenId]/page.tsx): cada almacén se concede suelto.
+  return (
+    <RouteGuard requiredModule={`almacen:${almacenId}`}>
+      <SolicitudesEntradaPorAlmacenPageContent />
+    </RouteGuard>
+  );
+}
+
+function SolicitudesEntradaPorAlmacenPageContent() {
   const params = useParams();
   const almacenId = params.almacenId as string;
 

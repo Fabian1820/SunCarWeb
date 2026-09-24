@@ -46,9 +46,11 @@ function cuando(fechaStr: string): string {
 }
 
 export function SystemUpdatesPanel() {
-  const { user, hasPermission } = useAuth();
+  const { hasPermission, hasExactPermission } = useAuth();
   const { toast } = useToast();
-  const esSuperAdmin = Boolean(user?.is_superAdmin);
+  // Antes solo superAdmin; ahora sub-permisos aditivos de actualizaciones-sistema.
+  const puedePublicar = hasExactPermission("actualizaciones-sistema/publicar");
+  const puedeNotificar = hasExactPermission("actualizaciones-sistema/notificar");
 
   const [actualizaciones, setActualizaciones] = useState<ActualizacionSistema[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,7 +100,7 @@ export function SystemUpdatesPanel() {
   };
 
   // Nada que mostrar y nadie que pueda publicar: no ocupar espacio en Inicio.
-  if (!loading && actualizaciones.length === 0 && !esSuperAdmin) {
+  if (!loading && actualizaciones.length === 0 && !puedePublicar) {
     return null;
   }
 
@@ -120,7 +122,7 @@ export function SystemUpdatesPanel() {
             </span>
           )}
         </div>
-        {esSuperAdmin && (
+        {puedePublicar && (
           <Button
             variant="outline"
             size="sm"
@@ -178,7 +180,7 @@ export function SystemUpdatesPanel() {
                         <p className="max-w-[70ch] text-sm leading-relaxed text-gray-600">{a.mensaje}</p>
                         {a.autor_nombre && <p className="text-xs text-gray-400">{a.autor_nombre}</p>}
                       </div>
-                      {esSuperAdmin && (
+                      {puedeNotificar && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -226,19 +228,19 @@ export function SystemUpdatesPanel() {
         </div>
       )}
 
-      {esSuperAdmin && (
-        <>
-          <PublicarActualizacionDialog
-            open={publicarAbierto}
-            onOpenChange={setPublicarAbierto}
-            onPublicar={handlePublicar}
-          />
-          <NotificarTrabajadoresDialog
-            open={notificarAbierto}
-            onOpenChange={setNotificarAbierto}
-            actualizacion={actualizacionParaNotificar}
-          />
-        </>
+      {puedePublicar && (
+        <PublicarActualizacionDialog
+          open={publicarAbierto}
+          onOpenChange={setPublicarAbierto}
+          onPublicar={handlePublicar}
+        />
+      )}
+      {puedeNotificar && (
+        <NotificarTrabajadoresDialog
+          open={notificarAbierto}
+          onOpenChange={setNotificarAbierto}
+          actualizacion={actualizacionParaNotificar}
+        />
       )}
     </section>
   );

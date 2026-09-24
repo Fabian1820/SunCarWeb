@@ -1,5 +1,6 @@
 "use client";
 
+import { RouteGuard } from "@/components/auth/route-guard";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -305,6 +306,14 @@ const matchesClientDateFilters = (
 };
 
 export default function ClientesPage() {
+  return (
+    <RouteGuard requiredModule="clientes">
+      <ClientesPageContent />
+    </RouteGuard>
+  );
+}
+
+function ClientesPageContent() {
   const searchParams = useSearchParams();
   const buscarParam = searchParams.get("buscar") ?? "";
 

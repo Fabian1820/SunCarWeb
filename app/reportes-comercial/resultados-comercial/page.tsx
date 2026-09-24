@@ -1,13 +1,12 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { useRouter } from "next/navigation"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { ResultadosComercialTable } from "@/components/feats/reportes-comercial/resultados-comercial-table"
 import { apiRequest } from "@/lib/api-config"
 import { useToast } from "@/hooks/use-toast"
-import { useAuth } from "@/contexts/auth-context"
 import type { ResultadoComercial } from "@/lib/types/feats/reportes-comercial/reportes-comercial-types"
+import { RouteGuard } from "@/components/auth/route-guard"
 
 interface ResultadosComercialResponse {
   success: boolean
@@ -15,31 +14,12 @@ interface ResultadosComercialResponse {
   data: ResultadoComercial[]
 }
 
-export default function ResultadosComercialPage() {
+function ResultadosComercialPageContent() {
   const { toast } = useToast()
-  const { user } = useAuth()
-  const router = useRouter()
   const [resultados, setResultados] = useState<ResultadoComercial[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Redirigir si es Lorena Pérez
-  useEffect(() => {
-    if (user && user.nombre === 'Lorena Pérez') {
-      toast({
-        title: "Acceso denegado",
-        description: "No tienes permisos para acceder a este módulo",
-        variant: "destructive",
-      })
-      router.push('/reportes-comercial')
-    }
-  }, [user, router, toast])
-
   const fetchData = useCallback(async () => {
-    // No cargar datos si es Lorena Pérez
-    if (user && user.nombre === 'Lorena Pérez') {
-      return
-    }
-
     setLoading(true)
     try {
       const response = await apiRequest<ResultadosComercialResponse>(
@@ -66,7 +46,7 @@ export default function ResultadosComercialPage() {
     } finally {
       setLoading(false)
     }
-  }, [toast, user])
+  }, [toast])
 
   useEffect(() => {
     fetchData()
@@ -92,5 +72,15 @@ export default function ResultadosComercialPage() {
         />
       </main>
     </div>
+  )
+}
+
+// Antes se le cerraba a una comercial por su NOMBRE; ahora es la tarjeta
+// `reportes-comercial/resultados-comercial` (el módulo completo la incluye).
+export default function ResultadosComercialPage() {
+  return (
+    <RouteGuard requiredModule="reportes-comercial/resultados-comercial">
+      <ResultadosComercialPageContent />
+    </RouteGuard>
   )
 }

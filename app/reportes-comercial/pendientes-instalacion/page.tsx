@@ -6,6 +6,7 @@ import { PendientesInstalacionTable } from "@/components/feats/reportes-comercia
 import { apiRequest } from "@/lib/api-config"
 import { useToast } from "@/hooks/use-toast"
 import type { InstalacionPendiente } from "@/lib/types/feats/reportes-comercial/reportes-comercial-types"
+import { RouteGuard } from "@/components/auth/route-guard"
 
 interface PendientesInstalacionResponse {
   success: boolean
@@ -19,7 +20,7 @@ interface PendientesInstalacionResponse {
   }
 }
 
-export default function PendientesInstalacionPage() {
+function PendientesInstalacionPageContent() {
   const { toast } = useToast()
   const [instalaciones, setInstalaciones] = useState<InstalacionPendiente[]>([])
   const [loading, setLoading] = useState(true)
@@ -207,4 +208,12 @@ function formatOfertas(ofertas: any[]): string {
     
     return productos.join(" • ")
   }).join(" | ")
+}
+
+export default function PendientesInstalacionPage() {
+  return (
+    <RouteGuard requiredModule="reportes-comercial/pendientes-instalacion">
+      <PendientesInstalacionPageContent />
+    </RouteGuard>
+  )
 }

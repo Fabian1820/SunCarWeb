@@ -1,5 +1,6 @@
 "use client";
 
+import { RouteGuard } from "@/components/auth/route-guard";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, Search, ShoppingCart, CreditCard, List, FileText, FilterX, FileSpreadsheet, Loader2 } from "lucide-react";
@@ -72,6 +73,14 @@ const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
 ];
 
 export default function SolicitudesVentasPage() {
+  return (
+    <RouteGuard requiredModule="solicitudes-ventas">
+      <SolicitudesVentasPageContent />
+    </RouteGuard>
+  );
+}
+
+function SolicitudesVentasPageContent() {
   const { toast } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();

@@ -51,7 +51,7 @@ export function ResultadosComercialTable({
   loading,
   onRefresh,
 }: ResultadosComercialTableProps) {
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [comercialFilter, setComercialFilter] = useState<string>("todos");
   const [mesFilter, setMesFilter] = useState<string>("todos");
@@ -59,14 +59,9 @@ export function ResultadosComercialTable({
   const [fechaDesde, setFechaDesde] = useState<string>("");
   const [fechaHasta, setFechaHasta] = useState<string>("");
 
-  // Usuarios con restricciones (solo ven su propio monto)
-  const RESTRICTED_USERS = [
-    "Gretel María Mojena Almenares",
-    "Ariagna Carballo Gil",
-    "Dashel Pinillos Zubiaur",
-  ];
-
-  const isRestrictedUser = RESTRICTED_USERS.includes(user?.nombre || "");
+  // Sin `reportes-comercial/montos-todos` (lo concede el módulo completo) solo
+  // se ve el monto propio. Antes era una lista de nombres escrita aquí.
+  const isRestrictedUser = !hasPermission("reportes-comercial/montos-todos");
 
   // Función para verificar si el usuario puede ver el monto de una tarjeta
   const canViewAmount = (comercial: string) => {

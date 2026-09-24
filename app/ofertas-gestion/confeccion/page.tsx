@@ -1,10 +1,19 @@
 "use client"
 
+import { RouteGuard } from "@/components/auth/route-guard"
 import { useRouter } from "next/navigation"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { ConfeccionOfertasView } from "@/components/feats/ofertas/confeccion-ofertas-view"
 
 export default function ConfeccionOfertasPage() {
+  return (
+    <RouteGuard requiredModule="ofertas-gestion">
+      <ConfeccionOfertasPageContent />
+    </RouteGuard>
+  )
+}
+
+function ConfeccionOfertasPageContent() {
   const router = useRouter()
 
   return (

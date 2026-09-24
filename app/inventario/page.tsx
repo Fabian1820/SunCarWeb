@@ -1,5 +1,6 @@
 "use client"
 
+import { RouteGuard } from "@/components/auth/route-guard"
 import { useEffect, useState } from "react"
 import { Button } from "@/components/shared/atom/button"
 import {
@@ -42,6 +43,14 @@ import { TransferenciasAlmacenesTable } from "@/components/feats/inventario/tran
 import { useToast } from "@/hooks/use-toast"
 
 export default function InventarioPage() {
+  return (
+    <RouteGuard requiredModule="inventario">
+      <InventarioPageContent />
+    </RouteGuard>
+  )
+}
+
+function InventarioPageContent() {
   const {
     data,
     almacenesDisponibles,

@@ -1,5 +1,6 @@
 "use client";
 
+import { RouteGuard } from "@/components/auth/route-guard";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { Button } from "@/components/shared/atom/button";
@@ -73,6 +74,18 @@ const getTipoStyles = (tipo?: string) =>
       };
 
 export default function ValesSalidaPage() {
+  const params = useParams();
+  const almacenId = params.almacenId as string;
+  // Mismo permiso dinámico que el stock del almacén
+  // (app/almacenes/[almacenId]/page.tsx): cada almacén se concede suelto.
+  return (
+    <RouteGuard requiredModule={`almacen:${almacenId}`}>
+      <ValesSalidaPageContent />
+    </RouteGuard>
+  );
+}
+
+function ValesSalidaPageContent() {
   const params = useParams();
   const almacenId = params.almacenId as string;
   const { toast } = useToast();

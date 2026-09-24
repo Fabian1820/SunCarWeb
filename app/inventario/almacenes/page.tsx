@@ -1,5 +1,6 @@
 "use client"
 
+import { RouteGuard } from "@/components/auth/route-guard"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/shared/atom/button"
@@ -15,6 +16,14 @@ import { AlmacenForm } from "@/components/feats/inventario/almacen-form"
 import type { Almacen } from "@/lib/inventario-types"
 
 export default function GestionAlmacenesPage() {
+  return (
+    <RouteGuard requiredModule="inventario">
+      <GestionAlmacenesPageContent />
+    </RouteGuard>
+  )
+}
+
+function GestionAlmacenesPageContent() {
   const router = useRouter()
   const {
     almacenes,

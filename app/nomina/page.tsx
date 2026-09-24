@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import Link from "next/link"
 import { ChevronLeft, ChevronRight, Coins, Download, Landmark, Lock, LockOpen, RefreshCw, UserPlus } from "lucide-react"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { Button } from "@/components/shared/atom/button"
@@ -9,7 +8,7 @@ import { Badge } from "@/components/shared/atom/badge"
 import { Card, CardContent } from "@/components/shared/molecule/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/shared/molecule/tabs"
 import { PageLoader } from "@/components/shared/atom/page-loader"
-import { useAuth } from "@/contexts/auth-context"
+import { RouteGuard } from "@/components/auth/route-guard"
 import { useNomina } from "@/hooks/use-nomina"
 import { NominaService } from "@/lib/services/feats/nomina/nomina-service"
 import { NominaOficial } from "@/components/feats/nomina/nomina-oficial"
@@ -29,11 +28,13 @@ const MESES = [
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ]
 
+// Antes solo superAdmin. Desde sep-2026 lo abre el permiso `nomina-mensual`
+// (incluida la parte complementaria); el backend pide lo mismo.
 export default function NominaPage() {
   return (
-    <SoloSuperAdmin>
+    <RouteGuard requiredModule="nomina-mensual">
       <NominaInicial />
-    </SoloSuperAdmin>
+    </RouteGuard>
   )
 }
 
@@ -64,34 +65,6 @@ function NominaInicial() {
 
   if (!inicio) return <PageLoader />
   return <NominaContenido anioInicial={inicio.anio} mesInicial={inicio.mes} />
-}
-
-/**
- * La nómina incluye la parte complementaria, que solo debe ver el superAdmin
- * (igual que en el backend). No se usa RouteGuard: ese da acceso a cualquiera
- * que tenga el permiso asignado.
- */
-function SoloSuperAdmin({ children }: { children: React.ReactNode }) {
-  const { user, isLoading, isAuthenticated } = useAuth()
-
-  if (isLoading) return <PageLoader />
-  if (!isAuthenticated) return null
-
-  if (!user?.is_superAdmin) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
-        <div className="text-center">
-          <h1 className="mb-4 text-4xl font-bold text-gray-900">Acceso Denegado</h1>
-          <p className="mb-6 text-gray-600">La nómina es solo para super administradores.</p>
-          <Link href="/">
-            <Button>Volver al Inicio</Button>
-          </Link>
-        </div>
-      </div>
-    )
-  }
-
-  return <>{children}</>
 }
 
 function NominaContenido({ anioInicial, mesInicial }: { anioInicial: number; mesInicial: number }) {

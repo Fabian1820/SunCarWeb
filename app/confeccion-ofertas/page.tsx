@@ -1,9 +1,18 @@
 "use client"
 
+import { RouteGuard } from "@/components/auth/route-guard"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { ConfeccionOfertasView } from "@/components/feats/ofertas/confeccion-ofertas-view"
 
 export default function ConfeccionOfertasPage() {
+  return (
+    <RouteGuard requiredModule="ofertas-gestion">
+      <ConfeccionOfertasPageContent />
+    </RouteGuard>
+  )
+}
+
+function ConfeccionOfertasPageContent() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f4f9f6] via-white to-[#e8f4ee]">
       <ModuleHeader

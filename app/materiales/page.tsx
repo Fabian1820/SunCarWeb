@@ -1,5 +1,6 @@
 "use client";
 
+import { RouteGuard } from "@/components/auth/route-guard";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/shared/atom/button";
 import {
@@ -57,6 +58,14 @@ import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { exportToExcel, generateFilename } from "@/lib/export-service";
 
 export default function MaterialesPage() {
+  return (
+    <RouteGuard requiredModule="materiales">
+      <MaterialesPageContent />
+    </RouteGuard>
+  );
+}
+
+function MaterialesPageContent() {
   const {
     materials,
     categories,

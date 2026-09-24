@@ -22,6 +22,7 @@ import {
   FileText,
   ShoppingCart,
 } from "lucide-react";
+import { RouteGuard } from "@/components/auth/route-guard";
 
 type TabId = "solicitudes-pendientes" | "todos-pagos" | "facturas-emitidas";
 
@@ -35,7 +36,7 @@ const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: "facturas-emitidas", label: "Facturas emitidas", icon: FileText },
 ];
 
-export default function PagosClientesVentasPage() {
+function PagosClientesVentasPageContent() {
   // El destino de "Volver" sale del catálogo, que cambia entre ramas: en
   // producción estos submódulos cuelgan de la tarjeta Facturación y en dev
   // cuelgan directo de Economía.
@@ -327,5 +328,14 @@ export default function PagosClientesVentasPage() {
 
       <Toaster />
     </div>
+  );
+}
+
+// Ruta antigua sin tarjeta propia: se abre con el mismo permiso que Pagos Clientes.
+export default function PagosClientesVentasPage() {
+  return (
+    <RouteGuard requiredModule="facturas/pagos-clientes">
+      <PagosClientesVentasPageContent />
+    </RouteGuard>
   );
 }

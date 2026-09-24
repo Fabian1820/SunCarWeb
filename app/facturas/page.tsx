@@ -4,13 +4,22 @@ import { CreditCard, Receipt, HardHat, FileCheck2 } from "lucide-react"
 import { ModuleCard } from "@/components/shared/molecule/module-card"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { useAuth } from "@/contexts/auth-context"
-import { SOLO_PAGOS_CLIENTES_CIS } from "@/lib/facturacion-access"
+import { RouteGuard } from "@/components/auth/route-guard"
 import { PERMISOS_POR_FACTURAR } from "@/lib/constants/por-facturar-permisos"
 
+// Cualquier sub-permiso `facturas/*` abre el hub; cada tarjeta pide el suyo.
+// Antes había una lista de CIs que solo veían Pagos Clientes: ahora a esa
+// persona se le asigna `facturas/pagos-clientes` en vez de `facturas`.
 export default function FacturacionPage() {
-    const { user, hasSubPermission, hasExactPermission } = useAuth()
-    const soloPagosClientes =
-        !!user?.ci && SOLO_PAGOS_CLIENTES_CIS.includes(user.ci)
+    return (
+        <RouteGuard requiredModule="facturas">
+            <FacturacionPageContent />
+        </RouteGuard>
+    )
+}
+
+function FacturacionPageContent() {
+    const { hasSubPermission, hasExactPermission } = useAuth()
 
     const submodulesAll = [
         {
@@ -57,7 +66,6 @@ export default function FacturacionPage() {
     ]
 
     const submodules = submodulesAll.filter((m) => {
-        if (soloPagosClientes) return m.id === 'pagos-clientes'
         // Aditivo: tener "facturas" no lo abre (ver lib/constants/por-facturar-permisos.ts).
         if (m.id === 'por-facturar') return PERMISOS_POR_FACTURAR.some((p) => hasExactPermission(p))
         return hasSubPermission("facturas", m.id)

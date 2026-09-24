@@ -1,5 +1,6 @@
 "use client";
 
+import { RouteGuard } from "@/components/auth/route-guard";
 import { useState } from "react";
 import { Button } from "@/components/shared/atom/button";
 import {
@@ -28,6 +29,14 @@ import type {
 import { SolicitudMaterialService } from "@/lib/api-services";
 
 export default function SolicitudesMaterialesPage() {
+  return (
+    <RouteGuard requiredModule="solicitudes-materiales">
+      <SolicitudesMaterialesPageContent />
+    </RouteGuard>
+  );
+}
+
+function SolicitudesMaterialesPageContent() {
   const { toast } = useToast();
   const {
     filteredSolicitudes,

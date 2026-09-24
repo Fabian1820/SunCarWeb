@@ -1,5 +1,6 @@
 "use client";
 
+import { RouteGuard } from "@/components/auth/route-guard";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plus } from "lucide-react";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
@@ -8,6 +9,14 @@ import { Button } from "@/components/shared/atom/button";
 import { useEffect, useState } from "react";
 
 export default function VerOfertasConfeccionadasPage() {
+  return (
+    <RouteGuard requiredModule="ofertas-gestion">
+      <VerOfertasConfeccionadasPageContent />
+    </RouteGuard>
+  );
+}
+
+function VerOfertasConfeccionadasPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [refreshKey, setRefreshKey] = useState(0);
