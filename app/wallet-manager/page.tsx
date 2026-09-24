@@ -19,7 +19,8 @@ import { useAuth } from "@/contexts/auth-context"
  * cualquier otro permiso. La ruta queda solo para quien la tenga guardada.
  */
 export default function WalletManagerPage() {
-  const { user } = useAuth()
+  const { user, hasPermission } = useAuth()
+  const puedeGestionarPermisos = !!user?.is_superAdmin || hasPermission("gestion-permisos")
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
@@ -35,7 +36,7 @@ export default function WalletManagerPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex gap-2">
-          {user?.is_superAdmin ? (
+          {puedeGestionarPermisos ? (
             <Link href="/permisos" className="flex-1">
               <Button className="w-full">Ir a Gestión de Permisos</Button>
             </Link>

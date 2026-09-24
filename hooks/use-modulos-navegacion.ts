@@ -351,16 +351,18 @@ export function useModulosNavegacion({ onNuevaSolinera }: Opciones = {}) {
       ]
     : [];
 
+  const permisosModule: ModuloNav = {
+    id: "permisos",
+    href: "/permisos",
+    icon: Shield,
+    title: "Gestión de Permisos",
+    description: "Administrar módulos y permisos de trabajadores.",
+    iconClass: "text-red-600",
+  };
+
   const superAdminModules: ModuloNav[] = user?.is_superAdmin
     ? [
-        {
-          id: "permisos",
-          href: "/permisos",
-          icon: Shield,
-          title: "Gestión de Permisos",
-          description: "Administrar módulos y permisos de trabajadores.",
-          iconClass: "text-red-600",
-        },
+        permisosModule,
       ]
     : [];
 
@@ -394,6 +396,8 @@ export function useModulosNavegacion({ onNuevaSolinera }: Opciones = {}) {
       return false;
     }),
     ...superAdminModules,
+    // Quien tiene el módulo gestion-permisos entra a /permisos sin ser superAdmin.
+    ...(!user?.is_superAdmin && hasPermission("gestion-permisos") ? [permisosModule] : []),
     ...walletAdminModules,
     ...solinerasModules,
   ];

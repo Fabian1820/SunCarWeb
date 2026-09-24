@@ -29,6 +29,7 @@ import { useSolicitudesEnvio } from "@/hooks/use-solicitudes-envio";
 import type {
   CompletarSolicitudData,
   EstadoSolicitudEnvio,
+  MaterialSolicitudEnvio,
   SolicitudEnvio,
   SolicitudEnvioUpdateData,
   UrgenciaSolicitudEnvio,
@@ -41,6 +42,8 @@ import { SolicitudEnvioDetailDialog } from "@/components/feats/solicitudes-envio
 import { SolicitudesEnvioTable } from "@/components/feats/solicitudes-envio/solicitudes-envio-table";
 
 const MODULE = "solicitudes-envio";
+/** Constante: un `[]` literal era un array nuevo en cada render. */
+const SIN_MATERIALES: MaterialSolicitudEnvio[] = [];
 
 interface Props {
   /**
@@ -54,7 +57,7 @@ interface Props {
 
 export function BandejaSolicitudes({ modo }: Props) {
   const { toast } = useToast();
-  const { user, hasSubPermission, hasExactPermission } = useAuth();
+  const { user, hasSubPermission, hasPermission, hasExactPermission } = useAuth();
   const hook = useSolicitudesEnvio({ modo });
   const { nombreDe } = useAlmacenesLookup();
 
@@ -63,6 +66,13 @@ export function BandejaSolicitudes({ modo }: Props) {
     MODULE,
     "solicitudes-internacional",
   );
+  // El backend deja editar las ajenas al superAdmin (y, con el permiso
+  // aditivo, a quien lo tenga); el botón tiene que seguir la misma regla.
+  const puedeEditarAjenas =
+    Boolean(user?.is_superAdmin) ||
+    hasExactPermission(`${MODULE}/editar-ajenas`);
+  // La ficha de la compra vive en el módulo de compras.
+  const puedeVerCompra = hasPermission("envio-contenedores");
 
   const [detail, setDetail] = useState<SolicitudEnvio | null>(null);
   const [edit, setEdit] = useState<SolicitudEnvio | null>(null);
@@ -76,12 +86,11 @@ export function BandejaSolicitudes({ modo }: Props) {
   const esPropia = (s: SolicitudEnvio) =>
     !s.creada_por_ci || !user?.ci || s.creada_por_ci === user.ci;
 
-  // Las de otros, solo con `solicitudes-envio/editar-ajenas` (antes solo
-  // superAdmin). El backend ya rechaza editar lo que no es tuyo o no está
-  // pendiente; esto solo evita ofrecer un botón que iba a fallar.
-  const puedeEditarAjenas = hasExactPermission("solicitudes-envio/editar-ajenas");
+  // El backend ya rechaza editar lo que no es tuyo o no está pendiente; esto
+  // solo evita ofrecer un botón que iba a fallar.
   const puedeEditar = (s: SolicitudEnvio) =>
-    puedeLocal && s.estado === "pendiente" && (esPropia(s) || puedeEditarAjenas);
+    s.estado === "pendiente" &&
+    ((puedeLocal && esPropia(s)) || puedeEditarAjenas);
   const puedeMarcarEnProceso = (s: SolicitudEnvio) =>
     puedeInternacional && s.estado === "pendiente";
   const puedeCompletar = (s: SolicitudEnvio) =>
@@ -125,7 +134,7 @@ export function BandejaSolicitudes({ modo }: Props) {
     const r = await hook.completar(completar.id, payload);
     toast({
       title: "Solicitud completada",
-      description: `Compra ${r.compra_id} creada en estado 'solicitado'.`,
+      description: `Compra «${payload.nombre || completar.codigo}» creada en estado 'solicitado'.`,
     });
     return r;
   };
@@ -203,7 +212,7 @@ export function BandejaSolicitudes({ modo }: Props) {
           <X className="h-3.5 w-3.5 text-red-600" />
         </Button>
       )}
-      {s.compra_id && (
+      {s.compra_id && puedeVerCompra && (
         <Link
           href={`/compras/${s.compra_id}/ficha-costo`}
           className="inline-flex items-center rounded-md px-2 py-1 text-xs text-blue-700 hover:bg-blue-50"
@@ -219,7 +228,7 @@ export function BandejaSolicitudes({ modo }: Props) {
   return (
     <div className="min-w-0 space-y-3">
       <Card>
-        <CardContent className="p-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+        <CardContent className="p-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_auto] gap-3">
           <Input
             placeholder="Buscar por código o material…"
             value={hook.filtros.q}
@@ -259,7 +268,7 @@ export function BandejaSolicitudes({ modo }: Props) {
               <SelectItem value="normal">Normal</SelectItem>
             </SelectContent>
           </Select>
-          <div className="flex items-center justify-end gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <div className="text-xs text-slate-500 whitespace-nowrap">
               {hook.total} resultado{hook.total === 1 ? "" : "s"}
             </div>
@@ -295,11 +304,13 @@ export function BandejaSolicitudes({ modo }: Props) {
           <div>
             Página {hook.page} de {hook.totalPages}
           </div>
-          <SmartPagination
-            currentPage={hook.page}
-            totalPages={hook.totalPages}
-            onPageChange={hook.setPage}
-          />
+          <div className="max-w-full overflow-x-auto">
+            <SmartPagination
+              currentPage={hook.page}
+              totalPages={hook.totalPages}
+              onPageChange={hook.setPage}
+            />
+          </div>
         </div>
       )}
 
@@ -308,6 +319,7 @@ export function BandejaSolicitudes({ modo }: Props) {
         onOpenChange={(v) => !v && setDetail(null)}
         solicitud={detail}
         nombreAlmacen={nombreDe}
+        puedeVerCompra={puedeVerCompra}
         actions={
           detail ? (
             <>
@@ -359,7 +371,7 @@ export function BandejaSolicitudes({ modo }: Props) {
         }
       />
 
-      {puedeLocal && (
+      {(puedeLocal || puedeEditarAjenas) && (
         <CrearSolicitudEnvioDialog
           open={crearOpen || Boolean(edit)}
           onOpenChange={(v) => {
@@ -367,7 +379,7 @@ export function BandejaSolicitudes({ modo }: Props) {
             setCrearOpen(false);
             setEdit(null);
           }}
-          materialesIniciales={[]}
+          materialesIniciales={SIN_MATERIALES}
           solicitudExistente={edit}
           onCreate={handleCreate}
           onUpdate={handleUpdate}
@@ -379,6 +391,7 @@ export function BandejaSolicitudes({ modo }: Props) {
         onOpenChange={(v) => !v && setCompletar(null)}
         solicitud={completar}
         onConfirm={handleCompletar}
+        nombreAlmacen={nombreDe}
       />
 
       {cancelTarget && (

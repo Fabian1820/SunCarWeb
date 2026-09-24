@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import type { SolicitudVenta } from "@/lib/api-types";
 import { FacturaClienteVentaService } from "@/lib/services/feats/pagos-clientes-ventas/pago-cliente-venta-service";
+import { usuarioActivo } from "@/lib/auth/usuario-activo";
 
 interface RegistrarPagoVentaDialogProps {
   open: boolean;
@@ -485,6 +486,7 @@ export function RegistrarPagoVentaDialog({
           descripcion: `Pago solicitud ${solicitud.codigo || solicitud.id.slice(-6).toUpperCase()} — ${solicitud.cliente_venta_nombre || "Cliente"}`,
           moneda: moneda === "CUP" ? "USD" : moneda,
           sin_recargo: true,
+          creado_por: usuarioActivo(),
         }),
       });
       const data = await res.json();

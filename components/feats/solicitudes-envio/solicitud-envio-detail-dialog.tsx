@@ -18,6 +18,7 @@ import {
   EstadoSolicitudBadge,
   UrgenciaBadge,
 } from "@/components/feats/solicitudes-envio/estado-badge";
+import { fechaHora, persona } from "@/components/feats/solicitudes-envio/formato";
 
 interface Props {
   open: boolean;
@@ -30,15 +31,11 @@ interface Props {
    * usuario, no según desde qué pestaña se abrió el detalle.
    */
   actions?: React.ReactNode;
-}
-
-function fmtDate(iso?: string | null): string {
-  if (!iso) return "—";
-  try {
-    return new Date(iso).toLocaleString();
-  } catch {
-    return iso;
-  }
+  /**
+   * La ficha de la compra exige el módulo de compras (`envio-contenedores`);
+   * sin él el enlace llevaba al inicio sin explicación.
+   */
+  puedeVerCompra?: boolean;
 }
 
 export function SolicitudEnvioDetailDialog({
@@ -47,8 +44,10 @@ export function SolicitudEnvioDetailDialog({
   solicitud,
   nombreAlmacen,
   actions,
+  puedeVerCompra = false,
 }: Props) {
   if (!solicitud) return null;
+  const completada = solicitud.estado === "completada";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -64,8 +63,10 @@ export function SolicitudEnvioDetailDialog({
                   ? "1 material"
                   : `${solicitud.materiales.length} materiales`}
                 {" · "}
-                Creada {fmtDate(solicitud.creada_en)}
-                {solicitud.creada_por_ci ? ` por ${solicitud.creada_por_ci}` : ""}
+                Creada {fechaHora(solicitud.creada_en)}
+                {solicitud.creada_por_ci || solicitud.creada_por_nombre
+                  ? ` por ${persona(solicitud.creada_por_nombre, solicitud.creada_por_ci)}`
+                  : ""}
               </DialogDescription>
             </div>
             <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -97,9 +98,9 @@ export function SolicitudEnvioDetailDialog({
               Procesada por
             </div>
             <div>
-              {solicitud.procesada_por_ci || "—"}
+              {persona(solicitud.procesada_por_nombre, solicitud.procesada_por_ci)}
               <span className="text-slate-500 text-xs ml-2">
-                {solicitud.procesada_en ? fmtDate(solicitud.procesada_en) : ""}
+                {solicitud.procesada_en ? fechaHora(solicitud.procesada_en) : ""}
               </span>
             </div>
           </div>
@@ -108,7 +109,9 @@ export function SolicitudEnvioDetailDialog({
               Compra generada
             </div>
             <div>
-              {solicitud.compra_id ? (
+              {!solicitud.compra_id ? (
+                "—"
+              ) : puedeVerCompra ? (
                 <Link
                   href={`/compras/${solicitud.compra_id}/ficha-costo`}
                   className="text-blue-700 underline"
@@ -116,10 +119,28 @@ export function SolicitudEnvioDetailDialog({
                   Ver compra
                 </Link>
               ) : (
-                "—"
+                <span className="text-slate-600">
+                  Creada{" "}
+                  <span className="text-xs text-slate-500">
+                    (verla exige acceso a Compras)
+                  </span>
+                </span>
               )}
             </div>
           </div>
+          {completada && (
+            <div>
+              <div className="text-slate-500 text-xs uppercase tracking-wide">
+                Completada por
+              </div>
+              <div>
+                {persona(solicitud.completada_por_nombre, solicitud.completada_por_ci)}
+                <span className="text-slate-500 text-xs ml-2">
+                  {fechaHora(solicitud.completada_en)}
+                </span>
+              </div>
+            </div>
+          )}
           {solicitud.notas && (
             <div className="col-span-2">
               <div className="text-slate-500 text-xs uppercase tracking-wide">
@@ -146,7 +167,8 @@ export function SolicitudEnvioDetailDialog({
               <div>
                 {solicitud.motivo_cancelacion || "—"}
                 <span className="text-slate-500 text-xs ml-2">
-                  {solicitud.cancelada_en ? fmtDate(solicitud.cancelada_en) : ""}
+                  {persona(solicitud.cancelada_por_nombre, solicitud.cancelada_por_ci)}
+                  {solicitud.cancelada_en ? ` · ${fechaHora(solicitud.cancelada_en)}` : ""}
                 </span>
               </div>
             </div>
@@ -198,10 +220,33 @@ export function SolicitudEnvioDetailDialog({
                   )}
                 </div>
                 <div className="text-right shrink-0">
-                  <div className="text-lg font-semibold text-slate-900">
-                    {m.cantidad}
-                  </div>
-                  <div className="text-xs text-slate-500">{m.um || ""}</div>
+                  {completada && m.cantidad_comprada != null ? (
+                    <>
+                      <div
+                        className={`text-lg font-semibold ${
+                          m.cantidad_comprada === 0
+                            ? "text-slate-400 line-through"
+                            : m.cantidad_comprada < m.cantidad
+                              ? "text-amber-700"
+                              : "text-slate-900"
+                        }`}
+                      >
+                        {m.cantidad_comprada}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        {m.cantidad_comprada === 0
+                          ? `no se compró (pedido ${m.cantidad})`
+                          : `comprado de ${m.cantidad} ${m.um || ""}`}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-lg font-semibold text-slate-900">
+                        {m.cantidad}
+                      </div>
+                      <div className="text-xs text-slate-500">{m.um || ""}</div>
+                    </>
+                  )}
                 </div>
               </div>
             ))}

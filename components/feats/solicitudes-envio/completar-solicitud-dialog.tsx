@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Package } from "lucide-react";
 
+import { Badge } from "@/components/shared/atom/badge";
 import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/atom/input";
 import { Label } from "@/components/shared/atom/label";
@@ -23,6 +24,9 @@ import {
 } from "@/components/shared/molecule/dialog";
 import { MaterialImage } from "@/components/shared/molecule/material-image";
 import { Textarea } from "@/components/shared/molecule/textarea";
+import { CantidadInput } from "@/components/feats/solicitudes-envio/cantidad-input";
+import { UrgenciaBadge } from "@/components/feats/solicitudes-envio/estado-badge";
+import { diaLocal } from "@/components/feats/solicitudes-envio/formato";
 import type {
   CompletarSolicitudData,
   SolicitudEnvio,
@@ -33,6 +37,8 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   solicitud: SolicitudEnvio | null;
   onConfirm: (payload: CompletarSolicitudData) => Promise<{ compra_id: string }>;
+  /** Resuelve el id del almacén destino a su nombre. */
+  nombreAlmacen?: (id?: string | null) => string | null;
 }
 
 interface FilaFinal {
@@ -44,30 +50,21 @@ interface FilaFinal {
   precio_unitario_cif: number;
 }
 
-function today(): string {
-  const d = new Date();
-  return d.toISOString().slice(0, 10);
-}
-
-function plus(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
 export function CompletarSolicitudDialog({
   open,
   onOpenChange,
   solicitud,
   onConfirm,
+  nombreAlmacen,
 }: Props) {
   const [nombre, setNombre] = useState("");
   const [proveedor, setProveedor] = useState("");
   const [tipo, setTipo] = useState<"maritimo" | "aereo" | "local" | "otro">(
     "maritimo",
   );
-  const [fechaEnvio, setFechaEnvio] = useState(today());
-  const [fechaLlegada, setFechaLlegada] = useState(plus(30));
+  // Día local: con toISOString() salía el día de mañana a partir de las 8 pm.
+  const [fechaEnvio, setFechaEnvio] = useState(diaLocal());
+  const [fechaLlegada, setFechaLlegada] = useState(diaLocal(30));
   const [notas, setNotas] = useState("");
   const [filas, setFilas] = useState<FilaFinal[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -78,8 +75,8 @@ export function CompletarSolicitudDialog({
     setNombre(solicitud.codigo);
     setProveedor("");
     setTipo("maritimo");
-    setFechaEnvio(today());
-    setFechaLlegada(plus(30));
+    setFechaEnvio(diaLocal());
+    setFechaLlegada(diaLocal(30));
     setNotas("");
     setError(null);
     setFilas(
@@ -98,6 +95,7 @@ export function CompletarSolicitudDialog({
     () => filas.some((f) => f.cantidad < f.cantidad_solicitada),
     [filas],
   );
+  const excluidos = filas.filter((f) => f.cantidad === 0).length;
 
   const updateFila = (id: string, patch: Partial<FilaFinal>) =>
     setFilas((prev) => prev.map((f) => (f.material_id === id ? { ...f, ...patch } : f)));
@@ -112,9 +110,15 @@ export function CompletarSolicitudDialog({
       setError("La fecha de llegada no puede ser anterior a la de envío.");
       return;
     }
-    const invalida = filas.find((f) => !(f.cantidad > 0));
+    const invalida = filas.find((f) => !(f.cantidad >= 0));
     if (invalida) {
-      setError(`La cantidad de ${invalida.material_codigo} debe ser > 0.`);
+      setError(`La cantidad de ${invalida.material_codigo} no puede ser negativa.`);
+      return;
+    }
+    if (!filas.some((f) => f.cantidad > 0)) {
+      setError(
+        "Todas las cantidades están en 0: no hay nada que comprar. Si no se consiguió nada, cancela la solicitud.",
+      );
       return;
     }
 
@@ -151,10 +155,44 @@ export function CompletarSolicitudDialog({
           <DialogTitle>Completar solicitud — crear compra</DialogTitle>
           <DialogDescription>
             {solicitud.codigo} — se creará una <strong>Compra</strong> en estado
-            &quot;solicitado&quot; con los materiales y cantidades finales. Si compras
-            menos, la solicitud se cierra con lo comprado (no se abren remanentes).
+            &quot;solicitado&quot; con lo que se consiguió. Pon 0 en lo que no se
+            pudo comprar: queda fuera de la compra. La solicitud guarda lo pedido y
+            lo comprado; no se abren remanentes.
           </DialogDescription>
         </DialogHeader>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <div>
+            <div className="text-slate-500 text-xs uppercase tracking-wide">
+              Almacén destino
+            </div>
+            <div className="text-slate-800">
+              {solicitud.almacen_id
+                ? (nombreAlmacen?.(solicitud.almacen_id) ?? solicitud.almacen_id)
+                : "Genérico (stock general)"}
+            </div>
+          </div>
+          <div>
+            <div className="text-slate-500 text-xs uppercase tracking-wide">
+              Urgencia
+            </div>
+            <div className="text-slate-800">
+              {solicitud.urgencia === "alta" ? (
+                <UrgenciaBadge urgencia="alta" />
+              ) : (
+                "Normal"
+              )}
+            </div>
+          </div>
+          {solicitud.notas && (
+            <div className="sm:col-span-2">
+              <div className="text-slate-500 text-xs uppercase tracking-wide">
+                Notas del comprador local
+              </div>
+              <div className="text-slate-800 whitespace-pre-wrap">{solicitud.notas}</div>
+            </div>
+          )}
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-1.5 md:col-span-2">
@@ -224,8 +262,10 @@ export function CompletarSolicitudDialog({
             </div>
             {parcialesDetectadas && (
               <div className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-                Compra parcial: la solicitud se cerrará con las cantidades
-                ingresadas.
+                Compra parcial
+                {excluidos > 0
+                  ? ` · ${excluidos} material${excluidos === 1 ? "" : "es"} fuera de la compra`
+                  : ""}
               </div>
             )}
           </div>
@@ -255,8 +295,16 @@ export function CompletarSolicitudDialog({
                   <div className="text-xs text-slate-500 font-mono">
                     {f.material_codigo}
                   </div>
-                  <div className="text-xs text-slate-500 mt-0.5">
+                  <div className="text-xs text-slate-500 mt-0.5 flex items-center gap-2">
                     Solicitado: {f.cantidad_solicitada}
+                    {f.cantidad === 0 && (
+                      <Badge
+                        variant="outline"
+                        className="bg-slate-100 text-slate-600 border-slate-300"
+                      >
+                        No se compra
+                      </Badge>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-end gap-2 shrink-0">
@@ -264,35 +312,27 @@ export function CompletarSolicitudDialog({
                     <span className="text-[10px] text-slate-500 mb-0.5">
                       Cantidad
                     </span>
-                    <Input
-                      type="number"
-                      min={0}
-                      step="0.01"
+                    <CantidadInput
                       value={f.cantidad}
-                      onChange={(e) =>
-                        updateFila(f.material_id, {
-                          cantidad: Number(e.target.value),
-                        })
+                      onChange={(cantidad) =>
+                        updateFila(f.material_id, { cantidad })
                       }
                       className="w-24 text-right"
+                      aria-label={`Cantidad comprada de ${f.material_codigo}`}
                     />
                   </div>
                   <div className="flex flex-col">
                     <span className="text-[10px] text-slate-500 mb-0.5">
                       CIF unitario
                     </span>
-                    <Input
-                      type="number"
-                      min={0}
-                      step="0.01"
+                    <CantidadInput
                       value={f.precio_unitario_cif}
-                      onChange={(e) =>
-                        updateFila(f.material_id, {
-                          precio_unitario_cif: Number(e.target.value),
-                        })
+                      onChange={(precio_unitario_cif) =>
+                        updateFila(f.material_id, { precio_unitario_cif })
                       }
                       className="w-28 text-right"
                       placeholder="0"
+                      aria-label={`CIF unitario de ${f.material_codigo}`}
                     />
                   </div>
                 </div>

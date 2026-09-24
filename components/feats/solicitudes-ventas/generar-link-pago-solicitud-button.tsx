@@ -15,6 +15,7 @@ import {
 } from "@/components/shared/molecule/dialog"
 import { useToast } from "@/hooks/use-toast"
 import type { SolicitudVentaSummary } from "@/lib/api-types"
+import { usuarioActivo } from "@/lib/auth/usuario-activo"
 
 interface GenerarLinkPagoSolicitudButtonProps {
   solicitud: SolicitudVentaSummary
@@ -74,6 +75,7 @@ export function GenerarLinkPagoSolicitudButton({
           descripcion: `Solicitud de Venta: ${solicitud.codigo || solicitud.id.slice(-6).toUpperCase()} - Cliente: ${solicitud.cliente_venta_nombre || "Sin cliente"} - Almacén: ${solicitud.almacen_nombre || "Sin almacén"}`,
           solicitud_venta_id: solicitud.id,
           sin_recargo: true,
+          creado_por: usuarioActivo(),
         }),
       })
 
