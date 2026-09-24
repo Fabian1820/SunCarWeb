@@ -19,6 +19,7 @@ import {
   UrgenciaBadge,
 } from "@/components/feats/solicitudes-envio/estado-badge";
 import { fechaHora, persona } from "@/components/feats/solicitudes-envio/formato";
+import { RegistroTrazabilidad } from "@/components/shared/molecule/registro-trazabilidad";
 
 interface Props {
   open: boolean;
@@ -252,6 +253,7 @@ export function SolicitudEnvioDetailDialog({
             ))}
           </div>
         </div>
+        <RegistroTrazabilidad recurso="solicitudes-envio" id={solicitud?.id} />
 
         <DialogFooter className="gap-2 flex-wrap">
           {actions}

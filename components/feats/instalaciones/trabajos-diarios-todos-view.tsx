@@ -40,6 +40,7 @@ import type {
 } from "@/lib/types/feats/instalaciones/trabajos-diarios-types";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, Check, ChevronsUpDown, Clock, Download, Eye, MapPin, User, X } from "lucide-react";
+import { RegistroTrazabilidad } from "@/components/shared/molecule/registro-trazabilidad";
 
 type ViewMode = "tabla" | "fecha" | "cliente";
 type ArchivoActionMode = "view" | "download";
@@ -1440,6 +1441,7 @@ export function TrabajosDiariosTodosView() {
                     </button>
                   </div>
                 )}
+                <RegistroTrazabilidad recurso="trabajos-diarios" id={trabajoDetalle?.id} />
               </div>
 
               {/* Footer del dialog */}

@@ -33,6 +33,7 @@ import {
   type SolicitudEntradaAlmacen,
 } from "@/lib/types/feats/solicitudes-entrada-almacen/solicitud-entrada-almacen-types";
 import { useMaterials } from "@/hooks/use-materials";
+import { RegistroTrazabilidad } from "@/components/shared/molecule/registro-trazabilidad";
 
 const formatDate = (value?: string) => {
   if (!value) return "—";
@@ -282,6 +283,7 @@ export function SolicitudEntradaDetailDialog({
               </p>
             )}
           </section>
+          <RegistroTrazabilidad recurso="solicitudes-entrada-almacen" id={solicitud?.id} />
 
           {/* Acciones de aprobación / denegación / edición */}
           {esPendiente && mode === "view" && (

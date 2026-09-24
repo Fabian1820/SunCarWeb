@@ -9,6 +9,7 @@ import {
 import { Badge } from "@/components/shared/atom/badge";
 import { Ban } from "lucide-react";
 import type { FacturaVentaResumen } from "@/lib/types/feats/pagos-clientes-ventas/pago-cliente-venta-types";
+import { RegistroTrazabilidad } from "@/components/shared/molecule/registro-trazabilidad";
 
 interface FacturaVentaDetailDialogProps {
   open: boolean;
@@ -259,6 +260,7 @@ export function FacturaVentaDetailDialog({
           <div className="text-right font-semibold text-red-600">
             Monto pendiente: {money(factura.monto_pendiente)}
           </div>
+          <RegistroTrazabilidad recurso="facturas-ventas" id={factura?.numero_factura} />
         </div>
       </DialogContent>
     </Dialog>

@@ -16,6 +16,7 @@ import {
   Zap,
 } from "lucide-react";
 import type { Reserva, ReservaEstado } from "@/lib/api-types";
+import { RegistroTrazabilidad } from "@/components/shared/molecule/registro-trazabilidad";
 
 interface ReservaVentaDetailDialogProps {
   open: boolean;
@@ -263,6 +264,7 @@ export function ReservaVentaDetailDialog({
             <span>Creado: {formatDate(reserva.fecha_creacion)}</span>
             <span>Actualizado: {formatDate(reserva.fecha_actualizacion)}</span>
           </div>
+          <RegistroTrazabilidad recurso="reservas" id={reserva?.id} />
         </div>
       </DialogContent>
     </Dialog>

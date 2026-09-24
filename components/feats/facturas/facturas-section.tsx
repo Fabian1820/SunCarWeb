@@ -79,6 +79,7 @@ import {
   SelectValue,
 } from "@/components/shared/atom/select";
 import { normalizeSearchText } from "@/lib/utils/string-utils";
+import { RegistroTrazabilidad } from "@/components/shared/molecule/registro-trazabilidad";
 
 const parseNullableNumber = (value: unknown): number | null => {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -2510,6 +2511,7 @@ export function FacturasSection() {
                   </p>
                 )}
               </div>
+              <RegistroTrazabilidad recurso="facturas" id={facturaDetails?.id ?? facturaDetails?.numero_factura} />
             </div>
           )}
         </DialogContent>

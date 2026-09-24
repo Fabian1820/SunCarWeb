@@ -44,6 +44,7 @@ import type { VentasFacturaRow } from "@/lib/types/feats/solicitudes-ventas/soli
 import type { TasaCambio } from "@/lib/types/feats/tasa-cambio/tasa-cambio-types";
 import type { Material } from "@/lib/types/feats/materials/material-types";
 import { RouteGuard } from "@/components/auth/route-guard";
+import { RegistroTrazabilidad } from "@/components/shared/molecule/registro-trazabilidad";
 
 interface FacturaValeItem {
   material_id: string;
@@ -3867,6 +3868,7 @@ function FacturasSolarCarrosPageContent() {
                 </div>
               </div>
 
+              <RegistroTrazabilidad recurso="facturas-solar-carros" id={facturaVista?.id} />
               <div className="mt-6 flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setFacturaVista(null)}>
                   Cerrar

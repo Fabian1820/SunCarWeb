@@ -112,6 +112,7 @@ import {
   construirMarcasMap,
   generarOpcionesExportacionOferta,
 } from "@/lib/services/feats/ofertas/generar-opciones-exportacion-oferta";
+import { RegistroTrazabilidad } from "@/components/shared/molecule/registro-trazabilidad";
 
 
 /** Fila compacta "etiqueta encima del valor" usada en el panel de detalle del lead. */
@@ -2483,6 +2484,7 @@ export function LeadsTable({
                         </div>
                       </section>
                     )}
+                  <RegistroTrazabilidad recurso="leads" id={selectedLead?.id} />
                 </div>
               </div>
 

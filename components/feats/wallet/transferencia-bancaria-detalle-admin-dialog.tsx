@@ -25,6 +25,7 @@ import { useMyWalletPermiso } from "@/hooks/use-wallet-permisos";
 import { useTransferenciasBancariasPendientes } from "@/hooks/use-transferencias-bancarias-pendientes";
 import { TransferenciaBancariaService } from "@/lib/api-services";
 import type { TransferenciaBancaria } from "@/lib/types/feats/transferencias-bancarias/transferencia-bancaria-types";
+import { RegistroTrazabilidad } from "@/components/shared/molecule/registro-trazabilidad";
 
 const formatMoney = (amount: number, currency = "USD"): string => {
   try {
@@ -351,6 +352,7 @@ export function TransferenciaBancariaDetalleAdminDialog({
               />
             </div>
           )}
+          <RegistroTrazabilidad recurso="transferencias-bancarias" id={transferencia?.id} />
         </div>
 
         {esAdminWallet && (

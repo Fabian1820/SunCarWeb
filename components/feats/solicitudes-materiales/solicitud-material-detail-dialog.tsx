@@ -24,6 +24,7 @@ import {
   formatFechaRecogida,
   getFechaRecogidaBadge,
 } from "@/lib/utils/fecha-recogida";
+import { RegistroTrazabilidad } from "@/components/shared/molecule/registro-trazabilidad";
 
 interface SolicitudMaterialDetailDialogProps {
   open: boolean;
@@ -409,6 +410,7 @@ export function SolicitudMaterialDetailDialog({
               </table>
             </div>
           </div>
+          <RegistroTrazabilidad recurso="solicitudes-materiales" id={solicitud?.id} />
         </div>
       </DialogContent>
     </Dialog>

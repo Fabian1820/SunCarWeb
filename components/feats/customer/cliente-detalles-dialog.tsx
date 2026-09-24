@@ -28,6 +28,7 @@ import { downloadFile } from "@/lib/utils/download-file"
 import { compareStrings } from "@/lib/utils/string-utils"
 import { extraerComponentesDeOfertaConfeccion } from "@/lib/utils/oferta-confeccion-items"
 import { useToast } from "@/hooks/use-toast"
+import { RegistroTrazabilidad } from "@/components/shared/molecule/registro-trazabilidad"
 
 interface ClienteDetallesDialogProps {
   open: boolean
@@ -492,6 +493,7 @@ export function ClienteDetallesDialog({
                 </div>
               </section>
             )}
+            <RegistroTrazabilidad recurso="clientes" id={cliente?.numero} />
           </div>
         </div>
 

@@ -29,6 +29,7 @@ import {
   CONSIGNACION_ESTADO_BADGE_CLASSES,
   CONSIGNACION_ESTADO_LABELS,
 } from "@/lib/types/feats/consignaciones/consignacion-types";
+import { RegistroTrazabilidad } from "@/components/shared/molecule/registro-trazabilidad";
 
 interface ConsignacionDetailDialogProps {
   open: boolean;
@@ -436,6 +437,7 @@ export function ConsignacionDetailDialog({
             </div>
           </div>
         )}
+        <RegistroTrazabilidad recurso="consignaciones" id={c?.id} />
       </DialogContent>
     </Dialog>
   );

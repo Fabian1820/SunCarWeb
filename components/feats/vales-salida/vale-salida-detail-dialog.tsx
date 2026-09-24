@@ -35,6 +35,7 @@ import {
   getValeEstadoInfo,
 } from "@/lib/utils/vale-salida-estado";
 import { claveSerie } from "@/lib/utils/numeros-serie";
+import { RegistroTrazabilidad } from "@/components/shared/molecule/registro-trazabilidad";
 
 interface ValeSalidaDetailDialogProps {
   open: boolean;
@@ -564,6 +565,7 @@ export function ValeSalidaDetailDialog({
               </ul>
             )}
           </div>
+          <RegistroTrazabilidad recurso="vales-salida" id={vale?.id} />
         </div>
       </DialogContent>
     </Dialog>

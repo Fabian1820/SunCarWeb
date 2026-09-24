@@ -33,6 +33,7 @@ import {
   Trash2,
   Truck,
 } from "lucide-react";
+import { RegistroTrazabilidad } from "@/components/shared/molecule/registro-trazabilidad";
 
 const ESTADOS_RECEPCION_PERMITIDOS = new Set<EstadoCompra>(["solicitado", "enviado", "arribado", "recibido_parcial"]);
 const ESTADOS_CANCELABLES = new Set<EstadoCompra>(["solicitado", "enviado", "arribado"]);
@@ -538,6 +539,7 @@ export function ComprasTable({
                           </tfoot>
                         </table>
                       </div>
+                        <RegistroTrazabilidad recurso="compras" id={compra.id} />
                       </div>
                     </td>
                   </tr>

@@ -73,6 +73,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PagoService } from "@/lib/services/feats/pagos/pago-service";
+import { RegistroTrazabilidad } from "@/components/shared/molecule/registro-trazabilidad";
 
 
 export function OfertasConfeccionadasView() {
@@ -1586,6 +1587,7 @@ export function OfertasConfeccionadasView() {
                         </div>
                       </CardContent>
                     </Card>
+                    <RegistroTrazabilidad recurso="ofertas-confeccion" id={ofertaSeleccionada?.id} />
                   </div>
                 </div>
 

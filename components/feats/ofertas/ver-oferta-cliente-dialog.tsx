@@ -25,6 +25,7 @@ import type { OfertaConfeccion } from "@/hooks/use-ofertas-confeccion";
 import { GenerarLinkPagoConfeccionButton } from "./generar-link-pago-confeccion-button";
 import { PagoService } from "@/lib/services/feats/pagos/pago-service";
 import { LazyImage } from "@/components/shared/atom/lazy-image";
+import { RegistroTrazabilidad } from "@/components/shared/molecule/registro-trazabilidad";
 
 interface VerOfertaClienteDialogProps {
   open: boolean;
@@ -955,6 +956,7 @@ export function VerOfertaClienteDialog({
                       </div>
                     </CardContent>
                   </Card>
+                  <RegistroTrazabilidad recurso="ofertas-confeccion" id={oferta?.id} />
                 </div>
               </div>
 

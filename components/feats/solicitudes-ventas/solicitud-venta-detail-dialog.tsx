@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import type { SolicitudVenta } from "@/lib/api-types";
 import { GenerarLinkPagoSolicitudButton } from "./generar-link-pago-solicitud-button";
+import { RegistroTrazabilidad } from "@/components/shared/molecule/registro-trazabilidad";
 
 interface SolicitudVentaDetailDialogProps {
   open: boolean;
@@ -290,6 +291,7 @@ export function SolicitudVentaDetailDialog({
               </table>
             </div>
           </div>
+          <RegistroTrazabilidad recurso="solicitudes-ventas" id={solicitud?.id} />
         </div>
       </DialogContent>
     </Dialog>

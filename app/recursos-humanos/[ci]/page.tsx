@@ -18,6 +18,7 @@ import { DepartamentoService, SedeService, IngresoMensualService, PermisosServic
 import type { Sede }        from "@/lib/types/feats/sedes/sede-types"
 import type { Departamento } from "@/lib/types/feats/departamentos/departamento-types"
 import type { TrabajadorRRHH } from "@/lib/recursos-humanos-types"
+import { RegistroTrazabilidad } from "@/components/shared/molecule/registro-trazabilidad"
 
 // ─── localStorage extras (datos que no vienen del backend) ───────────────────
 interface Documento {
@@ -1144,6 +1145,7 @@ function EmpleadoDetallePageContent() {
         {activeTab === "laboral"      && <TabLaboral  emp={emp} sedes={sedes} departamentos={departamentos} onUpdate={handleUpdate} />}
         {activeTab === "evaluaciones" && <TabEvaluaciones emp={emp} />}
         {activeTab === "nomina"       && <TabNomina emp={emp} onUpdate={handleUpdate} />}
+        <RegistroTrazabilidad recurso="trabajadores" id={emp?.CI} />
 
       </main>
 

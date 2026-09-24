@@ -38,6 +38,7 @@ import {
   type Disponibilidad,
   type EstadoCita,
 } from "@/lib/types/feats/citas/citas-types";
+import { RegistroTrazabilidad } from "@/components/shared/molecule/registro-trazabilidad";
 
 type Panel = "posponer" | "reasignar" | "cancelar" | null;
 
@@ -460,6 +461,7 @@ export function CitaDetalleDialog({
               </div>
             </>
           )}
+          <RegistroTrazabilidad recurso="citas" id={cita?.id} />
         </div>
       </DialogContent>
     </Dialog>
