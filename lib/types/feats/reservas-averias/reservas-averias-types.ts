@@ -80,19 +80,53 @@ export interface SalidaReservaAveria {
   creado_por_ci?: string | null
 }
 
+/** Una entrada al almacén: una transferencia, un vale anulado o una entrada directa, con sus materiales. */
 export interface EntradaReservaAveria {
   id: string
   tipo: "transferencia" | "entrada" | string
   fecha: string
-  material_id: string
-  material_codigo?: string | null
-  material_descripcion?: string | null
-  um?: string | null
-  cantidad: number
   almacen_origen_nombre?: string | null
   referencia?: string | null
   motivo?: string | null
   usuario?: string | null
+  solicitante?: string | null
+  aprobador?: string | null
+  materiales: Array<{
+    material_id: string
+    material_codigo?: string | null
+    material_descripcion?: string | null
+    foto?: string | null
+    um?: string | null
+    cantidad: number
+  }>
+}
+
+/** Lo que se llevó para una avería desde el almacén Reservas Averías (neto de devoluciones). */
+export interface MaterialesDeAveria {
+  averia_id: string
+  vales: Array<{
+    vale_id: string
+    vale_codigo: string
+    estado: string
+    fecha: string
+    recogido_por?: string | null
+    materiales: Array<{
+      material_id: string
+      material_codigo?: string | null
+      material_descripcion?: string | null
+      um?: string | null
+      cantidad: number
+      cantidad_devuelta: number
+      cantidad_neta: number
+    }>
+  }>
+  totales: Array<{
+    material_id: string
+    material_codigo?: string | null
+    material_descripcion?: string | null
+    um?: string | null
+    cantidad: number
+  }>
 }
 
 export interface Paginado<T> {

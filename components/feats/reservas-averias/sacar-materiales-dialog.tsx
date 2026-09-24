@@ -13,6 +13,7 @@ import { Button } from "@/components/shared/atom/button"
 import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { Badge } from "@/components/shared/atom/badge"
+import { MaterialImage } from "@/components/shared/molecule/material-image"
 import {
   AlertTriangle,
   CheckCircle2,
@@ -509,9 +510,20 @@ export function SacarMaterialesDialog({ open, onOpenChange, onSuccess }: SacarMa
                         className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
                         onClick={() => agregarMaterial(s)}
                       >
-                        <span className="min-w-0">
-                          <span className="font-medium">{s.material_codigo}</span>
-                          <span className="ml-2 text-gray-600">{s.material_descripcion || s.material_nombre}</span>
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded border border-gray-100 bg-white">
+                            <MaterialImage
+                              foto={s.foto}
+                              alt={s.material_descripcion || s.material_codigo || "Material"}
+                              className="h-full w-full"
+                              imgClassName="h-full w-full object-contain"
+                              fallback={<span className="h-2 w-2 rounded-full bg-gray-200" />}
+                            />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="font-medium">{s.material_codigo}</span>
+                            <span className="ml-2 text-gray-600">{s.material_descripcion || s.material_nombre}</span>
+                          </span>
                         </span>
                         <span className="shrink-0 text-xs text-gray-500">
                           Disp. {fmt(s.cantidad_disponible)} {s.um || ""}
@@ -543,6 +555,17 @@ export function SacarMaterialesDialog({ open, onOpenChange, onSuccess }: SacarMa
                       {filas.map((f) => (
                         <tr key={f.material_id} className={f.excede ? "bg-red-50" : undefined}>
                           <td className="px-3 py-2">
+                            <div className="flex items-start gap-2">
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded border border-gray-100 bg-white">
+                              <MaterialImage
+                                foto={f.stock?.foto}
+                                alt={f.stock?.material_descripcion || f.stock?.material_codigo || "Material"}
+                                className="h-full w-full"
+                                imgClassName="h-full w-full object-contain"
+                                fallback={<span className="h-2 w-2 rounded-full bg-gray-200" />}
+                              />
+                            </span>
+                            <div className="min-w-0">
                             <span className="font-medium">{f.stock?.material_codigo || f.material_id}</span>
                             <span className="block text-xs text-gray-600">
                               {f.stock?.material_descripcion || f.stock?.material_nombre}
@@ -553,6 +576,8 @@ export function SacarMaterialesDialog({ open, onOpenChange, onSuccess }: SacarMa
                                 Stock insuficiente: disponible {fmt(f.disponible)}
                               </span>
                             )}
+                            </div>
+                            </div>
                           </td>
                           <td className="px-3 py-2 text-right text-gray-700">
                             {fmt(f.disponible)} {f.stock?.um || ""}

@@ -310,6 +310,9 @@ export interface ValeSalidaSummary {
   solicitud_creador_nombre?: string;
   recibido_por?: string | null;
   fecha_recogida?: string | null; // Fecha en que se recogieron los materiales
+  /** Solo en salidas del almacén Reservas Averías. */
+  averia_codigo?: string | null;
+  averia_descripcion?: string | null;
   /**
    * Cuantos documentos tiene adjuntos. Viene en el mismo summary, sin peticion
    * extra: es lo que pinta el indicador de la columna Acciones.

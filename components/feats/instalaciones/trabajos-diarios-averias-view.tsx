@@ -56,6 +56,9 @@ import {
   Zap,
 } from "lucide-react";
 import { TrabajoDiarioForm } from "./trabajo-diario-form";
+import { ReservasAveriasService } from "@/lib/services/feats/reservas-averias/reservas-averias-service";
+import type { MaterialesDeAveria } from "@/lib/types/feats/reservas-averias/reservas-averias-types";
+import { parseFechaUtc } from "@/lib/utils/fecha-utc";
 import { normalizeSearchText } from "@/lib/utils/string-utils";
 
 type Worker = {
@@ -446,6 +449,8 @@ export function TrabajosDiariosAveriasView() {
   const [selectedTrabajo, setSelectedTrabajo] = useState<TrabajoDiarioRegistro | null>(null);
   const [trabajosAnteriores, setTrabajosAnteriores] = useState<TrabajoDiarioRegistro[]>([]);
   const [materialesResumen, setMaterialesResumen] = useState<TrabajoDiarioMaterialResumen[]>([]);
+  // Lo que se sacó del almacén Reservas Averías para la avería seleccionada.
+  const [materialesAveria, setMaterialesAveria] = useState<MaterialesDeAveria | null>(null);
   const [closing, setClosing] = useState(false);
   const [averiaCodigoEdit, setAveriaCodigoEdit] = useState<string>("");
   const [loadingTrabajo, setLoadingTrabajo] = useState(false);
@@ -570,8 +575,16 @@ export function TrabajosDiariosAveriasView() {
       setSelectedTrabajo(null);
       setTrabajosAnteriores([]);
       setMaterialesResumen([]);
+      setMaterialesAveria(null);
       setAveriaCodigoEdit(safeText(item.averia.codigo));
       setLoadingTrabajo(true);
+      const averiaIdSel = safeText(item.averia.id);
+      if (averiaIdSel) {
+        // No bloquea la carga del trabajo: si falla, solo no se muestra el bloque.
+        ReservasAveriasService.getMaterialesDeAveria(averiaIdSel)
+          .then((data) => setMaterialesAveria(data))
+          .catch(() => setMaterialesAveria(null));
+      }
       try {
         const clienteNumero = safeText(item.cliente.numero);
         const averiaId = safeText(item.averia.id);
@@ -992,6 +1005,43 @@ export function TrabajosDiariosAveriasView() {
               <p className="text-sm text-muted-foreground">Cargando información del cliente...</p>
             ) : (
               <div className="space-y-3">
+                {/* Materiales que se llevaron para esta avería (almacén Reservas Averías) */}
+                {materialesAveria && materialesAveria.vales.length > 0 && (
+                  <div className="rounded-lg border border-orange-200 bg-orange-50/60 px-3 py-2.5 space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-orange-700">
+                      Materiales llevados para esta avería
+                    </p>
+                    {materialesAveria.totales.length > 0 ? (
+                      <ul className="space-y-0.5">
+                        {materialesAveria.totales.map((m) => (
+                          <li key={m.material_id} className="flex items-baseline justify-between gap-3 text-sm">
+                            <span className="min-w-0 text-slate-700">
+                              <span className="font-medium text-slate-900">{m.material_codigo}</span>{" "}
+                              {m.material_descripcion}
+                            </span>
+                            <span className="shrink-0 font-semibold tabular-nums text-slate-900">
+                              {Number(m.cantidad.toFixed(4))} {m.um || ""}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs text-orange-800">Todo lo que se llevó ya se devolvió al almacén.</p>
+                    )}
+                    <p className="text-[11px] text-orange-800/80">
+                      {materialesAveria.vales
+                        .map((v) => {
+                          const f = parseFechaUtc(v.fecha);
+                          const cuando = f
+                            ? f.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" })
+                            : "";
+                          return `${v.vale_codigo}${cuando ? ` (${cuando})` : ""}${v.recogido_por ? ` · ${v.recogido_por}` : ""}`;
+                        })
+                        .join("  ·  ")}
+                    </p>
+                  </div>
+                )}
+
                 {/* Trabajos anteriores de esta avería */}
                 {trabajosAnteriores.length > 0 && (
                   <div className="space-y-2">

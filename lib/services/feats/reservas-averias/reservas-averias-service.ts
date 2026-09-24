@@ -3,6 +3,7 @@ import type {
   AveriaPendiente,
   EntradaReservaAveria,
   FaltanteStock,
+  MaterialesDeAveria,
   Paginado,
   SacarMaterialesData,
   SalidaCreada,
@@ -93,5 +94,13 @@ export const ReservasAveriasService = {
     const error = mensajeError(raw)
     if (error) throw new Error(error)
     return { data: Array.isArray(raw?.data) ? raw.data : [], total: Number(raw?.total ?? 0) }
+  },
+
+  /** Materiales que se llevaron para una avería (lo usa Trabajos diarios). */
+  async getMaterialesDeAveria(averiaId: string): Promise<MaterialesDeAveria | null> {
+    const raw = await apiRequest<any>(`${BASE}/averias/${encodeURIComponent(averiaId)}/materiales`)
+    const error = mensajeError(raw)
+    if (error) throw new Error(error)
+    return raw?.data ?? null
   },
 }

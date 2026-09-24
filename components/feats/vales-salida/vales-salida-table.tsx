@@ -201,6 +201,12 @@ export function ValesSalidaTable({
                   <p className="font-medium text-gray-900">
                     {vale.cliente_nombre || "Sin cliente"}
                   </p>
+                  {(vale.averia_codigo || vale.averia_descripcion) && (
+                    <p className="mt-0.5 text-xs text-orange-700">
+                      Avería {vale.averia_codigo ? `${vale.averia_codigo} · ` : ""}
+                      {vale.averia_descripcion}
+                    </p>
+                  )}
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-1.5">

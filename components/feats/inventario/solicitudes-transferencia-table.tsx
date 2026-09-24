@@ -39,12 +39,19 @@ import type { Material } from "@/lib/material-types"
 import { useAuth } from "@/contexts/auth-context"
 import { useToast } from "@/hooks/use-toast"
 import { SolicitudTransferenciaDialog } from "./solicitud-transferencia-dialog"
+import { parseFechaUtc } from "@/lib/utils/fecha-utc"
 
 interface SolicitudesTransferenciaTableProps {
   almacenes: Almacen[]
   materiales: Material[]
   currentAlmacenId?: string
   onResolved?: () => void
+  /**
+   * Solo las recibidas que faltan por aceptar o denegar, sin filtro de estado
+   * ni enviadas; si no hay ninguna no se pinta nada. Lo usa el almacén
+   * Reservas Averías, que solo recibe material.
+   */
+  soloPendientesRecibidas?: boolean
 }
 
 const ESTADO_CONFIG: Record<
@@ -89,7 +96,10 @@ const ESTADO_FALLBACK = {
 function formatFecha(fecha?: string | null) {
   if (!fecha) return "—"
   try {
-    return new Date(fecha).toLocaleString("es-ES", {
+    // El backend manda estos instantes en UTC sin zona (ver parseFechaUtc).
+    const d = parseFechaUtc(fecha)
+    if (!d) return fecha
+    return d.toLocaleString("es-ES", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
@@ -106,6 +116,7 @@ export function SolicitudesTransferenciaTable({
   materiales,
   currentAlmacenId,
   onResolved,
+  soloPendientesRecibidas = false,
 }: SolicitudesTransferenciaTableProps) {
   const { user } = useAuth()
   const { toast } = useToast()
@@ -235,8 +246,9 @@ export function SolicitudesTransferenciaTable({
 
   // Separate into sent and received
   const { enviadas, recibidas } = useMemo(() => {
-    const filtered =
-      estadoFilter === "all"
+    const filtered = soloPendientesRecibidas
+      ? solicitudes.filter((s) => s.estado === "pendiente" || s.estado === "procesando")
+      : estadoFilter === "all"
         ? solicitudes
         : solicitudes.filter((s) => s.estado === estadoFilter)
 
@@ -252,7 +264,7 @@ export function SolicitudesTransferenciaTable({
         (s) => s.almacen_destino_id === currentAlmacenId,
       ),
     }
-  }, [solicitudes, estadoFilter, currentAlmacenId])
+  }, [solicitudes, estadoFilter, currentAlmacenId, soloPendientesRecibidas])
 
   const resolveMaterial = (item: { material_id: string; material_codigo?: string }) => {
     return (
@@ -273,7 +285,8 @@ export function SolicitudesTransferenciaTable({
   ) => {
     const config = ESTADO_CONFIG[solicitud.estado] ?? ESTADO_FALLBACK
     const Icon = config.icon
-    const isExpanded = expandedId === solicitud.id
+    // En "por aceptar" van desplegadas: materiales y botones a la vista.
+    const isExpanded = soloPendientesRecibidas || expandedId === solicitud.id
     const canResolve = isReceived && solicitud.estado === "pendiente"
     const canEdit = !isReceived && solicitud.estado === "pendiente"
 
@@ -471,15 +484,22 @@ export function SolicitudesTransferenciaTable({
     )
   }
 
+  if (soloPendientesRecibidas && !loading && recibidas.length === 0) {
+    return null
+  }
+
   return (
     <div className="space-y-4">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h3 className="text-lg font-semibold flex items-center gap-2">
           <ArrowRightLeft className="h-5 w-5 text-amber-600" />
-          Solicitudes de Traspaso
+          {soloPendientesRecibidas
+            ? `Transferencias por aceptar (${recibidas.length})`
+            : "Solicitudes de Traspaso"}
         </h3>
         <div className="flex items-center gap-2">
+          {!soloPendientesRecibidas && (
           <Select value={estadoFilter} onValueChange={setEstadoFilter}>
             <SelectTrigger className="w-[160px]">
               <SelectValue />
@@ -491,6 +511,7 @@ export function SolicitudesTransferenciaTable({
               <SelectItem value="denegada">Denegadas</SelectItem>
             </SelectContent>
           </Select>
+          )}
           <Button variant="outline" size="icon" onClick={fetchSolicitudes}>
             {loading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -511,9 +532,11 @@ export function SolicitudesTransferenciaTable({
           {/* Received requests */}
           {currentAlmacenId && (
             <div>
+              {!soloPendientesRecibidas && (
               <h4 className="text-sm font-medium text-gray-700 mb-2">
                 Recibidas ({recibidas.length})
               </h4>
+              )}
               {recibidas.length === 0 ? (
                 <p className="text-sm text-gray-400 text-center py-4 border rounded-md border-dashed">
                   No hay solicitudes recibidas
@@ -527,6 +550,7 @@ export function SolicitudesTransferenciaTable({
           )}
 
           {/* Sent requests */}
+          {!soloPendientesRecibidas && (
           <div>
             <h4 className="text-sm font-medium text-gray-700 mb-2">
               {currentAlmacenId
@@ -543,6 +567,7 @@ export function SolicitudesTransferenciaTable({
               </div>
             )}
           </div>
+          )}
         </div>
       )}
 
