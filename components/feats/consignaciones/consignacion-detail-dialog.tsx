@@ -24,10 +24,7 @@ import {
   TableRow,
 } from "@/components/shared/molecule/table";
 import { CreditCard, PackageOpen, Ban, FileText, Receipt } from "lucide-react";
-import type {
-  Consignacion,
-  PagoResumenConsignacion,
-} from "@/lib/types/feats/consignaciones/consignacion-types";
+import type { Consignacion } from "@/lib/types/feats/consignaciones/consignacion-types";
 import {
   CONSIGNACION_ESTADO_BADGE_CLASSES,
   CONSIGNACION_ESTADO_LABELS,
@@ -40,7 +37,7 @@ interface ConsignacionDetailDialogProps {
   onRegistrarPago?: (c: Consignacion) => void;
   onRegistrarDevolucion?: (c: Consignacion) => void;
   onAnular?: (c: Consignacion) => void;
-  onEmitirFactura?: (c: Consignacion, pago: PagoResumenConsignacion) => void;
+  onEmitirFactura?: (c: Consignacion) => void;
 }
 
 const formatMoney = (n: number, moneda: string) =>
@@ -125,7 +122,7 @@ export function ConsignacionDetailDialog({
               {CONSIGNACION_ESTADO_LABELS[c.estado] ?? c.estado}
             </Badge>
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription asChild>
             <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
               <span>
                 <span className="text-gray-500">Solicitud:</span>{" "}
@@ -182,6 +179,39 @@ export function ConsignacionDetailDialog({
               </div>
             )}
           </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-white px-3 py-2 text-sm">
+          {(c.facturas ?? []).length > 0 ? (
+            <span className="flex items-center gap-2 text-gray-700">
+              <Receipt className="h-4 w-4 text-emerald-600" />
+              Factura{" "}
+              <span className="font-semibold">
+                {(c.facturas ?? []).map((f) => f.numero).join(", ")}
+              </span>
+              <span className="text-xs text-gray-500">
+                · lo devuelto se descuenta de ella con nota de crédito
+              </span>
+            </span>
+          ) : (
+            <span className="flex items-center gap-2 text-gray-500">
+              <Receipt className="h-4 w-4" />
+              Esta venta aún no tiene factura.
+            </span>
+          )}
+          {(c.facturas ?? []).length === 0 &&
+            c.estado !== "anulada" &&
+            onEmitirFactura && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 gap-1 text-xs"
+                onClick={() => onEmitirFactura(c)}
+              >
+                <FileText className="h-3.5 w-3.5" />
+                Emitir factura
+              </Button>
+            )}
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -275,78 +305,42 @@ export function ConsignacionDetailDialog({
                 Aún no hay pagos. Usa el botón <b>Registrar pago</b> de arriba.
               </div>
             ) : (
-              <>
-                <div className="overflow-x-auto rounded-lg border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Fecha</TableHead>
-                        <TableHead>Método</TableHead>
-                        <TableHead>Recibido por</TableHead>
-                        <TableHead className="text-right">Monto</TableHead>
-                        {onEmitirFactura && (
-                          <TableHead className="text-center">Factura</TableHead>
-                        )}
+              <div className="overflow-x-auto rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Fecha</TableHead>
+                      <TableHead>Método</TableHead>
+                      <TableHead>Recibido por</TableHead>
+                      <TableHead className="text-right">Monto</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(c.pagos ?? []).map((p) => (
+                      <TableRow key={p.id}>
+                        <TableCell className="text-sm">
+                          {p.fecha
+                            ? new Date(p.fecha).toLocaleDateString("es-CU", {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              })
+                            : "—"}
+                        </TableCell>
+                        <TableCell className="text-sm capitalize">
+                          {(p.metodo_pago ?? "—").replace(/_/g, " ")}
+                        </TableCell>
+                        <TableCell className="text-sm text-gray-600">
+                          {p.recibido_por ?? "—"}
+                        </TableCell>
+                        <TableCell className="text-right text-sm font-semibold">
+                          {formatMoney(p.monto, p.moneda)}
+                        </TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {(c.pagos ?? []).map((p) => {
-                        const yaFacturado =
-                          (c.facturas_ids ?? []).length > 0 &&
-                          (c.monto_facturado ?? 0) >= c.monto_total;
-                        return (
-                          <TableRow key={p.id}>
-                            <TableCell className="text-sm">
-                              {p.fecha
-                                ? new Date(p.fecha).toLocaleDateString("es-CU", {
-                                    day: "2-digit",
-                                    month: "short",
-                                    year: "numeric",
-                                  })
-                                : "—"}
-                            </TableCell>
-                            <TableCell className="text-sm capitalize">
-                              {(p.metodo_pago ?? "—").replace(/_/g, " ")}
-                            </TableCell>
-                            <TableCell className="text-sm text-gray-600">
-                              {p.recibido_por ?? "—"}
-                            </TableCell>
-                            <TableCell className="text-right text-sm font-semibold">
-                              {formatMoney(p.monto, p.moneda)}
-                            </TableCell>
-                            {onEmitirFactura && (
-                              <TableCell className="text-center">
-                                {yaFacturado ? (
-                                  <span className="flex items-center justify-center gap-1 text-xs text-emerald-600">
-                                    <Receipt className="h-3.5 w-3.5" />
-                                    Facturado
-                                  </span>
-                                ) : (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-7 gap-1 text-xs"
-                                    onClick={() => onEmitirFactura(c, p)}
-                                  >
-                                    <FileText className="h-3.5 w-3.5" />
-                                    Emitir
-                                  </Button>
-                                )}
-                              </TableCell>
-                            )}
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-                {(c.monto_facturado ?? 0) > 0 && (
-                  <div className="mt-2 flex justify-between rounded-md border bg-gray-50 px-3 py-2 text-xs text-gray-600">
-                    <span>Facturado: <b>{formatMoney(c.monto_facturado ?? 0, moneda)}</b></span>
-                    <span>Pendiente de facturar: <b>{formatMoney(Math.max(c.monto_total - (c.monto_facturado ?? 0), 0), moneda)}</b></span>
-                  </div>
-                )}
-              </>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </TabsContent>
 

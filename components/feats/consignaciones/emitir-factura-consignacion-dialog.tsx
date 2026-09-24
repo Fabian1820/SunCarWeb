@@ -14,16 +14,13 @@ import { Input } from "@/components/shared/molecule/input";
 import { Label } from "@/components/shared/atom/label";
 import { Loader2, FileText } from "lucide-react";
 import { FacturaClienteVentaService } from "@/lib/services/feats/pagos-clientes-ventas/pago-cliente-venta-service";
-import type { Consignacion, PagoResumenConsignacion } from "@/lib/types/feats/consignaciones/consignacion-types";
+import type { Consignacion } from "@/lib/types/feats/consignaciones/consignacion-types";
 
 interface EmitirFacturaConsignacionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   consignacion: Consignacion | null;
-  /** Pago seleccionado cuyo monto se facturará */
-  pago: PagoResumenConsignacion | null;
   onSubmit: (data: {
-    pago_venta_id: string;
     numero_factura: string;
     fecha_emision: string;
   }) => Promise<void>;
@@ -40,7 +37,6 @@ export function EmitirFacturaConsignacionDialog({
   open,
   onOpenChange,
   consignacion,
-  pago,
   onSubmit,
 }: EmitirFacturaConsignacionDialogProps) {
   const today = new Date().toISOString().split("T")[0];
@@ -66,7 +62,7 @@ export function EmitirFacturaConsignacionDialog({
   };
 
   const handleSubmit = async () => {
-    if (!pago?.id) return;
+    if (!consignacion) return;
     if (!numeroFactura.trim()) {
       setError("El número de factura es obligatorio");
       return;
@@ -79,7 +75,6 @@ export function EmitirFacturaConsignacionDialog({
     setError(null);
     try {
       await onSubmit({
-        pago_venta_id: pago.id,
         numero_factura: numeroFactura.trim(),
         fecha_emision: fechaEmision,
       });
@@ -91,11 +86,11 @@ export function EmitirFacturaConsignacionDialog({
     }
   };
 
-  if (!consignacion || !pago) return null;
+  if (!consignacion) return null;
 
   const moneda = consignacion.moneda || "USD";
-  const pendienteFacturar = Math.max(
-    consignacion.monto_total - (consignacion.monto_facturado ?? 0),
+  const totalFacturable = Math.max(
+    consignacion.monto_total - consignacion.valor_devuelto,
     0,
   );
 
@@ -108,23 +103,29 @@ export function EmitirFacturaConsignacionDialog({
             Emitir factura
           </DialogTitle>
           <DialogDescription>
-            Se emitirá una factura por el monto del pago seleccionado. Quedará
-            registrada en el módulo de Solicitudes de Ventas.
+            Se emitirá la factura de la venta completa, con todos sus pagos. Es
+            una sola por venta: lo que el cliente devuelva después se descuenta
+            de ella con una nota de crédito. Quedará en Solicitudes de Ventas.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3 rounded-lg border bg-gray-50 p-3 text-sm">
             <div>
-              <div className="text-xs text-gray-500">Monto a facturar</div>
+              <div className="text-xs text-gray-500">Total a facturar</div>
               <div className="text-base font-semibold text-gray-900">
-                {formatMoney(pago.monto, pago.moneda || moneda)}
+                {formatMoney(totalFacturable, moneda)}
               </div>
+              {consignacion.valor_devuelto > 0 && (
+                <div className="text-xs text-gray-500">
+                  ya sin lo devuelto
+                </div>
+              )}
             </div>
             <div>
-              <div className="text-xs text-gray-500">Pendiente de facturar</div>
+              <div className="text-xs text-gray-500">Cobrado hasta hoy</div>
               <div className="text-base font-semibold text-indigo-700">
-                {formatMoney(pendienteFacturar, moneda)}
+                {formatMoney(consignacion.monto_pagado_efectivo, moneda)}
               </div>
             </div>
           </div>

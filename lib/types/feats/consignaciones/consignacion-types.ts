@@ -60,6 +60,13 @@ export interface PagoResumenConsignacion {
   recibido_por?: string | null;
 }
 
+/** Factura vigente de la venta consignada. Su total ya descuenta lo devuelto. */
+export interface FacturaResumenConsignacion {
+  id: string;
+  numero: string;
+  fecha?: string | null;
+}
+
 export interface Consignacion {
   id: string;
   solicitud_venta_id: string;
@@ -80,10 +87,11 @@ export interface Consignacion {
   pagos_ids: string[];
   /** Resumen ligero de los pagos vinculados (denormalizado). */
   pagos?: PagoResumenConsignacion[];
-  /** Monto total ya facturado. */
-  monto_facturado?: number;
-  /** IDs de facturas emitidas contra esta consignación. */
-  facturas_ids?: string[];
+  /**
+   * Factura(s) vigentes de la venta: la automática que nace con el vale o la
+   * emitida desde Consignaciones. Es una por venta, no una por pago.
+   */
+  facturas?: FacturaResumenConsignacion[];
   estado: ConsignacionEstado | string;
   fecha_creacion: string;
   fecha_ultimo_movimiento: string;
@@ -125,7 +133,6 @@ export interface RegistrarDevolucionData {
 }
 
 export interface EmitirFacturaConsignacionData {
-  pago_venta_id: string;
   numero_factura: string;
   fecha_emision: string;
 }

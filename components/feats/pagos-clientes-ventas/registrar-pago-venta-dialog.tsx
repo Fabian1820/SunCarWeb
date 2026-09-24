@@ -594,8 +594,9 @@ export function RegistrarPagoVentaDialog({
                   </p>
                   <p>
                     Los cobros y devoluciones se gestionan desde el módulo{" "}
-                    <span className="font-medium">Consignaciones</span>. No se
-                    cobra, no se emite factura.
+                    <span className="font-medium">Consignaciones</span>. Ahora
+                    no se cobra nada; la factura de la venta se mantiene y lo
+                    que devuelva se descontará de ella.
                   </p>
                 </div>
               )}

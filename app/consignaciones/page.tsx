@@ -22,7 +22,6 @@ import { RegistrarPagoVentaDialog } from "@/components/feats/pagos-clientes-vent
 import type {
   Consignacion,
   ConsignacionEstado,
-  PagoResumenConsignacion,
 } from "@/lib/types/feats/consignaciones/consignacion-types";
 import type { SolicitudVentaSummary } from "@/lib/api-types";
 import { ConsignacionService } from "@/lib/services/feats/consignaciones/consignacion-service";
@@ -51,7 +50,6 @@ export default function ConsignacionesPage() {
   const [openVincularPago, setOpenVincularPago] = useState(false);
   const [openPago, setOpenPago] = useState(false);
   const [openFactura, setOpenFactura] = useState(false);
-  const [pagoParaFacturar, setPagoParaFacturar] = useState<PagoResumenConsignacion | null>(null);
   const [consignacionActiva, setConsignacionActiva] =
     useState<Consignacion | null>(null);
 
@@ -82,17 +80,44 @@ export default function ConsignacionesPage() {
     setOpenPago(true);
   };
 
-  const handleAbrirFactura = (c: Consignacion, pago: PagoResumenConsignacion) => {
+  const handleAbrirFactura = (c: Consignacion) => {
     setConsignacionActiva(c);
-    setPagoParaFacturar(pago);
     setOpenFactura(true);
   };
 
-  const handlePagoRegistrado = async (data: Parameters<typeof PagoVentaService.registrarPago>[0]) => {
-    await PagoVentaService.registrarPago(data);
+  const handlePagoRegistrado = async (
+    data: Parameters<typeof PagoVentaService.registrarPago>[0] & {
+      factura?: { numero: string; numero_factura: string; fecha_emision: string };
+    },
+  ) => {
+    const { factura, ...pago } = data;
+    await PagoVentaService.registrarPago(pago);
+    // La factura es una por venta: si ya existe, el pago se suma a ella; si
+    // no, el interruptor "Generar factura" del diálogo la emite ahora.
+    let facturaEmitida: string | null = null;
+    if (factura && consignacionActiva && !(consignacionActiva.facturas ?? []).length) {
+      try {
+        await ConsignacionService.emitirFactura(consignacionActiva.id, {
+          numero_factura: factura.numero_factura,
+          fecha_emision: factura.fecha_emision,
+        });
+        facturaEmitida = factura.numero_factura;
+      } catch (e: any) {
+        toast({
+          title: "Pago registrado, pero la factura no se emitió",
+          description: e?.message || "Emítela desde el detalle de la consignación.",
+          variant: "destructive",
+        });
+      }
+    }
+    const facturaExistente = consignacionActiva?.facturas?.[0]?.numero;
     toast({
       title: "Pago registrado",
-      description: "El saldo de la consignación se actualizará automáticamente.",
+      description: facturaExistente
+        ? `Agregado a la factura ${facturaExistente}. El saldo de la consignación ya está actualizado.`
+        : facturaEmitida
+          ? `Factura ${facturaEmitida} emitida. El saldo de la consignación ya está actualizado.`
+          : "El saldo de la consignación ya está actualizado.",
     });
     if (consignacionActiva) {
       try {
@@ -103,7 +128,6 @@ export default function ConsignacionesPage() {
   };
 
   const handleFacturaEmitida = async (data: {
-    pago_venta_id: string;
     numero_factura: string;
     fecha_emision: string;
   }) => {
@@ -249,6 +273,7 @@ export default function ConsignacionesPage() {
               } as SolicitudVentaSummary)
             : null
         }
+        facturaAsociadaNumero={consignacionActiva?.facturas?.[0]?.numero ?? null}
         onSubmit={handlePagoRegistrado}
       />
 
@@ -257,7 +282,6 @@ export default function ConsignacionesPage() {
         open={openFactura}
         onOpenChange={setOpenFactura}
         consignacion={consignacionActiva}
-        pago={pagoParaFacturar}
         onSubmit={handleFacturaEmitida}
       />
 

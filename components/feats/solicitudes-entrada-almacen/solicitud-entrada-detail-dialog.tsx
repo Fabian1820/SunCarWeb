@@ -178,12 +178,24 @@ export function SolicitudEntradaDetailDialog({
         <div className="px-6 py-5 space-y-5">
           {/* Metadata */}
           <section className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-3 text-sm">
-            <div>
-              <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium">Compra</p>
-              <p className="text-gray-800 font-medium truncate" title={compraName}>
-                {compraName ?? <span className="font-mono text-gray-400">{solicitud.compra_id.slice(-8)}</span>}
-              </p>
-            </div>
+            {solicitud.origen === "consignacion" ? (
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium">Origen</p>
+                <p className="text-gray-800 font-medium truncate">
+                  Devolución de consignación{" "}
+                  <span className="font-mono text-gray-400">
+                    #{(solicitud.consignacion_id ?? "").slice(-8)}
+                  </span>
+                </p>
+              </div>
+            ) : (
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium">Compra</p>
+                <p className="text-gray-800 font-medium truncate" title={compraName}>
+                  {compraName ?? <span className="font-mono text-gray-400">{(solicitud.compra_id ?? "").slice(-8)}</span>}
+                </p>
+              </div>
+            )}
             <div>
               <p className="text-[10px] uppercase tracking-wide text-gray-400 font-medium">Almacén destino</p>
               <p className="text-gray-800 font-medium flex items-center gap-1.5 truncate">
@@ -274,7 +286,9 @@ export function SolicitudEntradaDetailDialog({
           {/* Acciones de aprobación / denegación / edición */}
           {esPendiente && mode === "view" && (
             <div className="space-y-2 pt-2 border-t border-gray-100">
-              {onEdit && (
+              {/* Las devoluciones de consignación no se editan (el backend lo
+                  rechaza): se deniegan y se crea otra. */}
+              {onEdit && solicitud.origen !== "consignacion" && (
                 <Button
                   type="button"
                   variant="outline"

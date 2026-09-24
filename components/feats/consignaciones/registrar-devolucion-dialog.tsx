@@ -47,8 +47,10 @@ export function RegistrarDevolucionDialog({
 }: RegistrarDevolucionDialogProps) {
   const [cantidades, setCantidades] = useState<Record<string, string>>({});
   const [notas, setNotas] = useState("");
+  // Común por defecto: todo el stock del almacén vive en el pool indistinto;
+  // devolverlo a "Ventas" lo dejaría fuera del alcance de la instaladora.
   const [pool, setPool] = useState<"indistinto" | "instaladora" | "ventas">(
-    "ventas",
+    "indistinto",
   );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,7 +83,7 @@ export function RegistrarDevolucionDialog({
     if (!next) {
       setCantidades({});
       setNotas("");
-      setPool("ventas");
+      setPool("indistinto");
       setError(null);
     }
     onOpenChange(next);
@@ -231,7 +233,7 @@ export function RegistrarDevolucionDialog({
           <div>
             <Label>Sector de destino (almacén)</Label>
             <div className="mt-1 flex gap-2">
-              {(["ventas", "instaladora", "indistinto"] as const).map((k) => {
+              {(["indistinto", "ventas", "instaladora"] as const).map((k) => {
                 const POOL_LABEL: Record<string, string> = {
                   ventas: "Ventas",
                   instaladora: "Instaladora",
