@@ -17,6 +17,8 @@ export interface OfertaListadoItem {
   lead_id?: string;
   lead_nombre?: string;
   nombre_lead_sin_agregar?: string;
+  // Comercial del cliente (o del lead si no hay cliente). Solo personalizadas.
+  comercial?: string | null;
   foto_portada?: string;
   precio_final: number;
   monto_pendiente?: number;
@@ -50,6 +52,7 @@ export interface ListadoFiltros {
   cantidadBaterias: string;
   panelCodigo: string;
   cantidadPaneles: string;
+  comercial: string;
 }
 
 export const FILTROS_VACIOS: ListadoFiltros = {
@@ -64,6 +67,7 @@ export const FILTROS_VACIOS: ListadoFiltros = {
   cantidadBaterias: "",
   panelCodigo: "",
   cantidadPaneles: "",
+  comercial: "",
 };
 
 function buildQueryString(filtros: ListadoFiltros, page: number): string {
@@ -83,6 +87,7 @@ function buildQueryString(filtros: ListadoFiltros, page: number): string {
   if (filtros.estado) params.set("estado", filtros.estado);
   if (filtros.tipo) params.set("tipo_oferta", filtros.tipo);
   if (filtros.almacenId) params.set("almacen_id", filtros.almacenId);
+  if (filtros.comercial) params.set("comercial", filtros.comercial);
 
   if (filtros.inversorCodigo) {
     params.set("inversor_codigo", filtros.inversorCodigo);
@@ -122,6 +127,7 @@ function normalizeItem(r: any): OfertaListadoItem {
     lead_id: r.lead_id,
     lead_nombre: r.lead_nombre,
     nombre_lead_sin_agregar: r.nombre_lead_sin_agregar,
+    comercial: r.comercial ?? null,
     foto_portada: r.foto_portada,
     precio_final: Number(r.precio_final ?? 0),
     monto_pendiente:
@@ -245,4 +251,20 @@ export function useOpcionesComponentes() {
   }, []);
 
   return opciones;
+}
+
+export function useOpcionesComerciales() {
+  const [comerciales, setComerciales] = useState<string[]>([]);
+
+  useEffect(() => {
+    apiRequest<any>("/ofertas/confeccion/opciones-comerciales", {
+      method: "GET",
+    })
+      .then((r) => {
+        if (Array.isArray(r?.data)) setComerciales(r.data);
+      })
+      .catch(console.error);
+  }, []);
+
+  return comerciales;
 }

@@ -37,6 +37,7 @@ import {
 } from "@/hooks/use-ofertas-confeccion";
 import {
   useOfertasListado,
+  useOpcionesComerciales,
   useOpcionesComponentes,
   type OfertaListadoItem,
 } from "@/hooks/use-ofertas-listado";
@@ -67,6 +68,7 @@ import {
   Edit,
   Trash2,
   Copy,
+  UserRound,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -89,6 +91,7 @@ export function OfertasConfeccionadasView() {
     refetch,
   } = useOfertasListado();
   const opcionesComponentes = useOpcionesComponentes();
+  const opcionesComerciales = useOpcionesComerciales();
 
 
   const { materials } = useMaterials();
@@ -106,6 +109,8 @@ export function OfertasConfeccionadasView() {
   const [cantidadBateriaFiltro, setCantidadBateriaFiltro] = useState("");
   const [panelFiltro, setPanelFiltro] = useState("todos");
   const [cantidadPanelFiltro, setCantidadPanelFiltro] = useState("");
+  // Solo aplica a personalizadas: las genéricas no tienen lead/cliente.
+  const [comercialFiltro, setComercialFiltro] = useState("todos");
 
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
@@ -257,6 +262,10 @@ export function OfertasConfeccionadasView() {
       cantidadBaterias: cantidadBateriaFiltro,
       panelCodigo: panelFiltro === "todos" ? "" : panelFiltro,
       cantidadPaneles: cantidadPanelFiltro,
+      comercial:
+        tipoFiltro === "personalizada" && comercialFiltro !== "todos"
+          ? comercialFiltro
+          : "",
     });
   }, [
     searchQuery,
@@ -270,6 +279,7 @@ export function OfertasConfeccionadasView() {
     cantidadBateriaFiltro,
     panelFiltro,
     cantidadPanelFiltro,
+    comercialFiltro,
     setFiltros,
   ]);
 
@@ -618,13 +628,14 @@ export function OfertasConfeccionadasView() {
                   setCantidadBateriaFiltro("");
                   setPanelFiltro("todos");
                   setCantidadPanelFiltro("");
+                  setComercialFiltro("todos");
                 }}
               >
                 Limpiar filtros
               </Button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <Select value={estadoFiltro} onValueChange={setEstadoFiltro}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Estado" />
@@ -642,7 +653,13 @@ export function OfertasConfeccionadasView() {
                 </SelectContent>
               </Select>
 
-              <Select value={tipoFiltro} onValueChange={setTipoFiltro}>
+              <Select
+                value={tipoFiltro}
+                onValueChange={(value) => {
+                  setTipoFiltro(value);
+                  if (value !== "personalizada") setComercialFiltro("todos");
+                }}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Tipo de oferta" />
                 </SelectTrigger>
@@ -662,6 +679,35 @@ export function OfertasConfeccionadasView() {
                   {almacenesDisponibles.map((almacen) => (
                     <SelectItem key={almacen.id ?? ""} value={almacen.id ?? ""}>
                       {almacen.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={comercialFiltro}
+                onValueChange={setComercialFiltro}
+                disabled={tipoFiltro !== "personalizada"}
+              >
+                <SelectTrigger
+                  className="w-full"
+                  title={
+                    tipoFiltro !== "personalizada"
+                      ? "Filtra por ofertas personalizadas para elegir comercial"
+                      : undefined
+                  }
+                >
+                  <SelectValue placeholder="Comercial" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">
+                    {tipoFiltro === "personalizada"
+                      ? "Todas las comerciales"
+                      : "Comercial (solo personalizadas)"}
+                  </SelectItem>
+                  {opcionesComerciales.map((nombre) => (
+                    <SelectItem key={nombre} value={nombre}>
+                      {nombre}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -833,6 +879,12 @@ export function OfertasConfeccionadasView() {
                           <p className="text-sm text-slate-700">
                             {contactoNombre}
                           </p>
+                          {oferta.tipo === "personalizada" && oferta.comercial && (
+                            <p className="mt-0.5 flex items-center gap-1 text-[11px] leading-tight text-slate-500">
+                              <UserRound className="h-3 w-3 shrink-0" />
+                              <span className="truncate">{oferta.comercial}</span>
+                            </p>
+                          )}
                         </TableCell>
                         <TableCell className="text-sm text-slate-600">
                           {formatDateOnly(oferta.fecha_creacion)}
