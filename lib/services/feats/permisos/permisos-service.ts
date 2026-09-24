@@ -121,6 +121,45 @@ export const PermisosService = {
     return response.data
   },
 
+  // ============= SUPERADMIN =============
+
+  /**
+   * CIs de los trabajadores que son superAdmin
+   */
+  async getSuperAdmins(): Promise<string[]> {
+    const response = await apiRequest<{
+      success: boolean
+      message: string
+      data: string[]
+    }>('/permisos/super-admins')
+
+    const error = extractApiError(response)
+    if (error) {
+      throw new Error(error)
+    }
+
+    return response.data
+  },
+
+  /**
+   * Da o quita el superAdmin (solo superAdmin). El backend cierra las sesiones
+   * del trabajador para que el cambio surta efecto al momento.
+   */
+  async setSuperAdmin(trabajadorCi: string, isSuperAdmin: boolean): Promise<void> {
+    const response = await apiRequest<{
+      success: boolean
+      message: string
+    }>(`/permisos/trabajador/${trabajadorCi}/super-admin`, {
+      method: 'PUT',
+      body: JSON.stringify({ is_superAdmin: isSuperAdmin }),
+    })
+
+    const error = extractApiError(response)
+    if (error) {
+      throw new Error(error)
+    }
+  },
+
   // ============= AUTENTICACIÓN ADMIN =============
 
   /**

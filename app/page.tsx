@@ -6,8 +6,6 @@ import {
   Info,
   Calculator,
   Coins,
-  GitMerge,
-  Loader2,
   Star,
   Menu,
   Cake,
@@ -76,14 +74,6 @@ export default function Dashboard() {
   const [tasaCambioHoy, setTasaCambioHoy] = useState<TasaCambio | null>(null);
   const [loadingTasaCambio, setLoadingTasaCambio] = useState(false);
   const [errorTasaCambio, setErrorTasaCambio] = useState<string | null>(null);
-  const [mergingTarget, setMergingTarget] = useState<
-    "frontend" | "backend" | null
-  >(null);
-  const [mergeResult, setMergeResult] = useState<{
-    target: string;
-    message: string;
-    ok: boolean;
-  } | null>(null);
 
   // Vista activa sincronizada con ?area= en la URL para que el botón atrás funcione.
   const [activeKey, setActiveKey] = useState<string>("home");
@@ -106,11 +96,6 @@ export default function Dashboard() {
 
   // Datos de la pantalla de bienvenida (livianos, una llamada cada uno).
   const [cumpleSemana, setCumpleSemana] = useState<TrabajadorBirthdayInfo[]>([]);
-
-  const showDevTools =
-    typeof window !== "undefined"
-      ? Boolean((window as unknown as Record<string, unknown>).__SHOW_DEV_TOOLS__)
-      : process.env.NEXT_PUBLIC_SHOW_DEV_TOOLS === "true";
 
   // Cargar módulos permitidos cada vez que se monta el dashboard.
   useEffect(() => {
@@ -230,28 +215,6 @@ export default function Dashboard() {
     const parsed = Number(value || 0);
     if (!Number.isFinite(parsed) || parsed <= 0) return "-";
     return (1 / parsed).toFixed(4);
-  };
-
-  const handleMerge = async (target: "frontend" | "backend") => {
-    setMergingTarget(target);
-    setMergeResult(null);
-    try {
-      const res = await fetch("/api/dev-tools/merge", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target }),
-      });
-      const data = await res.json();
-      setMergeResult({ target, message: data.message, ok: data.success });
-    } catch {
-      setMergeResult({
-        target,
-        message: "Error de red al intentar el merge",
-        ok: false,
-      });
-    } finally {
-      setMergingTarget(null);
-    }
   };
 
   const handleOpenTasaCambioDialog = async () => {
@@ -412,24 +375,6 @@ export default function Dashboard() {
         {/* Contenido */}
         <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
           <div className="mx-auto max-w-7xl">
-            {mergeResult && (
-              <div
-                className={`mb-6 flex items-center justify-between rounded-xl border px-4 py-3 text-sm ${
-                  mergeResult.ok
-                    ? "border-green-200 bg-green-50 text-green-800"
-                    : "border-red-200 bg-red-50 text-red-800"
-                }`}
-              >
-                <span>{mergeResult.message}</span>
-                <button
-                  onClick={() => setMergeResult(null)}
-                  className="ml-4 opacity-60 hover:opacity-100"
-                >
-                  ✕
-                </button>
-              </div>
-            )}
-
             {!hasModules ? (
               <div className="py-16 text-center">
                 <p className="text-gray-600">
@@ -683,41 +628,6 @@ export default function Dashboard() {
 
       {/* Birthday Notification Checker */}
       <BirthdayChecker />
-
-      {/* Dev Tools FAB */}
-      {showDevTools && user?.is_superAdmin && (
-        <div className="pointer-events-auto fixed bottom-6 right-6 z-40 flex flex-col gap-3">
-          <Button
-            onClick={() => handleMerge("backend")}
-            disabled={mergingTarget !== null}
-            className="flex h-14 w-14 items-center gap-2 rounded-full bg-amber-500 text-white shadow-lg transition-all hover:bg-amber-600 hover:shadow-xl sm:w-auto sm:px-4"
-            title="Merge dev → master (Backend)"
-          >
-            {mergingTarget === "backend" ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <GitMerge className="h-5 w-5" />
-            )}
-            <span className="hidden text-sm font-medium sm:inline">Backend</span>
-          </Button>
-
-          <Button
-            onClick={() => handleMerge("frontend")}
-            disabled={mergingTarget !== null}
-            className="flex h-14 w-14 items-center gap-2 rounded-full bg-violet-500 text-white shadow-lg transition-all hover:bg-violet-600 hover:shadow-xl sm:w-auto sm:px-4"
-            title="Merge dev → main (Frontend)"
-          >
-            {mergingTarget === "frontend" ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <GitMerge className="h-5 w-5" />
-            )}
-            <span className="hidden text-sm font-medium sm:inline">
-              Frontend
-            </span>
-          </Button>
-        </div>
-      )}
 
       <Toaster />
     </div>
