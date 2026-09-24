@@ -44,6 +44,8 @@ const mapMaterial = (raw: any): MaterialSolicitudEnvio => ({
   material_foto: raw?.material_foto ?? null,
   um: raw?.um ?? null,
   cantidad: Number(raw?.cantidad ?? 0),
+  cantidad_comprada:
+    raw?.cantidad_comprada != null ? Number(raw.cantidad_comprada) : null,
   cantidad_actual_snapshot:
     raw?.cantidad_actual_snapshot != null
       ? Number(raw.cantidad_actual_snapshot)
@@ -67,15 +69,19 @@ const mapSolicitud = (raw: any): SolicitudEnvio => ({
   estado: (raw?.estado ?? "pendiente") as SolicitudEnvio["estado"],
   notas: raw?.notas ?? null,
   creada_por_ci: raw?.creada_por_ci ?? null,
+  creada_por_nombre: raw?.creada_por_nombre ?? null,
   creada_en: raw?.creada_en ?? null,
   actualizada_en: raw?.actualizada_en ?? null,
   procesada_por_ci: raw?.procesada_por_ci ?? null,
+  procesada_por_nombre: raw?.procesada_por_nombre ?? null,
   procesada_en: raw?.procesada_en ?? null,
   notas_internacional: raw?.notas_internacional ?? null,
   completada_por_ci: raw?.completada_por_ci ?? null,
+  completada_por_nombre: raw?.completada_por_nombre ?? null,
   completada_en: raw?.completada_en ?? null,
   compra_id: raw?.compra_id ?? null,
   cancelada_por_ci: raw?.cancelada_por_ci ?? null,
+  cancelada_por_nombre: raw?.cancelada_por_nombre ?? null,
   cancelada_en: raw?.cancelada_en ?? null,
   motivo_cancelacion: raw?.motivo_cancelacion ?? null,
 });
@@ -213,10 +219,14 @@ export class SolicitudEnvioService {
     return mapSolicitud(unwrapPayload(raw));
   }
 
+  /** Mapa `material_id` → solicitudes activas donde aparece. */
   static async materialesEnSolicitudActiva(
-    codigos?: string[],
+    materialIds?: string[],
   ): Promise<MaterialesEnSolicitudActiva> {
-    const q = codigos && codigos.length > 0 ? `?codigos=${encodeURIComponent(codigos.join(","))}` : "";
+    const q =
+      materialIds && materialIds.length > 0
+        ? `?material_ids=${encodeURIComponent(materialIds.join(","))}`
+        : "";
     const raw = await apiRequest<any>(
       `${BASE}/materiales-en-solicitud-activa${q}`,
     );

@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Package, Plus, Trash2, X } from "lucide-react";
 
 import { Button } from "@/components/shared/atom/button";
-import { Input } from "@/components/shared/atom/input";
 import { Label } from "@/components/shared/atom/label";
 import {
   Select,
@@ -23,6 +22,7 @@ import {
 } from "@/components/shared/molecule/dialog";
 import { MaterialImage } from "@/components/shared/molecule/material-image";
 import { Textarea } from "@/components/shared/molecule/textarea";
+import { CantidadInput } from "@/components/feats/solicitudes-envio/cantidad-input";
 import { MaterialPicker } from "@/components/feats/solicitudes-envio/material-picker";
 import { useAlmacenesLookup } from "@/hooks/use-almacenes-lookup";
 import type {
@@ -40,6 +40,8 @@ interface Props {
   materialesIniciales: MaterialSolicitudEnvio[];
   /** Si viene, se edita una solicitud pendiente en vez de crear una nueva. */
   solicitudExistente?: SolicitudEnvio | null;
+  /** Almacén destino con el que arranca una solicitud nueva. */
+  almacenInicial?: string | null;
   onCreate: (data: SolicitudEnvioCreateData) => Promise<void>;
   onUpdate?: (id: string, data: SolicitudEnvioUpdateData) => Promise<void>;
 }
@@ -51,6 +53,7 @@ export function CrearSolicitudEnvioDialog({
   onOpenChange,
   materialesIniciales,
   solicitudExistente,
+  almacenInicial,
   onCreate,
   onUpdate,
 }: Props) {
@@ -64,23 +67,32 @@ export function CrearSolicitudEnvioDialog({
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // El formulario se rellena al abrir y nada más. Antes el efecto dependía de
+  // las props, y como la bandeja pasa un array nuevo en cada render, cualquier
+  // refresco de la lista (o un aviso que se cierra) borraba lo escrito.
+  const origen = useRef({ materialesIniciales, solicitudExistente, almacenInicial });
+  origen.current = { materialesIniciales, solicitudExistente, almacenInicial };
+  const solicitudId = solicitudExistente?.id ?? null;
+
   useEffect(() => {
     if (!open) return;
-    if (solicitudExistente) {
-      setAlmacenId(solicitudExistente.almacen_id ?? "");
-      setUrgencia(solicitudExistente.urgencia);
-      setNotas(solicitudExistente.notas ?? "");
-      setFilas(solicitudExistente.materiales.map((m) => ({ ...m })));
+    const { materialesIniciales: iniciales, solicitudExistente: existente, almacenInicial: almacen } =
+      origen.current;
+    if (existente) {
+      setAlmacenId(existente.almacen_id ?? "");
+      setUrgencia(existente.urgencia);
+      setNotas(existente.notas ?? "");
+      setFilas(existente.materiales.map((m) => ({ ...m })));
     } else {
-      setAlmacenId("");
+      setAlmacenId(almacen ?? "");
       setUrgencia("normal");
       setNotas("");
-      setFilas(materialesIniciales.map((m) => ({ ...m })));
+      setFilas(iniciales.map((m) => ({ ...m })));
     }
     setError(null);
     // Si se abre sin nada (Nueva solicitud), el buscador arranca desplegado.
-    setPickerAbierto(!solicitudExistente && materialesIniciales.length === 0);
-  }, [open, materialesIniciales, solicitudExistente]);
+    setPickerAbierto(!existente && iniciales.length === 0);
+  }, [open, solicitudId]);
 
   const removeFila = (materialId: string) =>
     setFilas((prev) => prev.filter((f) => f.material_id !== materialId));
@@ -284,17 +296,13 @@ export function CrearSolicitudEnvioDialog({
                     />
                   </div>
                   <div className="flex flex-col items-end gap-1 shrink-0">
-                    <Input
-                      type="number"
-                      min={0}
-                      step="0.01"
+                    <CantidadInput
                       value={f.cantidad}
-                      onChange={(e) =>
-                        updateFila(f.material_id, {
-                          cantidad: Number(e.target.value),
-                        })
+                      onChange={(cantidad) =>
+                        updateFila(f.material_id, { cantidad })
                       }
                       className="w-28 text-right"
+                      aria-label={`Cantidad de ${f.material_codigo}`}
                     />
                     <button
                       type="button"

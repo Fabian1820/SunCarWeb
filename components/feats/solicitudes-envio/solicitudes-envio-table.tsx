@@ -10,6 +10,7 @@ import {
   EstadoSolicitudBadge,
   UrgenciaBadge,
 } from "@/components/feats/solicitudes-envio/estado-badge";
+import { fechaCorta, persona } from "@/components/feats/solicitudes-envio/formato";
 
 interface Props {
   items: SolicitudEnvio[];
@@ -19,15 +20,6 @@ interface Props {
   /** Resuelve el id del almacén a su nombre; sin esto se mostraría el ObjectId. */
   nombreAlmacen?: (id?: string | null) => string | null;
   rowActions?: (s: SolicitudEnvio) => React.ReactNode;
-}
-
-function fmtDate(iso?: string | null): string {
-  if (!iso) return "—";
-  try {
-    return new Date(iso).toLocaleDateString();
-  } catch {
-    return iso;
-  }
 }
 
 function MaterialesThumbs({ s }: { s: SolicitudEnvio }) {
@@ -155,10 +147,10 @@ export function SolicitudesEnvioTable({
                   <EstadoSolicitudBadge estado={s.estado} />
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap text-slate-600">
-                  {fmtDate(s.creada_en)}
+                  {fechaCorta(s.creada_en)}
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap text-slate-600">
-                  {s.creada_por_ci ?? "—"}
+                  {persona(s.creada_por_nombre, s.creada_por_ci)}
                 </td>
                 <td className="px-3 py-2 text-slate-600 max-w-[12rem]">
                   {s.almacen_id ? (
