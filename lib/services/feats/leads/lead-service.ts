@@ -41,6 +41,8 @@ export class LeadService {
       limit?: number;
       /** true = solo activos, false = solo anulados, undefined = todos (activos + anulados) */
       activo?: boolean;
+      /** true = solo los leads cuya conversión automática a cliente falló. */
+      conversion_fallida?: boolean;
     } = {},
   ): Promise<{ leads: Lead[]; total: number; skip: number; limit: number }> {
     console.log("Calling getLeads endpoint with params:", params);
@@ -79,6 +81,8 @@ export class LeadService {
       search.append("limit", params.limit.toString());
     if (params.activo !== undefined)
       search.append("activo", params.activo.toString());
+    if (params.conversion_fallida)
+      search.append("conversion_fallida", "true");
     const endpoint = `/leads/${search.toString() ? `?${search.toString()}` : ""}`;
     const response = await apiRequest<LeadResponse>(endpoint);
     console.log("LeadService.getLeads response:", response);

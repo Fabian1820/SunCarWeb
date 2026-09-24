@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/shared/atom/button";
 import {
@@ -29,7 +29,7 @@ import {
 } from "@/components/shared/molecule/popover";
 import { Checkbox } from "@/components/shared/molecule/checkbox";
 import { Label } from "@/components/shared/atom/label";
-import { Plus, Search, ChevronDown } from "lucide-react";
+import { Plus, Search, ChevronDown, AlertTriangle, UserPlus } from "lucide-react";
 import { LeadsTable } from "@/components/feats/leads/leads-table";
 import { SmartPagination } from "@/components/shared/molecule/smart-pagination";
 import { CreateLeadDialog } from "@/components/feats/leads/create-lead-dialog";
@@ -100,6 +100,26 @@ export default function LeadsPage() {
   const { hasExactPermission } = useAuth();
   const canCrearLead = hasExactPermission("leads/crear");
   const canExportarLeads = hasExactPermission("leads/exportar");
+  const canConvertirLead = hasExactPermission("leads/convertir");
+
+  // Leads cuya conversión automática a cliente (tras un pago) falló. Se piden
+  // aparte de la tabla para que el aviso no dependa de la página ni los filtros.
+  const [leadsConversionFallida, setLeadsConversionFallida] = useState<Lead[]>([]);
+  const [leadAConvertir, setLeadAConvertir] = useState<Lead | null>(null);
+  const cargarConversionFallida = useCallback(async () => {
+    try {
+      const { leads } = await LeadService.getLeads({
+        conversion_fallida: true,
+        activo: true,
+      });
+      setLeadsConversionFallida(leads);
+    } catch (e) {
+      console.error("Error cargando leads con conversión fallida:", e);
+    }
+  }, []);
+  useEffect(() => {
+    void cargarConversionFallida();
+  }, [cargarConversionFallida]);
   const searchParams = useSearchParams();
   const crearOfertaLeadIdParam = searchParams.get("crear_oferta_lead") ?? "";
   const editarOfertaLeadIdParam = searchParams.get("editar_oferta_lead") ?? "";
@@ -389,6 +409,7 @@ export default function LeadsPage() {
     setLoadingAction(true);
     try {
       const cliente = await convertLead(lead.id, data);
+      void cargarConversionFallida();
       toast({
         title: "Lead convertido",
         description: `Se creó el cliente ${cliente.numero || "sin número asignado"} a partir del lead.`,
@@ -599,6 +620,67 @@ export default function LeadsPage() {
                   ✕
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {leadsConversionFallida.length > 0 && (
+          <Card className="mb-6 border-amber-300 bg-amber-50">
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-start gap-2 mb-3">
+                <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-amber-900">
+                    {leadsConversionFallida.length === 1
+                      ? "Este lead no se ha podido convertir en cliente"
+                      : `${leadsConversionFallida.length} leads no se han podido convertir en cliente`}
+                  </p>
+                  <p className="text-sm text-amber-800">
+                    Pagaron, pero la conversión automática falló. Revisa el
+                    motivo y conviértelos aquí mismo.
+                  </p>
+                </div>
+              </div>
+              <ul className="divide-y divide-amber-200 rounded-md border border-amber-200 bg-white">
+                {leadsConversionFallida.map((lead) => (
+                  <li
+                    key={lead.id}
+                    className="flex flex-col sm:flex-row sm:items-center gap-2 px-3 py-2"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {lead.nombre}
+                        {lead.telefono && (
+                          <span className="font-normal text-gray-500">
+                            {" · "}
+                            {lead.telefono}
+                          </span>
+                        )}
+                        {lead.comercial && (
+                          <span className="font-normal text-gray-500">
+                            {" · "}
+                            {lead.comercial}
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-xs text-amber-800">
+                        {lead.ultimo_error_conversion_automatica}
+                      </p>
+                    </div>
+                    {canConvertirLead && (
+                      <Button
+                        size="sm"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1 shrink-0"
+                        onClick={() => setLeadAConvertir(lead)}
+                        disabled={loadingAction}
+                      >
+                        <UserPlus className="h-3.5 w-3.5" />
+                        Convertir
+                      </Button>
+                    )}
+                  </li>
+                ))}
+              </ul>
             </CardContent>
           </Card>
         )}
@@ -1048,6 +1130,8 @@ export default function LeadsPage() {
                 autoOpenEditarOfertaLeadId={
                   editarOfertaLeadIdParam || undefined
                 }
+                convertirLead={leadAConvertir}
+                onConvertirLeadAbierto={() => setLeadAConvertir(null)}
               />
               {totalLeads > limit && (
                 <SmartPagination

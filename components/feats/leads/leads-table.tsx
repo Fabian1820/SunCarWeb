@@ -174,6 +174,10 @@ interface LeadsTableProps {
   onRefreshLeads?: () => Promise<void>;
   autoOpenCrearOfertaLeadId?: string;
   autoOpenEditarOfertaLeadId?: string;
+  /** Lead cuyo diálogo de conversión se abre desde fuera (aviso de
+   *  conversiones automáticas fallidas). Se avisa con onConvertirLeadAbierto. */
+  convertirLead?: Lead | null;
+  onConvertirLeadAbierto?: () => void;
 }
 
 // Helper function to break text at approximately 25 characters
@@ -238,6 +242,8 @@ export function LeadsTable({
   onRefreshLeads,
   autoOpenCrearOfertaLeadId,
   autoOpenEditarOfertaLeadId,
+  convertirLead,
+  onConvertirLeadAbierto,
 }: LeadsTableProps) {
   const { toast } = useToast();
   const { hasExactPermission } = useAuth();
@@ -900,6 +906,13 @@ export function LeadsTable({
         .finally(() => setPreviewingCodigo(false));
     }
   };
+
+  useEffect(() => {
+    if (!convertirLead) return;
+    openConvertDialog(convertirLead);
+    onConvertirLeadAbierto?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [convertirLead]);
 
   const closeConvertDialog = () => {
     setIsConvertDialogOpen(false);
