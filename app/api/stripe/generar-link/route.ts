@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { exigirSesion } from '@/lib/server/exigir-sesion'
 import Stripe from 'stripe'
 import { STRIPE_API_VERSION } from '@/lib/server/stripe-payment-links'
 
@@ -23,6 +24,10 @@ interface GenerarLinkRequest {
 const metadataTexto = (valor: unknown) => String(valor ?? '').trim().slice(0, 500)
 
 export async function POST(request: NextRequest) {
+  // Usa la clave secreta de Stripe: nunca sin una sesión del panel.
+  const denegado = await exigirSesion(request)
+  if (denegado) return denegado
+
   try {
     const body: GenerarLinkRequest = await request.json()
     const { precio, descripcion, oferta_id, cliente_id, lead_id, solicitud_venta_id, moneda, sin_recargo, creado_por } = body

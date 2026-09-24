@@ -30,6 +30,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import type { OfertaConfeccion } from "@/hooks/use-ofertas-confeccion";
 import { usuarioActivo } from "@/lib/auth/usuario-activo";
+import { authHeader } from "@/lib/auth/auth-header";
 
 interface GenerarLinkPagoConfeccionButtonProps {
   oferta: OfertaConfeccion;
@@ -242,6 +243,7 @@ export function GenerarLinkPagoConfeccionButton({
       const response = await fetch("/api/stripe/generar-link", {
         method: "POST",
         headers: {
+          ...authHeader(),
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -318,6 +320,7 @@ export function GenerarLinkPagoConfeccionButton({
       const response = await fetch("/api/stripe/verificar-link", {
         method: "POST",
         headers: {
+          ...authHeader(),
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -363,6 +366,7 @@ export function GenerarLinkPagoConfeccionButton({
       const response = await fetch("/api/stripe/solicitar-factura", {
         method: "POST",
         headers: {
+          ...authHeader(),
           "Content-Type": "application/json",
         },
         body: JSON.stringify({

@@ -14,6 +14,7 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import type { OfertaPersonalizada } from '@/lib/types/feats/ofertas-personalizadas/oferta-personalizada-types'
 import { usuarioActivo } from '@/lib/auth/usuario-activo'
+import { authHeader } from '@/lib/auth/auth-header'
 
 interface GenerarLinkPagoButtonProps {
   oferta: OfertaPersonalizada
@@ -136,6 +137,7 @@ export function GenerarLinkPagoButton({
       const response = await fetch('/api/stripe/generar-link', {
         method: 'POST',
         headers: {
+          ...authHeader(),
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({

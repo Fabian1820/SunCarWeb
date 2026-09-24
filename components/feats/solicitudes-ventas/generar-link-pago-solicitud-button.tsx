@@ -16,6 +16,7 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import type { SolicitudVentaSummary } from "@/lib/api-types"
 import { usuarioActivo } from "@/lib/auth/usuario-activo"
+import { authHeader } from "@/lib/auth/auth-header"
 
 interface GenerarLinkPagoSolicitudButtonProps {
   solicitud: SolicitudVentaSummary
@@ -68,6 +69,7 @@ export function GenerarLinkPagoSolicitudButton({
       const response = await fetch("/api/stripe/generar-link", {
         method: "POST",
         headers: {
+          ...authHeader(),
           "Content-Type": "application/json",
         },
         body: JSON.stringify({

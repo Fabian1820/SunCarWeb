@@ -38,6 +38,7 @@ import {
 import type { SolicitudVenta } from "@/lib/api-types";
 import { FacturaClienteVentaService } from "@/lib/services/feats/pagos-clientes-ventas/pago-cliente-venta-service";
 import { usuarioActivo } from "@/lib/auth/usuario-activo";
+import { authHeader } from "@/lib/auth/auth-header";
 
 interface RegistrarPagoVentaDialogProps {
   open: boolean;
@@ -480,7 +481,7 @@ export function RegistrarPagoVentaDialog({
     try {
       const res = await fetch("/api/stripe/generar-link", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeader() },
         body: JSON.stringify({
           precio: montoStripe,
           descripcion: `Pago solicitud ${solicitud.codigo || solicitud.id.slice(-6).toUpperCase()} — ${solicitud.cliente_venta_nombre || "Cliente"}`,

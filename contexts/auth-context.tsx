@@ -111,7 +111,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
 
       const data = await response.json()
-      console.log('Login response:', data)
 
       if (data.success && data.token && data.user) {
         const normalizedUser = normalizeUser(data.user) ?? data.user
@@ -121,8 +120,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem("auth_token", data.token)
         localStorage.setItem("user_data", JSON.stringify(normalizedUser))
 
-        // Guardar últimas credenciales para auto-completar
-        localStorage.setItem("last_credentials", JSON.stringify({ ci, adminPass }))
+        // Solo el CI, para autocompletar. La contraseña nunca se guarda: antes
+        // quedaba en texto plano en localStorage y el logout no la borraba.
+        localStorage.setItem("last_ci", ci)
 
         return { success: true, message: data.message }
       } else {

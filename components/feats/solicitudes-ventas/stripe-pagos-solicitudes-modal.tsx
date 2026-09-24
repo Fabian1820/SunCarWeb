@@ -27,6 +27,7 @@ import {
   TableRow,
 } from "@/components/shared/molecule/table"
 import { ExternalLink, Loader2, RefreshCw, CreditCard } from "lucide-react"
+import { authHeader } from "@/lib/auth/auth-header"
 
 interface StripePagoListado {
   sessionId: string
@@ -179,7 +180,7 @@ export function StripePagosSolicitudesModal({
       if (fechaDesde) params.append("fecha_desde", fechaDesde)
       if (fechaHasta) params.append("fecha_hasta", fechaHasta)
 
-      const response = await fetch(`/api/stripe/listar-pagos?${params.toString()}`)
+      const response = await fetch(`/api/stripe/listar-pagos?${params.toString()}`, { headers: authHeader() })
 
       const data: StripePagosResponse = await response.json()
 
