@@ -29,6 +29,7 @@ import {
 } from "@/components/shared/molecule/dialog";
 import { useToast } from "@/hooks/use-toast";
 import type { OfertaConfeccion } from "@/hooks/use-ofertas-confeccion";
+import { usuarioActivo } from "@/lib/auth/usuario-activo";
 
 interface GenerarLinkPagoConfeccionButtonProps {
   oferta: OfertaConfeccion;
@@ -250,6 +251,7 @@ export function GenerarLinkPagoConfeccionButton({
           cliente_id: oferta.cliente_id,
           lead_id: oferta.lead_id,
           moneda,
+          creado_por: usuarioActivo(),
         }),
       });
 
