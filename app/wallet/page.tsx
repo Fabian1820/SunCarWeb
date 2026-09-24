@@ -152,6 +152,10 @@ const hrefParaOrigen = (origen: OrigenTransaccion): string =>
     : `/solicitudes-ventas?pagoVenta=${encodeURIComponent(origen.pagoId)}`;
 
 const isTransferTransaction = (transaction: WalletTransaction): boolean => {
+  // Una comisión puede ir ligada a una transferencia (transferencia_id) sin
+  // dejar de ser una comisión: sin esto se pintaba como "Transferencia" con
+  // origen "—" y el propio banco como destino.
+  if (transaction.tipo === "comision") return false;
   return (
     transaction.categoria === "transferencia" ||
     Boolean(transaction.transferencia_id) ||
