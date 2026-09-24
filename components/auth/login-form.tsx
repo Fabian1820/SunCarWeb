@@ -20,18 +20,20 @@ export function LoginForm({ onLogin }: LoginFormProps) {
   const [isLoading, setIsLoading] = useState(false)
   const { login } = useAuth()
 
-  // Cargar últimas credenciales al montar el componente
+  // Autocompleta solo el CI. Las versiones anteriores guardaban también la
+  // contraseña en texto plano (`last_credentials`): se rescata el CI y se borra.
   useEffect(() => {
-    const savedCredentials = localStorage.getItem("last_credentials")
-    if (savedCredentials) {
+    let savedCi = localStorage.getItem("last_ci") || ""
+    const legacy = localStorage.getItem("last_credentials")
+    if (legacy) {
       try {
-        const { ci: savedCi, adminPass: savedPass } = JSON.parse(savedCredentials)
-        setCi(savedCi || "")
-        setAdminPass(savedPass || "")
-      } catch (error) {
-        console.error("Error loading saved credentials:", error)
+        savedCi = savedCi || JSON.parse(legacy)?.ci || ""
+      } catch {
+        // formato roto: se descarta igual
       }
+      localStorage.removeItem("last_credentials")
     }
+    setCi(savedCi)
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {

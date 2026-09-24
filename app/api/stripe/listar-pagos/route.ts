@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { exigirSesion } from '@/lib/server/exigir-sesion'
 import {
   createStripeClient,
   listStripePaidSessions,
@@ -7,6 +8,10 @@ import {
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 
 export async function GET(request: NextRequest) {
+  // Usa la clave secreta de Stripe: nunca sin una sesión del panel.
+  const denegado = await exigirSesion(request)
+  if (denegado) return denegado
+
   try {
     const searchParams = request.nextUrl.searchParams
     const fechaDesde = searchParams.get('fecha_desde')?.trim() || ''

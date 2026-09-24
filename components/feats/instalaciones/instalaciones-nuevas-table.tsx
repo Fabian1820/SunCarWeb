@@ -45,6 +45,7 @@ import {
   formatCostoItem,
   formatCostoTotal,
   useCostosOferta,
+  PERMISO_COSTOS_INSTALACIONES,
 } from "@/hooks/use-costos-oferta";
 import { ExportInstalacionesNuevasExcelService } from "@/lib/services/feats/instalaciones/export-instalaciones-nuevas-excel-service";
 import { OfertaCell } from "@/components/feats/instalaciones/oferta-cell";
@@ -815,7 +816,7 @@ export function InstalacionesNuevasTable({
   );
 
   // Costos de la oferta seleccionada (solo si el diálogo está abierto y el
-  // usuario tiene el subpermiso aditivo `costos-materiales-cliente`). El
+  // usuario tiene el subpermiso aditivo `instalaciones/costos-materiales`). El
   // endpoint es por oferta, así que funciona igual para leads y clientes.
   const ofertaCostosId = useMemo(
     () =>
@@ -828,7 +829,7 @@ export function InstalacionesNuevasTable({
     verCostos,
     costos: costosOferta,
     costoPorCodigo,
-  } = useCostosOferta(ofertaCostosId);
+  } = useCostosOferta(ofertaCostosId, PERMISO_COSTOS_INSTALACIONES);
 
   const detalleItemsEntrega = useMemo(() => {
     if (!ofertaEntregaSeleccionada) return [];

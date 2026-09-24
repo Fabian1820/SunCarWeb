@@ -34,6 +34,7 @@ import {
   type RegistrarPagoInitialData,
   type RegistrarPagoSuccessPayload,
 } from "@/components/feats/pagos/registrar-pago-dialog"
+import { authHeader } from "@/lib/auth/auth-header"
 
 interface StripePagoListado {
   sessionId: string
@@ -492,7 +493,7 @@ export function StripePagosModal({
         if (to) params.set("fecha_hasta", to)
         params.set("limit", "500")
 
-        const response = await fetch(`/api/stripe/listar-pagos?${params.toString()}`)
+        const response = await fetch(`/api/stripe/listar-pagos?${params.toString()}`, { headers: authHeader() })
         const data: StripePagosResponse = await response.json()
 
         if (!response.ok || !data.success) {

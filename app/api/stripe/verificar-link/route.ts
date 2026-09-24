@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { exigirSesion } from '@/lib/server/exigir-sesion'
 import {
   createStripeClient,
   getPaymentLinkStatusSummary,
@@ -10,6 +11,10 @@ interface VerificarLinkRequest {
 }
 
 export async function POST(request: NextRequest) {
+  // Usa la clave secreta de Stripe: nunca sin una sesión del panel.
+  const denegado = await exigirSesion(request)
+  if (denegado) return denegado
+
   try {
     const body: VerificarLinkRequest = await request.json()
     const paymentLinkInput = body?.payment_link || ''

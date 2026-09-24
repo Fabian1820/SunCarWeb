@@ -68,7 +68,10 @@ export default function ComprasEnviosCostosPage() {
 }
 
 function ComprasEnviosCostosPageContent() {
-  const { hasPermission, user } = useAuth()
+  const { hasPermission, hasExactPermission, user } = useAuth()
+  // La calculadora carga el catálogo con costos: es una herramienta de Fichas de
+  // Costo (el módulo completo; `fichas-costo/solo-precios` no ve costos).
+  const puedeCalculadora = hasExactPermission("fichas-costo")
   const [isCalcOpen, setIsCalcOpen] = useState(false)
   const [materiales, setMateriales] = useState<MaterialFichaResumen[]>([])
   const [loadingCalc, setLoadingCalc] = useState(false)
@@ -99,6 +102,7 @@ function ComprasEnviosCostosPageContent() {
         subtitle="Compras, contenedores, historial de costos y recepciones de almacén"
         badge={{ text: "Economía", className: "bg-teal-100 text-teal-800" }}
         actions={
+          puedeCalculadora && (
           <Button
             variant="outline"
             size="sm"
@@ -111,6 +115,7 @@ function ComprasEnviosCostosPageContent() {
               {loadingCalc ? "Cargando..." : "Calculadora %"}
             </span>
           </Button>
+          )
         }
       />
 

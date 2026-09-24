@@ -33,7 +33,9 @@ const normalizeText = (value: string | undefined | null): string =>
     .replace(/[\u0300-\u036f]/g, "")
     .trim();
 
-export function useReservasVentas(): UseReservasVentasReturn {
+export function useReservasVentas(
+  filtrosIniciales: Partial<ReservaListParams> = {},
+): UseReservasVentasReturn {
   const [reservas, setReservas] = useState<Reserva[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -42,6 +44,7 @@ export function useReservasVentas(): UseReservasVentasReturn {
   const [filters, setFiltersState] = useState<ReservaListParams>({
     skip: 0,
     limit: 100,
+    ...filtrosIniciales,
   });
 
   const setFilters = useCallback((nextFilters: Partial<ReservaListParams>) => {

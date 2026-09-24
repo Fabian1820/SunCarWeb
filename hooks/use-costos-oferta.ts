@@ -8,9 +8,10 @@ import { apiRequest } from "@/lib/api-config";
 /**
  * Costos de materiales entregados/pendientes de UNA oferta.
  *
- * Gateado por el subpermiso ADITIVO `costos-materiales-cliente`: tener el módulo
- * padre (Clientes / Instalaciones) NO lo concede, hay que asignarlo explícito.
- * El backend valida el mismo permiso y responde 403, así que sin permiso ningún
+ * Gateado por el subpermiso ADITIVO de costos del módulo donde se usa
+ * (`clientes/costos-materiales` o `instalaciones/costos-materiales`): tener el
+ * módulo NO lo concede, hay que asignarlo explícito. El backend acepta
+ * cualquiera de los dos y responde 403 sin ellos, así que sin permiso ningún
  * costo viaja por la red.
  *
  * El costo es el WAC actual del catálogo, no el costo histórico de la salida.
@@ -18,7 +19,8 @@ import { apiRequest } from "@/lib/api-config";
  * y el total queda marcado como parcial vía `hay_materiales_sin_costo`.
  */
 
-export const MODULO_COSTOS_MATERIALES = "costos-materiales-cliente";
+export const PERMISO_COSTOS_CLIENTES = "clientes/costos-materiales";
+export const PERMISO_COSTOS_INSTALACIONES = "instalaciones/costos-materiales";
 
 export type CostoItemOferta = {
   material_codigo?: string | null;
@@ -46,10 +48,11 @@ const normCodigo = (value: unknown) =>
 /**
  * @param ofertaId id persistido de la oferta (o null para no cargar nada).
  *                 Acepta ObjectId o número/código de oferta.
+ * @param permiso  el permiso de costos del módulo que muestra el diálogo.
  */
-export function useCostosOferta(ofertaId?: string | null) {
+export function useCostosOferta(ofertaId: string | null | undefined, permiso: string) {
   const { hasExactPermission } = useAuth();
-  const verCostos = hasExactPermission(MODULO_COSTOS_MATERIALES);
+  const verCostos = hasExactPermission(permiso);
   const [costos, setCostos] = useState<CostosOfertaData | null>(null);
 
   useEffect(() => {
