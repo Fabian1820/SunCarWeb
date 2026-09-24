@@ -16,8 +16,9 @@ import type {
   SolicitudVentaSummary,
   SolicitudVentaSummaryAgregados,
 } from "@/lib/api-types";
-import { Search, CreditCard, RefreshCw, AlertCircle, ExternalLink } from "lucide-react";
+import { Search, CreditCard, RefreshCw, AlertCircle, Ban, ExternalLink } from "lucide-react";
 import { normalizeSearchText } from "@/lib/utils/string-utils";
+import { parseFechaUtc } from "@/lib/utils/fecha-utc";
 
 interface SolicitudesPendientesPagoTableProps {
   solicitudes: SolicitudVentaSummary[];
@@ -25,6 +26,8 @@ interface SolicitudesPendientesPagoTableProps {
   error: string | null;
   onRefresh: () => void;
   onPagar?: (solicitud: SolicitudVentaSummary) => void;
+  /** Abre la confirmación para cancelar la cuenta por cobrar de la solicitud. */
+  onCancelarCuenta?: (solicitud: SolicitudVentaSummary) => void;
   onVerStripe?: (solicitud: SolicitudVentaSummary) => void;
   /** Si false, muestra también las anuladas (por defecto true = las oculta) */
   ocultarAnuladas?: boolean;
@@ -47,6 +50,7 @@ export function SolicitudesPendientesPagoTable({
   error,
   onRefresh,
   onPagar,
+  onCancelarCuenta,
   onVerStripe,
   ocultarAnuladas = true,
   variant = "default",
@@ -70,6 +74,18 @@ export function SolicitudesPendientesPagoTable({
       currency: "USD",
       minimumFractionDigits: 2,
     }).format(v);
+
+  const formatFechaCancelacion = (valor?: string | null) => {
+    const fecha = parseFechaUtc(valor ?? undefined);
+    if (!fecha) return "";
+    return fecha.toLocaleDateString("es-ES", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  };
+
+  const hayAcciones = Boolean(onPagar || onCancelarCuenta);
 
   const getMaterialesLineas = (s: SolicitudVentaSummary) => {
     if (!s.materiales?.length) return null;
@@ -148,6 +164,15 @@ export function SolicitudesPendientesPagoTable({
             <span className="text-gray-500">
               Pendiente: <strong className="text-red-600">{formatCurrency(agregados.pendiente_usd)}</strong>
             </span>
+            {(agregados.canceladas ?? 0) > 0 && (
+              <>
+                <span className="text-gray-300">|</span>
+                <span className="text-gray-400" title="Cuentas canceladas: no suman en los totales de arriba">
+                  Canceladas ({agregados.canceladas}):{" "}
+                  <strong className="text-gray-500">{formatCurrency(agregados.cancelado_usd ?? 0)}</strong>
+                </span>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -186,7 +211,7 @@ export function SolicitudesPendientesPagoTable({
                 <TableHead className="font-semibold text-right">
                   Pendiente
                 </TableHead>
-                {onPagar && <TableHead />}
+                {hayAcciones && <TableHead />}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -198,9 +223,15 @@ export function SolicitudesPendientesPagoTable({
                 const tienePagos = pagado != null && Number.isFinite(pagado) && pagado > 0;
                 const tienePendiente = pendiente != null && Number.isFinite(pendiente) && pendiente > 0;
                 const isPagada = !tienePendiente && tienePagos;
+                const cancelada = Boolean(s.cuenta_cancelada);
+                // Una cancelada sigue saliendo, pero apagada y con los importes tachados.
+                const tachado = cancelada ? "line-through text-gray-400" : "";
 
                 return (
-                  <TableRow key={s.id} className="hover:bg-gray-50">
+                  <TableRow
+                    key={s.id}
+                    className={cancelada ? "bg-gray-50 text-gray-500" : "hover:bg-gray-50"}
+                  >
                     <TableCell className="font-mono text-xs">
                       {s.codigo || s.id.slice(-6).toUpperCase()}
                     </TableCell>
@@ -213,34 +244,75 @@ export function SolicitudesPendientesPagoTable({
                           Comercial: {s.comercial}
                         </div>
                       )}
+                      {cancelada && (
+                        <div className="mt-1 text-xs text-gray-500">
+                          <Badge variant="outline" className="border-gray-300 bg-gray-100 text-gray-600 gap-1">
+                            <Ban className="h-3 w-3" />
+                            Cuenta cancelada
+                          </Badge>
+                          <div className="mt-1">
+                            {formatFechaCancelacion(s.cuenta_cancelada_en)}
+                            {(s.cuenta_cancelada_por_nombre || s.cuenta_cancelada_por_ci) &&
+                              ` · por ${s.cuenta_cancelada_por_nombre || s.cuenta_cancelada_por_ci}`}
+                          </div>
+                          {s.cuenta_cancelada_motivo && (
+                            <div className="italic">Motivo: {s.cuenta_cancelada_motivo}</div>
+                          )}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="min-w-[160px]">
                       {getMaterialesLineas(s) ?? <span className="text-gray-400 text-xs">—</span>}
                     </TableCell>
-                    <TableCell className="text-right font-medium text-sm text-blue-700">
+                    <TableCell className={`text-right font-medium text-sm ${cancelada ? tachado : "text-blue-700"}`}>
                       {precioTotal != null ? formatCurrency(precioTotal) : <span className="text-gray-400">—</span>}
                     </TableCell>
-                    <TableCell className="text-right text-sm text-green-700">
+                    <TableCell className={`text-right text-sm ${cancelada ? tachado : "text-green-700"}`}>
                       {pagado != null ? formatCurrency(pagado) : <span className="text-gray-400">—</span>}
                     </TableCell>
-                    <TableCell className="text-right text-sm font-semibold text-red-600">
+                    <TableCell className={`text-right text-sm font-semibold ${cancelada ? tachado : "text-red-600"}`}>
                       {pendiente != null ? formatCurrency(pendiente) : <span className="text-gray-400">—</span>}
                     </TableCell>
-                    {onPagar && (
+                    {hayAcciones && (
                       <TableCell>
-                        {isPagada ? (
+                        {cancelada ? (
+                          <span className="text-xs font-medium text-gray-600 bg-gray-200 px-2 py-1 rounded-full">
+                            Cancelada
+                          </span>
+                        ) : isPagada ? (
                           <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-1 rounded-full">
                             Pagada
                           </span>
                         ) : (
-                          <Button
-                            size="sm"
-                            className="bg-green-600 hover:bg-green-700 text-white gap-1"
-                            onClick={() => onPagar(s)}
-                          >
-                            <CreditCard className="h-3.5 w-3.5" />
-                            Pagar
-                          </Button>
+                          <div className="flex flex-col gap-1.5 items-stretch">
+                            {onPagar && (
+                              <Button
+                                size="sm"
+                                className="bg-green-600 hover:bg-green-700 text-white gap-1"
+                                onClick={() => onPagar(s)}
+                              >
+                                <CreditCard className="h-3.5 w-3.5" />
+                                Pagar
+                              </Button>
+                            )}
+                            {onCancelarCuenta && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="gap-1 border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                                disabled={Boolean(s.tiene_factura)}
+                                title={
+                                  s.tiene_factura
+                                    ? `Ya está facturada${s.factura_numero ? ` (${s.factura_numero})` : ""}: no se puede cancelar la cuenta por cobrar`
+                                    : "Cancelar cuenta por cobrar"
+                                }
+                                onClick={() => onCancelarCuenta(s)}
+                              >
+                                <Ban className="h-3.5 w-3.5" />
+                                Cancelar cuenta
+                              </Button>
+                            )}
+                          </div>
                         )}
                       </TableCell>
                     )}

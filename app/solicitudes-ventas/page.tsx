@@ -35,6 +35,7 @@ import { FacturasVentasTable } from "@/components/feats/pagos-clientes-ventas/fa
 import { TodosPagosVentasTable } from "@/components/feats/pagos-clientes-ventas/todos-pagos-ventas-table";
 import { RegistrarPagoVentaDialog } from "@/components/feats/pagos-clientes-ventas/registrar-pago-venta-dialog";
 import { CrearFacturaVentaDialog } from "@/components/feats/pagos-clientes-ventas/crear-factura-venta-dialog";
+import { CancelarCuentaPorCobrarDialog } from "@/components/feats/pagos-clientes-ventas/cancelar-cuenta-por-cobrar-dialog";
 import { FacturaVentaDetailDialog } from "@/components/feats/pagos-clientes-ventas/factura-venta-detail-dialog";
 import { StripePagosModal } from "@/components/feats/pagos/stripe-pagos-modal";
 import type {
@@ -136,6 +137,8 @@ export default function SolicitudesVentasPage() {
 
   const [selectedSolicitud, setSelectedSolicitud]     = useState<SolicitudVenta | null>(null);
   const [solicitudParaPagar, setSolicitudParaPagar]   = useState<SolicitudVentaSummary | null>(null);
+  const [cancelarCuentaOpen, setCancelarCuentaOpen]   = useState(false);
+  const [solicitudParaCancelar, setSolicitudParaCancelar] = useState<SolicitudVentaSummary | null>(null);
   const [solicitudParaPagarCompleta, setSolicitudParaPagarCompleta] = useState<SolicitudVenta | null>(null);
   const [facturaAsociadaNumero, setFacturaAsociadaNumero] = useState<string | null>(null);
   const [solicitudToAnular, setSolicitudToAnular]     = useState<SolicitudVenta | null>(null);
@@ -159,6 +162,8 @@ const [exportingPagos, setExportingPagos]           = useState(false);
   const [f2Desde, setF2Desde]           = useState("");
   const [f2Hasta, setF2Hasta]           = useState("");
   const [f2Periodo, setF2Periodo]       = useState("");
+  // Cuentas por cobrar canceladas: "" = se muestran (marcadas), "ocultar", "solo".
+  const [f2Canceladas, setF2Canceladas] = useState<"" | "ocultar" | "solo">("");
 
   const [f3Search, setF3Search]       = useState("");
   const [f3Metodo, setF3Metodo]       = useState("");
@@ -290,8 +295,10 @@ const [exportingPagos, setExportingPagos]           = useState(false);
     q: f2Search.trim() || undefined,
     estado_pago: f2EstadoPago || undefined,
     comercial: f2Comercial || undefined,
+    cuenta_cancelada:
+      f2Canceladas === "ocultar" ? false : f2Canceladas === "solo" ? true : undefined,
     ...monthToRange(f2Mes, f2Desde, f2Hasta),
-  }), [f2Search, f2EstadoPago, f2Comercial, f2Mes, f2Desde, f2Hasta]);
+  }), [f2Search, f2EstadoPago, f2Comercial, f2Canceladas, f2Mes, f2Desde, f2Hasta]);
 
   const f3Params = useMemo(() => ({
     q: f3Search.trim() || undefined,
@@ -659,6 +666,26 @@ const [exportingPagos, setExportingPagos]           = useState(false);
       setSolicitudParaPagar(solicitudesPendientes[0]);
     }
     setFacturaDialogOpen(true);
+  };
+
+  const handleAbrirCancelarCuenta = (solicitud: SolicitudVentaSummary) => {
+    setSolicitudParaCancelar(solicitud);
+    setCancelarCuentaOpen(true);
+  };
+
+  // Si el backend la rechaza (p. ej. porque ya está facturada) el error sube al
+  // diálogo, que lo muestra sin cerrarse.
+  const handleConfirmarCancelarCuenta = async (motivo: string) => {
+    if (!solicitudParaCancelar) return;
+    const codigo = solicitudParaCancelar.codigo;
+    await SolicitudVentaService.cancelarCuentaPorCobrar(solicitudParaCancelar.id, motivo);
+    setCancelarCuentaOpen(false);
+    setSolicitudParaCancelar(null);
+    void fetchSolicitudesPendientes(f2Params);
+    toast({
+      title: "Cuenta por cobrar cancelada",
+      description: `${codigo ?? "La solicitud"} sigue en la lista, marcada como cancelada, y ya no suma en los totales.`,
+    });
   };
 
   const handleCrearFactura = async (data: Parameters<typeof crearFactura>[0]) => {
@@ -1309,9 +1336,17 @@ const [exportingPagos, setExportingPagos]           = useState(false);
                     ))}
                   </SelectContent>
                 </Select>
-                {(f2EstadoPago || f2Comercial || f2Mes || f2Desde || f2Hasta || f2Periodo) && (
+                <Select value={f2Canceladas} onValueChange={(v) => setF2Canceladas(v === "all" ? "" : (v as "ocultar" | "solo"))}>
+                  <SelectTrigger className="h-8 w-44 text-xs"><SelectValue placeholder="Canceladas: mostrar" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Mostrar canceladas</SelectItem>
+                    <SelectItem value="ocultar">Ocultar canceladas</SelectItem>
+                    <SelectItem value="solo">Solo canceladas</SelectItem>
+                  </SelectContent>
+                </Select>
+                {(f2EstadoPago || f2Comercial || f2Canceladas || f2Mes || f2Desde || f2Hasta || f2Periodo) && (
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-600"
-                    onClick={() => { setF2EstadoPago(""); setF2Comercial(""); setF2Mes(""); setF2Desde(""); setF2Hasta(""); setF2Periodo(""); }}>
+                    onClick={() => { setF2EstadoPago(""); setF2Comercial(""); setF2Canceladas(""); setF2Mes(""); setF2Desde(""); setF2Hasta(""); setF2Periodo(""); }}>
                     <FilterX className="h-4 w-4" />
                   </Button>
                 )}
@@ -1322,6 +1357,7 @@ const [exportingPagos, setExportingPagos]           = useState(false);
                 error={errorSolicitudes}
                 onRefresh={() => fetchSolicitudesPendientes(f2Params)}
                 onPagar={handlePagar}
+                onCancelarCuenta={handleAbrirCancelarCuenta}
                 onVerStripe={() => { setStripePagosOpen(true); }}
                 variant="embedded"
                 searchValue={f2Search}
@@ -1621,6 +1657,16 @@ const [exportingPagos, setExportingPagos]           = useState(false);
         onOpenChange={setFacturaDialogOpen}
         solicitud={solicitudParaPagar}
         onSubmit={handleCrearFactura}
+      />
+
+      <CancelarCuentaPorCobrarDialog
+        open={cancelarCuentaOpen}
+        onOpenChange={(open) => {
+          setCancelarCuentaOpen(open);
+          if (!open) setSolicitudParaCancelar(null);
+        }}
+        solicitud={solicitudParaCancelar}
+        onConfirm={handleConfirmarCancelarCuenta}
       />
 
       <FacturaVentaDetailDialog

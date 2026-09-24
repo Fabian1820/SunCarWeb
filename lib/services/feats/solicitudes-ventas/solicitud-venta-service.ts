@@ -2,7 +2,10 @@
 
 import { apiRequest } from "../../../api-config";
 import { MaterialService } from "../materials/material-service";
-import type { VentasFacturaRow } from "../../../types/feats/solicitudes-ventas/solicitud-venta-types";
+import type {
+  CuentaCanceladaResultado,
+  VentasFacturaRow,
+} from "../../../types/feats/solicitudes-ventas/solicitud-venta-types";
 import type {
   MaterialVentaWeb,
   SolicitudVentaAnularData,
@@ -23,6 +26,8 @@ const buildAnularEndpoint = (id: string) =>
   `${buildDetailEndpoint(id)}/anular`;
 const buildReabrirEndpoint = (id: string) =>
   `${buildDetailEndpoint(id)}/reabrir`;
+const buildCancelarCuentaEndpoint = (id: string) =>
+  `${buildDetailEndpoint(id)}/cancelar-cuenta`;
 
 const asString = (value: unknown): string | undefined => {
   if (value == null) return undefined;
@@ -282,6 +287,8 @@ export class SolicitudVentaService {
     if (params.estado_pago) search.append("estado_pago", params.estado_pago);
     if (params.fecha_desde) search.append("fecha_desde", params.fecha_desde);
     if (params.fecha_hasta) search.append("fecha_hasta", params.fecha_hasta);
+    if (params.cuenta_cancelada !== undefined)
+      search.append("cuenta_cancelada", String(params.cuenta_cancelada));
 
     const endpoint = search.toString()
       ? `${BASE_ENDPOINT}/summary?${search.toString()}`
@@ -313,6 +320,8 @@ export class SolicitudVentaService {
           precio_total_usd: Number(raw.agregados.precio_total_usd) || 0,
           pagado_usd: Number(raw.agregados.pagado_usd) || 0,
           pendiente_usd: Number(raw.agregados.pendiente_usd) || 0,
+          cancelado_usd: Number(raw.agregados.cancelado_usd) || 0,
+          canceladas: Number(raw.agregados.canceladas) || 0,
         }
       : undefined;
 
@@ -508,6 +517,25 @@ export class SolicitudVentaService {
     if (error) throw new Error(error);
 
     return (raw?.data ?? raw) as SolicitudVenta;
+  }
+
+  /**
+   * Cancela la cuenta por cobrar de una solicitud: sigue existiendo (usada o no)
+   * pero deja de contar como pendiente de cobro. El backend guarda fecha, quién y
+   * motivo, y la rechaza si la solicitud está facturada.
+   */
+  static async cancelarCuentaPorCobrar(
+    id: string,
+    motivo: string,
+  ): Promise<CuentaCanceladaResultado> {
+    const raw = await apiRequest<any>(buildCancelarCuentaEndpoint(id), {
+      method: "PATCH",
+      body: JSON.stringify({ motivo }),
+    });
+    const error = extractApiError(raw);
+    if (error) throw new Error(error);
+
+    return (raw?.data ?? raw) as CuentaCanceladaResultado;
   }
 
   static async patchSolicitudPrecios(

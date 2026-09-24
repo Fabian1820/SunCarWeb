@@ -151,6 +151,9 @@ export interface SolicitudVentaListParams {
   estado_pago?: "sin-pago" | "parcial" | string;
   fecha_desde?: string;
   fecha_hasta?: string;
+  /** Sin valor salen todas; `false` oculta las de cuenta por cobrar cancelada;
+   *  `true` deja solo esas. */
+  cuenta_cancelada?: boolean;
 }
 
 export interface SolicitudVentaListResponse {
@@ -167,6 +170,10 @@ export interface SolicitudVentaSummaryAgregados {
   precio_total_usd: number;
   pagado_usd: number;
   pendiente_usd: number;
+  /** Lo que las cuentas canceladas del set filtrado dejaron de sumar arriba. */
+  cancelado_usd?: number;
+  /** Cuántas cuentas canceladas hay en el set filtrado. */
+  canceladas?: number;
 }
 
 export interface MaterialVentaWeb {
@@ -227,7 +234,28 @@ export interface SolicitudVentaSummary {
   descuento_porcentaje?: number | null;
   /** Si true, la deuda la gestiona el módulo Consignaciones. */
   es_consignacion?: boolean;
+  /** Cuenta por cobrar cancelada: la fila sigue saliendo, marcada, y no suma en
+   *  los totales. Se guarda cuándo, quién y por qué. */
+  cuenta_cancelada?: boolean;
+  cuenta_cancelada_en?: string | null;
+  cuenta_cancelada_motivo?: string | null;
+  cuenta_cancelada_por_nombre?: string | null;
+  cuenta_cancelada_por_ci?: string | null;
+  /** Factura activa de la solicitud: con una no se puede cancelar la cuenta. */
+  tiene_factura?: boolean;
+  factura_numero?: string | null;
   fecha_creacion?: string;
+}
+
+/** Respuesta de PATCH /solicitudes-ventas/{id}/cancelar-cuenta */
+export interface CuentaCanceladaResultado {
+  id: string;
+  codigo: string;
+  estado: string;
+  cuenta_cancelada_en?: string | null;
+  cuenta_cancelada_motivo?: string | null;
+  cuenta_cancelada_por_ci?: string | null;
+  cuenta_cancelada_por_nombre?: string | null;
 }
 
 export interface SolicitudVentaSummaryResponse {
