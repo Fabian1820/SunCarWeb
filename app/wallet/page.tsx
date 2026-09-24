@@ -218,6 +218,7 @@ function VerOfertaOrigenButton({
             if (!open) setOferta(null);
           }}
           oferta={oferta}
+          soloLectura
         />
         <SolicitudVentaDetailDialog
           open={Boolean(solicitud)}

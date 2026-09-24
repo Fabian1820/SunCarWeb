@@ -34,6 +34,8 @@ interface VerOfertaClienteDialogProps {
   onEditar?: (oferta: OfertaConfeccion) => void;
   onEliminar?: (oferta: OfertaConfeccion) => void;
   onExportar?: (oferta: OfertaConfeccion) => void;
+  /** Sin acciones (p. ej. abierta desde la Billetera, sin el módulo de ofertas). */
+  soloLectura?: boolean;
 }
 
 const getEstadoBadge = (estado: string) => {
@@ -114,6 +116,7 @@ export function VerOfertaClienteDialog({
   onEditar,
   onEliminar,
   onExportar,
+  soloLectura = false,
 }: VerOfertaClienteDialogProps) {
   const { materials } = useMaterials({ lite: true });
   const [modoVista, setModoVista] = useState<"listado" | "detalle">("detalle");
@@ -348,11 +351,13 @@ export function VerOfertaClienteDialog({
                     <Download className="h-4 w-4" />
                   </Button>
                 )}
-                <GenerarLinkPagoConfeccionButton
-                  oferta={oferta}
-                  variant="outline"
-                  size="sm"
-                />
+                {!soloLectura && (
+                  <GenerarLinkPagoConfeccionButton
+                    oferta={oferta}
+                    variant="outline"
+                    size="sm"
+                  />
+                )}
                 {onEditar && (
                   <Button
                     type="button"
