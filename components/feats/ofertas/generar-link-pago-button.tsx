@@ -13,6 +13,7 @@ import {
 } from "@/components/shared/molecule/dialog"
 import { useToast } from "@/hooks/use-toast"
 import type { Oferta } from "@/lib/api-types"
+import { usuarioActivo } from "@/lib/auth/usuario-activo"
 
 interface GenerarLinkPagoOfertaButtonProps {
   oferta: Oferta
@@ -86,6 +87,7 @@ export function GenerarLinkPagoOfertaButton({
           precio: precioBase,
           descripcion: formatearDescripcion(),
           oferta_id: oferta.id,
+          creado_por: usuarioActivo(),
         }),
       })
 

@@ -13,6 +13,7 @@ import {
 } from '@/components/shared/molecule/dialog'
 import { useToast } from '@/hooks/use-toast'
 import type { OfertaPersonalizada } from '@/lib/types/feats/ofertas-personalizadas/oferta-personalizada-types'
+import { usuarioActivo } from '@/lib/auth/usuario-activo'
 
 interface GenerarLinkPagoButtonProps {
   oferta: OfertaPersonalizada
@@ -144,6 +145,7 @@ export function GenerarLinkPagoButton({
           cliente_id: oferta.cliente_id,
           lead_id: oferta.lead_id,
           moneda: currency,
+          creado_por: usuarioActivo(),
         }),
       })
 

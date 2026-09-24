@@ -14,12 +14,18 @@ interface GenerarLinkRequest {
   solicitud_venta_id?: string
   moneda?: string
   sin_recargo?: boolean
+  // Quién lo genera. El link no se guarda en el backend, así que es el único
+  // registro del autor; lo ve quien abra el link en el panel de Stripe.
+  creado_por?: { ci?: string; nombre?: string } | null
 }
+
+// Stripe admite hasta 500 caracteres por valor de metadata.
+const metadataTexto = (valor: unknown) => String(valor ?? '').trim().slice(0, 500)
 
 export async function POST(request: NextRequest) {
   try {
     const body: GenerarLinkRequest = await request.json()
-    const { precio, descripcion, oferta_id, cliente_id, lead_id, solicitud_venta_id, moneda, sin_recargo } = body
+    const { precio, descripcion, oferta_id, cliente_id, lead_id, solicitud_venta_id, moneda, sin_recargo, creado_por } = body
 
     // Validaciones
     if (!precio || precio <= 0) {
@@ -101,6 +107,8 @@ export async function POST(request: NextRequest) {
         solicitud_venta_id: solicitud_venta_id || '',
         moneda: currencyCode,
         created_at: new Date().toISOString(),
+        creado_por_ci: metadataTexto(creado_por?.ci),
+        creado_por_nombre: metadataTexto(creado_por?.nombre),
       },
     })
 
