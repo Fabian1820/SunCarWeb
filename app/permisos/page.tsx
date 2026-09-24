@@ -22,7 +22,11 @@ import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { useModulosSync } from "@/hooks/use-modulos-sync"
 
 export default function PermisosPage() {
-  const { user } = useAuth()
+  const { user, isLoading, hasPermission } = useAuth()
+  const esSuperAdmin = !!user?.is_superAdmin
+  // El módulo gestion-permisos deja repartir permisos sin ser superAdmin (a
+  // todos menos a uno mismo y a los superAdmin; el backend lo hace cumplir).
+  const puedeGestionar = esSuperAdmin || hasPermission("gestion-permisos")
   const { toast } = useToast()
 
   const [isModulosDialogOpen, setIsModulosDialogOpen] = useState(false)
@@ -60,8 +64,9 @@ export default function PermisosPage() {
       })
   }, [user?.is_superAdmin, sincronizarFaltantes, toast])
 
-  // Verificar si es superAdmin
-  if (!user?.is_superAdmin) {
+  if (isLoading) return null
+
+  if (!puedeGestionar) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Card className="max-w-md">
@@ -69,7 +74,8 @@ export default function PermisosPage() {
             <CardTitle className="text-red-600">Acceso Denegado</CardTitle>
             <CardDescription>
               No tiene permisos para acceder a este módulo. Solo los
-              super-administradores pueden gestionar permisos.
+              super-administradores y quien tenga el permiso "Gestión de
+              Permisos" pueden gestionar permisos.
             </CardDescription>
           </CardHeader>
 	        <CardContent>
@@ -127,8 +133,13 @@ export default function PermisosPage() {
 	      <ModuleHeader
 	        title="Gestión de Permisos"
 	        subtitle="Administrar módulos y permisos de trabajadores"
-	        badge={{ text: "SuperAdmin", className: "bg-red-100 text-red-800" }}
+	        badge={
+	          esSuperAdmin
+	            ? { text: "SuperAdmin", className: "bg-red-100 text-red-800" }
+	            : { text: "Gestor de permisos", className: "bg-amber-100 text-amber-800" }
+	        }
 	        actions={
+	          esSuperAdmin && (
 	          <Button
 	            onClick={() => setIsModulosDialogOpen(true)}
 	            className="h-9 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 touch-manipulation"
@@ -138,6 +149,7 @@ export default function PermisosPage() {
 	            <RefreshCw className="h-4 w-4 sm:mr-2" />
 	            <span className="hidden sm:inline">Sincronizar Catálogo</span>
 	          </Button>
+	          )
 	        }
 	      />
 
@@ -158,6 +170,8 @@ export default function PermisosPage() {
               onEditPermisos={handleEditTrabajadorPermisos}
               onSetPassword={handleSetPassword}
               refreshTrigger={refreshTrigger}
+              currentUserCi={user?.ci ?? null}
+              esSuperAdmin={esSuperAdmin}
             />
           </CardContent>
         </Card>

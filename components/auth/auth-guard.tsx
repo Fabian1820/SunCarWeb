@@ -5,7 +5,6 @@ import { useAuth } from "@/contexts/auth-context"
 import { LoginForm } from "./login-form"
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import { FixedHeaderWatcher } from "@/components/shared/atom/fixed-header-watcher"
-import { PersonalMessageOverlay } from "@/components/shared/molecule/personal-message-overlay"
 import { NotificationBell } from "@/components/shared/organism/notification-bell"
 import { SolicitudDesarrolloButton } from "@/components/shared/organism/solicitud-desarrollo-button"
 import {
@@ -67,7 +66,6 @@ export function AuthGuard({ children }: AuthGuardProps) {
       ) : (
         children
       )}
-      <PersonalMessageOverlay />
       <NotificationBell />
       <SolicitudDesarrolloButton />
     </>
