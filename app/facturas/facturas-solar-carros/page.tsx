@@ -194,8 +194,10 @@ interface SolarFacturaDraft {
   tasa_cambio_cup: number;
   base_total_usd: number;
   precio_final_cup: number;
+  /** Solo cuenta con `moneda: "USD"`: el monto que se escribe en dólares. */
+  precio_final_usd: number;
   precio_final_editado_manual: boolean;
-  moneda: "CUP";
+  moneda: "CUP" | "USD";
 }
 
 type FacturaPreviewSource =
@@ -246,6 +248,9 @@ const formatMoney = (value: number, moneda: "USD" | "CUP") => {
     minimumFractionDigits: 2,
   }).format(Number.isFinite(value) ? value : 0);
 };
+
+/** Un monto en dólares se escribe en centavos: la conversión deja decimales sueltos. */
+const aCentavos = (value: number) => Math.round(Math.max(0, value) * 100) / 100;
 
 const formatAmountNumber = (value: number) =>
   new Intl.NumberFormat("en-US", {
@@ -1086,6 +1091,7 @@ function FacturasSolarCarrosPageContent() {
           tasa_cambio_cup: 0,
           base_total_usd: baseFromItems,
           precio_final_cup: 0,
+          precio_final_usd: 0,
           precio_final_editado_manual: false,
           moneda: "CUP",
         },
@@ -1182,6 +1188,7 @@ function FacturasSolarCarrosPageContent() {
           tasa_cambio_cup: 0,
           base_total_usd: baseUsd,
           precio_final_cup: 0,
+          precio_final_usd: 0,
           precio_final_editado_manual: false,
           moneda: "CUP",
         },
@@ -1445,29 +1452,43 @@ function FacturasSolarCarrosPageContent() {
 
   useEffect(() => {
     if (!previewDraft || previewDraft.precio_final_editado_manual) return;
-    const nextPrecioFinal = Math.max(0, totalFacturarCupCalculado);
+    const nextCup = Math.max(0, totalFacturarCupCalculado);
+    const nextUsd = aCentavos(totalFacturarUsdCalculado);
     if (
-      Math.abs(parseNumero(previewDraft.precio_final_cup) - nextPrecioFinal) <= 0.0001
+      Math.abs(parseNumero(previewDraft.precio_final_cup) - nextCup) <= 0.0001 &&
+      Math.abs(parseNumero(previewDraft.precio_final_usd) - nextUsd) <= 0.0001
     ) {
       return;
     }
     setPreviewDraft((prev) =>
       prev && !prev.precio_final_editado_manual
-        ? { ...prev, precio_final_cup: nextPrecioFinal }
+        ? { ...prev, precio_final_cup: nextCup, precio_final_usd: nextUsd }
         : prev,
     );
-  }, [previewDraft, totalFacturarCupCalculado]);
+  }, [previewDraft, totalFacturarCupCalculado, totalFacturarUsdCalculado]);
 
+  // Manda el precio escrito en la moneda de la factura; el otro total es su
+  // equivalente a la tasa del día.
   const totalFacturarCup = useMemo(() => {
     if (!previewDraft) return 0;
+    if (previewDraft.moneda === "USD") {
+      return Math.max(0, parseNumero(previewDraft.precio_final_usd)) *
+        parseNumero(previewDraft.tasa_cambio_cup);
+    }
     return Math.max(0, parseNumero(previewDraft.precio_final_cup));
   }, [previewDraft]);
 
   const totalFacturarUsd = useMemo(() => {
     if (!previewDraft) return 0;
+    if (previewDraft.moneda === "USD") {
+      return Math.max(0, parseNumero(previewDraft.precio_final_usd));
+    }
     const tasa = parseNumero(previewDraft.tasa_cambio_cup);
     return tasa > 0 ? totalFacturarCup / tasa : totalFacturarUsdCalculado;
   }, [previewDraft, totalFacturarCup, totalFacturarUsdCalculado]);
+
+  const monedaFactura = previewDraft?.moneda ?? "CUP";
+  const montoFactura = monedaFactura === "USD" ? totalFacturarUsd : totalFacturarCup;
 
   const aumentoNaturalUsd = useMemo(() => {
     if (!previewDraft || previewDraft.persona_tipo === "juridica") return 0;
@@ -1531,7 +1552,7 @@ function FacturasSolarCarrosPageContent() {
           <div class="line"></div>
           <div style="margin-top:6px; display:flex; justify-content:space-between; gap:12px;">
             <span class="label">Monto total</span>
-            <span>${formatAmountNumber(totalFacturarCup)} CUP</span>
+            <span>${formatAmountNumber(montoFactura)} ${monedaFactura}</span>
           </div>
           <div class="sign">
             <div class="sign-item"><div class="sign-line"></div><div>Firma del Cliente</div></div>
@@ -1636,7 +1657,7 @@ function FacturasSolarCarrosPageContent() {
     doc.setFont("helvetica", "bold");
     doc.text("Monto total", marginX, y);
     doc.setFont("helvetica", "normal");
-    doc.text(`${formatAmountNumber(totalFacturarCup)} CUP`, rightX, y, {
+    doc.text(`${formatAmountNumber(montoFactura)} ${monedaFactura}`, rightX, y, {
       align: "right",
     });
 
@@ -1863,7 +1884,7 @@ function FacturasSolarCarrosPageContent() {
             previewDraft.persona_tipo === "natural" ? aumentoNaturalUsd : 0,
           total_usd: totalFacturarUsd,
           total_cup: totalFacturarCup,
-          moneda_final: "CUP",
+          moneda_final: previewDraft.moneda,
         },
         auditoria: {
           creado_por: "frontend",
@@ -2269,10 +2290,18 @@ function FacturasSolarCarrosPageContent() {
         },
       };
 
-      await apiRequest(`/facturas-solar-carros/${encodeURIComponent(facturaEditando.id)}`, {
-        method: "PATCH",
-        body: JSON.stringify(payload),
-      });
+      // Sin mirar la respuesta, un cambio rechazado se anunciaba como guardado
+      // (así se "guardaba" el USD que el backend no aceptaba hasta sep-2026).
+      const actualizada = await apiRequest<Record<string, unknown>>(
+        `/facturas-solar-carros/${encodeURIComponent(facturaEditando.id)}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        },
+      );
+      if (actualizada?.success === false) {
+        throw new Error(mensajeDeRechazo(actualizada));
+      }
 
       toast({
         title: "Factura actualizada",
@@ -2446,7 +2475,7 @@ function FacturasSolarCarrosPageContent() {
     doc.setFont("helvetica", "normal");
     const totalRegistradoTexto =
       Number.isFinite(factura.totalRegistrado) && factura.totalRegistrado > 0
-        ? formatMoney(factura.totalRegistrado, factura.monedaTotal)
+        ? `${formatAmountNumber(factura.totalRegistrado)} ${factura.monedaTotal}`
         : "Consultar factura registrada";
     doc.text(totalRegistradoTexto, rightX, y, { align: "right" });
 
@@ -3461,45 +3490,83 @@ function FacturasSolarCarrosPageContent() {
                   )}
                 </div>
 
-	                <div>
-	                  <Label>Precio final editable (CUP)</Label>
-	                  <Input
-	                    type="number"
-	                    min={0}
-	                    step="0.01"
-	                    value={previewDraft.precio_final_cup}
-	                    onChange={(e) =>
-	                      setPreviewDraft((prev) =>
-	                        prev
-	                          ? {
-	                              ...prev,
-	                              precio_final_cup: Math.max(0, parseNumero(e.target.value)),
-	                              precio_final_editado_manual: true,
-	                            }
-	                          : prev,
-	                      )
-	                    }
-	                  />
-	                  {previewDraft.precio_final_editado_manual && (
-	                    <Button
-	                      type="button"
-	                      variant="link"
-	                      className="h-auto px-0 mt-1 text-xs"
-	                      onClick={() =>
+	                <div className="grid grid-cols-1 md:grid-cols-[10rem_1fr] gap-3">
+	                  <div>
+	                    <Label>Moneda de la factura</Label>
+	                    <select
+	                      className="w-full border rounded-md px-3 py-2 text-sm h-10"
+	                      value={previewDraft.moneda}
+	                      onChange={(e) => {
+	                        const moneda = e.target.value === "USD" ? "USD" : "CUP";
+	                        // Al cambiar de moneda se conserva el monto: el campo
+	                        // arranca con el equivalente del total que ya había.
 	                        setPreviewDraft((prev) =>
 	                          prev
 	                            ? {
 	                                ...prev,
-	                                precio_final_editado_manual: false,
-	                                precio_final_cup: Math.max(0, totalFacturarCupCalculado),
+	                                moneda,
+	                                precio_final_usd:
+	                                  moneda === "USD" ? aCentavos(totalFacturarUsd) : prev.precio_final_usd,
+	                                precio_final_cup:
+	                                  moneda === "CUP" ? totalFacturarCup : prev.precio_final_cup,
 	                              }
 	                            : prev,
-	                        )
-	                      }
+	                        );
+	                      }}
 	                    >
-	                      Restaurar valor calculado
-	                    </Button>
-	                  )}
+	                      <option value="CUP">CUP</option>
+	                      <option value="USD">USD</option>
+	                    </select>
+	                  </div>
+	                  <div>
+	                    <Label>Precio final editable ({previewDraft.moneda})</Label>
+	                    <Input
+	                      type="number"
+	                      min={0}
+	                      step="0.01"
+	                      value={
+	                        previewDraft.moneda === "USD"
+	                          ? previewDraft.precio_final_usd
+	                          : previewDraft.precio_final_cup
+	                      }
+	                      onChange={(e) => {
+	                        const valor = Math.max(0, parseNumero(e.target.value));
+	                        setPreviewDraft((prev) =>
+	                          !prev
+	                            ? prev
+	                            : prev.moneda === "USD"
+	                              ? { ...prev, precio_final_usd: valor, precio_final_editado_manual: true }
+	                              : { ...prev, precio_final_cup: valor, precio_final_editado_manual: true },
+	                        );
+	                      }}
+	                    />
+	                    {previewDraft.moneda === "USD" && (
+	                      <p className="text-xs text-gray-500 mt-1">
+	                        Equivale a {formatMoney(totalFacturarCup, "CUP")} a la tasa del día.
+	                      </p>
+	                    )}
+	                    {previewDraft.precio_final_editado_manual && (
+	                      <Button
+	                        type="button"
+	                        variant="link"
+	                        className="h-auto px-0 mt-1 text-xs"
+	                        onClick={() =>
+	                          setPreviewDraft((prev) =>
+	                            prev
+	                              ? {
+	                                  ...prev,
+	                                  precio_final_editado_manual: false,
+	                                  precio_final_cup: Math.max(0, totalFacturarCupCalculado),
+	                                  precio_final_usd: aCentavos(totalFacturarUsdCalculado),
+	                                }
+	                              : prev,
+	                          )
+	                        }
+	                      >
+	                        Restaurar valor calculado
+	                      </Button>
+	                    )}
+	                  </div>
 	                </div>
 
                 <div className="flex flex-wrap gap-2 pt-2">
@@ -3581,7 +3648,9 @@ function FacturasSolarCarrosPageContent() {
                   <div className="border-t pt-2 mt-2">
                     <p className="flex justify-between gap-3">
                       <span className="font-semibold">Monto total</span>
-                      <span>{formatAmountNumber(totalFacturarCup)} CUP</span>
+                      <span>
+                        {formatAmountNumber(montoFactura)} {monedaFactura}
+                      </span>
                     </p>
                   </div>
                 </div>
