@@ -32,9 +32,13 @@ import {
 import { ServicioClienteEstadoBadge } from "./servicio-cliente-estado-badge"
 import { RegistrarPagoDialog } from "@/components/feats/pagos/registrar-pago-dialog"
 
-// Deben coincidir con las keys del catálogo de módulos del panel (lib/modulos-catalogo.ts)
-const MODULO_CREAR = "instalaciones/servicios-cliente"
-const MODULO_FACTURAR = "facturas/obras-terminadas/servicios"
+// Deben coincidir con las keys del catálogo de módulos del panel (lib/modulos-catalogo.ts).
+// Ver los servicios basta con Clientes (este diálogo vive ahí). Cada acción pide
+// el permiso de su módulo: crear/editar es de Clientes, registrar el pago de
+// Pagos Clientes y facturar de Facturación.
+const PERMISO_CREAR = "clientes/servicios"
+const PERMISO_PAGOS = "facturas/pagos-clientes"
+const PERMISO_FACTURAR = "facturas/obras-terminadas/servicios"
 
 interface ServiciosClienteDialogProps {
   open: boolean
@@ -142,8 +146,9 @@ function FormularioLineas({
 export function ServiciosClienteDialog({ open, onOpenChange, cliente }: ServiciosClienteDialogProps) {
   const { toast } = useToast()
   const { hasPermission, hasExactPermission } = useAuth()
-  const puedeCrear = hasPermission(MODULO_CREAR)
-  const puedeFacturar = hasExactPermission(MODULO_FACTURAR)
+  const puedeCrear = hasExactPermission(PERMISO_CREAR)
+  const puedeRegistrarPago = hasPermission(PERMISO_PAGOS)
+  const puedeFacturar = hasExactPermission(PERMISO_FACTURAR)
 
   const [servicios, setServicios] = useState<ServicioCliente[]>([])
   const [cargando, setCargando] = useState(false)
@@ -407,7 +412,7 @@ export function ServiciosClienteDialog({ open, onOpenChange, cliente }: Servicio
                             </Button>
                           )}
 
-                          {(puedeCrear || puedeFacturar) && (
+                          {puedeRegistrarPago && (
                             <Button variant="outline" size="sm" onClick={() => setServicioPago(servicio)}>
                               Registrar pago
                             </Button>

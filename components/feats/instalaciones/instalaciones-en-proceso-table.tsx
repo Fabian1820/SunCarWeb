@@ -46,6 +46,7 @@ import {
   formatCostoItem,
   formatCostoTotal,
   useCostosOferta,
+  PERMISO_COSTOS_INSTALACIONES,
 } from "@/hooks/use-costos-oferta";
 import { OfertaCell } from "@/components/feats/instalaciones/oferta-cell";
 import { ExportInstalacionesEnProcesoExcelService } from "@/lib/services/feats/instalaciones/export-instalaciones-en-proceso-excel-service";
@@ -1428,7 +1429,7 @@ export function InstalacionesEnProcesoTable({
   );
 
   // Costos de la oferta seleccionada (solo si el diálogo está abierto y el
-  // usuario tiene el subpermiso aditivo `costos-materiales-cliente`).
+  // usuario tiene el subpermiso aditivo `instalaciones/costos-materiales`).
   const ofertaCostosId = useMemo(
     () =>
       entregaDialogOpen
@@ -1440,7 +1441,7 @@ export function InstalacionesEnProcesoTable({
     verCostos,
     costos: costosOferta,
     costoPorCodigo,
-  } = useCostosOferta(ofertaCostosId);
+  } = useCostosOferta(ofertaCostosId, PERMISO_COSTOS_INSTALACIONES);
 
   const detalleItemsEntrega = useMemo(() => {
     if (!ofertaEntregaSeleccionada) return [];

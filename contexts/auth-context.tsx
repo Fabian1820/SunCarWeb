@@ -3,6 +3,9 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react"
 import { API_BASE_URL } from "@/lib/api-config"
 import { PermisosService } from "@/lib/api-services"
+import { getAditivosQueNoAbrenPadre } from "@/lib/modulos-catalogo"
+
+const ADITIVOS_QUE_NO_ABREN_PADRE = getAditivosQueNoAbrenPadre()
 
 export interface User {
   ci: string
@@ -192,8 +195,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Sub-permiso (ej: "almacenes-suncar/admin"): si el padre tiene acceso completo, el sub también
     const slashIdx = module.indexOf('/')
     if (slashIdx !== -1 && modulosPermitidos.includes(module.slice(0, slashIdx))) return true
-    // Acceso inverso: sub-módulo asignado implica acceso al módulo padre (ej: "facturas/vales" → "facturas")
-    return modulosPermitidos.some(p => p.startsWith(module + "/"))
+    // Acceso inverso: sub-módulo asignado implica acceso al módulo padre (ej: "facturas/vales" → "facturas").
+    // Los aditivos que son una capacidad (p. ej. "clientes/saldo-pendiente") no
+    // cuentan: dan algo DENTRO del módulo, no el módulo. Ver `abrePadre` en el catálogo.
+    return modulosPermitidos.some(
+      (p) => p.startsWith(module + "/") && !ADITIVOS_QUE_NO_ABREN_PADRE.has(p),
+    )
   }
 
   // Verifica membresía EXACTA del permiso, sin herencia padre→hijo. Pensado

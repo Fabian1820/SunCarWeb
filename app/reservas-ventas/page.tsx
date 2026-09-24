@@ -74,6 +74,9 @@ function ReservasPageContent() {
   const { hasPermission } = useAuth();
   const soloLectura =
     searchParams.get("vista") === "instaladora" || !hasPermission("reservas-ventas");
+  // Sin `reservas-ventas`, solo se ven las reservas de la instaladora: las de
+  // Ventas son de otro módulo.
+  const soloInstaladora = !hasPermission("reservas-ventas");
   const {
     filteredReservas,
     loading,
@@ -85,9 +88,9 @@ function ReservasPageContent() {
     createReserva,
     updateReserva,
     cancelarReserva,
-  } = useReservasVentas();
+  } = useReservasVentas(soloInstaladora ? { origen: "instaladora" } : {});
 
-  const [origenTab, setOrigenTab] = useState<OrigenTab>("todas");
+  const [origenTab, setOrigenTab] = useState<OrigenTab>(soloInstaladora ? "instaladora" : "todas");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
@@ -244,7 +247,7 @@ function ReservasPageContent() {
 
               {/* Origen tabs */}
               <div className="flex gap-2 pt-2 flex-wrap">
-                {ORIGEN_TABS.map((tab) => (
+                {ORIGEN_TABS.filter((tab) => !soloInstaladora || tab.value === "instaladora").map((tab) => (
                   <button
                     key={tab.value}
                     type="button"

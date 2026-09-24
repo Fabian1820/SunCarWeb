@@ -184,6 +184,14 @@ export type SubPermiso = {
    */
   aditivo?: boolean
   /**
+   * Solo para aditivos. Por defecto, un aditivo es una capacidad DENTRO del
+   * módulo y no abre la pantalla del padre por sí solo (hay que tener también el
+   * módulo). Con `abrePadre: true` el aditivo es una sección propia que sí la
+   * abre (p. ej. "Por facturar" dentro de Facturación). Los no aditivos siempre
+   * abren el padre: son tarjetas o secciones del módulo.
+   */
+  abrePadre?: boolean
+  /**
    * Sub-permisos anidados un nivel más (ej: los `trabajos:*` bajo la tarjeta
    * "Trabajos Diarios", que a su vez está bajo `instalaciones`).
    *
@@ -372,6 +380,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
         descripcion:
           "Ver las peticiones de todos (con quién las pidió), responderlas y marcarlas como hechas. Sin esto, cada uno ve solo las suyas. ADITIVO. Antes solo superAdmin.",
         aditivo: true,
+        abrePadre: true,
       },
     ],
   },
@@ -492,6 +501,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
         descripcion:
           "Definir horarios y turnos, generar la rotación, registrar suplencias y ver el trabajo de cada persona de atención.",
         aditivo: true,
+        abrePadre: true,
       },
     ],
   },
@@ -588,10 +598,21 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
     grupo: "comercial-instaladora",
     subPermisos: [
       {
-        key: "costos-materiales-cliente",
+        // Antes era `costos-materiales-cliente`, que abría costos también en
+        // Instalaciones; ahora cada módulo tiene el suyo.
+        key: "clientes/costos-materiales",
         label: "Ver costos de materiales (entregados/pendientes)",
         descripcion:
-          "Muestra el costo de los materiales y los totales entregado/pendiente en el diálogo de entregas de Clientes, Instalaciones en Proceso e Instalaciones Nuevas. ADITIVO: tener el módulo padre NO lo concede; hay que asignarlo explícitamente a quien pueda ver costos.",
+          "Muestra el costo de los materiales y los totales entregado/pendiente en el diálogo de entregas de Clientes. ADITIVO: hay que asignarlo explícitamente.",
+        aditivo: true,
+      },
+      {
+        // Antes `instalaciones/servicios-cliente`: el diálogo "Servicios" vive
+        // en Clientes, así que su permiso también.
+        key: "clientes/servicios",
+        label: "Crear y editar servicios de cliente",
+        descripcion:
+          "En Clientes > Servicios: crear servicios post-venta (líneas de costo, precio), cambiar su estado y borrarlos. Verlos basta con Clientes. Registrar el pago pide Pagos Clientes y facturarlo, 'Facturar servicios de cliente'. ADITIVO.",
         aditivo: true,
       },
       {
@@ -699,7 +720,6 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
       },
       { key: "reportes-comercial/estado-equipos", label: "Estado de Equipos" },
       { key: "reportes-comercial/materiales-ofertas", label: "Materiales en Ofertas" },
-      { key: "reportes-comercial/entregas-devoluciones", label: "Entregas y devoluciones" },
     ],
   },
   {
@@ -957,10 +977,11 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
       { key: "instalaciones/planificacion-diaria-trabajos", label: "Planificación Diaria de Trabajos" },
       { key: "instalaciones/ordenes-trabajo", label: "Órdenes de Trabajo" },
       {
-        key: "instalaciones/servicios-cliente",
-        label: "Servicios de Cliente",
+        key: "instalaciones/costos-materiales",
+        label: "Ver costos de materiales (entregados/pendientes)",
         descripcion:
-          "Crear trabajos/servicios post-venta de un cliente (líneas de costo, precio, estado). No incluye facturarlos: eso vive en Facturación > Obras Terminadas.",
+          "Muestra el costo de los materiales y los totales entregado/pendiente en el diálogo de entregas de Instalaciones en Proceso e Instalaciones Nuevas. ADITIVO.",
+        aditivo: true,
       },
     ],
   },
@@ -1167,7 +1188,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
             key: "facturas/obras-terminadas/servicios",
             label: "Facturar servicios de cliente",
             descripcion:
-              "Habilita el botón 'Facturar' sobre un Servicio de Cliente terminado, en la pestaña de Facturas de Obras Terminadas. ADITIVO: tener 'facturas' o 'facturas/obras-terminadas' NO lo concede; hay que asignarlo explícitamente. Es independiente del permiso para crear el servicio (Operaciones > Servicios de Cliente).",
+              "Habilita el botón 'Facturar' sobre un Servicio de Cliente terminado (Clientes > Servicios); el servicio facturado se ve luego en Obras Terminadas. ADITIVO: tener 'facturas' o 'facturas/obras-terminadas' NO lo concede. Es independiente de poder crear el servicio ('clientes/servicios').",
             aditivo: true,
           },
         ],
@@ -1178,6 +1199,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
         descripcion:
           "Lista de clientes instalados con ofertas confirmadas sin facturar: la factura ya no se genera sola al instalar y se acepta aquí. ADITIVO: tener 'facturas' NO lo concede; hay que asignarlo explícitamente.",
         aditivo: true,
+        abrePadre: true,
         subPermisos: [
           {
             key: "facturas/por-facturar/facturar",
@@ -1185,6 +1207,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
             descripcion:
               "Habilita 'Facturar' y 'No facturar' sobre las ofertas de Por facturar, y el botón 'Facturar' de 'Generar factura a cliente' en Obras Terminadas. Crea la factura de la oferta y la de vales. ADITIVO: hay que asignarlo explícitamente.",
             aditivo: true,
+            abrePadre: true,
           },
           {
             key: "facturas/por-facturar/comparativa",
@@ -1192,6 +1215,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
             descripcion:
               "Habilita la pestaña 'Oferta vs almacén' de Por facturar: lo ofertado a cada cliente contra lo que salió del almacén en vales. ADITIVO: hay que asignarlo explícitamente.",
             aditivo: true,
+            abrePadre: true,
           },
         ],
       },
@@ -1213,6 +1237,7 @@ export const MODULOS_CATALOGO: ModuloCatalogo[] = [
         descripcion:
           "Incluye crear y enviar. Habilita revisar ítem por ítem, aprobar el presupuesto o devolverlo para ajuste. ADITIVO: tener 'logistica/presupuesto' NO lo concede; hay que asignarlo explícitamente. No asignes el padre pelado a quien ya tiene este, o podría aprobarse a sí mismo.",
         aditivo: true,
+        abrePadre: true,
       },
     ],
   },
@@ -1601,6 +1626,23 @@ export function getNombresCatalogo(): string[] {
     out.push(m.key)
     pushSub(m.subPermisos)
   }
+  return out
+}
+
+/**
+ * Claves de sub-permisos aditivos que NO abren la pantalla de su módulo padre
+ * (todos los aditivos salvo los marcados `abrePadre`). `hasPermission` las
+ * ignora al aplicar la regla "tener un hijo abre el padre".
+ */
+export function getAditivosQueNoAbrenPadre(): Set<string> {
+  const out = new Set<string>()
+  const walk = (subs?: SubPermiso[]) => {
+    for (const sp of subs ?? []) {
+      if (sp.aditivo && !sp.abrePadre) out.add(sp.key)
+      walk(sp.subPermisos)
+    }
+  }
+  for (const m of MODULOS_CATALOGO) walk(m.subPermisos)
   return out
 }
 

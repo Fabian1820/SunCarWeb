@@ -42,8 +42,8 @@ const CLASE_CAMPO =
 
 export default function EntregasDevolucionesPage() {
   return (
-    // Está en Operaciones y también en Reportes de Comercial: entra con cualquiera de los dos.
-    <RouteGuard requiredModule={["entregas-devoluciones", "reportes-comercial/entregas-devoluciones"]}>
+    // Solo Operaciones: antes también se abría con Reportes de Comercial.
+    <RouteGuard requiredModule="entregas-devoluciones">
       <EntregasDevoluciones />
     </RouteGuard>
   );

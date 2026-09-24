@@ -757,7 +757,7 @@ export function ClientsTable({
   const { toast } = useToast();
   const { hasExactPermission } = useAuth();
   // Subpermiso ADITIVO: solo quien lo tenga (o superAdmin) ve costos y totales.
-  const verCostos = hasExactPermission("costos-materiales-cliente");
+  const verCostos = hasExactPermission("clientes/costos-materiales");
   // Aviso de "Saldo pendiente" de abajo: antes salía a quien tuviera
   // "comercial" en el cargo; ahora es el sub-permiso aditivo
   // `clientes/saldo-pendiente`. El filtro de comercial NO se precarga: entra
