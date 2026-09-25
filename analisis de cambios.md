@@ -2,6 +2,20 @@
 
 ---
 
+## 📅 25 de Septiembre, 2026
+
+### Resumen de cambios (últimas 24h)
+
+Sin commits de código nuevos. El único commit del período es el "Analisis diario Claude" automático del 24-sep. No hay cambios en producción en SunCarWeb hoy.
+
+---
+
+### Puede dar bateo
+
+Sin cambios nuevos — sin riesgos nuevos. Se mantienen las consideraciones del 24 de septiembre.
+
+---
+
 ## 📅 24 de Septiembre, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -111,8 +125,8 @@
 ### Área 12: Consignaciones — Fix de facturación y devolución (1 commit, 14:37)
 
 - **`fix(consignaciones): una factura por venta, devolución al pool Común y aprobación sin "Editar"`** (14:37, Fabian1820) — Acompaña fix del backend que deja el módulo listo:
-  - Detalle: eliminada columna "Emitir factura" por pago; se muestra la factura de la venta (la automática del vale) y, si no tiene, un botón para emitirla una vez. El diálogo de emitir factura muestra el total sin lo devuelto.
-  - Registrar pago desde la consignación: el diálogo indica a qué factura se suma el pago y el interruptor "Generar factura" ya no se ignora en silencio.
+  - Detalle: eliminada columna "Emitir factura" por pago; se muestra la factura de la venta (la automática del vale) y, si no tiene, un botón para emitirla una vez.
+  - Registrar pago desde la consignación: el interruptor "Generar factura" ya no se ignora en silencio.
   - Devolución: sector de destino por defecto es Común (antes era Ventas).
   - Aprobación en almacén: una devolución de consignación muestra su origen en vez de una "Compra" vacía; no ofrece "Editar", que el backend rechaza.
   - `DialogDescription` del detalle renderiza un `div` (había un `div` dentro de `p`).
@@ -255,85 +269,4 @@
 
 ---
 
-## 📅 17 de Septiembre, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**12 commits reales** — yany1509 (todos). Día muy activo: **rediseño iterativo del módulo Contabilidad** en Informe de Dirección (3 commits), **módulo Historial/Clientes por UEB** (2), **Operaciones con acceso directo a tarjetas** (1), **Leads con conversión sin pago** (1), **Clientes internos con precio 0** (1), **Comercial seleccionable en editar cliente** (1), **adjuntos con cualquier tipo de archivo** (2 commits), y **edición de datos salariales en Nómina** (1).
-
----
-
-### Área 1: feat/fix(informe-direccion) × 3 — Rediseño iterativo de Contabilidad (19:16–19:48)
-
-- **Tablero oscuro tipo marcador**: reemplaza las 3 tarjetas sueltas de resumen. Ingresos/Gastos/Saldo son segmentos clicables; Ingresos activo por defecto. Pastel de distribución por categoría a la izquierda + detalle a la derecha. El detalle se adapta solo: una categoría de una sola persona va directamente a movimientos sin agrupar.
-- **Paleta de marca y gráfico de tendencia**: tarjetas con paleta SunCar 2026 (Clean Current, Solar Radiance, Midnight Voltage), pastel rediseñado con leyenda lateral. Nuevo gráfico de líneas con tendencia de los últimos 6 meses.
-- **Barra de filtros compacta**: una sola fila, sin etiquetas sueltas, botón Actualizar como icono. Blindaje de respuesta inesperada del backend: si llega un 400 en forma de objeto de error, muestra toast en lugar de vista en blanco.
-
----
-
-### Área 2: feat/fix(historial/clientes) × 2 — Vista por UEB (20:06–20:14)
-
-- **Módulo renombrado a "Clientes"**: La pestaña "Por equipos" es ahora la vista por defecto. Entrada jerárquica: UEB → inversores de esa UEB → lista de clientes → historial del cliente.
-- **Inversores en tabla**: Foto, nombre, marca, potencia, clientes y unidades por fila.
-
----
-
-### Área 3: feat(operaciones) — Acceso directo a tarjetas de Instalaciones (20:29)
-
-- Visitas, Instalaciones en Proceso, Instalaciones Nuevas, Trabajos Diarios y Averías pasan a ser tarjetas independientes en Operaciones. Mismas claves de permiso `instalaciones/<id>`.
-
----
-
-### Área 4: feat(leads) — Convertir a cliente sin pago con justificación (20:06)
-
-- Nuevo check **"Pago registrado"** en el diálogo de conversión. Para el subpermiso aditivo `leads/convertir-sin-pago`, aparece un campo de justificación obligatorio que permite convertir sin pago registrado.
-
----
-
-### Área 5: feat(clientes) — Comercial seleccionable (20:06)
-
-- El campo Comercial en editar de Clientes pasa de texto libre a un `select` que combina trabajadores con cargo Comercial Instaladora y los valores ya usados en Leads.
-
----
-
-### Área 6: feat(clientes-ventas) — Precio 0 para clientes internos (19:38)
-
-- Switch **"Cliente interno (precio siempre en 0)"** en el formulario de cliente de ventas. El preview de oferta/solicitud muestra `$0.00` con badge "Cliente interno - precio 0".
-
----
-
-### Área 7: feat/fix(clientes) × 2 — Adjuntar cualquier tipo de archivo (16:10–16:14)
-
-- El input de adjuntos ya no restringe el tipo de archivo (`accept` quitado). Fix previo: renombrado del ítem del menú de "Agregar fotos" a "Adjuntar archivo foto o video".
-
----
-
-### Área 8: feat(contabilidad) — Pastel 3D con etiquetas (20:24)
-
-- El pastel plano de Recharts es reemplazado por SVG a mano con perspectiva 3D: elipse con pared extruida, piso visual del 3.5% por porción, etiquetas con líneas guía izquierda/derecha.
-
----
-
-### Área 9: feat(recursos-humanos) — Editar datos salariales en Nómina (15:17)
-
-- Permite editar salario, alimentación, estímulos y días trabajables directamente en la vista de Nómina.
-
----
-
-### Puede dar bateo
-
-1. **feat(operaciones) tarjetas directas — permisos en backend**: Si el backend valida permisos específicos por `instalaciones/<id>`, un usuario sin el permiso por la tarjeta agrupadora puede ver el acceso directo pero recibir 403 al entrar.
-
-2. **feat(leads) `leads/convertir-sin-pago` — confirmar entrada en `MODULOS_CATALOGO`**: Si el subpermiso no está registrado, nadie podrá usarlo aunque el código esté deployado.
-
-3. **feat(clientes-ventas) precio 0 para clientes internos — confirmar que el backend guarda `precio: 0` correctamente**: Si el backend no diferencia clientes internos, el preview mostrará $0 pero la oferta se guardará con precio real.
-
-4. **feat/fix(informe-direccion) blindaje de respuesta 400**: Confirmar que otros módulos que usan el mismo endpoint no queden afectados si el formato de respuesta cambia.
-
-5. **feat(recursos-humanos) edición en Nómina — confirmar endpoint PATCH/PUT en backend**: Si no existe, la edición fallará silenciosamente.
-
-6. **feat(contabilidad) pastel 3D — muchas categorías pequeñas**: Las etiquetas con líneas guía pueden solaparse si hay muchas porciones por debajo del piso visual del 3.5%.
-
----
-
-> ⚠️ **Nota de mantenimiento**: La entrada del **16 de Septiembre** fue eliminada el 24 de Septiembre al superar los 7 días de antigüedad (política de retención semanal). Las entradas del **10, 11, 14 y 15 de Septiembre** fueron eliminadas el 23 de Septiembre. La entrada del **9 de Septiembre** fue eliminada el 17 de Septiembre. La entrada del **7 de Septiembre** fue eliminada el 15 de Septiembre. La entrada del **2 de Septiembre** fue eliminada el 10 de Septiembre. Anteriores eliminadas progresivamente desde Mayo.
+> ⚠️ **Nota de mantenimiento**: La entrada del **17 de Septiembre** fue eliminada el 25 de Septiembre al superar los 7 días de antigüedad (política de retención semanal). Las entradas del **16 de Septiembre** y anteriores fueron eliminadas progresivamente.
